@@ -1225,19 +1225,19 @@ describe.only('eCommerce', function() {
     it('expand non-plus-one-product commerce event', function(done) {
         waitForCondition(hasIdentifyReturned)
         .then(() =>  {
-    mParticle._resetForTests(MPConfig);
-    const mockForwarder = new MockForwarder();
-    mockForwarder.register(window.mParticle.config);
-    const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
-    window.mParticle.config.kitConfigs.push(config1);
-    
-    mParticle.init(apiKey, window.mParticle.config);
-    waitForCondition(() => {
-        return (
-            mParticle.getInstance()._Store.identityCallInFlight === false
-        );
-    })
-    .then(() =>  {
+        mParticle._resetForTests(MPConfig);
+        const mockForwarder = new MockForwarder();
+        mockForwarder.register(window.mParticle.config);
+        const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+        window.mParticle.config.kitConfigs.push(config1);
+        
+        mParticle.init(apiKey, window.mParticle.config);
+        waitForCondition(() => {
+            return (
+                mParticle.getInstance()._Store.identityCallInFlight === false
+            );
+        })
+        .then(() =>  {
         const productAttributes = {};
         productAttributes['foo-attribute-key'] = 'foo-product-attribute-value';
 
