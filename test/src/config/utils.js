@@ -231,7 +231,12 @@ var pluses = /\+/g,
                 return null;
             }
             var batch = JSON.parse(request[1].body);
-            for (var i = 0; i<batch.events.length; i++) {
+
+            if (!batch.events) {
+                return null;
+            }
+
+            for (var i = 0; i < batch.events.length; i++) {
                 var foundEventFromBatch = findEventFromBatch(batch, eventName);
                 if (foundEventFromBatch) {
                     matchingRequest = request;
@@ -584,7 +589,26 @@ var pluses = /\+/g,
             var name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
             document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT";
         }
-    }
+    },
+    waitForCondition = function async(
+        conditionFn,
+        timeout = 200,
+        interval = 10
+    ) {
+        return new Promise((resolve, reject) => {
+            const startTime = Date.now();
+
+            (function poll() {
+                if (conditionFn()) {
+                    return resolve(undefined);
+                } else if (Date.now() - startTime > timeout) {
+                    return reject(new Error('Timeout waiting for condition'));
+                } else {
+                    setTimeout(poll, interval);
+                }
+            })();
+        });
+    };
 
 var TestsCore = {
     getLocalStorageProducts: getLocalStorageProducts,
@@ -608,7 +632,8 @@ var TestsCore = {
     workspaceToken: workspaceToken,
     workspaceCookieName: workspaceCookieName,
     forwarderDefaultConfiguration: forwarderDefaultConfiguration,
-    deleteAllCookies: deleteAllCookies
+    deleteAllCookies: deleteAllCookies,
+    waitForCondition: waitForCondition,
 };
 
 export default TestsCore;
