@@ -4,7 +4,7 @@ import fetchMock from 'fetch-mock/esm/client';
 
 const { waitForCondition, fetchMockSuccess } = Utils;
 
-// https://mparticle-eng.atlassian.net/browse/SQDSDKS-6849
+// https://go.mparticle.com/work/SQDSDKS-6849
 const hasIdentifyReturned = () => {
     return mParticle.Identity.getCurrentUser()?.getMPID() === 'identifyMPID';
 };

@@ -1192,8 +1192,7 @@ describe('batch uploader', () => {
             done();
 
         })
-        .catch((e) => {
-        })
+        .catch(done);
         });
 
         // TODO: Investigate workflow with unshift vs push
