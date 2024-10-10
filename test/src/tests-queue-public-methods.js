@@ -2,7 +2,7 @@ import sinon from 'sinon';
 import { apiKey, MPConfig, testMPID, urls } from './config/constants';
 import { SDKProductActionType } from  '../../src/sdkRuntimeModels';
 
-describe.only('Queue Public Methods', function () {
+describe('Queue Public Methods', function () {
     let mockServer;
 
     beforeEach(function () {

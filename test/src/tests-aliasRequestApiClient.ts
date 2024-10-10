@@ -26,7 +26,7 @@ declare global {
 
 const aliasUrl = 'https://jssdks.mparticle.com/v1/identity/test_key/Alias';
 
-describe.only('Alias Request Api Client', function() {
+describe('Alias Request Api Client', function() {
     beforeEach(function() {
         fetchMock.post(urls.events, 200);
         mockServer = sinon.createFakeServer();

@@ -26,7 +26,7 @@ const enableBatchingConfigFlags = {
     eventBatchingIntervalMillis: 1000,
 };
 
-describe.only('batch uploader', () => {
+describe('batch uploader', () => {
     let mockServer;
     let clock;
 

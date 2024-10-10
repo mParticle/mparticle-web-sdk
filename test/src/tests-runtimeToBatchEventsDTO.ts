@@ -12,7 +12,7 @@ declare global {
     }
 }
 
-describe.only('Old model to batch model conversion', () => {
+describe('Old model to batch model conversion', () => {
     beforeEach(function() {
         window.mParticle.init(apiKey, window.mParticle.config);
     });

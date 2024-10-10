@@ -7,7 +7,7 @@ const getLocalStorage = Utils.getLocalStorage,
     mParticleAndroid = Utils.mParticleAndroid,
     HTTPCodes = Constants.HTTPCodes;
 
-describe.only('native-sdk methods', function() {
+describe('native-sdk methods', function() {
     describe('Helper methods', function() {
         beforeEach(function() {
             mParticle._resetForTests(MPConfig);

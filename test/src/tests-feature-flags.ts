@@ -19,7 +19,7 @@ const hasIdentifyReturned = () => {
     return window.mParticle.Identity.getCurrentUser()?.getMPID() === testMPID;
 };
 
-describe.only('feature-flags', function() {
+describe('feature-flags', function() {
     describe('user audiences', function() {
         beforeEach(function() {
             fetchMock.post(urls.events, 200);

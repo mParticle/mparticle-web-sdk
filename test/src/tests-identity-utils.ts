@@ -59,7 +59,7 @@ const identityResponse: IIdentityResponse = {
     cacheMaxAge: 86400,
 }
 
-describe.only('identity-utils', () => {
+describe('identity-utils', () => {
     beforeEach(()=> {
         window.localStorage.clear();
     });

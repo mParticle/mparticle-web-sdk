@@ -1,7 +1,7 @@
 import { apiKey } from './config/constants';
 import sinon from 'sinon';
 
-describe.only('helpers', function() {
+describe('helpers', function() {
     beforeEach(function() {
         mParticle.init(apiKey, window.mParticle.config);
     });

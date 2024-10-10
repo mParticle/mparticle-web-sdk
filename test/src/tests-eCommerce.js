@@ -9,7 +9,7 @@ const getLocalStorageProducts = Utils.getLocalStorageProducts,
     findEventFromRequest = Utils.findEventFromRequest,
     MockForwarder = Utils.MockForwarder;
 
-describe.only('eCommerce', function() {
+describe('eCommerce', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
         delete mParticle._instances['default_instance'];

@@ -24,7 +24,7 @@ const { findEventFromRequest,
 
  let mockServer;
 
-describe.only('forwarders', function() {
+describe('forwarders', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
         delete mParticle._instances['default_instance'];

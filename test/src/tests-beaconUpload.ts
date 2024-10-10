@@ -21,7 +21,7 @@ const enableBatchingConfigFlags = {
 };
 
 
-describe.only('Beacon Upload', () => {
+describe('Beacon Upload', () => {
     before(function() {
         fetchMock.restore();
         sinon.restore();

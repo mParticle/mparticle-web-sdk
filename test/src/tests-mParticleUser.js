@@ -12,7 +12,7 @@ const forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
     MockForwarder = Utils.MockForwarder;
 
 // https://go.mparticle.com/work/SQDSDKS-6508
-describe.only('mParticleUser', function() {
+describe('mParticleUser', function() {
     beforeEach(function() {
         fetchMockSuccess(urls.identify, {
             mpid: 'identifyMPID', is_logged_in: false

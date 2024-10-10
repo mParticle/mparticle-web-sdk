@@ -26,7 +26,7 @@ import {
 } from '../../src/utils';
 import { expect } from 'chai';
 
-describe.only('Utils', () => {
+describe('Utils', () => {
     describe('#createCookieString', () => {
         it('should create a valid cookie string', () => {
             const before =

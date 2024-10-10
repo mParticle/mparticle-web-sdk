@@ -13,7 +13,7 @@ const DefaultConfig = Constants.DefaultConfig,
 
 const { waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
 
-describe.only('core SDK', function() {
+describe('core SDK', function() {
     beforeEach(function() {
         fetchMock.post(urls.events, 200);
         fetchMockSuccess(urls.identify, {

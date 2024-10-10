@@ -30,7 +30,7 @@ declare global {
 
 const mParticle = window.mParticle as MParticleWebSDK;
 
-describe.only('legacy Alias Requests', function() {
+describe('legacy Alias Requests', function() {
     let mockServer;
     let clock;
     const originalFetch = window.fetch;

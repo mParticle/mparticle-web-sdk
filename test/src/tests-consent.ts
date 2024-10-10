@@ -27,7 +27,7 @@ const findBatch = Utils.findBatch;
 
 const mParticle = window.mParticle;
 
-describe.only('Consent', function() {
+describe('Consent', function() {
     beforeEach(function() {
         fetchMock.post(urls.events, 200);
         fetchMockSuccess(urls.identify, {

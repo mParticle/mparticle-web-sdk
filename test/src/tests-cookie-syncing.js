@@ -17,7 +17,7 @@ let pixelSettings = {
     redirectUrl: '',
 };
 
-describe.only('cookie syncing', function() {
+describe('cookie syncing', function() {
     const timeout = 25;
     // Have a reference to createElement function to reset after all cookie sync
     // tests have run

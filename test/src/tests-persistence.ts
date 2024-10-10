@@ -32,7 +32,7 @@ const {
     waitForCondition
 } = Utils;
 
-describe.only('persistence', () => {
+describe('persistence', () => {
     beforeEach(() => {
         fetchMock.post(urls.events, 200);
 

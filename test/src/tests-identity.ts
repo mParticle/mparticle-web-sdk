@@ -88,7 +88,7 @@ const fetchMockSuccess = (url: string, body: any = {}, headers: any = {}) => {
     );
 };
 
-describe.only('identity', function() {
+describe('identity', function() {
     let clock;
     let hasIdentifyReturned;
     let hasLoginReturned;

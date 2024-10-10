@@ -53,7 +53,7 @@ const BAD_USER_ATTRIBUTE_KEY_AS_ARRAY = ([
 
 const BAD_USER_ATTRIBUTE_LIST_VALUE = (1234 as unknown) as UserAttributesValue[];
 
-describe.only('identities and attributes', function() {
+describe('identities and attributes', function() {
     beforeEach(function() {
         fetchMockSuccess(urls.identify, {
             mpid: testMPID, is_logged_in: false

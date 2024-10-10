@@ -13,7 +13,7 @@ function returnEventForMPInstance(calls, apiKey, eventName) {
     return findEventFromRequest(requestsPerApiKey, eventName);
 }
 
-describe.only('mParticle instance manager', function() {
+describe('mParticle instance manager', function() {
     it('has all public apis on it', function(done) {
         mParticle.ProductActionType.should.have.properties([
             'Unknown',

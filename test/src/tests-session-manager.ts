@@ -25,7 +25,7 @@ declare global {
 
 const mParticle = window.mParticle;
 
-describe.only('SessionManager', () => {
+describe('SessionManager', () => {
     const now = new Date();
     let clock;
     let sandbox;

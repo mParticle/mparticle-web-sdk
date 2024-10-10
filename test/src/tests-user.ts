@@ -24,7 +24,7 @@ const hasIdentifyReturned = () => {
 };
 
 // https://go.mparticle.com/work/SQDSDKS-6508
-describe.only('mParticle User', function() {
+describe('mParticle User', function() {
     beforeEach(function() {
         delete mParticle.config.useCookieStorage;
         fetchMock.post(urls.events, 200);
