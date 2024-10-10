@@ -19,6 +19,7 @@ describe('/config self-hosting integration tests', function() {
     })
 
     it('queues events in the eventQueue while /config is in flight, then processes them afterwards with correct MPID', function(done) {
+        debugger;
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.requestConfig = true;
         window.mParticle.config.flags.eventBatchingIntervalMillis = 0; // trigger event uploads immediately
@@ -63,6 +64,9 @@ describe('/config self-hosting integration tests', function() {
             );
         })
         .then(() => {
+        debugger;
+
+            mParticle.upload();
             event = findBatch(fetchMock.calls(), 'Test');
             
             event.should.be.ok();
