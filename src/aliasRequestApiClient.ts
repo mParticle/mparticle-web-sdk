@@ -54,7 +54,7 @@ export async function sendAliasRequest (mpInstance: MParticleWebSDK, aliasReques
                 // https://go.mparticle.com/work/SQDSDKS-6568
                 // XHRUploader returns the response as a string that we need to parse
                 const xhrResponse = response as unknown as XMLHttpRequest;
-                // debugger;
+
                 aliasResponseBody = xhrResponse.responseText
                     ? JSON.parse(xhrResponse.responseText)
                     : '';

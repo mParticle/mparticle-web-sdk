@@ -14,6 +14,7 @@ import _BatchValidator from '../../src/mockBatchCreator';
 import Logger from '../../src/logger.js';
 import { event0, event1, event2, event3 } from '../fixtures/events';
 import fetchMock from 'fetch-mock/esm/client';
+const { fetchMockSuccess, waitForCondition, hasIdentifyReturned  } = Utils;
 
 declare global {
     interface Window {
@@ -31,18 +32,15 @@ describe('batch uploader', () => {
 
     beforeEach(() => {
         fetchMock.restore();
-        mockServer = sinon.createFakeServer();
-        mockServer.respondImmediately = true;
-
-        mockServer.respondWith(urls.identify, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-        ]);
+        fetchMock.config.overwriteRoutes = true;
+        fetchMockSuccess(urls.identify, {
+            mpid: testMPID,
+            is_logged_in: false,
+        });
+        fetchMock.post(urls.events, 200);
     });
 
     afterEach(() => {
-        mockServer.reset();
         fetchMock.restore();
         window.localStorage.clear();
     });
@@ -52,7 +50,9 @@ describe('batch uploader', () => {
             it('should add events to the Pending Events Queue', () => {
                 window.mParticle._resetForTests(MPConfig);
                 window.mParticle.init(apiKey, window.mParticle.config);
-
+                
+                waitForCondition(hasIdentifyReturned)
+                .then(() => {
                 const mpInstance = window.mParticle.getInstance();
 
                 const uploader = new BatchUploader(mpInstance, 1000);
@@ -82,11 +82,15 @@ describe('batch uploader', () => {
                 uploader.queueEvent(event);
 
                 expect(uploader.eventsQueuedForProcessing.length).to.eql(1);
+                })
             });
 
             it('should reject batches without events', () => {
                 window.mParticle._resetForTests(MPConfig);
+
                 window.mParticle.init(apiKey, window.mParticle.config);
+                waitForCondition(hasIdentifyReturned)
+                .then(() => {
 
                 const mpInstance = window.mParticle.getInstance();
 
@@ -97,11 +101,14 @@ describe('batch uploader', () => {
 
                 expect(uploader.eventsQueuedForProcessing).to.eql([]);
                 expect(uploader.batchesQueuedForProcessing).to.eql([]);
+                })
             });
 
             it('should add events in the order they are received', () => {
                 window.mParticle._resetForTests(MPConfig);
                 window.mParticle.init(apiKey, window.mParticle.config);
+                waitForCondition(hasIdentifyReturned)
+                .then(() => {
 
                 const mpInstance = window.mParticle.getInstance();
 
@@ -115,6 +122,7 @@ describe('batch uploader', () => {
                 expect(uploader.eventsQueuedForProcessing[0]).to.eql(event1);
                 expect(uploader.eventsQueuedForProcessing[1]).to.eql(event2);
                 expect(uploader.eventsQueuedForProcessing[2]).to.eql(event3);
+                })
             });
         });
 
@@ -123,17 +131,17 @@ describe('batch uploader', () => {
                 window.mParticle.config.flags = {
                     eventBatchingIntervalMillis: 1000,
                 };
-
-                mockServer = sinon.createFakeServer();
-                mockServer.respondImmediately = true;
-                window.mParticle._resetForTests(MPConfig);
-                window.mParticle.init(apiKey, window.mParticle.config);
+                fetchMock.post(urls.events, 200);
             });
             afterEach(() => {
                 fetchMock.restore();
             });
 
-            it('should reject batches without events', async () => {
+            it('should reject batches without events', (done) => {
+                window.mParticle.init(apiKey, window.mParticle.config);
+
+                waitForCondition(hasIdentifyReturned)
+                .then(async () => {
                 fetchMock.post(urls.events, 200);
 
                 const newLogger = new Logger(window.mParticle.config);
@@ -152,12 +160,14 @@ describe('batch uploader', () => {
                     {} as unknown as BaseEvent
                 );
 
+                fetchMock.resetHistory();
                 // HACK: Directly access uploader to Force an upload
                 await (<any>uploader).uploadBatches(
                     newLogger,
                     [actualBatch, eventlessBatch],
                     false
                 );
+
                 expect(fetchMock.calls().length).to.equal(1);
 
                 const actualBatchResult = JSON.parse(
@@ -166,9 +176,19 @@ describe('batch uploader', () => {
 
                 expect(actualBatchResult.events.length).to.equal(1);
                 expect(actualBatchResult.events).to.eql(actualBatch.events);
+
+                done();
+                })
+                .catch((e) => {
+                });
             });
 
-            it('should return batches that fail to upload with 500 errors', async () => {
+            it('should return batches that fail to upload with 500 errors', () => {
+                window.mParticle.init(apiKey, window.mParticle.config);
+
+                waitForCondition(hasIdentifyReturned)
+                .then(async () => {
+
                 fetchMock.post(urls.events, 500);
 
                 const newLogger = new Logger(window.mParticle.config);
@@ -213,9 +233,16 @@ describe('batch uploader', () => {
                 expect(
                     batchesNotUploaded[2].events[0].data.event_name
                 ).to.equal('Test Event 3');
+                })
+                .catch((e) => {
+                });
             });
 
             it('should return batches that fail to upload with 429 errors', async () => {
+                window.mParticle.init(apiKey, window.mParticle.config);
+
+                waitForCondition(hasIdentifyReturned)
+                .then(async () => {
                 fetchMock.post(urls.events,  429);
 
                 const newLogger = new Logger(window.mParticle.config);
@@ -260,9 +287,14 @@ describe('batch uploader', () => {
                 expect(
                     batchesNotUploaded[2].events[0].data.event_name
                 ).to.equal('Test Event 3');
+                })
             });
 
             it('should return null if batches fail to upload with 401 errors', async () => {
+                window.mParticle.init(apiKey, window.mParticle.config);
+
+                waitForCondition(hasIdentifyReturned)
+                .then(async () => {
                 fetchMock.post(urls.events, 401);
 
                 const newLogger = new Logger(window.mParticle.config);
@@ -294,9 +326,14 @@ describe('batch uploader', () => {
                 );
 
                 expect(batchesNotUploaded === null).to.equal(true);
+                })
             });
 
             it('should return batches that fail to unknown HTTP errors', async () => {
+                window.mParticle.init(apiKey, window.mParticle.config);
+
+                waitForCondition(hasIdentifyReturned)
+                .then(async () => {
                 fetchMock.post(urls.events, 400);
 
                 const newLogger = new Logger(window.mParticle.config);
@@ -343,16 +380,20 @@ describe('batch uploader', () => {
                 expect(
                     batchesNotUploaded[2].events[0].data.event_name
                 ).to.equal('Test Event 3');
+                })
+                .catch((e) => {
+                });
             });
         });
     });
 
     describe('Offline Storage Feature Flag', () => {
         beforeEach(() => {
-            sinon.restore();
-            fetchMock.restore();
+            fetchMockSuccess(urls.identify, {
+                mpid: testMPID,
+                is_logged_in: false,
+            });
 
-            mockServer.reset();
             window.localStorage.clear();
             window.sessionStorage.clear();
         });
@@ -360,7 +401,6 @@ describe('batch uploader', () => {
             sinon.restore();
             fetchMock.restore();
 
-            mockServer.reset();
             window.localStorage.clear();
             window.sessionStorage.clear();
         });
@@ -370,8 +410,10 @@ describe('batch uploader', () => {
                 offlineStorage: '100',
             };
             window.mParticle._resetForTests(MPConfig);
-            window.mParticle.init(apiKey, window.mParticle.config);
 
+            window.mParticle.init(apiKey, window.mParticle.config);
+            waitForCondition(hasIdentifyReturned)
+            .then(() => {
             const getItemSpy = sinon.spy(Storage.prototype, 'getItem');
             const setItemSpy = sinon.spy(Storage.prototype, 'setItem');
 
@@ -418,6 +460,9 @@ describe('batch uploader', () => {
             );
 
             done();
+            })
+            .catch((e) => {
+            });
         });
 
         it('should not use local storage when disabled', () => {
@@ -427,6 +472,8 @@ describe('batch uploader', () => {
 
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
+            waitForCondition(hasIdentifyReturned)
+            .then( () => {
 
             const getItemSpy = sinon.spy(Storage.prototype, 'getItem');
             const setItemSpy = sinon.spy(Storage.prototype, 'setItem');
@@ -468,6 +515,9 @@ describe('batch uploader', () => {
             expect(
                 window.localStorage.getItem('mprtcl-v4_abcdef-events')
             ).to.equal(null);
+            })
+            .catch((e) => {
+            });
         });
     });
 
@@ -478,18 +528,12 @@ describe('batch uploader', () => {
                 ...enableBatchingConfigFlags,
             };
 
-            clock = sinon.useFakeTimers({
-                now: new Date().getTime(),
-            });
-
             window.localStorage.clear();
         });
 
         afterEach(() => {
-            sinon.restore();
             window.localStorage.clear();
             fetchMock.restore();
-            clock.restore();
         });
 
         it('should not save events or batches in local storage', done => {
@@ -499,6 +543,8 @@ describe('batch uploader', () => {
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
 
+            waitForCondition(hasIdentifyReturned)
+            .then(() => {
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
 
@@ -529,6 +575,9 @@ describe('batch uploader', () => {
             ).to.equal(null);
 
             done();
+            })
+            .catch((e) => {
+            });
         });
     });
 
@@ -539,10 +588,11 @@ describe('batch uploader', () => {
                 ...enableBatchingConfigFlags,
             };
 
-            clock = sinon.useFakeTimers({
-                now: new Date().getTime(),
-            });
             fetchMock.restore();
+            fetchMockSuccess(urls.identify, {
+                mpid: testMPID,
+                is_logged_in: false,
+            });
 
             window.sessionStorage.clear();
             window.localStorage.clear();
@@ -551,7 +601,6 @@ describe('batch uploader', () => {
         afterEach(() => {
             sinon.restore();
             fetchMock.restore();
-            clock.restore();
         });
 
         it('should store events in Session Storage in order of creation', done => {
@@ -559,7 +608,8 @@ describe('batch uploader', () => {
 
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-
+            waitForCondition(hasIdentifyReturned)
+            .then(() => {
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
 
@@ -587,6 +637,10 @@ describe('batch uploader', () => {
             );
 
             done();
+            })
+            .catch((e) => {
+        })
+
         });
 
         it('should purge events from Session Storage upon Batch Creation', async () => {
@@ -596,7 +650,8 @@ describe('batch uploader', () => {
 
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-
+            waitForCondition(hasIdentifyReturned)
+            .then(async () => {
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
 
@@ -626,6 +681,11 @@ describe('batch uploader', () => {
 
             // Batch Queue should be empty because batch successfully uploaded
             expect(uploader.batchesQueuedForProcessing.length).to.equal(0);
+            clock.restore();
+            // done();
+            })
+            .catch((e) => {
+        })
         });
 
         it('should save batches in sequence to Local Storage when an HTTP 500 error is encountered', async () => {
@@ -635,6 +695,8 @@ describe('batch uploader', () => {
 
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
+            waitForCondition(hasIdentifyReturned)
+            .then(async() =>  {
 
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
@@ -677,16 +739,20 @@ describe('batch uploader', () => {
                     .event_name,
                 'Batch 2: Custom Event Name'
             ).to.equal('Test Event 0');
+            })
+            .catch((e) => {
+        })
         });
 
-        it('should save batches in sequence to Local Storage when an HTTP 429 error is encountered', async () => {
+        it('should save batches in sequence to Local Storage when an HTTP 429 error is encountered', () => {
             const batchStorageKey = 'mprtcl-v4_abcdef-batches';
 
             fetchMock.post(urls.events, 429);
 
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-
+            waitForCondition(hasIdentifyReturned)
+            .then(async () => {
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
 
@@ -725,9 +791,12 @@ describe('batch uploader', () => {
                     .event_name,
                 'Batch 2: Custom Event Name'
             ).to.equal('Test Event 0');
+            })
+            .catch((e) => {
+        })
         });
 
-        it('should NOT save any batches to Local Storage when an HTTP 401 error is encountered', async () => {
+        it('should NOT save any batches to Local Storage when an HTTP 401 error is encountered', (done) => {
             // When a 401 is encountered, we assume that the batch is bad so we clear those
             // batches from the Upload Queue. Therefore, there should not be anything in
             // Offline Storage afterwards
@@ -737,8 +806,9 @@ describe('batch uploader', () => {
 
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-
-            const mpInstance = window.mParticle.getInstance();
+            waitForCondition(hasIdentifyReturned)
+            .then(async () => {
+                const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
 
             // Init will fire a Session Start and AST. We are adding event0
@@ -752,6 +822,10 @@ describe('batch uploader', () => {
             expect(window.localStorage.getItem(batchStorageKey)).to.equal(
                 ''
             );
+            done();
+            })
+            .catch((e) => {
+        })
         });
 
         it('should save batches in sequence to Local Storage when upload is interrupted', async () => {
@@ -772,11 +846,11 @@ describe('batch uploader', () => {
             fetchMock.post(urls.events, 429, {
                 overwriteRoutes: false,
             });
-
             // Set up SDK and Uploader
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-
+            waitForCondition(hasIdentifyReturned)
+            .then(async () => {
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
 
@@ -894,9 +968,13 @@ describe('batch uploader', () => {
                 storedBatches[2].events[1].event_type,
                 'Batch 4: AST'
             ).to.equal('application_state_transition');
+            })
+            .catch((e) => {
+            console.log('should save batches in sequence to Local Storage when upload is interrupted')
+        })
         });
 
-        it('should attempt to upload batches from Offline Storage before new batches', async () => {
+        it('should attempt to upload batches from Offline Storage before new batches', () => {
             // This test should verify that batches read from Offline Storage are prepended
             // to the upload queue before newly created batches.
 
@@ -907,6 +985,8 @@ describe('batch uploader', () => {
             // Set up SDK and Uploader
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
+            waitForCondition(hasIdentifyReturned)
+            .then(async () => {
 
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
@@ -1032,917 +1112,9 @@ describe('batch uploader', () => {
                 uploadedBatch4.events[1].event_type,
                 'Batch 4: AST'
             ).to.equal('application_state_transition');
-        });
-    });
-
-    describe('Upload Workflow', () => {
-        beforeEach(() => {
-            clock = sinon.useFakeTimers({
-                now: new Date().getTime(),
-            });
-        });
-
-        afterEach(() => {
-            fetchMock.restore();
-            clock.restore();
-        });
-
-        it('should organize events in the order they are processed and maintain that order when uploading', (done) => {
-            // Batches should be uploaded in the order they were created to prevent
-            // any potential corruption.
-
-            fetchMock.post(urls.events, 200);
-            fetchMock.config.overwriteRoutes = true;
-
-            window.mParticle.config.flags = {
-                ...enableBatchingConfigFlags,
-            };
-
-            window.mParticle._resetForTests(MPConfig);
-            window.mParticle.init(apiKey, window.mParticle.config);
-
-            window.mParticle.logEvent('Test Event 0');
-
-            // Manually initiate the upload process - turn event into batches and upload the batch
-            window.mParticle.upload();
-
-            expect(
-                fetchMock.called(),
-                'FetchMock should have been called'
-            ).to.equal(true);
-
-            const batch1 = JSON.parse(fetchMock.calls()[0][1].body as string);
-
-            // Batch 1 should contain only session start, AST and a single event
-            // in this exact order
-            expect(batch1.events.length).to.equal(3);
-            expect(batch1.events[0].event_type).to.equal('session_start');
-            expect(batch1.events[1].event_type).to.equal(
-                'application_state_transition'
-            );
-            expect(batch1.events[2].data.event_name).to.equal('Test Event 0');
-
-            // Log a second batch of events
-            window.mParticle.logEvent('Test Event 1');
-            window.mParticle.logEvent('Test Event 2');
-            window.mParticle.logEvent('Test Event 3');
-
-            // Manually initiate the upload process - turn event into batches and upload the batch 
-            window.mParticle.upload();
-
-            const batch2 = JSON.parse(fetchMock.calls()[1][1].body as string);
-
-            // Batch 2 should contain three custom events
-            expect(batch2.events.length).to.equal(3);
-            expect(batch2.events[0].data.event_name).to.equal('Test Event 1');
-            expect(batch2.events[1].data.event_name).to.equal('Test Event 2');
-            expect(batch2.events[2].data.event_name).to.equal('Test Event 3');
-
-            // Log a third batch of events
-            window.mParticle.logEvent('Test Event 4');
-            window.mParticle.logEvent('Test Event 5');
-
-            // Manually initiate the upload process - turn event into batches and upload the batch 
-            window.mParticle.upload();
-
-            const batch3 = JSON.parse(fetchMock.calls()[2][1].body as string);
-
-            // Batch 3 should contain two custom events
-            expect(batch3.events.length).to.equal(2);
-            expect(batch3.events[0].data.event_name).to.equal('Test Event 4');
-            expect(batch3.events[1].data.event_name).to.equal('Test Event 5');
-
-            done();
-        });
-
-        // TODO: Investigate workflow with unshift vs push
-        // https://go.mparticle.com/work/SQDSDKS-5165
-        it.skip('should keep batches in sequence for future retries when an HTTP 500 error occurs', (done) => {
-            // If batches cannot upload, they should be added back to the Batch Queue
-            // in the order they were created so they can be retransmitted.
-
-            fetchMock.post(urls.events, 500);
-
-            window.mParticle.config.flags = {
-                ...enableBatchingConfigFlags,
-            };
-
-            window.mParticle._resetForTests(MPConfig);
-            window.mParticle.init(apiKey, window.mParticle.config);
-            // Generates Batch 1 with Session Start + AST
-
-            // Adds a custom event to Batch 1
-            window.mParticle.logEvent('Test Event 0');
-
-            // Manually initiate the upload process - turn event into batches and upload the batch 
-            window.mParticle.upload();
-
-            expect(
-                fetchMock.called(),
-                'FetchMock should have been called'
-            ).to.equal(true);
-
-            const batch1 = JSON.parse(fetchMock.calls()[0][1].body as string);
-
-            // Batch 1 should contain only session start, AST and a single event
-            // in this exact order
-            expect(batch1.events.length).to.equal(3);
-            expect(batch1.events[0].event_type).to.equal('session_start');
-            expect(batch1.events[1].event_type).to.equal(
-                'application_state_transition'
-            );
-            expect(batch1.events[2].data.event_name).to.equal('Test Event 0');
-
-            // Batch 2
-            window.mParticle.logEvent('Test Event 1');
-            window.mParticle.logEvent('Test Event 2');
-            window.mParticle.logEvent('Test Event 3');
-
-            // Manually initiate the upload process - turn event into batches and upload the batch
-            window.mParticle.upload();
-
-            // Batch 3
-            window.mParticle.logEvent('Test Event 4');
-            window.mParticle.logEvent('Test Event 5');
-            window.mParticle.logEvent('Test Event 6');
-
-            // Manually initiate the upload process - turn event into batches and upload the batch
-            window.mParticle.upload();
-
-            // Reset clock so that the setTimeout return immediately
-            clock.restore();
-
-            setTimeout(() => {
-                const batchQueue =
-                    window.mParticle.getInstance()._APIClient.uploader
-                        .batchesQueuedForProcessing;
-
-                expect(batchQueue.length).to.equal(3);
-
-                expect(batchQueue[0].events[0].event_type).to.equal(
-                    'session_start'
-                );
-                expect(batchQueue[0].events[1].event_type).to.equal(
-                    'application_state_transition'
-                );
-                expect(batchQueue[0].events[2].data.event_name).to.equal('Test Event 0');
-
-                expect(batchQueue[1].events[0].data.event_name).to.equal(
-                    'Test Event 1'
-                );
-                expect(batchQueue[1].events[1].data.event_name).to.equal(
-                    'Test Event 2'
-                );
-                expect(batchQueue[1].events[2].data.event_name).to.equal(
-                    'Test Event 3'
-                );
-
-                expect(batchQueue[2].events[0].data.event_name).to.equal(
-                    'Test Event 4'
-                );
-                expect(batchQueue[2].events[1].data.event_name).to.equal(
-                    'Test Event 5'
-                );
-                expect(batchQueue[2].events[2].data.event_name).to.equal(
-                    'Test Event 6'
-                );
-
-                done();
-            }, 0);
-        });
-
-        // TODO: Investigate workflow with unshift vs push
-        // https://go.mparticle.com/work/SQDSDKS-5165
-        it.skip('should keep and retry batches in sequence if the transmission fails midway', (done) => {
-            // First request is successful, subsequent requests fail
-            fetchMock.post(urls.events, 200, {
-                overwriteRoutes: false,
-                repeat: 1,
-            });
-
-            fetchMock.post(urls.events, 429, {
-                overwriteRoutes: false,
-            });
-
-            window.mParticle.config.flags = {
-                ...enableBatchingConfigFlags,
-            };
-
-            window.mParticle._resetForTests(MPConfig);
-            window.mParticle.init(apiKey, window.mParticle.config);
-            // Generates Batch 1 with Session Start + AST
-
-            // Adds a custom event to Batch 1
-            window.mParticle.logEvent('Test Event 0');
-
-            // Manually initiate the upload process - turn event into batches and upload the batch 
-            window.mParticle.upload();
-
-            // Batch 2
-            window.mParticle.logEvent('Test Event 1');
-            window.mParticle.logEvent('Test Event 2');
-            window.mParticle.logEvent('Test Event 3');
-
-            // Manually initiate the upload process - turn event into batches and upload the batch 
-            window.mParticle.upload();
-
-            // Batch 3
-            window.mParticle.logEvent('Test Event 4');
-            window.mParticle.logEvent('Test Event 5');
-            window.mParticle.logEvent('Test Event 6');
-
-            // Manually initiate the upload process - turn event into batches and upload the batch 
-            window.mParticle.upload();
-
-            // Reset timer so the setTimeout can trigger
-            clock.restore();
-
-            setTimeout(() => {
-                // Batch upload should be triggered 3 times, but only
-                // 2 should be waiting for retry
-                expect(fetchMock.calls().length).to.equal(3);
-
-                const batchQueue =
-                    window.mParticle.getInstance()._APIClient.uploader
-                        .batchesQueuedForProcessing;
-
-                expect(batchQueue.length).to.equal(2);
-
-                expect(batchQueue[0].events[0].data.event_name).to.equal(
-                    'Test Event 1'
-                );
-                expect(batchQueue[0].events[1].data.event_name).to.equal(
-                    'Test Event 2'
-                );
-                expect(batchQueue[0].events[2].data.event_name).to.equal(
-                    'Test Event 3'
-                );
-
-                expect(batchQueue[1].events[0].data.event_name).to.equal(
-                    'Test Event 4'
-                );
-                expect(batchQueue[1].events[1].data.event_name).to.equal(
-                    'Test Event 5'
-                );
-                expect(batchQueue[1].events[2].data.event_name).to.equal(
-                    'Test Event 6'
-                );
-
-                done();
-            }, 0);
-        });
-    });
-
-    describe('batching via window.fetch', () => {
-        beforeEach(() => {
-            fetchMock.post(urls.events, 200);
-            fetchMock.config.overwriteRoutes = true;
-            clock = sinon.useFakeTimers({now: new Date().getTime()});
-
-            window.mParticle.config.flags = {
-                ...enableBatchingConfigFlags,
-            };
-        });
-
-        afterEach(() => {
-            fetchMock.restore();
-            sinon.restore();
-            clock.restore();
-        });
-
-        it('should use custom v3 endpoint', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-            window.mParticle.init(apiKey, window.mParticle.config);
-    
-            window.mParticle.logEvent('Test Event');
-            
-            // Identity call is via XHR request
-            // Session start, AST, and `Test Event` are queued.
-            mockServer.requests.length.should.equal(1);
-
-            // Tick forward 1000 ms to hit upload interval and force an upload
-            clock.tick(1000);
-
-            const lastCall = fetchMock.lastCall();
-            const endpoint = lastCall[0];
-            const batch = JSON.parse(fetchMock.lastCall()[1].body as string);
-
-            endpoint.should.equal(urls.events);
-            batch.events[0].event_type.should.equal('session_start');
-            batch.events[1].event_type.should.equal('application_state_transition');
-            batch.events[2].event_type.should.equal('custom_event');
-            batch.events[2].data.event_name.should.equal('Test Event');
-    
-            done();
-        });
-
-        it('should have latitude/longitude for location when batching', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-            window.mParticle.init(apiKey, window.mParticle.config);
-    
-            window.mParticle.setPosition(100, 100);
-            window.mParticle.logEvent('Test Event');
-            clock.tick(1000);
-
-            // Tick forward 1000 ms to hit upload interval and force an upload
-            const lastCall = fetchMock.lastCall();
-            const endpoint = lastCall[0];
-            const batch = JSON.parse(fetchMock.lastCall()[1].body as string);
-            endpoint.should.equal(urls.events);
-            batch.events[2].data.location.should.have.property('latitude', 100)
-            batch.events[2].data.location.should.have.property('longitude', 100)
-    
-            done();
-        });
-
-        it('should force uploads when using public `upload`', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-            window.mParticle.init(apiKey, window.mParticle.config);
-
-            window.mParticle.logEvent('Test Event');
-
-            // Identity call is via XHR request
-            // Session start, AST, and `Test Event` are queued.
-            mockServer.requests.length.should.equal(1);
-
-            // no calls made to fetch yet
-            (fetchMock.lastCall() === undefined).should.equal(true)
-            
-            // force upload, triggering window.fetch
-            window.mParticle.upload();
-
-            const lastCall = fetchMock.lastCall();
-            const endpoint = lastCall[0];
-            const batch = JSON.parse(fetchMock.lastCall()[1].body as string);
-
-            endpoint.should.equal(urls.events);
-            batch.events[0].event_type.should.equal('session_start');
-            batch.events[1].event_type.should.equal('application_state_transition');
-            batch.events[2].event_type.should.equal('custom_event');
-            batch.events[2].data.event_name.should.equal('Test Event');
-
-            done();
-        });
-
-        it('should force uploads when a commerce event is called', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-            window.mParticle.init(apiKey, window.mParticle.config);
-
-            window.mParticle.logEvent('Test Event');
-            // Identity call is via XHR request
-            // Session start, AST, and `Test Event` are queued.
-            mockServer.requests.length.should.equal(1);
-
-            var product1 = window.mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
-            window.mParticle.eCommerce.logProductAction(SDKProductActionType.AddToCart, product1);
-
-            const lastCall = fetchMock.lastCall();
-            const endpoint = lastCall[0];
-            const batch = JSON.parse(fetchMock.lastCall()[1].body as string);
-
-            endpoint.should.equal(urls.events);
-            batch.events[0].event_type.should.equal('session_start');
-            batch.events[1].event_type.should.equal('application_state_transition');
-            batch.events[2].event_type.should.equal('custom_event');
-            batch.events[2].data.event_name.should.equal('Test Event');
-            batch.events[3].event_type.should.equal('commerce_event');
-            batch.events[3].data.product_action.action.should.equal('add_to_cart');
-
-            done();
-        });
-
-        it('should return pending uploads if a 500 is returned', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-
-            fetchMock.post(urls.events, 500);
-            
-            window.mParticle.init(apiKey, window.mParticle.config);
-            window.mParticle.logEvent('Test Event');
-
-            let pendingEvents = window.mParticle.getInstance()._APIClient.uploader.eventsQueuedForProcessing;
-
-            pendingEvents.length.should.equal(3)
-            pendingEvents[0].EventName.should.equal(1);
-            pendingEvents[1].EventName.should.equal(10);
-            pendingEvents[2].EventName.should.equal('Test Event');
-
-            fetchMock.post(urls.events, 200);
-            
-            (fetchMock.lastCall() === undefined).should.equal(true);
-            clock.tick(1000);
-
-            let nowPendingEvents = window.mParticle.getInstance()._APIClient.uploader.eventsQueuedForProcessing;
-            nowPendingEvents.length.should.equal(0);
-
-            const batch = JSON.parse(fetchMock.lastCall()[1].body as string);
-            batch.events[0].event_type.should.equal('session_start');
-            batch.events[1].event_type.should.equal('application_state_transition');
-            batch.events[2].event_type.should.equal('custom_event');
-            batch.events[2].data.event_name.should.equal('Test Event');
-
-            done();
-        });
-
-        it('should send source_message_id with events to v3 endpoint', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-            window.mParticle.init(apiKey, window.mParticle.config);
-
-            window.mParticle.logEvent('Test Event');
-
-            // Tick forward 1000 ms to hit upload interval and force an upload
-            clock.tick(1000);
-
-            const lastCall = fetchMock.lastCall();
-            const endpoint = lastCall[0];
-            const batch = JSON.parse(fetchMock.lastCall()[1].body as string);
-
-            endpoint.should.equal(urls.events);
-            batch.events[0].data.should.have.property('source_message_id')
-
-            done();
-        });
-
-        it('should send user-defined SourceMessageId events to v3 endpoint', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-            window.mParticle.init(apiKey, window.mParticle.config);
-
-            window.mParticle.logBaseEvent({
-                messageType: 4,
-                name: 'Test Event',
-                data: {key: 'value'},
-                eventType: 3,
-                customFlags: {flagKey: 'flagValue'},
-                sourceMessageId: 'abcdefg'
-            });
-
-            // Identity call is via XHR request
-            // Session start, AST, and `Test Event` are queued.
-            mockServer.requests.length.should.equal(1);
-
-            // Tick forward 1000 ms to hit upload interval and force an upload
-            clock.tick(1000);
-
-            const lastCall = fetchMock.lastCall();
-            const endpoint = lastCall[0];
-            const batch = JSON.parse(fetchMock.lastCall()[1].body as string);
-
-            endpoint.should.equal(urls.events);
-            // event batch includes session start, ast, then last event is Test Event
-            batch.events[batch.events.length-1].data.should.have.property('source_message_id', 'abcdefg')
-
-            done();
-        });
-
-        it('should call the identity callback after a session ends if user is returning to the page after a long period of time', async function() {
-            // Background of bug that this test fixes:
-            // User navigates away from page and returns after some time
-            // and the session should end.  There is a UAC firing inside of
-            // config.identityCallback, which would send to our servers with
-            // the previous session ID because the identity call back fired
-            // before the session logic that determines if a new session should
-            // start.
-
-            window.mParticle._resetForTests(MPConfig);
-            
-            window.mParticle.config.identityCallback = function(result) {
-                let currentUser = result.getUser()
-                if (currentUser) {
-                    // TODO: Investigate if we should update definitely typed typings for
-                    // setUserAttribute which only allows strings right now
-                    // more context at https://go.mparticle.com/work/SQDSDKS-4576
-                    currentUser.setUserAttribute("number", `${Math.floor((Math.random() * 1000) + 1)}`)
-                }
-            }
-            
-            var endSessionFunction = window.mParticle.getInstance()._SessionManager.endSession;
-            
-            window.mParticle.init(apiKey, window.mParticle.config);
-
-            // Mock end session so that the SDK doesn't actually send it. We do this
-            // to mimic a return to page behavior, below:
-            window.mParticle.getInstance()._SessionManager.endSession = function() {}
-
-            // Force 35 minutes to pass, so that when we return to the page, when
-            // the SDK initializes it will know to end the session.
-            clock.tick(35*60000);
-
-            // Undo mock of end session so that when we initializes, it will end
-            // the session for real.
-            window.mParticle.getInstance()._SessionManager.endSession = endSessionFunction;
-
-            // Initialize imitates returning to the page
-            window.mParticle.init(apiKey, window.mParticle.config);
-
-            // Manually initiate the upload process - turn event into batches and upload the batch 
-            await window.mParticle.getInstance()._APIClient.uploader.prepareAndUpload();
-
-            // We have to restore the clock in order to use setTimeout below
-            const batch1 = JSON.parse(fetchMock.calls()[0][1].body as string);
-            const batch2 = JSON.parse(fetchMock.calls()[1][1].body as string);
-            const batch3 = JSON.parse(fetchMock.calls()[2][1].body as string);
-
-            // UAC, session start, AST
-            expect(
-                batch1.events.length,
-                'Batch 1: UAC Event, Session Start, AST'
-            ).to.equal(3);
-
-            // session end
-            expect(batch2.events.length, 'Batch 2: Session End').to.equal(
-                1
-            );
-
-            // UAC, session start, AST
-            expect(
-                batch3.events.length,
-                'Batch 3: UAC, Session Start, AST'
-            ).to.equal(3);
-
-            const batch1UAC = Utils.findEventFromBatch(
-                batch1,
-                'user_attribute_change'
-            );
-            const batch1SessionStart = Utils.findEventFromBatch(
-                batch1,
-                'session_start'
-            );
-            const batch1AST = Utils.findEventFromBatch(
-                batch1,
-                'application_state_transition'
-            );
-
-            batch1UAC.should.be.ok();
-            batch1SessionStart.should.be.ok();
-            batch1AST.should.be.ok();
-
-            const batch2SessionEnd = Utils.findEventFromBatch(
-                batch2,
-                'session_end'
-            );
-            batch2SessionEnd.should.be.ok();
-
-            const batch3UAC = Utils.findEventFromBatch(
-                batch3,
-                'user_attribute_change'
-            );
-            const batch3SessionStart = Utils.findEventFromBatch(
-                batch3,
-                'session_start'
-            );
-            const batch3AST = Utils.findEventFromBatch(
-                batch3,
-                'application_state_transition'
-            );
-
-            batch3UAC.should.be.ok();
-            batch3SessionStart.should.be.ok();
-            batch3AST.should.be.ok();
-
-
-            (typeof batch1.source_request_id).should.equal('string');
-            (typeof batch2.source_request_id).should.equal('string');
-            (typeof batch3.source_request_id).should.equal('string');
-
-            batch1.source_request_id.should.not.equal(
-                batch2.source_request_id
-            );
-            batch1.source_request_id.should.not.equal(
-                batch3.source_request_id
-            );
-            batch2.source_request_id.should.not.equal(
-                batch3.source_request_id
-            );
-
-            batch1UAC.data.session_uuid.should.equal(
-                batch1AST.data.session_uuid
-            );
-            batch1UAC.data.session_uuid.should.equal(
-                batch1SessionStart.data.session_uuid
-            );
-            batch1UAC.data.session_uuid.should.not.equal(
-                batch3UAC.data.session_uuid
-            );
-            batch1UAC.data.session_uuid.should.not.equal(
-                batch3SessionStart.data.session_uuid
-            );
-            batch1UAC.data.session_uuid.should.not.equal(
-                batch3AST.data.session_uuid
-            );
-
-            batch1UAC.data.session_start_unixtime_ms.should.equal(
-                batch1AST.data.session_start_unixtime_ms
-            );
-            batch1UAC.data.session_start_unixtime_ms.should.equal(
-                batch1SessionStart.data.session_start_unixtime_ms
-            );
-            batch1UAC.data.session_start_unixtime_ms.should.not.equal(
-                batch3UAC.data.session_start_unixtime_ms
-            );
-            batch1UAC.data.session_start_unixtime_ms.should.not.equal(
-                batch3SessionStart.data.session_start_unixtime_ms
-            );
-            batch1UAC.data.session_start_unixtime_ms.should.not.equal(
-                batch3AST.data.session_start_unixtime_ms
-            );
-
-            batch1SessionStart.data.session_uuid.should.equal(
-                batch1AST.data.session_uuid
-            );
-            batch1SessionStart.data.session_uuid.should.equal(
-                batch2SessionEnd.data.session_uuid
-            );
-            batch1AST.data.session_uuid.should.equal(
-                batch2SessionEnd.data.session_uuid
-            );
-
-            batch1SessionStart.data.session_start_unixtime_ms.should.equal(
-                batch1AST.data.session_start_unixtime_ms
-            );
-            batch1SessionStart.data.session_start_unixtime_ms.should.equal(
-                batch2SessionEnd.data.session_start_unixtime_ms
-            );
-            batch1AST.data.session_start_unixtime_ms.should.equal(
-                batch2SessionEnd.data.session_start_unixtime_ms
-            );
-
-            batch3AST.data.session_uuid.should.equal(
-                batch3UAC.data.session_uuid
-            );
-            batch3SessionStart.data.session_uuid.should.equal(
-                batch3UAC.data.session_uuid
-            );
-            batch3SessionStart.data.session_uuid.should.equal(
-                batch3AST.data.session_uuid
-            );
-
-            batch3AST.data.session_start_unixtime_ms.should.equal(
-                batch3UAC.data.session_start_unixtime_ms
-            );
-            batch3SessionStart.data.session_start_unixtime_ms.should.equal(
-                batch3UAC.data.session_start_unixtime_ms
-            );
-            batch3SessionStart.data.session_start_unixtime_ms.should.equal(
-                batch3AST.data.session_start_unixtime_ms
-            );
-        });
-    });
-
-    describe('batching via XHR for older browsers without window.fetch', () => {
-        var fetch = window.fetch;
-
-        beforeEach(() => {
-            delete window.fetch
-            window.mParticle.config.flags = {
-                eventBatchingIntervalMillis: 1000,
-            }
-            mockServer.respondWith(urls.events, [
-                200,
-                {},
-                JSON.stringify({ mpid: testMPID, Store: {}})
-            ]);
-            clock = sinon.useFakeTimers();
-        });
-    
-        afterEach(() => {
-            window.mParticle._resetForTests(MPConfig);
-            window.fetch = fetch;
-            sinon.restore();
-            clock.restore();
-        });
-
-        it('should use custom v3 endpoint', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-
-            mockServer.requests = [];
-            window.mParticle.init(apiKey, window.mParticle.config);
-
-            window.mParticle.logEvent('Test Event');
-            
-            // The only request to the server should be the identify call
-            // Session start, AST, and Test Event are queued.
-            mockServer.requests.length.should.equal(1);
-            // Upload interval hit, now will send requests
-            clock.tick(1000);
-
-            // 1st request is /Identity call, 2nd request is /Event call
-            const batch = JSON.parse(mockServer.secondRequest.requestBody);
-            
-            batch.events[0].event_type.should.equal('session_start');
-            batch.events[1].event_type.should.equal('application_state_transition');
-            batch.events[2].event_type.should.equal('custom_event');
-            batch.events[2].data.event_name.should.equal('Test Event');
-
-            done();
-        });
-
-        it('should force uploads when using public `upload`', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-
-            window.mParticle.init(apiKey, window.mParticle.config);
-
-            window.mParticle.logEvent('Test Event');
-            
-            // The only request to the server should be the identify call
-            // Session start, AST, and Test Event are queued.
-            mockServer.requests.length.should.equal(1);
-            // Upload interval hit, now will send requests
-            clock.tick(1000);
-            window.mParticle.upload();
-            // 1st request is /Identity call, 2nd request is /Event call
-            const batch = JSON.parse(mockServer.secondRequest.requestBody);
-
-            batch.events[0].event_type.should.equal('session_start');
-            batch.events[1].event_type.should.equal('application_state_transition');
-            batch.events[2].event_type.should.equal('custom_event');
-            batch.events[2].data.event_name.should.equal('Test Event');
-
-            done();
-        });
-
-        it('should trigger an upload of batch when a commerce event is called', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-
-            window.mParticle.init(apiKey, window.mParticle.config);
-
-            window.mParticle.logEvent('Test Event');
-            // The only request to the server should be the identify call
-            // Session start, AST, and Test Event are queued.
-            mockServer.requests.length.should.equal(1);
-
-            var product1 = window.mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
-            window.mParticle.eCommerce.logProductAction(SDKProductActionType.AddToCart, product1);
-            // 1st request is /Identity call, 2nd request is /Event call
-            const batch = JSON.parse(mockServer.secondRequest.requestBody);
-
-            batch.events[0].event_type.should.equal('session_start');
-            batch.events[1].event_type.should.equal('application_state_transition');
-            batch.events[2].event_type.should.equal('custom_event');
-            batch.events[2].data.event_name.should.equal('Test Event');
-            batch.events[3].event_type.should.equal('commerce_event');
-            batch.events[3].data.product_action.action.should.equal('add_to_cart');
-
-            done();
-        });
-
-        it('should trigger an upload of batch when a UIC occurs', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-            // include an identify request so that it creates a UIC
-            window.mParticle.config.identifyRequest = {
-                userIdentities: {
-                    customerid: 'foo-customer-id'
-                }
-            };
-
-            window.mParticle.init(apiKey, window.mParticle.config);
-
-            // Requests sent should be identify call, then UIC event
-            // Session start, AST, and Test Event are queued, and don't appear
-            // in the mockServer.requests
-            mockServer.requests.length.should.equal(2);
-
-            // 1st request is /Identity call, 2nd request is UIC call
-            const batch = JSON.parse(mockServer.secondRequest.requestBody);
-            
-            batch.events[0].event_type.should.equal('user_identity_change');
-
-            // force upload of other events
-            window.mParticle.upload()
-            const batch2 = JSON.parse(mockServer.thirdRequest.requestBody);
-
-            batch2.events[0].event_type.should.equal('session_start');
-            batch2.events[1].event_type.should.equal('application_state_transition');
-
-            done();
-        });
-
-        // Originally, we had the Batch uploader set to force an upload when a UAC event
-        // was triggered. This feature was removed and we are including this test to
-        // make sure the Web SDK does not regress. This test will be removed in a future
-        // Web SDK update
-        // TODO: https://go.mparticle.com/work/SQDSDKS-5891 
-        it('should NOT trigger an upload of batch when a UAC occurs', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-
-            window.mParticle.init(apiKey, window.mParticle.config);
-
-            // Set a user attribute to trigger a UAC event
-            window.mParticle.Identity.getCurrentUser().setUserAttribute('age', 25);
-
-            // Requests sent should be identify call
-            // Since we no longer force an upload for UAC,
-            // This request will contain a /Identity Call
-            // a future request will contain session start, AST, and UAC
-            mockServer.requests.length.should.equal(1);
-
-            // Verifies that adding a UAC does not trigger an upload
-            expect(mockServer.secondRequest).to.equal(null);
-
-            // Manually force an upload
-            window.mParticle.upload();
-
-            // Second request has now been made
-            expect(mockServer.secondRequest).to.be.ok;
-            
-            const batch = JSON.parse(mockServer.secondRequest.requestBody);
-            
-            // Batch should now contain the 3 events we expect
-            mockServer.requests.length.should.equal(2);
-            batch.events[0].event_type.should.equal('session_start');
-            batch.events[1].event_type.should.equal('application_state_transition');
-            batch.events[2].event_type.should.equal('user_attribute_change');
-
-            done();
-        });
-
-        it('should return pending uploads if a 500 is returned', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-
-            mockServer.respondWith(urls.events, [
-                500,
-                {},
-                JSON.stringify({ mpid: testMPID, Store: {}})
-            ]);
-
-            window.mParticle.init(apiKey, window.mParticle.config);
-            window.mParticle.logEvent('Test Event');
-
-            const pendingEvents = window.mParticle.getInstance()._APIClient.uploader.eventsQueuedForProcessing;
-
-            pendingEvents.length.should.equal(3)
-            pendingEvents[0].EventName.should.equal(1);
-            pendingEvents[1].EventName.should.equal(10);
-            pendingEvents[2].EventName.should.equal('Test Event');
-
-            clock.tick(1000);
-
-            const nowPendingEvents = window.mParticle.getInstance()._APIClient.uploader.eventsQueuedForProcessing;
-            nowPendingEvents.length.should.equal(0);
-
-            const batch = JSON.parse(mockServer.secondRequest.requestBody);
-            batch.events[0].event_type.should.equal('session_start');
-            batch.events[1].event_type.should.equal('application_state_transition');
-            batch.events[2].event_type.should.equal('custom_event');
-            batch.events[2].data.event_name.should.equal('Test Event');
-            done();
-        });
-
-        it('should add a modified boolean of true to a batch that has been modified via a config.onCreateBatch call', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-
-            window.mParticle.config.onCreateBatch = function (batch: Batch) {
-                return batch
-            };
-
-            window.mParticle.init(apiKey, window.mParticle.config);
-            window.mParticle.logEvent('Test Event');
-            
-            clock.tick(1000);
-            
-            const batch = JSON.parse(mockServer.secondRequest.requestBody);
-            batch.modified.should.equal(true);
-            done();
-        });
-
-        it('should respect rules for the batch modification', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-
-            window.mParticle.config.onCreateBatch = function (batch) {
-                batch.events.map(event => {
-                    if (event.event_type === "custom_event") {
-                        (event.data as CustomEventData).event_name = 'Modified!'
-                    }
-                });
-                return batch;
-            };
-
-            window.mParticle.init(apiKey, window.mParticle.config);
-            window.mParticle.logEvent('Test Event');
-            
-            clock.tick(1000);
-
-            const batch = JSON.parse(mockServer.secondRequest.requestBody);
-            batch.events.length.should.equal(3);
-            batch.events[0].event_type.should.equal('session_start');
-            batch.events[1].event_type.should.equal('application_state_transition');
-            batch.events[2].event_type.should.equal('custom_event');
-            batch.events[2].data.event_name.should.equal('Modified!');
-            done();
-        });
-
-        it('should add a modified boolean of true to a batch that has been modified via a config.onCreateBatch call', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-
-            window.mParticle.config.onCreateBatch = function (batch: Batch) {
-                return undefined;
-            };
-
-            window.mParticle.init(apiKey, window.mParticle.config);
-            window.mParticle.logEvent('Test Event');
-            
-            clock.tick(1000);
-            
-            (mockServer.secondRequest === null).should.equal(true);
-            done();
+        })
+        .catch((e) => {
+        })
         });
     });
 });

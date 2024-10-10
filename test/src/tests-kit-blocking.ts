@@ -7,6 +7,7 @@ import KitBlocker from '../../src/kitBlocking';
 import Types from '../../src/types';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
 import fetchMock from 'fetch-mock/esm/client';
+const { findBatch, waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
 
 let forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
     MockForwarder = Utils.MockForwarder;
@@ -19,15 +20,11 @@ declare global {
 }
 
 describe('kit blocking', () => {
-    let mockServer;
     let kitBlockerDataPlan: KitBlockerDataPlan = {
         document: dataPlan
     } as KitBlockerDataPlan;
 
     beforeEach(function() {
-        mockServer = sinon.createFakeServer();
-        mockServer.respondImmediately = true;
-        
         window.mParticle.config.dataPlan = {
             document: dataPlan as DataPlanResult
         };
@@ -35,7 +32,6 @@ describe('kit blocking', () => {
     });
     
     afterEach(function() {
-        mockServer.reset();
         sinon.restore();
     });
 
@@ -534,11 +530,10 @@ describe('kit blocking', () => {
 
     describe('kit blocking - integration tests', () => {
         beforeEach(() => {
-            mockServer.respondWith(urls.identify, [
-                200,
-                {},
-                JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-            ]);
+            fetchMockSuccess(urls.identify, {
+                mpid: testMPID,
+                is_logged_in: false,
+            });
 
             let mockForwarder = new MockForwarder();
             window.mParticle.addForwarder(mockForwarder);
@@ -589,6 +584,8 @@ describe('kit blocking', () => {
             window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
             window.mParticle.config.dataPlan.document.dtpn.blok.ev = false;
             window.mParticle.init(apiKey, window.mParticle.config);
+            waitForCondition(hasIdentifyReturned)
+            .then(() => {
             
             window.mParticle.logEvent('Unplanned Event');
             
@@ -599,11 +596,15 @@ describe('kit blocking', () => {
             window.mParticle.config.dataPlan.document.dtpn.blok.ev = true;
             
             done();
+            });
         });
 
         it('integration test - should block an unplanned attribute from being set on the forwarder if additionalProperties = false and blok.ua = true', function(done) {
             window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
             window.mParticle.init(apiKey, window.mParticle.config);
+
+            waitForCondition(hasIdentifyReturned)
+            .then(() => {
 
             window.mParticle.Identity.getCurrentUser().setUserAttribute('unplannedAttr', true);
             window.MockForwarder1.instance.should.have.property(
@@ -612,6 +613,7 @@ describe('kit blocking', () => {
             );
 
             done();
+            })
         });
 
         it('integration test - should allow an unplanned attribute to be set on forwarder if additionalProperties = true and blok.ua = true', function(done) {
@@ -623,6 +625,8 @@ describe('kit blocking', () => {
 
             window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
             window.mParticle.init(apiKey, window.mParticle.config);
+            waitForCondition(hasIdentifyReturned)
+            .then(() => {
 
             window.mParticle.Identity.getCurrentUser().setUserAttribute('unplanned but unblocked', true);
             window.MockForwarder1.instance.should.have.property(
@@ -633,6 +637,7 @@ describe('kit blocking', () => {
             userAttributeDataPoint.validator.definition.additionalProperties = false;
             
             done();
+            });
         });
 
         it('integration test - should allow an unplanned user attribute to be set on the forwarder if blok=false', function(done) {
@@ -640,6 +645,9 @@ describe('kit blocking', () => {
 
             window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
             window.mParticle.init(apiKey, window.mParticle.config);
+
+            waitForCondition(hasIdentifyReturned)
+            .then(() => {
             window.mParticle.Identity.getCurrentUser().setUserAttribute('unplanned but not blocked', true);
             window.MockForwarder1.instance.should.have.property(
                 'setUserAttributeCalled',
@@ -649,12 +657,14 @@ describe('kit blocking', () => {
             window.mParticle.config.dataPlan.document.dtpn.blok.ua = true
 
             done();
+            });
         });
 
         it('integration test - should block an unplanned attribute set via setUserTag from being set on the forwarder if additionalProperties = false and blok.ua = true', function(done) {
             window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
             window.mParticle.init(apiKey, window.mParticle.config);
-
+            waitForCondition(hasIdentifyReturned)
+            .then(() => {
             window.mParticle.Identity.getCurrentUser().setUserTag('unplannedAttr', true);
             window.MockForwarder1.instance.should.have.property(
                 'setUserAttributeCalled',
@@ -662,6 +672,7 @@ describe('kit blocking', () => {
             );
 
             done();
+            });
         });
 
         it('integration test - should allow an unplanned attribute set via setUserTag to be set on forwarder if additionalProperties = true and blok.ua = true', function(done) {
@@ -673,6 +684,8 @@ describe('kit blocking', () => {
 
             window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
             window.mParticle.init(apiKey, window.mParticle.config);
+            waitForCondition(hasIdentifyReturned)
+            .then(() => {
 
             window.mParticle.Identity.getCurrentUser().setUserTag('unplanned but unblocked', true);
             window.MockForwarder1.instance.should.have.property(
@@ -683,12 +696,16 @@ describe('kit blocking', () => {
             userAttributeDataPoint.validator.definition.additionalProperties = false;
             
             done();
+            });
         });
 
         it('integration test - should allow an unplanned user attribute set via setUserTag to be set on the forwarder if blok=false', function(done) {
             window.mParticle.config.dataPlan.document.dtpn.blok.ua = false
             window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
             window.mParticle.init(apiKey, window.mParticle.config);
+            waitForCondition(hasIdentifyReturned)
+            .then(() => {
+
             window.mParticle.Identity.getCurrentUser().setUserTag('unplanned but not blocked', true);
             window.MockForwarder1.instance.should.have.property(
                 'setUserAttributeCalled',
@@ -698,6 +715,7 @@ describe('kit blocking', () => {
             window.mParticle.config.dataPlan.document.dtpn.blok.ua = true
 
             done();
+            });
         });
 
         describe('integration tests - user identity related', ()=> {
@@ -705,12 +723,8 @@ describe('kit blocking', () => {
 
             beforeEach(() => {
                 ['login', 'logout', 'modify'].forEach((identityMethod) => {
-                    mockServer.respondWith(urls[identityMethod], [
-                        200,
-                        {},
-                        JSON.stringify({ mpid: 'testMPID', is_logged_in: true }),
-                    ]);
-                });
+                    fetchMockSuccess(urls[identityMethod], { mpid: testMPID, is_logged_in: true })}
+                );
                 let mockForwarder = new MockForwarder();
                 window.mParticle.addForwarder(mockForwarder);
                 
@@ -728,8 +742,15 @@ describe('kit blocking', () => {
             it('integration test - should not block any unplanned user identities to the forwarder when blok.id = true and additionalProperties = true', function(done) {
                 window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
                 window.mParticle.init(apiKey, window.mParticle.config);
-
+                waitForCondition(hasIdentifyReturned)
+                .then(() => {
                 window.mParticle.Identity.login({userIdentities: {customerid: 'customerid1', email: 'email@gmail.com', 'google': 'GoogleId'}});
+                waitForCondition(() => {
+                    return (
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
+                    );
+                })
+                .then(() => {
                 window.mParticle.logEvent('something something something', Types.EventType.Navigation);
                 let event = window.MockForwarder1.instance.receivedEvent;
                 event.UserIdentities.find(UI => UI.Type === 1).should.have.property('Identity', 'customerid1');
@@ -737,6 +758,8 @@ describe('kit blocking', () => {
                 event.UserIdentities.find(UI => UI.Type === 4).should.have.property('Identity', 'GoogleId');
 
                 done();
+                });
+                });
             });
 
             it('integration test - should block user identities to the forwarder when additional properties = false and blok.id = true', function(done) {
@@ -748,8 +771,16 @@ describe('kit blocking', () => {
 
                 window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
                 window.mParticle.init(apiKey, window.mParticle.config);
+                waitForCondition(hasIdentifyReturned)
+                .then(() => {
 
                 window.mParticle.Identity.login({userIdentities: {customerid: 'customerid1', email: 'email@gmail.com', 'google': 'GoogleId'}});
+                waitForCondition(() => {
+                    return (
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
+                    );
+                })
+                .then(() => {
                 window.mParticle.logEvent('something something something', Types.EventType.Navigation);
                 let event = window.MockForwarder1.instance.receivedEvent;
                 event.UserIdentities.find(UI => UI.Type === 1).should.have.property('Identity', 'customerid1');
@@ -760,6 +791,8 @@ describe('kit blocking', () => {
                 userIdentityDataPoint.validator.definition.additionalProperties = true;
 
                 done();
+                });
+                });
             });
 
             it('integration test - should not block identities from being passed to onUserIdentified/onLogoutComplete if blok.id = true and additionalProperties = true (in addition to having a filtered user identity list)', function(done) {
@@ -768,8 +801,15 @@ describe('kit blocking', () => {
                     window.mParticle.config.kitConfigs.push(config1);
 
                 window.mParticle.init(apiKey, window.mParticle.config);
-
+                waitForCondition(hasIdentifyReturned)
+                .then(() => {
                 window.mParticle.Identity.logout(userIdentityRequest);
+                waitForCondition(() => {
+                    return (
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
+                    );
+                })
+                .then(() => {
                 let onUserIdentifiedUserIdentities = window.MockForwarder1.instance.onUserIdentifiedUser
                     .getUserIdentities()
                     .userIdentities;
@@ -789,6 +829,8 @@ describe('kit blocking', () => {
                 onLogoutCompleteUserIdentities.should.have.property('email', 'email@gmail.com');
 
                 done();
+                });
+                });
             });
 
             it('integration test - should block identities from being passed to onUserIdentified/onLogoutComplete if blok.id = true and additionalProperties = false (in addition to having a filtered user identity list)', function(done) {
@@ -803,8 +845,15 @@ describe('kit blocking', () => {
                     window.mParticle.config.kitConfigs.push(config1);
 
                 window.mParticle.init(apiKey, window.mParticle.config);
-
+                waitForCondition(hasIdentifyReturned)
+                .then(() => {
                 window.mParticle.Identity.logout(userIdentityRequest);
+                waitForCondition(() => {
+                    return (
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
+                    );
+                })
+                .then(() => {
                 let onUserIdentifiedUserIdentities = window.MockForwarder1.instance.onUserIdentifiedUser
                     .getUserIdentities()
                     .userIdentities;
@@ -826,6 +875,8 @@ describe('kit blocking', () => {
                 userIdentityDataPoint.validator.definition.additionalProperties = true;
                 
                 done();
+                });
+                });
             });
 
             it('integration test - should not block identities from being passed to onUserIdentified/onModifyComplete if blok.id = true and additionalProperties = true (in addition to having a filtered user identity list)', function(done) {
@@ -834,8 +885,15 @@ describe('kit blocking', () => {
                     window.mParticle.config.kitConfigs.push(config1);
 
                 window.mParticle.init(apiKey, window.mParticle.config);
-
+                waitForCondition(hasIdentifyReturned)
+                .then(() => {
                 window.mParticle.Identity.modify(userIdentityRequest);
+                waitForCondition(() => {
+                    return (
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
+                    );
+                })
+                .then(() => {
                 let onUserIdentifiedUserIdentities = window.MockForwarder1.instance.onUserIdentifiedUser
                     .getUserIdentities()
                     .userIdentities;
@@ -856,6 +914,8 @@ describe('kit blocking', () => {
 
                 done();
             });
+            });
+            });
 
             it('integration test - should block identities from being passed to onUserIdentified/onModifyComplete if blok.id = true and additionalProperties = false (in addition to having a filtered user identity list)', function(done) {
                 let userIdentityDataPoint = dataPlan.dtpn.vers.version_document.data_points.find(dataPoint => {
@@ -869,8 +929,15 @@ describe('kit blocking', () => {
                     window.mParticle.config.kitConfigs.push(config1);
 
                 window.mParticle.init(apiKey, window.mParticle.config);
-
+                waitForCondition(hasIdentifyReturned)
+                .then(() => {
                 window.mParticle.Identity.modify(userIdentityRequest);
+                waitForCondition(() => {
+                    return (
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
+                    );
+                })
+                .then(() => {
                 let onUserIdentifiedUserIdentities = window.MockForwarder1.instance.onUserIdentifiedUser
                     .getUserIdentities()
                     .userIdentities;
@@ -893,6 +960,8 @@ describe('kit blocking', () => {
                 
                 done();
             });
+            });
+            });
 
             it('integration test - should not block identities from being passed to onUserIdentified/onIdentifyComplete if blok.id = true and additionalProperties = true (in addition to having a filtered user identity list)', function(done) {
                 let config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -902,7 +971,8 @@ describe('kit blocking', () => {
                 window.mParticle.config.identifyRequest = userIdentityRequest;
 
                 window.mParticle.init(apiKey, window.mParticle.config);
-
+                waitForCondition(hasIdentifyReturned)
+                .then(() => {
                 let onUserIdentifiedUserIdentities = window.MockForwarder1.instance.onUserIdentifiedUser
                     .getUserIdentities()
                     .userIdentities;
@@ -922,6 +992,7 @@ describe('kit blocking', () => {
                 onIdentifyCompleteUserIdentities.should.have.property('email', 'email@gmail.com')
 
                 done();
+                });
             });
 
             it('integration test - should block identities from being passed to onUserIdentified/onIdentifyComplete if blok.id = true and additionalProperties = false (in addition to having a filtered user identity list)', function(done) {
@@ -936,8 +1007,16 @@ describe('kit blocking', () => {
                     window.mParticle.config.kitConfigs.push(config1);
 
                 window.mParticle.init(apiKey, window.mParticle.config);
+                waitForCondition(hasIdentifyReturned)
+                .then(() => {
 
                 window.mParticle.Identity.identify(userIdentityRequest);
+                waitForCondition(() => {
+                    return (
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
+                    );
+                })
+                .then(() => {
                 let onUserIdentifiedUserIdentities = window.MockForwarder1.instance.onUserIdentifiedUser
                     .getUserIdentities()
                     .userIdentities;
@@ -960,6 +1039,8 @@ describe('kit blocking', () => {
                 
                 done();
             });
+            });
+            });
 
             it('integration test - should not block identities from being passed to onUserIdentified/onLoginComplete if blok.id = true and additionalProperties = true (in addition to having a filtered user identity list)', function(done) {
                 let config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -967,8 +1048,17 @@ describe('kit blocking', () => {
                     window.mParticle.config.kitConfigs.push(config1);
 
                 window.mParticle.init(apiKey, window.mParticle.config);
+                waitForCondition(hasIdentifyReturned)
+                .then(() => {
 
                 window.mParticle.Identity.login(userIdentityRequest);
+
+                waitForCondition(() => {
+                    return (
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
+                    );
+                })
+                .then(() => {
                 let onUserIdentifiedUserIdentities = window.MockForwarder1.instance.onUserIdentifiedUser
                     .getUserIdentities()
                     .userIdentities;
@@ -989,6 +1079,8 @@ describe('kit blocking', () => {
 
                 done();
             });
+            });
+            });
 
             it('integration test - should block identities from being passed to onUserIdentified/onLoginComplete if blok.id = true and additionalProperties = false (in addition to having a filtered user identity list)', function(done) {
                 let userIdentityDataPoint = dataPlan.dtpn.vers.version_document.data_points.find(dataPoint => {
@@ -1005,8 +1097,15 @@ describe('kit blocking', () => {
                     window.mParticle.config.kitConfigs.push(config1);
 
                 window.mParticle.init(apiKey, window.mParticle.config);
-
+                waitForCondition(hasIdentifyReturned)
+                .then(() => {
                 window.mParticle.Identity.login(userIdentityRequest);
+                waitForCondition(() => {
+                    return (
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
+                    );
+                })
+                .then(() => {
                 let onUserIdentifiedUserIdentities = window.MockForwarder1.instance.onUserIdentifiedUser
                     .getUserIdentities()
                     .userIdentities;
@@ -1028,6 +1127,8 @@ describe('kit blocking', () => {
                 userIdentityDataPoint.validator.definition.additionalProperties = true;
                 
                 done();
+                });
+                });
             });
         });
 
@@ -1065,6 +1166,8 @@ describe('kit blocking', () => {
             })
 
             it('integration test - should block any unplanned product attributes from reaching the forwarder if additionalProperties = false and block.ea=true', function(done) {
+                waitForCondition(hasIdentifyReturned)
+                .then(() => {
                 window.mParticle.eCommerce.logProductAction(
                     window.mParticle.ProductActionType['Purchase'],
                     [product1, product2],
@@ -1085,9 +1188,12 @@ describe('kit blocking', () => {
                 products[1].Attributes.should.not.have.property('unplannedAttr1')
                 
                 done();
+                });
             });
 
             it('integration test - should not block unplanned product attributes from reaching the forwarder if additionalProperties = true and block.ea=true', function(done) {
+                waitForCondition(hasIdentifyReturned)
+                .then(() => {
                 window.mParticle.eCommerce.logProductAction(
                     window.mParticle.ProductActionType['AddToCart'],
                     [product1, product2],
@@ -1107,6 +1213,7 @@ describe('kit blocking', () => {
                 products[1].Attributes.should.have.property('unplannedAttr1')
                 
                 done();
+                })
             });
         })
 
@@ -1169,9 +1276,12 @@ describe('kit blocking', () => {
                 }
 
                 window.mParticle.init(apiKey, window.mParticle.config);
+                waitForCondition(hasIdentifyReturned)
+                .then(() => {
                 errorMessages[0].should.equal('Ensure your config.dataPlanOptions object has the following keys: a "dataPlanVersion" object, and "blockUserAttributes", "blockEventAttributes", "blockEvents", "blockUserIdentities" booleans');
 
                 done();
+                });
             });
 
             it('integration test - should prioritize data plan from config.dataPlanOptions over server provided data plan', function(done) {
@@ -1199,6 +1309,8 @@ describe('kit blocking', () => {
                 }
 
                 window.mParticle.init(apiKey, window.mParticle.config);
+                waitForCondition(hasIdentifyReturned)
+                .then(() => {
                 logs.includes('Customer provided data plan found').should.equal(true);
                 logs.includes('Data plan found from mParticle.js').should.equal(false);
                 logs.includes('Data plan found from /config').should.equal(false);
@@ -1222,6 +1334,7 @@ describe('kit blocking', () => {
                 event.EventAttributes.should.not.have.property('unplannedAttr');
 
                 done();
+                });
             });
 
             it('integration test - should block or unblock planned events', function(done) {
@@ -1240,6 +1353,8 @@ describe('kit blocking', () => {
 
                 window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
                 window.mParticle.init(apiKey, window.mParticle.config);
+                waitForCondition(hasIdentifyReturned)
+                .then(() => {
 
                 window.mParticle.logEvent('Blocked event');
 
@@ -1258,6 +1373,7 @@ describe('kit blocking', () => {
                 event.EventAttributes.should.not.have.property('unplannedAttr');
 
                 done();
+            });
             });
         });
 

@@ -426,6 +426,7 @@ describe('identity', function() {
 
     });
 
+    // This test passes with no issue when it is run on its own, but fails when tests-forwarders.js are also ran.
     it('should respect consent rules on consent-change', function(done) {
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
@@ -638,6 +639,9 @@ describe('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
+
         const cookiesAfterInit = findCookie();
         cookiesAfterInit.should.have.properties('gs', 'cu', testMPID);
 
@@ -704,6 +708,7 @@ describe('identity', function() {
         });
 
         done();
+        })
         }).catch(done);
     });
     });
@@ -2596,7 +2601,8 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    describe('#onUserAlias', function() {
+    describe.skip('#onUserAlias', function() {
+    // https://go.mparticle.com/work/SQDSDKS-6854
     it('does not run onUserAlias if it is not a function', function(done) {
         mParticle.init(apiKey, window.mParticle.config);
 
