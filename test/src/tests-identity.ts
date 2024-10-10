@@ -639,6 +639,9 @@ describe('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
+        waitForCondition(hasLoginReturned)
+        .then(() => {
+
         const cookiesAfterInit = findCookie();
         cookiesAfterInit.should.have.properties('gs', 'cu', testMPID);
 
@@ -705,6 +708,7 @@ describe('identity', function() {
         });
 
         done();
+        })
         }).catch(done);
     });
     });
