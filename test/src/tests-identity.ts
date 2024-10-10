@@ -639,7 +639,7 @@ describe('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        waitForCondition(hasLoginReturned)
+        waitForCondition(hasIdentifyReturned)
         .then(() => {
 
         const cookiesAfterInit = findCookie();
