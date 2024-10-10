@@ -105,7 +105,7 @@ describe('forwarders', function() {
 
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1247,7 +1247,7 @@ describe('forwarders', function() {
         });
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1256,7 +1256,7 @@ describe('forwarders', function() {
 
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1289,7 +1289,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1304,7 +1304,7 @@ describe('forwarders', function() {
 
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1343,7 +1343,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {
@@ -1355,7 +1355,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {
@@ -1392,7 +1392,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1407,7 +1407,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1463,7 +1463,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1496,7 +1496,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1528,7 +1528,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1570,7 +1570,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {
@@ -1603,14 +1603,14 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
         mParticle.Identity.logout();
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1640,7 +1640,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1721,7 +1721,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1734,7 +1734,7 @@ describe('forwarders', function() {
         });
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1772,7 +1772,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1785,7 +1785,7 @@ describe('forwarders', function() {
         });
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1822,7 +1822,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1835,7 +1835,7 @@ describe('forwarders', function() {
         });
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1873,7 +1873,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1886,7 +1886,7 @@ describe('forwarders', function() {
         });
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1928,7 +1928,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1969,7 +1969,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2008,7 +2008,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2049,7 +2049,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2091,7 +2091,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2131,7 +2131,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2165,7 +2165,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2186,7 +2186,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
                 waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2219,7 +2219,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2251,7 +2251,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2281,7 +2281,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
                 waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2316,7 +2316,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2349,7 +2349,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2398,7 +2398,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2428,7 +2428,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2457,7 +2457,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2515,7 +2515,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2554,7 +2554,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2588,7 +2588,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2610,7 +2610,7 @@ describe('forwarders', function() {
         mParticle.Identity.login(user);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2623,7 +2623,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2650,7 +2650,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2660,7 +2660,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2674,7 +2674,7 @@ describe('forwarders', function() {
         mParticle.Identity.logout();
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2684,7 +2684,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2790,7 +2790,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2851,7 +2851,7 @@ describe('forwarders', function() {
 
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2909,9 +2909,9 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         waitForCondition(() => {
-            console.log(window.mParticle.getInstance()._Store.identityCallInFlight)
+            console.log(window.mParticle.getInstance()?._Store?.identityCallInFlight)
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         }, 200, 10, clock)
         .then(() => {
@@ -2959,7 +2959,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -3057,7 +3057,7 @@ describe('forwarders', function() {
         waitForCondition(() => {
             return (
                 window.mParticle.getInstance()._Store.configurationLoaded === true &&
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -3095,7 +3095,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -3112,7 +3112,7 @@ describe('forwarders', function() {
 
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -3140,7 +3140,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -3161,7 +3161,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -3192,7 +3192,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -3218,7 +3218,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -3261,7 +3261,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -3466,7 +3466,7 @@ describe('forwarders', function() {
                 mParticle.init(apiKey, window.mParticle.config);
                 waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {
@@ -3491,7 +3491,7 @@ describe('forwarders', function() {
                 mParticle.init(apiKey, window.mParticle.config);
                 waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {
@@ -3552,7 +3552,7 @@ describe('forwarders', function() {
                     mParticle.init(apiKey, window.mParticle.config);
                     waitForCondition(() => {
                         return (
-                            window.mParticle.getInstance()._Store.identityCallInFlight === false
+                            window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                         );
                     })
                     .then(() => {
@@ -3595,7 +3595,7 @@ describe('forwarders', function() {
                     mParticle.init(apiKey, window.mParticle.config);
                     waitForCondition(() => {
                         return (
-                            window.mParticle.getInstance()._Store.identityCallInFlight === false
+                            window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                         );
                     })
                     .then(() => {
@@ -3648,7 +3648,7 @@ describe('forwarders', function() {
                     mParticle.init(apiKey, window.mParticle.config);
                     waitForCondition(() => {
                         return (
-                            window.mParticle.getInstance()._Store.identityCallInFlight === false
+                            window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                         );
                     })
                     .then(() => {
@@ -3692,7 +3692,7 @@ describe('forwarders', function() {
                     mParticle.init(apiKey, window.mParticle.config);
                     waitForCondition(() => {
                         return (
-                            window.mParticle.getInstance()._Store.identityCallInFlight === false
+                            window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                         );
                     })
                     .then(() => {
@@ -3737,7 +3737,7 @@ describe('forwarders', function() {
                     mParticle.init(apiKey, window.mParticle.config);
                     waitForCondition(() => {
                         return (
-                            window.mParticle.getInstance()._Store.identityCallInFlight === false
+                            window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                         );
                     })
                     .then(() => {
@@ -3780,7 +3780,7 @@ describe('forwarders', function() {
                     mParticle.init(apiKey, window.mParticle.config);
                     waitForCondition(() => {
                         return (
-                            window.mParticle.getInstance()._Store.identityCallInFlight === false
+                            window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                         );
                     })
                     .then(() => {
@@ -3827,7 +3827,7 @@ describe('forwarders', function() {
                     mParticle.init(apiKey, window.mParticle.config);
                     waitForCondition(() => {
                         return (
-                            window.mParticle.getInstance()._Store.identityCallInFlight === false
+                            window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                         );
                     })
                     .then(() => {
@@ -3896,7 +3896,7 @@ describe('forwarders', function() {
                 mParticle.init(apiKey, window.mParticle.config);
                 waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {
@@ -3942,7 +3942,7 @@ describe('forwarders', function() {
                 mParticle.init(apiKey, window.mParticle.config);
                 waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {
@@ -3990,7 +3990,7 @@ describe('forwarders', function() {
                 mParticle.init(apiKey, window.mParticle.config);
                 waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {
@@ -4046,7 +4046,7 @@ describe('forwarders', function() {
                 mParticle.init(apiKey, window.mParticle.config);
                 waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {
@@ -4087,7 +4087,7 @@ describe('forwarders', function() {
                 mParticle.init(apiKey, window.mParticle.config);
                 waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {
@@ -4130,7 +4130,7 @@ describe('forwarders', function() {
                 mParticle.init(apiKey, window.mParticle.config);
                 waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {
@@ -4173,7 +4173,7 @@ describe('forwarders', function() {
                 mParticle.init(apiKey, window.mParticle.config);
                 waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {

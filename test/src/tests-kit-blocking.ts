@@ -747,7 +747,7 @@ describe('kit blocking', () => {
                 window.mParticle.Identity.login({userIdentities: {customerid: 'customerid1', email: 'email@gmail.com', 'google': 'GoogleId'}});
                 waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {
@@ -777,7 +777,7 @@ describe('kit blocking', () => {
                 window.mParticle.Identity.login({userIdentities: {customerid: 'customerid1', email: 'email@gmail.com', 'google': 'GoogleId'}});
                 waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {
@@ -806,7 +806,7 @@ describe('kit blocking', () => {
                 window.mParticle.Identity.logout(userIdentityRequest);
                 waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {
@@ -850,7 +850,7 @@ describe('kit blocking', () => {
                 window.mParticle.Identity.logout(userIdentityRequest);
                 waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {
@@ -890,7 +890,7 @@ describe('kit blocking', () => {
                 window.mParticle.Identity.modify(userIdentityRequest);
                 waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {
@@ -934,7 +934,7 @@ describe('kit blocking', () => {
                 window.mParticle.Identity.modify(userIdentityRequest);
                 waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {
@@ -1013,7 +1013,7 @@ describe('kit blocking', () => {
                 window.mParticle.Identity.identify(userIdentityRequest);
                 waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {
@@ -1055,7 +1055,7 @@ describe('kit blocking', () => {
 
                 waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {
@@ -1102,7 +1102,7 @@ describe('kit blocking', () => {
                 window.mParticle.Identity.login(userIdentityRequest);
                 waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {

@@ -208,7 +208,7 @@ describe('core SDK', function() {
 
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -233,7 +233,7 @@ describe('core SDK', function() {
         mParticle.init(apiKey, newConfig);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -256,7 +256,7 @@ describe('core SDK', function() {
         mParticle.init(apiKey, mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -434,7 +434,7 @@ describe('core SDK', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -463,7 +463,7 @@ describe('core SDK', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -500,7 +500,7 @@ describe('core SDK', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -611,7 +611,7 @@ describe('core SDK', function() {
         mParticle.init(apiKey, mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -657,7 +657,7 @@ describe('core SDK', function() {
         mParticle.init('new-api-key', window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -794,7 +794,7 @@ describe('core SDK', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -861,7 +861,7 @@ describe('core SDK', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -940,7 +940,7 @@ describe('core SDK', function() {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {

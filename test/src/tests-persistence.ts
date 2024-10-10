@@ -51,7 +51,7 @@ describe('persistence', () => {
             mParticle.init(apiKey, window.mParticle.config);
             waitForCondition(() => {
                 return (
-                    window.mParticle.getInstance()._Store.identityCallInFlight === false
+                    window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                 );
             })
             .then(() => {
@@ -72,7 +72,7 @@ describe('persistence', () => {
             mParticle.init(apiKey, window.mParticle.config);
             waitForCondition(() => {
                 return (
-                    window.mParticle.getInstance()._Store.identityCallInFlight === false
+                    window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                 );
             })
             .then(() => {
@@ -733,7 +733,7 @@ describe('persistence', () => {
         });
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1099,6 +1099,8 @@ describe('persistence', () => {
     it('should remove a random MPID from storage if there is a new session and there are no other MPIDs in currentSessionMPIDs except for the currentUser mpid', done => {
         mParticle.config.maxCookieSize = 400;
 
+        mParticle.init(apiKey, window.mParticle.config);
+
         const cookies: IPersistenceMinified = {
             gs: {
                 csm: ['mpid3'],
@@ -1394,7 +1396,7 @@ describe('persistence', () => {
         mParticle.init(apiKey, mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1519,7 +1521,7 @@ describe('persistence', () => {
         mParticle.init(apiKey, mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1675,7 +1677,7 @@ describe('persistence', () => {
         mParticle.init(apiKey, mParticle.config);
         waitForCondition(() => {
                     return (
-                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                        window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 })
                 .then(() => {
@@ -1846,7 +1848,7 @@ describe('persistence', () => {
         mParticle.init(apiKey, mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1907,7 +1909,7 @@ describe('persistence', () => {
         mParticle.init(apiKey, mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -1993,7 +1995,7 @@ describe('persistence', () => {
         mParticle.init(apiKey, mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2004,7 +2006,7 @@ describe('persistence', () => {
         mParticle.Identity.identify();
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2034,7 +2036,7 @@ describe('persistence', () => {
         mParticle.init(apiKey, mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2122,7 +2124,7 @@ describe('persistence', () => {
         mParticle.init(apiKey, mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {
@@ -2144,7 +2146,7 @@ describe('persistence', () => {
         mParticle.init(apiKey, mParticle.config);
         waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         })
         .then(() => {

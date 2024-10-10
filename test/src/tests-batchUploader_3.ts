@@ -288,7 +288,7 @@ describe('batch uploader', () => {
             window.mParticle.init(apiKey, window.mParticle.config);
             waitForCondition(() => {
             return (
-                window.mParticle.getInstance()._Store.identityCallInFlight === false
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
             })
             .then(async () => {
