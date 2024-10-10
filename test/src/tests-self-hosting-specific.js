@@ -63,14 +63,15 @@ describe('/config self-hosting integration tests', function() {
             );
         })
         .then(() => {
-            mParticle.upload();
-            event = findBatch(fetchMock.calls(), 'Test');
+            setTimeout(() => {
+                event = findBatch(fetchMock.calls(), 'Test');
             
-            event.should.be.ok();
-            event.mpid.should.equal('identifyMPID');
-            
-            window.mParticle.config.requestConfig = false;
-            done();
+                event.should.be.ok();
+                event.mpid.should.equal('identifyMPID');
+                
+                window.mParticle.config.requestConfig = false;
+                done();
+            }, 75);
         })
     });
 

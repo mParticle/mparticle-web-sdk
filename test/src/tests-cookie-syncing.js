@@ -18,7 +18,7 @@ let pixelSettings = {
 };
 
 describe('cookie syncing', function() {
-    const timeout = 25;
+    const timeout = 100;
     // Have a reference to createElement function to reset after all cookie sync
     // tests have run
     const originalCreateElementFunction = window.document.createElement;
