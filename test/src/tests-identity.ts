@@ -2597,8 +2597,10 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    describe('#onUserAlias', function() {
+    describe.skip('#onUserAlias', function() {
+    // https://go.mparticle.com/work/SQDSDKS-6854
     it('does not run onUserAlias if it is not a function', function(done) {
+        debugger;
         mParticle.init(apiKey, window.mParticle.config);
 
         waitForCondition(hasIdentifyReturned)
