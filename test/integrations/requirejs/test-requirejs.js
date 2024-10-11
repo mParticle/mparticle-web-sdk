@@ -1,5 +1,6 @@
 import fetchMock from 'fetch-mock/esm/client';
 
+// https://go.mparticle.com/work/SQDSDKS-6849
 const waitForCondition = function async(
         conditionFn,
         timeout = 200,

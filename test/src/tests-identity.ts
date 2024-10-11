@@ -426,6 +426,7 @@ describe('identity', function() {
 
     });
 
+    // https://go.mparticle.com/work/SQDSDKS-6849
     // This test passes with no issue when it is run on its own, but fails when tests-forwarders.js are also ran.
     it('should respect consent rules on consent-change', function(done) {
         mParticle._resetForTests(MPConfig);
