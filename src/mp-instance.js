@@ -1539,9 +1539,9 @@ function processReadyQueue(readyQueue) {
                 processPreloadedItem(readyQueueItem);
             }
         });
-
-        return [];
     }
+    // https://go.mparticle.com/work/SQDSDKS-6835
+    return [];
 }
 
 function queueIfNotInitialized(func, self) {
