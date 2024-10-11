@@ -9,7 +9,6 @@ import { urls, apiKey,
 } from './config/constants';
 import Utils from './config/utils';
 
-let mockServer;
 const { waitForCondition, fetchMockSuccess, deleteAllCookies } = Utils;
 
 declare global {
@@ -104,8 +103,10 @@ describe('feature-flags', function() {
     describe('capture integration specific ids', () => {
         beforeEach(() => {
             fetchMock.post(urls.events, 200);
-            // mockServer = sinon.createFakeServer();
-            // mockServer.respondImmediately = true;
+
+            fetchMockSuccess(urls.identify, {
+                mpid: testMPID, is_logged_in: false
+            });
 
             window.document.cookie = '_cookie1=1234';
             window.document.cookie = '_cookie2=39895811.9165333198';
@@ -115,13 +116,13 @@ describe('feature-flags', function() {
         });
 
         afterEach(() => {
-            // fetchMock.restore();
+            fetchMock.restore();
             deleteAllCookies();
             sinon.restore(); // Restore all stubs and spies
             deleteAllCookies();
         });
 
-        it('should capture click ids when feature flag is true', () => {
+        it('should capture click ids when feature flag is true', async () => {
             window.mParticle.config.flags = {
                 captureIntegrationSpecificIds: 'True'
             };
@@ -137,6 +138,8 @@ describe('feature-flags', function() {
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
 
+            await waitForCondition(hasIdentifyReturned)
+
             const initialTimestamp = window.mParticle.getInstance()._IntegrationCapture.initialTimestamp;
 
             expect(initialTimestamp).to.be.a('number');
@@ -148,7 +151,7 @@ describe('feature-flags', function() {
             expect(clickIdSpy.called, 'getClickIdsAsCustomFlags').to.equal(true);
         });
 
-        it('should NOT capture click ids when feature flag is false', () => {
+        it('should NOT capture click ids when feature flag is false', async () => {
             window.mParticle.config.flags = {
                 captureIntegrationSpecificIds: 'False'
             };
@@ -159,11 +162,11 @@ describe('feature-flags', function() {
 
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned)
 
             expect(window.mParticle.getInstance()._IntegrationCapture.clickIds).not.be.ok;
             expect(captureSpy.called, 'capture()').to.equal(false);
             expect(clickIdSpy.called, 'getClickIdsAsCustomFlags').to.equal(false);
         });
     });
-});
 });
