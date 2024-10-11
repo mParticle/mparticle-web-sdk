@@ -4,27 +4,22 @@ import Utils from './config/utils';
 import fetchMock from 'fetch-mock/esm/client';
 import { urls, apiKey, testMPID, MPConfig } from "./config/constants";
 
-const findEventFromRequest = Utils.findEventFromRequest;
+const { waitForCondition, fetchMockSuccess, deleteAllCookies, findEventFromRequest, hasIdentifyReturned } = Utils;
+
 const mParticle = window.mParticle;
-let mockServer;
 
 describe('Integration Capture', () => {
     beforeEach(() => {
         mParticle._resetForTests(MPConfig);
         fetchMock.post(urls.events, 200);
         delete mParticle._instances['default_instance'];
-        mockServer = sinon.createFakeServer();
-        mockServer.respondImmediately = true;
+        fetchMockSuccess(urls.identify, {
+            mpid: testMPID, is_logged_in: false
+        });
 
         window.mParticle.config.flags = {
             captureIntegrationSpecificIds: 'True'
         };
-
-        mockServer.respondWith(urls.identify, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-        ]);
 
         window.document.cookie = '_cookie1=234';
         window.document.cookie = '_cookie2=39895811.9165333198';
@@ -43,13 +38,14 @@ describe('Integration Capture', () => {
 
     afterEach(function() {
         sinon.restore();
-        mockServer.restore();
         fetchMock.restore();
         mParticle._resetForTests(MPConfig);
+        deleteAllCookies();
     });
 
 
-    it('should add captured integrations to event custom flags', (done) => {
+    it('should add captured integrations to event custom flags', async () => {
+        await waitForCondition(hasIdentifyReturned);
         window.mParticle.logEvent(
             'Test Event',
             mParticle.EventType.Navigation,
@@ -67,7 +63,5 @@ describe('Integration Capture', () => {
             'Facebook.ClickId': `fb.1.${initialTimestamp}.1234`,
             'Facebook.BrowserId': '54321',
         });
-
-        done();
     });
 });
