@@ -1,3 +1,10 @@
+## [2.29.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.29.0...v2.29.1) (2024-10-11)
+
+
+### Bug Fixes
+
+* Handle cases where window.screen is unavailable ([#929](https://github.com/mParticle/mparticle-web-sdk/issues/929)) ([6d042df](https://github.com/mParticle/mparticle-web-sdk/commit/6d042df636edfad2d84c1c2440734479d969c058))
+
 # [2.29.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.28.3...v2.29.0) (2024-10-08)
 
 
