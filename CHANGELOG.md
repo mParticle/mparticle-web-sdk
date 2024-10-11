@@ -1,3 +1,15 @@
+# [2.30.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.29.0...v2.30.0) (2024-10-11)
+
+
+### Bug Fixes
+
+* Handle cases where window.screen is unavailable ([#929](https://github.com/mParticle/mparticle-web-sdk/issues/929)) ([6d042df](https://github.com/mParticle/mparticle-web-sdk/commit/6d042df636edfad2d84c1c2440734479d969c058))
+
+
+### Features
+
+* Replace XHR in IdentityApiClient with AsyncUploader ([#909](https://github.com/mParticle/mparticle-web-sdk/issues/909)) ([9526e3a](https://github.com/mParticle/mparticle-web-sdk/commit/9526e3a0a8e02975655a5bf49674904a882be0b2))
+
 # [2.29.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.28.3...v2.29.0) (2024-10-08)
 
 
