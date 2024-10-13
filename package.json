@@ -103,7 +103,7 @@
         "@types/mparticle__web-sdk": "^2.16.1",
         "@types/node": "^20.1.0",
         "babel-preset-minify": "^0.5.1",
-        "browser-sync": "^2.26.3",
+        "browser-sync": "^3.0.3",
         "browserify": "^17.0.0",
         "chai": "^4.2.0",
         "core-js": "^3.33.0",
