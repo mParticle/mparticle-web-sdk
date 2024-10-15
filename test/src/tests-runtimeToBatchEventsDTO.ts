@@ -5,7 +5,6 @@ import { SDKEvent, MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import * as EventsApi from '@mparticle/event-models';
 import { MPConfig, apiKey } from './config/constants';
 import { IMParticleUser } from '../../src/identity-user-interfaces';
-import sinon from 'sinon';
 
 declare global {
     interface Window {
@@ -468,7 +467,7 @@ describe('Old model to batch model conversion', () => {
         done();
     });
 
-    it ('Check if window is defined but screen is undefined', done => {
+    it ('Set width and height to 0 when window is defined but screen is not defined', done => {
         const originalScreen = window.screen;
         delete window.screen;
 
