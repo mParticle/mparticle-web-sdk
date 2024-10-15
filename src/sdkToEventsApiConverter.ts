@@ -77,8 +77,14 @@ export function convertEvents(
 
         device_info: {
             platform: EventsApi.DeviceInformationPlatformEnum.web,
-            screen_width: typeof window !== 'undefined' ? window.screen.width : 0,
-            screen_height: typeof window !== 'undefined' ? window.screen.height : 0,
+            screen_width:
+                typeof window !== 'undefined' && window.screen
+                    ? window.screen.width
+                    : 0,
+            screen_height:
+                typeof window !== 'undefined' && window.screen
+                    ? window.screen.height
+                    : 0,
         },
         user_attributes: lastEvent.UserAttributes,
         user_identities: convertUserIdentities(lastEvent.UserIdentities),

@@ -5,6 +5,7 @@ import { SDKEvent, MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import * as EventsApi from '@mparticle/event-models';
 import { MPConfig, apiKey } from './config/constants';
 import { IMParticleUser } from '../../src/identity-user-interfaces';
+import sinon from 'sinon';
 
 declare global {
     interface Window {
@@ -464,6 +465,58 @@ describe('Old model to batch model conversion', () => {
         expect(event.event_type).to.equal('custom_event');
         expect(event.data.custom_event_type).to.equal('media')
 
+        done();
+    });
+
+    it ('Check if window is defined but screen is undefined', done => {
+        const originalScreen = window.screen;
+        delete window.screen;
+
+        const sdkEvent: SDKEvent = {
+            EventName: "Pause Event",
+            EventCategory: 8,
+            ExpandedEventCount: 0,
+            EventDataType: 4,
+            EventAttributes: {
+                content_duration: '120000',
+                content_id: "1234567",
+                content_title: "My sweet sweet media",
+                content_type: "Video",
+                media_session_id: "07be2e14-7e05-4053-bcb5-94950365822d",
+                playhead_position: '7023.335999999999',
+                stream_type: "OnDemand",
+            },
+            ConsentState: null,
+            CurrencyCode: null,
+            CustomFlags: {},
+            DataPlan: {},
+            Debug: true,
+            DeviceId: "0edd580e-d887-44e4-89ae-cd65aa0ee933",
+            Location: null,
+            MPID: "-8433569646818451201",
+            OptOut: null,
+            SDKVersion: "2.11.15",
+            SourceMessageId: 'testSMID',
+            SessionId: "64102C03-592F-440D-8BCC-1D27AAA6B188",
+            SessionStartDate: 1603211322698,
+            Timestamp: 1603212299414,
+            UserAttributes: {},
+            UserIdentities: [],
+            IsFirstRun: true,
+        }
+
+        const batch = Converter.convertEvents(
+            '-8433569646818451201',
+            [sdkEvent],
+            window.mParticle.getInstance()
+        );
+
+        expect(batch).to.be.ok;
+        expect(batch.device_info.screen_height).to.equal(0);
+        expect(batch.device_info.screen_width).to.equal(0);
+
+        // set screen back on
+        window.screen = originalScreen;
         done();
     });
 });
