@@ -393,7 +393,7 @@ var mParticle = (function () {
         return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     };
 
-    var version = "2.30.0";
+    var version = "2.30.1";
 
     var Constants = {
       sdkVersion: version,
@@ -1542,8 +1542,8 @@ var mParticle = (function () {
         },
         device_info: {
           platform: dist.DeviceInformationPlatformEnum.web,
-          screen_width: typeof window !== 'undefined' ? window.screen.width : 0,
-          screen_height: typeof window !== 'undefined' ? window.screen.height : 0
+          screen_width: typeof window !== 'undefined' && typeof window.screen !== 'undefined' ? window.screen.width : 0,
+          screen_height: typeof window !== 'undefined' && typeof window.screen !== 'undefined' ? window.screen.height : 0
         },
         user_attributes: lastEvent.UserAttributes,
         user_identities: convertUserIdentities(lastEvent.UserIdentities),
