@@ -1,3 +1,11 @@
+# [2.30.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.30.0...v2.30.1) (2024-10-15)
+
+
+### Bug Fixes
+
+* Check for window.screen when setting device_info ([#930](https://github.com/mParticle/mparticle-web-sdk/issues/930)) ([7ce742f](https://github.com/mParticle/mparticle-web-sdk/commit/7ce742fe7675ed6aab3db6cfd270d5e86cb02420))
+
+
 # [2.30.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.29.0...v2.30.0) (2024-10-11)
 
 
