@@ -467,7 +467,7 @@ describe('Old model to batch model conversion', () => {
         done();
     });
 
-    it ('Set width and height to 0 when window is defined but screen is not defined', done => {
+    it('Set width and height to 0 when window is defined but screen is not defined', done => {
         const originalScreen = window.screen;
         delete window.screen;
 
