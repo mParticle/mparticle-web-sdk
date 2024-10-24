@@ -39,6 +39,7 @@ const {
     setCookie,
     MockForwarder,
     waitForCondition,
+    hasIdentityCallInflightReturned,
 } = Utils;
 
 const { HTTPCodes } = Constants;
@@ -93,7 +94,6 @@ describe('identity', function() {
     let hasIdentifyReturned;
     let hasLoginReturned;
     let hasLogOutReturned;
-    let hasIdentityCallInflightReturned;
     let beforeEachCallbackCalled = false;
     let hasBeforeEachCallbackReturned
 
@@ -137,9 +137,6 @@ describe('identity', function() {
                 'logged-out-user'
             );
         };
-
-        hasIdentityCallInflightReturned = () => 
-            !mParticle.getInstance()?._Store?.identityCallInFlight;
 
         hasBeforeEachCallbackReturned = () => beforeEachCallbackCalled;
         
