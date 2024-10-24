@@ -8,7 +8,7 @@ const { waitForCondition, fetchMockSuccess, deleteAllCookies, findEventFromReque
 
 const mParticle = window.mParticle;
 
-describe.only('Integration Capture', () => {
+describe('Integration Capture', () => {
     beforeEach(() => {
         mParticle._resetForTests(MPConfig);
         fetchMock.post(urls.events, 200);
@@ -71,12 +71,11 @@ describe.only('Integration Capture', () => {
             'Test Event',
             mParticle.EventType.Navigation,
             { mykey: 'myvalue' },
-            {'Facebook.ClickId': 'passed-in',}
+            { 'Facebook.ClickId': 'passed-in' },
         );
 
         const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
 
-        const initialTimestamp = window.mParticle.getInstance()._IntegrationCapture.initialTimestamp;
 
         expect(testEvent).to.have.property('data');
         expect(testEvent.data).to.have.property('event_name', 'Test Event');
@@ -113,7 +112,7 @@ describe.only('Integration Capture', () => {
         window.mParticle.logPageView(
             'Test Page View',
             {'foo-attr': 'bar-attr'},
-            {'Facebook.ClickId': 'passed-in',}
+            {'Facebook.ClickId': 'passed-in'},
         );
 
         const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Page View');
