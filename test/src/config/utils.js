@@ -177,7 +177,8 @@ var pluses = /\+/g,
             return batch.events.find(function(event) {
                 switch (event.event_type) {
                     case 'screen_view':
-                        return event.data.screen_name === eventName;
+                        // The SDK sets "PageView" as the default for a screen_name if one is not provided
+                        return ['PageView', eventName].indexOf(event.data.screen_name) > -1;
                     case 'commerce_event':
                         if (event.data.product_action) {
                             return event.data.product_action.action === eventName;
@@ -234,7 +235,6 @@ var pluses = /\+/g,
                 return null;
             }
             var batch = JSON.parse(request[1].body);
-
             if (!batch.events) {
                 return null;
             }

@@ -540,8 +540,8 @@ export default function Ecommerce(mpInstance) {
             baseEvent.CurrencyCode = mpInstance._Store.currencyCode;
             baseEvent.ShoppingCart = [];
             baseEvent.CustomFlags = {
-                ...baseEvent.CustomFlags,
-                ...customFlags,
+                ...(baseEvent.CustomFlags || {}),
+                ...(customFlags || {}),
             };
 
             return baseEvent;

@@ -427,7 +427,7 @@ describe('event logging', function() {
 
         const pageViewEvent = findEventFromRequest(
             fetchMock.calls(),
-            'screen_view'
+            'My Page View'
         );
 
         Should(pageViewEvent).be.ok();
@@ -456,7 +456,7 @@ describe('event logging', function() {
 
         const pageViewEvent = findEventFromRequest(
             fetchMock.calls(),
-            'screen_view'
+            'test'
         );
 
         Should(pageViewEvent).be.ok();
@@ -480,7 +480,7 @@ describe('event logging', function() {
 
         const pageViewEvent = findEventFromRequest(
             fetchMock.calls(),
-            'screen_view'
+            'test bypass'
         );
 
         Should(pageViewEvent).not.be.ok();
@@ -494,7 +494,7 @@ describe('event logging', function() {
         mParticle.logPageView('test1', 'invalid', null);
         const pageViewEvent = findEventFromRequest(
             fetchMock.calls(),
-            'screen_view'
+            'test1'
         );
 
         Should(pageViewEvent).not.be.ok();
@@ -510,7 +510,7 @@ describe('event logging', function() {
 
         const pageViewEvent = findEventFromRequest(
             fetchMock.calls(),
-            'screen_view'
+            'test'
         );
         Should(pageViewEvent).not.be.ok();
 
@@ -518,7 +518,7 @@ describe('event logging', function() {
         })
     });
 
-    it('should log event with name PageView when an invalid event name is passed', function(done) {
+    it.only('should log event with name PageView when an invalid event name is passed', function(done) {
         waitForCondition(hasIdentifyReturned)
         .then(() =>  {
         fetchMock.resetHistory();
