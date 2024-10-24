@@ -29,7 +29,8 @@ const {
     findBatch,
     fetchMockSuccess,
     hasIdentifyReturned,
-    waitForCondition
+    waitForCondition,
+    hasIdentityCallInflightReturned,
 } = Utils;
 
 describe('persistence', () => {
@@ -2048,18 +2049,17 @@ describe('persistence', () => {
     });
     });
 
-    it('should save to persistence a device id set with setDeviceId', done => {
+    it('should save to persistence a device id set with setDeviceId', async () => {
         mParticle._resetForTests(MPConfig);
 
         mParticle.init(apiKey, mParticle.config);
+        await waitForCondition(hasIdentityCallInflightReturned);
         mParticle.setDeviceId('foo-guid');
 
         mParticle
             .getInstance()
             ._Persistence.getLocalStorage()
             .gs.das.should.equal('foo-guid');
-
-        done();
     });
 
     it('should save to persistence a device id set via mParticle.config', done => {

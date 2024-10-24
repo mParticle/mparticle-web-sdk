@@ -19,7 +19,9 @@ const { findEventFromRequest,
     setLocalStorage,
     forwarderDefaultConfiguration,
     MockForwarder,
-    MockSideloadedKit,hasIdentifyReturned
+    MockSideloadedKit,
+    hasIdentifyReturned,
+    hasIdentityCallInflightReturned,
  } = Utils;
 
  let mockServer;
@@ -1116,7 +1118,7 @@ describe('forwarders', function() {
         done();
     });
 
-    it('should invoke forwarder opt out', function(done) {
+    it('should invoke forwarder opt out', async function() {
         mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
 
@@ -1125,14 +1127,13 @@ describe('forwarders', function() {
         window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);
+        await waitForCondition(hasIdentityCallInflightReturned);
         mParticle.setOptOut(true);
 
         window.MockForwarder1.instance.should.have.property(
             'setOptOutCalled',
             true
         );
-
-        done();
     });
 
     it('should invoke forwarder setuserattribute', function(done) {
@@ -2710,21 +2711,21 @@ describe('forwarders', function() {
         done();
     });
 
-    it('should set integration attributes on forwarders', function(done) {
+    it('should set integration attributes on forwarders', async function() {
         mParticle.init(apiKey, window.mParticle.config)
 
+        await waitForCondition(hasIdentityCallInflightReturned);
         mParticle.setIntegrationAttribute(128, { MCID: 'abcdefg' });
         const adobeIntegrationAttributes = mParticle.getIntegrationAttributes(
             128
         );
 
         adobeIntegrationAttributes.MCID.should.equal('abcdefg');
-
-        done();
     });
 
-    it('should clear integration attributes when an empty object or a null is passed', function(done) {
+    it('should clear integration attributes when an empty object or a null is passed', async function() {
         mParticle.init(apiKey, window.mParticle.config)
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         mParticle.setIntegrationAttribute(128, { MCID: 'abcdefg' });
         let adobeIntegrationAttributes = mParticle.getIntegrationAttributes(
@@ -2743,12 +2744,11 @@ describe('forwarders', function() {
         mParticle.setIntegrationAttribute(128, null);
         adobeIntegrationAttributes = mParticle.getIntegrationAttributes(128);
         Object.keys(adobeIntegrationAttributes).length.should.equal(0);
-
-        done();
     });
 
-    it('should set only strings as integration attributes', function(done) {
+    it('should set only strings as integration attributes', async function() {
         mParticle.init(apiKey, window.mParticle.config)
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         mParticle.setIntegrationAttribute(128, {
             MCID: 'abcdefg',
@@ -2760,9 +2760,8 @@ describe('forwarders', function() {
         const adobeIntegrationAttributes = mParticle.getIntegrationAttributes(
             128
         );
-        Object.keys(adobeIntegrationAttributes).length.should.equal(1);
 
-        done();
+        Object.keys(adobeIntegrationAttributes).length.should.equal(1);
     });
 
     it('should add integration delays to the integrationDelays object', function(done) {
@@ -3074,7 +3073,7 @@ describe('forwarders', function() {
 
     
     // This will pass when we add mpInstance._Store.isInitialized = true; to mp-instance before `processIdentityCallback`
-    it('configures forwarders before events are logged via identify callback', function(done) {
+    it('configures forwarders before events are logged via identify callback', async function() {
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.identifyRequest = {
             userIdentities: {
@@ -3093,12 +3092,7 @@ describe('forwarders', function() {
         );
         window.mParticle.config.rq = [];
         mParticle.init(apiKey, window.mParticle.config);
-        waitForCondition(() => {
-            return (
-                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
-            );
-        })
-        .then(() => {
+        await waitForCondition(hasIdentityCallInflightReturned);
         window.MockForwarder1.instance.should.have.property(
             'processCalled',
             true
@@ -3109,22 +3103,13 @@ describe('forwarders', function() {
         window.mParticle.config.rq = [];
 
         mParticle.init(apiKey, window.mParticle.config);
-
-        waitForCondition(() => {
-            return (
-                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
-            );
-        })
-        .then(() => {
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         window.MockForwarder1.instance.should.have.property(
             'processCalled',
             true
         );
 
-        done();
-        });
-        });
     });
 
     it('should retain preInit.forwarderConstructors, and reinitialize forwarders after calling reset, then init', function(done) {

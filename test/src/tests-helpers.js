@@ -1,9 +1,29 @@
-import { apiKey } from './config/constants';
+import {
+    urls,
+    apiKey,
+    testMPID,
+    mParticle,
+} from './config/constants';
 import sinon from 'sinon';
+import Utils from './config/utils';
+
+const { waitForCondition, fetchMockSuccess, hasIdentityCallInflightReturned} = Utils;
 
 describe('helpers', function() {
     beforeEach(function() {
+        fetchMockSuccess(urls.events);
+        fetchMockSuccess(urls.identify, {
+            context: null,
+            matched_identities: {
+                device_application_stamp: 'my-das',
+            },
+            is_ephemeral: true,
+            mpid: testMPID,
+            is_logged_in: false,
+        });
+
         mParticle.init(apiKey, window.mParticle.config);
+
     });
 
     it('should correctly validate an attribute value', function(done) {
@@ -36,7 +56,8 @@ describe('helpers', function() {
         done();
     });
 
-    it('should return event name in warning when sanitizing invalid attributes', function(done) {
+    it('should return event name in warning when sanitizing invalid attributes', async function() {
+        await waitForCondition(hasIdentityCallInflightReturned);
         const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
         mParticle.logEvent('eventName', mParticle.EventType.Location, {invalidValue: {}});
 
@@ -46,8 +67,6 @@ describe('helpers', function() {
         bond.getCalls()[0].args[0].should.eql(
             "For 'eventName', the corresponding attribute value of 'invalidValue' must be a string, number, boolean, or null."
         );
-
-        done();
     });
 
     it('should return product name in warning when sanitizing invalid attributes', function(done) {
@@ -74,7 +93,9 @@ describe('helpers', function() {
         done();
     });
 
-    it('should return commerce event name in warning when sanitizing invalid attributes', function(done) {
+    it('should return commerce event name in warning when sanitizing invalid attributes', async function() {
+        await waitForCondition(hasIdentityCallInflightReturned);
+
         const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
         const product1 = mParticle.eCommerce.createProduct('prod1', 'prod1sku', 999);
@@ -89,8 +110,6 @@ describe('helpers', function() {
         bond.getCalls()[0].args[0].should.eql(
             "For 'eCommerce - AddToCart', the corresponding attribute value of 'invalidValue' must be a string, number, boolean, or null."
         );
-
-        done();
     });
 
     it('should correctly validate an identity request with copyUserAttribute as a key using any identify method', function(done) {

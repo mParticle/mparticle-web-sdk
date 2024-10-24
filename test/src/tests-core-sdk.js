@@ -1,3 +1,4 @@
+import { expect } from 'chai';
 import Utils from './config/utils';
 import Store from '../../src/store';
 import Constants, { HTTP_ACCEPTED, HTTP_OK } from '../../src/constants';
@@ -11,7 +12,7 @@ const DefaultConfig = Constants.DefaultConfig,
     findEventFromRequest = Utils.findEventFromRequest,
     findBatch = Utils.findBatch;
 
-const { waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
+const { waitForCondition, fetchMockSuccess, hasIdentifyReturned, hasIdentityCallInflightReturned } = Utils;
 
 describe('core SDK', function() {
     beforeEach(function() {
@@ -121,7 +122,7 @@ describe('core SDK', function() {
         });
     });
 
-    it('should process ready queue when initialized', function(done) {
+    it('should process ready queue when initialized', async function() {
         let readyFuncCalled = false;
 
         mParticle._resetForTests(MPConfig);
@@ -130,10 +131,9 @@ describe('core SDK', function() {
             readyFuncCalled = true;
         });
         mParticle.init(apiKey, window.mParticle.config);
+        await waitForCondition(hasIdentityCallInflightReturned);
 
-        Should(readyFuncCalled).equal(true);
-
-        done();
+        expect(readyFuncCalled).equal(true);
     });
 
     it('should set app version on the payload', function(done) {
@@ -150,14 +150,12 @@ describe('core SDK', function() {
         })
     });
 
-    it('should get app version', function(done) {
+    it('should get app version', async function() {
+        await waitForCondition(hasIdentityCallInflightReturned);
         mParticle.setAppVersion('2.0');
 
         const appVersion = mParticle.getAppVersion();
-
-        appVersion.should.equal('2.0');
-
-        done();
+        expect(appVersion).to.equal('2.0');
     });
 
     it('should get environment setting when set to `production`', function(done) {
@@ -1191,15 +1189,14 @@ describe('core SDK', function() {
     });
     });
 
-    it('should initialize without a config object passed to init', function(done) {
+    it('should initialize without a config object passed to init', async function() {
         // this instance occurs when self hosting and the user only passes an object into init
         mParticle._resetForTests(MPConfig);
 
         mParticle.init(apiKey);
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         mParticle.getInstance()._Store.isInitialized.should.equal(true);
-
-        done();
     });
 
     it('should generate hash both on the mparticle instance and the mparticle instance manager', function(done) {
@@ -1262,18 +1259,17 @@ describe('core SDK', function() {
         done();
     });
 
-    it('should set a device id when calling setDeviceId', function(done) {
+    it('should set a device id when calling setDeviceId', async function() {
         mParticle._resetForTests(MPConfig);
         
         mParticle.init(apiKey, window.mParticle.config);
+        await waitForCondition(hasIdentityCallInflightReturned);
         // this das should be the SDK auto generated one, which is 36 characters long
         mParticle.getDeviceId().length.should.equal(36);
 
         mParticle.setDeviceId('foo-guid');
         
         mParticle.getDeviceId().should.equal('foo-guid');
-
-        done();
     });
 
     it('should set a device id when set on mParticle.config', function(done) {
@@ -1310,34 +1306,32 @@ describe('core SDK', function() {
         done();
     });
 
-    it('should set the wrapper sdk info in Store when mParticle._setWrapperSDKInfo() method is called after init is called', function(done) {
+    it('should set the wrapper sdk info in Store when mParticle._setWrapperSDKInfo() method is called after init is called', async function() {
         mParticle._resetForTests(MPConfig);
 
         mParticle._setWrapperSDKInfo('flutter', '1.0.3');
 
         mParticle.init(apiKey, window.mParticle.config);
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         mParticle.getInstance()._Store.wrapperSDKInfo.name.should.equal('flutter');
         mParticle.getInstance()._Store.wrapperSDKInfo.version.should.equal('1.0.3');
         mParticle.getInstance()._Store.wrapperSDKInfo.isInfoSet.should.equal(true);
-        
-        done();
     });
 
-    it('should not set the wrapper sdk info in Store after it has previously been set', function(done) {
+    it('should not set the wrapper sdk info in Store after it has previously been set', async function() {
         mParticle._resetForTests(MPConfig);
 
         mParticle._setWrapperSDKInfo('flutter', '1.0.3');
 
         mParticle.init(apiKey, window.mParticle.config);
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         mParticle._setWrapperSDKInfo('none', '2.0.5');
 
         mParticle.getInstance()._Store.wrapperSDKInfo.name.should.equal('flutter');
         mParticle.getInstance()._Store.wrapperSDKInfo.version.should.equal('1.0.3');
         mParticle.getInstance()._Store.wrapperSDKInfo.isInfoSet.should.equal(true);
-
-        done();
     });
 
     describe('pod feature flag', function() {

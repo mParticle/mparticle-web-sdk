@@ -401,7 +401,7 @@ describe('mParticle instance manager', function() {
                     'apiKey3',
                     'purchase'
                 );
-                instance1Event.should.be.ok();
+                Should(instance1Event).be.ok();
                 Should(instance2Event).not.be.ok();
                 Should(instance3Event).not.be.ok();
 
