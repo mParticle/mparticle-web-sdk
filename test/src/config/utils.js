@@ -176,6 +176,8 @@ var pluses = /\+/g,
         if (batch.events.length) {
             return batch.events.find(function(event) {
                 switch (event.event_type) {
+                    case 'screen_view':
+                        return event.data.screen_name === eventName;
                     case 'commerce_event':
                         if (event.data.product_action) {
                             return event.data.product_action.action === eventName;
