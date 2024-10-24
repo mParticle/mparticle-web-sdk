@@ -524,7 +524,6 @@ export default function Ecommerce(mpInstance) {
     };
 
     this.createCommerceEventObject = function(customFlags, options) {
-        const { extend } = mpInstance._Helpers;
         var baseEvent;
 
         mpInstance.Logger.verbose(
@@ -540,7 +539,10 @@ export default function Ecommerce(mpInstance) {
 
             baseEvent.CurrencyCode = mpInstance._Store.currencyCode;
             baseEvent.ShoppingCart = [];
-            baseEvent.CustomFlags = extend(baseEvent.CustomFlags, customFlags);
+            baseEvent.CustomFlags = {
+                ...baseEvent.CustomFlags,
+                ...customFlags,
+            };
 
             return baseEvent;
         } else {
