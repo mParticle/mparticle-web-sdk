@@ -8,7 +8,7 @@ Hello! This is the public repo of the mParticle Web SDK. We've built the mPartic
 
 ## Documentation
 
-Fully detailed documentation and other information about mParticle web SDK can be found at our doc site [here](https://docs.mparticle.com/developers/sdk/web/getting-started)
+Fully detailed documentation and other information about mParticle web SDK can be found at our doc site [here](https://docs.mparticle.com/developers/sdk/web/initialization/)
 
 ## Include and Initialize the SDK
 
