@@ -518,7 +518,7 @@ describe('event logging', function() {
         })
     });
 
-    it.only('should log event with name PageView when an invalid event name is passed', function(done) {
+    it('should log event with name PageView when an invalid event name is passed', function(done) {
         waitForCondition(hasIdentifyReturned)
         .then(() =>  {
         fetchMock.resetHistory();
