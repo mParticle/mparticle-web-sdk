@@ -525,6 +525,8 @@ export default function Ecommerce(mpInstance) {
 
     this.createCommerceEventObject = function(customFlags, options) {
         var baseEvent;
+        // https://go.mparticle.com/work/SQDSDKS-4801
+        var { extend } = mpInstance._Helpers;
 
         mpInstance.Logger.verbose(
             Messages.InformationMessages.StartingLogCommerceEvent
@@ -539,10 +541,7 @@ export default function Ecommerce(mpInstance) {
 
             baseEvent.CurrencyCode = mpInstance._Store.currencyCode;
             baseEvent.ShoppingCart = [];
-            baseEvent.CustomFlags = {
-                ...(baseEvent.CustomFlags || {}),
-                ...(customFlags || {}),
-            };
+            baseEvent.CustomFlags = extend(baseEvent.CustomFlags, customFlags);
 
             return baseEvent;
         } else {
