@@ -1,8 +1,6 @@
 import { isEmpty, isFunction } from './utils';
 
 export const processReadyQueue = (readyQueue): Function[] => {
-    // debugger;
-    console.log('processReadyQueue', readyQueue);
     if (!isEmpty(readyQueue)) {
         readyQueue.forEach(readyQueueItem => {
             if (isFunction(readyQueueItem)) {
@@ -18,14 +16,11 @@ export const processReadyQueue = (readyQueue): Function[] => {
 };
 
 const processPreloadedItem = (readyQueueItem): void => {
-    // debugger;
     const args = readyQueueItem;
     const method = args.splice(0, 1)[0];
 
-    // TODO: We should check to make sure window.mParticle is not undefined
-    //       or possibly add it as an argument in the constructor
     // if the first argument is a method on the base mParticle object, run it
-    if (window.mParticle[args[0]]) {
+    if (typeof window !== 'undefined' && window.mParticle && window.mParticle[args[0]]) {
         window.mParticle[method].apply(this, args);
         // otherwise, the method is on either eCommerce or Identity objects, ie. "eCommerce.setCurrencyCode", "Identity.login"
     } else {
