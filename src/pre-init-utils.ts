@@ -31,9 +31,8 @@ const processPreloadedItem = (readyQueueItem): void => {
     } else {
         const methodArray = method.split('.');
         try {
-            var computedMPFunction = window.mParticle;
-            for (let i = 0; i < methodArray.length; i++) {
-                const currentMethod = methodArray[i];
+            let computedMPFunction = window.mParticle;
+            for (const currentMethod of methodArray) {
                 computedMPFunction = computedMPFunction[currentMethod];
             }
             ((computedMPFunction as unknown) as Function).apply(this, args);
