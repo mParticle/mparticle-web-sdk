@@ -64,4 +64,205 @@ describe('Integration Capture', () => {
             'Facebook.BrowserId': '54321',
         });
     });
+
+    it('should add captured integrations to event custom flags, prioritizing passed in custom flags', async () => {
+        await waitForCondition(hasIdentifyReturned);
+        window.mParticle.logEvent(
+            'Test Event',
+            mParticle.EventType.Navigation,
+            { mykey: 'myvalue' },
+            { 'Facebook.ClickId': 'passed-in' },
+        );
+
+        const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
+
+
+        expect(testEvent).to.have.property('data');
+        expect(testEvent.data).to.have.property('event_name', 'Test Event');
+        expect(testEvent.data).to.have.property('custom_flags');
+        expect(testEvent.data.custom_flags).to.deep.equal({
+            'Facebook.ClickId': 'passed-in',
+            'Facebook.BrowserId': '54321',
+        });
+    });
+
+    it('should add captured integrations to page view custom flags', async () => {
+        await waitForCondition(hasIdentifyReturned);
+
+        window.mParticle.logPageView(
+            'Test Page View',
+            {'foo-attr': 'bar-attr'}
+        );
+
+        const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Page View');
+
+        const initialTimestamp = window.mParticle.getInstance()._IntegrationCapture.initialTimestamp;
+
+        expect(testEvent).to.have.property('data');
+        expect(testEvent.data).to.have.property('screen_name', 'Test Page View');
+        expect(testEvent.data).to.have.property('custom_flags');
+        expect(testEvent.data.custom_flags).to.deep.equal({
+            'Facebook.ClickId': `fb.1.${initialTimestamp}.1234`,
+            'Facebook.BrowserId': '54321',
+        });
+    });
+
+    it('should add captured integrations to page view custom flags, prioritizing passed in custom flags', async () => {
+        await waitForCondition(hasIdentifyReturned);
+        window.mParticle.logPageView(
+            'Test Page View',
+            {'foo-attr': 'bar-attr'},
+            {'Facebook.ClickId': 'passed-in'},
+        );
+
+        const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Page View');
+
+        expect(testEvent).to.have.property('data');
+        expect(testEvent.data).to.have.property('screen_name', 'Test Page View');
+        expect(testEvent.data).to.have.property('custom_flags');
+        expect(testEvent.data.custom_flags).to.deep.equal({
+            'Facebook.ClickId': 'passed-in',
+            'Facebook.BrowserId': '54321',
+        });
+    });
+
+    it('should add captured integrations to commerce event custom flags', async () => {
+        await waitForCondition(hasIdentifyReturned);
+
+        const product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999, 1);
+        const product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799, 1);
+
+        const transactionAttributes = {
+            Id: 'foo-transaction-id',
+            Revenue: 430.00,
+            Tax: 30
+        };
+
+        const customAttributes = {sale: true};
+        const customFlags = {foo: 'bar'};
+
+        mParticle.eCommerce.logProductAction(
+            mParticle.ProductActionType.Purchase,
+            [product1, product2],
+            customAttributes,
+            customFlags,
+            transactionAttributes);
+
+        const testEvent = findEventFromRequest(fetchMock.calls(), 'purchase');
+
+        const initialTimestamp = window.mParticle.getInstance()._IntegrationCapture.initialTimestamp;
+
+        expect(testEvent.data.product_action).to.have.property('action', 'purchase');
+        expect(testEvent.data).to.have.property('custom_flags');
+        expect(testEvent.data.custom_flags).to.deep.equal({
+            foo: 'bar',
+            'Facebook.ClickId': `fb.1.${initialTimestamp}.1234`,
+            'Facebook.BrowserId': '54321',
+        });
+    });
+
+    it('should add captured integrations to commerce event custom flags, prioritizing passed in flags', async () => {
+        await waitForCondition(hasIdentifyReturned);
+
+        const product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999, 1);
+        const product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799, 1);
+
+        const transactionAttributes = {
+            Id: 'foo-transaction-id',
+            Revenue: 430.00,
+            Tax: 30
+        };
+
+        const customAttributes = {sale: true};
+        const customFlags = {
+            'Facebook.ClickId': 'passed-in'
+        };
+
+        mParticle.eCommerce.logProductAction(
+            mParticle.ProductActionType.Purchase,
+            [product1, product2],
+            customAttributes,
+            customFlags,
+            transactionAttributes);
+    
+
+        const testEvent = findEventFromRequest(fetchMock.calls(), 'purchase');
+
+        expect(testEvent.data.product_action).to.have.property('action', 'purchase');
+        expect(testEvent.data).to.have.property('custom_flags');
+        expect(testEvent.data.custom_flags).to.deep.equal({
+            'Facebook.ClickId': 'passed-in',
+            'Facebook.BrowserId': '54321',
+        });
+    });
+
+    it('should add captured integrations to commerce event custom flags', async () => {
+        await waitForCondition(hasIdentifyReturned);
+
+        const product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999, 1);
+        const product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799, 1);
+
+        const transactionAttributes = {
+            Id: 'foo-transaction-id',
+            Revenue: 430.00,
+            Tax: 30
+        };
+
+        const customAttributes = {sale: true};
+        const customFlags = {foo: 'bar'};
+
+        mParticle.eCommerce.logProductAction(
+            mParticle.ProductActionType.Purchase,
+            [product1, product2],
+            customAttributes,
+            customFlags,
+            transactionAttributes);
+
+        const testEvent = findEventFromRequest(fetchMock.calls(), 'purchase');
+
+        const initialTimestamp = window.mParticle.getInstance()._IntegrationCapture.initialTimestamp;
+
+        expect(testEvent.data.product_action).to.have.property('action', 'purchase');
+        expect(testEvent.data).to.have.property('custom_flags');
+        expect(testEvent.data.custom_flags).to.deep.equal({
+            foo: 'bar',
+            'Facebook.ClickId': `fb.1.${initialTimestamp}.1234`,
+            'Facebook.BrowserId': '54321',
+        });
+    });
+
+    it('should add captured integrations to commerce event custom flags, prioritizing passed in flags', async () => {
+        await waitForCondition(hasIdentifyReturned);
+
+        const product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999, 1);
+        const product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799, 1);
+
+        const transactionAttributes = {
+            Id: 'foo-transaction-id',
+            Revenue: 430.00,
+            Tax: 30
+        };
+
+        const customAttributes = {sale: true};
+        const customFlags = {
+            'Facebook.ClickId': 'passed-in'
+        };
+
+        mParticle.eCommerce.logProductAction(
+            mParticle.ProductActionType.Purchase,
+            [product1, product2],
+            customAttributes,
+            customFlags,
+            transactionAttributes);
+    
+
+        const testEvent = findEventFromRequest(fetchMock.calls(), 'purchase');
+
+        expect(testEvent.data.product_action).to.have.property('action', 'purchase');
+        expect(testEvent.data).to.have.property('custom_flags');
+        expect(testEvent.data.custom_flags).to.deep.equal({
+            'Facebook.ClickId': 'passed-in',
+            'Facebook.BrowserId': '54321',
+        });
+    });
 });
