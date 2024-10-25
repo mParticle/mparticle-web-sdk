@@ -40,6 +40,7 @@ import { isFunction } from './utils';
 import { LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
+import { processReadyQueue } from './pre-init-utils';
 
 const { Messages, HTTPCodes, FeatureFlags } = Constants;
 const { ReportBatching, CaptureIntegrationSpecificIds } = FeatureFlags;
@@ -1361,8 +1362,17 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         );
     }
 
-    if (mpInstance._Store.mpid || mpInstance._Store.webviewBridgeEnabled) {
+    // If for some reason the identity call inside of Session Manager does not run
+    // we should clear out the ready queue.
+    if (
+        (mpInstance._Store.mpid && !mpInstance._Store.identifyCalled) ||
+        mpInstance._Store.webviewBridgeEnabled
+    ) {
         mpInstance._Store.isInitialized = true;
+
+        mpInstance._preInit.readyQueue = processReadyQueue(
+            mpInstance._preInit.readyQueue
+        );
     }
 
     // https://go.mparticle.com/work/SQDSDKS-6040
