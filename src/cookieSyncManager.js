@@ -146,8 +146,15 @@ export default function cookieSyncManager(mpInstance) {
     };
 
     // Private
-    // TODO: Rename function to replaceAmpWithAmpersand
+    /**
+     * @deprecated replaceAmp has been deprecated, use replaceAmpersandWithAmp instead
+     */
     this.replaceAmp = function(string) {
+        return this.replaceAmpWithAmpersand(string);
+    };
+
+    // Private
+    this.replaceAmpWithAmpersand = function(string) {
         return string.replace(/&amp;/g, '&');
     };
 
