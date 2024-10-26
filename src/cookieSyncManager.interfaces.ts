@@ -13,7 +13,7 @@ export interface ICookieSyncManager {
         mpidIsNotInCookies: boolean,
         requiresConsent: boolean
     ) => void;
-    privatereplaceAmpWithAmpersand: (string: string) => string;
+    replaceAmpWithAmpersand: (string: string) => string;
     replaceMPID: (string, mpid: MPID) => string;
 
     /**
