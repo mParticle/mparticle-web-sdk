@@ -393,7 +393,7 @@ var mParticle = (function () {
         return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     };
 
-    var version = "2.30.1";
+    var version = "2.30.2";
 
     var Constants = {
       sdkVersion: version,
@@ -3913,6 +3913,8 @@ var mParticle = (function () {
       };
       this.createCommerceEventObject = function (customFlags, options) {
         var baseEvent;
+        // https://go.mparticle.com/work/SQDSDKS-4801
+        var extend = mpInstance._Helpers.extend;
         mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingLogCommerceEvent);
         if (mpInstance._Helpers.canLog()) {
           baseEvent = mpInstance._ServerModel.createEventObject({
@@ -3922,7 +3924,7 @@ var mParticle = (function () {
           baseEvent.EventName = 'eCommerce - ';
           baseEvent.CurrencyCode = mpInstance._Store.currencyCode;
           baseEvent.ShoppingCart = [];
-          baseEvent.CustomFlags = customFlags;
+          baseEvent.CustomFlags = extend(baseEvent.CustomFlags, customFlags);
           return baseEvent;
         } else {
           mpInstance.Logger.verbose(Messages$6.InformationMessages.AbandonLogEvent);
