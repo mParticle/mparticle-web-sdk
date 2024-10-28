@@ -1,3 +1,10 @@
+## [2.30.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.30.1...v2.30.2) (2024-10-28)
+
+
+### Bug Fixes
+
+* Support capturing click ids as custom flags in commerce events ([#939](https://github.com/mParticle/mparticle-web-sdk/issues/939)) ([6fb2476](https://github.com/mParticle/mparticle-web-sdk/commit/6fb2476aa617e9a861280c02d09c0d21555d510c))
+
 # [2.30.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.30.0...v2.30.1) (2024-10-15)
 
 
