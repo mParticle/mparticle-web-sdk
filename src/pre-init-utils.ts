@@ -4,10 +4,8 @@ export const processReadyQueue = (readyQueue): Function[] => {
     if (!isEmpty(readyQueue)) {
         readyQueue.forEach(readyQueueItem => {
             if (isFunction(readyQueueItem)) {
-                // debugger;
                 readyQueueItem();
             } else if (Array.isArray(readyQueueItem)) {
-                // debugger;
                 processPreloadedItem(readyQueueItem);
             }
         });

@@ -48,6 +48,19 @@ describe('pre-init-utils', () => {
             expect(functionSpy).toHaveBeenCalledWith('foo');
         });
 
+        it('should process arrays passed as arguments with multiple methods and arguments', () => {
+            const functionSpy = jest.fn();
+            const functionSpy2 = jest.fn();
+            (window.mParticle as any) = {
+                fakeFunction: functionSpy,
+                anotherFakeFunction: functionSpy2,
+            };
+            const readyQueue = [['fakeFunction', 'foo'], ['anotherFakeFunction', 'bar']];
+            processReadyQueue(readyQueue);
+            expect(functionSpy).toHaveBeenCalledWith('foo');
+            expect(functionSpy2).toHaveBeenCalledWith('bar');
+        });
+
         it('should throw an error if it cannot compute the proper mParticle function', () => {
             const readyQueue = [['Identity.login']];
             expect(() => processReadyQueue(readyQueue)).toThrowError("Unable to compute proper mParticle function TypeError: Cannot read properties of undefined (reading 'login')");

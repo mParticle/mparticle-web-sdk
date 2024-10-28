@@ -1362,8 +1362,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         );
     }
 
-    // If for some reason the identity call inside of Session Manager does not run
-    // we should clear out the ready queue.
+    // We will continue to clear out the ready queue as part of the initial init flow
+    // if an identify request is unnecessary, such as if there is an existing session
     if (
         (mpInstance._Store.mpid && !mpInstance._Store.identifyCalled) ||
         mpInstance._Store.webviewBridgeEnabled
