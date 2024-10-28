@@ -1252,11 +1252,11 @@ describe('identities and attributes', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
+        await waitForCondition(hasIdentityCallInflightReturned);
+
         mParticle.logEvent('Test Event 1');
         mParticle.logEvent('Test Event 2');
         mParticle.logEvent('Test Event 3');
-
-        await waitForCondition(hasIdentityCallInflightReturned);
 
         expect(fetchMock.calls().length).to.equal(7);
 
