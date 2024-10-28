@@ -329,6 +329,21 @@ describe('batch uploader', () => {
                 })
             });
 
+            it('should not throw an error when upload is called while storage has not been created yet', async () => {
+                window.localStorage.clear();
+                window.sessionStorage.clear();
+
+                window.mParticle.init(apiKey, window.mParticle.config);
+
+                const mpInstance = window.mParticle.getInstance();
+                const uploader = mpInstance._APIClient.uploader;
+
+                expect(uploader).to.equal(null)
+
+                // calling upload manually on an a null uploader should not result in an error
+                window.mParticle.upload();
+            });
+
             it('should return batches that fail to unknown HTTP errors', async () => {
                 window.mParticle.init(apiKey, window.mParticle.config);
 
