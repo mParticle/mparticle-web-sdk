@@ -590,7 +590,7 @@ export default function mParticleInstance(instanceName) {
                     Constants.NativeSdkPaths.Upload
                 );
             } else {
-                self._APIClient.uploader?.prepareAndUpload(false, false);
+                self._APIClient?.uploader?.prepareAndUpload(false, false);
             }
         }
     };
