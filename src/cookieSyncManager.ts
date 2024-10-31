@@ -1,19 +1,26 @@
+import { replaceAmpWithAmpersand, replaceMPID } from './utils';
 import Constants from './constants';
+import { ICookieSyncManager } from './cookieSyncManager.interfaces';
+import { MParticleWebSDK } from './sdkRuntimeModels';
+import { PixelConfiguration } from './store';
+import { Dictionary, MPID } from '@mparticle/web-sdk';
+import { IConsentRules } from './consent';
 
-var Messages = Constants.Messages;
+const { Messages } = Constants;
+const {InformationMessages} = Messages;
 
-export default function cookieSyncManager(mpInstance) {
-    var self = this;
+export default function CookieSyncManager(this: ICookieSyncManager, mpInstance: MParticleWebSDK) {
+    const self = this;
 
     // Public
-    this.attemptCookieSync = function(previousMPID, mpid, mpidIsNotInCookies) {
+    this.attemptCookieSync = function(previousMPID: MPID, mpid: MPID, mpidIsNotInCookies: boolean) {
         // TODO: These should move inside the for loop
-        var pixelConfig,
-            lastSyncDateForModule,
-            url,
-            redirect,
-            urlWithRedirect,
-            requiresConsent;
+        let pixelConfig: PixelConfiguration;
+        let lastSyncDateForModule: number;
+        let url: string;
+        let redirect: string;
+        let urlWithRedirect: string;
+        let requiresConsent: boolean;
 
         // TODO: Make this exit quicker instead of nested
         if (mpid && !mpInstance._Store.webviewBridgeEnabled) {
@@ -41,11 +48,11 @@ export default function cookieSyncManager(mpInstance) {
                     frequencyCap: pixelSettings.frequencyCap,
 
                     // Url for cookie sync pixel
-                    pixelUrl: self.replaceAmp(pixelSettings.pixelUrl),
+                    pixelUrl: replaceAmpWithAmpersand(pixelSettings.pixelUrl),
 
                     // TODO: Document requirements for redirectUrl
                     redirectUrl: pixelSettings.redirectUrl
-                        ? self.replaceAmp(pixelSettings.redirectUrl)
+                        ? replaceAmpWithAmpersand(pixelSettings.redirectUrl)
                         : null,
 
                     // Filtering rules as defined in UI
@@ -54,15 +61,17 @@ export default function cookieSyncManager(mpInstance) {
                 };
 
                 // TODO: combine replaceMPID and replaceAmp into sanitizeUrl function
-                url = self.replaceMPID(pixelConfig.pixelUrl, mpid);
+                url = replaceMPID(pixelConfig.pixelUrl, mpid);
                 redirect = pixelConfig.redirectUrl
-                    ? self.replaceMPID(pixelConfig.redirectUrl, mpid)
+                    ? replaceMPID(pixelConfig.redirectUrl, mpid)
                     : '';
                 urlWithRedirect = url + encodeURIComponent(redirect);
+
 
                 // TODO: Refactor so that Persistence is only called once
                 //       outside of the loop
                 var persistence = mpInstance._Persistence.getPersistence();
+
 
                 // TODO: Is there a historic reason for checking for previousMPID?
                 //       it does not appear to be passed in anywhere
@@ -141,32 +150,14 @@ export default function cookieSyncManager(mpInstance) {
     };
 
     // Private
-    this.replaceMPID = function(string, mpid) {
-        return string.replace('%%mpid%%', mpid);
-    };
-
-    // Private
-    /**
-     * @deprecated replaceAmp has been deprecated, use replaceAmpersandWithAmp instead
-     */
-    this.replaceAmp = function(string) {
-        return this.replaceAmpWithAmpersand(string);
-    };
-
-    // Private
-    this.replaceAmpWithAmpersand = function(string) {
-        return string.replace(/&amp;/g, '&');
-    };
-
-    // Private
     this.performCookieSync = function(
-        url,
-        moduleId,
-        mpid,
-        cookieSyncDates,
-        filteringConsentRuleValues,
-        mpidIsNotInCookies,
-        requiresConsent
+        url: string,
+        moduleId: number,
+        mpid: MPID,
+        cookieSyncDates: Dictionary<number>,
+        filteringConsentRuleValues: IConsentRules,
+        mpidIsNotInCookies: boolean,
+        requiresConsent: boolean
     ) {
         // if MPID is new to cookies, we should not try to perform the cookie sync
         // because a cookie sync can only occur once a user either consents or doesn't
@@ -182,14 +173,15 @@ export default function cookieSyncManager(mpInstance) {
         //       Currently, attemptCookieSync is called as a loop and therefore this
         //       function polls the user object and consent multiple times.
         if (
+            // https://go.mparticle.com/work/SQDSDKS-5009
             mpInstance._Consent.isEnabledForUserConsent(
                 filteringConsentRuleValues,
                 mpInstance.Identity.getCurrentUser()
             )
         ) {
-            var img = document.createElement('img');
+            const img = document.createElement('img');
 
-            mpInstance.Logger.verbose(Messages.InformationMessages.CookieSync);
+            mpInstance.Logger.verbose(InformationMessages.CookieSync);
             img.onload = function() {
                 // TODO: Break this out into a convenience method so we can unit test
                 cookieSyncDates[moduleId.toString()] = new Date().getTime();

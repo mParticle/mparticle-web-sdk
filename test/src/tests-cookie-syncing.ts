@@ -1,11 +1,15 @@
+import { expect } from 'chai';
 import Utils from './config/utils';
 import fetchMock from 'fetch-mock/esm/client';
 import { urls, testMPID, MPConfig, v4LSKey, apiKey } from './config/constants';
+import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
+import { PixelConfiguration } from '../../src/store';
+import { IMParticleUser } from '../../src/identity-user-interfaces';
 const { fetchMockSuccess, waitForCondition, hasIdentifyReturned } = Utils;
 
 const { setLocalStorage, MockForwarder, getLocalStorage } = Utils;
 
-let pixelSettings = {
+const pixelSettings: PixelConfiguration = {
     name: 'TestPixel',
     moduleId: 5,
     esId: 24053,
@@ -17,6 +21,15 @@ let pixelSettings = {
     redirectUrl: '',
 };
 
+declare global {
+    interface Window {
+        mParticle: MParticleWebSDK;
+        fetchMock: any;
+    }
+}
+
+const mParticle = window.mParticle;
+
 describe('cookie syncing', function() {
     const timeout = 100;
     // Have a reference to createElement function to reset after all cookie sync
@@ -27,8 +40,8 @@ describe('cookie syncing', function() {
         // Mock the img create onload method
         // https://raminmousavi.medium.com/mock-img-element-in-jest-3341c495ca8b
         window.document.createElement = (function(create) {
-            return function() {
-                const element = create.apply(this, arguments);
+            return function(this: Document) {
+                const element = create.apply(this, arguments as unknown as [string, ElementCreationOptions?]);
 
                 if (element.tagName === 'IMG') {
                     setTimeout(() => {
@@ -68,9 +81,9 @@ describe('cookie syncing', function() {
         waitForCondition(hasIdentifyReturned)
         .then(() =>  {
         setTimeout(function() {
-            Should(
+            expect(
                 mParticle.getInstance()._Store.pixelConfigurations.length
-            ).equal(1);
+            ).to.equal(1);
             const data = mParticle.getInstance()._Persistence.getLocalStorage();
             data[testMPID].csd.should.have.property('5');
 
@@ -94,14 +107,14 @@ describe('cookie syncing', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         setTimeout(function() {
-            Should(
+            expect(
                 mParticle.getInstance()._Store.pixelConfigurations.length
-            ).equal(1);
+            ).to.equal(1);
 
             const data = mParticle.getInstance()._Persistence.getLocalStorage();
             const updated = data[testMPID].csd['5'] > 500;
 
-            Should(updated).be.ok();
+            expect(updated).to.be.ok;
 
             done();
         }, timeout);
@@ -126,9 +139,9 @@ describe('cookie syncing', function() {
                 mParticle.getInstance()._Persistence.getLocalStorage().testMPID
                     .csd['5']
             );
-            Should(
+            expect(
                 mParticle.getInstance()._Store.pixelConfigurations.length
-            ).equal(1);
+            ).to.equal(1);
 
             done();
         }, timeout);
@@ -163,11 +176,11 @@ describe('cookie syncing', function() {
                 const data2 = mParticle
                     .getInstance()
                     ._Persistence.getLocalStorage();
-                data1[testMPID].csd[5].should.be.ok();
-                data2['otherMPID'].csd[5].should.be.ok();
-                Should(
+                data1[testMPID].csd[5].should.be.ok;
+                data2['otherMPID'].csd[5].should.be.ok;
+               expect( 
                     mParticle.getInstance()._Store.pixelConfigurations.length
-                ).equal(1);
+                ).to.equal(1);
 
                 done();
             }, timeout);
@@ -201,9 +214,9 @@ describe('cookie syncing', function() {
                 ._Persistence.getLocalStorage();
 
             Object.keys(data1[testMPID]).should.not.have.property('csd');
-            Should(
+           expect( 
                 mParticle.getInstance()._Store.pixelConfigurations.length
-            ).equal(0);
+            ).to.equal(0);
 
             done();
         }, 500);
@@ -233,37 +246,12 @@ describe('cookie syncing', function() {
                 .getInstance()
                 ._Persistence.getLocalStorage();
             data1[testMPID].should.not.have.property('csd');
-            Should(
+            expect( 
                 mParticle.getInstance()._Store.pixelConfigurations.length
-            ).equal(0);
+            ).to.equal(0);
 
             done();
         }, timeout);
-    });
-
-    it('should replace mpID properly', function(done) {
-        const result = mParticle
-            .getInstance()
-            ._CookieSyncManager.replaceMPID(
-                'www.google.com?mpid=%%mpid%%?foo=bar',
-                123
-            );
-
-        result.should.equal('www.google.com?mpid=123?foo=bar');
-
-        done();
-    });
-
-    it("should remove 'amp;' from the URLs", function(done) {
-        const result = mParticle
-            .getInstance()
-            ._CookieSyncManager.replaceAmp(
-                'www.google.com?mpid=%%mpid%%&amp;foo=bar'
-            );
-
-        result.should.equal('www.google.com?mpid=%%mpid%%&foo=bar');
-
-        done();
     });
 
     it('parse and capture pixel settings properly from backend', function(done) {
@@ -361,9 +349,9 @@ describe('cookie syncing', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         setTimeout(function() {
-            Should(
+            expect( 
                 mParticle.getInstance()._Store.pixelConfigurations.length
-            ).equal(1);
+            ).to.equal(1);
             const data = mParticle.getInstance()._Persistence.getLocalStorage();
             data[testMPID].csd.should.have.property('5');
 
@@ -391,7 +379,7 @@ describe('cookie syncing', function() {
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, null);
 
-        enabled.should.not.be.ok();
+        enabled.should.not.be.ok;
 
         done();
     });
@@ -422,12 +410,12 @@ describe('cookie syncing', function() {
                 'foo purpose 1',
                 mParticle.getInstance().Consent.createGDPRConsent(userConsent)
             );
-        const user = MockUser();
+        const user = MockUser() as IMParticleUser;
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.not.be.ok();
+        enabled.should.not.be.ok;
         done();
     });
 
@@ -456,13 +444,13 @@ describe('cookie syncing', function() {
                 'foo purpose 1',
                 mParticle.getInstance().Consent.createGDPRConsent(userConsent)
             );
-        const user = MockUser();
+        const user = MockUser() as IMParticleUser;
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
 
-        enabled.should.not.be.ok();
+        enabled.should.not.be.ok;
 
         done();
     });
@@ -493,13 +481,13 @@ describe('cookie syncing', function() {
                 'foo purpose 1',
                 mParticle.getInstance().Consent.createGDPRConsent(userConsent)
             );
-        const user = MockUser();
+        const user = MockUser() as IMParticleUser;
         user.setConsentState(consentState);
 
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.be.ok();
+        enabled.should.be.ok;
 
         done();
     });
@@ -530,12 +518,12 @@ describe('cookie syncing', function() {
                 'foo purpose 1',
                 mParticle.getInstance().Consent.createGDPRConsent(userConsent)
             );
-        const user = MockUser();
+        const user = MockUser() as IMParticleUser;
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.be.ok();
+        enabled.should.be.ok;
 
         done();
     });
@@ -566,12 +554,12 @@ describe('cookie syncing', function() {
                 'foo purpose 1',
                 mParticle.getInstance().Consent.createGDPRConsent(userConsented)
             );
-        const user = MockUser();
+        const user = MockUser() as IMParticleUser;
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.not.be.ok();
+        enabled.should.not.be.ok;
 
         done();
     });
@@ -602,12 +590,12 @@ describe('cookie syncing', function() {
                 'foo purpose 1',
                 mParticle.getInstance().Consent.createGDPRConsent(userConsented)
             );
-        const user = MockUser();
+        const user = MockUser() as IMParticleUser;
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.be.ok();
+        enabled.should.be.ok;
 
         done();
     });
@@ -638,12 +626,12 @@ describe('cookie syncing', function() {
                 'foo purpose 1',
                 mParticle.getInstance().Consent.createGDPRConsent(userConsented)
             );
-        const user = MockUser();
+        const user = MockUser() as IMParticleUser;
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.be.ok();
+        enabled.should.be.ok;
 
         done();
     });
@@ -674,12 +662,12 @@ describe('cookie syncing', function() {
                 'foo purpose 1',
                 mParticle.getInstance().Consent.createGDPRConsent(userConsented)
             );
-        const user = MockUser();
+        const user = MockUser() as IMParticleUser;
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.be.ok();
+        enabled.should.be.ok;
 
         done();
     });
@@ -709,12 +697,12 @@ describe('cookie syncing', function() {
             .setCCPAConsentState(
                 mParticle.getInstance().Consent.createCCPAConsent(ccpaPresent)
             );
-        const user = MockUser();
+        const user = MockUser() as IMParticleUser;
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.not.be.ok();
+        enabled.should.not.be.ok;
 
         done();
     });
@@ -744,12 +732,12 @@ describe('cookie syncing', function() {
             .setCCPAConsentState(
                 mParticle.getInstance().Consent.createCCPAConsent(ccpaPresent)
             );
-        const user = MockUser();
+        const user = MockUser() as IMParticleUser;
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.not.be.ok();
+        enabled.should.not.be.ok;
 
         done();
     });
@@ -779,12 +767,12 @@ describe('cookie syncing', function() {
             .setCCPAConsentState(
                 mParticle.getInstance().Consent.createCCPAConsent(ccpaPresent)
             );
-        const user = MockUser();
+        const user = MockUser() as IMParticleUser;
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.be.ok();
+        enabled.should.be.ok;
 
         done();
     });
@@ -814,12 +802,12 @@ describe('cookie syncing', function() {
             .setCCPAConsentState(
                 mParticle.getInstance().Consent.createCCPAConsent(ccpaPresent)
             );
-        const user = MockUser();
+        const user = MockUser() as IMParticleUser;
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.be.ok();
+        enabled.should.be.ok;
 
         done();
     });
@@ -849,12 +837,12 @@ describe('cookie syncing', function() {
             .setCCPAConsentState(
                 mParticle.getInstance().Consent.createCCPAConsent(ccpaPresent)
             );
-        const user = MockUser();
+        const user = MockUser() as IMParticleUser;
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.not.be.ok();
+        enabled.should.not.be.ok;
 
         done();
     });
@@ -884,12 +872,12 @@ describe('cookie syncing', function() {
             .setCCPAConsentState(
                 mParticle.getInstance().Consent.createCCPAConsent(ccpaPresent)
             );
-        const user = MockUser();
+        const user = MockUser() as IMParticleUser;
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.be.ok();
+        enabled.should.be.ok;
 
         done();
     });
@@ -919,12 +907,12 @@ describe('cookie syncing', function() {
             .setCCPAConsentState(
                 mParticle.getInstance().Consent.createCCPAConsent(ccpaPresent)
             );
-        const user = MockUser();
+        const user = MockUser() as IMParticleUser;
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.be.ok();
+        enabled.should.be.ok;
 
         done();
     });
@@ -1225,7 +1213,7 @@ describe('cookie syncing', function() {
         mParticle.config.isDevelopmentMode = false;
 
         //  pixelSetting1 has consent required, and so should only perform a cookiesync after consent is saved to the user
-        const pixelSettings1 = {
+        const pixelSettings1: PixelConfiguration = {
             name: 'TestPixel',
             moduleId: 1,
             esId: 24053,

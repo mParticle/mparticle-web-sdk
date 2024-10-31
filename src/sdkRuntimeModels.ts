@@ -6,7 +6,7 @@ import {
     Callback,
     IdentityApiData,
 } from '@mparticle/web-sdk';
-import { IStore } from './store';
+import { IStore, PixelConfiguration } from './store';
 import Validators from './validators';
 import { Dictionary } from './utils';
 import { IServerModel } from './serverModel';
@@ -230,6 +230,7 @@ export interface SDKInitConfig
     sideloadedKits?: MPForwarder[];
     dataPlanOptions?: KitBlockerOptions;
     flags?: Dictionary;
+    pixelConfigs?: PixelConfiguration[];
 
     aliasMaxWindow?: number;
     deviceId?: string;
