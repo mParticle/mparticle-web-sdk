@@ -338,8 +338,6 @@ const getHref = (): string => {
         : '';
 };
 
-
-
 export {
     createCookieString,
     revertCookieString,
