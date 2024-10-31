@@ -14,6 +14,7 @@ import _BatchValidator from '../../src/mockBatchCreator';
 import Logger from '../../src/logger.js';
 import { event0, event1, event2, event3 } from '../fixtures/events';
 import fetchMock from 'fetch-mock/esm/client';
+import { error } from 'console';
 const { fetchMockSuccess, waitForCondition, hasIdentifyReturned  } = Utils;
 
 declare global {
@@ -340,8 +341,7 @@ describe('batch uploader', () => {
 
                 expect(uploader).to.equal(null)
 
-                // calling upload manually on an a null uploader should not result in an error
-                window.mParticle.upload();
+                expect(() => { window.mParticle.upload() }).to.not.throw(TypeError, /Cannot read properties of null \(reading 'prepareAndUpload'\)/)
             });
 
             it('should return batches that fail to unknown HTTP errors', async () => {
