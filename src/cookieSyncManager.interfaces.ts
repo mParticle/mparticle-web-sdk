@@ -13,11 +13,4 @@ export interface ICookieSyncManager {
         mpidIsNotInCookies: boolean,
         requiresConsent: boolean
     ) => void;
-    replaceAmpWithAmpersand: (string: string) => string;
-    replaceMPID: (string: string, mpid: MPID) => string;
-
-    /**
-     * @deprecated replaceAmp has been deprecated, use replaceAmpersandWithAmp instead
-     */
-    replaceAmp: (string: string) => string;
 }
