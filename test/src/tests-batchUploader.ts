@@ -14,7 +14,6 @@ import _BatchValidator from '../../src/mockBatchCreator';
 import Logger from '../../src/logger.js';
 import { event0, event1, event2, event3 } from '../fixtures/events';
 import fetchMock from 'fetch-mock/esm/client';
-import { error } from 'console';
 const { fetchMockSuccess, waitForCondition, hasIdentifyReturned  } = Utils;
 
 declare global {
