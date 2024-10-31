@@ -21,7 +21,7 @@ import Constants from './constants';
 import APIClient from './apiClient';
 import Helpers from './helpers';
 import NativeSdkHelpers from './nativeSdkHelpers';
-import CookieSyncManager from './CookieSyncManager';
+import CookieSyncManager from './cookieSyncManager';
 import SessionManager from './sessionManager';
 import Ecommerce from './ecommerce';
 import Store from './store';
