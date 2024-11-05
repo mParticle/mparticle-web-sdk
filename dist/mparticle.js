@@ -393,7 +393,7 @@ var mParticle = (function () {
         return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     };
 
-    var version = "2.30.2";
+    var version = "2.30.3";
 
     var Constants = {
       sdkVersion: version,
