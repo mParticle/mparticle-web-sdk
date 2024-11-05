@@ -1,4 +1,3 @@
-import sinon from 'sinon';
 import { expect } from 'chai';
 import fetchMock from 'fetch-mock/esm/client';
 import {
@@ -6,16 +5,17 @@ import {
     apiKey,
     testMPID,
     MPConfig,
-    MILLISECONDS_IN_ONE_DAY_PLUS_ONE_SECOND,
 } from './config/constants';
 import Utils from './config/utils';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { AllUserAttributes, UserAttributesValue } from '@mparticle/web-sdk';
 import { UserAttributes } from '../../src/identity-user-interfaces';
-import { UserAttributeChangeEvent } from '@mparticle/event-models';
-const { waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
-
+import { Batch, CustomEvent, UserAttributeChangeEvent } from '@mparticle/event-models';
 const {
+    waitForCondition,
+    fetchMockSuccess,
+    hasIdentifyReturned, 
+    hasIdentityCallInflightReturned,
     findEventFromRequest,
     findBatch,
     getLocalStorage,
@@ -54,16 +54,30 @@ const BAD_USER_ATTRIBUTE_KEY_AS_ARRAY = ([
 const BAD_USER_ATTRIBUTE_LIST_VALUE = (1234 as unknown) as UserAttributesValue[];
 
 describe('identities and attributes', function() {
+    let beforeEachCallbackCalled = false;
+    let hasBeforeEachCallbackReturned;
+
     beforeEach(function() {
         fetchMockSuccess(urls.identify, {
             mpid: testMPID, is_logged_in: false
         });
 
         fetchMock.post(urls.events, 200);
+
+        mParticle.config.identityCallback = function() {
+            // There are some tests that need to verify that the initial init
+            // call within the beforeEach method has completed before they
+            // can introduce a new identityCallback for their specific assertions.
+            beforeEachCallbackCalled = true;
+        };
+
         mParticle.init(apiKey, window.mParticle.config);
+
+        hasBeforeEachCallbackReturned = () => beforeEachCallbackCalled;
     });
 
     afterEach(function() {
+        beforeEachCallbackCalled = false;
         fetchMock.restore();
     });
 
@@ -1221,6 +1235,135 @@ describe('identities and attributes', function() {
     });
     })
     })
+    });
+
+    it('should order user identity change events before logging any events', async () => {
+        mParticle._resetForTests(MPConfig);
+        fetchMock.resetHistory();
+
+        // Clear out before each init call
+        await waitForCondition(hasBeforeEachCallbackReturned);
+
+        window.mParticle.config.identifyRequest = {
+            userIdentities: {
+                email: 'initial@gmail.com',
+            },
+        };
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        await waitForCondition(hasIdentityCallInflightReturned);
+
+        mParticle.logEvent('Test Event 1');
+        mParticle.logEvent('Test Event 2');
+        mParticle.logEvent('Test Event 3');
+
+        expect(fetchMock.calls().length).to.equal(7);
+
+        const firstCall = fetchMock.calls()[0];
+        expect(firstCall[0].split('/')[4]).to.equal('identify', 'First Call');
+
+        const secondCall = fetchMock.calls()[1];
+        expect(secondCall[0].split('/')[6]).to.equal('events');
+        const secondCallBody = JSON.parse(secondCall[1].body as unknown as string) as Batch;
+        expect(secondCallBody.events[0].event_type).to.equal('session_start', 'Second Call');
+
+        const thirdCall = fetchMock.calls()[2];
+        expect(thirdCall[0].split('/')[6]).to.equal('events');
+        const thirdCallBody = JSON.parse(thirdCall[1].body as unknown as string) as Batch;
+        expect(thirdCallBody.events[0].event_type).to.equal('application_state_transition', 'Third Call');
+
+        const fourthCall = fetchMock.calls()[3];
+        expect(fourthCall[0].split('/')[6]).to.equal('events');
+        const fourthCallBody = JSON.parse(fourthCall[1].body as unknown as string) as Batch;
+        expect(fourthCallBody.events[0].event_type).to.equal('user_identity_change', 'Fourth Call');
+
+        const fifthCall = fetchMock.calls()[4];
+        expect(fifthCall[0].split('/')[6]).to.equal('events');
+        const fifthCallBody = JSON.parse(fifthCall[1].body as unknown as string) as Batch;
+        const fifthCallEvent = fifthCallBody.events[0] as CustomEvent;
+        expect(fifthCallEvent.event_type).to.equal('custom_event', 'Fifth Call');
+        expect(fifthCallEvent.data.event_name).to.equal('Test Event 1', 'Fifth Call');
+
+        const sixthCall = fetchMock.calls()[5];
+        expect(sixthCall[0].split('/')[6]).to.equal('events');
+        const sixthCallBody = JSON.parse(sixthCall[1].body as unknown as string) as Batch;
+        const sixthCallEvent = sixthCallBody.events[0] as CustomEvent;
+        expect(sixthCallBody.events[0].event_type).to.equal('custom_event', 'Sixth Call');
+        expect(sixthCallEvent.data.event_name).to.equal('Test Event 2', 'Sixth Call');
+
+        const seventhEvent = fetchMock.calls()[6];
+        expect(seventhEvent[0].split('/')[6]).to.equal('events');
+        const seventhEventBody = JSON.parse(seventhEvent[1].body as unknown as string) as Batch;
+        const seventhEventEvent = seventhEventBody.events[0] as CustomEvent;
+        expect(seventhEventBody.events[0].event_type).to.equal('custom_event', 'Seventh Call');
+        expect(seventhEventEvent.data.event_name).to.equal('Test Event 3', 'Seventh Call');
+    });
+
+    it('should order user identity change events before logging any events that are in the ready queue', async () => {
+
+        mParticle._resetForTests(MPConfig);
+        fetchMock.resetHistory();
+
+        // Clear out before each init call
+        await waitForCondition(hasBeforeEachCallbackReturned);
+
+        window.mParticle.config.identifyRequest = {
+            userIdentities: {
+                email: 'initial@gmail.com',
+            },
+        };
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        mParticle.logEvent('Test Event 1');
+        mParticle.logEvent('Test Event 2');
+        mParticle.logEvent('Test Event 3');
+
+        expect(mParticle.getInstance()._preInit.readyQueue.length).to.equal(3);
+
+        await waitForCondition(hasIdentityCallInflightReturned);
+
+        expect(fetchMock.calls().length).to.equal(7);
+
+        const firstCall = fetchMock.calls()[0];
+        expect(firstCall[0].split('/')[4]).to.equal('identify', 'First Call');
+
+        const secondCall = fetchMock.calls()[1];
+        expect(secondCall[0].split('/')[6]).to.equal('events');
+        const secondCallBody = JSON.parse(secondCall[1].body as unknown as string) as Batch;
+        expect(secondCallBody.events[0].event_type).to.equal('session_start', 'Second Call');
+
+        const thirdCall = fetchMock.calls()[2];
+        expect(thirdCall[0].split('/')[6]).to.equal('events');
+        const thirdCallBody = JSON.parse(thirdCall[1].body as unknown as string) as Batch;
+        expect(thirdCallBody.events[0].event_type).to.equal('application_state_transition', 'Third Call');
+
+        const fourthCall = fetchMock.calls()[3];
+        expect(fourthCall[0].split('/')[6]).to.equal('events');
+        const fourthCallBody = JSON.parse(fourthCall[1].body as unknown as string) as Batch;
+        expect(fourthCallBody.events[0].event_type).to.equal('user_identity_change', 'Fourth Call');
+
+        const fifthCall = fetchMock.calls()[4];
+        expect(fifthCall[0].split('/')[6]).to.equal('events');
+        const fifthCallBody = JSON.parse(fifthCall[1].body as unknown as string) as Batch;
+        const fifthCallEvent = fifthCallBody.events[0] as CustomEvent;
+        expect(fifthCallEvent.event_type).to.equal('custom_event', 'Fifth Call');
+        expect(fifthCallEvent.data.event_name).to.equal('Test Event 1', 'Fifth Call');
+
+        const sixthCall = fetchMock.calls()[5];
+        expect(sixthCall[0].split('/')[6]).to.equal('events');
+        const sixthCallBody = JSON.parse(sixthCall[1].body as unknown as string) as Batch;
+        const sixthCallEvent = sixthCallBody.events[0] as CustomEvent;
+        expect(sixthCallBody.events[0].event_type).to.equal('custom_event', 'Sixth Call');
+        expect(sixthCallEvent.data.event_name).to.equal('Test Event 2', 'Sixth Call');
+
+        const seventhEvent = fetchMock.calls()[6];
+        expect(seventhEvent[0].split('/')[6]).to.equal('events');
+        const seventhEventBody = JSON.parse(seventhEvent[1].body as unknown as string) as Batch;
+        const seventhEventEvent = seventhEventBody.events[0] as CustomEvent;
+        expect(seventhEventBody.events[0].event_type).to.equal('custom_event', 'Seventh Call');
+        expect(seventhEventEvent.data.event_name).to.equal('Test Event 3', 'Seventh Call');
     });
 
     it('should send historical UIs on batches when MPID changes', function(done) {
