@@ -6,11 +6,26 @@ import { convertEvents } from './sdkToEventsApiConverter';
 import * as EventsApi from '@mparticle/event-models';
 import { Batch } from '@mparticle/event-models';
 import { IMPSideloadedKit } from './sideloadedKit';
+import { IStore, SDKConfig } from './store';
 
 const mockFunction = function() {
     return null;
 };
 export default class _BatchValidator {
+    private configOverride?: Partial<Pick<SDKConfig, 'omitBatchTimestamp'>>;
+    private storeOverride?: Partial<Pick<IStore, 'batchTimestampUnixtimeMsOverride'>>;
+
+    constructor({
+        configOverride = {},
+        storeOverride = {}
+    }: {
+        configOverride?: Partial<Pick<SDKConfig, 'omitBatchTimestamp'>>,
+        storeOverride?: Partial<Pick<IStore, 'batchTimestampUnixtimeMsOverride'>>
+    } = {}) {
+        this.configOverride = configOverride
+        this.storeOverride = storeOverride
+    }
+
     private getMPInstance() {
         return ({
             // Certain Helper, Store, and Identity properties need to be mocked to be used in the `returnBatch` method
@@ -87,7 +102,9 @@ export default class _BatchValidator {
                 SDKConfig: {
                     isDevelopmentMode: false,
                     onCreateBatch: mockFunction,
+                    omitBatchTimestamp: this.configOverride?.omitBatchTimestamp,
                 },
+                batchTimestampUnixtimeMsOverride: this.storeOverride?.batchTimestampUnixtimeMsOverride
             },
             config: null,
             eCommerce: null,

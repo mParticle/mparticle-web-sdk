@@ -56,10 +56,25 @@ export function convertEvents(
         currentConsentState = user.getConsentState();
     }
 
+    // determine what timestamp, if any, to use for the batch
+    const { omitBatchTimestamp } = mpInstance._Store.SDKConfig;
+    const { batchTimestampUnixtimeMsOverride } = mpInstance._Store;
+
+    let timestamp_unixtime_ms: number | null
+
+    if (batchTimestampUnixtimeMsOverride) {
+        timestamp_unixtime_ms = batchTimestampUnixtimeMsOverride;
+    } else if (omitBatchTimestamp) {
+        timestamp_unixtime_ms = null;
+    } else {
+        timestamp_unixtime_ms = new Date().getTime();
+    }
+
+
     const upload: EventsApi.Batch = {
         source_request_id: mpInstance._Helpers.generateUniqueId(),
         mpid,
-        timestamp_unixtime_ms: new Date().getTime(),
+        timestamp_unixtime_ms,
         environment: lastEvent.Debug
             ? EventsApi.BatchEnvironmentEnum.development
             : EventsApi.BatchEnvironmentEnum.production,

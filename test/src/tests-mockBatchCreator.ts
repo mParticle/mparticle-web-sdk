@@ -3,19 +3,21 @@ import { BaseEvent } from '../../src/sdkRuntimeModels';
 import { expect } from 'chai';
 
 describe('Create a batch from a base event', () => {
-    const batchValidator = new _BatchValidator();
     const baseEvent: BaseEvent = {
         messageType: 4,
         name: 'testEvent'
     }
-    
+
     it('creates a batch with base event ', done => {
+        const now = new Date().getTime();
+        const batchValidator = new _BatchValidator()
+
         let batch = batchValidator.returnBatch(baseEvent);
 
         expect(batch).to.have.property('environment').equal('production');
         expect(batch).to.have.property('source_request_id').equal('mockId');
         expect(batch).to.have.property('mpid').equal('0');
-        expect(batch).to.have.property('timestamp_unixtime_ms')
+        expect(batch).to.have.property('timestamp_unixtime_ms').greaterThanOrEqual(now);
         expect(batch).to.have.property('mp_deviceid');
         expect(batch).to.have.property('sdk_version')
         expect(batch).to.have.property('application_info');
@@ -47,11 +49,55 @@ describe('Create a batch from a base event', () => {
         batch = batchValidator.returnBatch(baseEvent);
         expect(batch.events[0].data).to.have.property('custom_attributes');
         expect(batch.events[0].data.custom_attributes).to.have.property('attrFoo', 'attrBar');
-        
+
         baseEvent.customFlags = { flagFoo: 'flagBar' }
         batch = batchValidator.returnBatch(baseEvent);
         expect(batch.events[0].data).to.have.property('custom_flags');
         expect(batch.events[0].data.custom_flags).to.have.property('flagFoo', 'flagBar');
+
+        done();
+    });
+
+    [undefined, null, false, true].forEach(omitBatchTimestamp => {
+        it(`respects an omitBatchTimestamp config value of ${omitBatchTimestamp}`, done => {
+            const now = new Date().getTime();
+            const batchValidator = new _BatchValidator({
+                configOverride: {omitBatchTimestamp}
+            });
+
+            const batch = batchValidator.returnBatch(baseEvent);
+
+            if (omitBatchTimestamp) {
+                expect(batch).to.have.property('timestamp_unixtime_ms', null);
+            } else {
+                expect(batch).to.have.property('timestamp_unixtime_ms').greaterThanOrEqual(now);
+            }
+
+            done();
+        });
+    })
+
+    it(`can use a batch timestamp override value`, done => {
+        const oneDayAgo = new Date().getTime() - (24 * 3600 * 1000);
+        const batchValidator = new _BatchValidator({
+            storeOverride: {batchTimestampUnixtimeMsOverride: oneDayAgo}
+        });
+        const batch = batchValidator.returnBatch(baseEvent);
+
+        expect(batch).to.have.property('timestamp_unixtime_ms').greaterThanOrEqual(oneDayAgo);
+
+        done();
+    });
+
+    it(`a batch timestamp override takes precedence over the sdk config`, done => {
+        const oneDayAgo = new Date().getTime() - (24 * 3600 * 1000);
+        const batchValidator = new _BatchValidator({
+            configOverride: {omitBatchTimestamp: true},
+            storeOverride: {batchTimestampUnixtimeMsOverride: oneDayAgo}}
+        );
+        const batch = batchValidator.returnBatch(baseEvent);
+
+        expect(batch).to.have.property('timestamp_unixtime_ms').greaterThanOrEqual(oneDayAgo);
 
         done();
     });
