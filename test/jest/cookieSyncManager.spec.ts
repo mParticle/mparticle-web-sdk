@@ -440,7 +440,7 @@ describe.only('CookieSyncManager', () => {
             expect(loggerSpy).toHaveBeenCalledWith('Performing cookie sync');
         });
 
-        it.only('should return early if the user has not consented to the cookie sync', () => {
+        it('should return early if the user has not consented to the cookie sync', () => {
             const mockImage = {
                 onload: jest.fn(),
                 src: '',
@@ -494,7 +494,7 @@ describe.only('CookieSyncManager', () => {
             expect(cookieSyncDates[42]).toBeUndefined();
         });
 
-        it.only('should return early if requiresConsent and mpidIsNotInCookies are both true', () => {
+        it('should return early if requiresConsent and mpidIsNotInCookies are both true', () => {
             const mockImage = {
                 onload: jest.fn(),
                 src: '',

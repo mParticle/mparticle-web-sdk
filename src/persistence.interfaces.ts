@@ -14,6 +14,7 @@ import {
 import { Dictionary } from './utils';
 import { IMinifiedConsentJSONObject } from './consent';
 import { UserAttributes } from './identity-user-interfaces';
+import { CookieSyncDates } from './cookieSyncManager.interfaces';
 
 export type UploadsTable = Dictionary<any>;
 export interface iForwardingStatsBatches {
@@ -79,10 +80,8 @@ export interface IPersistenceMinified extends Dictionary {
     // };
 }
 
-export type CookieSyncDate = Dictionary<number>;
-
 export interface IUserPersistenceMinified extends Dictionary {
-    csd: CookieSyncDate; // Cookie Sync Dates // list of timestamps for last cookie sync
+    csd: CookieSyncDates; // Cookie Sync Dates // list of timestamps for last cookie sync
     con: IMinifiedConsentJSONObject; // Consent State
     ui: UserIdentities; // User Identities
     ua: UserAttributes; // User Attributes
@@ -121,7 +120,7 @@ export interface IPersistence {
     getDomain(doc: string, locationHostname: string): string;
     getCartProducts(mpid: MPID): Product[];
     setCartProducts(allProducts: Product[]): void;
-    saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDate): void;
+    saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDates): void;
     savePersistence(persistance: IPersistenceMinified): void;
     getPersistence(): IPersistenceMinified;
     getFirstSeenTime(mpid: MPID): string | null;

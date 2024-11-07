@@ -1,8 +1,8 @@
 import { isEmpty, replaceAmpWithAmpersand, replaceMPID } from './utils';
 import Constants from './constants';
-import { ICookieSyncManager } from './cookieSyncManager.interfaces';
+import { CookieSyncDates, ICookieSyncManager } from './cookieSyncManager.interfaces';
 import { MParticleWebSDK } from './sdkRuntimeModels';
-import { Dictionary, MPID } from '@mparticle/web-sdk';
+import { MPID } from '@mparticle/web-sdk';
 import { IConsentRules } from './consent';
 
 const { Messages } = Constants;
@@ -143,7 +143,7 @@ export default function CookieSyncManager(
         url: string,
         moduleId: string,
         mpid: MPID,
-        cookieSyncDates: Dictionary<number>,
+        cookieSyncDates: CookieSyncDates,
         filteringConsentRuleValues: IConsentRules,
         mpidIsNotInCookies: boolean,
         requiresConsent: boolean

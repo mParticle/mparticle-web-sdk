@@ -37,6 +37,7 @@ import {
     IGlobalStoreV2MinifiedKeys,
     IPersistenceMinified,
 } from './persistence.interfaces';
+import { CookieSyncDates } from './cookieSyncManager.interfaces';
 
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and
@@ -168,7 +169,7 @@ export interface IStore {
     identifyCalled: boolean;
     isLoggedIn: boolean;
     sideloadedKitsCount?: number;
-    cookieSyncDates: Dictionary<number>;
+    cookieSyncDates: CookieSyncDates;
     integrationAttributes: IntegrationAttributes;
     requireDelay: boolean;
     isLocalStorageAvailable: boolean | null;

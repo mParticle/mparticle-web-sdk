@@ -2,6 +2,7 @@ import { MPID } from '@mparticle/web-sdk';
 import { Dictionary } from './utils';
 import { IConsentRules } from './consent';
 
+export type CookieSyncDates = Dictionary<number>; 
 export interface ICookieSyncManager {
     attemptCookieSync: (
         previousMPID: MPID,
@@ -12,7 +13,7 @@ export interface ICookieSyncManager {
         url: string,
         moduleId: string,
         mpid: MPID,
-        cookieSyncDates: Dictionary<number>,
+        cookieSyncDates: CookieSyncDates,
         filteringConsentRuleValues: IConsentRules,
         mpidIsNotInCookies: boolean,
         requiresConsent: boolean
