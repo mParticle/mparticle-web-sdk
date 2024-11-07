@@ -15,7 +15,7 @@ const pixelSettings: PixelConfiguration = {
     redirectUrl: '',
 };
 
-describe('CookieSyncManager', () => {
+describe.only('CookieSyncManager', () => {
     describe('#attemptCookieSync', () => {
         it('should perform a cookie sync with defaults', () => {
             const mockSDK = ({
@@ -37,13 +37,55 @@ describe('CookieSyncManager', () => {
 
             expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
                 '',
-                5,
+                '5',
                 testMPID,
                 {},
                 undefined,
                 true,
                 false, 
             );
+        });
+
+        it('should return early if mpid is not defined', () => {
+            const mockSDK = ({
+                _Store: {
+                    webviewBridgeEnabled: false,
+                    pixelConfigurations: [pixelSettings],
+                },
+                _Persistence: {
+                    getPersistence: () => ({testMPID: {
+                        csd: {}
+                    }}),
+                },
+            } as unknown) as MParticleWebSDK;
+
+            const cookieSyncManager = new CookieSyncManager(mockSDK);
+            cookieSyncManager.performCookieSync = jest.fn();
+
+            cookieSyncManager.attemptCookieSync(null, null, true);
+
+            expect(cookieSyncManager.performCookieSync).not.toHaveBeenCalled();
+        });
+
+        it('should return early if webviewBridgeEnabled is true', () => {
+            const mockSDK = ({
+                _Store: {
+                    webviewBridgeEnabled: true,
+                    pixelConfigurations: [pixelSettings],
+                },
+                _Persistence: {
+                    getPersistence: () => ({testMPID: {
+                        csd: {}
+                    }}),
+                },
+            } as unknown) as MParticleWebSDK;
+
+            const cookieSyncManager = new CookieSyncManager(mockSDK);
+            cookieSyncManager.performCookieSync = jest.fn();
+
+            cookieSyncManager.attemptCookieSync(null, testMPID, true);
+
+            expect(cookieSyncManager.performCookieSync).not.toHaveBeenCalled();
         });
 
         it('should toggle requiresConsent value if filtering filteringConsentRuleValues are defined', () => {
@@ -72,7 +114,7 @@ describe('CookieSyncManager', () => {
 
             expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
                 '',
-                5,
+                '5',
                 testMPID,
                 {},
                 { values: ['test'] },
@@ -106,7 +148,7 @@ describe('CookieSyncManager', () => {
 
             expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
                 'https://test.com%3Fredirect%3Dhttps%3A%2F%2Fredirect.com%26mpid%3DtestMPID',
-                5,
+                '5',
                 testMPID,
                 {},
                 undefined,
@@ -135,7 +177,7 @@ describe('CookieSyncManager', () => {
 
             expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
                 '',
-                5,
+                '5',
                 testMPID,
                 {},
                 undefined,
@@ -164,7 +206,7 @@ describe('CookieSyncManager', () => {
 
             expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
                 '',
-                5,
+                '5',
                 testMPID,
                 {
                     5: 1234567890
@@ -195,7 +237,7 @@ describe('CookieSyncManager', () => {
 
             expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
                 '',
-                5,
+                '5',
                 testMPID,
                 {},
                 undefined,
@@ -229,7 +271,7 @@ describe('CookieSyncManager', () => {
 
             expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
                 '',
-                5,
+                '5',
                 testMPID,
                 {
                     5: cookieSyncDateInPast 
@@ -262,7 +304,7 @@ describe('CookieSyncManager', () => {
 
             expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
                 '',
-                5,
+                '5',
                 testMPID,
                 {},
                 undefined,
@@ -449,6 +491,45 @@ describe('CookieSyncManager', () => {
 
             expect(mockImage.src).toBe('');
             expect(cookieSyncDates[42]).toBeUndefined();
+        });
+    });
+
+    describe('#combineUrlWithRedirect', () => {
+        it('should combine a pixelUrl with a redirectUrl', () => {
+            const mockSDK = ({
+                _Store: {
+                    webviewBridgeEnabled: false,
+                    pixelConfigurations: [pixelSettings],
+                },
+            } as unknown) as MParticleWebSDK;
+
+            const cookieSyncManager = new CookieSyncManager(mockSDK);
+
+            const result = cookieSyncManager.combineUrlWithRedirect(
+                '1234',
+                'https://test.com',
+                '?redirect=https://redirect.com&mpid=%%mpid%%',
+            );
+
+            expect(result).toBe('https://test.com%3Fredirect%3Dhttps%3A%2F%2Fredirect.com%26mpid%3D1234');
+        });
+
+        it('should return the pixelUrl if no redirectUrl is defined', () => {
+            const mockSDK = ({
+                _Store: {
+                    webviewBridgeEnabled: false,
+                    pixelConfigurations: [pixelSettings],
+                },
+            } as unknown) as MParticleWebSDK;
+
+            const cookieSyncManager = new CookieSyncManager(mockSDK);
+
+            const result = cookieSyncManager.combineUrlWithRedirect(
+                '1234',
+                'https://test.com',
+            );
+
+            expect(result).toBe('https://test.com');
         });
     });
 });
