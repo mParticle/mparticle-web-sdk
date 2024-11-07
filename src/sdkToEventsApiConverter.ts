@@ -60,7 +60,7 @@ export function convertEvents(
     const { omitBatchTimestamp } = mpInstance._Store.SDKConfig;
     const { batchTimestampUnixtimeMsOverride } = mpInstance._Store;
 
-    let timestamp_unixtime_ms: number | null
+    let timestamp_unixtime_ms: number | null;
 
     if (batchTimestampUnixtimeMsOverride) {
         timestamp_unixtime_ms = batchTimestampUnixtimeMsOverride;
