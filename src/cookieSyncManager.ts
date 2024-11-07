@@ -7,7 +7,7 @@ import { Dictionary, MPID } from '@mparticle/web-sdk';
 import { IConsentRules } from './consent';
 
 const { Messages } = Constants;
-const {InformationMessages} = Messages;
+const { InformationMessages } = Messages;
 
 export default function CookieSyncManager(this: ICookieSyncManager, mpInstance: MParticleWebSDK) {
     const self = this;
@@ -71,7 +71,6 @@ export default function CookieSyncManager(this: ICookieSyncManager, mpInstance: 
                 // TODO: Refactor so that Persistence is only called once
                 //       outside of the loop
                 var persistence = mpInstance._Persistence.getPersistence();
-
 
                 // TODO: Is there a historic reason for checking for previousMPID?
                 //       it does not appear to be passed in anywhere

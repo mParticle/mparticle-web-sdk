@@ -204,7 +204,7 @@ describe('CookieSyncManager', () => {
             ); 
         });
 
-        it('should perform a cookie sync if lastSyncDateForModule is past the frequency cap', () => {
+        it('should perform a cookie sync if lastSyncDateForModule is passed the frequency cap', () => {
             const now = new Date().getTime();
 
             // Rev the date by one
