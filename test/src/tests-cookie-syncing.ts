@@ -176,9 +176,9 @@ describe('cookie syncing', function() {
                 const data2 = mParticle
                     .getInstance()
                     ._Persistence.getLocalStorage();
-                data1[testMPID].csd[5].should.be.ok;
-                data2['otherMPID'].csd[5].should.be.ok;
-               expect( 
+                expect(data1[testMPID].csd[5]).to.be.ok;
+                expect(data2['otherMPID'].csd[5]).to.be.ok;
+                expect( 
                     mParticle.getInstance()._Store.pixelConfigurations.length
                 ).to.equal(1);
 
@@ -379,7 +379,7 @@ describe('cookie syncing', function() {
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, null);
 
-        enabled.should.not.be.ok;
+        expect(enabled).to.not.be.ok;
 
         done();
     });
@@ -415,7 +415,7 @@ describe('cookie syncing', function() {
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.not.be.ok;
+        expect(enabled).to.not.be.ok;
         done();
     });
 
@@ -450,7 +450,7 @@ describe('cookie syncing', function() {
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
 
-        enabled.should.not.be.ok;
+        expect(enabled).to.not.be.ok;
 
         done();
     });
@@ -487,7 +487,7 @@ describe('cookie syncing', function() {
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.be.ok;
+        expect(enabled).to.be.ok;
 
         done();
     });
@@ -523,7 +523,7 @@ describe('cookie syncing', function() {
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.be.ok;
+        expect(enabled).to.be.ok;
 
         done();
     });
@@ -559,7 +559,7 @@ describe('cookie syncing', function() {
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.not.be.ok;
+        expect(enabled).to.not.be.ok;
 
         done();
     });
@@ -595,7 +595,7 @@ describe('cookie syncing', function() {
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.be.ok;
+        expect(enabled).to.be.ok;
 
         done();
     });
@@ -631,7 +631,7 @@ describe('cookie syncing', function() {
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.be.ok;
+        expect(enabled).to.be.ok;
 
         done();
     });
@@ -667,7 +667,7 @@ describe('cookie syncing', function() {
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.be.ok;
+        expect(enabled).to.be.ok;
 
         done();
     });
@@ -702,7 +702,7 @@ describe('cookie syncing', function() {
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.not.be.ok;
+        expect(enabled).to.not.be.ok;
 
         done();
     });
@@ -737,7 +737,7 @@ describe('cookie syncing', function() {
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.not.be.ok;
+        expect(enabled).to.not.be.ok;
 
         done();
     });
@@ -772,7 +772,7 @@ describe('cookie syncing', function() {
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.be.ok;
+        expect(enabled).to.be.ok;
 
         done();
     });
@@ -807,7 +807,7 @@ describe('cookie syncing', function() {
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.be.ok;
+        expect(enabled).to.be.ok;
 
         done();
     });
@@ -842,7 +842,7 @@ describe('cookie syncing', function() {
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.not.be.ok;
+        expect(enabled).to.not.be.ok;
 
         done();
     });
@@ -877,7 +877,7 @@ describe('cookie syncing', function() {
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.be.ok;
+        expect(enabled).to.be.ok;
 
         done();
     });
@@ -912,7 +912,7 @@ describe('cookie syncing', function() {
         const enabled = mParticle
             .getInstance()
             ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        enabled.should.be.ok;
+        expect(enabled).to.be.ok;
 
         done();
     });
