@@ -11,8 +11,8 @@ const { InformationMessages } = Messages;
 export const DAYS_IN_MILLISECONDS = 1000 * 60 * 60 * 24;
 
 const hasFrequencyCapExpired = (
-    lastSyncDate: number,
-    frequencyCap: number
+    frequencyCap: number,
+    lastSyncDate?: number,
 ): boolean => {
     return (
         new Date().getTime() >
@@ -102,7 +102,7 @@ export default function CookieSyncManager(
                 const lastSyncDateForModule = persistence[mpid].csd[moduleId] || null;
 
                 // Check to see if we need to refresh cookieSync
-                if (hasFrequencyCapExpired(lastSyncDateForModule, frequencyCap)) {
+                if (hasFrequencyCapExpired(frequencyCap, lastSyncDateForModule)) {
                     self.performCookieSync(
                         urlWithRedirect,
                         moduleId,
