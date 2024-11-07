@@ -16,7 +16,7 @@ interface PixelConfig {
     filteringConsentRuleValues: IConsentRules;
 }
 
-const DAYS_IN_MILLISECONDS = 1000 * 60 * 60 * 24;
+export const DAYS_IN_MILLISECONDS = 1000 * 60 * 60 * 24;
 
 const hasFrequencyCapExpired = (
     lastSyncDate: number,

@@ -1,4 +1,4 @@
-import CookieSyncManager from '../../src/cookieSyncManager';
+import CookieSyncManager, { DAYS_IN_MILLISECONDS } from '../../src/cookieSyncManager';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { PixelConfiguration } from '../../src/store';
 import { testMPID } from '../src/config/constants';
@@ -18,7 +18,7 @@ const pixelSettings: PixelConfiguration = {
 describe.only('CookieSyncManager', () => {
     describe('#attemptCookieSync', () => {
         it('should perform a cookie sync with defaults', () => {
-            const mockSDK = ({
+            const mockMPInstance = ({
                 _Store: {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [pixelSettings],
@@ -30,7 +30,7 @@ describe.only('CookieSyncManager', () => {
                 },
             } as unknown) as MParticleWebSDK;
 
-            const cookieSyncManager = new CookieSyncManager(mockSDK);
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
 
             cookieSyncManager.attemptCookieSync(null, testMPID, true);
@@ -47,7 +47,7 @@ describe.only('CookieSyncManager', () => {
         });
 
         it('should return early if mpid is not defined', () => {
-            const mockSDK = ({
+            const mockMPInstance = ({
                 _Store: {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [pixelSettings],
@@ -59,7 +59,7 @@ describe.only('CookieSyncManager', () => {
                 },
             } as unknown) as MParticleWebSDK;
 
-            const cookieSyncManager = new CookieSyncManager(mockSDK);
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
 
             cookieSyncManager.attemptCookieSync(null, null, true);
@@ -68,7 +68,7 @@ describe.only('CookieSyncManager', () => {
         });
 
         it('should return early if webviewBridgeEnabled is true', () => {
-            const mockSDK = ({
+            const mockMPInstance = ({
                 _Store: {
                     webviewBridgeEnabled: true,
                     pixelConfigurations: [pixelSettings],
@@ -80,7 +80,7 @@ describe.only('CookieSyncManager', () => {
                 },
             } as unknown) as MParticleWebSDK;
 
-            const cookieSyncManager = new CookieSyncManager(mockSDK);
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
 
             cookieSyncManager.attemptCookieSync(null, testMPID, true);
@@ -95,7 +95,7 @@ describe.only('CookieSyncManager', () => {
                 },
             };
 
-            const mockSDK = ({
+            const mockMPInstance = ({
                 _Store: {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [{...pixelSettings, ...myPixelSettings}],
@@ -107,7 +107,7 @@ describe.only('CookieSyncManager', () => {
                 },
             } as unknown) as MParticleWebSDK;
 
-            const cookieSyncManager = new CookieSyncManager(mockSDK);
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
 
             cookieSyncManager.attemptCookieSync(null, testMPID, true);
@@ -129,7 +129,7 @@ describe.only('CookieSyncManager', () => {
                 redirectUrl: '?redirect=https://redirect.com&mpid=%%mpid%%',
             };
 
-            const mockSDK = ({
+            const mockMPInstance = ({
                 _Store: {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [{...pixelSettings, ...myPixelSettings}],
@@ -141,7 +141,7 @@ describe.only('CookieSyncManager', () => {
                 },
             } as unknown) as MParticleWebSDK;
 
-            const cookieSyncManager = new CookieSyncManager(mockSDK);
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
 
             cookieSyncManager.attemptCookieSync(null, testMPID, true);
@@ -159,7 +159,7 @@ describe.only('CookieSyncManager', () => {
 
         // QUESTION: What is the purpose of this code path?
         it('should call performCookieSync with mpid if previousMpid and mpid do not match', () => {
-            const mockSDK = ({
+            const mockMPInstance = ({
                 _Store: {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [pixelSettings],
@@ -170,7 +170,7 @@ describe.only('CookieSyncManager', () => {
                 },
             } as unknown) as MParticleWebSDK;
 
-            const cookieSyncManager = new CookieSyncManager(mockSDK);
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
 
             cookieSyncManager.attemptCookieSync('other-mpid', testMPID, true);
@@ -187,7 +187,7 @@ describe.only('CookieSyncManager', () => {
         });
 
         it('should call performCookieSync with mpid and csd if previousMpid and mpid do not match', () => {
-            const mockSDK = ({
+            const mockMPInstance = ({
                 _Store: {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [pixelSettings],
@@ -199,7 +199,7 @@ describe.only('CookieSyncManager', () => {
                 },
             } as unknown) as MParticleWebSDK;
 
-            const cookieSyncManager = new CookieSyncManager(mockSDK);
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
 
             cookieSyncManager.attemptCookieSync('other-mpid', testMPID, true);
@@ -219,7 +219,7 @@ describe.only('CookieSyncManager', () => {
 
         // QUESTION: What is the purpose of this code path?
         it('should call performCookieSync with mpid if previousMpid and mpid match', () => {
-            const mockSDK = ({
+            const mockMPInstance = ({
                 _Store: {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [pixelSettings],
@@ -230,7 +230,7 @@ describe.only('CookieSyncManager', () => {
                 },
             } as unknown) as MParticleWebSDK;
 
-            const cookieSyncManager = new CookieSyncManager(mockSDK);
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
 
             cookieSyncManager.attemptCookieSync(testMPID, testMPID, true);
@@ -246,13 +246,13 @@ describe.only('CookieSyncManager', () => {
             ); 
         });
 
-        it('should perform a cookie sync if lastSyncDateForModule is passed the frequency cap', () => {
+        it('should perform a cookie sync if lastSyncDateForModule has passed the frequency cap', () => {
             const now = new Date().getTime();
 
             // Rev the date by one
-            const cookieSyncDateInPast = now - ( pixelSettings.frequencyCap  + 1 ) * 60 * 60 * 24 * 1000;
+            const cookieSyncDateInPast = now - ( pixelSettings.frequencyCap  + 1 ) * DAYS_IN_MILLISECONDS;
 
-            const mockSDK = ({
+            const mockMPInstance = ({
                 _Store: {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [pixelSettings],
@@ -264,7 +264,7 @@ describe.only('CookieSyncManager', () => {
                 },
             } as unknown) as MParticleWebSDK;
 
-            const cookieSyncManager = new CookieSyncManager(mockSDK);
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
 
             cookieSyncManager.attemptCookieSync(null, testMPID, true);
@@ -285,7 +285,7 @@ describe.only('CookieSyncManager', () => {
         it('should perform a cookie sync if lastSyncDateForModule is past the frequency cap even if csd is empty', () => {
             const now = new Date().getTime();
 
-            const mockSDK = ({
+            const mockMPInstance = ({
                 _Store: {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [pixelSettings],
@@ -297,7 +297,7 @@ describe.only('CookieSyncManager', () => {
                 },
             } as unknown) as MParticleWebSDK;
 
-            const cookieSyncManager = new CookieSyncManager(mockSDK);
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
 
             cookieSyncManager.attemptCookieSync(null, testMPID, true);
@@ -314,7 +314,7 @@ describe.only('CookieSyncManager', () => {
         });
 
         it('should sync cookies when there was not a previous cookie-sync', () => {
-            const mockSDK = ({
+            const mockMPInstance = ({
                 _Store: {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [pixelSettings],
@@ -324,11 +324,11 @@ describe.only('CookieSyncManager', () => {
                 },
             } as unknown) as MParticleWebSDK;
 
-            const cookieSyncManager = new CookieSyncManager(mockSDK);
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
 
             cookieSyncManager.attemptCookieSync(null, '456', true);
-            expect(mockSDK._Store.pixelConfigurations.length).toBe(1);
-            expect(mockSDK._Store.pixelConfigurations[0].moduleId).toBe(5);
+            expect(mockMPInstance._Store.pixelConfigurations.length).toBe(1);
+            expect(mockMPInstance._Store.pixelConfigurations[0].moduleId).toBe(5);
         });
     });
 
@@ -342,7 +342,7 @@ describe.only('CookieSyncManager', () => {
                 (mockImage as unknown) as HTMLImageElement
             );
 
-            const mockSDK = ({
+            const mockMPInstance = ({
                 _Store: {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [pixelSettings],
@@ -365,7 +365,7 @@ describe.only('CookieSyncManager', () => {
                 },
             } as unknown) as MParticleWebSDK;
 
-            const cookieSyncManager = new CookieSyncManager(mockSDK);
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
 
             let cookieSyncDates = [];
             cookieSyncManager.performCookieSync(
@@ -397,7 +397,7 @@ describe.only('CookieSyncManager', () => {
 
             const loggerSpy = jest.fn();
 
-            const mockSDK = ({
+            const mockMPInstance = ({
                 _Store: {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [pixelSettings],
@@ -420,7 +420,7 @@ describe.only('CookieSyncManager', () => {
                 },
             } as unknown) as MParticleWebSDK;
 
-            const cookieSyncManager = new CookieSyncManager(mockSDK);
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
 
             let cookieSyncDates = [];
             cookieSyncManager.performCookieSync(
@@ -439,7 +439,7 @@ describe.only('CookieSyncManager', () => {
             expect(loggerSpy).toHaveBeenCalledWith('Performing cookie sync');
         });
 
-        it('should return early if the user has not consented to the cookie sync', () => {
+        it.only('should return early if the user has not consented to the cookie sync', () => {
             const mockImage = {
                 onload: jest.fn(),
                 src: '',
@@ -450,7 +450,61 @@ describe.only('CookieSyncManager', () => {
 
             const loggerSpy = jest.fn();
 
-            const mockSDK = ({
+            const mockMPInstance = ({
+                _Store: {
+                    webviewBridgeEnabled: false,
+                    pixelConfigurations: [pixelSettings],
+                },
+                _Persistence: {
+                    setCookieSyncDates: jest.fn(),
+                    getPersistence: jest.fn(),
+                    saveUserCookieSyncDatesToPersistence: jest.fn(),
+                },
+                _Consent: {
+                    isEnabledForUserConsent: jest.fn().mockReturnValue(false),
+                },
+                Identity: {
+                    getCurrentUser: jest.fn().mockReturnValue({
+                        getMPID: () => '123',
+                    }),
+                },
+                Logger: {
+                    verbose: loggerSpy,
+                },
+            } as unknown) as MParticleWebSDK;
+
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+
+            let cookieSyncDates = [];
+            cookieSyncManager.performCookieSync(
+                'https://test.com',
+                42,
+                '1234',
+                cookieSyncDates,
+                null,
+                false,
+                false, 
+            );
+
+            // Simulate image load
+            mockImage.onload();
+
+            expect(mockImage.src).toBe('');
+            expect(cookieSyncDates[42]).toBeUndefined();
+        });
+
+        it.only('should return early if requiresConsent and mpidIsNotInCookies are both true', () => {
+            const mockImage = {
+                onload: jest.fn(),
+                src: '',
+            };
+            jest.spyOn(document, 'createElement').mockReturnValue(
+                (mockImage as unknown) as HTMLImageElement
+            );
+
+            const loggerSpy = jest.fn();
+
+            const mockMPInstance = ({
                 _Store: {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [pixelSettings],
@@ -473,7 +527,7 @@ describe.only('CookieSyncManager', () => {
                 },
             } as unknown) as MParticleWebSDK;
 
-            const cookieSyncManager = new CookieSyncManager(mockSDK);
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
 
             let cookieSyncDates = [];
             cookieSyncManager.performCookieSync(
@@ -483,7 +537,7 @@ describe.only('CookieSyncManager', () => {
                 cookieSyncDates,
                 null,
                 true,
-                true
+                true, 
             );
 
             // Simulate image load
@@ -496,14 +550,14 @@ describe.only('CookieSyncManager', () => {
 
     describe('#combineUrlWithRedirect', () => {
         it('should combine a pixelUrl with a redirectUrl', () => {
-            const mockSDK = ({
+            const mockMPInstance = ({
                 _Store: {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [pixelSettings],
                 },
             } as unknown) as MParticleWebSDK;
 
-            const cookieSyncManager = new CookieSyncManager(mockSDK);
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
 
             const result = cookieSyncManager.combineUrlWithRedirect(
                 '1234',
@@ -515,14 +569,14 @@ describe.only('CookieSyncManager', () => {
         });
 
         it('should return the pixelUrl if no redirectUrl is defined', () => {
-            const mockSDK = ({
+            const mockMPInstance = ({
                 _Store: {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [pixelSettings],
                 },
             } as unknown) as MParticleWebSDK;
 
-            const cookieSyncManager = new CookieSyncManager(mockSDK);
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
 
             const result = cookieSyncManager.combineUrlWithRedirect(
                 '1234',
