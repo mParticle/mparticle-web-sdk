@@ -15,7 +15,7 @@ const pixelSettings: IPixelConfiguration = {
     redirectUrl: '',
 };
 
-describe.only('CookieSyncManager', () => {
+describe('CookieSyncManager', () => {
     describe('#attemptCookieSync', () => {
         // https://go.mparticle.com/work/SQDSDKS-6915
         it('should perform a cookie sync with defaults', () => {
