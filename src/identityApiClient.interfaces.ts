@@ -37,10 +37,8 @@ export interface IIdentityApiClient {
 // https://go.mparticle.com/work/SQDSDKS-6568
 // https://go.mparticle.com/work/SQDSDKS-6679
 // Combine with `sendIdentityRequest` above once module is fully migrated
-export interface IIdentityApiClientSendAliasRequest {
-    (
-        mpInstance: MParticleWebSDK,
-        aliasRequest: IAliasRequest,
-        aliasCallback: IAliasCallback
-    ): Promise<void>;
-}
+export type IIdentityApiClientSendAliasRequest = (
+    mpInstance: MParticleWebSDK,
+    aliasRequest: IAliasRequest,
+    aliasCallback: IAliasCallback
+) => Promise<void>;
