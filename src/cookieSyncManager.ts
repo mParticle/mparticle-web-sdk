@@ -8,14 +8,6 @@ import { IConsentRules } from './consent';
 const { Messages } = Constants;
 const { InformationMessages } = Messages;
 
-interface PixelConfig {
-    moduleId: string;
-    frequencyCap: number;
-    pixelUrl: string;
-    redirectUrl: string;
-    filteringConsentRuleValues: IConsentRules;
-}
-
 export const DAYS_IN_MILLISECONDS = 1000 * 60 * 60 * 24;
 
 const hasFrequencyCapExpired = (
@@ -107,9 +99,7 @@ export default function CookieSyncManager(
                     persistence[mpid].csd = {};
                 }
 
-                const lastSyncDateForModule = persistence[mpid].csd[moduleId]
-                    ? persistence[mpid].csd[moduleId]
-                    : null;
+                const lastSyncDateForModule = persistence[mpid].csd[moduleId] || null;
 
                 // Check to see if we need to refresh cookieSync
                 if (hasFrequencyCapExpired(lastSyncDateForModule, frequencyCap)) {
@@ -123,7 +113,6 @@ export default function CookieSyncManager(
                         requiresConsent
                     );
                 }
-
             }
         });
     };

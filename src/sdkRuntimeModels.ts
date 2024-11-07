@@ -6,7 +6,7 @@ import {
     Callback,
     IdentityApiData,
 } from '@mparticle/web-sdk';
-import { IStore, PixelConfiguration } from './store';
+import { IStore } from './store';
 import Validators from './validators';
 import { Dictionary } from './utils';
 import { IServerModel } from './serverModel';
@@ -31,7 +31,7 @@ import {
 } from './identity-user-interfaces';
 import { IIdentityType } from './types.interfaces';
 import IntegrationCapture from './integrationCapture';
-import { ICookieSyncManager } from './cookieSyncManager.interfaces';
+import { ICookieSyncManager, IPixelConfiguration } from './cookieSyncManager.interfaces';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -230,7 +230,7 @@ export interface SDKInitConfig
     sideloadedKits?: MPForwarder[];
     dataPlanOptions?: KitBlockerOptions;
     flags?: Dictionary;
-    pixelConfigs?: PixelConfiguration[];
+    pixelConfigs?: IPixelConfiguration[];
 
     aliasMaxWindow?: number;
     deviceId?: string;

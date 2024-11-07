@@ -3,13 +3,14 @@ import Utils from './config/utils';
 import fetchMock from 'fetch-mock/esm/client';
 import { urls, testMPID, MPConfig, v4LSKey, apiKey } from './config/constants';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
-import { PixelConfiguration } from '../../src/store';
 import { IMParticleUser } from '../../src/identity-user-interfaces';
+import { IPixelConfiguration } from '../../src/cookieSyncManager.interfaces';
+import { IConsentRules } from '../../src/consent';
 const { fetchMockSuccess, waitForCondition, hasIdentifyReturned } = Utils;
 
 const { setLocalStorage, MockForwarder, getLocalStorage } = Utils;
 
-const pixelSettings: PixelConfiguration = {
+const pixelSettings: IPixelConfiguration = {
     name: 'TestPixel',
     moduleId: 5,
     esId: 24053,
@@ -343,7 +344,7 @@ describe('cookie syncing', function() {
     it('should perform a cookiesync when consent is not configured on the cookiesync setting', function(done) {
         mParticle._resetForTests(MPConfig);
 
-        pixelSettings.filteringConsentRuleValues = {};
+        pixelSettings.filteringConsentRuleValues = {} as unknown as IConsentRules;
         window.mParticle.config.pixelConfigs = [pixelSettings];
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -1213,7 +1214,7 @@ describe('cookie syncing', function() {
         mParticle.config.isDevelopmentMode = false;
 
         //  pixelSetting1 has consent required, and so should only perform a cookiesync after consent is saved to the user
-        const pixelSettings1: PixelConfiguration = {
+        const pixelSettings1: IPixelConfiguration = {
             name: 'TestPixel',
             moduleId: 1,
             esId: 24053,

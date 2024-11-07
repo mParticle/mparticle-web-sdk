@@ -1,9 +1,9 @@
 import CookieSyncManager, { DAYS_IN_MILLISECONDS } from '../../src/cookieSyncManager';
+import { IPixelConfiguration } from '../../src/cookieSyncManager.interfaces';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
-import { PixelConfiguration } from '../../src/store';
 import { testMPID } from '../src/config/constants';
 
-const pixelSettings: PixelConfiguration = {
+const pixelSettings: IPixelConfiguration = {
     name: 'TestPixel',
     moduleId: 5,
     esId: 24053,
@@ -90,11 +90,11 @@ describe.only('CookieSyncManager', () => {
         });
 
         it('should toggle requiresConsent value if filtering filteringConsentRuleValues are defined', () => {
-            const myPixelSettings: PixelConfiguration = {
+            const myPixelSettings: IPixelConfiguration = {
                 filteringConsentRuleValues: {
                     values: ['test'],
                 },
-            };
+            } as unknown as IPixelConfiguration;
 
             const mockMPInstance = ({
                 _Store: {
@@ -125,10 +125,10 @@ describe.only('CookieSyncManager', () => {
         });
 
         it('should update the urlWithRedirect if a redirectUrl is defined', () => {
-            const myPixelSettings: PixelConfiguration = {
+            const myPixelSettings: IPixelConfiguration = {
                 pixelUrl: 'https://test.com',
                 redirectUrl: '?redirect=https://redirect.com&mpid=%%mpid%%',
-            };
+            } as unknown as IPixelConfiguration;
 
             const mockMPInstance = ({
                 _Store: {

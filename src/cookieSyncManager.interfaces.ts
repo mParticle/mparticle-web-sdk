@@ -3,6 +3,19 @@ import { Dictionary } from './utils';
 import { IConsentRules } from './consent';
 
 export type CookieSyncDates = Dictionary<number>; 
+
+export interface IPixelConfiguration {
+    name?: string;
+    moduleId: number;
+    esId?: number;
+    isDebug?: boolean;
+    isProduction?: boolean;
+    settings: Dictionary<string>;
+    frequencyCap: number;
+    pixelUrl: string;
+    redirectUrl: string;
+    filteringConsentRuleValues?: IConsentRules;
+}
 export interface ICookieSyncManager {
     attemptCookieSync: (
         previousMPID: MPID,
