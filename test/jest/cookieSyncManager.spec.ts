@@ -17,6 +17,7 @@ const pixelSettings: PixelConfiguration = {
 
 describe.only('CookieSyncManager', () => {
     describe('#attemptCookieSync', () => {
+        // https://go.mparticle.com/work/SQDSDKS-6915
         it('should perform a cookie sync with defaults', () => {
             const mockMPInstance = ({
                 _Store: {
@@ -157,7 +158,7 @@ describe.only('CookieSyncManager', () => {
             );
         });
 
-        // QUESTION: What is the purpose of this code path?
+        // https://go.mparticle.com/work/SQDSDKS-6915
         it('should call performCookieSync with mpid if previousMpid and mpid do not match', () => {
             const mockMPInstance = ({
                 _Store: {
@@ -186,7 +187,7 @@ describe.only('CookieSyncManager', () => {
             );
         });
 
-        it('should call performCookieSync with mpid and csd if previousMpid and mpid do not match', () => {
+        it('should include mpid AND csd when calling performCookieSync if previousMpid and mpid do not match', () => {
             const mockMPInstance = ({
                 _Store: {
                     webviewBridgeEnabled: false,
