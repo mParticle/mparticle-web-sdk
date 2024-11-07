@@ -38,7 +38,7 @@ export default function CookieSyncManager(
     this.attemptCookieSync = (
         previousMPID: MPID,
         mpid: MPID,
-        mpidIsNotInCookies: boolean
+        mpidIsNotInCookies?: boolean
     ): void => {
         if (!mpid || mpInstance._Store.webviewBridgeEnabled) {
             return;
@@ -151,16 +151,10 @@ export default function CookieSyncManager(
         // if MPID is new to cookies, we should not try to perform the cookie sync
         // because a cookie sync can only occur once a user either consents or doesn't
         // we should not check if its enabled if the user has a blank consent
-        // TODO: We should do this check outside of this function
         if (requiresConsent && mpidIsNotInCookies) {
             return;
         }
 
-        // TODO: Refactor so that check is made outside of the function.
-        //       Cache or store the boolean so that it only gets called once per
-        //       cookie sync attempt per module.
-        //       Currently, attemptCookieSync is called as a loop and therefore this
-        //       function polls the user object and consent multiple times.
         if (
             // https://go.mparticle.com/work/SQDSDKS-5009
             mpInstance._Consent.isEnabledForUserConsent(

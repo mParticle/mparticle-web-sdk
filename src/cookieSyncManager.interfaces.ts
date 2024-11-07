@@ -6,7 +6,7 @@ export interface ICookieSyncManager {
     attemptCookieSync: (
         previousMPID: MPID,
         mpid: MPID,
-        mpidIsNotInCookies: boolean
+        mpidIsNotInCookies?: boolean
     ) => void;
     performCookieSync: (
         url: string,
