@@ -562,11 +562,11 @@ describe('CookieSyncManager', () => {
 
             const result = cookieSyncManager.combineUrlWithRedirect(
                 '1234',
-                'https://test.com',
-                '?redirect=https://redirect.com&mpid=%%mpid%%',
+                'https://test.com/some/path',
+                'https://redirect.mparticle.com/v1/sync?esid=1234&amp;MPID=%%mpid%%&amp;ID=$UID&amp;Key=testMPID&amp;env=2'
             );
 
-            expect(result).toBe('https://test.com%3Fredirect%3Dhttps%3A%2F%2Fredirect.com%26mpid%3D1234');
+            expect(result).toBe('https://test.com/some/pathhttps%3A%2F%2Fredirect.mparticle.com%2Fv1%2Fsync%3Fesid%3D1234%26amp%3BMPID%3D1234%26amp%3BID%3D%24UID%26amp%3BKey%3DtestMPID%26amp%3Benv%3D2');
         });
 
         it('should return the pixelUrl if no redirectUrl is defined', () => {

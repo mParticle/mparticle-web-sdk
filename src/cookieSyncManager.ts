@@ -120,7 +120,7 @@ export default function CookieSyncManager(
     this.combineUrlWithRedirect = (
         mpid: MPID,
         pixelUrl: string,
-        redirectUrl
+        redirectUrl: string,
     ): string => {
         const url = replaceMPID(pixelUrl, mpid);
         const redirect = redirectUrl ? replaceMPID(redirectUrl, mpid) : '';
