@@ -36,10 +36,11 @@ import Consent from './consent';
 import KitBlocker from './kitBlocking';
 import ConfigAPIClient from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
-import { isEmpty, isFunction } from './utils';
+import { isFunction } from './utils';
 import { LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
+import { processReadyQueue } from './pre-init-utils';
 
 const { Messages, HTTPCodes, FeatureFlags } = Constants;
 const { ReportBatching, CaptureIntegrationSpecificIds } = FeatureFlags;
@@ -590,7 +591,7 @@ export default function mParticleInstance(instanceName) {
                     Constants.NativeSdkPaths.Upload
                 );
             } else {
-                self._APIClient.uploader.prepareAndUpload(false, false);
+                self._APIClient?.uploader?.prepareAndUpload(false, false);
             }
         }
     };
@@ -1361,15 +1362,17 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         );
     }
 
-    mpInstance._Store.isInitialized = true;
+    // We will continue to clear out the ready queue as part of the initial init flow
+    // if an identify request is unnecessary, such as if there is an existing session
+    if (
+        (mpInstance._Store.mpid && !mpInstance._Store.identifyCalled) ||
+        mpInstance._Store.webviewBridgeEnabled
+    ) {
+        mpInstance._Store.isInitialized = true;
 
-    // Call any functions that are waiting for the library to be initialized
-    try {
         mpInstance._preInit.readyQueue = processReadyQueue(
             mpInstance._preInit.readyQueue
         );
-    } catch (error) {
-        mpInstance.Logger.error(error);
     }
 
     // https://go.mparticle.com/work/SQDSDKS-6040
@@ -1506,42 +1509,6 @@ function processIdentityCallback(
             },
         });
     }
-}
-
-function processPreloadedItem(readyQueueItem) {
-    const args = readyQueueItem;
-    const method = args.splice(0, 1)[0];
-    // if the first argument is a method on the base mParticle object, run it
-    if (mParticle[args[0]]) {
-        mParticle[method].apply(this, args);
-        // otherwise, the method is on either eCommerce or Identity objects, ie. "eCommerce.setCurrencyCode", "Identity.login"
-    } else {
-        const methodArray = method.split('.');
-        try {
-            var computedMPFunction = mParticle;
-            for (let i = 0; i < methodArray.length; i++) {
-                const currentMethod = methodArray[i];
-                computedMPFunction = computedMPFunction[currentMethod];
-            }
-            computedMPFunction.apply(this, args);
-        } catch (e) {
-            throw new Error('Unable to compute proper mParticle function ' + e);
-        }
-    }
-}
-
-function processReadyQueue(readyQueue) {
-    if (!isEmpty(readyQueue)) {
-        readyQueue.forEach(function(readyQueueItem) {
-            if (isFunction(readyQueueItem)) {
-                readyQueueItem();
-            } else if (Array.isArray(readyQueueItem)) {
-                processPreloadedItem(readyQueueItem);
-            }
-        });
-    }
-    // https://go.mparticle.com/work/SQDSDKS-6835
-    return [];
 }
 
 function queueIfNotInitialized(func, self) {

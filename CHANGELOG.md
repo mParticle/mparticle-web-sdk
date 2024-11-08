@@ -1,3 +1,12 @@
+## [2.30.4](https://github.com/mParticle/mparticle-web-sdk/compare/v2.30.3...v2.30.4) (2024-11-05)
+
+
+### Bug Fixes
+
+* Move ready queue processing after identity request ([#933](https://github.com/mParticle/mparticle-web-sdk/issues/933)) ([678ccb7](https://github.com/mParticle/mparticle-web-sdk/commit/678ccb7fd97e25e15bac572c3cb899a3af23b976))
+
+## [2.30.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.30.2...v2.30.3) (2024-11-05)
+
 ## [2.30.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.30.1...v2.30.2) (2024-10-28)
 
 

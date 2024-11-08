@@ -393,7 +393,7 @@ var mParticle = (function () {
         return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     };
 
-    var version = "2.30.2";
+    var version = "2.30.4";
 
     var Constants = {
       sdkVersion: version,
@@ -7047,6 +7047,41 @@ var mParticle = (function () {
       return !prevUser || prevUser.getMPID() && identityApiResult.mpid && identityApiResult.mpid !== prevUser.getMPID();
     }
 
+    var _this = undefined;
+    var processReadyQueue = function processReadyQueue(readyQueue) {
+      if (!isEmpty(readyQueue)) {
+        readyQueue.forEach(function (readyQueueItem) {
+          if (isFunction(readyQueueItem)) {
+            readyQueueItem();
+          } else if (Array.isArray(readyQueueItem)) {
+            processPreloadedItem(readyQueueItem);
+          }
+        });
+      }
+      return [];
+    };
+    var processPreloadedItem = function processPreloadedItem(readyQueueItem) {
+      var args = readyQueueItem;
+      var method = args.splice(0, 1)[0];
+      // if the first argument is a method on the base mParticle object, run it
+      if (typeof window !== 'undefined' && window.mParticle && window.mParticle[args[0]]) {
+        window.mParticle[method].apply(_this, args);
+        // otherwise, the method is on either eCommerce or Identity objects, ie. "eCommerce.setCurrencyCode", "Identity.login"
+      } else {
+        var methodArray = method.split('.');
+        try {
+          var computedMPFunction = window.mParticle;
+          for (var _i = 0, methodArray_1 = methodArray; _i < methodArray_1.length; _i++) {
+            var currentMethod = methodArray_1[_i];
+            computedMPFunction = computedMPFunction[currentMethod];
+          }
+          computedMPFunction.apply(_this, args);
+        } catch (e) {
+          throw new Error('Unable to compute proper mParticle function ' + e);
+        }
+      }
+    };
+
     var Messages$3 = Constants.Messages,
       HTTPCodes$3 = Constants.HTTPCodes,
       FeatureFlags$1 = Constants.FeatureFlags,
@@ -8051,6 +8086,8 @@ var mParticle = (function () {
           }
           mpInstance.Logger.error('Error parsing JSON response from Identity server: ' + e);
         }
+        mpInstance._Store.isInitialized = true;
+        mpInstance._preInit.readyQueue = processReadyQueue(mpInstance._preInit.readyQueue);
       };
 
       // send a user identity change request on identify, login, logout, modify when any values change.
@@ -10287,13 +10324,12 @@ var mParticle = (function () {
         mpInstance._Events.logAST();
         processIdentityCallback(mpInstance, currentUser, currentUserMPID, currentUserIdentities);
       }
-      mpInstance._Store.isInitialized = true;
 
-      // Call any functions that are waiting for the library to be initialized
-      try {
+      // We will continue to clear out the ready queue as part of the initial init flow
+      // if an identify request is unnecessary, such as if there is an existing session
+      if (mpInstance._Store.mpid && !mpInstance._Store.identifyCalled || mpInstance._Store.webviewBridgeEnabled) {
+        mpInstance._Store.isInitialized = true;
         mpInstance._preInit.readyQueue = processReadyQueue(mpInstance._preInit.readyQueue);
-      } catch (error) {
-        mpInstance.Logger.error(error);
       }
 
       // https://go.mparticle.com/work/SQDSDKS-6040
@@ -10409,40 +10445,6 @@ var mParticle = (function () {
           }
         });
       }
-    }
-    function processPreloadedItem(readyQueueItem) {
-      var args = readyQueueItem;
-      var method = args.splice(0, 1)[0];
-      // if the first argument is a method on the base mParticle object, run it
-      if (mParticle[args[0]]) {
-        mParticle[method].apply(this, args);
-        // otherwise, the method is on either eCommerce or Identity objects, ie. "eCommerce.setCurrencyCode", "Identity.login"
-      } else {
-        var methodArray = method.split('.');
-        try {
-          var computedMPFunction = mParticle;
-          for (var i = 0; i < methodArray.length; i++) {
-            var currentMethod = methodArray[i];
-            computedMPFunction = computedMPFunction[currentMethod];
-          }
-          computedMPFunction.apply(this, args);
-        } catch (e) {
-          throw new Error('Unable to compute proper mParticle function ' + e);
-        }
-      }
-    }
-    function processReadyQueue(readyQueue) {
-      if (!isEmpty(readyQueue)) {
-        readyQueue.forEach(function (readyQueueItem) {
-          if (isFunction(readyQueueItem)) {
-            readyQueueItem();
-          } else if (Array.isArray(readyQueueItem)) {
-            processPreloadedItem(readyQueueItem);
-          }
-        });
-      }
-      // https://go.mparticle.com/work/SQDSDKS-6835
-      return [];
     }
     function queueIfNotInitialized(func, self) {
       if (!self.isInitialized()) {

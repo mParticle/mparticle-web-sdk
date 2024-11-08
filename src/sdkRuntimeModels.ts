@@ -32,6 +32,7 @@ import {
 import { IIdentityType } from './types.interfaces';
 import IntegrationCapture from './integrationCapture';
 import { INativeSdkHelpers } from './nativeSdkHelpers.interfaces';
+import { ICookieSyncManager } from './cookieSyncManager.interfaces';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -159,6 +160,7 @@ export interface MParticleWebSDK {
     Logger: SDKLoggerApi;
     MPSideloadedKit: IMPSideloadedKit;
     _APIClient: any; // TODO: Set up API Client
+    _CookieSyncManager: ICookieSyncManager;
     _Store: IStore;
     _Forwarders: any;
     _Helpers: SDKHelpersApi;
