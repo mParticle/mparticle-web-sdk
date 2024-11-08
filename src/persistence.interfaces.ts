@@ -81,7 +81,7 @@ export interface IPersistenceMinified extends Dictionary {
 }
 
 export interface IUserPersistenceMinified extends Dictionary {
-    csd: CookieSyncDates; // Cookie Sync Dates // list of timestamps for last cookie sync
+    csd: CookieSyncDates; // list of timestamps for last cookie sync per module
     con: IMinifiedConsentJSONObject; // Consent State
     ui: UserIdentities; // User Identities
     ua: UserAttributes; // User Attributes
