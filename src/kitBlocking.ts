@@ -460,7 +460,7 @@ export default class KitBlocker {
         if (!this.blockUserAttributes) {
             return false
         }
-        var matchedAttributes = this.dataPlanMatchLookups['user_attributes'];
+        const matchedAttributes = this.dataPlanMatchLookups['user_attributes'];
 
         // When additionalProperties is set to true, matchedAttributes 
         // will be a boolean, otherwise it will return an object
@@ -468,7 +468,7 @@ export default class KitBlocker {
             return false
         }
 
-        if (this.blockUserAttributes && typeof matchedAttributes === "object") {
+        if (typeof matchedAttributes === "object") {
             if (matchedAttributes[key] === true) {
                 return false;
             } else {
