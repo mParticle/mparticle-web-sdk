@@ -1,6 +1,6 @@
 import { isEmpty, replaceAmpWithAmpersand, replaceMPID } from './utils';
 import Constants from './constants';
-import { CookieSyncDates, ICookieSyncManager } from './cookieSyncManager.interfaces';
+import { CookieSyncDates, ICookieSyncManager, IPixelConfiguration } from './cookieSyncManager.interfaces';
 import { MParticleWebSDK } from './sdkRuntimeModels';
 import { MPID } from '@mparticle/web-sdk';
 import { IConsentRules } from './consent';
@@ -39,7 +39,7 @@ export default function CookieSyncManager(
         const { pixelConfigurations } = mpInstance._Store;
         const persistence = mpInstance._Persistence.getPersistence();
 
-        pixelConfigurations.forEach(pixelSettings => {
+        pixelConfigurations.forEach((pixelSettings: IPixelConfiguration) => {
             // set requiresConsent to false to start each additional pixel configuration
             // set to true only if filteringConsenRuleValues.values.length exists
             let requiresConsent = false;

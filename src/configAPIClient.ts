@@ -13,6 +13,7 @@ import {
     FetchUploader,
     XHRUploader,
 } from './uploaders';
+import { IPixelConfiguration } from './cookieSyncManager.interfaces';
 
 export interface IKitConfigs extends IKitFilterSettings {
     name: string;
@@ -65,17 +66,6 @@ export interface IConsentRuleValue {
     hasConsented: boolean;
 }
 
-export interface IPixelConfig {
-    name: string;
-    moduleId: number;
-    esId: number;
-    isDebug: boolean;
-    isProduction: boolean;
-    settings: Dictionary;
-    frequencyCap: number;
-    pixelUrl: string;
-    redirectUrl: string;
-}
 
 export interface IConfigResponse {
     appName: string;
@@ -85,7 +75,7 @@ export interface IConfigResponse {
     secureServiceUrl: string;
     minWebviewBridgeVersion: number;
     workspaceToken: string;
-    pixelConfigs: IPixelConfig[];
+    pixelConfigs: IPixelConfiguration[];
     flags: SDKEventCustomFlags;
 }
 
