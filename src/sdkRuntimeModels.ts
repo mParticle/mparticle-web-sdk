@@ -31,6 +31,7 @@ import {
 } from './identity-user-interfaces';
 import { IIdentityType } from './types.interfaces';
 import IntegrationCapture from './integrationCapture';
+import { INativeSdkHelpers } from './nativeSdkHelpers.interfaces';
 import { ICookieSyncManager, IPixelConfiguration } from './cookieSyncManager.interfaces';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
@@ -169,7 +170,7 @@ export interface MParticleWebSDK {
     _SessionManager: ISessionManager;
     _Consent: SDKConsentApi;
     Consent: SDKConsentApi;
-    _NativeSdkHelpers: any; // TODO: Set up API
+    _NativeSdkHelpers: INativeSdkHelpers;
     _Persistence: IPersistence;
     _preInit: any; // TODO: Set up API
     _instances?: Dictionary<MParticleWebSDK>;
