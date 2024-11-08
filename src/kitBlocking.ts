@@ -460,17 +460,23 @@ export default class KitBlocker {
         if (!this.blockUserAttributes) {
             return false
         }
-        if (this.blockUserAttributes) {
-            const matchedAttributes = this.dataPlanMatchLookups['user_attributes'];
-            if (matchedAttributes === true) {
-                return false
-            }
-            if (!matchedAttributes[key]) {
-                return true
+        var matchedAttributes = this.dataPlanMatchLookups['user_attributes'];
+
+        // When additionalProperties is set to true, matchedAttributes 
+        // will be a boolean, otherwise it will return an object
+        if (typeof matchedAttributes === 'boolean' && matchedAttributes) {
+            return false
+        }
+
+        if (this.blockUserAttributes && typeof matchedAttributes === "object") {
+            if (matchedAttributes[key] === true) {
+                return false;
+            } else {
+                return true;
             }
         }
 
-        return false
+        return false;
     }
 
     isIdentityBlocked(key: string) {
