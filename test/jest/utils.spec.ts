@@ -103,7 +103,6 @@ describe('Utils', () => {
             });
         });
 
-
         describe('without URLSearchParams', () => {
             beforeEach(() => {
                 URL = undefined;
