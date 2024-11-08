@@ -14,6 +14,10 @@ const hasFrequencyCapExpired = (
     frequencyCap: number,
     lastSyncDate?: number,
 ): boolean => {
+    if (!lastSyncDate) {
+        return true;
+    }
+
     return (
         new Date().getTime() >
         new Date(lastSyncDate).getTime() + frequencyCap * DAYS_IN_MILLISECONDS
@@ -61,7 +65,6 @@ export default function CookieSyncManager(
             // Url for cookie sync pixel
             const pixelUrl = replaceAmpWithAmpersand(pixelSettings.pixelUrl);
 
-            // TODO: Document requirements for redirectUrl
             const redirectUrl = pixelSettings.redirectUrl
                 ? replaceAmpWithAmpersand(pixelSettings.redirectUrl)
                 : null;
@@ -72,8 +75,6 @@ export default function CookieSyncManager(
                 redirectUrl
             );
 
-            // TODO: Is there a historic reason for checking for previousMPID?
-            //       it does not appear to be passed in anywhere
             if (previousMPID && previousMPID !== mpid) {
                 if (persistence && persistence[mpid]) {
                     if (!persistence[mpid].csd) {

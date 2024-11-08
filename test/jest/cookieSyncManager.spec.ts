@@ -218,7 +218,6 @@ describe('CookieSyncManager', () => {
             );
         });
 
-        // QUESTION: What is the purpose of this code path?
         it('should call performCookieSync with mpid if previousMpid and mpid match', () => {
             const mockMPInstance = ({
                 _Store: {
@@ -245,6 +244,33 @@ describe('CookieSyncManager', () => {
                 true,
                 false, 
             ); 
+        });
+
+        it('should perform a cookie sync if lastSyncDateForModule is null', () => {
+            const mockMPInstance = ({
+                _Store: {
+                    webviewBridgeEnabled: false,
+                    pixelConfigurations: [pixelSettings],
+                },
+                _Persistence: {
+                    getPersistence: () => ({testMPID: {}}),
+                },
+            } as unknown) as MParticleWebSDK;
+
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+            cookieSyncManager.performCookieSync = jest.fn();
+
+            cookieSyncManager.attemptCookieSync(null, testMPID, true);
+
+            expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
+                '',
+                '5',
+                testMPID,
+                {},
+                undefined,
+                true,
+                false, 
+            );
         });
 
         it('should perform a cookie sync if lastSyncDateForModule has passed the frequency cap', () => {
@@ -330,6 +356,25 @@ describe('CookieSyncManager', () => {
             cookieSyncManager.attemptCookieSync(null, '456', true);
             expect(mockMPInstance._Store.pixelConfigurations.length).toBe(1);
             expect(mockMPInstance._Store.pixelConfigurations[0].moduleId).toBe(5);
+        });
+
+        it('should not perform a cookie sync if persistence is empty', () => {
+            const mockMPInstance = ({
+                _Store: {
+                    webviewBridgeEnabled: false,
+                    pixelConfigurations: [pixelSettings],
+                },
+                _Persistence: {
+                    getPersistence: () => ({}),
+                },
+            } as unknown) as MParticleWebSDK;
+
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+            cookieSyncManager.performCookieSync = jest.fn();
+
+            cookieSyncManager.attemptCookieSync(null, testMPID, true);
+
+            expect(cookieSyncManager.performCookieSync).not.toHaveBeenCalled();
         });
     });
 
@@ -560,13 +605,16 @@ describe('CookieSyncManager', () => {
 
             const cookieSyncManager = new CookieSyncManager(mockMPInstance);
 
+            // Note: We expect that the input of the pixelUrl will include a `?`
+            // (ideally at the end of the string)
+            // so that the redirectUrl can be processed by the backend correctly
             const result = cookieSyncManager.combineUrlWithRedirect(
                 '1234',
-                'https://test.com/some/path',
+                'https://test.com/some/path?',
                 'https://redirect.mparticle.com/v1/sync?esid=1234&amp;MPID=%%mpid%%&amp;ID=$UID&amp;Key=testMPID&amp;env=2'
             );
 
-            expect(result).toBe('https://test.com/some/pathhttps%3A%2F%2Fredirect.mparticle.com%2Fv1%2Fsync%3Fesid%3D1234%26amp%3BMPID%3D1234%26amp%3BID%3D%24UID%26amp%3BKey%3DtestMPID%26amp%3Benv%3D2');
+            expect(result).toBe('https://test.com/some/path?https%3A%2F%2Fredirect.mparticle.com%2Fv1%2Fsync%3Fesid%3D1234%26amp%3BMPID%3D1234%26amp%3BID%3D%24UID%26amp%3BKey%3DtestMPID%26amp%3Benv%3D2');
         });
 
         it('should return the pixelUrl if no redirectUrl is defined', () => {
