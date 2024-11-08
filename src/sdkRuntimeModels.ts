@@ -3,7 +3,6 @@ import { DataPlanVersion } from '@mparticle/data-planning-models';
 import {
     MPConfiguration,
     MPID,
-    Callback,
     IdentityApiData,
 } from '@mparticle/web-sdk';
 import { IStore } from './store';
@@ -287,8 +286,8 @@ export interface SDKHelpersApi {
     ): boolean;
     isObject?(item: any);
     invokeCallback?(
-        callback: Callback,
-        code: string,
+        callback: IdentityCallback,
+        code: number,
         body: string,
         mParticleUser?: IMParticleUser,
         previousMpid?: MPID
