@@ -3,6 +3,7 @@ import { MParticleWebSDK } from "./sdkRuntimeModels";
 import Constants from './constants';
 import { FetchUploader, XHRUploader } from './uploaders';
 import { HTTP_ACCEPTED, HTTP_OK } from "./constants";
+import { IIdentityApiClientSendAliasRequest } from "./identityApiClient.interfaces";
 
 
 const { HTTPCodes, Messages } = Constants;
@@ -11,7 +12,7 @@ interface IAliasResponseBody {
     message?: string
 }
 
-export async function sendAliasRequest (mpInstance: MParticleWebSDK, aliasRequest: IAliasRequest, aliasCallback: IAliasCallback) {
+export const sendAliasRequest: IIdentityApiClientSendAliasRequest = async function  (mpInstance: MParticleWebSDK, aliasRequest: IAliasRequest, aliasCallback: IAliasCallback): Promise<void> {
         const { verbose, error } = mpInstance.Logger;
         const { invokeAliasCallback } = mpInstance._Helpers;
         const { aliasUrl } = mpInstance._Store.SDKConfig;

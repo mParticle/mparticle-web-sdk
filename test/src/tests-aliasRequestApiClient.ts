@@ -4,7 +4,7 @@ import { urls, apiKey, MPConfig, testMPID } from './config/constants';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { expect } from 'chai';
 import { sendAliasRequest } from '../../src/aliasRequestApiClient';
-import { IAliasCallback, IAliasRequest } from '../../src/identity.interfaces';
+import { IAliasRequest } from '../../src/identity.interfaces';
 import { HTTP_ACCEPTED, HTTP_BAD_REQUEST, HTTP_FORBIDDEN, HTTP_OK } from '../../src/constants';
 
 declare global {
