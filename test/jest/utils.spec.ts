@@ -1,6 +1,11 @@
-import { queryStringParser, getCookies, getHref, replaceMPID, replaceAmpWithAmpersand } from '../../src/utils';
+import {
+    queryStringParser,
+    getCookies,
+    getHref,
+    replaceMPID,
+    replaceAmpWithAmpersand,
+} from '../../src/utils';
 import { deleteAllCookies } from './utils';
-
 
 describe('Utils', () => {
     describe('getCookies', () => {
@@ -128,7 +133,12 @@ describe('Utils', () => {
             });
 
             it('returns an empty object if there are no query parameters', () => {
-                expect(queryStringParser('https://www.example.com', ['foo', 'narf'])).toEqual({});
+                expect(
+                    queryStringParser('https://www.example.com', [
+                        'foo',
+                        'narf',
+                    ])
+                ).toEqual({});
             });
 
             it('returns an object with all the query string parameters if no keys are passed', () => {
@@ -164,7 +174,9 @@ describe('Utils', () => {
             const mpid = '1234';
             const string = 'https://www.google.com?mpid=%%mpid%%&foo=bar';
 
-            expect(replaceMPID(string, mpid)).toEqual('https://www.google.com?mpid=1234&foo=bar');     
+            expect(replaceMPID(string, mpid)).toEqual(
+                'https://www.google.com?mpid=1234&foo=bar'
+            );
         });
     });
 
@@ -172,7 +184,9 @@ describe('Utils', () => {
         it('replaces all instances of amp with ampersand', () => {
             const string = 'https://www.google.com?mpid=%%mpid%%&amp;foo=bar';
 
-            expect(replaceAmpWithAmpersand(string)).toEqual('https://www.google.com?mpid=%%mpid%%&foo=bar');
+            expect(replaceAmpWithAmpersand(string)).toEqual(
+                'https://www.google.com?mpid=%%mpid%%&foo=bar'
+            );
         });
     });
 });
