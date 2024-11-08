@@ -133,12 +133,7 @@ describe('Utils', () => {
             });
 
             it('returns an empty object if there are no query parameters', () => {
-                expect(
-                    queryStringParser('https://www.example.com', [
-                        'foo',
-                        'narf',
-                    ])
-                ).toEqual({});
+                expect(queryStringParser('https://www.example.com', ['foo', 'narf'])).toEqual({});
             });
 
             it('returns an object with all the query string parameters if no keys are passed', () => {
