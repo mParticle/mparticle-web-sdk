@@ -22,7 +22,7 @@ export interface IIdentityApiClient {
         method: IdentityAPIMethod,
         callback: IdentityCallback,
         originalIdentityApiData: IdentityApiData,
-        parseIdentityResponse: Pick<IIdentity, 'parseIdentityResponse'>,
+        parseIdentityResponse: IIdentity['parseIdentityResponse'],
         mpid: MPID,
         knownIdentities: UserIdentities
     ) => Promise<void>;
