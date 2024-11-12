@@ -1,3 +1,4 @@
+import { MPID } from '@mparticle/web-sdk';
 import Constants from './constants';
 
 const { Messages } = Constants;
@@ -174,6 +175,10 @@ const replaceApostrophesWithQuotes = (value: string): string =>
 
 const replaceQuotesWithApostrophes = (value: string): string =>
     value.replace(/\"/g, "'");
+
+const replaceMPID = (value: string, mpid: MPID): string => value.replace('%%mpid%%', mpid);
+
+const replaceAmpWithAmpersand = (value: string): string => value.replace(/&amp;/g, '&');
 
 // FIXME: REFACTOR for V3
 // only used in store.js to sanitize server-side formatting of
@@ -366,4 +371,6 @@ export {
     queryStringParser,
     getCookies,
     getHref,
+    replaceMPID,
+    replaceAmpWithAmpersand,
 };
