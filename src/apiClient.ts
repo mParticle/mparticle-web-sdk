@@ -110,6 +110,12 @@ export default function APIClient(
             mpInstance._Store.integrationDelayTimeoutStart,
             Date.now()
         );
+
+        // set the batch timestamp override in the store if provided as an event option
+        if (options.batchTimestampUnixtimeMsOverride !== undefined) {
+            mpInstance._Store.batchTimestampUnixtimeMsOverride = options.batchTimestampUnixtimeMsOverride;
+        }
+
         // We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that that require this to stall because integration attributes
         // need to be set, or if we are still fetching the config (self hosted only), and so require delaying events
         if (

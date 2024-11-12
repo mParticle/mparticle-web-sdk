@@ -115,4 +115,34 @@ describe('Api Client', () => {
 
         done();
     });
+
+    [undefined, null, new Date().getTime()].forEach(
+        (batchTimestampUnixtimeMsOverride) => {
+            it("sendEventToServer should update batchTimestampUnixtimeMsOverride", (done) => {
+                const event = {
+                    messageType: Types.MessageType.PageEvent,
+                    name: "foo page",
+                    data: { "foo-attr": "foo-val" },
+                    eventType: Types.EventType.Navigation,
+                    customFlags: { "foo-flag": "foo-flag-val" },
+                };
+
+                const options = { batchTimestampUnixtimeMsOverride };
+
+                expect(mParticle.getInstance()._Store).to.be.ok;
+
+                mParticle
+                    .getInstance()
+                    ._APIClient.sendEventToServer(event, options);
+
+                expect(
+                    mParticle.getInstance()._Store.batchTimestampUnixtimeMsOverride,
+                ).to.equal(batchTimestampUnixtimeMsOverride);
+
+                done();
+            });
+        },
+    );
+
+
 });
