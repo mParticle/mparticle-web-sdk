@@ -37,6 +37,7 @@ import {
     IGlobalStoreV2MinifiedKeys,
     IPersistenceMinified,
 } from './persistence.interfaces';
+import { CookieSyncDates, IPixelConfiguration } from './cookieSyncManager.interfaces';
 
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and
@@ -118,7 +119,6 @@ function createSDKConfig(config: SDKInitConfig): SDKConfig {
 
 // TODO: Placeholder Types to be filled in as we migrate more modules
 //       to TypeScript
-export type PixelConfiguration = Dictionary;
 export type ServerSettings = Dictionary;
 export type SessionAttributes = Dictionary;
 export type IntegrationAttributes = Dictionary<Dictionary<string>>;
@@ -168,7 +168,7 @@ export interface IStore {
     identifyCalled: boolean;
     isLoggedIn: boolean;
     sideloadedKitsCount?: number;
-    cookieSyncDates: Dictionary<number>;
+    cookieSyncDates: CookieSyncDates;
     integrationAttributes: IntegrationAttributes;
     requireDelay: boolean;
     isLocalStorageAvailable: boolean | null;
@@ -178,7 +178,7 @@ export interface IStore {
     kits: Dictionary<MPForwarder>;
     sideloadedKits: MPForwarder[];
     configuredForwarders: MPForwarder[];
-    pixelConfigurations: PixelConfiguration[];
+    pixelConfigurations: IPixelConfiguration[];
     integrationDelayTimeoutStart: number; // UNIX Timestamp
     webviewBridgeEnabled?: boolean;
     wrapperSDKInfo: WrapperSDKInfo;
