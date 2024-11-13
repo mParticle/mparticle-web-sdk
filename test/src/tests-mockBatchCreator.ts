@@ -93,12 +93,27 @@ describe('Create a batch from a base event', () => {
         const oneDayAgo = new Date().getTime() - (24 * 3600 * 1000);
         const batchValidator = new _BatchValidator({
             configOverride: {omitBatchTimestamp: true},
-            storeOverride: {batchTimestampUnixtimeMsOverride: oneDayAgo}}
-        );
+            storeOverride: {batchTimestampUnixtimeMsOverride: oneDayAgo}
+        });
         const batch = batchValidator.returnBatch(baseEvent);
 
         expect(batch).to.have.property('timestamp_unixtime_ms').greaterThanOrEqual(oneDayAgo);
 
         done();
     });
+
+    [undefined, null].forEach(batchTimestampUnixtimeMsOverride => {
+        it(`a non-number batch timestamp override of ${batchTimestampUnixtimeMsOverride} is not sent`, done => {
+            const now = new Date().getTime();
+
+            const batchValidator = new _BatchValidator({
+                storeOverride: {batchTimestampUnixtimeMsOverride}
+            });
+            const batch = batchValidator.returnBatch(baseEvent);
+
+            expect(batch).to.have.property('timestamp_unixtime_ms').greaterThanOrEqual(now);
+
+            done();
+        });
+    })
 });

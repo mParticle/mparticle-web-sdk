@@ -13,7 +13,7 @@ import {
     SDKCCPAConsentState,
 } from './consent';
 import Types from './types';
-import { isEmpty } from './utils';
+import { isEmpty, isNumber } from './utils';
 import { ISDKUserIdentity } from './identity-user-interfaces';
 import { SDKIdentityTypeEnum } from './identity.interfaces';
 
@@ -62,7 +62,7 @@ export function convertEvents(
 
     let timestamp_unixtime_ms: number | null;
 
-    if (batchTimestampUnixtimeMsOverride) {
+    if (isNumber(batchTimestampUnixtimeMsOverride)) {
         timestamp_unixtime_ms = batchTimestampUnixtimeMsOverride;
     } else if (omitBatchTimestamp) {
         timestamp_unixtime_ms = null;

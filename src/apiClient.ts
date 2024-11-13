@@ -112,7 +112,8 @@ export default function APIClient(
         );
 
         // set the batch timestamp override in the store if provided as an event option
-        if (options.batchTimestampUnixtimeMsOverride !== undefined) {
+        // setting this to undefined/null will cause no override to be applied
+        if (options.hasOwnProperty('batchTimestampUnixtimeMsOverride')) {
             mpInstance._Store.batchTimestampUnixtimeMsOverride = options.batchTimestampUnixtimeMsOverride;
         }
 
