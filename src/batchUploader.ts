@@ -2,7 +2,7 @@ import { Batch } from '@mparticle/event-models';
 import Constants from './constants';
 import { SDKEvent, MParticleWebSDK, SDKLoggerApi } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
-import Types from './types';
+import { MessageType } from './types';
 import { getRampNumber, isEmpty } from './utils';
 import { SessionStorageVault, LocalStorageVault } from './vault';
 import {
@@ -167,28 +167,34 @@ export class BatchUploader {
      * @param event event that should be queued
      */
     public queueEvent(event: SDKEvent): void {
-        if (!isEmpty(event)) {
-            this.eventsQueuedForProcessing.push(event);
-            if (this.offlineStorageEnabled && this.eventVault) {
-                this.eventVault.store(this.eventsQueuedForProcessing);
-            }
-            this.mpInstance.Logger.verbose(
-                `Queuing event: ${JSON.stringify(event)}`
-            );
-            this.mpInstance.Logger.verbose(
-                `Queued event count: ${this.eventsQueuedForProcessing.length}`
-            );
+        if (isEmpty(event)) {
+            return;
+        }
 
-            // TODO: Remove this check once the v2 code path is removed
-            //       https://go.mparticle.com/work/SQDSDKS-3720
-            if (
-                !this.batchingEnabled ||
-                Types.TriggerUploadType[event.EventDataType]
-            ) {
-                this.prepareAndUpload(false, false);
-            }
+        const { verbose } = this.mpInstance.Logger;
+
+        this.eventsQueuedForProcessing.push(event);
+        if (this.offlineStorageEnabled && this.eventVault) {
+            this.eventVault.store(this.eventsQueuedForProcessing);
+        }
+
+        verbose(`Queuing event: ${JSON.stringify(event)}`);
+        verbose(`Queued event count: ${this.eventsQueuedForProcessing.length}`);
+
+        if (this.shouldTriggerImmediateUpload(event.EventDataType)) {
+            this.prepareAndUpload(false, false);
         }
     }
+
+    // https://go.mparticle.com/work/SQDSDKS-3720
+    private shouldTriggerImmediateUpload (eventDataType: number): boolean {
+        const priorityEvents = [
+            MessageType.Commerce,
+            MessageType.UserIdentityChange,
+        ] as const;
+
+        return !this.batchingEnabled || priorityEvents.includes(eventDataType as typeof priorityEvents[number]);
+    };
 
     /**
      * This implements crucial logic to:
