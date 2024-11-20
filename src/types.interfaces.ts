@@ -1,3 +1,5 @@
+// TODO: Rename to Event Type?
+// TODO: Add actual values for each enum
 export enum EventTypeEnum {
     Unknown,
     Navigation,
@@ -9,6 +11,19 @@ export enum EventTypeEnum {
     Social,
     Other,
     Media,
+}
+
+export enum EventType {
+    Unknown = 0,
+    Navigation = 1,
+    Location = 2,
+    Search = 3,
+    Transaction = 4,
+    UserContent = 5,
+    UserPreference = 6,
+    Social = 7,
+    Other = 8,
+    Media = 9,
 }
 
 // TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-5403
@@ -49,6 +64,22 @@ export enum IdentityType {
     MobileNumber = 19,
     PhoneNumber2 = 20,
     PhoneNumber3 = 21,
+}
+
+export enum CommerceEventType {
+    ProductAddToCart = 10,
+    ProductRemoveFromCart = 11,
+    ProductCheckout = 12,
+    ProductCheckoutOption = 13,
+    ProductClick = 14,
+    ProductViewDetail = 15,
+    ProductPurchase = 16,
+    ProductRefund = 17,
+    PromotionView = 18,
+    PromotionClick = 19,
+    ProductAddToWishlist = 20,
+    ProductRemoveFromWishlist = 21,
+    ProductImpression = 22,
 }
 
 export interface IIdentityType {

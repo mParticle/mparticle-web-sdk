@@ -1,4 +1,5 @@
-import { getIdentityName } from './type-utils';
+import Constants from './constants';
+import { getIdentityName, getName, isValid } from './type-utils';
 
 var MessageType = {
     SessionStart: 1,
@@ -33,55 +34,9 @@ var EventType = {
     Social: 7,
     Other: 8,
     Media: 9,
-    getName: function(id) {
-        switch (id) {
-            case EventType.Unknown:
-                return 'Unknown';
-            case EventType.Navigation:
-                return 'Navigation';
-            case EventType.Location:
-                return 'Location';
-            case EventType.Search:
-                return 'Search';
-            case EventType.Transaction:
-                return 'Transaction';
-            case EventType.UserContent:
-                return 'User Content';
-            case EventType.UserPreference:
-                return 'User Preference';
-            case EventType.Social:
-                return 'Social';
-            case CommerceEventType.ProductAddToCart:
-                return 'Product Added to Cart';
-            case CommerceEventType.ProductAddToWishlist:
-                return 'Product Added to Wishlist';
-            case CommerceEventType.ProductCheckout:
-                return 'Product Checkout';
-            case CommerceEventType.ProductCheckoutOption:
-                return 'Product Checkout Options';
-            case CommerceEventType.ProductClick:
-                return 'Product Click';
-            case CommerceEventType.ProductImpression:
-                return 'Product Impression';
-            case CommerceEventType.ProductPurchase:
-                return 'Product Purchased';
-            case CommerceEventType.ProductRefund:
-                return 'Product Refunded';
-            case CommerceEventType.ProductRemoveFromCart:
-                return 'Product Removed From Cart';
-            case CommerceEventType.ProductRemoveFromWishlist:
-                return 'Product Removed from Wishlist';
-            case CommerceEventType.ProductViewDetail:
-                return 'Product View Details';
-            case CommerceEventType.PromotionClick:
-                return 'Promotion Click';
-            case CommerceEventType.PromotionView:
-                return 'Promotion View';
-            default:
-                return 'Other';
-        }
-    },
 };
+
+EventType.getName = getName;
 
 // Continuation of enum above, but in seperate object since we don't expose these to end user
 var CommerceEventType = {
@@ -124,19 +79,7 @@ var IdentityType = {
     PhoneNumber3: 21,
 };
 
-IdentityType.isValid = function(identityType) {
-    if (typeof identityType === 'number') {
-        for (var prop in IdentityType) {
-            if (IdentityType.hasOwnProperty(prop)) {
-                if (IdentityType[prop] === identityType) {
-                    return true;
-                }
-            }
-        }
-    }
-
-    return false;
-};
+IdentityType.isValid = isValid;
 
 IdentityType.getName = function(identityType) {
     switch (identityType) {
@@ -319,11 +262,6 @@ var ApplicationTransitionType = {
     AppInit: 1,
 };
 
-const Environment = {
-    Production: 'production',
-    Development: 'development',
-};
-
 export default {
     MessageType: MessageType,
     EventType: EventType,
@@ -334,5 +272,7 @@ export default {
     ProductActionType: ProductActionType,
     PromotionActionType: PromotionActionType,
     TriggerUploadType: TriggerUploadType,
-    Environment,
+
+    // QUESTION: Can we deprecate this?
+    Environment: Constants.Environment,
 };

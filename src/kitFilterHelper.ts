@@ -1,7 +1,6 @@
 import { generateHash } from "./utils";
 // TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-5381
 import { EventTypeEnum, IdentityType } from "./types.interfaces";
-import Constants from './constants';
 
 export default class KitFilterHelper {
     static hashEventType(eventType: EventTypeEnum): number {

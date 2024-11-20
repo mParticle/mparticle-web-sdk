@@ -1,4 +1,4 @@
-import { IdentityType } from './types.interfaces';
+import { CommerceEventType, EventTypeEnum, IdentityType } from './types.interfaces';
 import { parseNumber } from './utils';
 
 export interface IIdentitiesByType {
@@ -63,4 +63,67 @@ export function getIdentityName(identityType: IdentityType): string | null {
         default:
             return null;
     }
+}
+
+export function getName(id: EventTypeEnum | CommerceEventType): string {
+    switch (id) {
+        case EventTypeEnum.Unknown:
+            return 'Unknown';
+        case EventTypeEnum.Navigation:
+            return 'Navigation';
+        case EventTypeEnum.Location:
+            return 'Location';
+        case EventTypeEnum.Search:
+            return 'Search';
+        case EventTypeEnum.Transaction:
+            return 'Transaction';
+        case EventTypeEnum.UserContent:
+            return 'User Content';
+        case EventTypeEnum.UserPreference:
+            return 'User Preference';
+        case EventTypeEnum.Social:
+            return 'Social';
+        case CommerceEventType.ProductAddToCart:
+            return 'Product Added to Cart';
+        case CommerceEventType.ProductAddToWishlist:
+            return 'Product Added to Wishlist';
+        case CommerceEventType.ProductCheckout:
+            return 'Product Checkout';
+        case CommerceEventType.ProductCheckoutOption:
+            return 'Product Checkout Options';
+        case CommerceEventType.ProductClick:
+            return 'Product Click';
+        case CommerceEventType.ProductImpression:
+            return 'Product Impression';
+        case CommerceEventType.ProductPurchase:
+            return 'Product Purchased';
+        case CommerceEventType.ProductRefund:
+            return 'Product Refunded';
+        case CommerceEventType.ProductRemoveFromCart:
+            return 'Product Removed From Cart';
+        case CommerceEventType.ProductRemoveFromWishlist:
+            return 'Product Removed from Wishlist';
+        case CommerceEventType.ProductViewDetail:
+            return 'Product View Details';
+        case CommerceEventType.PromotionClick:
+            return 'Promotion Click';
+        case CommerceEventType.PromotionView:
+            return 'Promotion View';
+        default:
+            return 'Other';
+    }
+}
+
+export function isValid(identityType: IdentityType): boolean {
+    if (typeof identityType === 'number') {
+        for (var prop in IdentityType) {
+            if (IdentityType.hasOwnProperty(prop)) {
+                if (IdentityType[prop] === identityType as unknown as string) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
 }

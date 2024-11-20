@@ -212,8 +212,8 @@ export default function mParticleInstance(instanceName) {
      */
     this.getEnvironment = function() {
         return self._Store.SDKConfig.isDevelopmentMode
-            ? Types.Environment.Development
-            : Types.Environment.Production;
+            ? Constants.Environment.Development
+            : Constants.Environment.Production;
     };
     /**
      * Returns the mParticle SDK version number
