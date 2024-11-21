@@ -20,13 +20,6 @@ export const MessageType = {
     UserIdentityChange: 18 as const,
 };
 
-// Dictionary that contains MessageTypes that will
-// trigger an immediate upload.
-export const TriggerUploadType = {
-    [MessageType.Commerce]: 1 as const,
-    [MessageType.UserIdentityChange]: 1 as const,
-};
-
 export const EventType = {
     Unknown: 0 as const,
     Navigation: 1 as const,
@@ -393,7 +386,5 @@ export default {
     ApplicationTransitionType,
     ProductActionType,
     PromotionActionType,
-    TriggerUploadType,
-
     Environment: Constants.Environment,
 } as const;
