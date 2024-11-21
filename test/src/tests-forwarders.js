@@ -2032,7 +2032,7 @@ describe('forwarders', function() {
     });
     });
 
-    it('should not forward event if event attribute forwarding rule is set and includeOnMatch is false', function(done) {
+    it('should not forward event if event attribute forwarding rule is set and includeOnMatch is false', async () => {
         mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -2048,12 +2048,8 @@ describe('forwarders', function() {
         window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);
-        waitForCondition(() => {
-            return (
-                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
-            );
-        })
-        .then(() => {
+        await waitForCondition(hasIdentityCallInflightReturned);
+
         window.MockForwarder1.instance.receivedEvent.EventName.should.equal(1);
         window.MockForwarder1.instance.receivedEvent = null;
 
@@ -2069,8 +2065,6 @@ describe('forwarders', function() {
 
         Should(event).not.be.ok();
 
-        done();
-    });
     });
 
     it('should forward event if event attribute forwarding rule is set and includeOnMatch is false but attributes do not match', async () => {
@@ -2090,11 +2084,7 @@ describe('forwarders', function() {
         window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);
-        await waitForCondition(() => {
-            return (
-                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
-            );
-        })
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         window.MockForwarder1.instance.receivedEvent.EventName.should.equal(1);
         window.MockForwarder1.instance.receivedEvent = null;
