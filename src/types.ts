@@ -1,5 +1,5 @@
 import Constants from './constants';
-import { parseNumber } from './utils';
+import { parseNumber, valueof } from './utils';
 
 interface IdentitiesByType {
     [key: number]: string;
@@ -87,7 +87,7 @@ export const EventType = {
                 return 'Other';
         }
     },
-} as const;
+};
 
 // Continuation of EventType enum above, but in seperate object since we don't expose these to end user
 export const CommerceEventType = {
@@ -131,7 +131,7 @@ export const IdentityType = {
 
     isValid(identityType: number): boolean {
         if (typeof identityType === 'number') {
-            for (var prop in IdentityType) {
+            for (const prop in IdentityType) {
                 if (IdentityType.hasOwnProperty(prop)) {
                     if (IdentityType[prop] === identityType) {
                         return true;
@@ -166,7 +166,7 @@ export const IdentityType = {
         }
     },
 
-    getIdentityType: (identityName: string): typeof IdentityType | boolean => {
+    getIdentityType: (identityName: string): valueof<typeof IdentityType> | boolean => {
         switch (identityName) {
             case 'other':
                 return IdentityType.Other;
@@ -264,10 +264,10 @@ export const IdentityType = {
         }
     },
 
-    getNewIdentitiesByName: (newIdentitiesByType: IdentitiesByType) => {
+    getNewIdentitiesByName: (newIdentitiesByType: IdentitiesByType): IdentitiesByType => {
         const newIdentitiesByName: IdentitiesByType = {};
 
-        for (var key in newIdentitiesByType) {
+        for (const key in newIdentitiesByType) {
             const identityNameKey = IdentityType.getIdentityName(
                 parseNumber(key)
             );
@@ -384,7 +384,7 @@ export const ApplicationTransitionType = {
     AppInit: 1 as const,
 };
 
-export default{
+export default {
     MessageType,
     EventType,
     CommerceEventType,
