@@ -1,17 +1,17 @@
-import { generateHash } from "./utils";
+import { generateHash, valueof } from "./utils";
 // TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-5381
-import { EventTypeEnum, IdentityType } from "./types.interfaces";
+import { EventType, IdentityType } from "./types";
 
 export default class KitFilterHelper {
-    static hashEventType(eventType: EventTypeEnum): number {
+    static hashEventType(eventType: valueof<typeof EventType>): number {
         return generateHash(eventType as unknown as string);
     };
 
-    static hashEventName(eventName: string, eventType: EventTypeEnum): number {
+    static hashEventName(eventName: string, eventType: valueof<typeof EventType>): number {
         return generateHash(eventType + eventName);
     };
 
-    static hashEventAttributeKey(eventType: EventTypeEnum, eventName: string, customAttributeName: string): number {
+    static hashEventAttributeKey(eventType: valueof<typeof EventType>, eventName: string, customAttributeName: string): number {
         return generateHash(eventType + eventName + customAttributeName);
     }
     
@@ -21,7 +21,7 @@ export default class KitFilterHelper {
 
     // User Identities are not actually hashed, this method is named this way to
     // be consistent with the filter class. UserIdentityType is also a number
-    static hashUserIdentity(userIdentity: IdentityType): IdentityType {
+    static hashUserIdentity(userIdentity: typeof IdentityType): typeof IdentityType {
         return userIdentity;
     }
 

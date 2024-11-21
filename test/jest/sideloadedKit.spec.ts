@@ -1,9 +1,8 @@
 import MPSideloadedKit, { IMPSideloadedKit } from "../../src/sideloadedKit";
 import { IMPSideloadedKitConstructor } from "../../src/sideloadedKit";
-import { EventTypeEnum, IdentityType } from "../../src/types.interfaces";
+import { EventType, IdentityType } from "../../src/types";
 import { UnregisteredKit } from '../../src/forwarders.interfaces';          
 import { IKitFilterSettings } from '../../src/configAPIClient';
-import { mParticle } from "../src/config/constants";
 
 const mockKitInstance: UnregisteredKit = {
     register: function() {}
@@ -21,7 +20,7 @@ describe('MPSideloadedKit', () => {
     describe('#addEventTypeFilter', () => {
         it('should add a hashed event type to eventTypeFilters', () => {
             const expectedResult = [48];
-            mpSideloadedKit.addEventTypeFilter(EventTypeEnum.Unknown);
+            mpSideloadedKit.addEventTypeFilter(EventType.Unknown);
             expect(filterDictionary.eventTypeFilters).toEqual(expectedResult);
         });
     });
@@ -30,14 +29,14 @@ describe('MPSideloadedKit', () => {
         it('should add a hashed event name to eventNameFilters', () => {
             const eventName = 'foo-event-name';
             const expectedResult = [-59445899];
-            mpSideloadedKit.addEventNameFilter(EventTypeEnum.Unknown, eventName);
+            mpSideloadedKit.addEventNameFilter(EventType.Unknown, eventName);
             expect(filterDictionary.eventNameFilters).toEqual(expectedResult);
         });
     });
 
     describe('#addEventAttributeFilter', () => {
         it('should add a hashed event attribute to attributeFilters', () => {
-            const eventType: EventTypeEnum = EventTypeEnum.Navigation;
+            const eventType = EventType.Navigation;
             const eventName: string = 'foo-event-name';
             const customAttributeName: string = 'event-attribute-key';
 

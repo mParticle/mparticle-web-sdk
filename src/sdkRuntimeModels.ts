@@ -29,7 +29,7 @@ import {
     IdentityCallback,
     ISDKUserAttributes,
 } from './identity-user-interfaces';
-import { IIdentityType } from './types.interfaces';
+import { IdentityType } from './types';
 import IntegrationCapture from './integrationCapture';
 import { INativeSdkHelpers } from './nativeSdkHelpers.interfaces';
 import { ICookieSyncManager, IPixelConfiguration } from './cookieSyncManager.interfaces';
@@ -154,7 +154,7 @@ interface IEvents {
 export interface MParticleWebSDK {
     addForwarder(mockForwarder: MPForwarder): void;
     _IntegrationCapture: IntegrationCapture;
-    IdentityType: IIdentityType;
+    IdentityType: typeof IdentityType;
     _Identity: IIdentity;
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;

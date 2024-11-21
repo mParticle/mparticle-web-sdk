@@ -135,7 +135,7 @@ export default function APIClient(
             this.queueEventForBatchUpload(event);
         }
 
-        if (event.EventName !== Types.MessageType.AppStateTransition) {
+        if (event.EventName !== Types.MessageType.AppStateTransition.toString()) {
             if (kitBlocker && kitBlocker.kitBlockingEnabled) {
                 event = kitBlocker.createBlockedEvent(event);
             }

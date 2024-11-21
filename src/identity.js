@@ -17,7 +17,7 @@ import {
     isObject,
 } from './utils';
 import { hasMPIDAndUserLoginChanged, hasMPIDChanged } from './user-utils';
-import { getNewIdentitiesByName } from './type-utils';
+import { IdentityType } from './types';
 import { processReadyQueue } from './pre-init-utils';
 
 export default function Identity(mpInstance) {
@@ -1623,7 +1623,7 @@ export default function Identity(mpInstance) {
                     self.setForwarderCallbacks(newUser, method);
                 }
 
-                const newIdentitiesByName = getNewIdentitiesByName(
+                const newIdentitiesByName = IdentityType.getNewIdentitiesByName(
                     newIdentitiesByType
                 );
 
