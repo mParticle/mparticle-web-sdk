@@ -238,6 +238,36 @@ describe('IdentityType', () => {
         expect(PhoneNumber3).toEqual(21);
     });
 
+    describe('#getValuesAsStrings', () => {
+        it('returns an array of identity types values as an array of numbers as strings', () => {
+            const { getValuesAsStrings } = IdentityType;
+
+            expect(getValuesAsStrings()).toEqual([
+                '0',
+                '1',
+                '2',
+                '3',
+                '4',
+                '5',
+                '6',
+                '7',
+                '9',
+                '10',
+                '11',
+                '12',
+                '13',
+                '14',
+                '15',
+                '16',
+                '17',
+                '18',
+                '19',
+                '20',
+                '21',
+            ]);
+        });
+    });
+
     describe('#isValid', () => {
         it('returns true if the identity type is valid', () => {
             const { isValid } = IdentityType;
@@ -288,9 +318,7 @@ describe('IdentityType', () => {
             });
         });
 
-        // FIXME: We have a bug in the implementation
-        // FIXME: parseNumber causes unknown identity type to be returned as 0
-        it.skip('returns an empty object if the identity type is not found', () => {
+        it('returns an empty object if the identity type is not found', () => {
             const { getNewIdentitiesByName } = IdentityType;
 
             const newIdentitiesByType = {

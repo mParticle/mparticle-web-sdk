@@ -1,5 +1,5 @@
 import Constants from './constants';
-import { parseNumber, valueof } from './utils';
+import { isNumber, parseNumber, valueof } from './utils';
 
 interface IdentitiesByType {
     [key: number]: string;
@@ -159,7 +159,9 @@ export const IdentityType = {
         }
     },
 
-    getIdentityType: (identityName: string): valueof<typeof IdentityType> | boolean => {
+    getIdentityType: (
+        identityName: string
+    ): valueof<typeof IdentityType> | boolean => {
         switch (identityName) {
             case 'other':
                 return IdentityType.Other;
@@ -208,7 +210,7 @@ export const IdentityType = {
         }
     },
 
-    getIdentityName: (identityType): string | null => {
+    getIdentityName: (identityType: number): string | null => {
         switch (identityType) {
             case IdentityType.Other:
                 return 'other';
@@ -257,14 +259,25 @@ export const IdentityType = {
         }
     },
 
-    getNewIdentitiesByName: (newIdentitiesByType: IdentitiesByType): IdentitiesByType => {
+    // Strips out functions from Identity Types for easier lookups
+    getValuesAsStrings: (): string[] =>
+        Object.values(IdentityType)
+            .map(value => (isNumber(value) ? value.toString() : undefined))
+            .filter(value => value !== undefined) as string[],
+
+    getNewIdentitiesByName: (
+        newIdentitiesByType: IdentitiesByType
+    ): IdentitiesByType => {
         const newIdentitiesByName: IdentitiesByType = {};
 
         for (const key in newIdentitiesByType) {
-            const identityNameKey = IdentityType.getIdentityName(
-                parseNumber(key)
-            );
-            newIdentitiesByName[identityNameKey] = newIdentitiesByType[key];
+            // IdentityTypes are stored as numbers but are passed in as strings
+            if (IdentityType.getValuesAsStrings().includes(key)) {
+                const identityNameKey = IdentityType.getIdentityName(
+                    parseNumber(key)
+                );
+                newIdentitiesByName[identityNameKey] = newIdentitiesByType[key];
+            }
         }
 
         return newIdentitiesByName;
