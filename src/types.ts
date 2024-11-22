@@ -269,10 +269,11 @@ export const IdentityType = {
         newIdentitiesByType: IdentitiesByType
     ): IdentitiesByType => {
         const newIdentitiesByName: IdentitiesByType = {};
+        const identityTypeValuesAsStrings: string[] = IdentityType.getValuesAsStrings();
 
         for (const key in newIdentitiesByType) {
             // IdentityTypes are stored as numbers but are passed in as strings
-            if (IdentityType.getValuesAsStrings().includes(key)) {
+            if (identityTypeValuesAsStrings.includes(key)) {
                 const identityNameKey = IdentityType.getIdentityName(
                     parseNumber(key)
                 );
