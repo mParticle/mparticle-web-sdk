@@ -29,7 +29,12 @@ import {
     IdentityCallback,
     ISDKUserAttributes,
 } from './identity-user-interfaces';
-import { IdentityType } from './types';
+import {
+    CommerceEventType,
+    EventType,
+    IdentityType,
+    PromotionActionType,
+} from './types';
 import IntegrationCapture from './integrationCapture';
 import { INativeSdkHelpers } from './nativeSdkHelpers.interfaces';
 import { ICookieSyncManager, IPixelConfiguration } from './cookieSyncManager.interfaces';
@@ -155,6 +160,9 @@ export interface MParticleWebSDK {
     addForwarder(mockForwarder: MPForwarder): void;
     _IntegrationCapture: IntegrationCapture;
     IdentityType: valueof<typeof IdentityType>;
+    CommerceEventType: valueof<typeof CommerceEventType>;
+    EventType: valueof<typeof EventType>;
+    PromotionType: valueof<typeof PromotionActionType>;
     _Identity: IIdentity;
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
@@ -189,7 +197,7 @@ export interface MParticleWebSDK {
     getDeviceId(): string;
     setDeviceId(deviceId: string): void;
     setSessionAttribute(key: string, value: string): void;
-    getInstance(): MParticleWebSDK; // TODO: Create a new type for MParticleWebSDKInstance
+    getInstance(instanceName?: string): MParticleWebSDK; // TODO: Create a new type for MParticleWebSDKInstance
     ServerModel();
     upload();
     setLogLevel(logLevel: LogLevelType): void;
@@ -207,6 +215,7 @@ export interface MParticleWebSDK {
     ProductActionType: SDKProductActionType;
     generateHash(value: string): string;
     isIOS?: boolean;
+    sessionManager: Pick<ISessionManager, 'getSession'>;
 }
 
 // Used in cases where server requires booleans as strings
