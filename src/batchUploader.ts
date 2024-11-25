@@ -2,7 +2,7 @@ import { Batch } from '@mparticle/event-models';
 import Constants from './constants';
 import { SDKEvent, MParticleWebSDK, SDKLoggerApi } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
-import { EventType, MessageType } from './types';
+import { MessageType } from './types';
 import { getRampNumber, isEmpty } from './utils';
 import { SessionStorageVault, LocalStorageVault } from './vault';
 import {
