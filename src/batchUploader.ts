@@ -9,7 +9,7 @@ import {
     AsyncUploader,
     FetchUploader,
     XHRUploader,
-    fetchPayload,
+    IFetchPayload,
 } from './uploaders';
 import { IMParticleUser } from './identity-user-interfaces';
 
@@ -366,7 +366,7 @@ export class BatchUploader {
         logger.verbose(`Batch count: ${uploads.length}`);
 
         for (let i = 0; i < uploads.length; i++) {
-            const fetchPayload: fetchPayload = {
+            const fetchPayload: IFetchPayload = {
                 method: 'POST',
                 headers: {
                     Accept: BatchUploader.CONTENT_TYPE,
