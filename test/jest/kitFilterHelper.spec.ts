@@ -1,5 +1,5 @@
 import KitFilterHelper from "../../src/kitFilterHelper";
-import { EventTypeEnum, IdentityType } from "../../src/types.interfaces";
+import { EventType, IdentityType } from "../../src/types";
 import Constants from '../../src/constants';
 const { CCPAPurpose } = Constants;
 
@@ -7,41 +7,41 @@ const { CCPAPurpose } = Constants;
 describe('FilterHashingUtilities', () => {
     describe('#hashEventType', () => {
         it('should hash event type Unknown', () => {
-            const eventTypeUnknownHash = KitFilterHelper.hashEventType(EventTypeEnum.Unknown);
+            const eventTypeUnknownHash = KitFilterHelper.hashEventType(EventType.Unknown);
             const expectedUnknownHash = 48;
             expect(eventTypeUnknownHash).toBe(expectedUnknownHash);
         });
 
         it('should hash event type Navigation', () => {
-            const eventTypeNavigationHash = KitFilterHelper.hashEventType(EventTypeEnum.Navigation);
+            const eventTypeNavigationHash = KitFilterHelper.hashEventType(EventType.Navigation);
             const expectedNavigationHash = 49;
 
             expect(eventTypeNavigationHash).toBe(expectedNavigationHash);
         });
 
         it('should hash event type Location', () => {
-            const eventTypeLocationHash = KitFilterHelper.hashEventType(EventTypeEnum.Location);
+            const eventTypeLocationHash = KitFilterHelper.hashEventType(EventType.Location);
             const expectedLocationHash = 50;
 
             expect(eventTypeLocationHash).toBe(expectedLocationHash);
         });
 
         it('should hash event type Search', () => {
-            const eventTypeSearchHash = KitFilterHelper.hashEventType(EventTypeEnum.Search);
+            const eventTypeSearchHash = KitFilterHelper.hashEventType(EventType.Search);
             const expectedSearchHash = 51;
 
             expect(eventTypeSearchHash).toBe(expectedSearchHash);
         });
 
         it('should hash event type Transaction', () => {
-            const eventTypeTransactionHash = KitFilterHelper.hashEventType(EventTypeEnum.Transaction);
+            const eventTypeTransactionHash = KitFilterHelper.hashEventType(EventType.Transaction);
             const expectedTransactionHash = 52;
 
             expect(eventTypeTransactionHash).toBe(expectedTransactionHash);
         });
 
         it('should hash event type UserContent', () => {
-            const eventTypeUserContentHash = KitFilterHelper.hashEventType(EventTypeEnum.UserContent);
+            const eventTypeUserContentHash = KitFilterHelper.hashEventType(EventType.UserContent);
             const expectedUserContentHash = 53;
 
             expect(eventTypeUserContentHash).toBe(expectedUserContentHash);
@@ -49,7 +49,7 @@ describe('FilterHashingUtilities', () => {
         });
 
         it('should hash event type UserPreference', () => {
-            const eventTypeUserPreferenceHash = KitFilterHelper.hashEventType(EventTypeEnum.UserPreference);
+            const eventTypeUserPreferenceHash = KitFilterHelper.hashEventType(EventType.UserPreference);
             const expectedUserPreferenceHash = 54;
 
             expect(eventTypeUserPreferenceHash).toBe(expectedUserPreferenceHash);
@@ -57,7 +57,7 @@ describe('FilterHashingUtilities', () => {
         });
 
         it('should hash event type Social', () => {
-            const eventTypeSocialHash = KitFilterHelper.hashEventType(EventTypeEnum.Social);
+            const eventTypeSocialHash = KitFilterHelper.hashEventType(EventType.Social);
             const expectedSocialHash = 55;
 
             expect(eventTypeSocialHash).toBe(expectedSocialHash);
@@ -65,7 +65,7 @@ describe('FilterHashingUtilities', () => {
         });
 
         it('should hash event type Other', () => {
-            const eventTypeOtherHash = KitFilterHelper.hashEventType(EventTypeEnum.Other);
+            const eventTypeOtherHash = KitFilterHelper.hashEventType(EventType.Other);
             const expectedOtherHash = 56;
 
             expect(eventTypeOtherHash).toBe(expectedOtherHash);
@@ -73,7 +73,7 @@ describe('FilterHashingUtilities', () => {
         });
 
         it('should hash event type Media', () => {
-            const eventTypeMediaHash = KitFilterHelper.hashEventType(EventTypeEnum.Media);
+            const eventTypeMediaHash = KitFilterHelper.hashEventType(EventType.Media);
             const expectedMediaHash = 57;
 
             expect(eventTypeMediaHash).toBe(expectedMediaHash);
@@ -85,14 +85,14 @@ describe('FilterHashingUtilities', () => {
         const eventName = 'foo-event-name';
 
         it('should hash event name with event type Unknown', () => {
-            const eventTypeUnknownHash = KitFilterHelper.hashEventName(eventName, EventTypeEnum.Unknown);
+            const eventTypeUnknownHash = KitFilterHelper.hashEventName(eventName, EventType.Unknown);
             const expectedUnknownHash = -59445899;
             
             expect(eventTypeUnknownHash).toBe(expectedUnknownHash);
         });
 
         it('should hash event name with event type Navigation', () => {
-            const eventTypeNavigationHash = KitFilterHelper.hashEventName(eventName, EventTypeEnum.Navigation);
+            const eventTypeNavigationHash = KitFilterHelper.hashEventName(eventName, EventType.Navigation);
             const expectedNavigationHash = 1448105910;
             
 
@@ -100,7 +100,7 @@ describe('FilterHashingUtilities', () => {
         });
 
         it('should hash event name with event type Location', () => {
-            const eventTypeLocationHash = KitFilterHelper.hashEventName(eventName, EventTypeEnum.Location);
+            const eventTypeLocationHash = KitFilterHelper.hashEventName(eventName, EventType.Location);
             const expectedLocationHash = -1339309577;
             
 
@@ -108,7 +108,7 @@ describe('FilterHashingUtilities', () => {
         });
 
         it('should hash event name with event type Search', () => {
-            const eventTypeSearchHash = KitFilterHelper.hashEventName(eventName, EventTypeEnum.Search);
+            const eventTypeSearchHash = KitFilterHelper.hashEventName(eventName, EventType.Search);
             const expectedSearchHash = 168242232;
             
 
@@ -116,7 +116,7 @@ describe('FilterHashingUtilities', () => {
         });
 
         it('should hash event name with event type Transaction', () => {
-            const eventTypeTransactionHash = KitFilterHelper.hashEventName(eventName, EventTypeEnum.Transaction);
+            const eventTypeTransactionHash = KitFilterHelper.hashEventName(eventName, EventType.Transaction);
             const expectedTransactionHash = 1675794041;
             
 
@@ -124,7 +124,7 @@ describe('FilterHashingUtilities', () => {
         });
 
         it('should hash event name with event type UserContent', () => {
-            const eventTypeUserContentHash = KitFilterHelper.hashEventName(eventName, EventTypeEnum.UserContent);
+            const eventTypeUserContentHash = KitFilterHelper.hashEventName(eventName, EventType.UserContent);
             const expectedUserContentHash = -1111621446;
             
 
@@ -133,7 +133,7 @@ describe('FilterHashingUtilities', () => {
         });
 
         it('should hash event name with event type UserPreference', () => {
-            const eventTypeUserPreferenceHash = KitFilterHelper.hashEventName(eventName, EventTypeEnum.UserPreference);
+            const eventTypeUserPreferenceHash = KitFilterHelper.hashEventName(eventName, EventType.UserPreference);
             const expectedUserPreferenceHash = 395930363;
             
 
@@ -142,7 +142,7 @@ describe('FilterHashingUtilities', () => {
         });
 
         it('should hash event name with event type Social', () => {
-            const eventTypeSocialHash = KitFilterHelper.hashEventName(eventName, EventTypeEnum.Social);
+            const eventTypeSocialHash = KitFilterHelper.hashEventName(eventName, EventType.Social);
             const expectedSocialHash = 1903482172;
             
 
@@ -151,7 +151,7 @@ describe('FilterHashingUtilities', () => {
         });
 
         it('should hash event name with event type Other', () => {
-            const eventTypeOtherHash = KitFilterHelper.hashEventName(eventName, EventTypeEnum.Other);
+            const eventTypeOtherHash = KitFilterHelper.hashEventName(eventName, EventType.Other);
             const expectedOtherHash = -883933315;
             
 
@@ -160,7 +160,7 @@ describe('FilterHashingUtilities', () => {
         });
 
         it('should hash event name with event type Media', () => {
-            const eventTypeMediaHash = KitFilterHelper.hashEventName(eventName, EventTypeEnum.Media);
+            const eventTypeMediaHash = KitFilterHelper.hashEventName(eventName, EventType.Media);
             const expectedMediaHash = 623618494;
 
             expect(eventTypeMediaHash).toBe(expectedMediaHash);
@@ -170,7 +170,7 @@ describe('FilterHashingUtilities', () => {
 
     describe('#hashEventAttributeKey', () => {
         it('should hash event attribute key', () => {
-            const eventType:EventTypeEnum = EventTypeEnum.Navigation;
+            const eventType = EventType.Navigation;
             const eventName :string = 'foo-event-name';
             const customAttributeName: string = 'event-attribute-key';
 

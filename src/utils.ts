@@ -8,7 +8,7 @@ type valueof<T> = T[keyof T];
 // Placeholder for Dictionary-like Types
 export type Dictionary<V = any> = Record<string, V>;
 
-export type Environment = 'development' | 'production';
+export type Environment = valueof<typeof Constants.Environment>;
 
 const createCookieString = (value: string): string =>
     replaceCommasWithPipes(replaceQuotesWithApostrophes(value));

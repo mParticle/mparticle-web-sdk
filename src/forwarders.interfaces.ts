@@ -63,9 +63,6 @@ export interface ConfiguredKit
     setOptOut(isOptingOut: boolean): string | KitMappedMethodFailure;
     removeUserAttribute(key: string): string;
     setUserAttribute(key: string, value: string): string;
-
-    // TODO: Convert type to enum during Identity migration
-    // https://go.mparticle.com/work/SQDSDKS-5218
     setUserIdentity(id: UserIdentityId, type: UserIdentityType): void;
 
     // TODO: https://go.mparticle.com/work/SQDSDKS-5156
