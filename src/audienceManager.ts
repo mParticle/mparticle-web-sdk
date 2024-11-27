@@ -3,7 +3,7 @@ import {
     FetchUploader,
     XHRUploader,
     AsyncUploader,
-    fetchPayload
+    IFetchPayload
 } from './uploaders';
 import Audience from './audience';
 
@@ -38,7 +38,7 @@ export default class AudienceManager {
     public async sendGetUserAudienceRequest(mpid: string, callback: (userAudiences: IAudienceMemberships) => void) {
         this.logger.verbose('Fetching user audiences from server');
 
-        const fetchPayload: fetchPayload = {
+        const fetchPayload: IFetchPayload = {
             method: 'GET',
             headers: {
                 Accept: '*/*',
