@@ -7,7 +7,7 @@ import {
 } from '@mparticle/web-sdk';
 import { IStore } from './store';
 import Validators from './validators';
-import { Dictionary } from './utils';
+import { Dictionary, valueof } from './utils';
 import { IServerModel } from './serverModel';
 import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
@@ -28,7 +28,7 @@ import {
     IdentityCallback,
     ISDKUserAttributes,
 } from './identity-user-interfaces';
-import { IIdentityType } from './types.interfaces';
+import { IdentityType } from './types';
 import IntegrationCapture from './integrationCapture';
 import { INativeSdkHelpers } from './nativeSdkHelpers.interfaces';
 import { ICookieSyncManager, IPixelConfiguration } from './cookieSyncManager';
@@ -153,7 +153,7 @@ interface IEvents {
 export interface MParticleWebSDK {
     addForwarder(mockForwarder: MPForwarder): void;
     _IntegrationCapture: IntegrationCapture;
-    IdentityType: IIdentityType;
+    IdentityType: valueof<typeof IdentityType>;
     _Identity: IIdentity;
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
