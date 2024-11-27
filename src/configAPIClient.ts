@@ -9,7 +9,7 @@ import {
 import { Dictionary } from './utils';
 import {
     AsyncUploader,
-    fetchPayload,
+    IFetchPayload,
     FetchUploader,
     XHRUploader,
 } from './uploaders';
@@ -125,7 +125,7 @@ export default function ConfigAPIClient(
 
     this.getSDKConfiguration = async (): Promise<IConfigResponse> => {
         let configResponse: IConfigResponse;
-        const fetchPayload: fetchPayload = {
+        const fetchPayload: IFetchPayload = {
             method: 'get',
             headers: {
                 Accept: 'text/plain;charset=UTF-8',
