@@ -1,6 +1,6 @@
 import { AllUserAttributes, MPID, Product, User } from '@mparticle/web-sdk';
 import { SDKIdentityTypeEnum } from './identity.interfaces';
-import { MessageType } from './types.interfaces';
+import { MessageType } from './types';
 import { BaseEvent } from './sdkRuntimeModels';
 import Constants from './constants';
 const { HTTPCodes } = Constants;
@@ -58,7 +58,7 @@ export interface ISDKUserIdentityChangeData {
 }
 
 export interface IUserIdentityChangeEvent extends BaseEvent {
-    messageType: MessageType.UserIdentityChange;
+    messageType: typeof MessageType.UserIdentityChange;
     userIdentityChanges: ISDKUserIdentityChanges;
 }
 
@@ -75,7 +75,7 @@ export interface ISDKUserAttributeChangeData {
 }
 
 export interface IUserAttributeChangeEvent extends BaseEvent {
-    messageType: MessageType.UserAttributeChange;
+    messageType: typeof MessageType.UserAttributeChange;
     userAttributeChanges: ISDKUserAttributeChangeData;
 }
 
