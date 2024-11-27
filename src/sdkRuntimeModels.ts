@@ -196,7 +196,7 @@ export interface MParticleWebSDK {
     getDeviceId(): string;
     setDeviceId(deviceId: string): void;
     setSessionAttribute(key: string, value: string): void;
-    getInstance(instanceName?: string): MParticleWebSDK; // TODO: Create a new type for MParticleWebSDKInstance
+    getInstance(instanceName?: string): MParticleWebSDK; // https://go.mparticle.com/work/SQDSDKS-4804
     ServerModel();
     upload();
     setLogLevel(logLevel: LogLevelType): void;
@@ -214,7 +214,7 @@ export interface MParticleWebSDK {
     ProductActionType: SDKProductActionType;
     generateHash(value: string): string;
     isIOS?: boolean;
-    sessionManager: Pick<ISessionManager, 'getSession'>;
+    sessionManager: Pick<ISessionManager, 'getSession'>; // https://go.mparticle.com/work/SQDSDKS-6949
 }
 
 // Used in cases where server requires booleans as strings
