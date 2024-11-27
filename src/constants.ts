@@ -184,6 +184,11 @@ const Constants = {
         Login: 'login',
         Identify: 'identify',
     },
+
+    Environment: {
+        Development: 'development',
+        Production: 'production',
+    },
 } as const;
 
 export default Constants;

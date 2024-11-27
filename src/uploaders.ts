@@ -1,6 +1,6 @@
 type HTTPMethod = 'get' | 'post';
 
-export interface fetchPayload {
+export interface IFetchPayload {
     method: string;
     headers: {
         Accept: string;
@@ -12,7 +12,7 @@ export interface fetchPayload {
 export abstract class AsyncUploader {
     url: string;
     public abstract upload(
-        fetchPayload: fetchPayload,
+        fetchPayload: IFetchPayload,
         url?: string
     ): Promise<Response>;
 
@@ -23,7 +23,7 @@ export abstract class AsyncUploader {
 
 export class FetchUploader extends AsyncUploader {
     public async upload(
-        fetchPayload: fetchPayload,
+        fetchPayload: IFetchPayload,
         _url?: string
     ): Promise<Response> {
         const url = _url || this.url;
@@ -32,7 +32,7 @@ export class FetchUploader extends AsyncUploader {
 }
 
 export class XHRUploader extends AsyncUploader {
-    public async upload(fetchPayload: fetchPayload): Promise<Response> {
+    public async upload(fetchPayload: IFetchPayload): Promise<Response> {
         const response: Response = await this.makeRequest(
             this.url,
             fetchPayload.body,

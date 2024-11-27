@@ -3,12 +3,11 @@ import { DataPlanVersion } from '@mparticle/data-planning-models';
 import {
     MPConfiguration,
     MPID,
-    Callback,
     IdentityApiData,
 } from '@mparticle/web-sdk';
 import { IStore } from './store';
 import Validators from './validators';
-import { Dictionary } from './utils';
+import { Dictionary, valueof } from './utils';
 import { IServerModel } from './serverModel';
 import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
@@ -29,8 +28,15 @@ import {
     IdentityCallback,
     ISDKUserAttributes,
 } from './identity-user-interfaces';
-import { IIdentityType } from './types.interfaces';
+import {
+    CommerceEventType,
+    EventType,
+    IdentityType,
+    PromotionActionType,
+} from './types';
 import IntegrationCapture from './integrationCapture';
+import { INativeSdkHelpers } from './nativeSdkHelpers.interfaces';
+import { ICookieSyncManager, IPixelConfiguration } from './cookieSyncManager.interfaces';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -152,12 +158,16 @@ interface IEvents {
 export interface MParticleWebSDK {
     addForwarder(mockForwarder: MPForwarder): void;
     _IntegrationCapture: IntegrationCapture;
-    IdentityType: IIdentityType;
+    IdentityType: valueof<typeof IdentityType>;
+    CommerceEventType: valueof<typeof CommerceEventType>;
+    EventType: valueof<typeof EventType>;
+    PromotionType: valueof<typeof PromotionActionType>;
     _Identity: IIdentity;
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
     MPSideloadedKit: IMPSideloadedKit;
     _APIClient: any; // TODO: Set up API Client
+    _CookieSyncManager: ICookieSyncManager;
     _Store: IStore;
     _Forwarders: any;
     _Helpers: SDKHelpersApi;
@@ -167,7 +177,7 @@ export interface MParticleWebSDK {
     _SessionManager: ISessionManager;
     _Consent: SDKConsentApi;
     Consent: SDKConsentApi;
-    _NativeSdkHelpers: any; // TODO: Set up API
+    _NativeSdkHelpers: INativeSdkHelpers;
     _Persistence: IPersistence;
     _preInit: any; // TODO: Set up API
     _instances?: Dictionary<MParticleWebSDK>;
@@ -186,7 +196,7 @@ export interface MParticleWebSDK {
     getDeviceId(): string;
     setDeviceId(deviceId: string): void;
     setSessionAttribute(key: string, value: string): void;
-    getInstance(): MParticleWebSDK; // TODO: Create a new type for MParticleWebSDKInstance
+    getInstance(instanceName?: string): MParticleWebSDK; // https://go.mparticle.com/work/SQDSDKS-4804
     ServerModel();
     upload();
     setLogLevel(logLevel: LogLevelType): void;
@@ -204,6 +214,7 @@ export interface MParticleWebSDK {
     ProductActionType: SDKProductActionType;
     generateHash(value: string): string;
     isIOS?: boolean;
+    sessionManager: Pick<ISessionManager, 'getSession'>; // https://go.mparticle.com/work/SQDSDKS-6949
 }
 
 // Used in cases where server requires booleans as strings
@@ -228,6 +239,7 @@ export interface SDKInitConfig
     sideloadedKits?: MPForwarder[];
     dataPlanOptions?: KitBlockerOptions;
     flags?: Dictionary;
+    pixelConfigs?: IPixelConfiguration[];
 
     aliasMaxWindow?: number;
     deviceId?: string;
@@ -283,8 +295,8 @@ export interface SDKHelpersApi {
     ): boolean;
     isObject?(item: any);
     invokeCallback?(
-        callback: Callback,
-        code: string,
+        callback: IdentityCallback,
+        code: number,
         body: string,
         mParticleUser?: IMParticleUser,
         previousMpid?: MPID

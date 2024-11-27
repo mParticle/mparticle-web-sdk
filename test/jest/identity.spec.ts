@@ -14,7 +14,7 @@ import {
     SDKIdentityTypeEnum,
     IIdentityAPIIdentityChangeData,
 } from '../../src/identity.interfaces';
-import { MessageType } from '../../src/types.interfaces';
+import { MessageType } from '../../src/types';
 
 describe('Identity', () => {
     describe('#types', () => {

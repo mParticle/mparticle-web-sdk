@@ -38,6 +38,10 @@ export interface SDKConsentApi {
     createConsentState: (consentState?: ConsentState) => ConsentState;
     ConsentSerialization: IConsentSerialization;
     createPrivacyConsent: ICreatePrivacyConsentFunction;
+    isEnabledForUserConsent: (
+        consentRules: IConsentRules,
+        user: IMParticleUser
+    ) => boolean;
 }
 
 export interface IConsentSerialization {

@@ -135,7 +135,10 @@ export default function APIClient(
             this.queueEventForBatchUpload(event);
         }
 
-        if (event.EventName !== Types.MessageType.AppStateTransition) {
+        // https://go.mparticle.com/work/SQDSDKS-6935
+        // While Event Name is 'usually' a string, there are some cases where it is a number
+        // in that it could be a type of MessageType Enum
+        if (event.EventName as unknown as number !== Types.MessageType.AppStateTransition) {
             if (kitBlocker && kitBlocker.kitBlockingEnabled) {
                 event = kitBlocker.createBlockedEvent(event);
             }

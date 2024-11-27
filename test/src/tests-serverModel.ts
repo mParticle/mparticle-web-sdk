@@ -1,5 +1,4 @@
 import Types from '../../src/types';
-import sinon from 'sinon';
 import { urls, testMPID, apiKey } from './config/constants';
 import { expect } from 'chai';
 import { IUploadObject } from '../../src/serverModel';
@@ -669,7 +668,7 @@ describe('ServerModel', () => {
             const event: BaseEvent = {
                 name: 'Test Event',
                 sourceMessageId: null,
-                messageType: Types.MessageType.CustomEvent,
+                messageType: Types.MessageType.PageEvent,
                 eventType: Types.EventType.Other,
             };
 
@@ -689,7 +688,7 @@ describe('ServerModel', () => {
 
             const event: BaseEvent = {
                 name: 'Test Opt Out Event',
-                messageType: Types.MessageType.CustomEvent,
+                messageType: Types.MessageType.PageEvent,
             };
 
             const actualEventObject = mParticle
@@ -707,7 +706,7 @@ describe('ServerModel', () => {
 
             const event: BaseEvent = {
                 name: 'Test Opt Out Event',
-                messageType: Types.MessageType.CustomEvent,
+                messageType: Types.MessageType.PageEvent,
             };
 
             const actualEventObject = mParticle
