@@ -109,6 +109,8 @@ describe('mParticle instance manager', () => {
             'getName',
             'getIdentityType',
             'getIdentityName',
+            'getValuesAsStrings',
+            'getNewIdentitiesByName',
         ]);
         expect(mParticle.Identity, 'Identity').to.have.keys([
             'HTTPCodes',
