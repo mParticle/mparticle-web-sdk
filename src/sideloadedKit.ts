@@ -6,22 +6,23 @@ import {
     IKitFilterSettings,
 } from './configAPIClient';
 import { UnregisteredKit } from './forwarders.interfaces';
-import { EventTypeEnum, IdentityType } from './types.interfaces';
+import { EventType, IdentityType } from './types';
+import { valueof } from './utils';
 
 export interface IMPSideloadedKit {
     kitInstance: UnregisteredKit;
     filterDictionary: IKitFilterSettings;
 
-    addEventTypeFilter(eventType: EventTypeEnum): void;
-    addEventNameFilter(eventType: EventTypeEnum, eventName: string): void;
+    addEventTypeFilter(eventType: valueof<typeof EventType>): void;
+    addEventNameFilter(eventType: valueof<typeof EventType>, eventName: string): void;
     addEventAttributeFilter(
-        eventType: EventTypeEnum,
+        eventType: valueof<typeof EventType>,
         eventName: string,
         customAttributeKey: string
     ): void;
     addScreenNameFilter(screenName: string): void;
     addScreenAttributeFilter(screenName: string, screenAttribute: string): void;
-    addUserIdentityFilter(userIdentity: IdentityType): void;
+    addUserIdentityFilter(userIdentity: typeof IdentityType): void;
     addUserAttributeFilter(userAttributeKey: string): void;
 }
 
@@ -57,13 +58,13 @@ export default class MPSideloadedKit implements IMPSideloadedKit{
         this.kitInstance = unregisteredKitInstance;
     }
 
-    public addEventTypeFilter(eventType: EventTypeEnum): void {
+    public addEventTypeFilter(eventType: valueof<typeof EventType>): void {
         const hashedEventType = KitFilterHelper.hashEventType(eventType);
         this.filterDictionary.eventTypeFilters.push(hashedEventType);
     }
 
     public addEventNameFilter(
-        eventType: EventTypeEnum,
+        eventType: valueof<typeof EventType>,
         eventName: string
     ): void {
         const hashedEventName = KitFilterHelper.hashEventName(
@@ -74,7 +75,7 @@ export default class MPSideloadedKit implements IMPSideloadedKit{
     }
 
     public addEventAttributeFilter(
-        eventType: EventTypeEnum,
+        eventType: valueof<typeof EventType>,
         eventName: string,
         customAttributeKey: string
     ): void {
@@ -89,7 +90,7 @@ export default class MPSideloadedKit implements IMPSideloadedKit{
     public addScreenNameFilter(screenName: string): void {
         const hashedScreenName = KitFilterHelper.hashEventName(
             screenName,
-            EventTypeEnum.Unknown
+            EventType.Unknown,
         );
         this.filterDictionary.screenNameFilters.push(hashedScreenName);
     }
@@ -99,7 +100,7 @@ export default class MPSideloadedKit implements IMPSideloadedKit{
         screenAttribute: string
     ): void {
         const hashedScreenAttribute = KitFilterHelper.hashEventAttributeKey(
-            EventTypeEnum.Unknown,
+            EventType.Unknown,
             screenName,
             screenAttribute
         );
@@ -108,7 +109,7 @@ export default class MPSideloadedKit implements IMPSideloadedKit{
         );
     }
 
-    public addUserIdentityFilter(userIdentity: IdentityType): void {
+    public addUserIdentityFilter(userIdentity: typeof IdentityType): void {
         const hashedIdentityType = KitFilterHelper.hashUserIdentity(
             userIdentity
         );
