@@ -36,7 +36,7 @@ import './tests-audience-manager';
 import './tests-feature-flags';
 import './tests-user';
 import './tests-legacy-alias-requests';
-import './tests-aliasRequestApiClient';
+import './tests-identityApiClient';
 import './tests-integration-capture';
 import './tests-batchUploader_4';
 
