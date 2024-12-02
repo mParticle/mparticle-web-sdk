@@ -13,15 +13,23 @@ import {
     SDKCCPAConsentState,
 } from './consent';
 import Types from './types';
-import { isEmpty } from './utils';
+import { Dictionary, isEmpty } from './utils';
 import { ISDKUserIdentity } from './identity-user-interfaces';
 import { SDKIdentityTypeEnum } from './identity.interfaces';
+
+type PartnerIdentities = Dictionary<string>;
+
+// FIXME: Event Models version of Batch references `partner_identity` as a string
+//        when it should be a dictionary of strings called `partner_identities`
+interface Batch extends EventsApi.Batch {
+    partner_identities?: PartnerIdentities;
+}
 
 export function convertEvents(
     mpid: string,
     sdkEvents: SDKEvent[],
     mpInstance: MParticleWebSDK
-): EventsApi.Batch | null {
+): Batch | null {
     if (!mpid) {
         return null;
     }
@@ -56,7 +64,7 @@ export function convertEvents(
         currentConsentState = user.getConsentState();
     }
 
-    const upload: EventsApi.Batch = {
+    const upload: Batch = {
         source_request_id: mpInstance._Helpers.generateUniqueId(),
         mpid,
         timestamp_unixtime_ms: new Date().getTime(),
@@ -102,6 +110,13 @@ export function convertEvents(
             },
         };
     }
+    
+    // FIXME: Should we store this on the Store?
+    const capturedPartnerIdentities: PartnerIdentities = mpInstance?._IntegrationCapture.getClickIdsAsPartnerIdentities();
+    if (!isEmpty(capturedPartnerIdentities)) {
+        upload.partner_identities = capturedPartnerIdentities;
+    }
+
     return upload;
 }
 

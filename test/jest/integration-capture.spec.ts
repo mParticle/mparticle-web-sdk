@@ -9,6 +9,26 @@ describe('Integration Capture', () => {
             const integrationCapture = new IntegrationCapture();
             expect(integrationCapture.clickIds).toBeUndefined();
         });
+
+        it('should initialize with a filtered list of partner identity mappings', () => {
+            const integrationCapture = new IntegrationCapture();
+            const mappings = integrationCapture.filteredPartnerIdentityMappings;
+            expect(Object.keys(mappings)).toEqual(['_ttp']);
+        });
+
+        it('should initialize with a filtered list of custom flag mappings', () => {
+            const integrationCapture = new IntegrationCapture();
+            const mappings = integrationCapture.filteredCustomFlagMappings;
+            expect(Object.keys(mappings)).toEqual([
+                'fbclid',
+                '_fbp',
+                '_fbc',
+                'gclid',
+                'gbraid',
+                'wbraid',
+                'ttclid',
+            ]);
+        });
     });
 
     describe('#capture', () => {
@@ -65,6 +85,7 @@ describe('Integration Capture', () => {
             }); 
         });
 
+        describe('Facebook Click Ids', () => {
         it('should format fbclid correctly', () => {
             jest.spyOn(Date, 'now').mockImplementation(() => 42);
 
@@ -147,7 +168,7 @@ describe('Integration Capture', () => {
                 fbclid: 'fb.2.42.12345',
             });
         });
-
+        });
     });
 
     describe('#captureQueryParams', () => {
@@ -184,6 +205,8 @@ describe('Integration Capture', () => {
 
             expect(clickIds).toEqual({
                 fbclid: 'fb.2.42.67890',
+                ttclid: '12345',
+                gclid: '54321',
             });
         });
 
@@ -253,12 +276,54 @@ describe('Integration Capture', () => {
         });
     });
 
+    describe('#getClickIdsAsPartnerIdentites', () => {
+        it('should return clickIds as partner identities', () => {
+            const integrationCapture = new IntegrationCapture();
+            integrationCapture.clickIds = {
+                _ttp: '1234123999.123123',
+            };
+
+            const partnerIdentities = integrationCapture.getClickIdsAsPartnerIdentities();
+
+            expect(partnerIdentities).toEqual({
+                tiktok_cookie_id: '1234123999.123123',
+            });
+        });
+
+        it('should return empty object if clickIds is empty or undefined', () => {
+            const integrationCapture = new IntegrationCapture();
+            const partnerIdentities = integrationCapture.getClickIdsAsPartnerIdentities();
+
+            expect(partnerIdentities).toEqual({});
+        });
+
+        it.only('should only return mapped clickIds as partner identities', () => {
+            const integrationCapture = new IntegrationCapture();
+            integrationCapture.clickIds = {
+                fbclid: '67890',
+                _fbp: '54321',
+                ttclid: '12345',
+                _ttp: '1234123999.123123',
+                gclid: '123233.23131',
+                invalidId: '12345',
+            };
+
+            const partnerIdentities = integrationCapture.getClickIdsAsPartnerIdentities();
+
+            expect(partnerIdentities).toEqual({
+                tiktok_cookie_id: '1234123999.123123',
+            });
+        });
+    });
+
     describe('#getClickIdsAsCustomFlags', () => {
         it('should return clickIds as custom flags', () => {
             const integrationCapture = new IntegrationCapture();
             integrationCapture.clickIds = {
                 fbclid: '67890',
                 _fbp: '54321',
+                ttclid: '12345',
+                gclid: '123233.23131',
             };
 
             const customFlags = integrationCapture.getClickIdsAsCustomFlags();
@@ -266,6 +331,8 @@ describe('Integration Capture', () => {
             expect(customFlags).toEqual({
                 'Facebook.ClickId': '67890',
                 'Facebook.BrowserId': '54321',
+                'TikTok.ClickId': '12345',
+                'GoogleEnhancedConversions.Gclid': '123233.23131',
             });
         });
 
@@ -274,6 +341,27 @@ describe('Integration Capture', () => {
             const customFlags = integrationCapture.getClickIdsAsCustomFlags();
 
             expect(customFlags).toEqual({});
+        });
+
+        it('should only return mapped clickIds as custom flags', () => {
+            const integrationCapture = new IntegrationCapture();
+            integrationCapture.clickIds = {
+                fbclid: '67890',
+                _fbp: '54321',
+                _ttp: '0823422223.23234',
+                ttclid: '12345',
+                gclid: '123233.23131',
+                invalidId: '12345',
+            };
+
+            const customFlags = integrationCapture.getClickIdsAsCustomFlags();
+
+            expect(customFlags).toEqual({
+                'Facebook.ClickId': '67890',
+                'Facebook.BrowserId': '54321',
+                'TikTok.ClickId': '12345',
+                'GoogleEnhancedConversions.Gclid': '123233.23131',
+            });
         });
     });
 
