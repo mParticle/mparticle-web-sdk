@@ -628,7 +628,7 @@ describe('kit blocking', () => {
             let kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
 
             expect(() => { kitBlocker.isAttributeKeyBlocked('unplannedAttr') }).to.not.throw(TypeError, /Cannot read properties of undefined \(reading 'unplannedAttr'\)/)
-            // allow unplanned user attributes is prioritized when blocking unplanned attributes is also enabled, hence the expected value is false
+            // "Allow unplanned user attributes" is prioritized when blocking unplanned attributes is also enabled, hence the expected value is false
             expect(kitBlocker.isAttributeKeyBlocked('unplannedAttr')).to.equal(false)
             // reset data points
             dataPlan.dtpn.vers.version_document.data_points = oldDataPoints;
