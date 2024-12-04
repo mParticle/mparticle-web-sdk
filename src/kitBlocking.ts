@@ -476,8 +476,8 @@ export default class KitBlocker {
             }
         }
 
-        // When block unplanned user attributess is enabled and allow unplanned user
-        // attributes is also enabled, allowing unplanned user attribues will be prioritized
+        // When "Block unplanned user attributes" is enabled and "Allow unplanned user
+        // attributes" is also enabled in the UI, allowing unplanned user attributes will be prioritized
         return false;
     }
 
