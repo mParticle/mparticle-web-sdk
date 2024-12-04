@@ -623,7 +623,7 @@ describe('kit blocking', () => {
             
             // save old data points for reset later
             const oldDataPoints = dataPlan.dtpn.vers.version_document.data_points;
-            // when allow unplanned user attributes is enabled, the data points returned is an empty array
+            // when "Allow unplanned user attributes" is enabled, the data points returned is an empty array
             dataPlan.dtpn.vers.version_document.data_points = [];
             let kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
 
