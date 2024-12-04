@@ -621,14 +621,16 @@ describe('kit blocking', () => {
             window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
             window.mParticle.init(apiKey, window.mParticle.config);
             
-            //save old data points for reset later
+            // save old data points for reset later
             const oldDataPoints = dataPlan.dtpn.vers.version_document.data_points;
+            // when allow unplanned user attributes is enabled, the data points returned is an empty array
             dataPlan.dtpn.vers.version_document.data_points = [];
             let kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
 
             expect(() => { kitBlocker.isAttributeKeyBlocked('unplannedAttr') }).to.not.throw(TypeError, /Cannot read properties of undefined \(reading 'unplannedAttr'\)/)
-            
-            //reset data points
+            // allow unplanned user attributes is prioritized when blocking unplanned attributes is also enabled, hence the expected value is false
+            expect(kitBlocker.isAttributeKeyBlocked('unplannedAttr')).to.equal(false)
+            // reset data points
             dataPlan.dtpn.vers.version_document.data_points = oldDataPoints;
 
             done();
