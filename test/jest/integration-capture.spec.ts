@@ -46,7 +46,7 @@ describe('Integration Capture', () => {
         it('should pass all clickIds to clickIds object', () => {
             jest.spyOn(Date, 'now').mockImplementation(() => 42);
 
-            const url = new URL('https://www.example.com/?fbclid=12345&');
+            const url = new URL('https://www.example.com/?fbclid=12345&gclid=54321&gbraid=67890&wbraid=09876');
 
             window.document.cookie = '_cookie1=1234';
             window.document.cookie = '_cookie2=39895811.9165333198';
@@ -62,9 +62,33 @@ describe('Integration Capture', () => {
             expect(integrationCapture.clickIds).toEqual({
                 fbclid: 'fb.2.42.12345',
                 _fbp: '54321',
+                gclid: '54321',
+                gbraid: '67890',
+                wbraid: '09876',
             }); 
         });
 
+        describe('Google Click Ids', () => {
+            it('should capture Google specific click ids', () => {
+                jest.spyOn(Date, 'now').mockImplementation(() => 42);
+
+                const url = new URL('https://www.example.com/?gclid=54321&gbraid=67890&wbraid=09876');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture();
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    gclid: '54321',
+                    gbraid: '67890',
+                    wbraid: '09876',
+                });
+            });
+        });
+
+        describe('Facebook Click Ids', () => {
         it('should format fbclid correctly', () => {
             jest.spyOn(Date, 'now').mockImplementation(() => 42);
 
@@ -147,6 +171,7 @@ describe('Integration Capture', () => {
                 fbclid: 'fb.2.42.12345',
             });
         });
+        });
 
     });
 
@@ -184,6 +209,7 @@ describe('Integration Capture', () => {
 
             expect(clickIds).toEqual({
                 fbclid: 'fb.2.42.67890',
+                gclid: '54321',
             });
         });
 
@@ -259,6 +285,7 @@ describe('Integration Capture', () => {
             integrationCapture.clickIds = {
                 fbclid: '67890',
                 _fbp: '54321',
+                gclid: '123233.23131',
             };
 
             const customFlags = integrationCapture.getClickIdsAsCustomFlags();
@@ -266,6 +293,7 @@ describe('Integration Capture', () => {
             expect(customFlags).toEqual({
                 'Facebook.ClickId': '67890',
                 'Facebook.BrowserId': '54321',
+                'GoogleEnhancedConversions.Gclid': '123233.23131',
             });
         });
 
