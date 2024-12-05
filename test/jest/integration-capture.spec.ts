@@ -70,8 +70,6 @@ describe('Integration Capture', () => {
 
         describe('Google Click Ids', () => {
             it('should capture Google specific click ids', () => {
-                jest.spyOn(Date, 'now').mockImplementation(() => 42);
-
                 const url = new URL('https://www.example.com/?gclid=54321&gbraid=67890&wbraid=09876');
 
                 window.location.href = url.href;
