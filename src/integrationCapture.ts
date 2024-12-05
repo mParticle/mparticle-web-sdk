@@ -56,6 +56,7 @@ interface IntegrationIdMapping {
 }
 
 const integrationMapping: IntegrationIdMapping = {
+    // Facebook / Meta
     fbclid: {
         mappedKey: 'Facebook.ClickId',
         processor: facebookClickIdProcessor,
@@ -66,6 +67,18 @@ const integrationMapping: IntegrationIdMapping = {
     _fbc: {
         mappedKey: 'Facebook.ClickId',
     },
+
+    // Google
+    gclid: {
+        mappedKey: 'GoogleEnhancedConversions.Gclid',
+    },
+    gbraid: {
+        mappedKey: 'GoogleEnhancedConversions.Gbraid',
+    },
+    wbraid: {
+        mappedKey: 'GoogleEnhancedConversions.Wbraid',
+    },
+
 };
 
 export default class IntegrationCapture {
