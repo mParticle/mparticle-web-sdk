@@ -31,6 +31,9 @@ describe('Integration Capture', () => {
         // Mock the query params capture function because we cannot mock window.location.href
         sinon.stub(window.mParticle.getInstance()._IntegrationCapture, 'getQueryParams').returns({
             fbclid: '1234',
+            gclid: '234',
+            gbraid: '6574',
+            wbraid: '1234111',
         });
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -59,9 +62,13 @@ describe('Integration Capture', () => {
         expect(testEvent).to.have.property('data');
         expect(testEvent.data).to.have.property('event_name', 'Test Event');
         expect(testEvent.data).to.have.property('custom_flags');
+
         expect(testEvent.data.custom_flags).to.deep.equal({
             'Facebook.ClickId': `fb.1.${initialTimestamp}.1234`,
             'Facebook.BrowserId': '54321',
+            'GoogleEnhancedConversions.Gclid': '234',
+            'GoogleEnhancedConversions.Gbraid': '6574',
+            'GoogleEnhancedConversions.Wbraid': '1234111',
         });
     });
 
@@ -83,6 +90,9 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags).to.deep.equal({
             'Facebook.ClickId': 'passed-in',
             'Facebook.BrowserId': '54321',
+            'GoogleEnhancedConversions.Gclid': '234',
+            'GoogleEnhancedConversions.Gbraid': '6574',
+            'GoogleEnhancedConversions.Wbraid': '1234111',
         });
     });
 
@@ -104,6 +114,9 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags).to.deep.equal({
             'Facebook.ClickId': `fb.1.${initialTimestamp}.1234`,
             'Facebook.BrowserId': '54321',
+            'GoogleEnhancedConversions.Gclid': '234',
+            'GoogleEnhancedConversions.Gbraid': '6574',
+            'GoogleEnhancedConversions.Wbraid': '1234111',
         });
     });
 
@@ -123,6 +136,9 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags).to.deep.equal({
             'Facebook.ClickId': 'passed-in',
             'Facebook.BrowserId': '54321',
+            'GoogleEnhancedConversions.Gclid': '234',
+            'GoogleEnhancedConversions.Gbraid': '6574',
+            'GoogleEnhancedConversions.Wbraid': '1234111',
         });
     });
 
@@ -158,6 +174,9 @@ describe('Integration Capture', () => {
             foo: 'bar',
             'Facebook.ClickId': `fb.1.${initialTimestamp}.1234`,
             'Facebook.BrowserId': '54321',
+            'GoogleEnhancedConversions.Gclid': '234',
+            'GoogleEnhancedConversions.Gbraid': '6574',
+            'GoogleEnhancedConversions.Wbraid': '1234111',
         });
     });
 
@@ -193,6 +212,9 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags).to.deep.equal({
             'Facebook.ClickId': 'passed-in',
             'Facebook.BrowserId': '54321',
+            'GoogleEnhancedConversions.Gclid': '234',
+            'GoogleEnhancedConversions.Gbraid': '6574',
+            'GoogleEnhancedConversions.Wbraid': '1234111',
         });
     });
 
@@ -228,6 +250,9 @@ describe('Integration Capture', () => {
             foo: 'bar',
             'Facebook.ClickId': `fb.1.${initialTimestamp}.1234`,
             'Facebook.BrowserId': '54321',
+            'GoogleEnhancedConversions.Gclid': '234',
+            'GoogleEnhancedConversions.Gbraid': '6574',
+            'GoogleEnhancedConversions.Wbraid': '1234111',
         });
     });
 
@@ -263,6 +288,9 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags).to.deep.equal({
             'Facebook.ClickId': 'passed-in',
             'Facebook.BrowserId': '54321',
+            'GoogleEnhancedConversions.Gclid': '234',
+            'GoogleEnhancedConversions.Gbraid': '6574',
+            'GoogleEnhancedConversions.Wbraid': '1234111',
         });
     });
 });
