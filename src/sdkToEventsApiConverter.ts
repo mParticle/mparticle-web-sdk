@@ -13,21 +13,47 @@ import {
     SDKCCPAConsentState,
 } from './consent';
 import Types from './types';
-import { isEmpty } from './utils';
+import { Dictionary, isEmpty } from './utils';
 import { ISDKUserIdentity } from './identity-user-interfaces';
 import { SDKIdentityTypeEnum } from './identity.interfaces';
+import Constants from './constants';
+
+const { 
+    FeatureFlags
+} = Constants;
+const {
+    CaptureIntegrationSpecificIds
+} = FeatureFlags;
+
+type PartnerIdentities = Dictionary<string>;
+
+
+// https://go.mparticle.com/work/SQDSDKS-6964
+interface Batch extends EventsApi.Batch {
+    partner_identities?: PartnerIdentities;
+}
 
 export function convertEvents(
     mpid: string,
     sdkEvents: SDKEvent[],
     mpInstance: MParticleWebSDK
-): EventsApi.Batch | null {
+): Batch | null {
     if (!mpid) {
         return null;
     }
     if (!sdkEvents || sdkEvents.length < 1) {
         return null;
     }
+
+    const {
+        _IntegrationCapture,
+        _Helpers,
+    } = mpInstance
+
+    const {
+        getFeatureFlag,
+    } = _Helpers;
+
 
     const user = mpInstance.Identity.getCurrentUser();
 
@@ -56,7 +82,7 @@ export function convertEvents(
         currentConsentState = user.getConsentState();
     }
 
-    const upload: EventsApi.Batch = {
+    const upload: Batch = {
         source_request_id: mpInstance._Helpers.generateUniqueId(),
         mpid,
         timestamp_unixtime_ms: new Date().getTime(),
@@ -102,6 +128,15 @@ export function convertEvents(
             },
         };
     }
+
+    const isIntegrationCaptureEnabled = getFeatureFlag && getFeatureFlag(CaptureIntegrationSpecificIds)
+    if (isIntegrationCaptureEnabled) {
+        const capturedPartnerIdentities: PartnerIdentities = _IntegrationCapture?.getClickIdsAsPartnerIdentities();
+        if (!isEmpty(capturedPartnerIdentities)) {
+            upload.partner_identities = capturedPartnerIdentities;
+        }
+    }
+
     return upload;
 }
 

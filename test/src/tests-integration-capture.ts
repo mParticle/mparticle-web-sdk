@@ -4,7 +4,14 @@ import Utils from './config/utils';
 import fetchMock from 'fetch-mock/esm/client';
 import { urls, apiKey, testMPID, MPConfig } from "./config/constants";
 
-const { waitForCondition, fetchMockSuccess, deleteAllCookies, findEventFromRequest, hasIdentifyReturned } = Utils;
+const {
+    waitForCondition,
+    fetchMockSuccess,
+    deleteAllCookies,
+    findEventFromRequest,
+    hasIdentifyReturned,
+    hasIdentityCallInflightReturned,
+} = Utils;
 
 const mParticle = window.mParticle;
 
@@ -26,6 +33,7 @@ describe('Integration Capture', () => {
         window.document.cookie = 'foo=bar';
         window.document.cookie = '_fbp=54321';
         window.document.cookie = 'baz=qux';
+        window.document.cookie = '_ttp=45670808';
 
 
         // Mock the query params capture function because we cannot mock window.location.href
@@ -292,5 +300,26 @@ describe('Integration Capture', () => {
             'GoogleEnhancedConversions.Gbraid': '6574',
             'GoogleEnhancedConversions.Wbraid': '1234111',
         });
+    });
+
+    it('should add captured integrations to batch partner identities', async () => {
+        await waitForCondition(hasIdentityCallInflightReturned);
+
+        window.mParticle.logEvent('Test Event 1');
+        window.mParticle.logEvent('Test Event 2');
+        window.mParticle.logEvent('Test Event 3');
+
+        window.mParticle.upload();
+
+        expect(fetchMock.calls().length).to.greaterThan(1);
+
+        const lastCall = fetchMock.lastCall();
+        const batch = JSON.parse(lastCall[1].body as string);
+
+        expect(batch).to.have.property('partner_identities');
+        expect(batch.partner_identities).to.deep.equal({
+            'tiktok_cookie_id': '45670808',
+        });
+
     });
 });
