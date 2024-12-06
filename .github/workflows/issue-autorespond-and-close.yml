@@ -6,8 +6,8 @@ on:
       - opened
 
 jobs:
-  invoke_reusable_workflow:
-    uses: mparticle/mparticle-workflows/.github/workflows/auto-respond-close-issue.yml@master
+  auto-respond-and-close-issue:
+    uses: mparticle/mparticle-workflows/.github/workflows/auto-respond-close-issue.yml@main
     with:
       issue_number: ${{ github.event.issue.number }}
       repository: ${{ github.repository }}
