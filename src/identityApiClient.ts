@@ -6,7 +6,7 @@ import {
     IFetchPayload,
 } from './uploaders';
 import { CACHE_HEADER } from './identity-utils';
-import { parseNumber } from './utils';
+import { parseNumber, valueof } from './utils';
 import {
     IAliasCallback,
     IAliasRequest,
@@ -15,7 +15,6 @@ import {
     IIdentityAPIRequestData,
 } from './identity.interfaces';
 import {
-    Callback,
     IdentityApiData,
     MPID,
     UserIdentities,
@@ -53,9 +52,8 @@ export interface IIdentityApiClient {
     getIdentityResponseFromXHR: (response: XMLHttpRequest) => IIdentityResponse;
 }
 
-export interface IAliasResponseBody {
-    message?: string;
-}
+// A successfull Alias request will return a 202 with no body
+export interface IAliasResponseBody {}
 
 interface IdentityApiRequestPayload extends IFetchPayload {
     headers: {
@@ -64,6 +62,23 @@ interface IdentityApiRequestPayload extends IFetchPayload {
         'x-mp-key': string;
     };
 }
+
+type HTTP_STATUS_CODES = typeof HTTP_OK | typeof HTTP_ACCEPTED;
+
+interface IdentityApiError {
+    code: string;
+    message: string;
+}
+
+interface IdentityApiErrorResponse {
+    Errors: IdentityApiError[],
+    ErrorCode: string,
+    StatusCode: valueof<HTTP_STATUS_CODES>;
+    RequestId: string;
+}
+
+// All Identity Api Responses have the same structure, except for Alias
+interface IAliasErrorResponse extends IdentityApiError {}
 
 export default function IdentityAPIClient(
     this: IIdentityApiClient,
@@ -104,7 +119,10 @@ export default function IdentityAPIClient(
 
             // FetchUploader returns the response as a JSON object that we have to await
             if (response.json) {
-                // HTTP responses of 202, 200, and 403 do not have a response.  response.json will always exist on a fetch, but can only be await-ed when the response is not empty, otherwise it will throw an error.
+                // HTTP responses of 202, 200, and 403 do not have a response.
+                // response.json will always exist on a fetch, but can only be
+                // await-ed when the response is not empty, otherwise it will
+                // throw an error.
                 try {
                     aliasResponseBody = await response.json();
                 } catch (e) {
@@ -123,6 +141,7 @@ export default function IdentityAPIClient(
             let errorMessage: string;
 
             switch (response.status) {
+                // Alias response is a 202 with no body
                 case HTTP_OK:
                 case HTTP_ACCEPTED:
                     // https://go.mparticle.com/work/SQDSDKS-6670
@@ -131,23 +150,28 @@ export default function IdentityAPIClient(
                     break;
                 default:
                     // 400 has an error message, but 403 doesn't
-                    if (aliasResponseBody?.message) {
-                        errorMessage = aliasResponseBody.message;
+                    const errorResponse: IAliasErrorResponse = aliasResponseBody as unknown as IAliasErrorResponse;
+                    if (errorResponse?.message) {
+                        errorMessage = errorResponse.message;
                     }
                     message =
                         'Issue with sending Alias Request to mParticle Servers, received HTTP Code of ' +
                         response.status;
+                    
+                    if (errorResponse?.code) {
+                        message += ' - ' + errorResponse.code;
+                    }
             }
 
             verbose(message);
             invokeAliasCallback(aliasCallback, response.status, errorMessage);
         } catch (e) {
-            const err = e as Error;
-            error('Error sending alias request to mParticle servers. ' + err);
+            const errorMessage = (e as Error).message || e.toString();
+            error('Error sending alias request to mParticle servers. ' + errorMessage);
             invokeAliasCallback(
                 aliasCallback,
                 HTTPCodes.noHttpCoverage,
-                err.message
+                errorMessage,
             );
         }
     };
@@ -197,13 +221,15 @@ export default function IdentityAPIClient(
             },
             body: JSON.stringify(identityApiRequest),
         };
+        mpInstance._Store.identityCallInFlight = true;
 
         try {
-            mpInstance._Store.identityCallInFlight = true;
             const response: Response = await uploader.upload(fetchPayload);
 
             let identityResponse: IIdentityResponse;
+            let message: string;
 
+            // FetchUploader returns the response as a JSON object that we have to await
             if (response.json) {
                 // https://go.mparticle.com/work/SQDSDKS-6568
                 // FetchUploader returns the response as a JSON object that we have to await
@@ -219,11 +245,26 @@ export default function IdentityAPIClient(
                 );
             }
 
-            verbose(
-                'Received Identity Response from server: ' +
-                    JSON.stringify(identityResponse.responseText)
-            );
 
+            switch (identityResponse.status) {
+                case HTTP_OK:
+                case HTTP_ACCEPTED:
+                    message = 'Received Identity Response from server: ';
+                    message += JSON.stringify(identityResponse.responseText);
+                    break;
+
+                default:
+                    // 400 has an error message, but 403 doesn't
+                    const errorResponse: IdentityApiErrorResponse = identityResponse.responseText as unknown as IdentityApiErrorResponse;
+                    if (errorResponse?.Errors) {
+                        message = 'Issue with sending Identity Request to mParticle Servers, received HTTP Code of ' + identityResponse.status;
+
+                        const errorMessage = errorResponse.Errors.map((error) => error.message).join(', ');
+                        message += ' - ' + errorMessage;
+                    }
+            }
+
+            verbose(message);
             parseIdentityResponse(
                 identityResponse,
                 previousMPID,
@@ -234,15 +275,15 @@ export default function IdentityAPIClient(
                 false
             );
         } catch (err) {
-            const errorMessage = (err as Error).message || err.toString();
-
             mpInstance._Store.identityCallInFlight = false;
+            
+            const errorMessage = (err as Error).message || err.toString();
+            error('Error sending identity request to servers' + ' - ' + errorMessage);
             invokeCallback(
                 callback,
                 HTTPCodes.noHttpCoverage,
                 errorMessage,
             );
-            error('Error sending identity request to servers' + ' - ' + err);
         }
     };
 
