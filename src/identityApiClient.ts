@@ -148,7 +148,7 @@ export default function IdentityAPIClient(
                     message =
                         'Successfully sent forwarding stats to mParticle Servers';
                     break;
-                default:
+                default: {
                     // 400 has an error message, but 403 doesn't
                     const errorResponse: IAliasErrorResponse = aliasResponseBody as unknown as IAliasErrorResponse;
                     if (errorResponse?.message) {
@@ -161,6 +161,7 @@ export default function IdentityAPIClient(
                     if (errorResponse?.code) {
                         message += ' - ' + errorResponse.code;
                     }
+                }
             }
 
             verbose(message);
@@ -253,7 +254,7 @@ export default function IdentityAPIClient(
                     message += JSON.stringify(identityResponse.responseText);
                     break;
 
-                default:
+                default: {
                     // 400 has an error message, but 403 doesn't
                     const errorResponse: IdentityApiErrorResponse = identityResponse.responseText as unknown as IdentityApiErrorResponse;
                     if (errorResponse?.Errors) {
@@ -262,6 +263,7 @@ export default function IdentityAPIClient(
                         const errorMessage = errorResponse.Errors.map((error) => error.message).join(', ');
                         message += ' - ' + errorMessage;
                     }
+                }
             }
 
             verbose(message);
