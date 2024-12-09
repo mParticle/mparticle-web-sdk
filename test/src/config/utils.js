@@ -634,7 +634,8 @@ var pluses = /\+/g,
     hasIdentifyReturned = () => {
         return window.mParticle.Identity.getCurrentUser()?.getMPID() === testMPID;
     },
-    hasIdentityCallInflightReturned = () => !mParticle.getInstance()?._Store?.identityCallInFlight;
+    hasIdentityCallInflightReturned = () => !mParticle.getInstance()?._Store?.identityCallInFlight,
+    hasConfigLoaded = () => !!mParticle.getInstance()?._Store?.configurationLoaded
 
 var TestsCore = {
     getLocalStorageProducts: getLocalStorageProducts,
@@ -663,6 +664,7 @@ var TestsCore = {
     fetchMockSuccess: fetchMockSuccess,
     hasIdentifyReturned: hasIdentifyReturned,
     hasIdentityCallInflightReturned,
+    hasConfigLoaded,
 };
 
 export default TestsCore;
