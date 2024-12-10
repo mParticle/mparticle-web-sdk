@@ -1,4 +1,4 @@
-import Constants, { HTTP_ACCEPTED, HTTP_OK } from './constants';
+import Constants, { HTTP_ACCEPTED, HTTP_BAD_REQUEST, HTTP_OK } from './constants';
 import {
     AsyncUploader,
     FetchUploader,
@@ -114,54 +114,65 @@ export default function IdentityAPIClient(
         try {
             const response: Response = await uploader.upload(uploadPayload);
 
-            let message: string;
             let aliasResponseBody: IAliasResponseBody;
-
-            // FetchUploader returns the response as a JSON object that we have to await
-            if (response.json) {
-                // HTTP responses of 202, 200, and 403 do not have a response.
-                // response.json will always exist on a fetch, but can only be
-                // await-ed when the response is not empty, otherwise it will
-                // throw an error.
-                try {
-                    aliasResponseBody = await response.json();
-                } catch (e) {
-                    verbose('The request has no response body');
-                }
-            } else {
-                // https://go.mparticle.com/work/SQDSDKS-6568
-                // XHRUploader returns the response as a string that we need to parse
-                const xhrResponse = (response as unknown) as XMLHttpRequest;
-
-                aliasResponseBody = xhrResponse.responseText
-                    ? JSON.parse(xhrResponse.responseText)
-                    : '';
-            }
-
+            let message: string;
             let errorMessage: string;
 
             switch (response.status) {
-                // Alias response is a 202 with no body
-                case HTTP_OK:
                 case HTTP_ACCEPTED:
-                    // https://go.mparticle.com/work/SQDSDKS-6670
-                    message =
-                        'Successfully sent forwarding stats to mParticle Servers';
+                case HTTP_OK:
+
+                // 400 error will has a body and will go through the happy path to report the error
+                case HTTP_BAD_REQUEST:
+
+                    // FetchUploader returns the response as a JSON object that we have to await
+                    if (response.json) {
+                        // HTTP responses of 202, 200, and 403 do not have a response.
+                        // response.json will always exist on a fetch, but can only be
+                        // await-ed when the response is not empty, otherwise it will
+                        // throw an error.
+                        try {
+                            aliasResponseBody = await response.json();
+                        } catch (e) {
+                            verbose('The request has no response body');
+                        }
+                    } else {
+                        // https://go.mparticle.com/work/SQDSDKS-6568
+                        // XHRUploader returns the response as a string that we need to parse
+                        const xhrResponse = (response as unknown) as XMLHttpRequest;
+
+                        aliasResponseBody = xhrResponse.responseText
+                            ? JSON.parse(xhrResponse.responseText)
+                            : '';
+
+                        // https://go.mparticle.com/work/SQDSDKS-6670
+                        message =
+                            'Successfully sent forwarding stats to mParticle Servers';
+                    }
+
+
+                    if (response.status === HTTP_BAD_REQUEST) {
+                        // 400 has an error message, but 403 doesn't
+                        const errorResponse: IAliasErrorResponse = aliasResponseBody as unknown as IAliasErrorResponse;
+                        if (errorResponse?.message) {
+                            errorMessage = errorResponse.message;
+                        }
+                        message =
+                            'Issue with sending Alias Request to mParticle Servers, received HTTP Code of ' +
+                            response.status;
+                        
+                        if (errorResponse?.code) {
+                            message += ' - ' + errorResponse.code;
+                        }
+                    }
+
                     break;
-                default: {
-                    // 400 has an error message, but 403 doesn't
-                    const errorResponse: IAliasErrorResponse = aliasResponseBody as unknown as IAliasErrorResponse;
-                    if (errorResponse?.message) {
-                        errorMessage = errorResponse.message;
-                    }
-                    message =
-                        'Issue with sending Alias Request to mParticle Servers, received HTTP Code of ' +
-                        response.status;
                     
-                    if (errorResponse?.code) {
-                        message += ' - ' + errorResponse.code;
-                    }
+                // 401 and 403 have no bodies and should be rejected outright
+                default: {
+                    throw new Error('Received HTTP Code of ' + response.status);
                 }
+
             }
 
             verbose(message);
@@ -230,41 +241,52 @@ export default function IdentityAPIClient(
             let identityResponse: IIdentityResponse;
             let message: string;
 
-            // FetchUploader returns the response as a JSON object that we have to await
-            if (response.json) {
-                // https://go.mparticle.com/work/SQDSDKS-6568
-                // FetchUploader returns the response as a JSON object that we have to await
-                const responseBody: IdentityResultBody = await response.json();
-
-                identityResponse = this.getIdentityResponseFromFetch(
-                    response,
-                    responseBody
-                );
-            } else {
-                identityResponse = this.getIdentityResponseFromXHR(
-                    (response as unknown) as XMLHttpRequest
-                );
-            }
-
-
-            switch (identityResponse.status) {
-                case HTTP_OK:
+            switch (response.status) {
                 case HTTP_ACCEPTED:
-                    message = 'Received Identity Response from server: ';
-                    message += JSON.stringify(identityResponse.responseText);
-                    break;
+                case HTTP_OK:
 
-                default: {
-                    // 400 has an error message, but 403 doesn't
-                    const errorResponse: IdentityApiErrorResponse = identityResponse.responseText as unknown as IdentityApiErrorResponse;
-                    if (errorResponse?.Errors) {
+                // 400 error will has a body and will go through the happy path to report the error
+                case HTTP_BAD_REQUEST:
+                        
+                    // FetchUploader returns the response as a JSON object that we have to await
+                    if (response.json) {
+                        // https://go.mparticle.com/work/SQDSDKS-6568
+                        // FetchUploader returns the response as a JSON object that we have to await
+                        const responseBody: IdentityResultBody = await response.json();
+
+                        identityResponse = this.getIdentityResponseFromFetch(
+                            response,
+                            responseBody
+                        );
+                    } else {
+                        identityResponse = this.getIdentityResponseFromXHR(
+                            (response as unknown) as XMLHttpRequest
+                        );
+                    }
+
+                    if (identityResponse.status === HTTP_BAD_REQUEST) {
+                        const errorResponse: IdentityApiErrorResponse = identityResponse.responseText as unknown as IdentityApiErrorResponse;
                         message = 'Issue with sending Identity Request to mParticle Servers, received HTTP Code of ' + identityResponse.status;
 
-                        const errorMessage = errorResponse.Errors.map((error) => error.message).join(', ');
-                        message += ' - ' + errorMessage;
+                        if (errorResponse?.Errors) {
+                            const errorMessage = errorResponse.Errors.map((error) => error.message).join(', ');
+                            message += ' - ' + errorMessage;
+                        }
+
+                    } else {
+                        message = 'Received Identity Response from server: ';
+                        message += JSON.stringify(identityResponse.responseText);
                     }
+
+                    break;
+                    
+                // 401 and 403 have no bodies and should be rejected outright
+                default: {
+                    throw new Error('Received HTTP Code of ' + response.status);
                 }
             }
+
+            mpInstance._Store.identityCallInFlight = false;
 
             verbose(message);
             parseIdentityResponse(
@@ -280,6 +302,7 @@ export default function IdentityAPIClient(
             mpInstance._Store.identityCallInFlight = false;
             
             const errorMessage = (err as Error).message || err.toString();
+
             error('Error sending identity request to servers' + ' - ' + errorMessage);
             invokeCallback(
                 callback,
