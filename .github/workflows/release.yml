@@ -28,7 +28,7 @@ jobs:
             - name: NPM install
               uses: actions/setup-node@v3
               with:
-                  node-version: 16.x
+                  node-version: latest
 
             - name: Run NPM CI
               run: npm ci
@@ -57,9 +57,6 @@ jobs:
     test-jest:
         name: 'Test Jest'
         runs-on: 'ubuntu-latest'
-        strategy:
-            matrix:
-                node-version: [16.x, 17.x, 18.x, 19.x, 20.x]
         steps:
             - name: Checkout
               uses: actions/checkout@v3
@@ -67,7 +64,7 @@ jobs:
             - name: NPM install
               uses: actions/setup-node@v3
               with:
-                  node-version: ${{ matrix.node-version }}
+                  node-version: latest
 
             - name: Run NPM CI
               run: npm ci
@@ -111,7 +108,7 @@ jobs:
             - name: NPM install
               uses: actions/setup-node@v3
               with:
-                  node-version: 16.x
+                  node-version: latest
 
             - name: Run NPM CI
               run: npm ci
@@ -272,7 +269,7 @@ jobs:
             - name: Setup Node.js
               uses: actions/setup-node@v3
               with:
-                  node-version: 16.x
+                  node-version: latest
 
             - name: Install dependencies
               run: npm ci
