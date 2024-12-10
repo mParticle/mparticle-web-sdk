@@ -313,7 +313,7 @@ describe('Integration Capture', () => {
             expect(customFlags).toEqual({
                 'Facebook.ClickId': '67890',
                 'Facebook.BrowserId': '54321',
-                'TikTok.ClickId': '12345',
+                'TikTok.Callback': '12345',
                 'GoogleEnhancedConversions.Gclid': '123233.23131',
             });
         });
@@ -341,7 +341,7 @@ describe('Integration Capture', () => {
             expect(customFlags).toEqual({
                 'Facebook.ClickId': '67890',
                 'Facebook.BrowserId': '54321',
-                'TikTok.ClickId': '12345',
+                'TikTok.Callback': '12345',
                 'GoogleEnhancedConversions.Gclid': '123233.23131',
             });
         });

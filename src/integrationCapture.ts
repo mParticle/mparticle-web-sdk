@@ -101,7 +101,7 @@ const integrationMapping: IntegrationIdMapping = {
 
     // TIKTOK
     ttclid: {
-        mappedKey: 'TikTok.ClickId',
+        mappedKey: 'TikTok.Callback',
         output: IntegrationOutputs.CUSTOM_FLAGS,
     },
     _ttp: {
