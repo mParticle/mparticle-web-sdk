@@ -1,5 +1,7 @@
-import CookieSyncManager, { DAYS_IN_MILLISECONDS } from '../../src/cookieSyncManager';
-import { IPixelConfiguration } from '../../src/cookieSyncManager.interfaces';
+import CookieSyncManager, {
+    DAYS_IN_MILLISECONDS,
+    IPixelConfiguration,
+} from '../../src/cookieSyncManager';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { testMPID } from '../src/config/constants';
 
