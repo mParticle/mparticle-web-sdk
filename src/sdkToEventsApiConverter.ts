@@ -27,7 +27,6 @@ const {
 
 type PartnerIdentities = Dictionary<string>;
 
-
 // https://go.mparticle.com/work/SQDSDKS-6964
 interface Batch extends EventsApi.Batch {
     partner_identities?: PartnerIdentities;
@@ -129,7 +128,7 @@ export function convertEvents(
         };
     }
 
-    const isIntegrationCaptureEnabled = getFeatureFlag && getFeatureFlag(CaptureIntegrationSpecificIds)
+    const isIntegrationCaptureEnabled: boolean = getFeatureFlag && getFeatureFlag(CaptureIntegrationSpecificIds);
     if (isIntegrationCaptureEnabled) {
         const capturedPartnerIdentities: PartnerIdentities = _IntegrationCapture?.getClickIdsAsPartnerIdentities();
         if (!isEmpty(capturedPartnerIdentities)) {
