@@ -368,7 +368,7 @@ describe('Integration Capture', () => {
             expect(partnerIdentities).toEqual({});
         });
 
-        it.only('should only return mapped clickIds as partner identities', () => {
+        it('should only return mapped clickIds as partner identities', () => {
             const integrationCapture = new IntegrationCapture();
             integrationCapture.clickIds = {
                 fbclid: '67890',
