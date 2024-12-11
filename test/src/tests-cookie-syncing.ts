@@ -4,7 +4,7 @@ import fetchMock from 'fetch-mock/esm/client';
 import { urls, testMPID, MPConfig, v4LSKey, apiKey } from './config/constants';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { IMParticleUser } from '../../src/identity-user-interfaces';
-import { IPixelConfiguration } from '../../src/cookieSyncManager.interfaces';
+import { IPixelConfiguration } from '../../src/cookieSyncManager';
 import { IConsentRules } from '../../src/consent';
 const { fetchMockSuccess, waitForCondition, hasIdentifyReturned } = Utils;
 

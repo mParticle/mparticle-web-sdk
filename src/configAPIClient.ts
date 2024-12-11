@@ -13,7 +13,7 @@ import {
     FetchUploader,
     XHRUploader,
 } from './uploaders';
-import { IPixelConfiguration } from './cookieSyncManager.interfaces';
+import { IPixelConfiguration } from './cookieSyncManager';
 
 export interface IKitConfigs extends IKitFilterSettings {
     name: string;
