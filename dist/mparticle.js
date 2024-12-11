@@ -393,7 +393,7 @@ var mParticle = (function () {
         return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     };
 
-    var version = "2.30.4";
+    var version = "2.31.0";
 
     var Constants = {
       sdkVersion: version,
@@ -9242,6 +9242,7 @@ var mParticle = (function () {
       return "fb.".concat(subdomainIndex, ".").concat(_timestamp, ".").concat(clickId);
     };
     var integrationMapping = {
+      // Facebook / Meta
       fbclid: {
         mappedKey: 'Facebook.ClickId',
         processor: facebookClickIdProcessor
@@ -9251,6 +9252,16 @@ var mParticle = (function () {
       },
       _fbc: {
         mappedKey: 'Facebook.ClickId'
+      },
+      // Google
+      gclid: {
+        mappedKey: 'GoogleEnhancedConversions.Gclid'
+      },
+      gbraid: {
+        mappedKey: 'GoogleEnhancedConversions.Gbraid'
+      },
+      wbraid: {
+        mappedKey: 'GoogleEnhancedConversions.Wbraid'
       }
     };
     var IntegrationCapture = /** @class */function () {
