@@ -14,7 +14,7 @@ import {
 import { Dictionary } from './utils';
 import { IMinifiedConsentJSONObject } from './consent';
 import { UserAttributes } from './identity-user-interfaces';
-import { CookieSyncDates } from './cookieSyncManager.interfaces';
+import { CookieSyncDates } from './cookieSyncManager';
 
 export type UploadsTable = Dictionary<any>;
 export interface iForwardingStatsBatches {

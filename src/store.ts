@@ -37,7 +37,7 @@ import {
     IGlobalStoreV2MinifiedKeys,
     IPersistenceMinified,
 } from './persistence.interfaces';
-import { CookieSyncDates, IPixelConfiguration } from './cookieSyncManager.interfaces';
+import { CookieSyncDates, IPixelConfiguration } from './cookieSyncManager';
 
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and
