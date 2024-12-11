@@ -2,6 +2,7 @@
 import './config/setup';
 
 // Import each test module
+import './tests-mparticle-instance-manager';
 import './tests-identity';
 import './tests-batchUploader';
 import './tests-core-sdk';
@@ -23,7 +24,6 @@ import './tests-mParticleUser';
 import './tests-self-hosting-specific';
 import './tests-runtimeToBatchEventsDTO';
 import './tests-apiClient';
-import './tests-mparticle-instance-manager';
 import './tests-queue-public-methods';
 import './tests-batchUploader_3';
 import './tests-validators';
@@ -36,7 +36,7 @@ import './tests-audience-manager';
 import './tests-feature-flags';
 import './tests-user';
 import './tests-legacy-alias-requests';
-import './tests-aliasRequestApiClient';
+import './tests-identityApiClient';
 import './tests-integration-capture';
 import './tests-batchUploader_4';
 
