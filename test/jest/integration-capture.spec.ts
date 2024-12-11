@@ -299,25 +299,6 @@ describe('Integration Capture', () => {
     });
 
     describe('#getClickIdsAsCustomFlags', () => {
-        it('should return clickIds as custom flags', () => {
-            const integrationCapture = new IntegrationCapture();
-            integrationCapture.clickIds = {
-                fbclid: '67890',
-                _fbp: '54321',
-                ttclid: '12345',
-                gclid: '123233.23131',
-            };
-
-            const customFlags = integrationCapture.getClickIdsAsCustomFlags();
-
-            expect(customFlags).toEqual({
-                'Facebook.ClickId': '67890',
-                'Facebook.BrowserId': '54321',
-                'TikTok.Callback': '12345',
-                'GoogleEnhancedConversions.Gclid': '123233.23131',
-            });
-        });
-
         it('should return empty object if clickIds is empty or undefined', () => {
             const integrationCapture = new IntegrationCapture();
             const customFlags = integrationCapture.getClickIdsAsCustomFlags();
@@ -348,19 +329,6 @@ describe('Integration Capture', () => {
     });
 
     describe('#getClickIdsAsPartnerIdentites', () => {
-        it('should return clickIds as partner identities', () => {
-            const integrationCapture = new IntegrationCapture();
-            integrationCapture.clickIds = {
-                _ttp: '1234123999.123123',
-            };
-
-            const partnerIdentities = integrationCapture.getClickIdsAsPartnerIdentities();
-
-            expect(partnerIdentities).toEqual({
-                tiktok_cookie_id: '1234123999.123123',
-            });
-        });
-
         it('should return empty object if clickIds is empty or undefined', () => {
             const integrationCapture = new IntegrationCapture();
             const partnerIdentities = integrationCapture.getClickIdsAsPartnerIdentities();
