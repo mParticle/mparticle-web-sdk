@@ -128,7 +128,7 @@ export function convertEvents(
         };
     }
 
-    const isIntegrationCaptureEnabled: boolean = getFeatureFlag && getFeatureFlag(CaptureIntegrationSpecificIds);
+    const isIntegrationCaptureEnabled: boolean = getFeatureFlag && Boolean(getFeatureFlag(CaptureIntegrationSpecificIds));
     if (isIntegrationCaptureEnabled) {
         const capturedPartnerIdentities: PartnerIdentities = _IntegrationCapture?.getClickIdsAsPartnerIdentities();
         if (!isEmpty(capturedPartnerIdentities)) {
