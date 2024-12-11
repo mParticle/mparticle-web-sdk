@@ -5,6 +5,7 @@ import {
     getCookies,
     getHref,
     isEmpty,
+    valueof,
 } from './utils';
 
 export interface IntegrationCaptureProcessorFunction {
@@ -48,11 +49,24 @@ export const facebookClickIdProcessor: IntegrationCaptureProcessorFunction = (
 
     return `fb.${subdomainIndex}.${_timestamp}.${clickId}`;
 };
+
+// Integration outputs are used to determine how click ids are used within the SDK
+// CUSTOM_FLAGS are sent out when an Event is created via ServerModel.createEventObject
+// PARTNER_IDENTITIES are sent out in a Batch when a group of events are converted to a Batch
+
+const IntegrationOutputs = {
+    CUSTOM_FLAGS: 'custom_flags',
+    PARTNER_IDENTITIES: 'partner_identities',
+} as const;
+
+interface IntegrationMappingItem {
+    mappedKey: string;
+    output: valueof<typeof IntegrationOutputs>;
+    processor?: IntegrationCaptureProcessorFunction;
+}
+
 interface IntegrationIdMapping {
-    [key: string]: {
-        mappedKey: string;
-        processor?: IntegrationCaptureProcessorFunction;
-    };
+    [key: string]: IntegrationMappingItem;
 }
 
 const integrationMapping: IntegrationIdMapping = {
@@ -60,33 +74,54 @@ const integrationMapping: IntegrationIdMapping = {
     fbclid: {
         mappedKey: 'Facebook.ClickId',
         processor: facebookClickIdProcessor,
+        output: IntegrationOutputs.CUSTOM_FLAGS,
     },
     _fbp: {
         mappedKey: 'Facebook.BrowserId',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
     },
     _fbc: {
         mappedKey: 'Facebook.ClickId',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
     },
 
     // Google
     gclid: {
         mappedKey: 'GoogleEnhancedConversions.Gclid',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
     },
     gbraid: {
         mappedKey: 'GoogleEnhancedConversions.Gbraid',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
     },
     wbraid: {
         mappedKey: 'GoogleEnhancedConversions.Wbraid',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
     },
 
+    // TIKTOK
+    ttclid: {
+        mappedKey: 'TikTok.Callback',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
+    },
+    _ttp: {
+        mappedKey: 'tiktok_cookie_id',
+        output: IntegrationOutputs.PARTNER_IDENTITIES,
+    },
 };
 
 export default class IntegrationCapture {
     public clickIds: Dictionary<string>;
     public readonly initialTimestamp: number;
+    public readonly filteredPartnerIdentityMappings: IntegrationIdMapping;
+    public readonly filteredCustomFlagMappings: IntegrationIdMapping;
 
     constructor() {
         this.initialTimestamp = Date.now();
+
+        // Cache filtered mappings for faster access
+        this.filteredPartnerIdentityMappings = this.filterMappings(IntegrationOutputs.PARTNER_IDENTITIES);
+        this.filteredCustomFlagMappings = this.filterMappings(IntegrationOutputs.CUSTOM_FLAGS);
     }
 
     /**
@@ -134,22 +169,42 @@ export default class IntegrationCapture {
      * @returns {SDKEventCustomFlags} The custom flags.
      */
     public getClickIdsAsCustomFlags(): SDKEventCustomFlags {
-        const customFlags: SDKEventCustomFlags = {};
-
-        if (!this.clickIds) {
-            return customFlags;
-        }
-
-        for (const [key, value] of Object.entries(this.clickIds)) {
-            const mappedKey = integrationMapping[key]?.mappedKey;
-            if (!isEmpty(mappedKey)) {
-                customFlags[mappedKey] = value;
-            }
-        }
-        return customFlags;
+        return this.getClickIds(this.clickIds, this.filteredCustomFlagMappings);
     }
 
-    private applyProcessors(clickIds: Dictionary<string>, url?: string, timestamp?: number): Dictionary<string> {
+    /**
+     * Returns only the `partner_identities` mapped integration output.
+     * @returns {Dictionary<string>} The partner identities.
+     */
+    public getClickIdsAsPartnerIdentities(): Dictionary<string> {
+        return this.getClickIds(this.clickIds, this.filteredPartnerIdentityMappings);
+    }
+
+    private getClickIds(
+        clickIds: Dictionary<string>,
+        mappingList: IntegrationIdMapping
+    ): Dictionary<string> {
+        const mappedClickIds: Dictionary<string> = {};
+
+        if (!clickIds) {
+            return mappedClickIds;
+        }
+
+        for (const [key, value] of Object.entries(clickIds)) {
+            const mappedKey = mappingList[key]?.mappedKey;
+            if (!isEmpty(mappedKey)) {
+                mappedClickIds[mappedKey] = value;
+            }
+        }
+
+        return mappedClickIds;
+    }
+
+    private applyProcessors(
+        clickIds: Dictionary<string>,
+        url?: string,
+        timestamp?: number
+    ): Dictionary<string> {
         const processedClickIds: Dictionary<string> = {};
 
         for (const [key, value] of Object.entries(clickIds)) {
@@ -162,5 +217,15 @@ export default class IntegrationCapture {
         }
 
         return processedClickIds;
+    }
+
+    private filterMappings(
+        outputType: valueof<typeof IntegrationOutputs>
+    ): IntegrationIdMapping {
+        return Object.fromEntries(
+            Object.entries(integrationMapping).filter(
+                ([, value]) => value.output === outputType
+            )
+        );
     }
 }
