@@ -1,3 +1,10 @@
+# [2.31.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.30.4...v2.31.0) (2024-12-11)
+
+
+### Features
+
+* Add support for Google Click Ids ([#955](https://github.com/mParticle/mparticle-web-sdk/issues/955)) ([#957](https://github.com/mParticle/mparticle-web-sdk/issues/957)) ([3df8d84](https://github.com/mParticle/mparticle-web-sdk/commit/3df8d8435129874bbf0f1a9daf1e7772843c5442))
+
 ## [2.30.4](https://github.com/mParticle/mparticle-web-sdk/compare/v2.30.3...v2.30.4) (2024-11-05)
 
 
