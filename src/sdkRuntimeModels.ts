@@ -32,7 +32,7 @@ import {
 import { IIdentityType } from './types.interfaces';
 import IntegrationCapture from './integrationCapture';
 import { INativeSdkHelpers } from './nativeSdkHelpers.interfaces';
-import { ICookieSyncManager, IPixelConfiguration } from './cookieSyncManager.interfaces';
+import { ICookieSyncManager, IPixelConfiguration } from './cookieSyncManager';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;

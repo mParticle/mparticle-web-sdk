@@ -1,6 +1,5 @@
-import { isEmpty, replaceAmpWithAmpersand, replaceMPID } from './utils';
+import { Dictionary, isEmpty, replaceAmpWithAmpersand, replaceMPID } from './utils';
 import Constants from './constants';
-import { CookieSyncDates, ICookieSyncManager, IPixelConfiguration } from './cookieSyncManager.interfaces';
 import { MParticleWebSDK } from './sdkRuntimeModels';
 import { MPID } from '@mparticle/web-sdk';
 import { IConsentRules } from './consent';
@@ -9,6 +8,42 @@ const { Messages } = Constants;
 const { InformationMessages } = Messages;
 
 export const DAYS_IN_MILLISECONDS = 1000 * 60 * 60 * 24;
+
+export type CookieSyncDates = Dictionary<number>; 
+
+export interface IPixelConfiguration {
+    name?: string;
+    moduleId: number;
+    esId?: number;
+    isDebug?: boolean;
+    isProduction?: boolean;
+    settings: Dictionary<string>;
+    frequencyCap: number;
+    pixelUrl: string;
+    redirectUrl: string;
+    filteringConsentRuleValues?: IConsentRules;
+}
+export interface ICookieSyncManager {
+    attemptCookieSync: (
+        previousMPID: MPID,
+        mpid: MPID,
+        mpidIsNotInCookies?: boolean
+    ) => void;
+    performCookieSync: (
+        url: string,
+        moduleId: string,
+        mpid: MPID,
+        cookieSyncDates: CookieSyncDates,
+        filteringConsentRuleValues: IConsentRules,
+        mpidIsNotInCookies: boolean,
+        requiresConsent: boolean
+    ) => void;
+    combineUrlWithRedirect: (
+        mpid: MPID,
+        pixelUrl: string,
+        redirectUrl: string
+    ) => string;
+}
 
 const hasFrequencyCapExpired = (
     frequencyCap: number,
