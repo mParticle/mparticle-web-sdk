@@ -130,15 +130,11 @@ export default function IdentityAPIClient(
 
                     // FetchUploader returns the response as a JSON object that we have to await
                     if (response.json) {
-                        // HTTP responses of 202, 200, and 403 do not have a response.
+                        // HTTP responses of 202, 200, and 403 do not have a response body.
                         // response.json will always exist on a fetch, but can only be
                         // await-ed when the response is not empty, otherwise it will
                         // throw an error.
-                        try {
-                            aliasResponseBody = await response.json();
-                        } catch (e) {
-                            verbose('The request has no response body');
-                        }
+                        aliasResponseBody = await response.json();
                     } else {
                         // https://go.mparticle.com/work/SQDSDKS-6568
                         // XHRUploader returns the response as a string that we need to parse
@@ -148,9 +144,6 @@ export default function IdentityAPIClient(
                             ? JSON.parse(xhrResponse.responseText)
                             : '';
                     }
-
-                    // https://go.mparticle.com/work/SQDSDKS-6670
-                    message = 'Successfully sent alias request to mParticle Servers';
 
                     if (response.status === HTTP_BAD_REQUEST) {
                         // 400 has an error message, but 403 doesn't
@@ -164,6 +157,15 @@ export default function IdentityAPIClient(
                         
                         if (errorResponse?.code) {
                             message += ' - ' + errorResponse.code;
+                        }
+                    } else {
+                        // https://go.mparticle.com/work/SQDSDKS-6670
+                        message = 'Received Alias Response from server: ';
+                        message += JSON.stringify(response.status);
+
+                        // In case we receive a valid HTTP code with a response body
+                        if (aliasResponseBody) {
+                            message += ' - ' + JSON.stringify(aliasResponseBody);
                         }
                     }
 
