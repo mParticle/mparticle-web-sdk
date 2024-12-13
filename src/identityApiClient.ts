@@ -119,66 +119,51 @@ export default function IdentityAPIClient(
             let errorMessage: string;
 
             switch (response.status) {
+                // A successfull Alias request will return without a body
                 case HTTP_ACCEPTED:
                 case HTTP_OK:
+                    // https://go.mparticle.com/work/SQDSDKS-6670
+                    message = 'Received Alias Response from server: ' + JSON.stringify(response.status);
+                    break;
 
                 // Our Identity API will return a 400 error if there is an issue with the requeest body
                 // such as if the body is empty or one of the attirbutes is missing or malformed
                 // A 400 will return an error in the response body and will go through the happy path to report the error
-                // Any unhandled errors, such as 500 or 429, will be caught here as well
                 case HTTP_BAD_REQUEST:
-
-                    // FetchUploader returns the response as a JSON object that we have to await
+                    // response.json will always exist on a fetch, but can only be await-ed when the
+                    // response is not empty, otherwise it will throw an error.
                     if (response.json) {
-                        // HTTP responses of 202, 200, and 403 do not have a response body.
-                        // response.json will always exist on a fetch, but can only be
-                        // await-ed when the response is not empty, otherwise it will
-                        // throw an error.
                         try {
                             aliasResponseBody = await response.json();
                         } catch (e) {
-                            verbose('No response body for Alias request');
+                            verbose('The request has no response body');
                         }
                     } else {
                         // https://go.mparticle.com/work/SQDSDKS-6568
                         // XHRUploader returns the response as a string that we need to parse
                         const xhrResponse = (response as unknown) as XMLHttpRequest;
-
+        
                         aliasResponseBody = xhrResponse.responseText
                             ? JSON.parse(xhrResponse.responseText)
                             : '';
                     }
 
-                    if (response.status === HTTP_BAD_REQUEST) {
-                        // 400 has an error message, but 403 doesn't
-                        const errorResponse: IAliasErrorResponse = aliasResponseBody as unknown as IAliasErrorResponse;
-                        if (errorResponse?.message) {
-                            errorMessage = errorResponse.message;
-                        }
-                        message =
-                            'Issue with sending Alias Request to mParticle Servers, received HTTP Code of ' +
-                            response.status;
-                        
-                        if (errorResponse?.code) {
-                            message += ' - ' + errorResponse.code;
-                        }
-                    } else {
-                        // https://go.mparticle.com/work/SQDSDKS-6670
-                        message = 'Received Alias Response from server: ';
-                        message += JSON.stringify(response.status);
+                    const errorResponse: IAliasErrorResponse = aliasResponseBody as unknown as IAliasErrorResponse;
 
-                        // In case we receive a valid HTTP code with a response body
-                        if (aliasResponseBody) {
-                            message += ' - ' + JSON.stringify(aliasResponseBody);
-                        }
+                    if (errorResponse?.message) {
+                        errorMessage = errorResponse.message;
+                    }
+
+                    message =
+                        'Issue with sending Alias Request to mParticle Servers, received HTTP Code of ' +
+                        response.status;
+                    
+                    if (errorResponse?.code) {
+                        message += ' - ' + errorResponse.code;
                     }
 
                     break;
                     
-                // Our Identity API will return:
-                // - 401 if the `x-mp-key` is incorrect or missing
-                // - 403 if the there is a permission or account issue related to the `x-mp-key`
-                // 401 and 403 have no response bodies and should be rejected outright
                 // Any unhandled errors, such as 500 or 429, will be caught here as well
                 default: {
                     throw new Error('Received HTTP Code of ' + response.status);
@@ -257,7 +242,7 @@ export default function IdentityAPIClient(
                 case HTTP_OK:
 
                 // Our Identity API will return a 400 error if there is an issue with the requeest body
-                // such as if the body is empty or one of the attirbutes is missing or malformed
+                // such as if the body is empty or one of the attributes is missing or malformed
                 // A 400 will return an error in the response body and will go through the happy path to report the error
                 case HTTP_BAD_REQUEST:
                         
