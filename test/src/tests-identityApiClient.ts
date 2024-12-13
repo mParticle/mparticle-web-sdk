@@ -387,10 +387,7 @@ describe('Identity Api Client', () => {
 
             const mpInstance: MParticleWebSDK = ({
                 Logger: {
-                    verbose: (message) => {
-                        debugger;
-                        return verboseSpy(message);
-                    },
+                    verbose: (message) => verboseSpy(message),
                     error: (message) => errorSpy(message),
                 },
                 _Helpers: {
@@ -628,7 +625,7 @@ describe('Identity Api Client', () => {
             expect(invokeCallbackSpy.args[0][1]).to.equal(-1);
             expect(invokeCallbackSpy.args[0][2]).to.equal("Received HTTP Code of 404");
 
-            // A 403 should not call parseIdentityResponse
+            // A 404 should not call parseIdentityResponse
             expect(parseIdentityResponseSpy.calledOnce, 'parseIdentityResponseSpy').to.eq(false);
         });
 

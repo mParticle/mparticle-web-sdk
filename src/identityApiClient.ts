@@ -122,7 +122,10 @@ export default function IdentityAPIClient(
                 case HTTP_ACCEPTED:
                 case HTTP_OK:
 
-                // 400 error will has a body and will go through the happy path to report the error
+                // Our Identity API will return a 400 error if there is an issue with the requeest body
+                // such as if the body is empty or one of the attirbutes is missing or malformed
+                // A 400 will return an error in the response body and will go through the happy path to report the error
+                // Any unhandled errors, such as 500 or 429, will be caught here as well
                 case HTTP_BAD_REQUEST:
 
                     // FetchUploader returns the response as a JSON object that we have to await
@@ -145,11 +148,10 @@ export default function IdentityAPIClient(
                             ? JSON.parse(xhrResponse.responseText)
                             : '';
 
-                        // https://go.mparticle.com/work/SQDSDKS-6670
-                        message =
-                            'Successfully sent forwarding stats to mParticle Servers';
                     }
 
+                    // https://go.mparticle.com/work/SQDSDKS-6670
+                    message = 'Successfully sent alias request to mParticle Servers';
 
                     if (response.status === HTTP_BAD_REQUEST) {
                         // 400 has an error message, but 403 doesn't
@@ -168,7 +170,11 @@ export default function IdentityAPIClient(
 
                     break;
                     
-                // 401 and 403 have no bodies and should be rejected outright
+                // Our Identity API will return:
+                // - 401 if the `x-mp-key` is incorrect or missing
+                // - 403 if the there is a permission or account issue related to the `x-mp-key`
+                // 401 and 403 have no response bodies and should be rejected outright
+                // Any unhandled errors, such as 500 or 429, will be caught here as well
                 default: {
                     throw new Error('Received HTTP Code of ' + response.status);
                 }
@@ -245,7 +251,9 @@ export default function IdentityAPIClient(
                 case HTTP_ACCEPTED:
                 case HTTP_OK:
 
-                // 400 error will has a body and will go through the happy path to report the error
+                // Our Identity API will return a 400 error if there is an issue with the requeest body
+                // such as if the body is empty or one of the attirbutes is missing or malformed
+                // A 400 will return an error in the response body and will go through the happy path to report the error
                 case HTTP_BAD_REQUEST:
                         
                     // FetchUploader returns the response as a JSON object that we have to await
@@ -280,7 +288,10 @@ export default function IdentityAPIClient(
 
                     break;
                     
-                // 401 and 403 have no bodies and should be rejected outright
+                // Our Identity API will return:
+                // - 401 if the `x-mp-key` is incorrect or missing
+                // - 403 if the there is a permission or account issue related to the `x-mp-key`
+                // 401 and 403 have no response bodies and should be rejected outright
                 default: {
                     throw new Error('Received HTTP Code of ' + response.status);
                 }
