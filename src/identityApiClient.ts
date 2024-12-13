@@ -147,7 +147,6 @@ export default function IdentityAPIClient(
                         aliasResponseBody = xhrResponse.responseText
                             ? JSON.parse(xhrResponse.responseText)
                             : '';
-
                     }
 
                     // https://go.mparticle.com/work/SQDSDKS-6670
