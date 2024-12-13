@@ -134,7 +134,11 @@ export default function IdentityAPIClient(
                         // response.json will always exist on a fetch, but can only be
                         // await-ed when the response is not empty, otherwise it will
                         // throw an error.
-                        aliasResponseBody = await response.json();
+                        try {
+                            aliasResponseBody = await response.json();
+                        } catch (e) {
+                            verbose('No response body for Alias request');
+                        }
                     } else {
                         // https://go.mparticle.com/work/SQDSDKS-6568
                         // XHRUploader returns the response as a string that we need to parse
