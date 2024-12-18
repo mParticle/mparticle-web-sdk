@@ -126,8 +126,8 @@ export default function IdentityAPIClient(
                     message = 'Received Alias Response from server: ' + JSON.stringify(response.status);
                     break;
 
-                // Our Alias Request API will return a 400 error if there is an issue with the request body
-                // such as if the body is empty or one of the attirbutes is missing or malformed
+                // Our Alias Request API will 400 if there is an issue with the request body (ie timestamps are too far 
+                // in the past or MPIDs don't exist).
                 // A 400 will return an error in the response body and will go through the happy path to report the error
                 case HTTP_BAD_REQUEST:
                     // response.json will always exist on a fetch, but can only be await-ed when the
