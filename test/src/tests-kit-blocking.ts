@@ -8,7 +8,7 @@ import Types from '../../src/types';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
 import fetchMock from 'fetch-mock/esm/client';
 import { expect } from 'chai'
-const { findBatch, waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
+const { waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
 
 let forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
     MockForwarder = Utils.MockForwarder;
@@ -468,7 +468,7 @@ describe('kit blocking', () => {
 
         it('should not transform productAttributes if a product attribute is not planned, additionalProperties = false,  and blok.ea = true', function(done) {
             event.EventName = 'eCommerce - AddToCart';
-            event.EventCategory = Types.CommerceEventType.AddToCart;
+            event.EventCategory = Types.CommerceEventType.ProductAddToCart;
             event.EventDataType = Types.MessageType.Commerce;
             event.ProductAction = {
                 ProductActionType: SDKProductActionType.AddToCart,

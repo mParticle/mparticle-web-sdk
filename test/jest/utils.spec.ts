@@ -1,6 +1,11 @@
-import { queryStringParser, getCookies, getHref } from '../../src/utils';
+import {
+    queryStringParser,
+    getCookies,
+    getHref,
+    replaceMPID,
+    replaceAmpWithAmpersand,
+} from '../../src/utils';
 import { deleteAllCookies } from './utils';
-
 
 describe('Utils', () => {
     describe('getCookies', () => {
@@ -98,7 +103,6 @@ describe('Utils', () => {
             });
         });
 
-
         describe('without URLSearchParams', () => {
             beforeEach(() => {
                 URL = undefined;
@@ -159,4 +163,24 @@ describe('Utils', () => {
         });
     });
 
+    describe('#replaceMPID', () => {
+        it('replaces the MPID in a string', () => {
+            const mpid = '1234';
+            const string = 'https://www.google.com?mpid=%%mpid%%&foo=bar';
+
+            expect(replaceMPID(string, mpid)).toEqual(
+                'https://www.google.com?mpid=1234&foo=bar'
+            );
+        });
+    });
+
+    describe('#replaceAmpWithAmpersand', () => {
+        it('replaces all instances of amp with ampersand', () => {
+            const string = 'https://www.google.com?mpid=%%mpid%%&amp;foo=bar';
+
+            expect(replaceAmpWithAmpersand(string)).toEqual(
+                'https://www.google.com?mpid=%%mpid%%&foo=bar'
+            );
+        });
+    });
 });

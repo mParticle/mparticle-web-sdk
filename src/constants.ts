@@ -184,6 +184,11 @@ const Constants = {
         Login: 'login',
         Identify: 'identify',
     },
+
+    Environment: {
+        Development: 'development',
+        Production: 'production',
+    },
 } as const;
 
 export default Constants;
@@ -196,4 +201,7 @@ export const MILLIS_IN_ONE_SEC = 1000;
 export const HTTP_OK = 200 as const;
 export const HTTP_ACCEPTED = 202 as const;
 export const HTTP_BAD_REQUEST = 400 as const;
+export const HTTP_UNAUTHORIZED = 401 as const;
 export const HTTP_FORBIDDEN = 403 as const;
+export const HTTP_NOT_FOUND = 404 as const;
+export const HTTP_SERVER_ERROR = 500 as const;
