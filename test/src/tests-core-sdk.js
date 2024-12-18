@@ -12,7 +12,13 @@ const DefaultConfig = Constants.DefaultConfig,
     findEventFromRequest = Utils.findEventFromRequest,
     findBatch = Utils.findBatch;
 
-const { waitForCondition, fetchMockSuccess, hasIdentifyReturned, hasIdentityCallInflightReturned } = Utils;
+const {
+    waitForCondition,
+    fetchMockSuccess,
+    hasIdentifyReturned,
+    hasIdentityCallInflightReturned,
+    hasConfigLoaded,
+} = Utils;
 
 describe('core SDK', function() {
     beforeEach(function() {
@@ -1126,7 +1132,7 @@ describe('core SDK', function() {
         })
     });
 
-    it('should initialize and log events even with a failed /config fetch and empty config', function async(done) {
+    it('should initialize and log events even with a failed /config fetch and empty config',  async () => {
         // this instance occurs when self hosting and the user only passes an object into init
         mParticle._resetForTests(MPConfig);
 
@@ -1152,12 +1158,7 @@ describe('core SDK', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.configurationLoaded === true
-            );
-        })
-        .then(() => {
+        await waitForCondition(hasConfigLoaded);
         // fetching the config is async and we need to wait for it to finish
         mParticle.getInstance()._Store.isInitialized.should.equal(true);
 
@@ -1170,23 +1171,16 @@ describe('core SDK', function() {
         mParticle.Identity.identify({
             userIdentities: { customerid: 'test' },
         });
-        waitForCondition(() => {
-            return (
-                mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1'
-            );
-        })
-        .then(() => {
-            mParticle.logEvent('Test Event');
-            const testEvent = findEventFromRequest(
-                fetchMock.calls(),
-                'Test Event'
-            );
+
+        await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1');
+
+        mParticle.logEvent('Test Event');
+        const testEvent = findEventFromRequest(
+            fetchMock.calls(),
+            'Test Event'
+        );
 
         testEvent.should.be.ok();
-
-        done();
-    });
-    });
     });
 
     it('should initialize without a config object passed to init', async function() {
