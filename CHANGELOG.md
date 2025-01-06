@@ -1,3 +1,11 @@
+## [2.31.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.31.0...v2.31.1) (2025-01-06)
+
+
+### Bug Fixes
+
+* Check for uploader to prevent errors when calling upload() too early ([#938](https://github.com/mParticle/mparticle-web-sdk/issues/938)) ([4342b0a](https://github.com/mParticle/mparticle-web-sdk/commit/4342b0a6f9089d8694686afa48e1f46906398997))
+* Forward user attributes to kits properly when kit blocking is enabled and unplanned UAs are allowed ([#947](https://github.com/mParticle/mparticle-web-sdk/issues/947)) ([fdbc6ba](https://github.com/mParticle/mparticle-web-sdk/commit/fdbc6baf509f4816bcc835e1b5b7105d40faa05e))
+
 # [2.31.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.30.4...v2.31.0) (2024-12-11)
 
 
