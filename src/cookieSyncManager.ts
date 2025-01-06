@@ -3,13 +3,27 @@ import Constants from './constants';
 import { MParticleWebSDK } from './sdkRuntimeModels';
 import { MPID } from '@mparticle/web-sdk';
 import { IConsentRules } from './consent';
-
 const { Messages } = Constants;
 const { InformationMessages } = Messages;
 
 export const DAYS_IN_MILLISECONDS = 1000 * 60 * 60 * 24;
 
 export type CookieSyncDates = Dictionary<number>; 
+
+
+// this is just a partial definition of TCData for the purposes of our implementation. The full schema can be found here:
+// https://github.com/InteractiveAdvertisingBureau/GDPR-Transparency-and-Consent-Framework/blob/master/TCFv2/IAB%20Tech%20Lab%20-%20CMP%20API%20v2.md#tcdata
+
+type TCData = {
+  gdprApplies?: boolean;
+  tcString?: string;
+};
+
+declare global {
+    interface Window {
+        __tcfapi: any;
+    }
+}
 
 export interface IPixelConfiguration {
     name?: string;
@@ -43,6 +57,9 @@ export interface ICookieSyncManager {
         pixelUrl: string,
         redirectUrl: string
     ) => string;
+    appendGDPR: (
+        url: string
+    ) => string
 }
 
 const hasFrequencyCapExpired = (
@@ -71,6 +88,8 @@ export default function CookieSyncManager(
         mpid: MPID,
         mpidIsNotInCookies?: boolean
     ): void => {
+        debugger;
+        console.log('attempting')
         if (!mpid || mpInstance._Store.webviewBridgeEnabled) {
             return;
         }
@@ -104,11 +123,14 @@ export default function CookieSyncManager(
                 ? replaceAmpWithAmpersand(pixelSettings.redirectUrl)
                 : null;
 
-            const urlWithRedirect = this.combineUrlWithRedirect(
+            let urlWithRedirect = this.combineUrlWithRedirect(
                 mpid,
                 pixelUrl,
                 redirectUrl
             );
+
+            // check for tcfapi function
+            urlWithRedirect = this.appendGDPR(urlWithRedirect);
 
             if (previousMPID && previousMPID !== mpid) {
                 if (persistence && persistence[mpid]) {
@@ -179,7 +201,8 @@ export default function CookieSyncManager(
         if (requiresConsent && mpidIsNotInCookies) {
             return;
         }
-
+        debugger;
+        
         if (
             // https://go.mparticle.com/work/SQDSDKS-5009
             mpInstance._Consent.isEnabledForUserConsent(
@@ -199,5 +222,34 @@ export default function CookieSyncManager(
             };
             img.src = url;
         }
+    };
+
+    this.appendGDPR = (url: string) => {
+        let _url: string = url
+
+        if (typeof window.__tcfapi !== 'function' && typeof window.__tcfapi.getInAppTCData !== 'function') {
+            return _url;
+        }
+
+        function callback(inAppTCData: TCData, success: boolean): void {
+            if (success) {
+                const gdprApplies = inAppTCData.gdprApplies ? 1 : 0;
+                const tcString = inAppTCData.tcString;
+                _url = `${_url}&gdpr=${gdprApplies}&gdpr_consent=${tcString}`;
+
+                // now do the cookie sync
+            } else {
+                console.log('there is no tcdata')
+                debugger;
+            }
+        }
+
+        try {    
+            window.__tcfapi('getInAppTCData', 2, callback);
+        }
+        catch (e) {
+            console.log(e);
+        }
+        return url;
     };
 }

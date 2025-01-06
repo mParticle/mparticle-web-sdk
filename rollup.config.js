@@ -5,12 +5,13 @@ import babel from '@rollup/plugin-babel';
 import typescript from '@rollup/plugin-typescript';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
+
 const extensions = ['.js', '.ts'];
 
 const defaultOutputOptions = {
     name: 'mParticle',
     strict: false,
-    sourcemap: ENVIRONMENT !== 'prod' ? 'inline' : false,
+    // sourcemap: ENVIRONMENT !== 'prod' ? 'inline' : false, // Enable source maps for non-prod environments
 };
 
 const defaultBabel = babel({
@@ -24,16 +25,13 @@ const babelMinify = babel({
     include: ['src/**/*'],
     babelHelpers: 'runtime',
     babelrc: false,
-    presets: [
-        '@babel/preset-typescript',
-        ['minify', { builtIns: false }],
-        ['@babel/env', { modules: false }],
-    ],
+    presets: ['@babel/preset-typescript', ['@babel/env', { modules: false }]],
     plugins: [
         '@babel/proposal-class-properties',
         '@babel/proposal-object-rest-spread',
         '@babel/plugin-transform-runtime',
     ],
+    // sourceMaps: true, // Ensure Babel outputs source maps
 });
 
 const builds = {
@@ -51,7 +49,7 @@ const builds = {
             commonjs({
                 include: 'node_modules/**',
             }),
-            typescript({ tsconfig: './tsconfig.json' }),
+            typescript({ tsconfig: './tsconfig.json' }), // Enable source maps for TypeScript
             json(),
         ],
     },
@@ -71,7 +69,7 @@ const builds = {
             commonjs({
                 include: 'node_modules/**',
             }),
-            typescript({ tsconfig: './tsconfig.json' }),
+            typescript({ tsconfig: './tsconfig.json', sourceMap: true }), // Enable source maps for TypeScript
             json(),
         ],
     },
@@ -91,7 +89,7 @@ const builds = {
             commonjs({
                 include: 'node_modules/**',
             }),
-            typescript({ tsconfig: './tsconfig.json' }),
+            typescript({ tsconfig: './tsconfig.json', sourceMap: true }), // Enable source maps for TypeScript
             json(),
         ],
     },
