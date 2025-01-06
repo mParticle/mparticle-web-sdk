@@ -31,7 +31,7 @@ declare global {
 
 const mParticle = window.mParticle;
 
-describe('cookie syncing', function() {
+describe.only('cookie syncing', function() {
     const timeout = 100;
     // Have a reference to createElement function to reset after all cookie sync
     // tests have run

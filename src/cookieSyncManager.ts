@@ -110,22 +110,15 @@ export default function CookieSyncManager(
                 redirectUrl
             );
 
+            // reset shouldPerformCookieSync to false
+            let shouldPerformCookieSync = false;
             if (previousMPID && previousMPID !== mpid) {
                 if (persistence && persistence[mpid]) {
                     if (!persistence[mpid].csd) {
                         persistence[mpid].csd = {};
                     }
-                    self.performCookieSync(
-                        urlWithRedirect,
-                        moduleId,
-                        mpid,
-                        persistence[mpid].csd,
-                        filteringConsentRuleValues,
-                        mpidIsNotInCookies,
-                        requiresConsent
-                    );
+                    shouldPerformCookieSync = true;
                 }
-                return;
             } else {
                 if (!persistence || !persistence[mpid]) {
                     return;
@@ -139,17 +132,22 @@ export default function CookieSyncManager(
 
                 // Check to see if we need to refresh cookieSync
                 if (hasFrequencyCapExpired(frequencyCap, lastSyncDateForModule)) {
-                    self.performCookieSync(
-                        urlWithRedirect,
-                        moduleId,
-                        mpid,
-                        persistence[mpid].csd,
-                        filteringConsentRuleValues,
-                        mpidIsNotInCookies,
-                        requiresConsent
-                    );
+                    shouldPerformCookieSync = true;
                 }
             }
+
+            if (shouldPerformCookieSync) {
+                self.performCookieSync(
+                    urlWithRedirect,
+                    moduleId,
+                    mpid,
+                    persistence[mpid].csd,
+                    filteringConsentRuleValues,
+                    mpidIsNotInCookies,
+                    requiresConsent
+                );
+            }
+
         });
     };
 
