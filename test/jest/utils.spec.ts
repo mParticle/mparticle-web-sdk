@@ -4,6 +4,7 @@ import {
     getHref,
     replaceMPID,
     replaceAmpWithAmpersand,
+    combineUrlWithRedirect,
 } from '../../src/utils';
 import { deleteAllCookies } from './utils';
 
@@ -180,6 +181,23 @@ describe('Utils', () => {
 
             expect(replaceAmpWithAmpersand(string)).toEqual(
                 'https://www.google.com?mpid=%%mpid%%&foo=bar'
+            );
+        });
+    });
+
+    describe('#combineUrlWithRedirect', () => {
+        const pixelUrl: string = "https://abc.abcdex.net/ibs:exampleid=12345&amp;exampleuuid=%%mpid%%&amp;redir=";
+        const redirectUrl: string = "https://cookiesync.mparticle.com/v1/sync?esid=123456&amp;MPID=%%mpid%%&amp;ID=${DD_UUID}&amp;Key=mpApiKey&amp;env=2"
+
+        it('should properly combine data from a pixelUrl, redirectUrl, and mpid when everything is defined', () => {
+            expect(combineUrlWithRedirect('testMPID', pixelUrl, redirectUrl)).toEqual(
+                'https://abc.abcdex.net/ibs:exampleid=12345&amp;exampleuuid=testMPID&amp;redir=https%3A%2F%2Fcookiesync.mparticle.com%2Fv1%2Fsync%3Fesid%3D123456%26amp%3BMPID%3DtestMPID%26amp%3BID%3D%24%7BDD_UUID%7D%26amp%3BKey%3DmpApiKey%26amp%3Benv%3D2'
+            );
+        });
+
+        it('should return the pixelUrl with MPID if no redirectUrl is defined', () => {
+            expect(combineUrlWithRedirect('testMPID', pixelUrl, '')).toEqual(
+                'https://abc.abcdex.net/ibs:exampleid=12345&amp;exampleuuid=testMPID&amp;redir='
             );
         });
     });
