@@ -393,7 +393,7 @@ var mParticle = (function () {
         return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     };
 
-    var version = "2.30.4";
+    var version = "2.31.1";
 
     var Constants = {
       sdkVersion: version,
@@ -8885,15 +8885,21 @@ var mParticle = (function () {
         if (!this.blockUserAttributes) {
           return false;
         }
-        if (this.blockUserAttributes) {
-          var matchedAttributes = this.dataPlanMatchLookups['user_attributes'];
-          if (matchedAttributes === true) {
+        var matchedAttributes = this.dataPlanMatchLookups['user_attributes'];
+        // When additionalProperties is set to true, matchedAttributes 
+        // will be a boolean, otherwise it will return an object
+        if (typeof matchedAttributes === 'boolean' && matchedAttributes) {
+          return false;
+        }
+        if (_typeof$1(matchedAttributes) === "object") {
+          if (matchedAttributes[key] === true) {
             return false;
-          }
-          if (!matchedAttributes[key]) {
+          } else {
             return true;
           }
         }
+        // When "Block unplanned user attributes" is enabled and "Allow unplanned user
+        // attributes" is also enabled in the UI, allowing unplanned user attributes will be prioritized
         return false;
       };
       KitBlocker.prototype.isIdentityBlocked = function (key) {
@@ -9242,6 +9248,7 @@ var mParticle = (function () {
       return "fb.".concat(subdomainIndex, ".").concat(_timestamp, ".").concat(clickId);
     };
     var integrationMapping = {
+      // Facebook / Meta
       fbclid: {
         mappedKey: 'Facebook.ClickId',
         processor: facebookClickIdProcessor
@@ -9251,6 +9258,16 @@ var mParticle = (function () {
       },
       _fbc: {
         mappedKey: 'Facebook.ClickId'
+      },
+      // Google
+      gclid: {
+        mappedKey: 'GoogleEnhancedConversions.Gclid'
+      },
+      gbraid: {
+        mappedKey: 'GoogleEnhancedConversions.Gbraid'
+      },
+      wbraid: {
+        mappedKey: 'GoogleEnhancedConversions.Wbraid'
       }
     };
     var IntegrationCapture = /** @class */function () {
@@ -9782,7 +9799,8 @@ var mParticle = (function () {
           if (self._Store.webviewBridgeEnabled) {
             self._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Upload);
           } else {
-            self._APIClient.uploader.prepareAndUpload(false, false);
+            var _self$_APIClient;
+            (_self$_APIClient = self._APIClient) === null || _self$_APIClient === void 0 || (_self$_APIClient = _self$_APIClient.uploader) === null || _self$_APIClient === void 0 || _self$_APIClient.prepareAndUpload(false, false);
           }
         }
       };
