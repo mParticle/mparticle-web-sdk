@@ -38,8 +38,6 @@ export interface ICookieSyncManager {
         moduleId: string,
         mpid: MPID,
         cookieSyncDates: CookieSyncDates,
-        mpidIsNotInCookies: boolean,
-        requiresConsent: boolean
     ) => void;
     combineUrlWithRedirect: (
         mpid: MPID,
@@ -48,7 +46,7 @@ export interface ICookieSyncManager {
     ) => string;
 }
 
-const hasFrequencyCapExpired = (
+const shouldPerformCookieSync = (
     frequencyCap: number,
     lastSyncDate?: number
 ): boolean => {
@@ -90,70 +88,63 @@ export default function CookieSyncManager(
             // set requiresConsent to false to start each additional pixel configuration
             // set to true only if filteringConsenRuleValues.values.length exists
             let requiresConsent = false;
-
+            
             // Filtering rules as defined in UI
-            const { filteringConsentRuleValues } = pixelSettings;
+            const {
+                filteringConsentRuleValues,
+                pixelUrl,
+                redirectUrl,
+                moduleId,
+                // Tells you how often we should do a cookie sync (in days)
+                frequencyCap,
+            } = pixelSettings;
             const { values } = filteringConsentRuleValues || {};
-
+            
             if (!isEmpty(values)) {
                 requiresConsent = true;
             }
 
-            // if MPID is new to cookies, we should not try to perform the cookie sync
-            // because a cookie sync can only occur once a user either consents or doesn't
-            // we should not check if its enabled if the user has a blank consent
+            // If MPID is new to cookies, we should not try to perform the cookie sync
+            // because a cookie sync can only occur once a user either consents or doesn't.
+            // we should not check if it's enabled if the user has a blank consent
             if (requiresConsent && mpidIsNotInCookies) {
                 return;
             }
-
-            if (isEmpty(pixelSettings.pixelUrl) && isEmpty(pixelSettings.redirectUrl)) {
+            
+            if (isEmpty(pixelUrl) && isEmpty(redirectUrl)) {
                 return;
             }
 
-            // Kit Module ID
-            const moduleId = pixelSettings.moduleId.toString();
-
-            // Tells you how often we should do a cookie sync (in days)
-            const frequencyCap = pixelSettings.frequencyCap;
-
             // Url for cookie sync pixel
-            const pixelUrl = replaceAmpWithAmpersand(pixelSettings.pixelUrl);
-
-            const redirectUrl = pixelSettings.redirectUrl
-                ? replaceAmpWithAmpersand(pixelSettings.redirectUrl)
+            const finalPixelUrl = replaceAmpWithAmpersand(pixelUrl);
+            const finalDirectUrl = redirectUrl
+                ? replaceAmpWithAmpersand(redirectUrl)
                 : null;
 
-            const urlWithRedirect = combineUrlWithRedirect(
+            const fullUrl = combineUrlWithRedirect(
                 mpid,
-                pixelUrl,
-                redirectUrl
+                finalPixelUrl,
+                finalDirectUrl
             );
 
-            // set up csd object if it doesn't exist
-            if (persistence && persistence[mpid]) {
-                if (!persistence[mpid].csd) {
-                    persistence[mpid].csd = {};
-                }
-            }
+            const cookieSyncDates: CookieSyncDates = persistence[mpid]?.csd ?? {};
 
-            const lastSyncDateForModule = persistence[mpid].csd[moduleId] || null;
+            const lastSyncDateForModule: number = cookieSyncDates[moduleId] || null;
 
             const { isEnabledForUserConsent } = mpInstance._Consent;
             if (!isEnabledForUserConsent(filteringConsentRuleValues, mpInstance.Identity.getCurrentUser())) {
                 return;
             }
 
-            if (!hasFrequencyCapExpired(frequencyCap, lastSyncDateForModule)) {
+            if (!shouldPerformCookieSync(frequencyCap, lastSyncDateForModule)) {
                 return;
             }
 
             self.performCookieSync(
-                urlWithRedirect,
-                moduleId,
+                fullUrl,
+                moduleId.toString(),
                 mpid,
-                persistence[mpid].csd,
-                mpidIsNotInCookies,
-                requiresConsent
+                cookieSyncDates
             );
         });
     };
@@ -170,6 +161,7 @@ export default function CookieSyncManager(
         mpInstance.Logger.verbose(InformationMessages.CookieSync);
         img.onload = function() {
             cookieSyncDates[moduleId] = new Date().getTime();
+
             mpInstance._Persistence.saveUserCookieSyncDatesToPersistence(
                 mpid,
                 cookieSyncDates

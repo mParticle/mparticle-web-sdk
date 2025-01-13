@@ -349,6 +349,7 @@ const getHref = (): string => {
 };
 
 export {
+    combineUrlWithRedirect,
     createCookieString,
     revertCookieString,
     valueof,
@@ -383,5 +384,4 @@ export {
     getHref,
     replaceMPID,
     replaceAmpWithAmpersand,
-    combineUrlWithRedirect,
 };
