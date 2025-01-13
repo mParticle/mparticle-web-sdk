@@ -108,18 +108,6 @@ const integrationMapping: IntegrationIdMapping = {
         mappedKey: 'tiktok_cookie_id',
         output: IntegrationOutputs.PARTNER_IDENTITIES,
     },
-
-    // Google
-    gclid: {
-        mappedKey: 'GoogleEnhancedConversions.Gclid',
-    },
-    gbraid: {
-        mappedKey: 'GoogleEnhancedConversions.Gbraid',
-    },
-    wbraid: {
-        mappedKey: 'GoogleEnhancedConversions.Wbraid',
-    },
-
 };
 
 export default class IntegrationCapture {
