@@ -393,7 +393,7 @@ var mParticle = (function () {
         return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     };
 
-    var version = "2.31.1";
+    var version = "2.32.0";
 
     var Constants = {
       sdkVersion: version,
@@ -1495,6 +1495,8 @@ var mParticle = (function () {
       SDKIdentityTypeEnum["phoneNumber3"] = "phone_number_3";
     })(SDKIdentityTypeEnum || (SDKIdentityTypeEnum = {}));
 
+    var FeatureFlags$2 = Constants.FeatureFlags;
+    var CaptureIntegrationSpecificIds$1 = FeatureFlags$2.CaptureIntegrationSpecificIds;
     function convertEvents(mpid, sdkEvents, mpInstance) {
       if (!mpid) {
         return null;
@@ -1502,6 +1504,9 @@ var mParticle = (function () {
       if (!sdkEvents || sdkEvents.length < 1) {
         return null;
       }
+      var _IntegrationCapture = mpInstance._IntegrationCapture,
+        _Helpers = mpInstance._Helpers;
+      var getFeatureFlag = _Helpers.getFeatureFlag;
       var user = mpInstance.Identity.getCurrentUser();
       var uploadEvents = [];
       var lastEvent = null;
@@ -1557,6 +1562,13 @@ var mParticle = (function () {
             plan_version: lastEvent.DataPlan.PlanVersion || undefined
           }
         };
+      }
+      var isIntegrationCaptureEnabled = getFeatureFlag && Boolean(getFeatureFlag(CaptureIntegrationSpecificIds$1));
+      if (isIntegrationCaptureEnabled) {
+        var capturedPartnerIdentities = _IntegrationCapture === null || _IntegrationCapture === void 0 ? void 0 : _IntegrationCapture.getClickIdsAsPartnerIdentities();
+        if (!isEmpty(capturedPartnerIdentities)) {
+          upload.partner_identities = capturedPartnerIdentities;
+        }
       }
       return upload;
     }
@@ -9247,32 +9259,57 @@ var mParticle = (function () {
       var _timestamp = timestamp || Date.now();
       return "fb.".concat(subdomainIndex, ".").concat(_timestamp, ".").concat(clickId);
     };
+    // Integration outputs are used to determine how click ids are used within the SDK
+    // CUSTOM_FLAGS are sent out when an Event is created via ServerModel.createEventObject
+    // PARTNER_IDENTITIES are sent out in a Batch when a group of events are converted to a Batch
+    var IntegrationOutputs = {
+      CUSTOM_FLAGS: 'custom_flags',
+      PARTNER_IDENTITIES: 'partner_identities'
+    };
     var integrationMapping = {
       // Facebook / Meta
       fbclid: {
         mappedKey: 'Facebook.ClickId',
-        processor: facebookClickIdProcessor
+        processor: facebookClickIdProcessor,
+        output: IntegrationOutputs.CUSTOM_FLAGS
       },
       _fbp: {
-        mappedKey: 'Facebook.BrowserId'
+        mappedKey: 'Facebook.BrowserId',
+        output: IntegrationOutputs.CUSTOM_FLAGS
       },
       _fbc: {
-        mappedKey: 'Facebook.ClickId'
+        mappedKey: 'Facebook.ClickId',
+        output: IntegrationOutputs.CUSTOM_FLAGS
       },
       // Google
       gclid: {
-        mappedKey: 'GoogleEnhancedConversions.Gclid'
+        mappedKey: 'GoogleEnhancedConversions.Gclid',
+        output: IntegrationOutputs.CUSTOM_FLAGS
       },
       gbraid: {
-        mappedKey: 'GoogleEnhancedConversions.Gbraid'
+        mappedKey: 'GoogleEnhancedConversions.Gbraid',
+        output: IntegrationOutputs.CUSTOM_FLAGS
       },
       wbraid: {
-        mappedKey: 'GoogleEnhancedConversions.Wbraid'
+        mappedKey: 'GoogleEnhancedConversions.Wbraid',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      // TIKTOK
+      ttclid: {
+        mappedKey: 'TikTok.Callback',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      _ttp: {
+        mappedKey: 'tiktok_cookie_id',
+        output: IntegrationOutputs.PARTNER_IDENTITIES
       }
     };
     var IntegrationCapture = /** @class */function () {
       function IntegrationCapture() {
         this.initialTimestamp = Date.now();
+        // Cache filtered mappings for faster access
+        this.filteredPartnerIdentityMappings = this.filterMappings(IntegrationOutputs.PARTNER_IDENTITIES);
+        this.filteredCustomFlagMappings = this.filterMappings(IntegrationOutputs.CUSTOM_FLAGS);
       }
       /**
        * Captures Integration Ids from cookies and query params and stores them in clickIds object
@@ -9313,21 +9350,31 @@ var mParticle = (function () {
        * @returns {SDKEventCustomFlags} The custom flags.
        */
       IntegrationCapture.prototype.getClickIdsAsCustomFlags = function () {
+        return this.getClickIds(this.clickIds, this.filteredCustomFlagMappings);
+      };
+      /**
+       * Returns only the `partner_identities` mapped integration output.
+       * @returns {Dictionary<string>} The partner identities.
+       */
+      IntegrationCapture.prototype.getClickIdsAsPartnerIdentities = function () {
+        return this.getClickIds(this.clickIds, this.filteredPartnerIdentityMappings);
+      };
+      IntegrationCapture.prototype.getClickIds = function (clickIds, mappingList) {
         var _a;
-        var customFlags = {};
-        if (!this.clickIds) {
-          return customFlags;
+        var mappedClickIds = {};
+        if (!clickIds) {
+          return mappedClickIds;
         }
-        for (var _i = 0, _b = Object.entries(this.clickIds); _i < _b.length; _i++) {
+        for (var _i = 0, _b = Object.entries(clickIds); _i < _b.length; _i++) {
           var _c = _b[_i],
             key = _c[0],
             value = _c[1];
-          var mappedKey = (_a = integrationMapping[key]) === null || _a === void 0 ? void 0 : _a.mappedKey;
+          var mappedKey = (_a = mappingList[key]) === null || _a === void 0 ? void 0 : _a.mappedKey;
           if (!isEmpty(mappedKey)) {
-            customFlags[mappedKey] = value;
+            mappedClickIds[mappedKey] = value;
           }
         }
-        return customFlags;
+        return mappedClickIds;
       };
       IntegrationCapture.prototype.applyProcessors = function (clickIds, url, timestamp) {
         var _a;
@@ -9344,6 +9391,12 @@ var mParticle = (function () {
           }
         }
         return processedClickIds;
+      };
+      IntegrationCapture.prototype.filterMappings = function (outputType) {
+        return Object.fromEntries(Object.entries(integrationMapping).filter(function (_a) {
+          var value = _a[1];
+          return value.output === outputType;
+        }));
       };
       return IntegrationCapture;
     }();
