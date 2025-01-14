@@ -15,9 +15,12 @@ import {
 } from './sdkRuntimeModels';
 import { valueof } from './utils';
 import { EventType, ProductActionType, PromotionActionType } from './types';
+import { CommonEventData } from '@mparticle/event-models';
 
-type dataFunction = (element: HTMLElement) => Dictionary<string>;
-type dataObject = Dictionary<string>;
+// Supports wrapping event handlers functions that will ideally return a specific type
+interface eventHandlerFunction<T>{
+    (element: HTMLLinkElement | HTMLFormElement): T;
+}
 
 // User options specified during the checkout process
 // e.g., FedEx, DHL, UPS for delivery options;
@@ -28,11 +31,8 @@ export interface IEvents {
     addEventHandler(
         domEvent: string,
         selector: string | Node,
-        eventName: string,
-
-        // QUESTION: In what cases would data be a function?
-        data: dataObject | dataFunction,
-
+        eventName: eventHandlerFunction<string> | string,
+        data: eventHandlerFunction<CommonEventData> | CommonEventData,
         eventType: valueof<typeof EventType>
     ): void;
     logAST(): void;
@@ -45,7 +45,7 @@ export interface IEvents {
     logCommerceEvent(
         commerceEvent: SDKEvent,
         attrs?: SDKEventAttrs,
-        options?: SDKEventOptions,
+        options?: SDKEventOptions
     ): void;
     logEvent(event: BaseEvent, eventOptions?: SDKEventOptions): void;
     logImpressionEvent(
@@ -84,6 +84,4 @@ export interface IEvents {
     ): void;
     startTracking(callback: Callback): void;
     stopTracking(): void;
-
-    
 }
