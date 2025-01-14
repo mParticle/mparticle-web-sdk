@@ -19,11 +19,6 @@ import { CommonEventData } from '@mparticle/event-models';
 // Supports wrapping event handlers functions that will ideally return a specific type
 type EventHandlerFunction<T> = (element: HTMLLinkElement | HTMLFormElement) => T;
 
-// User options specified during the checkout process
-// e.g., FedEx, DHL, UPS for delivery options;
-// Visa, MasterCard, AmEx for payment options.
-type CheckoutOption = string;
-
 export interface IEvents {
     addEventHandler(
         domEvent: string,
@@ -35,7 +30,12 @@ export interface IEvents {
     logAST(): void;
     logCheckoutEvent(
         step: number,
-        option?: CheckoutOption,
+
+        // User options specified during the checkout process
+        // e.g., FedEx, DHL, UPS for delivery options;
+        // Visa, MasterCard, AmEx for payment options.
+        option?: string,
+
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags
     ): void;
