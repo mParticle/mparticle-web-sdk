@@ -7,6 +7,7 @@ import {
 } from '@mparticle/web-sdk';
 import {
     BaseEvent,
+    SDKEvent,
     SDKEventCustomFlags,
     SDKProduct,
     SDKProductImpression,
@@ -17,6 +18,11 @@ import { EventType, ProductActionType, PromotionActionType } from './types';
 
 type dataFunction = (element: HTMLElement) => Dictionary<string>;
 type dataObject = Dictionary<string>;
+
+// User options specified during the checkout process
+// e.g., FedEx, DHL, UPS for delivery options;
+// Visa, MasterCard, AmEx for payment options.
+type checkoutOption = string;
 
 export interface IEvents {
     addEventHandler(
@@ -29,12 +35,18 @@ export interface IEvents {
 
         eventType: valueof<typeof EventType>
     ): void;
+    logAST(): void;
     logCheckoutEvent(
         step: number,
-        option?: SDKEventOptions,
+        option?: checkoutOption,
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags
-    );
+    ): void;
+    logCommerceEvent(
+        commerceEvent: SDKEvent,
+        attrs?: SDKEventAttrs,
+        options?: SDKEventOptions,
+    ): void;
     logEvent(event: BaseEvent, eventOptions?: SDKEventOptions): void;
     logImpressionEvent(
         impression: SDKProductImpression,
@@ -50,26 +62,26 @@ export interface IEvents {
         customFlags?: SDKEventCustomFlags,
         transactionAttributes?: TransactionAttributes,
         eventOptions?: SDKEventOptions
-    );
+    ): void;
     logPromotionEvent(
         promotionType: valueof<typeof PromotionActionType>,
         promotion: SDKPromotion,
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions
-    );
+    ): void;
     logPurchaseEvent(
+        transactionAttributes: TransactionAttributes,
         product: SDKProduct,
-        transactionAttributes?: TransactionAttributes,
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags
-    );
+    ): void;
     logRefundEvent(
         transactionAttributes: TransactionAttributes,
         product: SDKProduct,
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags
-    );
+    ): void;
     startTracking(callback: Callback): void;
     stopTracking(): void;
 

@@ -824,7 +824,7 @@ export default function mParticleInstance(instanceName) {
          * @for mParticle.eCommerce
          * @method logCheckout
          * @param {Number} step checkout step number
-         * @param {String} option
+         * @param {String} option checkout option string
          * @param {Object} attrs
          * @param {Object} [customFlags] Custom flags for the event
          * @deprecated
