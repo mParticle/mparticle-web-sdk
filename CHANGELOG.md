@@ -1,3 +1,10 @@
+# [2.32.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.31.1...v2.32.0) (2025-01-14)
+
+
+### Features
+
+* Add support for TikTok Click and Cookie Ids ([#956](https://github.com/mParticle/mparticle-web-sdk/issues/956)) ([d84d759](https://github.com/mParticle/mparticle-web-sdk/commit/d84d759fcffe11e6494f9de16e2e334f593f74b6))
+
 ## [2.31.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.31.0...v2.31.1) (2025-01-06)
 
 
