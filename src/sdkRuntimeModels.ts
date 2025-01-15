@@ -4,6 +4,8 @@ import {
     MPConfiguration,
     MPID,
     IdentityApiData,
+    SDKEventOptions,
+    SDKEventAttrs,
 } from '@mparticle/web-sdk';
 import { IStore } from './store';
 import Validators from './validators';
@@ -37,6 +39,7 @@ import {
 import IntegrationCapture from './integrationCapture';
 import { INativeSdkHelpers } from './nativeSdkHelpers.interfaces';
 import { ICookieSyncManager, IPixelConfiguration } from './cookieSyncManager';
+import { IEvents } from './events.interfaces';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -150,11 +153,6 @@ export interface SDKProduct {
     Attributes?: { [key: string]: string };
 }
 
-// Temporary Interfaces for Events Module
-interface IEvents {
-    logEvent?(event: BaseEvent): void;
-}
-
 export interface MParticleWebSDK {
     addForwarder(mockForwarder: MPForwarder): void;
     _IntegrationCapture: IntegrationCapture;
@@ -204,11 +202,12 @@ export interface MParticleWebSDK {
     startNewSession(): void;
     logEvent(
         eventName: string,
-        eventType?: number,
-        attrs?: { [key: string]: string },
-        customFlags?: SDKEventCustomFlags
+        eventType?: valueof<typeof EventType>,
+        attrs?: SDKEventAttrs,
+        customFlags?: SDKEventCustomFlags,
+        eventOptions?: SDKEventOptions
     ): void;
-    logBaseEvent(event: any): void;
+    logBaseEvent(event: BaseEvent, eventOptions?: SDKEventOptions): void;
     eCommerce: any;
     logLevel: string;
     ProductActionType: SDKProductActionType;
@@ -293,6 +292,7 @@ export interface SDKHelpersApi {
         timeoutStart: number,
         now: number
     ): boolean;
+    isEventType?(type: valueof<typeof EventType>): boolean;
     isObject?(item: any);
     invokeCallback?(
         callback: IdentityCallback,
