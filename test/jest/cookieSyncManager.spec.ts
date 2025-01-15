@@ -1,7 +1,8 @@
 import CookieSyncManager, {
     DAYS_IN_MILLISECONDS,
     IPixelConfiguration,
-    CookieSyncDates
+    CookieSyncDates,
+    isLastSyncDateExpired
 } from '../../src/cookieSyncManager';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { testMPID } from '../src/config/constants';
@@ -503,6 +504,23 @@ describe('CookieSyncManager', () => {
             );
 
             expect(loggerSpy).toHaveBeenCalledWith('Performing cookie sync');
+        });
+    });
+
+    describe('#isLastSyncDateExpired', () => {
+        const frequencyCap = 14; // days
+        it('should return true if there is no last sync date', () => {
+            expect(isLastSyncDateExpired(frequencyCap, null)).toBe(true);
+        });
+
+        it('should return true if lastSyncDate is beyond the frequencyCap', () => {
+            const lastSyncDate = 0;  // beginning of time
+            expect(isLastSyncDateExpired(frequencyCap, lastSyncDate)).toBe(true);
+        });
+
+        it('should return false if lastSyncDate is beyond the frequencyCap', () => {
+            const lastSyncDate = new Date().getTime();  // now
+            expect(isLastSyncDateExpired(frequencyCap, lastSyncDate)).toBe(false);
         });
     });
 });
