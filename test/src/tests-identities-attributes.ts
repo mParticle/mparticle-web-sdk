@@ -803,7 +803,7 @@ describe('identities and attributes', function() {
             product2 = mParticle.eCommerce.createProduct('Android', 'SKU2', 1);
         waitForCondition(hasIdentifyReturned)
         .then(() =>  {
-        mParticle.eCommerce.Cart.add([product1, product2]);
+        mParticle.eCommerce.Cart.add([product1, product2], null);
 
         const cartProducts = mParticle.Identity.getCurrentUser()
             .getCart()

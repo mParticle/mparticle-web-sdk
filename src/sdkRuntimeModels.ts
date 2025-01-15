@@ -40,6 +40,7 @@ import IntegrationCapture from './integrationCapture';
 import { INativeSdkHelpers } from './nativeSdkHelpers.interfaces';
 import { ICookieSyncManager, IPixelConfiguration } from './cookieSyncManager';
 import { IEvents } from './events.interfaces';
+import { IECommerce, SDKECommerceAPI } from './ecommerce.interfaces';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -107,6 +108,11 @@ export interface SDKPromotion {
     Position?: string;
 }
 
+export interface SDKImpression {
+    Name: string;
+    Product: SDKProduct;
+}
+
 export interface SDKProductImpression {
     ProductImpressionList?: string;
     ProductList?: SDKProduct[];
@@ -170,6 +176,7 @@ export interface MParticleWebSDK {
     _Forwarders: any;
     _Helpers: SDKHelpersApi;
     _Events: IEvents;
+    _Ecommerce: IECommerce;
     config: SDKInitConfig;
     _ServerModel: IServerModel;
     _SessionManager: ISessionManager;
@@ -208,7 +215,7 @@ export interface MParticleWebSDK {
         eventOptions?: SDKEventOptions
     ): void;
     logBaseEvent(event: BaseEvent, eventOptions?: SDKEventOptions): void;
-    eCommerce: any;
+    eCommerce: SDKECommerceAPI;
     logLevel: string;
     ProductActionType: SDKProductActionType;
     generateHash(value: string): string;

@@ -3,7 +3,7 @@ import fetchMock from 'fetch-mock/esm/client';
 import { expect } from 'chai';
 import Utils from './config/utils';
 import Constants, { HTTP_ACCEPTED } from '../../src/constants';
-import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
+import { MParticleWebSDK, SDKProduct } from '../../src/sdkRuntimeModels';
 import {
     urls,
     apiKey,
@@ -2029,7 +2029,7 @@ describe('identity', function() {
         mParticle.Identity.getCurrentUser().setUserAttribute('foo1', 'bar1');
         expect(fetchMock.calls().length).to.equal(7);
 
-        const product1: Product = mParticle.eCommerce.createProduct(
+        const product1: SDKProduct = mParticle.eCommerce.createProduct(
             'iPhone',
             '12345',
             '1000',
@@ -4799,11 +4799,11 @@ describe('identity', function() {
             waitForCondition(hasIdentifyReturned)
             .then(() => {
 
-            const product = mParticle.eCommerce.createProduct(
+            const product: Product = mParticle.eCommerce.createProduct(
                 'iPhone',
                 '12345',
                 400
-            );
+            ) as Product;
             mParticle
                 .getInstance()
                 .Identity.getCurrentUser()
@@ -4831,11 +4831,11 @@ describe('identity', function() {
             waitForCondition(hasIdentifyReturned)
             .then(() => {
 
-            const product = mParticle.eCommerce.createProduct(
+            const product: Product = mParticle.eCommerce.createProduct(
                 'iPhone',
                 '12345',
                 400
-            );
+            ) as Product;
 
             mParticle
                 .getInstance()
