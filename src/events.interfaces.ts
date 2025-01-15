@@ -14,7 +14,6 @@ import {
 } from './sdkRuntimeModels';
 import { valueof } from './utils';
 import { EventType, ProductActionType, PromotionActionType } from './types';
-import { CommonEventData } from '@mparticle/event-models';
 
 // Supports wrapping event handlers functions that will ideally return a specific type
 type EventHandlerFunction<T> = (element: HTMLLinkElement | HTMLFormElement) => T;
@@ -24,7 +23,7 @@ export interface IEvents {
         domEvent: string,
         selector: string | Node,
         eventName: EventHandlerFunction<string> | string,
-        data: EventHandlerFunction<CommonEventData> | CommonEventData,
+        data: EventHandlerFunction<SDKEventAttrs> | SDKEventAttrs,
         eventType: valueof<typeof EventType>
     ): void;
     logAST(): void;
