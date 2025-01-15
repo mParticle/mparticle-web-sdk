@@ -438,10 +438,13 @@ export default function Events(mpInstance) {
                 element = elements[i];
 
                 if (element.addEventListener) {
+                    // Modern browsers
                     element.addEventListener(domEvent, handler, false);
                 } else if (element.attachEvent) {
+                    // IE < 9
                     element.attachEvent('on' + domEvent, handler);
                 } else {
+                    // All other browsers
                     element['on' + domEvent] = handler;
                 }
             }
