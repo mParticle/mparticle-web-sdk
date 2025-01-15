@@ -116,15 +116,15 @@ export default function CookieSyncManager(
             }
 
             // Url for cookie sync pixel
-            const finalPixelUrl = replaceAmpWithAmpersand(pixelUrl);
-            const finalDirectUrl = redirectUrl
+            const modifiedPixelUrl = replaceAmpWithAmpersand(pixelUrl);
+            const modifiedDirectUrl = redirectUrl
                 ? replaceAmpWithAmpersand(redirectUrl)
                 : null;
 
             const fullUrl = combineUrlWithRedirect(
                 mpid,
-                finalPixelUrl,
-                finalDirectUrl
+                modifiedPixelUrl,
+                modifiedDirectUrl
             );
 
             const cookieSyncDates: CookieSyncDates = persistence[mpid]?.csd ?? {};

@@ -412,8 +412,6 @@ describe('CookieSyncManager', () => {
                     pixelConfigurations: [pixelSettings],
                 },
                 _Persistence: {
-                    // FIXME: why is this here?  it doesn't exist in the SDK (it is used elsewhere too)
-                    setCookieSyncDates: jest.fn(),
                     getPersistence: jest.fn(),
                     saveUserCookieSyncDatesToPersistence: jest.fn(),
                 },
@@ -435,7 +433,6 @@ describe('CookieSyncManager', () => {
             jest.useFakeTimers();
 
             // Mock the Date constructor
-            // const mockDate = new Date(0); // Epoch time: 0
             const OriginalDate = global.Date;
             class MockDate extends OriginalDate {
                 constructor() {
@@ -445,9 +442,6 @@ describe('CookieSyncManager', () => {
 
             // Override global Date
             global.Date = MockDate as unknown as DateConstructor;
-
-            // Mock Date.now to always return 0
-            MockDate.now = jest.fn(() => 100);
 
             let cookieSyncDates: CookieSyncDates  = {};
             cookieSyncManager.performCookieSync(
