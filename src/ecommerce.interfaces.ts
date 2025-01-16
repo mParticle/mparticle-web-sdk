@@ -36,14 +36,14 @@ interface IECommerceShared {
         brand?: string,
         position?: number,
         couponCode?: string,
-        attributes?: Record<string, string | number>
+        attributes?: SDKEventAttrs,
     ): SDKProduct | null;
     createImpression(name: string, product: Product): SDKImpression | null;
     createPromotion(
         id: string | number,
         creative?: string,
         name?: string,
-        position?: string
+        position?: number
     ): SDKPromotion | null;
     createTransactionAttributes(
         id: string | number,
@@ -51,7 +51,7 @@ interface IECommerceShared {
         couponCode?: string,
         revenue?: string | number,
         shipping?: string | number,
-        tax?: string | number
+        tax?: number
     ): TransactionAttributes | null;
     expandCommerceEvent(event: CommerceEvent): SDKEvent[] | null;
 }
@@ -96,6 +96,11 @@ export interface SDKECommerceAPI extends IECommerceShared {
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions
     ): void;
+    setCurrencyCode(code: string): void;
+
+    /*
+     * @deprecated
+     */
     logPurchase(
         transactionAttributes: TransactionAttributes,
         product: SDKProduct | SDKProduct[],
@@ -103,6 +108,9 @@ export interface SDKECommerceAPI extends IECommerceShared {
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags
     ): void;
+    /*
+     * @deprecated
+     */
     logRefund(
         transactionAttributes: TransactionAttributes,
         product: SDKProduct | SDKProduct[],
@@ -110,12 +118,11 @@ export interface SDKECommerceAPI extends IECommerceShared {
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags
     ): void;
-    setCurrencyCode(code: string): void;
 }
 
 // Used for the private `_Ecommerce` namespace
 export interface IECommerce extends IECommerceShared {
-    buildProductList(event: any, product: Product | Product[]): Product[];
+    buildProductList(event: SDKEvent, product: Product | Product[]): Product[];
     convertProductActionToEventType(
         productActionType: valueof<typeof ProductActionType>
     ): typeof CommerceEventType | typeof EventType | null;
