@@ -18,7 +18,7 @@ jobs:
             - name: NPM install
               uses: actions/setup-node@v3
               with:
-                  node-version: latest Hey, just wanted to check in to see if you have any more comments about my PR. Let me know if it’s good to merge in for the next release. I’ve already tested on the PR environment so I think it works.
+                  node-version: latest
 
             - name: Run NPM CI
               run: npm ci
