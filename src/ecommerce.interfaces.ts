@@ -120,11 +120,45 @@ export interface SDKECommerceAPI extends IECommerceShared {
     ): void;
 }
 
+interface ExtractedActionAttributes {
+    "Affiliation"?: string;
+    "Coupon Code"?: string;
+    "Total Amount"?: number;
+    "Shipping Amount"?: string;
+    "Tax Amount"?: string;
+    "Checkout Option"?: string;
+    "Checkout Step"?: number;
+    "Transaction ID"?: string;
+}
+interface ExtractedProductAttributes {
+    "Coupon Code"?: string;
+    "Brand"?: string;
+    "Category"?: string;
+    "Name"?: string;
+    "Id"?: string;
+    "Item Price"?: string;
+    "Quantity"?: string;
+    "Position"?: number;
+    "Variant"?: string;
+    "Total Product Amount": string;
+}
+interface ExtractedPromotionAttributes {
+    "Id"?: string;
+    "Creative"?: string;
+    "Name"?: string;
+    "Position"?: number;
+}
+interface ExtractedTransactionId {
+    "Transaction ID"?: string;
+}
+
 // Used for the private `_Ecommerce` namespace
 export interface IECommerce extends IECommerceShared {
     buildProductList(event: SDKEvent, product: Product | Product[]): Product[];
     convertProductActionToEventType(
         productActionType: valueof<typeof ProductActionType>
+
+        // https://go.mparticle.com/work/SQDSDKS-4801
     ): typeof CommerceEventType | typeof EventType | null;
     convertPromotionActionToEventType(
         promotionActionType: valueof<typeof PromotionActionType>
@@ -141,19 +175,19 @@ export interface IECommerce extends IECommerceShared {
     expandProductImpression(commerceEvent: CommerceEvent): SDKEvent[];
     expandPromotionAction(commerceEvent: CommerceEvent): SDKEvent[];
     extractActionAttributes(
-        attributes: Record<string, string | number>,
+        attributes: ExtractedActionAttributes,
         productAction: ProductAction
     ): void;
     extractProductAttributes(
-        attributes: Record<string, string | number>,
+        attributes: ExtractedProductAttributes,
         product: Product
     ): void;
     extractPromotionAttributes(
-        attributes: Record<string, string | number>,
+        attributes: ExtractedPromotionAttributes,
         promotion: Promotion
     ): void;
     extractTransactionId(
-        attributes: Record<string, string | number>,
+        attributes: ExtractedTransactionId;
         productAction: ProductAction
     ): void;
     generateExpandedEcommerceName(eventName: string, plusOne: boolean): string;
