@@ -187,7 +187,7 @@ export interface IECommerce extends IECommerceShared {
         promotion: Promotion
     ): void;
     extractTransactionId(
-        attributes: ExtractedTransactionId;
+        attributes: ExtractedTransactionId,
         productAction: ProductAction
     ): void;
     generateExpandedEcommerceName(eventName: string, plusOne: boolean): string;
