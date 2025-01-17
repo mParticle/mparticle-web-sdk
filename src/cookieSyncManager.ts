@@ -98,6 +98,7 @@ export default function CookieSyncManager(
             }
 
             const { isEnabledForUserConsent } = mpInstance._Consent;
+
             if (!isEnabledForUserConsent(filteringConsentRuleValues, mpInstance.Identity.getCurrentUser())) {
                 return;
             }
