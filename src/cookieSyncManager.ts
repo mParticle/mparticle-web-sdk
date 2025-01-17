@@ -83,7 +83,7 @@ export default function CookieSyncManager(
             } = pixelSettings;
             const { values } = filteringConsentRuleValues || {};
 
-            if (isEmpty(pixelUrl) && isEmpty(redirectUrl)) {
+            if (isEmpty(pixelUrl)) {
                 return;
             }
 

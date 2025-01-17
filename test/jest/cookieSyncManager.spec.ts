@@ -58,6 +58,36 @@ describe('CookieSyncManager', () => {
             );            
         });
 
+        it('should not call performCookieSync if pixelURL is empty', () => {
+            const pixelSettingsWithoutPixelUrl = {...pixelSettings, pixelUrl: ''}
+            const mockMPInstance = ({
+                _Store: {
+                    webviewBridgeEnabled: false,
+                    pixelConfigurations: [pixelSettingsWithoutPixelUrl],
+                },
+                _Persistence: {
+                    getPersistence: () => ({testMPID: {
+                        csd: {}
+                    }}),
+                },
+                _Consent: {
+                    isEnabledForUserConsent: jest.fn().mockReturnValue(true),
+                },
+                Identity: {
+                    getCurrentUser: jest.fn().mockReturnValue({
+                        getMPID: () => testMPID,
+                    }),
+                },
+            } as unknown) as MParticleWebSDK;
+
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+            cookieSyncManager.performCookieSync = jest.fn();
+
+            cookieSyncManager.attemptCookieSync(testMPID, true);
+
+            expect(cookieSyncManager.performCookieSync).not.toHaveBeenCalled();
+        });
+
         it('should not call performCookieSync if mpid is not defined', () => {
             const mockMPInstance = ({
                 _Store: {
