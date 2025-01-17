@@ -82,6 +82,7 @@ export default function CookieSyncManager(
                 frequencyCap,
             } = pixelSettings;
             const { values } = filteringConsentRuleValues || {};
+
             if (isEmpty(pixelUrl) && isEmpty(redirectUrl)) {
                 return;
             }
