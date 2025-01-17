@@ -36,7 +36,7 @@ interface IECommerceShared {
         brand?: string,
         position?: number,
         couponCode?: string,
-        attributes?: SDKEventAttrs,
+        attributes?: SDKEventAttrs
     ): SDKProduct | null;
     createImpression(name: string, product: Product): SDKImpression | null;
     createPromotion(
@@ -64,11 +64,6 @@ export interface SDKCart {
 
 // Used for the public `eCommerce` namespace
 export interface SDKECommerceAPI extends IECommerceShared {
-    /*
-     * @deprecated
-     */
-    Cart: SDKCart;
-
     logCheckout(
         step: number,
         option?: string,
@@ -101,6 +96,11 @@ export interface SDKECommerceAPI extends IECommerceShared {
     /*
      * @deprecated
      */
+    Cart: SDKCart;
+
+    /*
+     * @deprecated
+     */
     logPurchase(
         transactionAttributes: TransactionAttributes,
         product: SDKProduct | SDKProduct[],
@@ -108,6 +108,7 @@ export interface SDKECommerceAPI extends IECommerceShared {
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags
     ): void;
+
     /*
      * @deprecated
      */
@@ -121,35 +122,35 @@ export interface SDKECommerceAPI extends IECommerceShared {
 }
 
 interface ExtractedActionAttributes {
-    "Affiliation"?: string;
-    "Coupon Code"?: string;
-    "Total Amount"?: number;
-    "Shipping Amount"?: string;
-    "Tax Amount"?: string;
-    "Checkout Option"?: string;
-    "Checkout Step"?: number;
-    "Transaction ID"?: string;
+    Affiliation?: string;
+    'Coupon Code'?: string;
+    'Total Amount'?: number;
+    'Shipping Amount'?: number;
+    'Tax Amount'?: number;
+    'Checkout Option'?: string;
+    'Checkout Step'?: number;
+    'Transaction ID'?: string;
 }
 interface ExtractedProductAttributes {
-    "Coupon Code"?: string;
-    "Brand"?: string;
-    "Category"?: string;
-    "Name"?: string;
-    "Id"?: string;
-    "Item Price"?: string;
-    "Quantity"?: string;
-    "Position"?: number;
-    "Variant"?: string;
-    "Total Product Amount": string;
+    'Coupon Code'?: string;
+    Brand?: string;
+    Category?: string;
+    Name?: string;
+    Id?: string;
+    'Item Price'?: number;
+    Quantity?: number;
+    Position?: number;
+    Variant?: string;
+    'Total Product Amount': number;
 }
 interface ExtractedPromotionAttributes {
-    "Id"?: string;
-    "Creative"?: string;
-    "Name"?: string;
-    "Position"?: number;
+    Id?: string;
+    Creative?: string;
+    Name?: string;
+    Position?: number;
 }
 interface ExtractedTransactionId {
-    "Transaction ID"?: string;
+    'Transaction ID'?: string;
 }
 
 // Used for the private `_Ecommerce` namespace
@@ -157,9 +158,8 @@ export interface IECommerce extends IECommerceShared {
     buildProductList(event: SDKEvent, product: Product | Product[]): Product[];
     convertProductActionToEventType(
         productActionType: valueof<typeof ProductActionType>
-
-        // https://go.mparticle.com/work/SQDSDKS-4801
-    ): typeof CommerceEventType | typeof EventType | null;
+    ): // https://go.mparticle.com/work/SQDSDKS-4801
+    typeof CommerceEventType | typeof EventType | null;
     convertPromotionActionToEventType(
         promotionActionType: valueof<typeof PromotionActionType>
     ): typeof CommerceEventType | null;

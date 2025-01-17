@@ -339,7 +339,7 @@ export function convertProducts(
             price: sdkProduct.Price,
             quantity: sdkProduct.Quantity,
             coupon_code: sdkProduct.CouponCode,
-            custom_attributes: sdkProduct.Attributes,
+            custom_attributes: sdkProduct.Attributes as Record<string, string>,
         };
         products.push(product);
     }
