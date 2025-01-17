@@ -15,6 +15,18 @@ export const DAYS_IN_MILLISECONDS = 1000 * 60 * 60 * 24;
 
 export type CookieSyncDates = Dictionary<number>; 
 
+// this is just a partial definition of TCData for the purposes of our implementation. The full schema can be found here:
+// https://github.com/InteractiveAdvertisingBureau/GDPR-Transparency-and-Consent-Framework/blob/master/TCFv2/IAB%20Tech%20Lab%20-%20CMP%20API%20v2.md#tcdata
+type TCData = {
+  gdprApplies?: boolean;
+  tcString?: string;
+};
+declare global {
+    interface Window {
+        __tcfapi: any;
+    }
+}
+
 export interface IPixelConfiguration {
     name?: string;
     moduleId: number;
@@ -38,12 +50,13 @@ export interface ICookieSyncManager {
         mpid: MPID,
         cookieSyncDates: CookieSyncDates,
     ) => void;
-    combineUrlWithRedirect: (
+    performCookieSyncWithGDPR: (
+        url: string,
+        moduleId: string,
         mpid: MPID,
-        pixelUrl: string,
-        redirectUrl: string
-    ) => string;
-}
+        cookieSyncDates: CookieSyncDates,
+    ) => void
+};
 
 export default function CookieSyncManager(
     this: ICookieSyncManager,
@@ -113,13 +126,18 @@ export default function CookieSyncManager(
 
             // Url for cookie sync pixel
             const fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl)
+            const moduleIdString = moduleId.toString();
 
-            self.performCookieSync(
-                fullUrl,
-                moduleId.toString(),
-                mpid,
-                cookieSyncDates
-            );
+            if (isTcfApiAvailable()) {
+                self.performCookieSyncWithGDPR(fullUrl, moduleIdString, mpid, cookieSyncDates);
+            } else {
+                self.performCookieSync(
+                    fullUrl,
+                    moduleIdString,
+                    mpid,
+                    cookieSyncDates
+                );
+            }
         });
     };
 
@@ -143,6 +161,33 @@ export default function CookieSyncManager(
         };
         img.src = url;
     };
+
+    this.performCookieSyncWithGDPR = (
+        url: string,
+        moduleId: string,
+        mpid: MPID,
+        cookieSyncDates: CookieSyncDates
+    ): void => {
+        let _url: string = url;
+
+        function callback(inAppTCData: TCData, success: boolean): void {
+            // If call to getInAppTCData is successful, append the applicable gdpr 
+            // and tcString to url
+            if (success) {
+                const gdprApplies = inAppTCData.gdprApplies ? 1 : 0;
+                const tcString = inAppTCData.tcString;
+                _url += `&gdpr=${gdprApplies}&gdpr_consent=${tcString}`;
+            }
+            self.performCookieSync(_url, moduleId, mpid, cookieSyncDates);
+        }
+        try {    
+            window.__tcfapi('getInAppTCData', 2, callback);
+        }
+        catch (error) {
+            const errorMessage = (error as Error).message || error.toString();
+            mpInstance.Logger.error(errorMessage);
+        }
+    };
 }
 
 export const isLastSyncDateExpired = (
@@ -160,3 +205,11 @@ export const isLastSyncDateExpired = (
         new Date(lastSyncDate).getTime() + frequencyCap * DAYS_IN_MILLISECONDS
     );
 };
+
+export const isTcfApiAvailable = (): boolean => {
+    if (typeof window.__tcfapi === 'function') {
+        return true;
+    } else {
+        return false;
+    }
+}
