@@ -1,21 +1,21 @@
 import { AllUserAttributes, MPID, Product, User } from '@mparticle/web-sdk';
 import { SDKIdentityTypeEnum } from './identity.interfaces';
 import { MessageType } from './types';
-import { BaseEvent } from './sdkRuntimeModels';
+import { BaseEvent, SDKProduct } from './sdkRuntimeModels';
 import Constants from './constants';
 const { HTTPCodes } = Constants;
 
 // Cart is Deprecated and private to mParticle user in @mparticle/web-sdk
 // but we need to expose it here for type safety in some of our tests
-interface Cart {
+interface ICart {
     /**
      * @deprecated Cart persistence in mParticle has been deprecated. Please use mParticle.eCommerce.logProductAction(mParticle.ProductActionType.AddToCart, [products])
      */
-    add: (product: Product, logEventBoolean?: boolean) => void;
+    add: (product: SDKProduct, logEventBoolean?: boolean) => void;
     /**
      * @deprecated Cart persistence in mParticle has been deprecated. Please use mParticle.eCommerce.logProductAction(mParticle.ProductActionType.RemoveFromCart, [products])
      */
-    remove: (product: Product, logEventBoolean?: boolean) => void;
+    remove: (product: SDKProduct, logEventBoolean?: boolean) => void;
     /**
      * @deprecated Cart persistence in mParticle has been deprecated.
      */
@@ -23,7 +23,7 @@ interface Cart {
     /**
      * @deprecated Cart Products have been deprecated
      */
-    getCartProducts: () => Product[];
+    getCartProducts: () => SDKProduct[];
 }
 
 // https://go.mparticle.com/work/SQDSDKS-5033
@@ -36,7 +36,7 @@ export interface IMParticleUser extends User {
     /*
      * @deprecated
      */
-    getCart(): Cart;
+    getCart(): ICart;
 }
 
 export interface ISDKUserIdentity {
