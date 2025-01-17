@@ -110,7 +110,7 @@ export interface IProductV2DTO {
     ps: number;
     cc: string | number;
     tpa: number;
-    attrs: Record<string, string> | null;
+    attrs: Record<string, unknown> | undefined;
 }
 
 export interface IPromotionV2DTO {

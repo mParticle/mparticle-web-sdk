@@ -5,6 +5,8 @@ var Messages = Constants.Messages;
 
 export default function Ecommerce(mpInstance) {
     var self = this;
+
+    // https://go.mparticle.com/work/SQDSDKS-4801
     this.convertTransactionAttributesToProductAction = function(
         transactionAttributes,
         productAction
@@ -103,8 +105,11 @@ export default function Ecommerce(mpInstance) {
                 return Types.CommerceEventType.ProductRemoveFromCart;
             case Types.ProductActionType.RemoveFromWishlist:
                 return Types.CommerceEventType.ProductRemoveFromWishlist;
+
+            // https://go.mparticle.com/work/SQDSDKS-4801
             case Types.ProductActionType.Unknown:
                 return Types.EventType.Unknown;
+
             case Types.ProductActionType.ViewDetail:
                 return Types.CommerceEventType.ProductViewDetail;
             default:
@@ -139,6 +144,7 @@ export default function Ecommerce(mpInstance) {
         );
     };
 
+    // https://go.mparticle.com/work/SQDSDKS-4801
     this.extractProductAttributes = function(attributes, product) {
         if (product.CouponCode) {
             attributes['Coupon Code'] = product.CouponCode;
@@ -170,12 +176,14 @@ export default function Ecommerce(mpInstance) {
         attributes['Total Product Amount'] = product.TotalAmount || 0;
     };
 
+    // https://go.mparticle.com/work/SQDSDKS-4801
     this.extractTransactionId = function(attributes, productAction) {
         if (productAction.TransactionId) {
             attributes['Transaction Id'] = productAction.TransactionId;
         }
     };
 
+    // https://go.mparticle.com/work/SQDSDKS-4801
     this.extractActionAttributes = function(attributes, productAction) {
         self.extractTransactionId(attributes, productAction);
 
@@ -208,6 +216,7 @@ export default function Ecommerce(mpInstance) {
         }
     };
 
+    // https://go.mparticle.com/work/SQDSDKS-4801
     this.extractPromotionAttributes = function(attributes, promotion) {
         if (promotion.Id) {
             attributes['Id'] = promotion.Id;
