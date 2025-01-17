@@ -18,8 +18,8 @@ const pixelSettings: IPixelConfiguration = {
     isProduction: true,
     settings: {},
     frequencyCap: 14,
-    pixelUrl: '',
-    redirectUrl: '',
+    pixelUrl: 'https://test.com',
+    redirectUrl: '?redirect=https://redirect.com&mpid=%%mpid%%',
 };
 
 declare global {
@@ -277,8 +277,8 @@ describe('cookie syncing', function() {
                     isProduction: true,
                     settings: {},
                     frequencyCap: 14,
-                    pixelUrl: '',
-                    redirectUrl: '',
+                    pixelUrl: 'https://test.com',
+                    redirectUrl: '?redirect=https://redirect.com&mpid=%%mpid%%',
                 },
             ],
         };
@@ -1222,8 +1222,8 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: '',
-            redirectUrl: '',
+            pixelUrl: 'https://test.com',
+            redirectUrl: '?redirect=https://redirect.com&mpid=%%mpid%%',
         };
 
         pixelSettings1.filteringConsentRuleValues = {
@@ -1247,8 +1247,8 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: '',
-            redirectUrl: '',
+            pixelUrl: 'https://test2.com',
+            redirectUrl: '?redirect=https://redirect2.com&mpid=%%mpid%%',
         };
 
         window.mParticle.config.pixelConfigs = [pixelSettings1, pixelSettings2];

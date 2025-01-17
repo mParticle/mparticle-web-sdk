@@ -1,4 +1,8 @@
-import { Dictionary, isEmpty, replaceAmpWithAmpersand, replaceMPID } from './utils';
+import {
+    Dictionary,
+    isEmpty,
+    createCookieSyncUrl,
+} from './utils';
 import Constants from './constants';
 import { MParticleWebSDK } from './sdkRuntimeModels';
 import { MPID } from '@mparticle/web-sdk';
@@ -25,7 +29,6 @@ export interface IPixelConfiguration {
 }
 export interface ICookieSyncManager {
     attemptCookieSync: (
-        previousMPID: MPID,
         mpid: MPID,
         mpidIsNotInCookies?: boolean
     ) => void;
@@ -34,29 +37,12 @@ export interface ICookieSyncManager {
         moduleId: string,
         mpid: MPID,
         cookieSyncDates: CookieSyncDates,
-        filteringConsentRuleValues: IConsentRules,
-        mpidIsNotInCookies: boolean,
-        requiresConsent: boolean
     ) => void;
     combineUrlWithRedirect: (
         mpid: MPID,
         pixelUrl: string,
         redirectUrl: string
     ) => string;
-}
-
-const hasFrequencyCapExpired = (
-    frequencyCap: number,
-    lastSyncDate?: number,
-): boolean => {
-    if (!lastSyncDate) {
-        return true;
-    }
-
-    return (
-        new Date().getTime() >
-        new Date(lastSyncDate).getTime() + frequencyCap * DAYS_IN_MILLISECONDS
-    );
 }
 
 export default function CookieSyncManager(
@@ -67,100 +53,74 @@ export default function CookieSyncManager(
 
     // Public
     this.attemptCookieSync = (
-        previousMPID: MPID,
         mpid: MPID,
         mpidIsNotInCookies?: boolean
     ): void => {
-        if (!mpid || mpInstance._Store.webviewBridgeEnabled) {
+        const { pixelConfigurations, webviewBridgeEnabled } = mpInstance._Store;
+
+        if (!mpid || webviewBridgeEnabled) {
             return;
         }
 
-        const { pixelConfigurations } = mpInstance._Store;
         const persistence = mpInstance._Persistence.getPersistence();
+
+        if (isEmpty(persistence)) {
+            return;
+        }
 
         pixelConfigurations.forEach((pixelSettings: IPixelConfiguration) => {
             // set requiresConsent to false to start each additional pixel configuration
             // set to true only if filteringConsenRuleValues.values.length exists
             let requiresConsent = false;
-
             // Filtering rules as defined in UI
-            const { filteringConsentRuleValues } = pixelSettings;
+            const {
+                filteringConsentRuleValues,
+                pixelUrl,
+                redirectUrl,
+                moduleId,
+                // Tells you how often we should do a cookie sync (in days)
+                frequencyCap,
+            } = pixelSettings;
             const { values } = filteringConsentRuleValues || {};
+
+            if (isEmpty(pixelUrl)) {
+                return;
+            }
 
             if (!isEmpty(values)) {
                 requiresConsent = true;
             }
 
-            // Kit Module ID
-            const moduleId = pixelSettings.moduleId.toString();
+            // If MPID is new to cookies, we should not try to perform the cookie sync
+            // because a cookie sync can only occur once a user either consents or doesn't.
+            // we should not check if it's enabled if the user has a blank consent
+            if (requiresConsent && mpidIsNotInCookies) {
+                return;
+            }
 
-            // Tells you how often we should do a cookie sync (in days)
-            const frequencyCap = pixelSettings.frequencyCap;
+            const { isEnabledForUserConsent } = mpInstance._Consent;
+
+            if (!isEnabledForUserConsent(filteringConsentRuleValues, mpInstance.Identity.getCurrentUser())) {
+                return;
+            }
+
+            const cookieSyncDates: CookieSyncDates = persistence[mpid]?.csd ?? {};
+            const lastSyncDateForModule: number = cookieSyncDates[moduleId] || null;
+
+            if (!isLastSyncDateExpired(frequencyCap, lastSyncDateForModule)) {
+                return;
+            }
 
             // Url for cookie sync pixel
-            const pixelUrl = replaceAmpWithAmpersand(pixelSettings.pixelUrl);
+            const fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl)
 
-            const redirectUrl = pixelSettings.redirectUrl
-                ? replaceAmpWithAmpersand(pixelSettings.redirectUrl)
-                : null;
-
-            const urlWithRedirect = this.combineUrlWithRedirect(
+            self.performCookieSync(
+                fullUrl,
+                moduleId.toString(),
                 mpid,
-                pixelUrl,
-                redirectUrl
+                cookieSyncDates
             );
-
-            if (previousMPID && previousMPID !== mpid) {
-                if (persistence && persistence[mpid]) {
-                    if (!persistence[mpid].csd) {
-                        persistence[mpid].csd = {};
-                    }
-                    self.performCookieSync(
-                        urlWithRedirect,
-                        moduleId,
-                        mpid,
-                        persistence[mpid].csd,
-                        filteringConsentRuleValues,
-                        mpidIsNotInCookies,
-                        requiresConsent
-                    );
-                }
-                return;
-            } else {
-                if (!persistence || !persistence[mpid]) {
-                    return;
-                }
-
-                if (!persistence[mpid].csd) {
-                    persistence[mpid].csd = {};
-                }
-
-                const lastSyncDateForModule = persistence[mpid].csd[moduleId] || null;
-
-                // Check to see if we need to refresh cookieSync
-                if (hasFrequencyCapExpired(frequencyCap, lastSyncDateForModule)) {
-                    self.performCookieSync(
-                        urlWithRedirect,
-                        moduleId,
-                        mpid,
-                        persistence[mpid].csd,
-                        filteringConsentRuleValues,
-                        mpidIsNotInCookies,
-                        requiresConsent
-                    );
-                }
-            }
         });
-    };
-
-    this.combineUrlWithRedirect = (
-        mpid: MPID,
-        pixelUrl: string,
-        redirectUrl: string,
-    ): string => {
-        const url = replaceMPID(pixelUrl, mpid);
-        const redirect = redirectUrl ? replaceMPID(redirectUrl, mpid) : '';
-        return url + encodeURIComponent(redirect);
     };
 
     // Private
@@ -169,35 +129,34 @@ export default function CookieSyncManager(
         moduleId: string,
         mpid: MPID,
         cookieSyncDates: CookieSyncDates,
-        filteringConsentRuleValues: IConsentRules,
-        mpidIsNotInCookies: boolean,
-        requiresConsent: boolean
     ): void => {
-        // if MPID is new to cookies, we should not try to perform the cookie sync
-        // because a cookie sync can only occur once a user either consents or doesn't
-        // we should not check if its enabled if the user has a blank consent
-        if (requiresConsent && mpidIsNotInCookies) {
-            return;
-        }
+        const img = document.createElement('img');
 
-        if (
-            // https://go.mparticle.com/work/SQDSDKS-5009
-            mpInstance._Consent.isEnabledForUserConsent(
-                filteringConsentRuleValues,
-                mpInstance.Identity.getCurrentUser()
-            )
-        ) {
-            const img = document.createElement('img');
+        mpInstance.Logger.verbose(InformationMessages.CookieSync);
+        img.onload = function() {
+            cookieSyncDates[moduleId] = new Date().getTime();
 
-            mpInstance.Logger.verbose(InformationMessages.CookieSync);
-            img.onload = function() {
-                cookieSyncDates[moduleId] = new Date().getTime();
-                mpInstance._Persistence.saveUserCookieSyncDatesToPersistence(
-                    mpid,
-                    cookieSyncDates
-                );
-            };
-            img.src = url;
-        }
+            mpInstance._Persistence.saveUserCookieSyncDatesToPersistence(
+                mpid,
+                cookieSyncDates
+            );
+        };
+        img.src = url;
     };
 }
+
+export const isLastSyncDateExpired = (
+    frequencyCap: number,
+    lastSyncDate?: number
+): boolean => {
+    // If there is no lastSyncDate, then there is no previous cookie sync, so we should sync the cookie
+    if (!lastSyncDate) {
+        return true;
+    }
+
+    // Otherwise, compare the last sync date to determine if it should do a cookie sync again
+    return (
+        new Date().getTime() >
+        new Date(lastSyncDate).getTime() + frequencyCap * DAYS_IN_MILLISECONDS
+    );
+};

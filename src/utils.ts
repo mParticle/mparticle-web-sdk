@@ -180,6 +180,23 @@ const replaceMPID = (value: string, mpid: MPID): string => value.replace('%%mpid
 
 const replaceAmpWithAmpersand = (value: string): string => value.replace(/&amp;/g, '&');
 
+const createCookieSyncUrl = (
+    mpid: MPID,
+    pixelUrl: string,
+    redirectUrl?: string
+): string => {
+    const modifiedPixelUrl = replaceAmpWithAmpersand(pixelUrl);
+    const modifiedDirectUrl = redirectUrl
+        ? replaceAmpWithAmpersand(redirectUrl)
+        : null;
+
+    const url = replaceMPID(modifiedPixelUrl, mpid);
+    const redirect = modifiedDirectUrl
+        ? replaceMPID(modifiedDirectUrl, mpid)
+        : '';
+    return url + encodeURIComponent(redirect);
+};
+
 // FIXME: REFACTOR for V3
 // only used in store.js to sanitize server-side formatting of
 // booleans when checking for `isDevelopmentMode`
@@ -341,6 +358,7 @@ const getHref = (): string => {
 export {
     createCookieString,
     revertCookieString,
+    createCookieSyncUrl,
     valueof,
     converted,
     decoded,

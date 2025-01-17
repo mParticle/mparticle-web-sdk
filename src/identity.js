@@ -1231,10 +1231,7 @@ export default function Identity(mpInstance) {
                     this.getUserIdentities().userIdentities,
                     mpInstance._APIClient.prepareForwardingStats
                 );
-                mpInstance._CookieSyncManager.attemptCookieSync(
-                    null,
-                    this.getMPID()
-                );
+                mpInstance._CookieSyncManager.attemptCookieSync(this.getMPID());
             },
             isLoggedIn: function() {
                 return isLoggedIn;
@@ -1563,7 +1560,6 @@ export default function Identity(mpInstance) {
                     );
 
                     mpInstance._CookieSyncManager.attemptCookieSync(
-                        previousMPID,
                         identityApiResult.mpid,
                         mpidIsNotInCookies
                     );
