@@ -72,7 +72,6 @@ export default function CookieSyncManager(
             // set requiresConsent to false to start each additional pixel configuration
             // set to true only if filteringConsenRuleValues.values.length exists
             let requiresConsent = false;
-            
             // Filtering rules as defined in UI
             const {
                 filteringConsentRuleValues,
@@ -83,7 +82,6 @@ export default function CookieSyncManager(
                 frequencyCap,
             } = pixelSettings;
             const { values } = filteringConsentRuleValues || {};
-            
             if (isEmpty(pixelUrl) && isEmpty(redirectUrl)) {
                 return;
             }
