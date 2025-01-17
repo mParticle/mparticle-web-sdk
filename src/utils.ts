@@ -180,13 +180,20 @@ const replaceMPID = (value: string, mpid: MPID): string => value.replace('%%mpid
 
 const replaceAmpWithAmpersand = (value: string): string => value.replace(/&amp;/g, '&');
 
-const combineUrlWithRedirect = (
+const createCookieSyncUrl = (
     mpid: MPID,
     pixelUrl: string,
-    redirectUrl: string,
+    redirectUrl?: string
 ): string => {
-    const url = replaceMPID(pixelUrl, mpid);
-    const redirect = redirectUrl ? replaceMPID(redirectUrl, mpid) : '';
+    const modifiedPixelUrl = replaceAmpWithAmpersand(pixelUrl);
+    const modifiedDirectUrl = redirectUrl
+        ? replaceAmpWithAmpersand(redirectUrl)
+        : null;
+
+    const url = replaceMPID(modifiedPixelUrl, mpid);
+    const redirect = modifiedDirectUrl
+        ? replaceMPID(modifiedDirectUrl, mpid)
+        : '';
     return url + encodeURIComponent(redirect);
 };
 
@@ -349,9 +356,9 @@ const getHref = (): string => {
 };
 
 export {
-    combineUrlWithRedirect,
     createCookieString,
     revertCookieString,
+    createCookieSyncUrl,
     valueof,
     converted,
     decoded,

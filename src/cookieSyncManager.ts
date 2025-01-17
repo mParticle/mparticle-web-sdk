@@ -1,8 +1,7 @@
 import {
     Dictionary,
     isEmpty,
-    replaceAmpWithAmpersand,
-    combineUrlWithRedirect,
+    createCookieSyncUrl,
 } from './utils';
 import Constants from './constants';
 import { MParticleWebSDK } from './sdkRuntimeModels';
@@ -159,22 +158,5 @@ export const isLastSyncDateExpired = (
     return (
         new Date().getTime() >
         new Date(lastSyncDate).getTime() + frequencyCap * DAYS_IN_MILLISECONDS
-    );
-};
-
-export const createCookieSyncUrl = (
-    mpid: MPID,
-    pixelUrl?: string,
-    redirectUrl?: string
-): string => {
-    const modifiedPixelUrl = replaceAmpWithAmpersand(pixelUrl);
-    const modifiedDirectUrl = redirectUrl
-        ? replaceAmpWithAmpersand(redirectUrl)
-        : null;
-
-    return combineUrlWithRedirect(
-        mpid,
-        modifiedPixelUrl,
-        modifiedDirectUrl
     );
 };
