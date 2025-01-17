@@ -156,7 +156,9 @@ export interface SDKProduct {
     Position?: number;
     CouponCode?: string;
     TotalAmount?: number;
-    Attributes?: Record<string, unknown> | undefined;
+
+    // https://go.mparticle.com/work/SQDSDKS-4801
+    Attributes?: Record<string, unknown> | null;
 }
 
 export interface MParticleWebSDK {
