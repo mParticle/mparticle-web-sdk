@@ -156,7 +156,7 @@ export interface SDKProduct {
     Position?: number;
     CouponCode?: string;
     TotalAmount?: number;
-    Attributes?: { [key: string]: string };
+    Attributes?: Record<string, unknown> | undefined;
 }
 
 export interface MParticleWebSDK {

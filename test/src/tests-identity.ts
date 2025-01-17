@@ -4799,11 +4799,11 @@ describe('identity', function() {
             waitForCondition(hasIdentifyReturned)
             .then(() => {
 
-            const product: Product = mParticle.eCommerce.createProduct(
+            const product: SDKProduct = mParticle.eCommerce.createProduct(
                 'iPhone',
                 '12345',
                 400
-            ) as Product;
+            );
             mParticle
                 .getInstance()
                 .Identity.getCurrentUser()
@@ -4831,11 +4831,11 @@ describe('identity', function() {
             waitForCondition(hasIdentifyReturned)
             .then(() => {
 
-            const product: Product = mParticle.eCommerce.createProduct(
+            const product: SDKProduct = mParticle.eCommerce.createProduct(
                 'iPhone',
                 '12345',
                 400
-            ) as Product;
+            );
 
             mParticle
                 .getInstance()
