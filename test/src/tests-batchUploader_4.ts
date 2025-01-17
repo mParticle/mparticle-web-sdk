@@ -1,19 +1,14 @@
 import sinon from 'sinon';
 import { urls, apiKey, MPConfig, testMPID } from './config/constants';
 import {
-    BaseEvent,
     MParticleWebSDK,
-    SDKEvent,
-    SDKProductActionType,
 } from '../../src/sdkRuntimeModels';
 import { Batch, CustomEventData } from '@mparticle/event-models';
 import Utils from './config/utils';
-import { BatchUploader } from '../../src/batchUploader';
 import { expect } from 'chai';
 import _BatchValidator from '../../src/mockBatchCreator';
-import Logger from '../../src/logger.js';
-import { event0, event1, event2, event3 } from '../fixtures/events';
 import fetchMock from 'fetch-mock/esm/client';
+import { ProductActionType } from '../../src/types';
 const { fetchMockSuccess, waitForCondition, hasIdentifyReturned  } = Utils;
 
 declare global {
@@ -138,7 +133,7 @@ describe('batch uploader', () => {
             mockServer.requests.length.should.equal(1);
 
             var product1 = window.mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
-            window.mParticle.eCommerce.logProductAction(SDKProductActionType.AddToCart, product1);
+            window.mParticle.eCommerce.logProductAction(ProductActionType.AddToCart, product1);
             // 1st request is /Identity call, 2nd request is /Event call
             const batch = JSON.parse(mockServer.secondRequest.requestBody);
 
