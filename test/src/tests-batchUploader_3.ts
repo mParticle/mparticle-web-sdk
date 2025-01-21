@@ -229,7 +229,7 @@ describe('batch uploader', () => {
             })
         });
 
-        it('should call the identity callback after a session ends if user is returning to the page after a long period of time', async function() {
+        it('should call the identity callback after a session ends if user is returning to the page after a long period of time', async () => {
             // Background of bug that this test fixes:
             // User navigates away from page and returns after some time
             // and the session should end.  There is a UAC firing inside of
