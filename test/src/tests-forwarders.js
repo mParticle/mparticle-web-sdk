@@ -1118,7 +1118,7 @@ describe('forwarders', function() {
         done();
     });
 
-    it('should invoke forwarder opt out', async function() {
+    it('should invoke forwarder opt out', async () => {
         mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
 
@@ -2698,7 +2698,7 @@ describe('forwarders', function() {
         done();
     });
 
-    it('should set integration attributes on forwarders', async function() {
+    it('should set integration attributes on forwarders', async () => {
         mParticle.init(apiKey, window.mParticle.config)
 
         await waitForCondition(hasIdentityCallInflightReturned);
@@ -2710,7 +2710,7 @@ describe('forwarders', function() {
         adobeIntegrationAttributes.MCID.should.equal('abcdefg');
     });
 
-    it('should clear integration attributes when an empty object or a null is passed', async function() {
+    it('should clear integration attributes when an empty object or a null is passed', async () => {
         mParticle.init(apiKey, window.mParticle.config)
         await waitForCondition(hasIdentityCallInflightReturned);
 
@@ -2733,7 +2733,7 @@ describe('forwarders', function() {
         Object.keys(adobeIntegrationAttributes).length.should.equal(0);
     });
 
-    it('should set only strings as integration attributes', async function() {
+    it('should set only strings as integration attributes', async () => {
         mParticle.init(apiKey, window.mParticle.config)
         await waitForCondition(hasIdentityCallInflightReturned);
 
@@ -3060,7 +3060,7 @@ describe('forwarders', function() {
 
     
     // This will pass when we add mpInstance._Store.isInitialized = true; to mp-instance before `processIdentityCallback`
-    it('configures forwarders before events are logged via identify callback', async function() {
+    it('configures forwarders before events are logged via identify callback', async () => {
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.identifyRequest = {
             userIdentities: {
