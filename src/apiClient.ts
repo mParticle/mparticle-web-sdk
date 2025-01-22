@@ -1,13 +1,14 @@
 import Constants from './constants';
 import Types from './types';
 import { BatchUploader } from './batchUploader';
-import { MParticleWebSDK, SDKEvent, SDKDataPlan } from './sdkRuntimeModels';
+import { SDKEvent, SDKDataPlan } from './sdkRuntimeModels';
 import KitBlocker from './kitBlocking';
-import { Dictionary, getRampNumber, isEmpty, parseNumber } from './utils';
+import { Dictionary, isEmpty, parseNumber } from './utils';
 import { IUploadObject } from './serverModel';
 import { MPForwarder } from './forwarders.interfaces';
 import { IMParticleUser, ISDKUserAttributes } from './identity-user-interfaces';
 import { AsyncUploader, FetchUploader, XHRUploader } from './uploaders';
+import { IMParticleWebSDKInstance } from './mp-instance';
 
 export interface IAPIClient {
     uploader: BatchUploader | null;
@@ -43,7 +44,7 @@ export interface IForwardingStatsData {
 
 export default function APIClient(
     this: IAPIClient,
-    mpInstance: MParticleWebSDK,
+    mpInstance: IMParticleWebSDKInstance,
     kitBlocker: KitBlocker
 ) {
     this.uploader = null;

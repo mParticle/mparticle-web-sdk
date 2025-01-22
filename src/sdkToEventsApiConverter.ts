@@ -4,7 +4,6 @@ import {
     SDKProduct,
     SDKPromotion,
     SDKProductActionType,
-    MParticleWebSDK,
 } from './sdkRuntimeModels';
 import * as EventsApi from '@mparticle/event-models';
 import {
@@ -17,6 +16,7 @@ import { Dictionary, isEmpty } from './utils';
 import { ISDKUserIdentity } from './identity-user-interfaces';
 import { SDKIdentityTypeEnum } from './identity.interfaces';
 import Constants from './constants';
+import { IMParticleWebSDKInstance } from './mp-instance';
 
 const { 
     FeatureFlags
@@ -35,7 +35,7 @@ interface Batch extends EventsApi.Batch {
 export function convertEvents(
     mpid: string,
     sdkEvents: SDKEvent[],
-    mpInstance: MParticleWebSDK
+    mpInstance: IMParticleWebSDKInstance
 ): Batch | null {
     if (!mpid) {
         return null;

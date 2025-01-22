@@ -3,6 +3,7 @@ import { SDKEvent, MParticleWebSDK, KitBlockerDataPlan, SDKProduct } from './sdk
 import { BaseEvent, EventTypeEnum, CommerceEvent, ScreenViewEvent, CustomEvent } from '@mparticle/event-models';
 import Types from './types'
 import { DataPlanPoint } from '@mparticle/data-planning-models';
+import { IMParticleWebSDKInstance } from './mp-instance';
 
 /*  
     TODO: Including this as a workaround because attempting to import it from
@@ -41,9 +42,9 @@ export default class KitBlocker {
     blockUserAttributes = false;
     blockUserIdentities = false;
     kitBlockingEnabled = false;
-    mpInstance: MParticleWebSDK;
+    mpInstance: IMParticleWebSDKInstance;
 
-    constructor(dataPlan: KitBlockerDataPlan, mpInstance: MParticleWebSDK) {
+    constructor(dataPlan: KitBlockerDataPlan, mpInstance: IMParticleWebSDKInstance) {
         // if data plan is not requested, the data plan is {document: null}
         if (dataPlan && !dataPlan.document) {
             this.kitBlockingEnabled = false;

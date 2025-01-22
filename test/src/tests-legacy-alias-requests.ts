@@ -2,7 +2,6 @@ import sinon from 'sinon';
 import { expect } from 'chai';
 import Utils from './config/utils';
 import Constants, { HTTP_ACCEPTED, HTTP_BAD_REQUEST, HTTP_OK } from '../../src/constants';
-import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import {
     urls,
     apiKey,
@@ -11,6 +10,7 @@ import {
     workspaceCookieName,
 } from './config/constants';
 import { IAliasRequest } from '../../src/identity.interfaces';
+import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
 
 const {
     setCookie,
@@ -23,12 +23,12 @@ const { HTTPCodes } = Constants;
 
 declare global {
     interface Window {
-        mParticle: MParticleWebSDK;
+        mParticle: IMParticleInstanceManager;
         fetchMock: any;
     }
 }    
 
-const mParticle = window.mParticle as MParticleWebSDK;
+const mParticle = window.mParticle as IMParticleInstanceManager;
 
 describe('legacy Alias Requests', function() {
     let mockServer;

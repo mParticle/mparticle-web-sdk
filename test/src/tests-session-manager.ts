@@ -2,7 +2,6 @@ import Utils from './config/utils';
 const { waitForCondition, fetchMockSuccess } = Utils;
 import sinon from 'sinon';
 import { expect } from 'chai';
-import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import {
     apiKey,
     MPConfig,
@@ -13,12 +12,13 @@ import {
 import { IdentityApiData } from '@mparticle/web-sdk';
 import { MILLIS_IN_ONE_SEC } from '../../src/constants';
 import Constants from '../../src/constants';
+import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
 
 const { Messages } = Constants;
 
 declare global {
     interface Window {
-        mParticle: MParticleWebSDK;
+        mParticle: IMParticleInstanceManager;
         fetchMock: any;
     }
 }

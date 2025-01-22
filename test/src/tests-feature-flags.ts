@@ -1,5 +1,4 @@
 import Constants from '../../src/constants';
-import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import sinon from 'sinon';
 import { expect } from 'chai';
 import fetchMock from 'fetch-mock/esm/client';
@@ -8,12 +7,13 @@ import { urls, apiKey,
     MPConfig,
 } from './config/constants';
 import Utils from './config/utils';
+import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
 
 const { waitForCondition, fetchMockSuccess, deleteAllCookies } = Utils;
 
 declare global {
     interface Window {
-        mParticle: MParticleWebSDK;
+        mParticle: IMParticleInstanceManager;
     }
 }
 

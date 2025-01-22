@@ -2,17 +2,17 @@ import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import { urls, apiKey, MPConfig } from './config/constants';
 import { expect } from 'chai';
-import ConfigAPIClient, { IConfigAPIClient } from '../../src/configAPIClient';
+import ConfigAPIClient  from '../../src/configAPIClient';
 import {
     DataPlanConfig,
     DataPlanResult,
-    MParticleWebSDK,
     SDKInitConfig,
 } from '../../src/sdkRuntimeModels';
+import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
 
 declare global {
     interface Window {
-        mParticle: MParticleWebSDK;
+        mParticle: IMParticleInstanceManager;
     }
 }
 

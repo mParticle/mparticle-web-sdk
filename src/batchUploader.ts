@@ -1,6 +1,6 @@
 import { Batch } from '@mparticle/event-models';
 import Constants from './constants';
-import { SDKEvent, MParticleWebSDK, SDKLoggerApi } from './sdkRuntimeModels';
+import { SDKEvent, SDKLoggerApi } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import { MessageType } from './types';
 import { getRampNumber, isEmpty } from './utils';
@@ -12,6 +12,7 @@ import {
     IFetchPayload,
 } from './uploaders';
 import { IMParticleUser } from './identity-user-interfaces';
+import { IMParticleWebSDKInstance } from './mp-instance';
 
 /**
  * BatchUploader contains all the logic to store/retrieve events and batches
@@ -36,7 +37,7 @@ export class BatchUploader {
     uploadIntervalMillis: number;
     eventsQueuedForProcessing: SDKEvent[];
     batchesQueuedForProcessing: Batch[];
-    mpInstance: MParticleWebSDK;
+    mpInstance: IMParticleWebSDKInstance;
     uploadUrl: string;
     batchingEnabled: boolean;
     private eventVault: SessionStorageVault<SDKEvent[]>;
@@ -46,10 +47,10 @@ export class BatchUploader {
 
     /**
      * Creates an instance of a BatchUploader
-     * @param {MParticleWebSDK} mpInstance - the mParticle SDK instance
+     * @param {IMParticleWebSDKInstance} mpInstance - the mParticle SDK instance
      * @param {number} uploadInterval - the desired upload interval in milliseconds
      */
-    constructor(mpInstance: MParticleWebSDK, uploadInterval: number) {
+    constructor(mpInstance: IMParticleWebSDKInstance, uploadInterval: number) {
         this.mpInstance = mpInstance;
         this.uploadIntervalMillis = uploadInterval;
         this.batchingEnabled =
@@ -208,7 +209,7 @@ export class BatchUploader {
     private static createNewBatches(
         sdkEvents: SDKEvent[],
         defaultUser: IMParticleUser,
-        mpInstance: MParticleWebSDK
+        mpInstance: IMParticleWebSDKInstance
     ): Batch[] | null {
         if (!defaultUser || !sdkEvents || !sdkEvents.length) {
             return null;
@@ -280,9 +281,9 @@ export class BatchUploader {
      * @param triggerFuture whether to trigger the loop again - for manual/forced uploads this should be false
      * @param useBeacon whether to use the beacon API - used when the page is being unloaded
      */
-    private async prepareAndUpload(
-        triggerFuture: boolean,
-        useBeacon: boolean
+    public async prepareAndUpload(
+        triggerFuture: boolean = false,
+        useBeacon: boolean = false,
     ): Promise<void> {
         // Fetch current user so that events can be grouped by MPID
         const currentUser = this.mpInstance.Identity.getCurrentUser();

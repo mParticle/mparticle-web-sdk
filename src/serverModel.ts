@@ -6,7 +6,6 @@ import Types from './types';
 import Constants from './constants';
 import {
     BaseEvent,
-    MParticleWebSDK,
     SDKEvent,
     SDKEventCustomFlags,
     SDKGeoLocation,
@@ -27,6 +26,7 @@ import {
     SDKConsentState,
 } from './consent';
 import { IMParticleUser, ISDKUserIdentity } from './identity-user-interfaces';
+import { IMParticleWebSDKInstance } from './mp-instance';
 
 const MessageType = Types.MessageType;
 const ApplicationTransitionType = Types.ApplicationTransitionType;
@@ -110,7 +110,7 @@ export interface IProductV2DTO {
     ps: number;
     cc: string | number;
     tpa: number;
-    attrs: Record<string, unknown> | undefined;
+    attrs: Dictionary<string> | null;
 }
 
 export interface IPromotionV2DTO {
@@ -181,7 +181,7 @@ function convertProductToV2DTO(product: SDKProduct): IProductV2DTO {
         ps: parseNumber(product.Position),
         cc: parseStringOrNumber(product.CouponCode),
         tpa: parseNumber(product.TotalAmount),
-        attrs: product.Attributes,
+        attrs: product.Attributes as Dictionary<string> | null,
     };
 }
 
@@ -197,7 +197,7 @@ function convertProductListToV2DTO(productList: SDKProduct[]): IProductV2DTO[] {
 
 export default function ServerModel(
     this: IServerModel,
-    mpInstance: MParticleWebSDK
+    mpInstance: IMParticleWebSDKInstance
 ) {
     var self = this;
 

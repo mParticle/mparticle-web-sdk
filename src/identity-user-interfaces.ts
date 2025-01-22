@@ -115,10 +115,10 @@ export interface IdentityModifyResultBody {
 }
 
 export interface mParticleUserCart {
-    add(product: Product, logEvent: boolean): void;
-    remove(product: Product, logEvent: boolean): void;
+    add(product: SDKProduct | SDKProduct[], logEvent: boolean): void;
+    remove(product: SDKProduct | SDKProduct[], logEvent: boolean): void;
     clear(): void;
-    getCartProducts(): Product[];
+    getCartProducts(): SDKProduct[];
 }
 
 // https://go.mparticle.com/work/SQDSDKS-5196

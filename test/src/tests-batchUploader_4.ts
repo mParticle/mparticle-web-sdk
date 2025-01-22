@@ -1,29 +1,22 @@
 import sinon from 'sinon';
 import { urls, apiKey, MPConfig, testMPID } from './config/constants';
-import {
-    MParticleWebSDK,
-} from '../../src/sdkRuntimeModels';
 import { Batch, CustomEventData } from '@mparticle/event-models';
 import Utils from './config/utils';
 import { expect } from 'chai';
 import _BatchValidator from '../../src/mockBatchCreator';
 import fetchMock from 'fetch-mock/esm/client';
+import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
 import { ProductActionType } from '../../src/types';
 const { fetchMockSuccess, waitForCondition, hasIdentifyReturned  } = Utils;
 
 declare global {
     interface Window {
-        mParticle: MParticleWebSDK;
+        mParticle: IMParticleInstanceManager;
     }
 }
 
-const enableBatchingConfigFlags = {
-    eventBatchingIntervalMillis: 1000,
-};
-
 describe('batch uploader', () => {
     let mockServer;
-    let clock;
 
     beforeEach(() => {
         fetchMock.restore();
