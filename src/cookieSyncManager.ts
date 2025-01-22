@@ -2,6 +2,7 @@ import {
     Dictionary,
     isEmpty,
     createCookieSyncUrl,
+    isFunction,
 } from './utils';
 import Constants from './constants';
 import { MParticleWebSDK } from './sdkRuntimeModels';
@@ -65,10 +66,10 @@ export default function CookieSyncManager(
     const self = this;
 
     // Public
-    this.attemptCookieSync = (
+    this.attemptCookieSync = async (
         mpid: MPID,
         mpidIsNotInCookies?: boolean
-    ): void => {
+    ): Promise<void> => {
         const { pixelConfigurations, webviewBridgeEnabled } = mpInstance._Store;
 
         if (!mpid || webviewBridgeEnabled) {
@@ -81,7 +82,7 @@ export default function CookieSyncManager(
             return;
         }
 
-        pixelConfigurations.forEach((pixelSettings: IPixelConfiguration) => {
+        for (const pixelSettings of pixelConfigurations as IPixelConfiguration[]) {
             // set requiresConsent to false to start each additional pixel configuration
             // set to true only if filteringConsenRuleValues.values.length exists
             let requiresConsent = false;
@@ -125,20 +126,17 @@ export default function CookieSyncManager(
             }
 
             // Url for cookie sync pixel
-            const fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl)
+            const cookieSyncUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl)
             const moduleIdString = moduleId.toString();
 
-            if (isTcfApiAvailable()) {
-                self.performCookieSyncWithGDPR(fullUrl, moduleIdString, mpid, cookieSyncDates);
-            } else {
-                self.performCookieSync(
-                    fullUrl,
-                    moduleIdString,
-                    mpid,
-                    cookieSyncDates
-                );
-            }
-        });
+            const fullUrl: string = isTcfApiAvailable() ? await getGdprConsentUrl(cookieSyncUrl) : cookieSyncUrl;
+            self.performCookieSync(
+                fullUrl,
+                moduleIdString,
+                mpid,
+                cookieSyncDates
+            );
+        }
     };
 
     // Private
@@ -161,33 +159,6 @@ export default function CookieSyncManager(
         };
         img.src = url;
     };
-
-    this.performCookieSyncWithGDPR = (
-        url: string,
-        moduleId: string,
-        mpid: MPID,
-        cookieSyncDates: CookieSyncDates
-    ): void => {
-        let _url: string = url;
-
-        function callback(inAppTCData: TCData, success: boolean): void {
-            // If call to getInAppTCData is successful, append the applicable gdpr 
-            // and tcString to url
-            if (success) {
-                const gdprApplies = inAppTCData.gdprApplies ? 1 : 0;
-                const tcString = inAppTCData.tcString;
-                _url += `&gdpr=${gdprApplies}&gdpr_consent=${tcString}`;
-            }
-            self.performCookieSync(_url, moduleId, mpid, cookieSyncDates);
-        }
-        try {    
-            window.__tcfapi('getInAppTCData', 2, callback);
-        }
-        catch (error) {
-            const errorMessage = (error as Error).message || error.toString();
-            mpInstance.Logger.error(errorMessage);
-        }
-    };
 }
 
 export const isLastSyncDateExpired = (
@@ -206,10 +177,22 @@ export const isLastSyncDateExpired = (
     );
 };
 
-export const isTcfApiAvailable = (): boolean => {
-    if (typeof window.__tcfapi === 'function') {
-        return true;
-    } else {
-        return false;
-    }
+export const isTcfApiAvailable = (): boolean => isFunction(window.__tcfapi);
+
+async function getGdprConsentUrl(url: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+        try {
+            window.__tcfapi('getInAppTCData', 2, (inAppTCData: TCData, success: boolean) => {
+                if (success && inAppTCData) {
+                    const gdprApplies = inAppTCData.gdprApplies ? 1 : 0;
+                    const tcString = inAppTCData.tcString;
+                    resolve(`${url}&gdpr=${gdprApplies}&gdpr_consent=${tcString}`);
+                } else {
+                    resolve(url); // No GDPR data; fallback to original URL
+                }
+            });
+        } catch (error) {
+            reject(error);
+        }
+    });
 }
