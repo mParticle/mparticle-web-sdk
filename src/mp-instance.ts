@@ -16,31 +16,99 @@
 //  Uses portions of code from jQuery
 //  jQuery v1.10.2 | (c) 2005, 2013 jQuery Foundation, Inc. | jquery.org/license
 
-import Types from './types';
+import { EventType, IdentityType, CommerceEventType, PromotionActionType, ProductActionType, MessageType } from './types';
 import Constants from './constants';
-import APIClient from './apiClient';
+import APIClient, { IAPIClient } from './apiClient';
 import Helpers from './helpers';
 import NativeSdkHelpers from './nativeSdkHelpers';
-import CookieSyncManager from './cookieSyncManager';
-import SessionManager from './sessionManager';
+import CookieSyncManager, { ICookieSyncManager, IPixelConfiguration } from './cookieSyncManager';
+import SessionManager, { ISessionManager } from './sessionManager';
 import Ecommerce from './ecommerce';
-import Store from './store';
+import Store, { IntegrationAttribute, IStore } from './store';
 import Logger from './logger';
 import Persistence from './persistence';
 import Events from './events';
 import Forwarders from './forwarders';
-import ServerModel from './serverModel';
+import ServerModel, { IServerModel } from './serverModel';
 import ForwardingStatsUploader from './forwardingStatsUploader';
 import Identity from './identity';
-import Consent from './consent';
+import Consent, { IConsent } from './consent';
 import KitBlocker from './kitBlocking';
 import ConfigAPIClient from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
-import { isFunction } from './utils';
+import { isFunction, valueof } from './utils';
 import { LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
-import { processReadyQueue } from './pre-init-utils';
+import { IPreInit, processReadyQueue } from './pre-init-utils';
+import { BaseEvent, MParticleWebSDK, SDKEventCustomFlags, SDKHelpersApi,  } from './sdkRuntimeModels';
+import { Callback, SDKEventAttrs, SDKEventOptions } from '@mparticle/web-sdk';
+import { IIdentity } from './identity.interfaces';
+import { IEvents } from './events.interfaces';
+import { IECommerce } from './ecommerce.interfaces';
+import { INativeSdkHelpers } from './nativeSdkHelpers.interfaces';
+import { IPersistence } from './persistence.interfaces';
+
+export interface IErrorLogMessage {
+    message?: string;
+    name?: string;
+    stack?: string;
+}
+
+export interface IErrorLogMessageMinified {
+    m?: string;
+    s?: string;
+    t?: string;
+}
+
+export type IntegrationDelays = { [key: number]: boolean };
+
+// https://go.mparticle.com/work/SQDSDKS-6949
+export interface IMParticleWebSDKInstance extends MParticleWebSDK {
+    _instanceName: string;
+    _preInit: IPreInit;
+    
+    _APIClient: IAPIClient;
+    _CookieSyncManager: ICookieSyncManager;
+    _Consent: IConsent;
+    _Ecommerce: IECommerce;
+    _Events: IEvents;
+    _Forwarders: any;
+    _ForwardingStatsUploader: ForwardingStatsUploader;
+    _Helpers: SDKHelpersApi;
+    _Identity: IIdentity;
+    _IdentityAPIClient: typeof IdentityAPIClient;
+    _IntegrationCapture: IntegrationCapture;
+    _NativeSdkHelpers: INativeSdkHelpers;
+    _Persistence: IPersistence;
+    _SessionManager: ISessionManager;
+    _Store: IStore;
+    _ServerModel: IServerModel;
+
+
+
+    configurePixel(config: IPixelConfiguration): void;
+    reset(instance: IMParticleWebSDKInstance): void;
+    ready(f: Function): void;
+    isInitialized(): boolean;
+    getEnvironment(): valueof<typeof Constants.Environment>;
+    getVersion(): string;
+    setAppVersion(version: string): void;
+    setAppName(name: string): void;
+    startTrackingLocation(callback?: Callback): void;
+    stopTrackingLocation(): void;
+    logError(error: IErrorLogMessage | string, attrs?: any): void;
+
+    // TODO: Define EventInfo
+    logLink(selector: string, eventName: string, eventType: valueof<typeof EventType>, eventInfo: any): void;
+    logForm(selector: string, eventName: string, eventType: valueof<typeof EventType>, eventInfo: any): void;
+    logPageView(eventName: string, attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): void;
+    setOptOut(isOptingOut: boolean): void;
+
+    // QUESTION: Should integration ID be a number or a string?
+    setIntegrationAttribute(integrationId: number, attrs: IntegrationAttribute): void;
+    getIntegrationAttributes(integrationId: number): IntegrationAttribute;
+}
 
 const { Messages, HTTPCodes, FeatureFlags } = Constants;
 const { ReportBatching, CaptureIntegrationSpecificIds } = FeatureFlags;
@@ -59,7 +127,7 @@ const { StartingInitialization } = Messages.InformationMessages;
  * @class mParticle & mParticleInstance
  */
 
-export default function mParticleInstance(instanceName) {
+export default function mParticleInstance(this: IMParticleWebSDKInstance, instanceName: string) {
     var self = this;
     // These classes are for internal use only. Not documented for public consumption
     this._instanceName = instanceName;
@@ -82,11 +150,12 @@ export default function mParticleInstance(instanceName) {
     this._IntegrationCapture = new IntegrationCapture();
 
     // required for forwarders once they reference the mparticle instance
-    this.IdentityType = Types.IdentityType;
-    this.EventType = Types.EventType;
-    this.CommerceEventType = Types.CommerceEventType;
-    this.PromotionType = Types.PromotionActionType;
-    this.ProductActionType = Types.ProductActionType;
+    this.IdentityType = IdentityType;
+    this.EventType = EventType as unknown as valueof<typeof EventType>;
+    this.CommerceEventType = CommerceEventType as unknown as valueof<typeof CommerceEventType>;
+    this.PromotionType = PromotionActionType as unknown as valueof<typeof PromotionActionType>;
+    this.ProductActionType = ProductActionType as unknown as valueof<typeof ProductActionType>;
+
 
     this._Identity = new Identity(this);
     this.Identity = this._Identity.IdentityAPI;
@@ -372,7 +441,7 @@ export default function mParticleInstance(instanceName) {
         }
 
         if (!event.eventType) {
-            event.eventType = Types.EventType.Unknown;
+            event.eventType = EventType.Unknown;
         }
 
         if (!self._Helpers.canLog()) {
@@ -417,7 +486,7 @@ export default function mParticleInstance(instanceName) {
         }
 
         if (!eventType) {
-            eventType = Types.EventType.Unknown;
+            eventType = EventType.Unknown;
         }
 
         if (!self._Helpers.isEventType(eventType)) {
@@ -425,7 +494,7 @@ export default function mParticleInstance(instanceName) {
                 'Invalid event type: ' +
                     eventType +
                     ', must be one of: \n' +
-                    JSON.stringify(Types.EventType)
+                    JSON.stringify(EventType)
             );
             return;
         }
@@ -437,12 +506,12 @@ export default function mParticleInstance(instanceName) {
 
         self._Events.logEvent(
             {
-                messageType: Types.MessageType.PageEvent,
+                messageType: MessageType.PageEvent,
                 name: eventName,
                 data: eventInfo,
                 eventType: eventType,
                 customFlags: customFlags,
-            },
+            } as BaseEvent,
             eventOptions
         );
     };
@@ -471,8 +540,9 @@ export default function mParticleInstance(instanceName) {
             };
         }
 
-        var data = {
-            m: error.message ? error.message : error,
+        // FIXME: Replace var with const/let
+        var data: IErrorLogMessageMinified = {
+            m: error.message ? error.message : error as string,
             s: 'Error',
             t: error.stack || null,
         };
@@ -485,10 +555,11 @@ export default function mParticleInstance(instanceName) {
         }
 
         self._Events.logEvent({
-            messageType: Types.MessageType.CrashReport,
+            messageType: MessageType.CrashReport,
             name: error.name ? error.name : 'Error',
-            data: data,
-            eventType: Types.EventType.Other,
+            // data: data, // QUESTION: Is this a bug? This should be eventType
+            eventType: EventType.Other,
+            data: data as { [key: string]: string },
         });
     };
     /**
@@ -571,10 +642,10 @@ export default function mParticleInstance(instanceName) {
 
         self._Events.logEvent(
             {
-                messageType: Types.MessageType.PageView,
+                messageType: MessageType.PageView,
                 name: eventName,
-                data: attrs,
-                eventType: Types.EventType.Unknown,
+                data: attrs as { [key: string]: string },
+                eventType: EventType.Unknown,
                 customFlags: customFlags,
             },
             eventOptions

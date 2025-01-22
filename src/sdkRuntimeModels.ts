@@ -6,14 +6,13 @@ import {
     IdentityApiData,
     SDKEventOptions,
     SDKEventAttrs,
+    Callback,
 } from '@mparticle/web-sdk';
-import { IStore } from './store';
+import { IntegrationAttribute, IStore, WrapperSDKTypes } from './store';
 import Validators from './validators';
 import { Dictionary, valueof } from './utils';
-import { IServerModel } from './serverModel';
 import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
-import { IPersistence } from './persistence.interfaces';
 import { IMPSideloadedKit } from './sideloadedKit';
 import { ISessionManager } from './sessionManager';
 import { Kit, MPForwarder } from './forwarders.interfaces';
@@ -34,13 +33,14 @@ import {
     CommerceEventType,
     EventType,
     IdentityType,
+    ProductActionType,
     PromotionActionType,
 } from './types';
-import IntegrationCapture from './integrationCapture';
-import { INativeSdkHelpers } from './nativeSdkHelpers.interfaces';
-import { ICookieSyncManager, IPixelConfiguration } from './cookieSyncManager';
-import { IEvents } from './events.interfaces';
-import { IECommerce, SDKECommerceAPI } from './ecommerce.interfaces';
+import { IPixelConfiguration } from './cookieSyncManager';
+import _BatchValidator from './mockBatchCreator';
+import { SDKECommerceAPI } from './ecommerce.interfaces';
+import { IErrorLogMessage, IMParticleWebSDKInstance, IntegrationDelays } from './mp-instance';
+import Constants from './constants';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -161,51 +161,34 @@ export interface SDKProduct {
     Attributes?: Record<string, unknown> | null;
 }
 
+// https://go.mparticle.com/work/SQDSDKS-6949
 export interface MParticleWebSDK {
     addForwarder(mockForwarder: MPForwarder): void;
-    _IntegrationCapture: IntegrationCapture;
     IdentityType: valueof<typeof IdentityType>;
     CommerceEventType: valueof<typeof CommerceEventType>;
     EventType: valueof<typeof EventType>;
     PromotionType: valueof<typeof PromotionActionType>;
-    _Identity: IIdentity;
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
-    MPSideloadedKit: IMPSideloadedKit;
-    _APIClient: any; // TODO: Set up API Client
-    _CookieSyncManager: ICookieSyncManager;
-    _Store: IStore;
-    _Forwarders: any;
-    _Helpers: SDKHelpersApi;
-    _Events: IEvents;
-    _Ecommerce: IECommerce;
     config: SDKInitConfig;
-    _ServerModel: IServerModel;
-    _SessionManager: ISessionManager;
-    _Consent: SDKConsentApi;
     Consent: SDKConsentApi;
-    _NativeSdkHelpers: INativeSdkHelpers;
-    _Persistence: IPersistence;
-    _preInit: any; // TODO: Set up API
-    _instances?: Dictionary<MParticleWebSDK>;
-    _isTestEnv?: boolean;
     _resetForTests(
         MPConfig?: SDKInitConfig,
         keepPersistence?: boolean,
-        instance?: MParticleWebSDK
+        instance?: IMParticleWebSDKInstance,
     ): void;
     endSession(): void;
-    identifyRequest: IdentityApiData;
     init(apiKey: string, config: SDKInitConfig, instanceName?: string): void;
     _getActiveForwarders(): MPForwarder[];
+    _getIntegrationDelays(): IntegrationDelays;
+    _setIntegrationDelay(module: number, shouldDelayIntegration: boolean): void;
+    _setWrapperSDKInfo(name: WrapperSDKTypes, version: string): void;
     getAppName(): string;
     getAppVersion(): string;
     getDeviceId(): string;
     setDeviceId(deviceId: string): void;
     setSessionAttribute(key: string, value: string): void;
-    getInstance(instanceName?: string): MParticleWebSDK; // https://go.mparticle.com/work/SQDSDKS-4804
-    ServerModel();
-    upload();
+    upload(): void;
     setLogLevel(logLevel: LogLevelType): void;
     setPosition(lat: number | string, lng: number | string): void;
     startNewSession(): void;
@@ -218,12 +201,65 @@ export interface MParticleWebSDK {
     ): void;
     logBaseEvent(event: BaseEvent, eventOptions?: SDKEventOptions): void;
     eCommerce: SDKECommerceAPI;
-    logLevel: string;
-    ProductActionType: SDKProductActionType;
+
+    // QUESTION: Is this still used?
+    // logLevel: string;
+
+    ProductActionType: valueof<typeof ProductActionType>;
     generateHash(value: string): string;
-    isIOS?: boolean;
-    sessionManager: Pick<ISessionManager, 'getSession'>; // https://go.mparticle.com/work/SQDSDKS-6949
+
 }
+
+// https://go.mparticle.com/work/SQDSDKS-4805
+
+// https://go.mparticle.com/work/SQDSDKS-6949
+export interface IMParticleInstanceManager extends MParticleWebSDK {
+    // https://go.mparticle.com/work/SQDSDKS-5053
+    _BatchValidator: _BatchValidator;
+    _instances: Dictionary<IMParticleWebSDKInstance>;
+    _isTestEnv?: boolean;
+
+    EventType: valueof<typeof EventType>;
+    CommerceEventType: valueof<typeof CommerceEventType>;
+    PromotionType: valueof<typeof PromotionActionType>;
+    ProductActionType: valueof<typeof ProductActionType>;
+
+    isIOS?: boolean;
+    identifyRequest: IdentityApiData;
+
+    Store: IStore;
+    MPSideloadedKit: IMPSideloadedKit;
+
+    configurePixel(config: IPixelConfiguration): void;
+    getEnvironment(): valueof<typeof Constants.Environment>;
+    getInstance(instanceName?: string): IMParticleWebSDKInstance;
+    getVersion(): string;
+    isInitialized(): boolean;
+
+    // TODO: Define EventInfo
+    logError(error: IErrorLogMessage | string, attrs?: any): void;
+    logForm(selector: string, eventName: string, eventType: valueof<typeof EventType>, eventInfo: any): void;
+    logLink(selector: string, eventName: string, eventType: valueof<typeof EventType>, eventInfo: any): void;
+    logPageView(eventName: string, attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): void;
+    
+    
+    ready(f: Function): void;
+    reset(instance: IMParticleWebSDKInstance): void;
+    setAppName(name: string): void;
+    setAppVersion(version: string): void;
+    setOptOut(isOptingOut: boolean): void;
+    startTrackingLocation(callback?: Callback): void;
+    stopTrackingLocation(): void;
+
+
+    // QUESTION: Should integration ID be a number or a string?
+    setIntegrationAttribute(integrationId: number, attrs: IntegrationAttribute): void;
+    getIntegrationAttributes(integrationId: number): IntegrationAttribute;
+
+    // @deprecated
+    sessionManager: Pick<ISessionManager, 'getSession'>; 
+}
+
 
 // Used in cases where server requires booleans as strings
 export type BooleanStringLowerCase = 'false' | 'true';
@@ -271,6 +307,8 @@ export interface SDKInitConfig
 
     // https://go.mparticle.com/work/SQDSDKS-6460
     identityCallback?: IdentityCallback;
+
+    rq?: Function[];
 }
 
 export interface DataPlanConfig {
@@ -286,6 +324,7 @@ export interface SDKHelpersApi {
     createServiceUrl(url: string, devToken?: string): string;
     createXHR?(cb: () => void): XMLHttpRequest;
     extend?(...args: any[]);
+    findKeyInObject?(obj: any, key: string): string;
     parseNumber?(value: string | number): number;
     generateUniqueId();
     generateHash?(value: string): string;
@@ -321,6 +360,7 @@ export interface SDKLoggerApi {
     error(arg0: string): void;
     verbose(arg0: string): void;
     warning(arg0: string): void;
+    setLogLevel(logLevel: LogLevelType): void;
 }
 
 // TODO: Merge this with IStore in store.ts

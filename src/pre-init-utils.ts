@@ -1,4 +1,15 @@
+import { IPixelConfiguration } from './cookieSyncManager';
+import { MPForwarder } from './forwarders.interfaces';
+import { IntegrationDelays } from './mp-instance';
 import { isEmpty, isFunction } from './utils';
+
+export interface IPreInit {
+    readyQueue: Function[];
+    integrationDelays: IntegrationDelays;
+    forwarderConstructors: MPForwarder[];
+    pixelConfigurations?: IPixelConfiguration[];
+    isDevelopmentMode?: boolean;
+}
 
 export const processReadyQueue = (readyQueue): Function[] => {
     if (!isEmpty(readyQueue)) {

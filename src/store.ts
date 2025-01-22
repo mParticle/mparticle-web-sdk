@@ -13,7 +13,6 @@ import {
     DataPlanResult,
     KitBlockerOptions,
     LogLevelType,
-    MParticleWebSDK,
     SDKDataPlan,
     SDKEvent,
     SDKGeoLocation,
@@ -38,6 +37,7 @@ import {
     IPersistenceMinified,
 } from './persistence.interfaces';
 import { CookieSyncDates, IPixelConfiguration } from './cookieSyncManager';
+import { IMParticleWebSDKInstance } from './mp-instance';
 
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and
@@ -121,10 +121,11 @@ function createSDKConfig(config: SDKInitConfig): SDKConfig {
 //       to TypeScript
 export type ServerSettings = Dictionary;
 export type SessionAttributes = Dictionary;
-export type IntegrationAttributes = Dictionary<Dictionary<string>>;
+export type IntegrationAttribute = Dictionary<string>;
+export type IntegrationAttributes = Dictionary<IntegrationAttribute>;
 
-type WrapperSDKTypes = 'flutter' | 'none';
-interface WrapperSDKInfo {
+export type WrapperSDKTypes = 'flutter' | 'none';
+export interface WrapperSDKInfo {
     name: WrapperSDKTypes;
     version: string | null;
     isInfoSet: boolean;
@@ -142,6 +143,7 @@ export interface IFeatureFlags {
 // Temporary Interface until Store can be refactored as a class
 export interface IStore {
     isEnabled: boolean;
+    isInitialized: boolean;
     sessionAttributes: SessionAttributes;
     currentSessionMPIDs: MPID[];
     consentState: SDKConsentState | null;
@@ -213,7 +215,7 @@ export interface IStore {
 export default function Store(
     this: IStore,
     config: SDKInitConfig,
-    mpInstance: MParticleWebSDK,
+    mpInstance: IMParticleWebSDKInstance,
     apiKey?: string
 ) {
     const {

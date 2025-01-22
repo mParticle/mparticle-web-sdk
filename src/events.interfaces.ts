@@ -53,7 +53,7 @@ export interface IEvents {
     logOptOut(): void;
     logProductActionEvent(
         productActionType: valueof<typeof ProductActionType>,
-        product: SDKProduct,
+        product: SDKProduct | SDKProduct[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         transactionAttributes?: TransactionAttributes,
@@ -68,13 +68,13 @@ export interface IEvents {
     ): void;
     logPurchaseEvent(
         transactionAttributes: TransactionAttributes,
-        product: SDKProduct,
+        product: SDKProduct | SDKProduct[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags
     ): void;
     logRefundEvent(
         transactionAttributes: TransactionAttributes,
-        product: SDKProduct,
+        product: SDKProduct | SDKProduct[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags
     ): void;

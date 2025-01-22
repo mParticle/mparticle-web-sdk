@@ -36,12 +36,6 @@ export interface SDKConsentApi {
     createGDPRConsent: ICreatePrivacyConsentFunction;
     createCCPAConsent: ICreatePrivacyConsentFunction;
     createConsentState: (consentState?: ConsentState) => ConsentState;
-    ConsentSerialization: IConsentSerialization;
-    createPrivacyConsent: ICreatePrivacyConsentFunction;
-    isEnabledForUserConsent: (
-        consentRules: IConsentRules,
-        user: IMParticleUser
-    ) => boolean;
 }
 
 export interface IConsentSerialization {
