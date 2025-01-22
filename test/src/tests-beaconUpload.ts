@@ -2,16 +2,16 @@ import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import { expect } from 'chai';
 import { urls, apiKey, MPConfig, testMPID } from './config/constants';
-import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { event0 } from '../fixtures/events';
 import { batch1, batch2, batch3 } from '../fixtures/batches';
 import _BatchValidator from '../../src/mockBatchCreator';
 import Utils from './config/utils';
+import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
 const { findEventFromRequest, findBatch, waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
 
 declare global {
     interface Window {
-        mParticle: MParticleWebSDK;
+        mParticle: IMParticleInstanceManager;
         fetchMock: any;
     }
 }

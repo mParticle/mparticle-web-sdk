@@ -1,18 +1,19 @@
 import sinon from 'sinon';
 import { urls, apiKey, MPConfig, testMPID } from './config/constants';
 import {
-    MParticleWebSDK,
+    SDKProductActionType,
 } from '../../src/sdkRuntimeModels';
 import Utils from './config/utils';
 import { expect } from 'chai';
 import _BatchValidator from '../../src/mockBatchCreator';
 import fetchMock from 'fetch-mock/esm/client';
+import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
 import { ProductActionType } from '../../src/types';
 const { fetchMockSuccess, waitForCondition, hasIdentifyReturned  } = Utils;
 
 declare global {
     interface Window {
-        mParticle: MParticleWebSDK;
+        mParticle: IMParticleInstanceManager;
     }
 }
 

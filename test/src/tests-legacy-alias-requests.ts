@@ -11,6 +11,7 @@ import {
     workspaceCookieName,
 } from './config/constants';
 import { IAliasRequest } from '../../src/identity.interfaces';
+import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
 
 const {
     setCookie,
@@ -23,12 +24,12 @@ const { HTTPCodes } = Constants;
 
 declare global {
     interface Window {
-        mParticle: MParticleWebSDK;
+        mParticle: IMParticleInstanceManager;
         fetchMock: any;
     }
 }    
 
-const mParticle = window.mParticle as MParticleWebSDK;
+const mParticle = window.mParticle as IMParticleInstanceManager;
 
 describe('legacy Alias Requests', function() {
     let mockServer;

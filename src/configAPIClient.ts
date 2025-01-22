@@ -14,6 +14,7 @@ import {
     XHRUploader,
 } from './uploaders';
 import { IPixelConfiguration } from './cookieSyncManager';
+import { IMParticleWebSDKInstance } from './mp-instance';
 
 export interface IKitConfigs extends IKitFilterSettings {
     name: string;
@@ -113,7 +114,7 @@ export default function ConfigAPIClient(
     this: IConfigAPIClient,
     apiKey: string,
     config: SDKInitConfig,
-    mpInstance: MParticleWebSDK
+    mpInstance: IMParticleWebSDKInstance
 ): void {
     const baseUrl = 'https://' + mpInstance._Store.SDKConfig.configUrl;
     const { isDevelopmentMode } = config;

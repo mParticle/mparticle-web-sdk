@@ -2,9 +2,8 @@ import sinon from 'sinon';
 import { urls, apiKey, MPConfig, testMPID } from './config/constants';
 import {
     BaseEvent,
-    MParticleWebSDK,
+    IMParticleInstanceManager,
     SDKEvent,
-    SDKProductActionType,
 } from '../../src/sdkRuntimeModels';
 import { Batch, CustomEventData } from '@mparticle/event-models';
 import Utils from './config/utils';
@@ -18,7 +17,7 @@ const { fetchMockSuccess, waitForCondition, hasIdentifyReturned  } = Utils;
 
 declare global {
     interface Window {
-        mParticle: MParticleWebSDK;
+        mParticle: IMParticleInstanceManager;
     }
 }
 

@@ -3,7 +3,6 @@ import fetchMock from 'fetch-mock/esm/client';
 import { expect } from 'chai';
 import Utils from './config/utils';
 import Constants, { HTTP_ACCEPTED } from '../../src/constants';
-import { MParticleWebSDK, SDKProduct } from '../../src/sdkRuntimeModels';
 import {
     urls,
     apiKey,
@@ -28,6 +27,7 @@ import {
     IdentityResult,
     IdentityResultBody,
 } from '../../src/identity-user-interfaces';
+import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
 
 const {
     setLocalStorage,
@@ -46,12 +46,12 @@ const { HTTPCodes } = Constants;
 
 declare global {
     interface Window {
-        mParticle: MParticleWebSDK;
+        mParticle: IMParticleInstanceManager;
         fetchMock: any;
     }
 }
 
-const mParticle = window.mParticle as MParticleWebSDK;
+const mParticle = window.mParticle as IMParticleInstanceManager;
 
 const BAD_USER_IDENTITIES_AS_STRING = ({
     userIdentities: 'badUserIdentitiesString',
@@ -2029,7 +2029,7 @@ describe('identity', function() {
         mParticle.Identity.getCurrentUser().setUserAttribute('foo1', 'bar1');
         expect(fetchMock.calls().length).to.equal(7);
 
-        const product1: SDKProduct = mParticle.eCommerce.createProduct(
+        const product1: Product = mParticle.eCommerce.createProduct(
             'iPhone',
             '12345',
             '1000',
@@ -4799,7 +4799,7 @@ describe('identity', function() {
             waitForCondition(hasIdentifyReturned)
             .then(() => {
 
-            const product: SDKProduct = mParticle.eCommerce.createProduct(
+            const product = mParticle.eCommerce.createProduct(
                 'iPhone',
                 '12345',
                 400
@@ -4831,7 +4831,7 @@ describe('identity', function() {
             waitForCondition(hasIdentifyReturned)
             .then(() => {
 
-            const product: SDKProduct = mParticle.eCommerce.createProduct(
+            const product = mParticle.eCommerce.createProduct(
                 'iPhone',
                 '12345',
                 400

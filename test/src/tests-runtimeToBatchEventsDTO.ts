@@ -1,14 +1,15 @@
 import * as Converter from '../../src/sdkToEventsApiConverter';
 import { expect } from 'chai';
 import Types from '../../src/types';
-import { SDKEvent, MParticleWebSDK } from '../../src/sdkRuntimeModels';
+import { SDKEvent } from '../../src/sdkRuntimeModels';
 import * as EventsApi from '@mparticle/event-models';
 import { MPConfig, apiKey } from './config/constants';
 import { IMParticleUser } from '../../src/identity-user-interfaces';
+import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
 
 declare global {
     interface Window {
-        mParticle: MParticleWebSDK;
+        mParticle: IMParticleInstanceManager;
     }
 }
 

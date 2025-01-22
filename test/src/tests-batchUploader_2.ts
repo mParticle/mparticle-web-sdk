@@ -1,24 +1,15 @@
-import sinon from 'sinon';
 import { urls, apiKey, MPConfig, testMPID } from './config/constants';
-import {
-    BaseEvent,
-    MParticleWebSDK,
-    SDKEvent,
-    SDKProductActionType,
-} from '../../src/sdkRuntimeModels';
-import { Batch, CustomEventData } from '@mparticle/event-models';
 import Utils from './config/utils';
-import { BatchUploader } from '../../src/batchUploader';
 import { expect } from 'chai';
 import _BatchValidator from '../../src/mockBatchCreator';
-import Logger from '../../src/logger.js';
-import { event0, event1, event2, event3 } from '../fixtures/events';
 import fetchMock from 'fetch-mock/esm/client';
+import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
+import { CustomEvent } from '@mparticle/event-models';
 const { fetchMockSuccess, waitForCondition, hasIdentifyReturned  } = Utils;
 
 declare global {
     interface Window {
-        mParticle: MParticleWebSDK;
+        mParticle: IMParticleInstanceManager;
     }
 }
 
@@ -195,25 +186,25 @@ describe('batch uploader', () => {
                 expect(batchQueue[0].events[1].event_type).to.equal(
                     'application_state_transition'
                 );
-                expect(batchQueue[0].events[2].data.event_name).to.equal('Test Event 0');
+                expect((batchQueue[0].events[2] as CustomEvent).data.event_name).to.equal('Test Event 0');
 
-                expect(batchQueue[1].events[0].data.event_name).to.equal(
+                expect((batchQueue[1].events[0] as CustomEvent).data.event_name).to.equal(
                     'Test Event 1'
                 );
-                expect(batchQueue[1].events[1].data.event_name).to.equal(
+                expect((batchQueue[1].events[1] as CustomEvent).data.event_name).to.equal(
                     'Test Event 2'
                 );
-                expect(batchQueue[1].events[2].data.event_name).to.equal(
+                expect((batchQueue[1].events[2] as CustomEvent).data.event_name).to.equal(
                     'Test Event 3'
                 );
 
-                expect(batchQueue[2].events[0].data.event_name).to.equal(
+                expect((batchQueue[2].events[0] as CustomEvent).data.event_name).to.equal(
                     'Test Event 4'
                 );
-                expect(batchQueue[2].events[1].data.event_name).to.equal(
+                expect((batchQueue[2].events[1] as CustomEvent).data.event_name).to.equal(
                     'Test Event 5'
                 );
-                expect(batchQueue[2].events[2].data.event_name).to.equal(
+                expect((batchQueue[2].events[2] as CustomEvent).data.event_name).to.equal(
                     'Test Event 6'
                 );
 
@@ -278,23 +269,23 @@ describe('batch uploader', () => {
 
                 expect(batchQueue.length).to.equal(2);
 
-                expect(batchQueue[0].events[0].data.event_name).to.equal(
+                expect((batchQueue[0].events[0] as CustomEvent).data.event_name).to.equal(
                     'Test Event 1'
                 );
-                expect(batchQueue[0].events[1].data.event_name).to.equal(
+                expect((batchQueue[0].events[1] as CustomEvent).data.event_name).to.equal(
                     'Test Event 2'
                 );
-                expect(batchQueue[0].events[2].data.event_name).to.equal(
+                expect((batchQueue[0].events[2] as CustomEvent).data.event_name).to.equal(
                     'Test Event 3'
                 );
 
-                expect(batchQueue[1].events[0].data.event_name).to.equal(
+                expect((batchQueue[1].events[0] as CustomEvent).data.event_name).to.equal(
                     'Test Event 4'
                 );
-                expect(batchQueue[1].events[1].data.event_name).to.equal(
+                expect((batchQueue[1].events[1] as CustomEvent).data.event_name).to.equal(
                     'Test Event 5'
                 );
-                expect(batchQueue[1].events[2].data.event_name).to.equal(
+                expect((batchQueue[1].events[2] as CustomEvent).data.event_name).to.equal(
                     'Test Event 6'
                 );
 

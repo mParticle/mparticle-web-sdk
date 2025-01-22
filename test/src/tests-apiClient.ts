@@ -1,12 +1,12 @@
 import Types from '../../src/types';
 import { apiKey, MPConfig } from './config/constants';
-import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { expect } from 'chai';
 import { IMParticleUser } from '../../src/identity-user-interfaces';
+import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 
 declare global {
     interface Window {
-        mParticle: MParticleWebSDK;
+        mParticle: IMParticleInstanceManager;
     }
 }
 

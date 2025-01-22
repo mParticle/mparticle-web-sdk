@@ -3,7 +3,7 @@ import fetchMock from 'fetch-mock/esm/client';
 import { expect } from 'chai';
 import { urls, MPConfig } from './config/constants';
 import Utils from './config/utils';
-import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
+import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
 const {
     findEventFromRequest,
     waitForCondition,
@@ -12,11 +12,11 @@ const {
 
 declare global {
     interface Window {
-        mParticle: MParticleWebSDK;
+        mParticle: IMParticleInstanceManager;
     }
 }
 
-const mParticle = window.mParticle as MParticleWebSDK;
+const mParticle = window.mParticle as IMParticleInstanceManager;;
 let mockServer;
 
 function returnEventForMPInstance(calls, apiKey, eventName) {

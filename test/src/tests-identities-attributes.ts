@@ -7,10 +7,11 @@ import {
     MPConfig,
 } from './config/constants';
 import Utils from './config/utils';
-import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
-import { AllUserAttributes, UserAttributesValue } from '@mparticle/web-sdk';
+import { AllUserAttributes, Product, UserAttributesValue } from '@mparticle/web-sdk';
 import { UserAttributes } from '../../src/identity-user-interfaces';
 import { Batch, CustomEvent, UserAttributeChangeEvent } from '@mparticle/event-models';
+import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
+import { SDKProduct } from '../../src/sdkRuntimeModels';
 const {
     waitForCondition,
     fetchMockSuccess,
@@ -25,11 +26,11 @@ const {
 
 declare global {
     interface Window {
-        mParticle: MParticleWebSDK;
+        mParticle: IMParticleInstanceManager;
     }
 }
 
-const mParticle = window.mParticle as MParticleWebSDK;
+const mParticle = window.mParticle as IMParticleInstanceManager;
 
 const BAD_SESSION_ATTRIBUTE_KEY_AS_OBJECT = ({
     key: 'value',
@@ -799,11 +800,12 @@ describe('identities and attributes', function() {
      });
 
     it('should get cart products', function(done) {
-        const product1 = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1),
-            product2 = mParticle.eCommerce.createProduct('Android', 'SKU2', 1);
+        const product1: SDKProduct = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1, 1);
+        const product2: SDKProduct = mParticle.eCommerce.createProduct('Android', 'SKU2', 1, 1);
+
         waitForCondition(hasIdentifyReturned)
         .then(() =>  {
-        mParticle.eCommerce.Cart.add([product1, product2], false);
+        mParticle.eCommerce.Cart.add([product1, product2], null);
 
         const cartProducts = mParticle.Identity.getCurrentUser()
             .getCart()

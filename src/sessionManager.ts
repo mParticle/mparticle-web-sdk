@@ -1,10 +1,10 @@
 import { MPID } from '@mparticle/web-sdk';
 import Constants from './constants';
 import { IPersistenceMinified } from './persistence.interfaces';
-import { MParticleWebSDK } from './sdkRuntimeModels';
 import Types from './types';
 import { generateDeprecationMessage } from './utils';
 import { IMParticleUser } from './identity-user-interfaces';
+import { IMParticleWebSDKInstance } from './mp-instance';
 
 const { Messages } = Constants;
 
@@ -26,7 +26,7 @@ export interface ISessionManager {
 
 export default function SessionManager(
     this: ISessionManager,
-    mpInstance: MParticleWebSDK
+    mpInstance: IMParticleWebSDKInstance
 ) {
     const self = this;
 
