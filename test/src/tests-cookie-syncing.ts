@@ -1204,7 +1204,7 @@ describe('cookie syncing', function() {
         })
     });
 
-    it.only('should allow some cookie syncs to occur and others to not occur if there are multiple pixels with varying consent levels', function(done) {
+    it('should allow some cookie syncs to occur and others to not occur if there are multiple pixels with varying consent levels', function(done) {
         // This test has 2 pixelSettings. pixelSettings1 requires consent pixelSettings2 does not.  When mparticle initializes, the pixelSettings2 should fire and pixelSettings1 shouldn't.
         // After the appropriate consent is saved to the user, pixelSettings1 will fire.
 

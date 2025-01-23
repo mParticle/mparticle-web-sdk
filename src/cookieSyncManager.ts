@@ -6,7 +6,7 @@ import {
 } from './utils';
 import Constants from './constants';
 import { MParticleWebSDK } from './sdkRuntimeModels';
-import { MPID } from '@mparticle/web-sdk';
+import { Logger, MPID } from '@mparticle/web-sdk';
 import { IConsentRules } from './consent';
 
 const { Messages } = Constants;
@@ -66,10 +66,10 @@ export default function CookieSyncManager(
     const self = this;
 
     // Public
-    this.attemptCookieSync = async (
+    this.attemptCookieSync = (
         mpid: MPID,
         mpidIsNotInCookies?: boolean
-    ): Promise<void> => {
+    ): void => {
         const { pixelConfigurations, webviewBridgeEnabled } = mpInstance._Store;
 
         if (!mpid || webviewBridgeEnabled) {
@@ -82,7 +82,7 @@ export default function CookieSyncManager(
             return;
         }
 
-        for (const pixelSettings of pixelConfigurations as IPixelConfiguration[]) {
+        pixelConfigurations.forEach(async (pixelSettings: IPixelConfiguration) => {
             // set requiresConsent to false to start each additional pixel configuration
             // set to true only if filteringConsenRuleValues.values.length exists
             let requiresConsent = false;
@@ -129,14 +129,23 @@ export default function CookieSyncManager(
             const cookieSyncUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl)
             const moduleIdString = moduleId.toString();
 
-            const fullUrl: string = isTcfApiAvailable() ? await getGdprConsentUrl(cookieSyncUrl) : cookieSyncUrl;
+            // fullUrl will be the cookieSyncUrl if an error is thrown, or there if TcfApi is not available
+            let fullUrl: string;
+            try {
+                fullUrl = isTcfApiAvailable() ? await appendGdprConsentUrl(cookieSyncUrl, mpInstance.Logger) : cookieSyncUrl;
+            } catch (error) {
+                fullUrl = cookieSyncUrl;
+                const errorMessage = (error as Error).message || error.toString();
+                mpInstance.Logger.error(errorMessage);
+            }
+
             self.performCookieSync(
                 fullUrl,
                 moduleIdString,
                 mpid,
                 cookieSyncDates
             );
-        }
+        })
     };
 
     // Private
@@ -146,6 +155,10 @@ export default function CookieSyncManager(
         mpid: MPID,
         cookieSyncDates: CookieSyncDates,
     ): void => {
+        console.log(url)
+        console.log(moduleId);
+        console.log(mpid);
+        console.log(cookieSyncDates)
         const img = document.createElement('img');
 
         mpInstance.Logger.verbose(InformationMessages.CookieSync);
@@ -179,10 +192,10 @@ export const isLastSyncDateExpired = (
 
 export const isTcfApiAvailable = (): boolean => isFunction(window.__tcfapi);
 
-async function getGdprConsentUrl(url: string): Promise<string> {
+export async function appendGdprConsentUrl(url: string, logger: Logger): Promise<string> {
     return new Promise((resolve, reject) => {
         try {
-            window.__tcfapi('getInAppTCData', 2, (inAppTCData: TCData, success: boolean) => {
+            const tcfAPICallBack = (inAppTCData: TCData, success: boolean) => {
                 if (success && inAppTCData) {
                     const gdprApplies = inAppTCData.gdprApplies ? 1 : 0;
                     const tcString = inAppTCData.tcString;
@@ -190,8 +203,15 @@ async function getGdprConsentUrl(url: string): Promise<string> {
                 } else {
                     resolve(url); // No GDPR data; fallback to original URL
                 }
-            });
+            }
+
+            // `getInAppTCData` is the function name
+            // 2 is the version of TCF (2.2 as of 1/22/2025)
+            // callback 
+            window.__tcfapi('getInAppTCData', 2, tcfAPICallBack);
         } catch (error) {
+            const errorMessage = (error as Error).message || error.toString();
+            logger.error(errorMessage);
             reject(error);
         }
     });

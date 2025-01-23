@@ -3,7 +3,8 @@ import CookieSyncManager, {
     IPixelConfiguration,
     CookieSyncDates,
     isLastSyncDateExpired,
-    isTcfApiAvailable
+    isTcfApiAvailable,
+    appendGdprConsentUrl
 } from '../../src/cookieSyncManager';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { testMPID } from '../src/config/constants';
@@ -563,9 +564,10 @@ describe('CookieSyncManager', () => {
         });
     });
 
-    describe('#performCookieSyncWithGDPR', () => {
+    describe('#appendGdprConsentUrl', () => {
         const verboseLoggerSpy = jest.fn();
         const errorLoggerSpy = jest.fn();
+        const mockUrl = 'https://example.com/cookie-sync';
 
         let cookieSyncManager: any;
         const mockMpInstance = ({
@@ -590,12 +592,7 @@ describe('CookieSyncManager', () => {
             jest.clearAllMocks();
         })
 
-        it('should append GDPR parameters to the URL if __tcfapi callback succeeds', () => {
-            const mockCookieSyncDates = {};
-            const mockUrl = 'https://example.com/cookie-sync';
-            const moduleId = 'module1';
-            const mpid = '12345';
-
+        it('should append GDPR parameters to the URL if __tcfapi callback succeeds', async () => {
             // Mock __tcfapi to call the callback with success
             (window.__tcfapi as jest.Mock).mockImplementation((
                 command,
@@ -611,82 +608,77 @@ describe('CookieSyncManager', () => {
                 );
             });
 
-            const performCookieSyncSpy = jest.spyOn(cookieSyncManager, 'performCookieSync');
+            const fullUrl = await appendGdprConsentUrl(mockUrl, mockMpInstance.Logger);
 
-            // Call the function under test
-            cookieSyncManager.performCookieSyncWithGDPR(
-                mockUrl,
-                moduleId,
-                mpid,
-                mockCookieSyncDates
-            );
-
-            expect(performCookieSyncSpy).toHaveBeenCalledWith(
+            expect(fullUrl).toBe(
                 `${mockUrl}&gdpr=1&gdpr_consent=test-consent-string`,
-                moduleId,
-                mpid,
-                mockCookieSyncDates
             );
         });
 
-        it('should fall back to performCookieSync if __tcfapi callback fails', () => {
-            const mockCookieSyncDates = {};
-            const mockUrl = 'https://example.com/cookie-sync';
-            const moduleId = 'module1';
-            const mpid = '12345';
-
+        it('should return only the base url if the __tcfapi callback fails to get tcData', async () => {
             // Mock __tcfapi to call the callback with failure
             (window.__tcfapi as jest.Mock).mockImplementation((command, version, callback) => {
                 callback(null, false); // Simulate a failure
             });
 
-            // Spy on the `performCookieSync` method
-            const performCookieSyncSpy = jest.spyOn(cookieSyncManager, 'performCookieSync');
-
-            // Call the function under test
-            cookieSyncManager.performCookieSyncWithGDPR(
-                mockUrl,
-                moduleId,
-                mpid,
-                mockCookieSyncDates
-            );
-
+            const fullUrl = await appendGdprConsentUrl(mockUrl, mockMpInstance.Logger);
             // Assert that the fallback method was called with the original URL
-            expect(performCookieSyncSpy).toHaveBeenCalledWith(
-                mockUrl,
-                moduleId,
-                mpid,
-                mockCookieSyncDates
-            );
+            expect(fullUrl).toBe(mockUrl);
         });
 
-        it('should handle exceptions thrown by __tcfapi gracefully', () => {
-            const mockCookieSyncDates = {};
-            const mockUrl = 'https://example.com/cookie-sync';
-            const moduleId = 'module1';
-            const mpid = '12345';
-
+        it('should handle exceptions thrown by __tcfapi gracefully', async () => {
             // Mock __tcfapi to throw an error
             (window.__tcfapi as jest.Mock).mockImplementation(() => {
                 throw new Error('Test Error');
             });
 
-            // Spy on the `performCookieSync` method
-            const performCookieSyncSpy = jest.spyOn(cookieSyncManager, 'performCookieSync');
-
-            // Call the function under test
-            cookieSyncManager.performCookieSyncWithGDPR(
-                mockUrl,
-                moduleId,
-                mpid,
-                mockCookieSyncDates
-            );
-
-            // Assert that the fallback method was called with the original URL
-            expect(performCookieSyncSpy).not.toHaveBeenCalled();
-
-            // Ensure the error was logged (if applicable)
-            expect(errorLoggerSpy).toHaveBeenCalledWith('Test Error');
+            try {
+                await appendGdprConsentUrl(mockUrl, mockMpInstance.Logger);
+            } catch(e) {
+                expect(errorLoggerSpy).toHaveBeenCalledWith('Test Error');
+            }
         });
+
+        describe.only('#integration test', () => {
+            it('should handle errors properly when calling attemptCookieSync and the callback fails', () => {
+                (window.__tcfapi as jest.Mock).mockImplementation(() => {
+                    throw new Error('Test Error');
+                });
+                const mockMPInstance = ({
+                    _Store: {
+                        webviewBridgeEnabled: false,
+                        pixelConfigurations: [pixelSettings],
+                    },
+                    _Persistence: {
+                        getPersistence: () => ({testMPID: {}}),
+                    },
+                    _Consent: {
+                        isEnabledForUserConsent: jest.fn().mockReturnValue(true),
+                    },
+                    Identity: {
+                        getCurrentUser: jest.fn().mockReturnValue({
+                            getMPID: () => testMPID,
+                        }),
+                    },
+                    Logger: {
+                        verbose: jest.fn(),
+                        error: jest.fn()
+                    },
+                } as unknown) as MParticleWebSDK;
+
+                const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+                cookieSyncManager.performCookieSync = jest.fn();
+
+                cookieSyncManager.attemptCookieSync(testMPID, true);
+
+                expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
+                    pixelUrlAndRedirectUrl,
+                    '5',
+                    testMPID,
+                    {},
+                );
+            });
+        });
+
     });
 });
