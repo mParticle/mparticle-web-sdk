@@ -632,25 +632,18 @@ describe('CookieSyncManager', () => {
                 throw new Error('Test Error');
             });
 
-            try {
-                await appendGdprConsentUrl(mockUrl, mockMpInstance.Logger);
-            } catch(e) {
-                expect(errorLoggerSpy).toHaveBeenCalledWith('Test Error');
-            }
+            await expect(appendGdprConsentUrl(mockUrl, mockMpInstance.Logger)).rejects.toThrow('Test Error');
         });
 
-        describe.only('#integration test', () => {
-            it('should handle errors properly when calling attemptCookieSync and the callback fails', () => {
+        describe('#processPixelConfig', () => {
+            it('should handle errors properly when calling attemptCookieSync and the callback fails', async () => {
                 (window.__tcfapi as jest.Mock).mockImplementation(() => {
                     throw new Error('Test Error');
                 });
-                const mockMPInstance = ({
+                const mpInstance = ({
                     _Store: {
                         webviewBridgeEnabled: false,
                         pixelConfigurations: [pixelSettings],
-                    },
-                    _Persistence: {
-                        getPersistence: () => ({testMPID: {}}),
                     },
                     _Consent: {
                         isEnabledForUserConsent: jest.fn().mockReturnValue(true),
@@ -662,15 +655,20 @@ describe('CookieSyncManager', () => {
                     },
                     Logger: {
                         verbose: jest.fn(),
-                        error: jest.fn()
+                        error: jest.fn(),
                     },
                 } as unknown) as MParticleWebSDK;
 
-                const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+                const cookieSyncManager = new CookieSyncManager(mpInstance);
                 cookieSyncManager.performCookieSync = jest.fn();
 
-                cookieSyncManager.attemptCookieSync(testMPID, true);
-
+                await cookieSyncManager.processPixelConfig(
+                    true,
+                    {},
+                    testMPID,
+                    pixelSettings
+                );
+    
                 expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
                     pixelUrlAndRedirectUrl,
                     '5',
@@ -679,6 +677,5 @@ describe('CookieSyncManager', () => {
                 );
             });
         });
-
     });
 });

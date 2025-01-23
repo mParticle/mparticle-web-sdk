@@ -8,6 +8,7 @@ import Constants from './constants';
 import { MParticleWebSDK } from './sdkRuntimeModels';
 import { Logger, MPID } from '@mparticle/web-sdk';
 import { IConsentRules } from './consent';
+import { IPersistenceMinified } from './persistence.interfaces';
 
 const { Messages } = Constants;
 const { InformationMessages } = Messages;
@@ -56,6 +57,12 @@ export interface ICookieSyncManager {
         moduleId: string,
         mpid: MPID,
         cookieSyncDates: CookieSyncDates,
+    ) => void;
+    processPixelConfig: (
+        mpidIsNotInCookies: boolean,
+        persistence: IPersistenceMinified,
+        mpid: string,
+        pixelSettings: IPixelConfiguration
     ) => void
 };
 
@@ -82,70 +89,81 @@ export default function CookieSyncManager(
             return;
         }
 
-        pixelConfigurations.forEach(async (pixelSettings: IPixelConfiguration) => {
-            // set requiresConsent to false to start each additional pixel configuration
-            // set to true only if filteringConsenRuleValues.values.length exists
-            let requiresConsent = false;
-            // Filtering rules as defined in UI
-            const {
-                filteringConsentRuleValues,
-                pixelUrl,
-                redirectUrl,
-                moduleId,
-                // Tells you how often we should do a cookie sync (in days)
-                frequencyCap,
-            } = pixelSettings;
-            const { values } = filteringConsentRuleValues || {};
-
-            if (isEmpty(pixelUrl)) {
-                return;
-            }
-
-            if (!isEmpty(values)) {
-                requiresConsent = true;
-            }
-
-            // If MPID is new to cookies, we should not try to perform the cookie sync
-            // because a cookie sync can only occur once a user either consents or doesn't.
-            // we should not check if it's enabled if the user has a blank consent
-            if (requiresConsent && mpidIsNotInCookies) {
-                return;
-            }
-
-            const { isEnabledForUserConsent } = mpInstance._Consent;
-
-            if (!isEnabledForUserConsent(filteringConsentRuleValues, mpInstance.Identity.getCurrentUser())) {
-                return;
-            }
-
-            const cookieSyncDates: CookieSyncDates = persistence[mpid]?.csd ?? {};
-            const lastSyncDateForModule: number = cookieSyncDates[moduleId] || null;
-
-            if (!isLastSyncDateExpired(frequencyCap, lastSyncDateForModule)) {
-                return;
-            }
-
-            // Url for cookie sync pixel
-            const cookieSyncUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl)
-            const moduleIdString = moduleId.toString();
-
-            // fullUrl will be the cookieSyncUrl if an error is thrown, or there if TcfApi is not available
-            let fullUrl: string;
-            try {
-                fullUrl = isTcfApiAvailable() ? await appendGdprConsentUrl(cookieSyncUrl, mpInstance.Logger) : cookieSyncUrl;
-            } catch (error) {
-                fullUrl = cookieSyncUrl;
-                const errorMessage = (error as Error).message || error.toString();
-                mpInstance.Logger.error(errorMessage);
-            }
-
-            self.performCookieSync(
-                fullUrl,
-                moduleIdString,
+        pixelConfigurations.forEach((pixelSetting: IPixelConfiguration) => 
+            self.processPixelConfig(
+                mpidIsNotInCookies,
+                persistence,
                 mpid,
-                cookieSyncDates
-            );
-        })
+                pixelSetting
+            )
+        );
+    };
+
+    this.processPixelConfig = async (
+        mpidIsNotInCookies: boolean,
+        persistence: IPersistenceMinified,
+        mpid: string,
+        pixelSettings: IPixelConfiguration,
+    ): Promise<void> => {
+        // set requiresConsent to false to start each additional pixel configuration
+        // set to true only if filteringConsenRuleValues.values.length exists
+        let requiresConsent = false;
+        // Filtering rules as defined in UI
+        const {
+            filteringConsentRuleValues, pixelUrl, redirectUrl, moduleId,
+            // Tells you how often we should do a cookie sync (in days)
+            frequencyCap,
+        } = pixelSettings;
+        const { values } = filteringConsentRuleValues || {};
+
+        if (isEmpty(pixelUrl)) {
+            return;
+        }
+
+        if (!isEmpty(values)) {
+            requiresConsent = true;
+        }
+
+        // If MPID is new to cookies, we should not try to perform the cookie sync
+        // because a cookie sync can only occur once a user either consents or doesn't.
+        // we should not check if it's enabled if the user has a blank consent
+        if (requiresConsent && mpidIsNotInCookies) {
+            return;
+        }
+
+        const { isEnabledForUserConsent } = mpInstance._Consent;
+
+        if (!isEnabledForUserConsent(filteringConsentRuleValues, mpInstance.Identity.getCurrentUser())) {
+            return;
+        }
+
+        const cookieSyncDates: CookieSyncDates = persistence[mpid]?.csd ?? {};
+        const lastSyncDateForModule: number = cookieSyncDates[moduleId] || null;
+
+        if (!isLastSyncDateExpired(frequencyCap, lastSyncDateForModule)) {
+            return;
+        }
+
+        // Url for cookie sync pixel
+        const cookieSyncUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl);
+        const moduleIdString = moduleId.toString();
+
+        // fullUrl will be the cookieSyncUrl if an error is thrown, or there if TcfApi is not available
+        let fullUrl: string;
+        try {
+            fullUrl = isTcfApiAvailable() ? await appendGdprConsentUrl(cookieSyncUrl, mpInstance.Logger) : cookieSyncUrl;
+        } catch (error) {
+            fullUrl = cookieSyncUrl;
+            const errorMessage = (error as Error).message || error.toString();
+            mpInstance.Logger.error(errorMessage);
+        }
+
+        self.performCookieSync(
+            fullUrl,
+            moduleIdString,
+            mpid,
+            cookieSyncDates
+        );
     };
 
     // Private
@@ -155,10 +173,6 @@ export default function CookieSyncManager(
         mpid: MPID,
         cookieSyncDates: CookieSyncDates,
     ): void => {
-        console.log(url)
-        console.log(moduleId);
-        console.log(mpid);
-        console.log(cookieSyncDates)
         const img = document.createElement('img');
 
         mpInstance.Logger.verbose(InformationMessages.CookieSync);
@@ -210,9 +224,8 @@ export async function appendGdprConsentUrl(url: string, logger: Logger): Promise
             // callback 
             window.__tcfapi('getInAppTCData', 2, tcfAPICallBack);
         } catch (error) {
-            const errorMessage = (error as Error).message || error.toString();
-            logger.error(errorMessage);
             reject(error);
+            // test to see if this line is reached.  if so, just throw an error and remove 213/214
         }
     });
 }
