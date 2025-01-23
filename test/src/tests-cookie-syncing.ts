@@ -49,16 +49,16 @@ describe('cookie syncing', function() {
                 const element = create.apply(this, arguments as unknown as [string, ElementCreationOptions?]);
 
                 if (element.tagName === 'IMG') {
-                // Add an `onload` mock that simulates the browser loading the image
-                Object.defineProperty(element, 'onload', {
-                    set(callback) {
-                    // Automatically invoke the callback to simulate the `load` event
-                        callback(new Event('load'));
-                    },
-                });
-            }
+                    // Add an `onload` mock that simulates the browser loading the image
+                    Object.defineProperty(element, 'onload', {
+                        set(callback) {
+                        // Automatically invoke the callback to simulate the `load` event
+                            callback(new Event('load'));
+                        },
+                    });
+                }
 
-        return element;
+                return element;
 
             };
         })(document.createElement);
@@ -161,11 +161,7 @@ describe('cookie syncing', function() {
         });
         
         mParticle.Identity.login();
-        await waitForCondition(() => {
-            return (
-                mParticle.Identity.getCurrentUser()?.getMPID() === 'otherMPID'
-            );
-        })
+        await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'otherMPID')
         const data2 = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
@@ -284,11 +280,7 @@ describe('cookie syncing', function() {
         mParticle.Identity.login({
             userIdentities: { customerid: 'abc' },
         });
-        await waitForCondition(() => {
-            return (
-                mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1'
-            );
-        })
+        await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1');
         const cookies = getLocalStorage();
         Object.keys(cookies['MPID1'].csd).length.should.equal(1);
     });
@@ -313,7 +305,7 @@ describe('cookie syncing', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentifyReturned)
+        await waitForCondition(hasIdentifyReturned);
 
         expect( 
             mParticle.getInstance()._Store.pixelConfigurations.length
@@ -912,7 +904,7 @@ describe('cookie syncing', function() {
     });
 
     it('should perform a cookie sync only after GDPR consent is given when consent is required - perform a cookie sync when consent is rejected', async () => {
-        await waitForCondition(hasIdentifyReturned)
+        await waitForCondition(hasIdentifyReturned);
 
         const includeOnMatch = false; // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
         const consented = false;
@@ -934,7 +926,7 @@ describe('cookie syncing', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentifyReturned)
+        await waitForCondition(hasIdentifyReturned);
         const localStorage = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
@@ -996,7 +988,7 @@ describe('cookie syncing', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentifyReturned)
+        await waitForCondition(hasIdentifyReturned);
 
         const localStorage = mParticle
             .getInstance()
@@ -1039,7 +1031,7 @@ describe('cookie syncing', function() {
     });
 
     it('should perform a cookie sync only after CCPA consent is given when consent is required - perform a cookie sync when consent is rejected', async () => {
-        await waitForCondition(hasIdentifyReturned)
+        await waitForCondition(hasIdentifyReturned);
 
         const includeOnMatch = false; // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
         const consented = false;
@@ -1061,7 +1053,7 @@ describe('cookie syncing', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentifyReturned)
+        await waitForCondition(hasIdentifyReturned);
         const localStorage = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
@@ -1151,7 +1143,7 @@ describe('cookie syncing', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentifyReturned)
+        await waitForCondition(hasIdentifyReturned);
 
         const localStorage = mParticle
             .getInstance()
