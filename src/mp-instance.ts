@@ -24,7 +24,7 @@ import NativeSdkHelpers from './nativeSdkHelpers';
 import CookieSyncManager, { ICookieSyncManager, IPixelConfiguration } from './cookieSyncManager';
 import SessionManager, { ISessionManager } from './sessionManager';
 import Ecommerce from './ecommerce';
-import Store, { IntegrationAttribute, IStore } from './store';
+import Store, { IStore } from './store';
 import Logger from './logger';
 import Persistence from './persistence';
 import Events from './events';
@@ -41,8 +41,8 @@ import { LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
 import { IPreInit, processReadyQueue } from './pre-init-utils';
-import { BaseEvent, MParticleWebSDK, SDKEventCustomFlags, SDKHelpersApi,  } from './sdkRuntimeModels';
-import { Callback, SDKEventAttrs, SDKEventOptions } from '@mparticle/web-sdk';
+import { BaseEvent, MParticleWebSDK, SDKHelpersApi,  } from './sdkRuntimeModels';
+import { Callback, SDKEventAttrs } from '@mparticle/web-sdk';
 import { IIdentity } from './identity.interfaces';
 import { IEvents } from './events.interfaces';
 import { IECommerce } from './ecommerce.interfaces';
@@ -85,29 +85,17 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _Store: IStore;
     _ServerModel: IServerModel;
 
-
-
     configurePixel(config: IPixelConfiguration): void;
     reset(instance: IMParticleWebSDKInstance): void;
     ready(f: Function): void;
     isInitialized(): boolean;
     getEnvironment(): valueof<typeof Constants.Environment>;
     getVersion(): string;
+    logError(error: IErrorLogMessage, attrs?: SDKEventAttrs): void;
     setAppVersion(version: string): void;
     setAppName(name: string): void;
     startTrackingLocation(callback?: Callback): void;
     stopTrackingLocation(): void;
-    logError(error: IErrorLogMessage | string, attrs?: any): void;
-
-    // TODO: Define EventInfo
-    logLink(selector: string, eventName: string, eventType: valueof<typeof EventType>, eventInfo: any): void;
-    logForm(selector: string, eventName: string, eventType: valueof<typeof EventType>, eventInfo: any): void;
-    logPageView(eventName: string, attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): void;
-    setOptOut(isOptingOut: boolean): void;
-
-    // QUESTION: Should integration ID be a number or a string?
-    setIntegrationAttribute(integrationId: number, attrs: IntegrationAttribute): void;
-    getIntegrationAttributes(integrationId: number): IntegrationAttribute;
 }
 
 const { Messages, HTTPCodes, FeatureFlags } = Constants;
@@ -540,8 +528,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             };
         }
 
-        // FIXME: Replace var with const/let
-        var data: IErrorLogMessageMinified = {
+        const data: IErrorLogMessageMinified = {
             m: error.message ? error.message : error as string,
             s: 'Error',
             t: error.stack || null,
@@ -557,9 +544,8 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         self._Events.logEvent({
             messageType: MessageType.CrashReport,
             name: error.name ? error.name : 'Error',
-            // data: data, // QUESTION: Is this a bug? This should be eventType
             eventType: EventType.Other,
-            data: data as { [key: string]: string },
+            data: data as SDKEventAttrs,
         });
     };
     /**

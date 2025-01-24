@@ -17,7 +17,6 @@ import { IMPSideloadedKit } from './sideloadedKit';
 import { ISessionManager } from './sessionManager';
 import { Kit, MPForwarder } from './forwarders.interfaces';
 import {
-    IIdentity,
     SDKIdentityApi,
     IAliasCallback,
 } from './identity.interfaces';
@@ -38,8 +37,8 @@ import {
 } from './types';
 import { IPixelConfiguration } from './cookieSyncManager';
 import _BatchValidator from './mockBatchCreator';
-import { SDKECommerceAPI } from './ecommerce.interfaces';
-import { IErrorLogMessage, IMParticleWebSDKInstance, IntegrationDelays } from './mp-instance';
+import {  SDKECommerceAPI } from './ecommerce.interfaces';
+import { IMParticleWebSDKInstance, IntegrationDelays } from './mp-instance';
 import Constants from './constants';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
@@ -200,6 +199,10 @@ export interface MParticleWebSDK {
         eventOptions?: SDKEventOptions
     ): void;
     logBaseEvent(event: BaseEvent, eventOptions?: SDKEventOptions): void;
+    logLink(selector: string, eventName: string, eventType: valueof<typeof EventType>, eventInfo: SDKEventAttrs): void;
+    logForm(selector: string, eventName: string, eventType: valueof<typeof EventType>, eventInfo: SDKEventAttrs): void;
+    logPageView(eventName: string, attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): void;
+    setOptOut(isOptingOut: boolean): void;
     eCommerce: SDKECommerceAPI;
 
     // QUESTION: Is this still used?
@@ -208,6 +211,9 @@ export interface MParticleWebSDK {
     ProductActionType: valueof<typeof ProductActionType>;
     generateHash(value: string): string;
 
+    // QUESTION: Should integration ID be a number or a string?
+    setIntegrationAttribute(integrationId: number, attrs: IntegrationAttribute): void;
+    getIntegrationAttributes(integrationId: number): IntegrationAttribute;
 }
 
 // https://go.mparticle.com/work/SQDSDKS-4805
@@ -235,13 +241,6 @@ export interface IMParticleInstanceManager extends MParticleWebSDK {
     getInstance(instanceName?: string): IMParticleWebSDKInstance;
     getVersion(): string;
     isInitialized(): boolean;
-
-    // TODO: Define EventInfo
-    logError(error: IErrorLogMessage | string, attrs?: any): void;
-    logForm(selector: string, eventName: string, eventType: valueof<typeof EventType>, eventInfo: any): void;
-    logLink(selector: string, eventName: string, eventType: valueof<typeof EventType>, eventInfo: any): void;
-    logPageView(eventName: string, attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): void;
-    
     
     ready(f: Function): void;
     reset(instance: IMParticleWebSDKInstance): void;
@@ -250,11 +249,6 @@ export interface IMParticleInstanceManager extends MParticleWebSDK {
     setOptOut(isOptingOut: boolean): void;
     startTrackingLocation(callback?: Callback): void;
     stopTrackingLocation(): void;
-
-
-    // QUESTION: Should integration ID be a number or a string?
-    setIntegrationAttribute(integrationId: number, attrs: IntegrationAttribute): void;
-    getIntegrationAttributes(integrationId: number): IntegrationAttribute;
 
     // @deprecated
     sessionManager: Pick<ISessionManager, 'getSession'>; 
@@ -350,7 +344,7 @@ export interface SDKHelpersApi {
         previousMpid?: MPID
     ): void;
     sanitizeAttributes?(
-        attrs: Dictionary<string>,
+        attrs: SDKEventAttrs,
         name: string
     ): Dictionary<string> | null;
     Validators: typeof Validators;
@@ -384,7 +378,7 @@ export interface BaseEvent {
     messageType: number;
     name?: string;
     eventType?: number;
-    data?: { [key: string]: string };
+    data?: SDKEventAttrs;
     customFlags?: { [key: string]: string };
     toEventAPIObject?(): SDKEvent;
     sourceMessageId?: string;
