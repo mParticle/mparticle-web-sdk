@@ -4,7 +4,7 @@ import {
     getHref,
     replaceMPID,
     replaceAmpWithAmpersand,
-    createCookieSyncUrl,
+    createInitialCookieSyncUrl,
 } from '../../src/utils';
 import { deleteAllCookies } from './utils';
 
@@ -185,16 +185,16 @@ describe('Utils', () => {
         });
     });
 
-    describe('#createCookieSyncUrl', () => {
+    describe('#createInitialCookieSyncUrl', () => {
         const pixelUrl: string = 'https://abc.abcdex.net/ibs:exampleid=12345&amp;exampleuuid=%%mpid%%&amp;redir=';
         const redirectUrl: string = 'https://cookiesync.mparticle.com/v1/sync?esid=123456&amp;MPID=%%mpid%%&amp;ID=${DD_UUID}&amp;Key=mpApiKey&amp;env=2';
 
         it('should return a cookieSyncUrl when both pixelUrl and redirectUrl are not null', () => {
-            expect(createCookieSyncUrl('testMPID', pixelUrl, redirectUrl)).toBe('https://abc.abcdex.net/ibs:exampleid=12345&exampleuuid=testMPID&redir=https%3A%2F%2Fcookiesync.mparticle.com%2Fv1%2Fsync%3Fesid%3D123456%26MPID%3DtestMPID%26ID%3D%24%7BDD_UUID%7D%26Key%3DmpApiKey%26env%3D2');
+            expect(createInitialCookieSyncUrl('testMPID', pixelUrl, redirectUrl)).toBe('https://abc.abcdex.net/ibs:exampleid=12345&exampleuuid=testMPID&redir=https%3A%2F%2Fcookiesync.mparticle.com%2Fv1%2Fsync%3Fesid%3D123456%26MPID%3DtestMPID%26ID%3D%24%7BDD_UUID%7D%26Key%3DmpApiKey%26env%3D2');
         });
 
         it('should return a cookieSyncUrl when pixelUrl is not null but redirectUrl is null', () => {
-            expect(createCookieSyncUrl('testMPID', pixelUrl, null)).toBe('https://abc.abcdex.net/ibs:exampleid=12345&exampleuuid=testMPID&redir=');
+            expect(createInitialCookieSyncUrl('testMPID', pixelUrl, null)).toBe('https://abc.abcdex.net/ibs:exampleid=12345&exampleuuid=testMPID&redir=');
         });
     });
 });

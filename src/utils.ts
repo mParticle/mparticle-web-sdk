@@ -180,7 +180,7 @@ const replaceMPID = (value: string, mpid: MPID): string => value.replace('%%mpid
 
 const replaceAmpWithAmpersand = (value: string): string => value.replace(/&amp;/g, '&');
 
-const createCookieSyncUrl = (
+const createInitialCookieSyncUrl = (
     mpid: MPID,
     pixelUrl: string,
     redirectUrl?: string
@@ -358,7 +358,7 @@ const getHref = (): string => {
 export {
     createCookieString,
     revertCookieString,
-    createCookieSyncUrl,
+    createInitialCookieSyncUrl,
     valueof,
     converted,
     decoded,

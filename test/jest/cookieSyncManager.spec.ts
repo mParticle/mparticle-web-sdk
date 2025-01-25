@@ -608,7 +608,7 @@ describe('CookieSyncManager', () => {
                 );
             });
 
-            const fullUrl = await appendGdprConsentUrl(mockUrl, mockMpInstance.Logger);
+            const fullUrl = await appendGdprConsentUrl(mockUrl);
 
             expect(fullUrl).toBe(
                 `${mockUrl}&gdpr=1&gdpr_consent=test-consent-string`,
@@ -621,7 +621,7 @@ describe('CookieSyncManager', () => {
                 callback(null, false); // Simulate a failure
             });
 
-            const fullUrl = await appendGdprConsentUrl(mockUrl, mockMpInstance.Logger);
+            const fullUrl = await appendGdprConsentUrl(mockUrl);
             // Assert that the fallback method was called with the original URL
             expect(fullUrl).toBe(mockUrl);
         });
@@ -632,7 +632,7 @@ describe('CookieSyncManager', () => {
                 throw new Error('Test Error');
             });
 
-            await expect(appendGdprConsentUrl(mockUrl, mockMpInstance.Logger)).rejects.toThrow('Test Error');
+            await expect(appendGdprConsentUrl(mockUrl)).rejects.toThrow('Test Error');
         });
 
         describe('#processPixelConfig', () => {
@@ -663,10 +663,10 @@ describe('CookieSyncManager', () => {
                 cookieSyncManager.performCookieSync = jest.fn();
 
                 await cookieSyncManager.processPixelConfig(
-                    true,
+                    pixelSettings,
                     {},
                     testMPID,
-                    pixelSettings
+                    true,
                 );
     
                 expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(

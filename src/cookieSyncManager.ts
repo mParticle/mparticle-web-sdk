@@ -1,7 +1,7 @@
 import {
     Dictionary,
     isEmpty,
-    createCookieSyncUrl,
+    createInitialCookieSyncUrl,
     isFunction,
 } from './utils';
 import Constants from './constants';
@@ -17,12 +17,6 @@ export const DAYS_IN_MILLISECONDS = 1000 * 60 * 60 * 24;
 
 export type CookieSyncDates = Dictionary<number>; 
 
-// this is just a partial definition of TCData for the purposes of our implementation. The full schema can be found here:
-// https://github.com/InteractiveAdvertisingBureau/GDPR-Transparency-and-Consent-Framework/blob/master/TCFv2/IAB%20Tech%20Lab%20-%20CMP%20API%20v2.md#tcdata
-type TCData = {
-  gdprApplies?: boolean;
-  tcString?: string;
-};
 declare global {
     interface Window {
         __tcfapi: any;
@@ -52,17 +46,11 @@ export interface ICookieSyncManager {
         mpid: MPID,
         cookieSyncDates: CookieSyncDates,
     ) => void;
-    performCookieSyncWithGDPR: (
-        url: string,
-        moduleId: string,
-        mpid: MPID,
-        cookieSyncDates: CookieSyncDates,
-    ) => void;
     processPixelConfig: (
-        mpidIsNotInCookies: boolean,
+        pixelSettings: IPixelConfiguration,
         persistence: IPersistenceMinified,
         mpid: string,
-        pixelSettings: IPixelConfiguration
+        mpidIsNotInCookies: boolean,
     ) => void
 };
 
@@ -91,26 +79,29 @@ export default function CookieSyncManager(
 
         pixelConfigurations.forEach((pixelSetting: IPixelConfiguration) => 
             self.processPixelConfig(
-                mpidIsNotInCookies,
+                pixelSetting,
                 persistence,
                 mpid,
-                pixelSetting
+                mpidIsNotInCookies,
             )
         );
     };
 
     this.processPixelConfig = async (
-        mpidIsNotInCookies: boolean,
+        pixelSettings: IPixelConfiguration,
         persistence: IPersistenceMinified,
         mpid: string,
-        pixelSettings: IPixelConfiguration,
+        mpidIsNotInCookies: boolean,
     ): Promise<void> => {
         // set requiresConsent to false to start each additional pixel configuration
         // set to true only if filteringConsenRuleValues.values.length exists
         let requiresConsent = false;
         // Filtering rules as defined in UI
         const {
-            filteringConsentRuleValues, pixelUrl, redirectUrl, moduleId,
+            filteringConsentRuleValues,
+            pixelUrl,
+            redirectUrl,
+            moduleId,
             // Tells you how often we should do a cookie sync (in days)
             frequencyCap,
         } = pixelSettings;
@@ -145,15 +136,18 @@ export default function CookieSyncManager(
         }
 
         // Url for cookie sync pixel
-        const cookieSyncUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl);
+        const initialCookieSyncUrl = createInitialCookieSyncUrl(mpid, pixelUrl, redirectUrl);
         const moduleIdString = moduleId.toString();
 
-        // fullUrl will be the cookieSyncUrl if an error is thrown, or there if TcfApi is not available
+        // The IAB Europe Transparency & Consent Framework requires adding certain query parameters to
+        // a cookie sync url when using GDPR
+        // fullUrl will be the initialCookieSyncUrl if an error is thrown, or there if TcfApi is not available.
+        // Otherwise, it will include the GdprConsent parameters that TCF requires
         let fullUrl: string;
         try {
-            fullUrl = isTcfApiAvailable() ? await appendGdprConsentUrl(cookieSyncUrl, mpInstance.Logger) : cookieSyncUrl;
+            fullUrl = isTcfApiAvailable() ? await appendGdprConsentUrl(initialCookieSyncUrl) : initialCookieSyncUrl;
         } catch (error) {
-            fullUrl = cookieSyncUrl;
+            fullUrl = initialCookieSyncUrl;
             const errorMessage = (error as Error).message || error.toString();
             mpInstance.Logger.error(errorMessage);
         }
@@ -206,12 +200,20 @@ export const isLastSyncDateExpired = (
 
 export const isTcfApiAvailable = (): boolean => isFunction(window.__tcfapi);
 
-export async function appendGdprConsentUrl(url: string, logger: Logger): Promise<string> {
+// This is just a partial definition of TCData for the purposes of our implementation. The full schema can be found here:
+// https://github.com/InteractiveAdvertisingBureau/GDPR-Transparency-and-Consent-Framework/blob/master/TCFv2/IAB%20Tech%20Lab%20-%20CMP%20API%20v2.md#tcdata
+type TCData = {
+  gdprApplies?: boolean;
+  tcString?: string;
+};
+
+export async function appendGdprConsentUrl(url: string): Promise<string> {
     return new Promise((resolve, reject) => {
         try {
             const tcfAPICallBack = (inAppTCData: TCData, success: boolean) => {
                 if (success && inAppTCData) {
-                    const gdprApplies = inAppTCData.gdprApplies ? 1 : 0;
+                    // gdprApplies is a boolean, but the query parameter is 1 for true, or 0 for false
+                    const gdprApplies: number = inAppTCData.gdprApplies ? 1 : 0;
                     const tcString = inAppTCData.tcString;
                     resolve(`${url}&gdpr=${gdprApplies}&gdpr_consent=${tcString}`);
                 } else {
@@ -219,13 +221,13 @@ export async function appendGdprConsentUrl(url: string, logger: Logger): Promise
                 }
             }
 
-            // `getInAppTCData` is the function name
-            // 2 is the version of TCF (2.2 as of 1/22/2025)
-            // callback 
-            window.__tcfapi('getInAppTCData', 2, tcfAPICallBack);
+            window.__tcfapi(
+                'getInAppTCData',   // function name that requests the TCData
+                2,                  // version of TCF (2.2 as of 1/22/2025)
+                tcfAPICallBack
+            );
         } catch (error) {
             reject(error);
-            // test to see if this line is reached.  if so, just throw an error and remove 213/214
         }
     });
 }
