@@ -2,7 +2,9 @@ import CookieSyncManager, {
     DAYS_IN_MILLISECONDS,
     IPixelConfiguration,
     CookieSyncDates,
-    isLastSyncDateExpired
+    isLastSyncDateExpired,
+    isTcfApiAvailable,
+    appendGdprConsentUrl
 } from '../../src/cookieSyncManager';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { testMPID } from '../src/config/constants';
@@ -390,7 +392,8 @@ describe('CookieSyncManager', () => {
                 filteringConsentRuleValues: {
                     values: ['test'],
                 },
-            } as unknown as IPixelConfiguration;            const loggerSpy = jest.fn();
+            } as unknown as IPixelConfiguration;
+            const loggerSpy = jest.fn();
 
             const mockMPInstance = ({
                 _Store: {
@@ -551,6 +554,111 @@ describe('CookieSyncManager', () => {
         it('should return false if lastSyncDate is beyond the frequencyCap', () => {
             const lastSyncDate = new Date().getTime();  // now
             expect(isLastSyncDateExpired(frequencyCap, lastSyncDate)).toBe(false);
+        });
+    });
+
+    describe('#isTcfApiAvailable', () => {
+        it('should return true if window.__tcfapi exists on the page', () => {
+            window.__tcfapi = jest.fn();
+            expect(isTcfApiAvailable()).toBe(true)
+        });
+    });
+
+    describe('#appendGdprConsentUrl', () => {
+        const mockUrl = 'https://example.com/cookie-sync';
+
+        beforeEach(() => {
+            global.window.__tcfapi = jest.fn();
+        })
+
+        afterEach(() => {
+            jest.clearAllMocks();
+        })
+
+        it('should append GDPR parameters to the URL if __tcfapi callback succeeds', async () => {
+            // Mock __tcfapi to call the callback with success
+            (window.__tcfapi as jest.Mock).mockImplementation((
+                command,
+                version,
+                callback
+            ) => {
+                expect(command).toBe('getInAppTCData');
+                expect(version).toBe(2);
+                // Simulate a successful response
+                callback(
+                    { gdprApplies: true, tcString: 'test-consent-string' },
+                    true
+                );
+            });
+
+            const fullUrl = await appendGdprConsentUrl(mockUrl);
+
+            expect(fullUrl).toBe(
+                `${mockUrl}&gdpr=1&gdpr_consent=test-consent-string`,
+            );
+        });
+
+        it('should return only the base url if the __tcfapi callback fails to get tcData', async () => {
+            // Mock __tcfapi to call the callback with failure
+            (window.__tcfapi as jest.Mock).mockImplementation((command, version, callback) => {
+                callback(null, false); // Simulate a failure
+            });
+
+            const fullUrl = await appendGdprConsentUrl(mockUrl);
+            // Assert that the fallback method was called with the original URL
+            expect(fullUrl).toBe(mockUrl);
+        });
+
+        it('should handle exceptions thrown by __tcfapi gracefully', async () => {
+            // Mock __tcfapi to throw an error
+            (window.__tcfapi as jest.Mock).mockImplementation(() => {
+                throw new Error('Test Error');
+            });
+
+            await expect(appendGdprConsentUrl(mockUrl)).rejects.toThrow('Test Error');
+        });
+
+        describe('#processPixelConfig', () => {
+            it('should handle errors properly when calling attemptCookieSync and the callback fails', async () => {
+                (window.__tcfapi as jest.Mock).mockImplementation(() => {
+                    throw new Error('Test Error');
+                });
+                const mpInstance = ({
+                    _Store: {
+                        webviewBridgeEnabled: false,
+                        pixelConfigurations: [pixelSettings],
+                    },
+                    _Consent: {
+                        isEnabledForUserConsent: jest.fn().mockReturnValue(true),
+                    },
+                    Identity: {
+                        getCurrentUser: jest.fn().mockReturnValue({
+                            getMPID: () => testMPID,
+                        }),
+                    },
+                    Logger: {
+                        verbose: jest.fn(),
+                        error: jest.fn(),
+                    },
+                } as unknown) as MParticleWebSDK;
+
+                const cookieSyncManager = new CookieSyncManager(mpInstance);
+                cookieSyncManager.performCookieSync = jest.fn();
+
+                await cookieSyncManager.processPixelConfig(
+                    pixelSettings,
+                    {},
+                    testMPID,
+                    true,
+                );
+    
+                expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
+                    pixelUrlAndRedirectUrl,
+                    '5',
+                    testMPID,
+                    {},
+                );
+            });
         });
     });
 });
