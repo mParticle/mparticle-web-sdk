@@ -565,26 +565,9 @@ describe('CookieSyncManager', () => {
     });
 
     describe('#appendGdprConsentUrl', () => {
-        const verboseLoggerSpy = jest.fn();
-        const errorLoggerSpy = jest.fn();
         const mockUrl = 'https://example.com/cookie-sync';
 
-        let cookieSyncManager: any;
-        const mockMpInstance = ({
-            Logger: {
-                verbose: verboseLoggerSpy,
-                error: errorLoggerSpy
-            },
-            _Persistence: {
-                saveUserCookieSyncDatesToPersistence: jest.fn(),
-            },
-            Identity: {
-                getCurrentUser: jest.fn(),
-            },
-        } as unknown) as MParticleWebSDK;
-
         beforeEach(() => {
-            cookieSyncManager = new CookieSyncManager(mockMpInstance);
             global.window.__tcfapi = jest.fn();
         })
 

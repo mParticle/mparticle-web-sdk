@@ -6,7 +6,7 @@ import {
 } from './utils';
 import Constants from './constants';
 import { MParticleWebSDK } from './sdkRuntimeModels';
-import { Logger, MPID } from '@mparticle/web-sdk';
+import { MPID } from '@mparticle/web-sdk';
 import { IConsentRules } from './consent';
 import { IPersistenceMinified } from './persistence.interfaces';
 
@@ -19,7 +19,14 @@ export type CookieSyncDates = Dictionary<number>;
 
 declare global {
     interface Window {
-        __tcfapi: any;
+        __tcfapi: (
+            functionName: string,
+            version: number,
+            TCFcallback: (
+                inAppTCData: TCData,
+                success: boolean
+            ) => void
+        ) => void;
     }
 }
 
