@@ -393,7 +393,7 @@ var mParticle = (function () {
         return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     };
 
-    var version = "2.32.1";
+    var version = "2.32.2";
 
     var Constants = {
       sdkVersion: version,
@@ -571,7 +571,7 @@ var mParticle = (function () {
     var HTTP_OK = 200;
     var HTTP_ACCEPTED = 202;
 
-    var Messages$a = Constants.Messages;
+    var Messages$9 = Constants.Messages;
     var createCookieString = function createCookieString(value) {
       return replaceCommasWithPipes(replaceQuotesWithApostrophes(value));
     };
@@ -602,10 +602,10 @@ var mParticle = (function () {
       return null;
     };
     var generateDeprecationMessage = function generateDeprecationMessage(methodName, alternateMethod) {
-      var messageArray = [methodName, Messages$a.DeprecationMessages.MethodIsDeprecatedPostfix];
+      var messageArray = [methodName, Messages$9.DeprecationMessages.MethodIsDeprecatedPostfix];
       if (alternateMethod) {
         messageArray.push(alternateMethod);
-        messageArray.push(Messages$a.DeprecationMessages.MethodIsDeprecatedPostfix);
+        messageArray.push(Messages$9.DeprecationMessages.MethodIsDeprecatedPostfix);
       }
       return messageArray.join(' ');
     };
@@ -3184,7 +3184,7 @@ var mParticle = (function () {
       this.Validators = Validators;
     }
 
-    var Messages$9 = Constants.Messages;
+    var Messages$8 = Constants.Messages;
     var androidBridgeNameBase = 'mParticleAndroid';
     var iosBridgeNameBase = 'mParticle';
     function NativeSdkHelpers(mpInstance) {
@@ -3267,10 +3267,10 @@ var mParticle = (function () {
       };
       this.sendViaBridgeV1 = function (path, value) {
         if (window.mParticleAndroid && window.mParticleAndroid.hasOwnProperty(path)) {
-          mpInstance.Logger.verbose(Messages$9.InformationMessages.SendAndroid + path);
+          mpInstance.Logger.verbose(Messages$8.InformationMessages.SendAndroid + path);
           window.mParticleAndroid[path](value);
         } else if (mpInstance._Store.SDKConfig.isIOS) {
-          mpInstance.Logger.verbose(Messages$9.InformationMessages.SendIOS + path);
+          mpInstance.Logger.verbose(Messages$8.InformationMessages.SendIOS + path);
           self.sendViaIframeToIOS(path, value);
         }
       };
@@ -3296,24 +3296,24 @@ var mParticle = (function () {
           iOSBridgeNonMessageHandler = mpInstance[iosBridgeName];
         }
         if (androidBridge && androidBridge.hasOwnProperty(path)) {
-          mpInstance.Logger.verbose(Messages$9.InformationMessages.SendAndroid + path);
+          mpInstance.Logger.verbose(Messages$8.InformationMessages.SendAndroid + path);
           androidBridge[path](value);
           return;
         } else if (iOSBridgeMessageHandler) {
-          mpInstance.Logger.verbose(Messages$9.InformationMessages.SendIOS + path);
+          mpInstance.Logger.verbose(Messages$8.InformationMessages.SendIOS + path);
           iOSBridgeMessageHandler.postMessage(JSON.stringify({
             path: path,
             value: value ? JSON.parse(value) : null
           }));
         } else if (iOSBridgeNonMessageHandler) {
-          mpInstance.Logger.verbose(Messages$9.InformationMessages.SendIOS + path);
+          mpInstance.Logger.verbose(Messages$8.InformationMessages.SendIOS + path);
           self.sendViaIframeToIOS(path, value);
         }
       };
     }
 
-    var Messages$8 = Constants.Messages;
-    var InformationMessages = Messages$8.InformationMessages;
+    var Messages$7 = Constants.Messages;
+    var InformationMessages = Messages$7.InformationMessages;
     var DAYS_IN_MILLISECONDS = 1000 * 60 * 60 * 24;
     function CookieSyncManager(mpInstance) {
       var self = this;
@@ -3388,7 +3388,7 @@ var mParticle = (function () {
       return new Date().getTime() > new Date(lastSyncDate).getTime() + frequencyCap * DAYS_IN_MILLISECONDS;
     };
 
-    var Messages$7 = Constants.Messages;
+    var Messages$6 = Constants.Messages;
     function SessionManager(mpInstance) {
       var self = this;
       this.initialize = function () {
@@ -3419,7 +3419,7 @@ var mParticle = (function () {
         return mpInstance._Store.sessionId;
       };
       this.startNewSession = function () {
-        mpInstance.Logger.verbose(Messages$7.InformationMessages.StartingNewSession);
+        mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingNewSession);
         if (mpInstance._Helpers.canLog()) {
           mpInstance._Store.sessionId = mpInstance._Helpers.generateUniqueId().toUpperCase();
           var currentUser = mpInstance.Identity.getCurrentUser();
@@ -3442,12 +3442,12 @@ var mParticle = (function () {
             messageType: Types.MessageType.SessionStart
           });
         } else {
-          mpInstance.Logger.verbose(Messages$7.InformationMessages.AbandonStartSession);
+          mpInstance.Logger.verbose(Messages$6.InformationMessages.AbandonStartSession);
         }
       };
       this.endSession = function (override) {
         var _a;
-        mpInstance.Logger.verbose(Messages$7.InformationMessages.StartingEndSession);
+        mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingEndSession);
         if (override) {
           mpInstance._Events.logEvent({
             messageType: Types.MessageType.SessionEnd
@@ -3460,14 +3460,14 @@ var mParticle = (function () {
           // - the SDK's store is not enabled because mParticle.setOptOut was called
           // - the devToken is undefined
           // - webviewBridgeEnabled is set to false
-          mpInstance.Logger.verbose(Messages$7.InformationMessages.AbandonEndSession);
+          mpInstance.Logger.verbose(Messages$6.InformationMessages.AbandonEndSession);
           return;
         }
         var sessionTimeoutInMilliseconds;
         var timeSinceLastEventSent;
         var cookies = mpInstance._Persistence.getPersistence();
         if (!cookies || cookies.gs && !cookies.gs.sid) {
-          mpInstance.Logger.verbose(Messages$7.InformationMessages.NoSessionToEnd);
+          mpInstance.Logger.verbose(Messages$6.InformationMessages.NoSessionToEnd);
           return;
         }
         // sessionId is not equal to cookies.sid if cookies.sid is changed in another tab
@@ -3522,7 +3522,7 @@ var mParticle = (function () {
       };
     }
 
-    var Messages$6 = Constants.Messages;
+    var Messages$5 = Constants.Messages;
     function Ecommerce(mpInstance) {
       var self = this;
       this.convertTransactionAttributesToProductAction = function (transactionAttributes, productAction) {
@@ -3754,7 +3754,7 @@ var mParticle = (function () {
       };
       this.createPromotion = function (id, creative, name, position) {
         if (!mpInstance._Helpers.Validators.isStringOrNumber(id)) {
-          mpInstance.Logger.error(Messages$6.ErrorMessages.PromotionIdRequired);
+          mpInstance.Logger.error(Messages$5.ErrorMessages.PromotionIdRequired);
           return null;
         }
         return {
@@ -3780,7 +3780,7 @@ var mParticle = (function () {
       };
       this.createTransactionAttributes = function (id, affiliation, couponCode, revenue, shipping, tax) {
         if (!mpInstance._Helpers.Validators.isStringOrNumber(id)) {
-          mpInstance.Logger.error(Messages$6.ErrorMessages.TransactionIdRequired);
+          mpInstance.Logger.error(Messages$5.ErrorMessages.TransactionIdRequired);
           return null;
         }
         return {
@@ -3896,7 +3896,7 @@ var mParticle = (function () {
         var baseEvent;
         // https://go.mparticle.com/work/SQDSDKS-4801
         var extend = mpInstance._Helpers.extend;
-        mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingLogCommerceEvent);
+        mpInstance.Logger.verbose(Messages$5.InformationMessages.StartingLogCommerceEvent);
         if (mpInstance._Helpers.canLog()) {
           baseEvent = mpInstance._ServerModel.createEventObject({
             messageType: Types.MessageType.Commerce,
@@ -3908,7 +3908,7 @@ var mParticle = (function () {
           baseEvent.CustomFlags = extend(baseEvent.CustomFlags, customFlags);
           return baseEvent;
         } else {
-          mpInstance.Logger.verbose(Messages$6.InformationMessages.AbandonLogEvent);
+          mpInstance.Logger.verbose(Messages$5.InformationMessages.AbandonLogEvent);
         }
         return null;
       };
@@ -4416,7 +4416,7 @@ var mParticle = (function () {
     }
 
     var Base64 = Polyfill.Base64,
-      Messages$5 = Constants.Messages,
+      Messages$4 = Constants.Messages,
       Base64CookieKeys = Constants.Base64CookieKeys,
       SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys,
       StorageNames = Constants.StorageNames;
@@ -4539,7 +4539,7 @@ var mParticle = (function () {
           try {
             mpInstance._Store.cartProducts = products[mpid] && products[mpid].cp ? products[mpid].cp : [];
           } catch (e) {
-            mpInstance.Logger.error(Messages$5.ErrorMessages.CookieParseError);
+            mpInstance.Logger.error(Messages$4.ErrorMessages.CookieParseError);
           }
         }
       };
@@ -4548,7 +4548,7 @@ var mParticle = (function () {
       this.storeDataInMemory = function (obj, currentMPID) {
         try {
           if (!obj) {
-            mpInstance.Logger.verbose(Messages$5.InformationMessages.CookieNotFound);
+            mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieNotFound);
             mpInstance._Store.clientId = mpInstance._Store.clientId || mpInstance._Helpers.generateUniqueId();
             mpInstance._Store.deviceId = mpInstance._Store.deviceId || mpInstance._Helpers.generateUniqueId();
           } else {
@@ -4593,7 +4593,7 @@ var mParticle = (function () {
             }
           }
         } catch (e) {
-          mpInstance.Logger.error(Messages$5.ErrorMessages.CookieParseError);
+          mpInstance.Logger.error(Messages$4.ErrorMessages.CookieParseError);
         }
       };
 
@@ -4766,7 +4766,7 @@ var mParticle = (function () {
           name,
           cookie,
           result = key ? undefined : {};
-        mpInstance.Logger.verbose(Messages$5.InformationMessages.CookieSearch);
+        mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieSearch);
         for (i = 0, l = cookies.length; i < l; i++) {
           try {
             parts = cookies[i].split('=');
@@ -4784,7 +4784,7 @@ var mParticle = (function () {
           }
         }
         if (result) {
-          mpInstance.Logger.verbose(Messages$5.InformationMessages.CookieFound);
+          mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieFound);
           return JSON.parse(self.decodePersistence(result));
         } else {
           return null;
@@ -4826,7 +4826,7 @@ var mParticle = (function () {
           mpInstance._Store.nonCurrentUserMPIDs = {};
         }
         encodedCookiesWithExpirationAndPath = self.reduceAndEncodePersistence(cookies, expires, domain, mpInstance._Store.SDKConfig.maxCookieSize);
-        mpInstance.Logger.verbose(Messages$5.InformationMessages.CookieSet);
+        mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieSet);
         window.document.cookie = encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
       };
 
@@ -5220,16 +5220,16 @@ var mParticle = (function () {
       };
     }
 
-    var Messages$4 = Constants.Messages;
+    var Messages$3 = Constants.Messages;
     function Events(mpInstance) {
       var self = this;
       this.logEvent = function (event, options) {
-        mpInstance.Logger.verbose(Messages$4.InformationMessages.StartingLogEvent + ': ' + event.name);
+        mpInstance.Logger.verbose(Messages$3.InformationMessages.StartingLogEvent + ': ' + event.name);
         if (mpInstance._Helpers.canLog()) {
           var uploadObject = mpInstance._ServerModel.createEventObject(event);
           mpInstance._APIClient.sendEventToServer(uploadObject, options);
         } else {
-          mpInstance.Logger.verbose(Messages$4.InformationMessages.AbandonLogEvent);
+          mpInstance.Logger.verbose(Messages$3.InformationMessages.AbandonLogEvent);
         }
       };
       this.startTracking = function (callback) {
@@ -5285,7 +5285,7 @@ var mParticle = (function () {
         }
       };
       this.logOptOut = function () {
-        mpInstance.Logger.verbose(Messages$4.InformationMessages.StartingLogOptOut);
+        mpInstance.Logger.verbose(Messages$3.InformationMessages.StartingLogOptOut);
         var event = mpInstance._ServerModel.createEventObject({
           messageType: Types.MessageType.OptOut,
           eventType: Types.EventType.Other
@@ -5356,7 +5356,7 @@ var mParticle = (function () {
       };
       this.logRefundEvent = function (transactionAttributes, product, attrs, customFlags) {
         if (!transactionAttributes) {
-          mpInstance.Logger.error(Messages$4.ErrorMessages.TransactionRequired);
+          mpInstance.Logger.error(Messages$3.ErrorMessages.TransactionRequired);
           return;
         }
         var event = mpInstance._Ecommerce.createCommerceEventObject(customFlags);
@@ -5402,7 +5402,7 @@ var mParticle = (function () {
         }
       };
       this.logCommerceEvent = function (commerceEvent, attrs, options) {
-        mpInstance.Logger.verbose(Messages$4.InformationMessages.StartingLogCommerceEvent);
+        mpInstance.Logger.verbose(Messages$3.InformationMessages.StartingLogCommerceEvent);
 
         // If a developer typos the ProductActionType, the event category will be
         // null, resulting in kit forwarding errors on the server.
@@ -5426,7 +5426,7 @@ var mParticle = (function () {
           // https://go.mparticle.com/work/SQDSDKS-6038
           mpInstance._Persistence.update();
         } else {
-          mpInstance.Logger.verbose(Messages$4.InformationMessages.AbandonLogEvent);
+          mpInstance.Logger.verbose(Messages$3.InformationMessages.AbandonLogEvent);
         }
       };
       this.addEventHandler = function (domEvent, selector, eventName, data, eventType) {
@@ -7063,16 +7063,16 @@ var mParticle = (function () {
       }
     };
 
-    var Messages$3 = Constants.Messages,
-      HTTPCodes$3 = Constants.HTTPCodes,
+    var Messages$2 = Constants.Messages,
+      HTTPCodes$2 = Constants.HTTPCodes,
       FeatureFlags$1 = Constants.FeatureFlags,
-      IdentityMethods = Constants.IdentityMethods;
-    var ErrorMessages = Messages$3.ErrorMessages;
+      IdentityMethods$1 = Constants.IdentityMethods;
+    var ErrorMessages = Messages$2.ErrorMessages;
     var CacheIdentity = FeatureFlags$1.CacheIdentity;
-    var Identify = IdentityMethods.Identify,
-      Modify$1 = IdentityMethods.Modify,
-      Login = IdentityMethods.Login,
-      Logout = IdentityMethods.Logout;
+    var Identify = IdentityMethods$1.Identify,
+      Modify$1 = IdentityMethods$1.Modify,
+      Login = IdentityMethods$1.Login,
+      Logout = IdentityMethods$1.Logout;
     function Identity(mpInstance) {
       var _mpInstance$_Helpers = mpInstance._Helpers,
         getFeatureFlag = _mpInstance$_Helpers.getFeatureFlag,
@@ -7084,7 +7084,7 @@ var mParticle = (function () {
       // https://go.mparticle.com/work/SQDSDKS-6353
       this.IdentityRequest = {
         preProcessIdentityRequest: function preProcessIdentityRequest(identityApiData, callback, method) {
-          mpInstance.Logger.verbose(Messages$3.InformationMessages.StartingLogEvent + ': ' + method);
+          mpInstance.Logger.verbose(Messages$2.InformationMessages.StartingLogEvent + ': ' + method);
           var identityValidationResult = mpInstance._Helpers.Validators.validateIdentities(identityApiData, method);
           if (!identityValidationResult.valid) {
             mpInstance.Logger.error('ERROR: ' + identityValidationResult.error);
@@ -7209,7 +7209,7 @@ var mParticle = (function () {
        * @class mParticle.Identity
        */
       this.IdentityAPI = {
-        HTTPCodes: HTTPCodes$3,
+        HTTPCodes: HTTPCodes$2,
         /**
          * Initiate a logout request to the mParticle server
          * @method identify
@@ -7235,16 +7235,16 @@ var mParticle = (function () {
             if (mpInstance._Helpers.canLog()) {
               if (mpInstance._Store.webviewBridgeEnabled) {
                 mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Identify, JSON.stringify(mpInstance._Identity.IdentityRequest.convertToNative(identityApiData)));
-                mpInstance._Helpers.invokeCallback(callback, HTTPCodes$3.nativeIdentityRequest, 'Identify request sent to native sdk');
+                mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.nativeIdentityRequest, 'Identify request sent to native sdk');
               } else {
                 mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, Identify, callback, identityApiData, self.parseIdentityResponse, mpid, identityApiRequest.known_identities);
               }
             } else {
-              mpInstance._Helpers.invokeCallback(callback, HTTPCodes$3.loggingDisabledOrMissingAPIKey, Messages$3.InformationMessages.AbandonLogEvent);
-              mpInstance.Logger.verbose(Messages$3.InformationMessages.AbandonLogEvent);
+              mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.loggingDisabledOrMissingAPIKey, Messages$2.InformationMessages.AbandonLogEvent);
+              mpInstance.Logger.verbose(Messages$2.InformationMessages.AbandonLogEvent);
             }
           } else {
-            mpInstance._Helpers.invokeCallback(callback, HTTPCodes$3.validationIssue, preProcessResult.error);
+            mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.validationIssue, preProcessResult.error);
             mpInstance.Logger.verbose(preProcessResult);
           }
         },
@@ -7268,7 +7268,7 @@ var mParticle = (function () {
             if (mpInstance._Helpers.canLog()) {
               if (mpInstance._Store.webviewBridgeEnabled) {
                 mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Logout, JSON.stringify(mpInstance._Identity.IdentityRequest.convertToNative(identityApiData)));
-                mpInstance._Helpers.invokeCallback(callback, HTTPCodes$3.nativeIdentityRequest, 'Logout request sent to native sdk');
+                mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.nativeIdentityRequest, 'Logout request sent to native sdk');
               } else {
                 mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, Logout, callback, identityApiData, self.parseIdentityResponse, mpid);
                 evt = mpInstance._ServerModel.createEventObject({
@@ -7284,11 +7284,11 @@ var mParticle = (function () {
                 }
               }
             } else {
-              mpInstance._Helpers.invokeCallback(callback, HTTPCodes$3.loggingDisabledOrMissingAPIKey, Messages$3.InformationMessages.AbandonLogEvent);
-              mpInstance.Logger.verbose(Messages$3.InformationMessages.AbandonLogEvent);
+              mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.loggingDisabledOrMissingAPIKey, Messages$2.InformationMessages.AbandonLogEvent);
+              mpInstance.Logger.verbose(Messages$2.InformationMessages.AbandonLogEvent);
             }
           } else {
-            mpInstance._Helpers.invokeCallback(callback, HTTPCodes$3.validationIssue, preProcessResult.error);
+            mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.validationIssue, preProcessResult.error);
             mpInstance.Logger.verbose(preProcessResult);
           }
         },
@@ -7317,16 +7317,16 @@ var mParticle = (function () {
             if (mpInstance._Helpers.canLog()) {
               if (mpInstance._Store.webviewBridgeEnabled) {
                 mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Login, JSON.stringify(mpInstance._Identity.IdentityRequest.convertToNative(identityApiData)));
-                mpInstance._Helpers.invokeCallback(callback, HTTPCodes$3.nativeIdentityRequest, 'Login request sent to native sdk');
+                mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.nativeIdentityRequest, 'Login request sent to native sdk');
               } else {
                 mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, Login, callback, identityApiData, self.parseIdentityResponse, mpid, identityApiRequest.known_identities);
               }
             } else {
-              mpInstance._Helpers.invokeCallback(callback, HTTPCodes$3.loggingDisabledOrMissingAPIKey, Messages$3.InformationMessages.AbandonLogEvent);
-              mpInstance.Logger.verbose(Messages$3.InformationMessages.AbandonLogEvent);
+              mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.loggingDisabledOrMissingAPIKey, Messages$2.InformationMessages.AbandonLogEvent);
+              mpInstance.Logger.verbose(Messages$2.InformationMessages.AbandonLogEvent);
             }
           } else {
-            mpInstance._Helpers.invokeCallback(callback, HTTPCodes$3.validationIssue, preProcessResult.error);
+            mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.validationIssue, preProcessResult.error);
             mpInstance.Logger.verbose(preProcessResult);
           }
         },
@@ -7350,16 +7350,16 @@ var mParticle = (function () {
             if (mpInstance._Helpers.canLog()) {
               if (mpInstance._Store.webviewBridgeEnabled) {
                 mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Modify, JSON.stringify(mpInstance._Identity.IdentityRequest.convertToNative(identityApiData)));
-                mpInstance._Helpers.invokeCallback(callback, HTTPCodes$3.nativeIdentityRequest, 'Modify request sent to native sdk');
+                mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.nativeIdentityRequest, 'Modify request sent to native sdk');
               } else {
                 mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, Modify$1, callback, identityApiData, self.parseIdentityResponse, mpid, identityApiRequest.known_identities);
               }
             } else {
-              mpInstance._Helpers.invokeCallback(callback, HTTPCodes$3.loggingDisabledOrMissingAPIKey, Messages$3.InformationMessages.AbandonLogEvent);
-              mpInstance.Logger.verbose(Messages$3.InformationMessages.AbandonLogEvent);
+              mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.loggingDisabledOrMissingAPIKey, Messages$2.InformationMessages.AbandonLogEvent);
+              mpInstance.Logger.verbose(Messages$2.InformationMessages.AbandonLogEvent);
             }
           } else {
-            mpInstance._Helpers.invokeCallback(callback, HTTPCodes$3.validationIssue, preProcessResult.error);
+            mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.validationIssue, preProcessResult.error);
             mpInstance.Logger.verbose(preProcessResult);
           }
         },
@@ -7438,34 +7438,34 @@ var mParticle = (function () {
         aliasUsers: function aliasUsers(aliasRequest, callback) {
           var message;
           if (!aliasRequest.destinationMpid || !aliasRequest.sourceMpid) {
-            message = Messages$3.ValidationMessages.AliasMissingMpid;
+            message = Messages$2.ValidationMessages.AliasMissingMpid;
           }
           if (aliasRequest.destinationMpid === aliasRequest.sourceMpid) {
-            message = Messages$3.ValidationMessages.AliasNonUniqueMpid;
+            message = Messages$2.ValidationMessages.AliasNonUniqueMpid;
           }
           if (!aliasRequest.startTime || !aliasRequest.endTime) {
-            message = Messages$3.ValidationMessages.AliasMissingTime;
+            message = Messages$2.ValidationMessages.AliasMissingTime;
           }
           if (aliasRequest.startTime > aliasRequest.endTime) {
-            message = Messages$3.ValidationMessages.AliasStartBeforeEndTime;
+            message = Messages$2.ValidationMessages.AliasStartBeforeEndTime;
           }
           if (message) {
             mpInstance.Logger.warning(message);
-            mpInstance._Helpers.invokeAliasCallback(callback, HTTPCodes$3.validationIssue, message);
+            mpInstance._Helpers.invokeAliasCallback(callback, HTTPCodes$2.validationIssue, message);
             return;
           }
           if (mpInstance._Helpers.canLog()) {
             if (mpInstance._Store.webviewBridgeEnabled) {
               mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Alias, JSON.stringify(mpInstance._Identity.IdentityRequest.convertAliasToNative(aliasRequest)));
-              mpInstance._Helpers.invokeAliasCallback(callback, HTTPCodes$3.nativeIdentityRequest, 'Alias request sent to native sdk');
+              mpInstance._Helpers.invokeAliasCallback(callback, HTTPCodes$2.nativeIdentityRequest, 'Alias request sent to native sdk');
             } else {
-              mpInstance.Logger.verbose(Messages$3.InformationMessages.StartingAliasRequest + ': ' + aliasRequest.sourceMpid + ' -> ' + aliasRequest.destinationMpid);
+              mpInstance.Logger.verbose(Messages$2.InformationMessages.StartingAliasRequest + ': ' + aliasRequest.sourceMpid + ' -> ' + aliasRequest.destinationMpid);
               var aliasRequestMessage = mpInstance._Identity.IdentityRequest.createAliasNetworkRequest(aliasRequest);
               mpInstance._IdentityAPIClient.sendAliasRequest(aliasRequestMessage, callback);
             }
           } else {
-            mpInstance._Helpers.invokeAliasCallback(callback, HTTPCodes$3.loggingDisabledOrMissingAPIKey, Messages$3.InformationMessages.AbandonAliasUsers);
-            mpInstance.Logger.verbose(Messages$3.InformationMessages.AbandonAliasUsers);
+            mpInstance._Helpers.invokeAliasCallback(callback, HTTPCodes$2.loggingDisabledOrMissingAPIKey, Messages$2.InformationMessages.AbandonAliasUsers);
+            mpInstance.Logger.verbose(Messages$2.InformationMessages.AbandonAliasUsers);
           }
         },
         /**
@@ -7560,7 +7560,7 @@ var mParticle = (function () {
            */
           setUserTag: function setUserTag(tagName) {
             if (!mpInstance._Helpers.Validators.isValidKeyValue(tagName)) {
-              mpInstance.Logger.error(Messages$3.ErrorMessages.BadKey);
+              mpInstance.Logger.error(Messages$2.ErrorMessages.BadKey);
               return;
             }
             this.setUserAttribute(tagName, null);
@@ -7572,7 +7572,7 @@ var mParticle = (function () {
            */
           removeUserTag: function removeUserTag(tagName) {
             if (!mpInstance._Helpers.Validators.isValidKeyValue(tagName)) {
-              mpInstance.Logger.error(Messages$3.ErrorMessages.BadKey);
+              mpInstance.Logger.error(Messages$2.ErrorMessages.BadKey);
               return;
             }
             this.removeUserAttribute(tagName);
@@ -7589,11 +7589,11 @@ var mParticle = (function () {
             mpInstance._SessionManager.resetSessionTimer();
             if (mpInstance._Helpers.canLog()) {
               if (!mpInstance._Helpers.Validators.isValidAttributeValue(newValue)) {
-                mpInstance.Logger.error(Messages$3.ErrorMessages.BadAttribute);
+                mpInstance.Logger.error(Messages$2.ErrorMessages.BadAttribute);
                 return;
               }
               if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
-                mpInstance.Logger.error(Messages$3.ErrorMessages.BadKey);
+                mpInstance.Logger.error(Messages$2.ErrorMessages.BadKey);
                 return;
               }
               if (mpInstance._Store.webviewBridgeEnabled) {
@@ -7650,7 +7650,7 @@ var mParticle = (function () {
             var cookies, userAttributes;
             mpInstance._SessionManager.resetSessionTimer();
             if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
-              mpInstance.Logger.error(Messages$3.ErrorMessages.BadKey);
+              mpInstance.Logger.error(Messages$2.ErrorMessages.BadKey);
               return;
             }
             if (mpInstance._Store.webviewBridgeEnabled) {
@@ -7686,7 +7686,7 @@ var mParticle = (function () {
           setUserAttributeList: function setUserAttributeList(key, newValue) {
             mpInstance._SessionManager.resetSessionTimer();
             if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
-              mpInstance.Logger.error(Messages$3.ErrorMessages.BadKey);
+              mpInstance.Logger.error(Messages$2.ErrorMessages.BadKey);
               return;
             }
             if (!Array.isArray(newValue)) {
@@ -8051,7 +8051,7 @@ var mParticle = (function () {
             self.sendUserIdentityChangeEvent(newIdentitiesByName, method, identityApiResult.mpid, uiByName);
           }
           if (callback) {
-            var callbackCode = identityResponse.status === 0 ? HTTPCodes$3.noHttpCoverage : identityResponse.status;
+            var callbackCode = identityResponse.status === 0 ? HTTPCodes$2.noHttpCoverage : identityResponse.status;
             mpInstance._Helpers.invokeCallback(callback, callbackCode, identityApiResult || null, newUser);
           } else if (identityApiResult && !isEmpty(identityApiResult.errors)) {
             // https://go.mparticle.com/work/SQDSDKS-6500
@@ -9000,131 +9000,109 @@ var mParticle = (function () {
       };
     }
 
-    var HTTPCodes$2 = Constants.HTTPCodes,
-      Messages$2 = Constants.Messages;
-    var sendAliasRequest = function sendAliasRequest(mpInstance, aliasRequest, aliasCallback) {
-      return __awaiter(this, void 0, void 0, function () {
-        var _a, verbose, error, invokeAliasCallback, aliasUrl, apiKey, uploadUrl, uploader, uploadPayload, response, message, aliasResponseBody, xhrResponse, errorMessage, e_2, err;
-        return __generator(this, function (_b) {
-          switch (_b.label) {
-            case 0:
-              _a = mpInstance.Logger, verbose = _a.verbose, error = _a.error;
-              invokeAliasCallback = mpInstance._Helpers.invokeAliasCallback;
-              aliasUrl = mpInstance._Store.SDKConfig.aliasUrl;
-              apiKey = mpInstance._Store.devToken;
-              verbose(Messages$2.InformationMessages.SendAliasHttp);
-              uploadUrl = "https://".concat(aliasUrl).concat(apiKey, "/Alias");
-              uploader = window.fetch ? new FetchUploader(uploadUrl) : new XHRUploader(uploadUrl);
-              uploadPayload = {
-                method: 'post',
-                headers: {
-                  Accept: 'text/plain;charset=UTF-8',
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(aliasRequest)
-              };
-              _b.label = 1;
-            case 1:
-              _b.trys.push([1, 9,, 10]);
-              return [4 /*yield*/, uploader.upload(uploadPayload)];
-            case 2:
-              response = _b.sent();
-              message = void 0;
-              aliasResponseBody = void 0;
-              if (!response.json) return [3 /*break*/, 7];
-              _b.label = 3;
-            case 3:
-              _b.trys.push([3, 5,, 6]);
-              return [4 /*yield*/, response.json()];
-            case 4:
-              aliasResponseBody = _b.sent();
-              return [3 /*break*/, 6];
-            case 5:
-              _b.sent();
-              verbose('The request has no response body');
-              return [3 /*break*/, 6];
-            case 6:
-              return [3 /*break*/, 8];
-            case 7:
-              xhrResponse = response;
-              aliasResponseBody = xhrResponse.responseText ? JSON.parse(xhrResponse.responseText) : '';
-              _b.label = 8;
-            case 8:
-              errorMessage = void 0;
-              switch (response.status) {
-                case HTTP_OK:
-                case HTTP_ACCEPTED:
-                  // https://go.mparticle.com/work/SQDSDKS-6670
-                  message = 'Successfully sent forwarding stats to mParticle Servers';
-                  break;
-                default:
-                  // 400 has an error message, but 403 doesn't
-                  if (aliasResponseBody === null || aliasResponseBody === void 0 ? void 0 : aliasResponseBody.message) {
-                    errorMessage = aliasResponseBody.message;
-                  }
-                  message = 'Issue with sending Alias Request to mParticle Servers, received HTTP Code of ' + response.status;
-              }
-              verbose(message);
-              invokeAliasCallback(aliasCallback, response.status, errorMessage);
-              return [3 /*break*/, 10];
-            case 9:
-              e_2 = _b.sent();
-              err = e_2;
-              error('Error sending alias request to mParticle servers. ' + err);
-              invokeAliasCallback(aliasCallback, HTTPCodes$2.noHttpCoverage, err.message);
-              return [3 /*break*/, 10];
-            case 10:
-              return [2 /*return*/];
-          }
-        });
-      });
-    };
-
     var HTTPCodes$1 = Constants.HTTPCodes,
-      Messages$1 = Constants.Messages;
-    var Modify = Constants.IdentityMethods.Modify;
+      Messages$1 = Constants.Messages,
+      IdentityMethods = Constants.IdentityMethods;
+    var Modify = IdentityMethods.Modify;
     function IdentityAPIClient(mpInstance) {
-      this.sendAliasRequest = /*#__PURE__*/function () {
-        var _ref = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee(aliasRequest, callback) {
-          return _regeneratorRuntime.wrap(function _callee$(_context) {
-            while (1) switch (_context.prev = _context.next) {
+      this.sendAliasRequest = function (aliasRequest, aliasCallback) {
+        return __awaiter(this, void 0, void 0, function () {
+          var _a, verbose, error, invokeAliasCallback, aliasUrl, apiKey, uploadUrl, uploader, uploadPayload, response, message, aliasResponseBody, xhrResponse, errorMessage, e_2, err;
+          return __generator(this, function (_b) {
+            switch (_b.label) {
               case 0:
-                _context.next = 2;
-                return sendAliasRequest(mpInstance, aliasRequest, callback);
+                _a = mpInstance.Logger, verbose = _a.verbose, error = _a.error;
+                invokeAliasCallback = mpInstance._Helpers.invokeAliasCallback;
+                aliasUrl = mpInstance._Store.SDKConfig.aliasUrl;
+                apiKey = mpInstance._Store.devToken;
+                verbose(Messages$1.InformationMessages.SendAliasHttp);
+                uploadUrl = "https://".concat(aliasUrl).concat(apiKey, "/Alias");
+                uploader = window.fetch ? new FetchUploader(uploadUrl) : new XHRUploader(uploadUrl);
+                uploadPayload = {
+                  method: 'post',
+                  headers: {
+                    Accept: 'text/plain;charset=UTF-8',
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify(aliasRequest)
+                };
+                _b.label = 1;
+              case 1:
+                _b.trys.push([1, 9,, 10]);
+                return [4 /*yield*/, uploader.upload(uploadPayload)];
               case 2:
-              case "end":
-                return _context.stop();
+                response = _b.sent();
+                message = void 0;
+                aliasResponseBody = void 0;
+                if (!response.json) return [3 /*break*/, 7];
+                _b.label = 3;
+              case 3:
+                _b.trys.push([3, 5,, 6]);
+                return [4 /*yield*/, response.json()];
+              case 4:
+                aliasResponseBody = _b.sent();
+                return [3 /*break*/, 6];
+              case 5:
+                _b.sent();
+                verbose('The request has no response body');
+                return [3 /*break*/, 6];
+              case 6:
+                return [3 /*break*/, 8];
+              case 7:
+                xhrResponse = response;
+                aliasResponseBody = xhrResponse.responseText ? JSON.parse(xhrResponse.responseText) : '';
+                _b.label = 8;
+              case 8:
+                errorMessage = void 0;
+                switch (response.status) {
+                  case HTTP_OK:
+                  case HTTP_ACCEPTED:
+                    // https://go.mparticle.com/work/SQDSDKS-6670
+                    message = 'Successfully sent forwarding stats to mParticle Servers';
+                    break;
+                  default:
+                    // 400 has an error message, but 403 doesn't
+                    if (aliasResponseBody === null || aliasResponseBody === void 0 ? void 0 : aliasResponseBody.message) {
+                      errorMessage = aliasResponseBody.message;
+                    }
+                    message = 'Issue with sending Alias Request to mParticle Servers, received HTTP Code of ' + response.status;
+                }
+                verbose(message);
+                invokeAliasCallback(aliasCallback, response.status, errorMessage);
+                return [3 /*break*/, 10];
+              case 9:
+                e_2 = _b.sent();
+                err = e_2;
+                error('Error sending alias request to mParticle servers. ' + err);
+                invokeAliasCallback(aliasCallback, HTTPCodes$1.noHttpCoverage, err.message);
+                return [3 /*break*/, 10];
+              case 10:
+                return [2 /*return*/];
             }
-          }, _callee);
-        }));
-        return function (_x, _x2) {
-          return _ref.apply(this, arguments);
-        };
-      }();
-      this.sendIdentityRequest = /*#__PURE__*/function () {
-        var _ref2 = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee2(identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid, knownIdentities) {
-          var _mpInstance$Logger, verbose, error, invokeCallback, previousMPID, uploadUrl, uploader, fetchPayload, response, identityResponse, responseBody;
-          return _regeneratorRuntime.wrap(function _callee2$(_context2) {
-            while (1) switch (_context2.prev = _context2.next) {
+          });
+        });
+      };
+
+      this.sendIdentityRequest = function (identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid, knownIdentities) {
+        return __awaiter(this, void 0, void 0, function () {
+          var _a, verbose, error, invokeCallback, previousMPID, uploadUrl, uploader, fetchPayload, response, identityResponse, responseBody, err_1, errorMessage;
+          return __generator(this, function (_b) {
+            switch (_b.label) {
               case 0:
-                _mpInstance$Logger = mpInstance.Logger, verbose = _mpInstance$Logger.verbose, error = _mpInstance$Logger.error;
+                _a = mpInstance.Logger, verbose = _a.verbose, error = _a.error;
                 invokeCallback = mpInstance._Helpers.invokeCallback;
                 verbose(Messages$1.InformationMessages.SendIdentityBegin);
-                if (identityApiRequest) {
-                  _context2.next = 6;
-                  break;
+                if (!identityApiRequest) {
+                  error(Messages$1.ErrorMessages.APIRequestEmpty);
+                  return [2 /*return*/];
                 }
-                error(Messages$1.ErrorMessages.APIRequestEmpty);
-                return _context2.abrupt("return");
-              case 6:
+
                 verbose(Messages$1.InformationMessages.SendIdentityHttp);
-                if (!mpInstance._Store.identityCallInFlight) {
-                  _context2.next = 10;
-                  break;
+                if (mpInstance._Store.identityCallInFlight) {
+                  invokeCallback(callback, HTTPCodes$1.activeIdentityRequest, 'There is currently an Identity request processing. Please wait for this to return before requesting again');
+                  return [2 /*return*/];
                 }
-                invokeCallback(callback, HTTPCodes$1.activeIdentityRequest, 'There is currently an Identity request processing. Please wait for this to return before requesting again');
-                return _context2.abrupt("return");
-              case 10:
+
                 previousMPID = mpid || null;
                 uploadUrl = this.getUploadUrl(method, mpid);
                 uploader = window.fetch ? new FetchUploader(uploadUrl) : new XHRUploader(uploadUrl);
@@ -9137,46 +9115,41 @@ var mParticle = (function () {
                   },
                   body: JSON.stringify(identityApiRequest)
                 };
-                _context2.prev = 14;
+                _b.label = 1;
+              case 1:
+                _b.trys.push([1, 6,, 7]);
                 mpInstance._Store.identityCallInFlight = true;
-                _context2.next = 18;
-                return uploader.upload(fetchPayload);
-              case 18:
-                response = _context2.sent;
-                if (!response.json) {
-                  _context2.next = 26;
-                  break;
-                }
-                _context2.next = 22;
-                return response.json();
-              case 22:
-                responseBody = _context2.sent;
+                return [4 /*yield*/, uploader.upload(fetchPayload)];
+              case 2:
+                response = _b.sent();
+                identityResponse = void 0;
+                if (!response.json) return [3 /*break*/, 4];
+                return [4 /*yield*/, response.json()];
+              case 3:
+                responseBody = _b.sent();
                 identityResponse = this.getIdentityResponseFromFetch(response, responseBody);
-                _context2.next = 27;
-                break;
-              case 26:
+                return [3 /*break*/, 5];
+              case 4:
                 identityResponse = this.getIdentityResponseFromXHR(response);
-              case 27:
+                _b.label = 5;
+              case 5:
                 verbose('Received Identity Response from server: ' + JSON.stringify(identityResponse.responseText));
                 parseIdentityResponse(identityResponse, previousMPID, callback, originalIdentityApiData, method, knownIdentities, false);
-                _context2.next = 36;
-                break;
-              case 31:
-                _context2.prev = 31;
-                _context2.t0 = _context2["catch"](14);
+                return [3 /*break*/, 7];
+              case 6:
+                err_1 = _b.sent();
+                errorMessage = err_1.message || err_1.toString();
                 mpInstance._Store.identityCallInFlight = false;
-                invokeCallback(callback, HTTPCodes$1.noHttpCoverage, _context2.t0);
-                error('Error sending identity request to servers' + ' - ' + _context2.t0);
-              case 36:
-              case "end":
-                return _context2.stop();
+                invokeCallback(callback, HTTPCodes$1.noHttpCoverage, errorMessage);
+                error('Error sending identity request to servers' + ' - ' + err_1);
+                return [3 /*break*/, 7];
+              case 7:
+                return [2 /*return*/];
             }
-          }, _callee2, this, [[14, 31]]);
-        }));
-        return function (_x3, _x4, _x5, _x6, _x7, _x8, _x9) {
-          return _ref2.apply(this, arguments);
-        };
-      }();
+          });
+        });
+      };
+
       this.getUploadUrl = function (method, mpid) {
         var uploadServiceUrl = mpInstance._Helpers.createServiceUrl(mpInstance._Store.SDKConfig.identityUrl);
         var uploadUrl = method === Modify ? uploadServiceUrl + mpid + '/' + method : uploadServiceUrl + method;
