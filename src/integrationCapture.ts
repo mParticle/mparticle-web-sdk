@@ -222,10 +222,12 @@ export default class IntegrationCapture {
     private filterMappings(
         outputType: valueof<typeof IntegrationOutputs>
     ): IntegrationIdMapping {
-        return Object.fromEntries(
-            Object.entries(integrationMapping).filter(
-                ([, value]) => value.output === outputType
-            )
-        );
+        const filteredMappings: IntegrationIdMapping = {};
+        for (const key in integrationMapping) {
+            if (integrationMapping[key].output === outputType) {
+                filteredMappings[key] = integrationMapping[key];
+            }
+        }
+        return filteredMappings;
     }
 }
