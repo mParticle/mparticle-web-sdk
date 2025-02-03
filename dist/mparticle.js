@@ -203,197 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    function _typeof$1(o) {
-      "@babel/helpers - typeof";
-
-      return _typeof$1 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) {
-        return typeof o;
-      } : function (o) {
-        return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o;
-      }, _typeof$1(o);
-    }
-
-    function _toPrimitive(input, hint) {
-      if (_typeof$1(input) !== "object" || input === null) return input;
-      var prim = input[Symbol.toPrimitive];
-      if (prim !== undefined) {
-        var res = prim.call(input, hint || "default");
-        if (_typeof$1(res) !== "object") return res;
-        throw new TypeError("@@toPrimitive must return a primitive value.");
-      }
-      return (hint === "string" ? String : Number)(input);
-    }
-
-    function _toPropertyKey(arg) {
-      var key = _toPrimitive(arg, "string");
-      return _typeof$1(key) === "symbol" ? key : String(key);
-    }
-
-    function _defineProperty(obj, key, value) {
-      key = _toPropertyKey(key);
-      if (key in obj) {
-        Object.defineProperty(obj, key, {
-          value: value,
-          enumerable: true,
-          configurable: true,
-          writable: true
-        });
-      } else {
-        obj[key] = value;
-      }
-      return obj;
-    }
-
-    var EventTypeEnum;
-    (function (EventTypeEnum) {
-      EventTypeEnum[EventTypeEnum["Unknown"] = 0] = "Unknown";
-      EventTypeEnum[EventTypeEnum["Navigation"] = 1] = "Navigation";
-      EventTypeEnum[EventTypeEnum["Location"] = 2] = "Location";
-      EventTypeEnum[EventTypeEnum["Search"] = 3] = "Search";
-      EventTypeEnum[EventTypeEnum["Transaction"] = 4] = "Transaction";
-      EventTypeEnum[EventTypeEnum["UserContent"] = 5] = "UserContent";
-      EventTypeEnum[EventTypeEnum["UserPreference"] = 6] = "UserPreference";
-      EventTypeEnum[EventTypeEnum["Social"] = 7] = "Social";
-      EventTypeEnum[EventTypeEnum["Other"] = 8] = "Other";
-      EventTypeEnum[EventTypeEnum["Media"] = 9] = "Media";
-    })(EventTypeEnum || (EventTypeEnum = {}));
-    // TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-5403
-    var MessageType$2;
-    (function (MessageType) {
-      MessageType[MessageType["SessionStart"] = 1] = "SessionStart";
-      MessageType[MessageType["SessionEnd"] = 2] = "SessionEnd";
-      MessageType[MessageType["PageView"] = 3] = "PageView";
-      MessageType[MessageType["PageEvent"] = 4] = "PageEvent";
-      MessageType[MessageType["CrashReport"] = 5] = "CrashReport";
-      MessageType[MessageType["OptOut"] = 6] = "OptOut";
-      MessageType[MessageType["AppStateTransition"] = 10] = "AppStateTransition";
-      MessageType[MessageType["Profile"] = 14] = "Profile";
-      MessageType[MessageType["Commerce"] = 16] = "Commerce";
-      MessageType[MessageType["UserAttributeChange"] = 17] = "UserAttributeChange";
-      MessageType[MessageType["UserIdentityChange"] = 18] = "UserIdentityChange";
-      MessageType[MessageType["Media"] = 20] = "Media";
-    })(MessageType$2 || (MessageType$2 = {}));
-    var IdentityType$1;
-    (function (IdentityType) {
-      IdentityType[IdentityType["Other"] = 0] = "Other";
-      IdentityType[IdentityType["CustomerId"] = 1] = "CustomerId";
-      IdentityType[IdentityType["Facebook"] = 2] = "Facebook";
-      IdentityType[IdentityType["Twitter"] = 3] = "Twitter";
-      IdentityType[IdentityType["Google"] = 4] = "Google";
-      IdentityType[IdentityType["Microsoft"] = 5] = "Microsoft";
-      IdentityType[IdentityType["Yahoo"] = 6] = "Yahoo";
-      IdentityType[IdentityType["Email"] = 7] = "Email";
-      IdentityType[IdentityType["FacebookCustomAudienceId"] = 9] = "FacebookCustomAudienceId";
-      IdentityType[IdentityType["Other2"] = 10] = "Other2";
-      IdentityType[IdentityType["Other3"] = 11] = "Other3";
-      IdentityType[IdentityType["Other4"] = 12] = "Other4";
-      IdentityType[IdentityType["Other5"] = 13] = "Other5";
-      IdentityType[IdentityType["Other6"] = 14] = "Other6";
-      IdentityType[IdentityType["Other7"] = 15] = "Other7";
-      IdentityType[IdentityType["Other8"] = 16] = "Other8";
-      IdentityType[IdentityType["Other9"] = 17] = "Other9";
-      IdentityType[IdentityType["Other10"] = 18] = "Other10";
-      IdentityType[IdentityType["MobileNumber"] = 19] = "MobileNumber";
-      IdentityType[IdentityType["PhoneNumber2"] = 20] = "PhoneNumber2";
-      IdentityType[IdentityType["PhoneNumber3"] = 21] = "PhoneNumber3";
-    })(IdentityType$1 || (IdentityType$1 = {}));
-
-    /******************************************************************************
-    Copyright (c) Microsoft Corporation.
-
-    Permission to use, copy, modify, and/or distribute this software for any
-    purpose with or without fee is hereby granted.
-
-    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
-    REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
-    AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
-    INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
-    LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
-    OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
-    PERFORMANCE OF THIS SOFTWARE.
-    ***************************************************************************** */
-    /* global Reflect, Promise, SuppressedError, Symbol */
-
-    var extendStatics = function(d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
-        return extendStatics(d, b);
-    };
-
-    function __extends(d, b) {
-        if (typeof b !== "function" && b !== null)
-            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    }
-
-    var __assign = function() {
-        __assign = Object.assign || function __assign(t) {
-            for (var s, i = 1, n = arguments.length; i < n; i++) {
-                s = arguments[i];
-                for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p)) t[p] = s[p];
-            }
-            return t;
-        };
-        return __assign.apply(this, arguments);
-    };
-
-    function __awaiter(thisArg, _arguments, P, generator) {
-        function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-        return new (P || (P = Promise))(function (resolve, reject) {
-            function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-            function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-            function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-            step((generator = generator.apply(thisArg, _arguments || [])).next());
-        });
-    }
-
-    function __generator(thisArg, body) {
-        var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
-        return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
-        function verb(n) { return function (v) { return step([n, v]); }; }
-        function step(op) {
-            if (f) throw new TypeError("Generator is already executing.");
-            while (g && (g = 0, op[0] && (_ = 0)), _) try {
-                if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
-                if (y = 0, t) op = [op[0] & 2, t.value];
-                switch (op[0]) {
-                    case 0: case 1: t = op; break;
-                    case 4: _.label++; return { value: op[1], done: false };
-                    case 5: _.label++; y = op[1]; op = [0]; continue;
-                    case 7: op = _.ops.pop(); _.trys.pop(); continue;
-                    default:
-                        if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
-                        if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
-                        if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
-                        if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
-                        if (t[2]) _.ops.pop();
-                        _.trys.pop(); continue;
-                }
-                op = body.call(thisArg, _);
-            } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
-            if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
-        }
-    }
-
-    function __spreadArray(to, from, pack) {
-        if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
-            if (ar || !(i in from)) {
-                if (!ar) ar = Array.prototype.slice.call(from, 0, i);
-                ar[i] = from[i];
-            }
-        }
-        return to.concat(ar || Array.prototype.slice.call(from));
-    }
-
-    typeof SuppressedError === "function" ? SuppressedError : function (error, suppressed, message) {
-        var e = new Error(message);
-        return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
-    };
-
-    var version = "2.32.2";
+    var version = "2.32.3";
 
     var Constants = {
       sdkVersion: version,
@@ -562,6 +372,10 @@ var mParticle = (function () {
         Logout: 'logout',
         Login: 'login',
         Identify: 'identify'
+      },
+      Environment: {
+        Development: 'development',
+        Production: 'production'
       }
     };
     // https://go.mparticle.com/work/SQDSDKS-6080
@@ -570,6 +384,102 @@ var mParticle = (function () {
     // https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
     var HTTP_OK = 200;
     var HTTP_ACCEPTED = 202;
+    var HTTP_BAD_REQUEST = 400;
+
+    /******************************************************************************
+    Copyright (c) Microsoft Corporation.
+
+    Permission to use, copy, modify, and/or distribute this software for any
+    purpose with or without fee is hereby granted.
+
+    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+    REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+    AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+    INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+    LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+    OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+    PERFORMANCE OF THIS SOFTWARE.
+    ***************************************************************************** */
+    /* global Reflect, Promise, SuppressedError, Symbol */
+
+    var extendStatics = function(d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+
+    function __extends(d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    }
+
+    var __assign = function() {
+        __assign = Object.assign || function __assign(t) {
+            for (var s, i = 1, n = arguments.length; i < n; i++) {
+                s = arguments[i];
+                for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p)) t[p] = s[p];
+            }
+            return t;
+        };
+        return __assign.apply(this, arguments);
+    };
+
+    function __awaiter(thisArg, _arguments, P, generator) {
+        function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+        return new (P || (P = Promise))(function (resolve, reject) {
+            function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+            function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+            function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+            step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+    }
+
+    function __generator(thisArg, body) {
+        var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+        return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+        function verb(n) { return function (v) { return step([n, v]); }; }
+        function step(op) {
+            if (f) throw new TypeError("Generator is already executing.");
+            while (g && (g = 0, op[0] && (_ = 0)), _) try {
+                if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+                if (y = 0, t) op = [op[0] & 2, t.value];
+                switch (op[0]) {
+                    case 0: case 1: t = op; break;
+                    case 4: _.label++; return { value: op[1], done: false };
+                    case 5: _.label++; y = op[1]; op = [0]; continue;
+                    case 7: op = _.ops.pop(); _.trys.pop(); continue;
+                    default:
+                        if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+                        if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+                        if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+                        if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+                        if (t[2]) _.ops.pop();
+                        _.trys.pop(); continue;
+                }
+                op = body.call(thisArg, _);
+            } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+            if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+        }
+    }
+
+    function __spreadArray(to, from, pack) {
+        if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+            if (ar || !(i in from)) {
+                if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+                ar[i] = from[i];
+            }
+        }
+        return to.concat(ar || Array.prototype.slice.call(from));
+    }
+
+    typeof SuppressedError === "function" ? SuppressedError : function (error, suppressed, message) {
+        var e = new Error(message);
+        return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
+    };
 
     var Messages$9 = Constants.Messages;
     var createCookieString = function createCookieString(value) {
@@ -855,64 +765,6 @@ var mParticle = (function () {
       return typeof window !== 'undefined' && window.location ? window.location.href : '';
     };
 
-    function getNewIdentitiesByName(newIdentitiesByType) {
-      var newIdentitiesByName = {};
-      for (var key in newIdentitiesByType) {
-        var identityNameKey = getIdentityName(parseNumber(key));
-        newIdentitiesByName[identityNameKey] = newIdentitiesByType[key];
-      }
-      return newIdentitiesByName;
-    }
-    function getIdentityName(identityType) {
-      switch (identityType) {
-        case IdentityType$1.Other:
-          return 'other';
-        case IdentityType$1.CustomerId:
-          return 'customerid';
-        case IdentityType$1.Facebook:
-          return 'facebook';
-        case IdentityType$1.Twitter:
-          return 'twitter';
-        case IdentityType$1.Google:
-          return 'google';
-        case IdentityType$1.Microsoft:
-          return 'microsoft';
-        case IdentityType$1.Yahoo:
-          return 'yahoo';
-        case IdentityType$1.Email:
-          return 'email';
-        case IdentityType$1.FacebookCustomAudienceId:
-          return 'facebookcustomaudienceid';
-        case IdentityType$1.Other2:
-          return 'other2';
-        case IdentityType$1.Other3:
-          return 'other3';
-        case IdentityType$1.Other4:
-          return 'other4';
-        case IdentityType$1.Other5:
-          return 'other5';
-        case IdentityType$1.Other6:
-          return 'other6';
-        case IdentityType$1.Other7:
-          return 'other7';
-        case IdentityType$1.Other8:
-          return 'other8';
-        case IdentityType$1.Other9:
-          return 'other9';
-        case IdentityType$1.Other10:
-          return 'other10';
-        case IdentityType$1.MobileNumber:
-          return 'mobile_number';
-        case IdentityType$1.PhoneNumber2:
-          return 'phone_number_2';
-        case IdentityType$1.PhoneNumber3:
-          return 'phone_number_3';
-        default:
-          return null;
-      }
-    }
-
-    var _TriggerUploadType;
     var MessageType$1 = {
       SessionStart: 1,
       SessionEnd: 2,
@@ -927,10 +779,6 @@ var mParticle = (function () {
       UserAttributeChange: 17,
       UserIdentityChange: 18
     };
-
-    // Dictionary that contains MessageTypes that will
-    // trigger an immediate upload.
-    var TriggerUploadType = (_TriggerUploadType = {}, _defineProperty(_TriggerUploadType, MessageType$1.Commerce, 1), _defineProperty(_TriggerUploadType, MessageType$1.UserIdentityChange, 1), _TriggerUploadType);
     var EventType = {
       Unknown: 0,
       Navigation: 1,
@@ -991,8 +839,7 @@ var mParticle = (function () {
         }
       }
     };
-
-    // Continuation of enum above, but in seperate object since we don't expose these to end user
+    // Continuation of EventType enum above, but in seperate object since we don't expose these to end user
     var CommerceEventType = {
       ProductAddToCart: 10,
       ProductRemoveFromCart: 11,
@@ -1029,92 +876,157 @@ var mParticle = (function () {
       Other10: 18,
       MobileNumber: 19,
       PhoneNumber2: 20,
-      PhoneNumber3: 21
-    };
-    IdentityType.isValid = function (identityType) {
-      if (typeof identityType === 'number') {
-        for (var prop in IdentityType) {
-          if (IdentityType.hasOwnProperty(prop)) {
-            if (IdentityType[prop] === identityType) {
-              return true;
+      PhoneNumber3: 21,
+      isValid: function isValid(identityType) {
+        if (typeof identityType === 'number') {
+          for (var prop in IdentityType) {
+            if (IdentityType.hasOwnProperty(prop)) {
+              if (IdentityType[prop] === identityType) {
+                return true;
+              }
             }
           }
         }
+        return false;
+      },
+      getName: function getName(identityType) {
+        switch (identityType) {
+          case window.mParticle.IdentityType.CustomerId:
+            return 'Customer ID';
+          case window.mParticle.IdentityType.Facebook:
+            return 'Facebook ID';
+          case window.mParticle.IdentityType.Twitter:
+            return 'Twitter ID';
+          case window.mParticle.IdentityType.Google:
+            return 'Google ID';
+          case window.mParticle.IdentityType.Microsoft:
+            return 'Microsoft ID';
+          case window.mParticle.IdentityType.Yahoo:
+            return 'Yahoo ID';
+          case window.mParticle.IdentityType.Email:
+            return 'Email';
+          case window.mParticle.IdentityType.FacebookCustomAudienceId:
+            return 'Facebook App User ID';
+          default:
+            return 'Other ID';
+        }
+      },
+      getIdentityType: function getIdentityType(identityName) {
+        switch (identityName) {
+          case 'other':
+            return IdentityType.Other;
+          case 'customerid':
+            return IdentityType.CustomerId;
+          case 'facebook':
+            return IdentityType.Facebook;
+          case 'twitter':
+            return IdentityType.Twitter;
+          case 'google':
+            return IdentityType.Google;
+          case 'microsoft':
+            return IdentityType.Microsoft;
+          case 'yahoo':
+            return IdentityType.Yahoo;
+          case 'email':
+            return IdentityType.Email;
+          case 'facebookcustomaudienceid':
+            return IdentityType.FacebookCustomAudienceId;
+          case 'other2':
+            return IdentityType.Other2;
+          case 'other3':
+            return IdentityType.Other3;
+          case 'other4':
+            return IdentityType.Other4;
+          case 'other5':
+            return IdentityType.Other5;
+          case 'other6':
+            return IdentityType.Other6;
+          case 'other7':
+            return IdentityType.Other7;
+          case 'other8':
+            return IdentityType.Other8;
+          case 'other9':
+            return IdentityType.Other9;
+          case 'other10':
+            return IdentityType.Other10;
+          case 'mobile_number':
+            return IdentityType.MobileNumber;
+          case 'phone_number_2':
+            return IdentityType.PhoneNumber2;
+          case 'phone_number_3':
+            return IdentityType.PhoneNumber3;
+          default:
+            return false;
+        }
+      },
+      getIdentityName: function getIdentityName(identityType) {
+        switch (identityType) {
+          case IdentityType.Other:
+            return 'other';
+          case IdentityType.CustomerId:
+            return 'customerid';
+          case IdentityType.Facebook:
+            return 'facebook';
+          case IdentityType.Twitter:
+            return 'twitter';
+          case IdentityType.Google:
+            return 'google';
+          case IdentityType.Microsoft:
+            return 'microsoft';
+          case IdentityType.Yahoo:
+            return 'yahoo';
+          case IdentityType.Email:
+            return 'email';
+          case IdentityType.FacebookCustomAudienceId:
+            return 'facebookcustomaudienceid';
+          case IdentityType.Other2:
+            return 'other2';
+          case IdentityType.Other3:
+            return 'other3';
+          case IdentityType.Other4:
+            return 'other4';
+          case IdentityType.Other5:
+            return 'other5';
+          case IdentityType.Other6:
+            return 'other6';
+          case IdentityType.Other7:
+            return 'other7';
+          case IdentityType.Other8:
+            return 'other8';
+          case IdentityType.Other9:
+            return 'other9';
+          case IdentityType.Other10:
+            return 'other10';
+          case IdentityType.MobileNumber:
+            return 'mobile_number';
+          case IdentityType.PhoneNumber2:
+            return 'phone_number_2';
+          case IdentityType.PhoneNumber3:
+            return 'phone_number_3';
+          default:
+            return null;
+        }
+      },
+      // Strips out functions from Identity Types for easier lookups
+      getValuesAsStrings: function getValuesAsStrings() {
+        return Object.values(IdentityType).map(function (value) {
+          return isNumber(value) ? value.toString() : undefined;
+        }).filter(function (value) {
+          return value !== undefined;
+        });
+      },
+      getNewIdentitiesByName: function getNewIdentitiesByName(newIdentitiesByType) {
+        var newIdentitiesByName = {};
+        var identityTypeValuesAsStrings = IdentityType.getValuesAsStrings();
+        for (var key in newIdentitiesByType) {
+          // IdentityTypes are stored as numbers but are passed in as strings
+          if (identityTypeValuesAsStrings.includes(key)) {
+            var identityNameKey = IdentityType.getIdentityName(parseNumber(key));
+            newIdentitiesByName[identityNameKey] = newIdentitiesByType[key];
+          }
+        }
+        return newIdentitiesByName;
       }
-      return false;
-    };
-    IdentityType.getName = function (identityType) {
-      switch (identityType) {
-        case window.mParticle.IdentityType.CustomerId:
-          return 'Customer ID';
-        case window.mParticle.IdentityType.Facebook:
-          return 'Facebook ID';
-        case window.mParticle.IdentityType.Twitter:
-          return 'Twitter ID';
-        case window.mParticle.IdentityType.Google:
-          return 'Google ID';
-        case window.mParticle.IdentityType.Microsoft:
-          return 'Microsoft ID';
-        case window.mParticle.IdentityType.Yahoo:
-          return 'Yahoo ID';
-        case window.mParticle.IdentityType.Email:
-          return 'Email';
-        case window.mParticle.IdentityType.FacebookCustomAudienceId:
-          return 'Facebook App User ID';
-        default:
-          return 'Other ID';
-      }
-    };
-    IdentityType.getIdentityType = function (identityName) {
-      switch (identityName) {
-        case 'other':
-          return IdentityType.Other;
-        case 'customerid':
-          return IdentityType.CustomerId;
-        case 'facebook':
-          return IdentityType.Facebook;
-        case 'twitter':
-          return IdentityType.Twitter;
-        case 'google':
-          return IdentityType.Google;
-        case 'microsoft':
-          return IdentityType.Microsoft;
-        case 'yahoo':
-          return IdentityType.Yahoo;
-        case 'email':
-          return IdentityType.Email;
-        case 'facebookcustomaudienceid':
-          return IdentityType.FacebookCustomAudienceId;
-        case 'other2':
-          return IdentityType.Other2;
-        case 'other3':
-          return IdentityType.Other3;
-        case 'other4':
-          return IdentityType.Other4;
-        case 'other5':
-          return IdentityType.Other5;
-        case 'other6':
-          return IdentityType.Other6;
-        case 'other7':
-          return IdentityType.Other7;
-        case 'other8':
-          return IdentityType.Other8;
-        case 'other9':
-          return IdentityType.Other9;
-        case 'other10':
-          return IdentityType.Other10;
-        case 'mobile_number':
-          return IdentityType.MobileNumber;
-        case 'phone_number_2':
-          return IdentityType.PhoneNumber2;
-        case 'phone_number_3':
-          return IdentityType.PhoneNumber3;
-        default:
-          return false;
-      }
-    };
-    IdentityType.getIdentityName = function (identityType) {
-      return getIdentityName(identityType);
     };
     var ProductActionType = {
       Unknown: 0,
@@ -1127,87 +1039,85 @@ var mParticle = (function () {
       Purchase: 7,
       Refund: 8,
       AddToWishlist: 9,
-      RemoveFromWishlist: 10
-    };
-    ProductActionType.getName = function (id) {
-      switch (id) {
-        case ProductActionType.AddToCart:
-          return 'Add to Cart';
-        case ProductActionType.RemoveFromCart:
-          return 'Remove from Cart';
-        case ProductActionType.Checkout:
-          return 'Checkout';
-        case ProductActionType.CheckoutOption:
-          return 'Checkout Option';
-        case ProductActionType.Click:
-          return 'Click';
-        case ProductActionType.ViewDetail:
-          return 'View Detail';
-        case ProductActionType.Purchase:
-          return 'Purchase';
-        case ProductActionType.Refund:
-          return 'Refund';
-        case ProductActionType.AddToWishlist:
-          return 'Add to Wishlist';
-        case ProductActionType.RemoveFromWishlist:
-          return 'Remove from Wishlist';
-        default:
-          return 'Unknown';
-      }
-    };
-
-    // these are the action names used by server and mobile SDKs when expanding a CommerceEvent
-    ProductActionType.getExpansionName = function (id) {
-      switch (id) {
-        case ProductActionType.AddToCart:
-          return 'add_to_cart';
-        case ProductActionType.RemoveFromCart:
-          return 'remove_from_cart';
-        case ProductActionType.Checkout:
-          return 'checkout';
-        case ProductActionType.CheckoutOption:
-          return 'checkout_option';
-        case ProductActionType.Click:
-          return 'click';
-        case ProductActionType.ViewDetail:
-          return 'view_detail';
-        case ProductActionType.Purchase:
-          return 'purchase';
-        case ProductActionType.Refund:
-          return 'refund';
-        case ProductActionType.AddToWishlist:
-          return 'add_to_wishlist';
-        case ProductActionType.RemoveFromWishlist:
-          return 'remove_from_wishlist';
-        default:
-          return 'unknown';
+      RemoveFromWishlist: 10,
+      getName: function getName(id) {
+        switch (id) {
+          case ProductActionType.AddToCart:
+            return 'Add to Cart';
+          case ProductActionType.RemoveFromCart:
+            return 'Remove from Cart';
+          case ProductActionType.Checkout:
+            return 'Checkout';
+          case ProductActionType.CheckoutOption:
+            return 'Checkout Option';
+          case ProductActionType.Click:
+            return 'Click';
+          case ProductActionType.ViewDetail:
+            return 'View Detail';
+          case ProductActionType.Purchase:
+            return 'Purchase';
+          case ProductActionType.Refund:
+            return 'Refund';
+          case ProductActionType.AddToWishlist:
+            return 'Add to Wishlist';
+          case ProductActionType.RemoveFromWishlist:
+            return 'Remove from Wishlist';
+          default:
+            return 'Unknown';
+        }
+      },
+      // these are the action names used by server and mobile SDKs when expanding a CommerceEvent
+      getExpansionName: function getExpansionName(id) {
+        switch (id) {
+          case ProductActionType.AddToCart:
+            return 'add_to_cart';
+          case ProductActionType.RemoveFromCart:
+            return 'remove_from_cart';
+          case ProductActionType.Checkout:
+            return 'checkout';
+          case ProductActionType.CheckoutOption:
+            return 'checkout_option';
+          case ProductActionType.Click:
+            return 'click';
+          case ProductActionType.ViewDetail:
+            return 'view_detail';
+          case ProductActionType.Purchase:
+            return 'purchase';
+          case ProductActionType.Refund:
+            return 'refund';
+          case ProductActionType.AddToWishlist:
+            return 'add_to_wishlist';
+          case ProductActionType.RemoveFromWishlist:
+            return 'remove_from_wishlist';
+          default:
+            return 'unknown';
+        }
       }
     };
     var PromotionActionType = {
       Unknown: 0,
       PromotionView: 1,
-      PromotionClick: 2
-    };
-    PromotionActionType.getName = function (id) {
-      switch (id) {
-        case PromotionActionType.PromotionView:
-          return 'view';
-        case PromotionActionType.PromotionClick:
-          return 'click';
-        default:
-          return 'unknown';
-      }
-    };
-
-    // these are the names that the server and mobile SDKs use while expanding CommerceEvent
-    PromotionActionType.getExpansionName = function (id) {
-      switch (id) {
-        case PromotionActionType.PromotionView:
-          return 'view';
-        case PromotionActionType.PromotionClick:
-          return 'click';
-        default:
-          return 'unknown';
+      PromotionClick: 2,
+      getName: function getName(id) {
+        switch (id) {
+          case PromotionActionType.PromotionView:
+            return 'view';
+          case PromotionActionType.PromotionClick:
+            return 'click';
+          default:
+            return 'unknown';
+        }
+      },
+      // these are the names that the server and mobile SDKs use while expanding CommerceEvent
+      getExpansionName: function getExpansionName(id) {
+        switch (id) {
+          case PromotionActionType.PromotionView:
+            return 'view';
+          case PromotionActionType.PromotionClick:
+            return 'click';
+          default:
+            return 'unknown';
+        }
       }
     };
     var ProfileMessageType = {
@@ -1215,10 +1125,6 @@ var mParticle = (function () {
     };
     var ApplicationTransitionType$1 = {
       AppInit: 1
-    };
-    var Environment = {
-      Production: 'production',
-      Development: 'development'
     };
     var Types = {
       MessageType: MessageType$1,
@@ -1229,9 +1135,18 @@ var mParticle = (function () {
       ApplicationTransitionType: ApplicationTransitionType$1,
       ProductActionType: ProductActionType,
       PromotionActionType: PromotionActionType,
-      TriggerUploadType: TriggerUploadType,
-      Environment: Environment
+      Environment: Constants.Environment
     };
+
+    function _typeof$1(o) {
+      "@babel/helpers - typeof";
+
+      return _typeof$1 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) {
+        return typeof o;
+      } : function (o) {
+        return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o;
+      }, _typeof$1(o);
+    }
 
     var SDKProductActionType;
     (function (SDKProductActionType) {
@@ -2382,19 +2297,24 @@ var mParticle = (function () {
        * @param event event that should be queued
        */
       BatchUploader.prototype.queueEvent = function (event) {
-        if (!isEmpty(event)) {
-          this.eventsQueuedForProcessing.push(event);
-          if (this.offlineStorageEnabled && this.eventVault) {
-            this.eventVault.store(this.eventsQueuedForProcessing);
-          }
-          this.mpInstance.Logger.verbose("Queuing event: ".concat(JSON.stringify(event)));
-          this.mpInstance.Logger.verbose("Queued event count: ".concat(this.eventsQueuedForProcessing.length));
-          // TODO: Remove this check once the v2 code path is removed
-          //       https://go.mparticle.com/work/SQDSDKS-3720
-          if (!this.batchingEnabled || Types.TriggerUploadType[event.EventDataType]) {
-            this.prepareAndUpload(false, false);
-          }
+        if (isEmpty(event)) {
+          return;
         }
+        var verbose = this.mpInstance.Logger.verbose;
+        this.eventsQueuedForProcessing.push(event);
+        if (this.offlineStorageEnabled && this.eventVault) {
+          this.eventVault.store(this.eventsQueuedForProcessing);
+        }
+        verbose("Queuing event: ".concat(JSON.stringify(event)));
+        verbose("Queued event count: ".concat(this.eventsQueuedForProcessing.length));
+        if (this.shouldTriggerImmediateUpload(event.EventDataType)) {
+          this.prepareAndUpload(false, false);
+        }
+      };
+      // https://go.mparticle.com/work/SQDSDKS-3720
+      BatchUploader.prototype.shouldTriggerImmediateUpload = function (eventDataType) {
+        var priorityEvents = [MessageType$1.Commerce, MessageType$1.UserIdentityChange];
+        return !this.batchingEnabled || priorityEvents.includes(eventDataType);
       };
       /**
        * This implements crucial logic to:
@@ -2664,6 +2584,9 @@ var mParticle = (function () {
         if (options.shouldUploadEvent) {
           this.queueEventForBatchUpload(event);
         }
+        // https://go.mparticle.com/work/SQDSDKS-6935
+        // While Event Name is 'usually' a string, there are some cases where it is a number
+        // in that it could be a type of MessageType Enum
         if (event.EventName !== Types.MessageType.AppStateTransition) {
           if (kitBlocker && kitBlocker.kitBlockingEnabled) {
             event = kitBlocker.createBlockedEvent(event);
@@ -3525,6 +3448,8 @@ var mParticle = (function () {
     var Messages$5 = Constants.Messages;
     function Ecommerce(mpInstance) {
       var self = this;
+
+      // https://go.mparticle.com/work/SQDSDKS-4801
       this.convertTransactionAttributesToProductAction = function (transactionAttributes, productAction) {
         if (transactionAttributes.hasOwnProperty('Id')) {
           productAction.TransactionId = transactionAttributes.Id;
@@ -3608,6 +3533,8 @@ var mParticle = (function () {
             return Types.CommerceEventType.ProductRemoveFromCart;
           case Types.ProductActionType.RemoveFromWishlist:
             return Types.CommerceEventType.ProductRemoveFromWishlist;
+
+          // https://go.mparticle.com/work/SQDSDKS-4801
           case Types.ProductActionType.Unknown:
             return Types.EventType.Unknown;
           case Types.ProductActionType.ViewDetail:
@@ -3631,6 +3558,8 @@ var mParticle = (function () {
       this.generateExpandedEcommerceName = function (eventName, plusOne) {
         return 'eCommerce - ' + eventName + ' - ' + (plusOne ? 'Total' : 'Item');
       };
+
+      // https://go.mparticle.com/work/SQDSDKS-4801
       this.extractProductAttributes = function (attributes, product) {
         if (product.CouponCode) {
           attributes['Coupon Code'] = product.CouponCode;
@@ -3661,11 +3590,15 @@ var mParticle = (function () {
         }
         attributes['Total Product Amount'] = product.TotalAmount || 0;
       };
+
+      // https://go.mparticle.com/work/SQDSDKS-4801
       this.extractTransactionId = function (attributes, productAction) {
         if (productAction.TransactionId) {
           attributes['Transaction Id'] = productAction.TransactionId;
         }
       };
+
+      // https://go.mparticle.com/work/SQDSDKS-4801
       this.extractActionAttributes = function (attributes, productAction) {
         self.extractTransactionId(attributes, productAction);
         if (productAction.Affiliation) {
@@ -3690,6 +3623,8 @@ var mParticle = (function () {
           attributes['Checkout Step'] = productAction.CheckoutStep;
         }
       };
+
+      // https://go.mparticle.com/work/SQDSDKS-4801
       this.extractPromotionAttributes = function (attributes, promotion) {
         if (promotion.Id) {
           attributes['Id'] = promotion.Id;
@@ -5477,10 +5412,13 @@ var mParticle = (function () {
           for (i = 0; i < elements.length; i++) {
             element = elements[i];
             if (element.addEventListener) {
+              // Modern browsers
               element.addEventListener(domEvent, handler, false);
             } else if (element.attachEvent) {
+              // IE < 9
               element.attachEvent('on' + domEvent, handler);
             } else {
+              // All other browsers
               element['on' + domEvent] = handler;
             }
           }
@@ -8044,7 +7982,7 @@ var mParticle = (function () {
               self.reinitForwardersOnUserChange(prevUser, newUser);
               self.setForwarderCallbacks(newUser, method);
             }
-            var newIdentitiesByName = getNewIdentitiesByName(newIdentitiesByType);
+            var newIdentitiesByName = IdentityType.getNewIdentitiesByName(newIdentitiesByType);
             var uiByName = method === Modify$1 ? previousUIByName : incomingUIByName;
 
             // https://go.mparticle.com/work/SQDSDKS-6501
@@ -9007,9 +8945,9 @@ var mParticle = (function () {
     function IdentityAPIClient(mpInstance) {
       this.sendAliasRequest = function (aliasRequest, aliasCallback) {
         return __awaiter(this, void 0, void 0, function () {
-          var _a, verbose, error, invokeAliasCallback, aliasUrl, apiKey, uploadUrl, uploader, uploadPayload, response, message, aliasResponseBody, xhrResponse, errorMessage, e_2, err;
-          return __generator(this, function (_b) {
-            switch (_b.label) {
+          var _a, verbose, error, invokeAliasCallback, aliasUrl, apiKey, uploadUrl, uploader, uploadPayload, response, aliasResponseBody, message, errorMessage, _b, xhrResponse, errorResponse, e_2, errorMessage;
+          return __generator(this, function (_c) {
+            switch (_c.label) {
               case 0:
                 _a = mpInstance.Logger, verbose = _a.verbose, error = _a.error;
                 invokeAliasCallback = mpInstance._Helpers.invokeAliasCallback;
@@ -9026,57 +8964,73 @@ var mParticle = (function () {
                   },
                   body: JSON.stringify(aliasRequest)
                 };
-                _b.label = 1;
+                _c.label = 1;
               case 1:
-                _b.trys.push([1, 9,, 10]);
+                _c.trys.push([1, 13,, 14]);
                 return [4 /*yield*/, uploader.upload(uploadPayload)];
               case 2:
-                response = _b.sent();
-                message = void 0;
+                response = _c.sent();
                 aliasResponseBody = void 0;
-                if (!response.json) return [3 /*break*/, 7];
-                _b.label = 3;
+                message = void 0;
+                errorMessage = void 0;
+                _b = response.status;
+                switch (_b) {
+                  case HTTP_ACCEPTED:
+                    return [3 /*break*/, 3];
+                  case HTTP_OK:
+                    return [3 /*break*/, 3];
+                  case HTTP_BAD_REQUEST:
+                    return [3 /*break*/, 4];
+                }
+                return [3 /*break*/, 11];
               case 3:
-                _b.trys.push([3, 5,, 6]);
-                return [4 /*yield*/, response.json()];
+                // https://go.mparticle.com/work/SQDSDKS-6670
+                message = 'Received Alias Response from server: ' + JSON.stringify(response.status);
+                return [3 /*break*/, 12];
               case 4:
-                aliasResponseBody = _b.sent();
-                return [3 /*break*/, 6];
+                if (!response.json) return [3 /*break*/, 9];
+                _c.label = 5;
               case 5:
-                _b.sent();
-                verbose('The request has no response body');
-                return [3 /*break*/, 6];
+                _c.trys.push([5, 7,, 8]);
+                return [4 /*yield*/, response.json()];
               case 6:
+                aliasResponseBody = _c.sent();
                 return [3 /*break*/, 8];
               case 7:
-                xhrResponse = response;
-                aliasResponseBody = xhrResponse.responseText ? JSON.parse(xhrResponse.responseText) : '';
-                _b.label = 8;
+                _c.sent();
+                verbose('The request has no response body');
+                return [3 /*break*/, 8];
               case 8:
-                errorMessage = void 0;
-                switch (response.status) {
-                  case HTTP_OK:
-                  case HTTP_ACCEPTED:
-                    // https://go.mparticle.com/work/SQDSDKS-6670
-                    message = 'Successfully sent forwarding stats to mParticle Servers';
-                    break;
-                  default:
-                    // 400 has an error message, but 403 doesn't
-                    if (aliasResponseBody === null || aliasResponseBody === void 0 ? void 0 : aliasResponseBody.message) {
-                      errorMessage = aliasResponseBody.message;
-                    }
-                    message = 'Issue with sending Alias Request to mParticle Servers, received HTTP Code of ' + response.status;
-                }
-                verbose(message);
-                invokeAliasCallback(aliasCallback, response.status, errorMessage);
                 return [3 /*break*/, 10];
               case 9:
-                e_2 = _b.sent();
-                err = e_2;
-                error('Error sending alias request to mParticle servers. ' + err);
-                invokeAliasCallback(aliasCallback, HTTPCodes$1.noHttpCoverage, err.message);
-                return [3 /*break*/, 10];
+                xhrResponse = response;
+                aliasResponseBody = xhrResponse.responseText ? JSON.parse(xhrResponse.responseText) : '';
+                _c.label = 10;
               case 10:
+                errorResponse = aliasResponseBody;
+                if (errorResponse === null || errorResponse === void 0 ? void 0 : errorResponse.message) {
+                  errorMessage = errorResponse.message;
+                }
+                message = 'Issue with sending Alias Request to mParticle Servers, received HTTP Code of ' + response.status;
+                if (errorResponse === null || errorResponse === void 0 ? void 0 : errorResponse.code) {
+                  message += ' - ' + errorResponse.code;
+                }
+                return [3 /*break*/, 12];
+              case 11:
+                {
+                  throw new Error('Received HTTP Code of ' + response.status);
+                }
+              case 12:
+                verbose(message);
+                invokeAliasCallback(aliasCallback, response.status, errorMessage);
+                return [3 /*break*/, 14];
+              case 13:
+                e_2 = _c.sent();
+                errorMessage = e_2.message || e_2.toString();
+                error('Error sending alias request to mParticle servers. ' + errorMessage);
+                invokeAliasCallback(aliasCallback, HTTPCodes$1.noHttpCoverage, errorMessage);
+                return [3 /*break*/, 14];
+              case 14:
                 return [2 /*return*/];
             }
           });
@@ -9085,9 +9039,9 @@ var mParticle = (function () {
 
       this.sendIdentityRequest = function (identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid, knownIdentities) {
         return __awaiter(this, void 0, void 0, function () {
-          var _a, verbose, error, invokeCallback, previousMPID, uploadUrl, uploader, fetchPayload, response, identityResponse, responseBody, err_1, errorMessage;
-          return __generator(this, function (_b) {
-            switch (_b.label) {
+          var _a, verbose, error, invokeCallback, previousMPID, uploadUrl, uploader, fetchPayload, response, identityResponse, message, _b, responseBody, errorResponse, errorMessage, err_1, errorMessage;
+          return __generator(this, function (_c) {
+            switch (_c.label) {
               case 0:
                 _a = mpInstance.Logger, verbose = _a.verbose, error = _a.error;
                 invokeCallback = mpInstance._Helpers.invokeCallback;
@@ -9115,35 +9069,67 @@ var mParticle = (function () {
                   },
                   body: JSON.stringify(identityApiRequest)
                 };
-                _b.label = 1;
-              case 1:
-                _b.trys.push([1, 6,, 7]);
                 mpInstance._Store.identityCallInFlight = true;
+                _c.label = 1;
+              case 1:
+                _c.trys.push([1, 9,, 10]);
                 return [4 /*yield*/, uploader.upload(fetchPayload)];
               case 2:
-                response = _b.sent();
+                response = _c.sent();
                 identityResponse = void 0;
-                if (!response.json) return [3 /*break*/, 4];
-                return [4 /*yield*/, response.json()];
+                message = void 0;
+                _b = response.status;
+                switch (_b) {
+                  case HTTP_ACCEPTED:
+                    return [3 /*break*/, 3];
+                  case HTTP_OK:
+                    return [3 /*break*/, 3];
+                  case HTTP_BAD_REQUEST:
+                    return [3 /*break*/, 3];
+                }
+                return [3 /*break*/, 7];
               case 3:
-                responseBody = _b.sent();
-                identityResponse = this.getIdentityResponseFromFetch(response, responseBody);
-                return [3 /*break*/, 5];
+                if (!response.json) return [3 /*break*/, 5];
+                return [4 /*yield*/, response.json()];
               case 4:
-                identityResponse = this.getIdentityResponseFromXHR(response);
-                _b.label = 5;
+                responseBody = _c.sent();
+                identityResponse = this.getIdentityResponseFromFetch(response, responseBody);
+                return [3 /*break*/, 6];
               case 5:
-                verbose('Received Identity Response from server: ' + JSON.stringify(identityResponse.responseText));
-                parseIdentityResponse(identityResponse, previousMPID, callback, originalIdentityApiData, method, knownIdentities, false);
-                return [3 /*break*/, 7];
+                identityResponse = this.getIdentityResponseFromXHR(response);
+                _c.label = 6;
               case 6:
-                err_1 = _b.sent();
-                errorMessage = err_1.message || err_1.toString();
-                mpInstance._Store.identityCallInFlight = false;
-                invokeCallback(callback, HTTPCodes$1.noHttpCoverage, errorMessage);
-                error('Error sending identity request to servers' + ' - ' + err_1);
-                return [3 /*break*/, 7];
+                if (identityResponse.status === HTTP_BAD_REQUEST) {
+                  errorResponse = identityResponse.responseText;
+                  message = 'Issue with sending Identity Request to mParticle Servers, received HTTP Code of ' + identityResponse.status;
+                  if (errorResponse === null || errorResponse === void 0 ? void 0 : errorResponse.Errors) {
+                    errorMessage = errorResponse.Errors.map(function (error) {
+                      return error.message;
+                    }).join(', ');
+                    message += ' - ' + errorMessage;
+                  }
+                } else {
+                  message = 'Received Identity Response from server: ';
+                  message += JSON.stringify(identityResponse.responseText);
+                }
+                return [3 /*break*/, 8];
               case 7:
+                {
+                  throw new Error('Received HTTP Code of ' + response.status);
+                }
+              case 8:
+                mpInstance._Store.identityCallInFlight = false;
+                verbose(message);
+                parseIdentityResponse(identityResponse, previousMPID, callback, originalIdentityApiData, method, knownIdentities, false);
+                return [3 /*break*/, 10];
+              case 9:
+                err_1 = _c.sent();
+                mpInstance._Store.identityCallInFlight = false;
+                errorMessage = err_1.message || err_1.toString();
+                error('Error sending identity request to servers' + ' - ' + errorMessage);
+                invokeCallback(callback, HTTPCodes$1.noHttpCoverage, errorMessage);
+                return [3 /*break*/, 10];
+              case 10:
                 return [2 /*return*/];
             }
           });
@@ -9335,10 +9321,13 @@ var mParticle = (function () {
         return processedClickIds;
       };
       IntegrationCapture.prototype.filterMappings = function (outputType) {
-        return Object.fromEntries(Object.entries(integrationMapping).filter(function (_a) {
-          var value = _a[1];
-          return value.output === outputType;
-        }));
+        var filteredMappings = {};
+        for (var key in integrationMapping) {
+          if (integrationMapping[key].output === outputType) {
+            filteredMappings[key] = integrationMapping[key];
+          }
+        }
+        return filteredMappings;
       };
       return IntegrationCapture;
     }();
@@ -9493,7 +9482,7 @@ var mParticle = (function () {
        * @returns {String} mParticle environment setting
        */
       this.getEnvironment = function () {
-        return self._Store.SDKConfig.isDevelopmentMode ? Types.Environment.Development : Types.Environment.Production;
+        return self._Store.SDKConfig.isDevelopmentMode ? Constants.Environment.Development : Constants.Environment.Production;
       };
       /**
        * Returns the mParticle SDK version number
@@ -9975,7 +9964,7 @@ var mParticle = (function () {
          * @for mParticle.eCommerce
          * @method logCheckout
          * @param {Number} step checkout step number
-         * @param {String} option
+         * @param {String} checkout option string
          * @param {Object} attrs
          * @param {Object} [customFlags] Custom flags for the event
          * @deprecated
@@ -10633,11 +10622,11 @@ var mParticle = (function () {
         this.filterDictionary.attributeFilters.push(hashedEventAttribute);
       };
       MPSideloadedKit.prototype.addScreenNameFilter = function (screenName) {
-        var hashedScreenName = KitFilterHelper.hashEventName(screenName, EventTypeEnum.Unknown);
+        var hashedScreenName = KitFilterHelper.hashEventName(screenName, EventType.Unknown);
         this.filterDictionary.screenNameFilters.push(hashedScreenName);
       };
       MPSideloadedKit.prototype.addScreenAttributeFilter = function (screenName, screenAttribute) {
-        var hashedScreenAttribute = KitFilterHelper.hashEventAttributeKey(EventTypeEnum.Unknown, screenName, screenAttribute);
+        var hashedScreenAttribute = KitFilterHelper.hashEventAttributeKey(EventType.Unknown, screenName, screenAttribute);
         this.filterDictionary.screenAttributeFilters.push(hashedScreenAttribute);
       };
       MPSideloadedKit.prototype.addUserIdentityFilter = function (userIdentity) {
