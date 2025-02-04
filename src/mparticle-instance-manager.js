@@ -67,7 +67,7 @@ function mParticle() {
         ).toLowerCase();
         var client = self._instances[instanceName];
         if (client === undefined) {
-            client = new mParticleInstance(apiKey, config, instanceName);
+            client = new mParticleInstance(instanceName);
             self._instances[instanceName] = client;
         }
 
