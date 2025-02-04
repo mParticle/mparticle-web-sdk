@@ -75,9 +75,11 @@ export class XHRUploader extends AsyncUploader {
 
             xhr.open(method, url);
 
-            Object.entries(headers).forEach(([key, value]) => {
-                xhr.setRequestHeader(key, value);
-            });
+            for (const key in headers) {
+                if (headers.hasOwnProperty(key)) {
+                    xhr.setRequestHeader(key, headers[key]);
+                }
+            }
 
             xhr.send(data);
         });
