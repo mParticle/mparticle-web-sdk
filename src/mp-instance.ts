@@ -84,7 +84,6 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _Store: IStore;
     _instanceName: string;
     _preInit: IPreInit;
-
 }
 
 const { Messages, HTTPCodes, FeatureFlags } = Constants;
