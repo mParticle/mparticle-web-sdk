@@ -192,8 +192,8 @@ export default class IntegrationCapture {
 
         for (const key in clickIds) {
             if (clickIds.hasOwnProperty(key)) {
-            const value = clickIds[key];
-            const mappedKey = mappingList[key]?.mappedKey;
+                const value = clickIds[key];
+                const mappedKey = mappingList[key]?.mappedKey;
                 if (!isEmpty(mappedKey)) {
                     mappedClickIds[mappedKey] = value;
                 }
