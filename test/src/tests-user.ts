@@ -4,7 +4,7 @@ import Utils from './config/utils';
 import Constants from '../../src/constants';
 import { urls, apiKey, MPConfig, testMPID } from './config/constants';
 import fetchMock from 'fetch-mock/esm/client';
-import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
+import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 const { fetchMockSuccess, waitForCondition } = Utils;
 
 const { HTTPCodes } = Constants;

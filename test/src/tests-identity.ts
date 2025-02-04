@@ -13,7 +13,6 @@ import {
 import {
     Callback,
     IdentityApiData,
-    Product,
     UserIdentities,
 } from '@mparticle/web-sdk';
 import { IdentityCache } from '../../src/identity-utils';
@@ -27,7 +26,7 @@ import {
     IdentityResult,
     IdentityResultBody,
 } from '../../src/identity-user-interfaces';
-import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
+import { IMParticleInstanceManager, SDKProduct } from '../../src/sdkRuntimeModels';
 
 const {
     setLocalStorage,
@@ -1803,8 +1802,6 @@ describe('identity', function() {
             is_logged_in: false,
         });
 
-        mParticle.identifyRequest = userIdentities1;
-
         mParticle.init(apiKey, window.mParticle.config);
 
         waitForCondition(() => mParticle.Identity?.getUsers().length === 4)
@@ -1903,8 +1900,6 @@ describe('identity', function() {
             mpid: 'user1',
             is_logged_in: false,
         });
-
-        mParticle.identifyRequest = user1;
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -2029,7 +2024,7 @@ describe('identity', function() {
         mParticle.Identity.getCurrentUser().setUserAttribute('foo1', 'bar1');
         expect(fetchMock.calls().length).to.equal(7);
 
-        const product1: Product = mParticle.eCommerce.createProduct(
+        const product1: SDKProduct = mParticle.eCommerce.createProduct(
             'iPhone',
             '12345',
             '1000',
@@ -2236,8 +2231,6 @@ describe('identity', function() {
         data.mpid2.ui[1].should.equal('2');
         data.mpid3.ui[1].should.equal('3');
         data.mpid4.ui[1].should.equal('4');
-
-        mParticle.identifyRequest = null;
 
         done();
         }).catch(done);
@@ -2459,7 +2452,6 @@ describe('identity', function() {
                 customerid: '123',
             },
         };
-        mParticle.identifyRequest = identityAPIRequest1;
         mParticle.init(apiKey, window.mParticle.config);
 
         waitForCondition(hasIdentifyReturned)
@@ -4799,7 +4791,7 @@ describe('identity', function() {
             waitForCondition(hasIdentifyReturned)
             .then(() => {
 
-            const product: Product = mParticle.eCommerce.createProduct(
+            const product: SDKProduct = mParticle.eCommerce.createProduct(
                 'iPhone',
                 '12345',
                 400
@@ -4831,7 +4823,7 @@ describe('identity', function() {
             waitForCondition(hasIdentifyReturned)
             .then(() => {
 
-            const product: Product = mParticle.eCommerce.createProduct(
+            const product: SDKProduct = mParticle.eCommerce.createProduct(
                 'iPhone',
                 '12345',
                 400

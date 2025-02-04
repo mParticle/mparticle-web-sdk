@@ -1,9 +1,13 @@
 import Polyfill from './polyfill';
-import Types from './types';
+import Types, { CommerceEventType, EventType, ProductActionType, PromotionActionType } from './types';
 import Constants from './constants';
-import mParticleInstance from './mp-instance.js';
+import mParticleInstance, { IMParticleWebSDKInstance } from './mp-instance.js';
 import _BatchValidator from './mockBatchCreator';
 import MPSideloadedKit from './sideloadedKit';
+import { IMParticleInstanceManager } from './sdkRuntimeModels';
+import { IStore } from './store';
+import { Dictionary } from '@mparticle/web-sdk';
+import { valueof } from './utils';
 
 if (!Array.prototype.forEach) {
     Array.prototype.forEach = Polyfill.forEach;
@@ -17,20 +21,23 @@ if (!Array.prototype.filter) {
     Array.prototype.filter = Polyfill.filter;
 }
 
+// https://go.mparticle.com/work/SQDSDKS-6768
 if (!Array.isArray) {
+    // @ts-ignore
     Array.prototype.isArray = Polyfill.isArray;
 }
 
-function mParticle() {
-    var self = this;
+function mParticleInstanceManager(this: IMParticleInstanceManager) {
+    const self = this;
     // Only leaving this here in case any clients are trying to access mParticle.Store, to prevent from throwing
-    this.Store = {};
-    this._instances = {};
+    this.Store = {} as IStore;
+    this._instances = {} as Dictionary<IMParticleWebSDKInstance>;
     this.IdentityType = Types.IdentityType;
-    this.EventType = Types.EventType;
-    this.CommerceEventType = Types.CommerceEventType;
-    this.PromotionType = Types.PromotionActionType;
-    this.ProductActionType = Types.ProductActionType;
+    this.EventType = EventType as unknown as valueof<typeof EventType>;
+    this.CommerceEventType = CommerceEventType as unknown as valueof<typeof CommerceEventType>;
+    this.PromotionType = PromotionActionType as unknown as valueof<typeof PromotionActionType>;
+    this.ProductActionType = ProductActionType as unknown as valueof<typeof ProductActionType>;
+
     this.MPSideloadedKit = MPSideloadedKit;
 
     if (typeof window !== 'undefined') {
@@ -65,7 +72,7 @@ function mParticle() {
             ? Constants.DefaultInstance
             : instanceName
         ).toLowerCase();
-        var client = self._instances[instanceName];
+        let client: IMParticleWebSDKInstance = self._instances[instanceName];
         if (client === undefined) {
             client = new mParticleInstance(instanceName);
             self._instances[instanceName] = client;
@@ -75,7 +82,7 @@ function mParticle() {
     };
 
     this.getInstance = function getInstance(instanceName) {
-        var client;
+        let client: IMParticleWebSDKInstance;
         if (!instanceName) {
             instanceName = Constants.DefaultInstance;
             client = self._instances[instanceName];
@@ -480,11 +487,15 @@ function mParticle() {
     };
 }
 
-var mparticleInstance = new mParticle();
+const mParticleManager = new mParticleInstanceManager();
 
 if (typeof window !== 'undefined') {
-    window.mParticle = mparticleInstance;
+    // mParticle is the global object used to access the SDK and predates instance manager
+    // it is now used to access both the default instance and the instance manager.
+    window.mParticle = mParticleManager;
+
+    // https://go.mparticle.com/work/SQDSDKS-5053
     window.mParticle._BatchValidator = new _BatchValidator();
 }
 
-export default mparticleInstance;
+export default mParticleManager;

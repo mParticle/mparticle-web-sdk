@@ -10,7 +10,7 @@ import {
     workspaceCookieName,
 } from './config/constants';
 import { IAliasRequest } from '../../src/identity.interfaces';
-import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
+import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 
 const {
     setCookie,

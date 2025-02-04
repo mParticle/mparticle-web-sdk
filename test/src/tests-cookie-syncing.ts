@@ -5,7 +5,7 @@ import { urls, testMPID, MPConfig, v4LSKey, apiKey } from './config/constants';
 import { IMParticleUser } from '../../src/identity-user-interfaces';
 import { IPixelConfiguration } from '../../src/cookieSyncManager';
 import { IConsentRules } from '../../src/consent';
-import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
+import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 const { fetchMockSuccess, waitForCondition, hasIdentifyReturned } = Utils;
 
 const { setLocalStorage, MockForwarder, getLocalStorage } = Utils;

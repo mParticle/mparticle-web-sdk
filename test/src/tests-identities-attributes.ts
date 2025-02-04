@@ -10,8 +10,7 @@ import Utils from './config/utils';
 import { AllUserAttributes, UserAttributesValue } from '@mparticle/web-sdk';
 import { UserAttributes } from '../../src/identity-user-interfaces';
 import { Batch, CustomEvent, UserAttributeChangeEvent } from '@mparticle/event-models';
-import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
-import { SDKProduct } from '../../src/sdkRuntimeModels';
+import { IMParticleInstanceManager, SDKProduct } from '../../src/sdkRuntimeModels';
 const {
     waitForCondition,
     fetchMockSuccess,

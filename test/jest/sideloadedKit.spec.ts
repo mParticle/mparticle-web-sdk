@@ -1,4 +1,4 @@
-import MPSideloadedKit, { IMPSideloadedKit } from "../../src/sideloadedKit";
+import MPSideloadedKit from "../../src/sideloadedKit";
 import { IMPSideloadedKitConstructor } from "../../src/sideloadedKit";
 import { EventType, IdentityType } from "../../src/types";
 import { UnregisteredKit } from '../../src/forwarders.interfaces';          

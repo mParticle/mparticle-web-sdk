@@ -5,8 +5,8 @@ import Utils from './config/utils';
 import { expect } from 'chai';
 import _BatchValidator from '../../src/mockBatchCreator';
 import fetchMock from 'fetch-mock/esm/client';
-import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
 import { ProductActionType } from '../../src/types';
+import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 const { fetchMockSuccess, waitForCondition, hasIdentifyReturned  } = Utils;
 
 declare global {
