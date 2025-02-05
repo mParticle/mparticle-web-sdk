@@ -35,6 +35,7 @@ import Identity from './identity';
 import Consent, { IConsent } from './consent';
 import KitBlocker from './kitBlocking';
 import ConfigAPIClient from './configAPIClient';
+import ForegroundTimer from './foregroundTimeTracker';
 import IdentityAPIClient from './identityApiClient';
 import { isFunction, valueof } from './utils';
 import { LocalStorageVault } from './vault';
@@ -66,6 +67,7 @@ export type IntegrationDelays = Dictionary<boolean>;
 // https://go.mparticle.com/work/SQDSDKS-6949
 export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     // Private Properties
+    _timer: ForegroundTimer;
     _APIClient: IAPIClient;
     _Consent: IConsent;
     _CookieSyncManager: ICookieSyncManager;
@@ -149,6 +151,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         }
     }
     this.init = function(apiKey, config) {
+        self._timer = new ForegroundTimer(apiKey);
         if (!config) {
             console.warn(
                 'You did not pass a config object to init(). mParticle will not initialize properly'

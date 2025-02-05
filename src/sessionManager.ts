@@ -132,6 +132,7 @@ export default function SessionManager(
             });
 
             mpInstance._Store.nullifySession();
+            mpInstance._timer.resetTimer();
             return;
         }
 
@@ -180,6 +181,9 @@ export default function SessionManager(
                 mpInstance._Store.nullifySession();
             }
         }
+
+        mpInstance._timer.resetTimer();
+        
     };
 
     this.setSessionTimer = function(): void {
