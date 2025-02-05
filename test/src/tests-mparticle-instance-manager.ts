@@ -291,6 +291,19 @@ describe('mParticle instance manager', () => {
             fetchMock.restore();
         });
 
+        it('uses the correct instance name to identify an instance', async () => {
+
+            await waitForCondition(() => (
+                mParticle.getInstance('default_instance')._Store.configurationLoaded === true &&
+                mParticle.getInstance('instance2')._Store.configurationLoaded === true &&
+                mParticle.getInstance('instance3')._Store.configurationLoaded === true
+            ));
+
+            expect(mParticle.getInstance('default_instance')._instanceName).to.equal('default_instance');
+            expect(mParticle.getInstance('instance2')._instanceName).to.equal('instance2');
+            expect(mParticle.getInstance('instance3')._instanceName).to.equal('instance3');
+        });
+
         it('creates multiple instances with their own cookies', done => {
             // setTimeout to allow config to come back from the beforeEach initialization
             setTimeout(() => {
