@@ -190,10 +190,13 @@ export default class IntegrationCapture {
             return mappedClickIds;
         }
 
-        for (const [key, value] of Object.entries(clickIds)) {
-            const mappedKey = mappingList[key]?.mappedKey;
-            if (!isEmpty(mappedKey)) {
-                mappedClickIds[mappedKey] = value;
+        for (const key in clickIds) {
+            if (clickIds.hasOwnProperty(key)) {
+                const value = clickIds[key];
+                const mappedKey = mappingList[key]?.mappedKey;
+                if (!isEmpty(mappedKey)) {
+                    mappedClickIds[mappedKey] = value;
+                }
             }
         }
 
@@ -207,12 +210,11 @@ export default class IntegrationCapture {
     ): Dictionary<string> {
         const processedClickIds: Dictionary<string> = {};
 
-        for (const [key, value] of Object.entries(clickIds)) {
-            const processor = integrationMapping[key]?.processor;
-            if (processor) {
-                processedClickIds[key] = processor(value, url, timestamp);
-            } else {
-                processedClickIds[key] = value;
+        for (const key in clickIds) {
+            if (clickIds.hasOwnProperty(key)) {
+                const value = clickIds[key];
+                const processor = integrationMapping[key]?.processor;
+                processedClickIds[key] = processor ? processor(value, url, timestamp) : value;
             }
         }
 
