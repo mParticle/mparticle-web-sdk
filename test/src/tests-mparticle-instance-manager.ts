@@ -292,7 +292,6 @@ describe('mParticle instance manager', () => {
         });
 
         it('uses the correct instance name to identify an instance', async () => {
-
             await waitForCondition(() => (
                 mParticle.getInstance('default_instance')._Store.configurationLoaded === true &&
                 mParticle.getInstance('instance2')._Store.configurationLoaded === true &&
