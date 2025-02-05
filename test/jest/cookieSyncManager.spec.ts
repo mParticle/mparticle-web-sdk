@@ -4,7 +4,7 @@ import CookieSyncManager, {
     CookieSyncDates,
     isLastSyncDateExpired
 } from '../../src/cookieSyncManager';
-import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
+import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 import { testMPID } from '../src/config/constants';
 
 const pixelSettings: IPixelConfiguration = {
@@ -43,7 +43,7 @@ describe('CookieSyncManager', () => {
                         getMPID: () => testMPID,
                     }),
                 },
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
@@ -78,7 +78,7 @@ describe('CookieSyncManager', () => {
                         getMPID: () => testMPID,
                     }),
                 },
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
@@ -99,7 +99,7 @@ describe('CookieSyncManager', () => {
                         csd: {}
                     }}),
                 },
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
@@ -120,7 +120,7 @@ describe('CookieSyncManager', () => {
                         csd: {}
                     }}),
                 },
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
@@ -158,7 +158,7 @@ describe('CookieSyncManager', () => {
                 _Consent: {
                     isEnabledForUserConsent: jest.fn().mockReturnValue(true),
                 },
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
@@ -197,7 +197,7 @@ describe('CookieSyncManager', () => {
                         getMPID: () => testMPID,
                     }),
                 },
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
@@ -229,7 +229,7 @@ describe('CookieSyncManager', () => {
                         getMPID: () => testMPID,
                     }),
                 },
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
@@ -268,7 +268,7 @@ describe('CookieSyncManager', () => {
                         getMPID: () => testMPID,
                     }),
                 },
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
@@ -305,7 +305,7 @@ describe('CookieSyncManager', () => {
                 Logger: {
                     verbose: jest.fn(),
                 },
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
@@ -329,7 +329,7 @@ describe('CookieSyncManager', () => {
                 _Persistence: {
                     getPersistence: () => ({}),
                 },
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
@@ -370,7 +370,7 @@ describe('CookieSyncManager', () => {
                 Logger: {
                     verbose: loggerSpy,
                 },
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
@@ -413,7 +413,7 @@ describe('CookieSyncManager', () => {
                 Logger: {
                     verbose: loggerSpy,
                 },
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const cookieSyncManager = new CookieSyncManager(mockMPInstance);
             cookieSyncManager.performCookieSync = jest.fn();
@@ -457,7 +457,7 @@ describe('CookieSyncManager', () => {
                 Logger: {
                     verbose: jest.fn(),
                 },
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const cookieSyncManager = new CookieSyncManager(mockMPInstance);
 
@@ -521,7 +521,7 @@ describe('CookieSyncManager', () => {
                 Logger: {
                     verbose: loggerSpy,
                 },
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const cookieSyncManager = new CookieSyncManager(mockMPInstance);
 

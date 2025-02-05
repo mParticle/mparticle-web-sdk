@@ -1,9 +1,9 @@
 import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import { expect } from 'chai';
-import { urls, apiKey, MPConfig, testMPID } from './config/constants';
+import { urls, apiKey, testMPID } from './config/constants';
 import Constants from '../../src/constants';
-import { MParticleWebSDK, SDKLoggerApi } from '../../src/sdkRuntimeModels';
+import { IMParticleInstanceManager, SDKLoggerApi } from '../../src/sdkRuntimeModels';
 import AudienceManager, {
     IAudienceMemberships, IAudienceMembershipsServerResponse
 } from '../../src/audienceManager';
@@ -13,7 +13,7 @@ const { fetchMockSuccess } = Utils;
 
 declare global {
     interface Window {
-        mParticle: MParticleWebSDK;
+        mParticle: IMParticleInstanceManager;
         fetchMock: any;
     }
 }

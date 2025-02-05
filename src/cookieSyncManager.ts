@@ -4,9 +4,9 @@ import {
     createCookieSyncUrl,
 } from './utils';
 import Constants from './constants';
-import { MParticleWebSDK } from './sdkRuntimeModels';
 import { MPID } from '@mparticle/web-sdk';
 import { IConsentRules } from './consent';
+import { IMParticleWebSDKInstance } from './mp-instance';
 
 const { Messages } = Constants;
 const { InformationMessages } = Messages;
@@ -47,7 +47,7 @@ export interface ICookieSyncManager {
 
 export default function CookieSyncManager(
     this: ICookieSyncManager,
-    mpInstance: MParticleWebSDK
+    mpInstance: IMParticleWebSDKInstance
 ) {
     const self = this;
 

@@ -2,21 +2,21 @@ import sinon from 'sinon';
 import { expect } from 'chai';
 import Utils from './config/utils';
 import Constants from '../../src/constants';
-import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { urls, apiKey, MPConfig, testMPID } from './config/constants';
 import fetchMock from 'fetch-mock/esm/client';
+import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
 const { fetchMockSuccess, waitForCondition } = Utils;
 
 const { HTTPCodes } = Constants;
 
 declare global {
     interface Window {
-        mParticle: MParticleWebSDK;
+        mParticle: IMParticleInstanceManager;
         fetchMock: any;
     }
 }
 
-const mParticle = window.mParticle as MParticleWebSDK;
+const mParticle = window.mParticle as IMParticleInstanceManager;;
 
 // https://go.mparticle.com/work/SQDSDKS-6849
 const hasIdentifyReturned = () => {

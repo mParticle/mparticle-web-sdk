@@ -1,11 +1,10 @@
 // This file is used ONLY for the mParticle ESLint plugin. It should NOT be used otherwise!
 
 import ServerModel from './serverModel';
-import { SDKEvent, BaseEvent, MParticleWebSDK } from './sdkRuntimeModels';
+import { SDKEvent, BaseEvent } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
-import * as EventsApi from '@mparticle/event-models';
 import { Batch } from '@mparticle/event-models';
-import { IMPSideloadedKit } from './sideloadedKit';
+import { IMParticleWebSDKInstance } from './mp-instance';
 
 const mockFunction = function() {
     return null;
@@ -15,7 +14,7 @@ export default class _BatchValidator {
         return ({
             // Certain Helper, Store, and Identity properties need to be mocked to be used in the `returnBatch` method
             _Helpers: {
-                sanitizeAttributes: window.mParticle.getInstance()._Helpers
+                sanitizeAttributes: (window.mParticle.getInstance() as unknown as IMParticleWebSDKInstance)._Helpers
                     .sanitizeAttributes,
                 generateHash: function() {
                     return 'mockHash';
@@ -23,7 +22,7 @@ export default class _BatchValidator {
                 generateUniqueId: function() {
                     return 'mockId';
                 },
-                extend: window.mParticle.getInstance()._Helpers.extend,
+                extend: (window.mParticle.getInstance() as unknown as IMParticleWebSDKInstance)._Helpers.extend,
                 createServiceUrl: mockFunction,
                 parseNumber: mockFunction,
                 isObject: mockFunction,
@@ -118,7 +117,7 @@ export default class _BatchValidator {
             logLevel: 'none',
             setPosition: mockFunction,
             upload: mockFunction,
-        } as unknown) as MParticleWebSDK;
+        } as unknown) as IMParticleWebSDKInstance;
     }
 
     private createSDKEventFunction(event): SDKEvent {

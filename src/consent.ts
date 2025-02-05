@@ -4,11 +4,11 @@ import {
     GDPRConsentState,
     PrivacyConsentState,
 } from '@mparticle/web-sdk';
-import { MParticleWebSDK } from './sdkRuntimeModels';
 import { Dictionary, isObject } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
 import { IMParticleUser } from './identity-user-interfaces';
+import { IMParticleWebSDKInstance } from './mp-instance';
 
 const { CCPAPurpose } = Constants;
 
@@ -36,12 +36,6 @@ export interface SDKConsentApi {
     createGDPRConsent: ICreatePrivacyConsentFunction;
     createCCPAConsent: ICreatePrivacyConsentFunction;
     createConsentState: (consentState?: ConsentState) => ConsentState;
-    ConsentSerialization: IConsentSerialization;
-    createPrivacyConsent: ICreatePrivacyConsentFunction;
-    isEnabledForUserConsent: (
-        consentRules: IConsentRules,
-        user: IMParticleUser
-    ) => boolean;
 }
 
 export interface IConsentSerialization {
@@ -120,7 +114,7 @@ export interface IConsent {
     ConsentSerialization: IConsentSerialization;
 }
 
-export default function Consent(this: IConsent, mpInstance: MParticleWebSDK) {
+export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInstance) {
     const self = this;
 
     // this function is called when consent is required to

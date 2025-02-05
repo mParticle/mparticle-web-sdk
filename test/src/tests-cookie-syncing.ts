@@ -2,10 +2,10 @@ import { expect } from 'chai';
 import Utils from './config/utils';
 import fetchMock from 'fetch-mock/esm/client';
 import { urls, testMPID, MPConfig, v4LSKey, apiKey } from './config/constants';
-import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { IMParticleUser } from '../../src/identity-user-interfaces';
 import { IPixelConfiguration } from '../../src/cookieSyncManager';
 import { IConsentRules } from '../../src/consent';
+import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
 const { fetchMockSuccess, waitForCondition, hasIdentifyReturned } = Utils;
 
 const { setLocalStorage, MockForwarder, getLocalStorage } = Utils;
@@ -24,7 +24,7 @@ const pixelSettings: IPixelConfiguration = {
 
 declare global {
     interface Window {
-        mParticle: MParticleWebSDK;
+        mParticle: IMParticleInstanceManager;
         fetchMock: any;
     }
 }

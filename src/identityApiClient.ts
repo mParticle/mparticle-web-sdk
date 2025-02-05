@@ -24,7 +24,7 @@ import {
     IdentityResultBody,
     IIdentityResponse,
 } from './identity-user-interfaces';
-import { MParticleWebSDK } from './sdkRuntimeModels';
+import { IMParticleWebSDKInstance } from './mp-instance';
 
 const { HTTPCodes, Messages, IdentityMethods } = Constants;
 
@@ -82,7 +82,7 @@ interface IAliasErrorResponse extends IdentityApiError {}
 
 export default function IdentityAPIClient(
     this: IIdentityApiClient,
-    mpInstance: MParticleWebSDK
+    mpInstance: IMParticleWebSDKInstance
 ) {
     this.sendAliasRequest = async function(
         aliasRequest: IAliasRequest,

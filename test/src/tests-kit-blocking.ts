@@ -1,13 +1,14 @@
 import sinon from 'sinon';
+import { expect } from 'chai';
 import { urls, apiKey, MPConfig, testMPID } from './config/constants';
-import { MParticleWebSDK, SDKEvent, SDKProductActionType, DataPlanResult, KitBlockerDataPlan } from  '../../src/sdkRuntimeModels';
+import { SDKEvent, SDKProductActionType, DataPlanResult, KitBlockerDataPlan } from  '../../src/sdkRuntimeModels';
 import * as dataPlan from './dataPlan.json';
 import Utils from './config/utils';
 import KitBlocker from '../../src/kitBlocking';
 import Types from '../../src/types';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
 import fetchMock from 'fetch-mock/esm/client';
-import { expect } from 'chai'
+import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
 const { waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
 
 let forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
@@ -15,7 +16,7 @@ let forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
 
 declare global {
     interface Window {
-        mParticle: MParticleWebSDK;
+        mParticle: IMParticleInstanceManager;
         MockForwarder1: any;
     }
 }
@@ -620,7 +621,7 @@ describe('kit blocking', () => {
         it('integration test - should not throw an error when unplanned user attributes are allowed and block.ua = true', function(done) {
             window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
             window.mParticle.init(apiKey, window.mParticle.config);
-            
+
             // save old data points for reset later
             const oldDataPoints = dataPlan.dtpn.vers.version_document.data_points;
             // when "Allow unplanned user attributes" is enabled, the data points returned is an empty array
@@ -634,7 +635,6 @@ describe('kit blocking', () => {
             dataPlan.dtpn.vers.version_document.data_points = oldDataPoints;
 
             done();
-            
         });
 
         it('integration test - should allow an unplanned attribute to be set on forwarder if additionalProperties = true and blok.ua = true', function(done) {

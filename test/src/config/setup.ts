@@ -1,9 +1,9 @@
 import { MPConfig, workspaceToken } from './constants';
-import { MParticleWebSDK } from '../../../src/sdkRuntimeModels';
+import { IMParticleInstanceManager } from '../../../src/sdkRuntimeModels';
 
 declare global {
     interface Window {
-        mParticle: MParticleWebSDK;
+        mParticle: IMParticleInstanceManager;
     }
 }
 

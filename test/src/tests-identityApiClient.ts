@@ -1,7 +1,6 @@
 import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import { urls, apiKey, MPConfig, testMPID } from './config/constants';
-import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { expect } from 'chai';
 import {
     IAliasRequest,
@@ -19,25 +18,19 @@ import Constants, {
 import IdentityAPIClient, { IIdentityApiClient } from '../../src/identityApiClient';
 import { IIdentityResponse } from '../../src/identity-user-interfaces';
 import Utils from './config/utils';
+import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
+import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 const { fetchMockSuccess } = Utils;
 const { HTTPCodes }  = Constants;
 
 declare global {
     interface Window {
-        mParticle: MParticleWebSDK;
+        mParticle: IMParticleInstanceManager;
         fetchMock: any;
     }
 }
 
 const mParticle = window.mParticle;
-
-declare global {
-    interface Window {
-        mParticle: MParticleWebSDK;
-        fetchMock: any;
-    }
-}
-
 
 describe('Identity Api Client', () => {
     describe('#sendIdentityRequest', () => {
@@ -84,7 +77,7 @@ describe('Identity Api Client', () => {
 
             const callbackSpy = sinon.spy();
 
-            const mpInstance: MParticleWebSDK = ({
+            const mpInstance: IMParticleWebSDKInstance = ({
                 Logger: {
                     verbose: () => {},
                     error: () => {},
@@ -102,7 +95,7 @@ describe('Identity Api Client', () => {
                     },
                 },
                 _Persistence: {},
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
                 mpInstance
@@ -135,7 +128,7 @@ describe('Identity Api Client', () => {
 
             const invokeCallbackSpy = sinon.spy();
 
-            const mpInstance: MParticleWebSDK = ({
+            const mpInstance: IMParticleInstanceManager = ({
                 Logger: {
                     verbose: () => {},
                     error: () => {},
@@ -154,7 +147,7 @@ describe('Identity Api Client', () => {
                     identityCallInFlight: true,
                 },
                 _Persistence: {},
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleInstanceManager;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
                 mpInstance
@@ -192,7 +185,7 @@ describe('Identity Api Client', () => {
             const callbackSpy = sinon.spy();
             const invokeCallbackSpy = sinon.spy();
 
-            const mpInstance: MParticleWebSDK = ({
+            const mpInstance: IMParticleWebSDKInstance = ({
                 Logger: {
                     verbose: () => {},
                     error: () => {},
@@ -211,7 +204,7 @@ describe('Identity Api Client', () => {
                     identityCallInFlight: false,
                 },
                 _Persistence: {},
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
                 mpInstance
@@ -249,7 +242,7 @@ describe('Identity Api Client', () => {
             const fetch = window.fetch;
             delete window.fetch;
 
-            const mpInstance: MParticleWebSDK = ({
+            const mpInstance: IMParticleWebSDKInstance = ({
                 Logger: {
                     verbose: () => {},
                     error: () => {},
@@ -268,7 +261,7 @@ describe('Identity Api Client', () => {
                     identityCallInFlight: false,
                 },
                 _Persistence: {},
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
                 mpInstance
@@ -309,7 +302,7 @@ describe('Identity Api Client', () => {
 
             const callbackSpy = sinon.spy();
 
-            const mpInstance: MParticleWebSDK = ({
+            const mpInstance: IMParticleInstanceManager = ({
                 Logger: {
                     verbose: () => {},
                     error: () => {},
@@ -327,7 +320,7 @@ describe('Identity Api Client', () => {
                     },
                 },
                 _Persistence: {},
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleInstanceManager;;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
                 mpInstance
@@ -385,7 +378,7 @@ describe('Identity Api Client', () => {
             const verboseSpy = sinon.spy();
             const errorSpy = sinon.spy();
 
-            const mpInstance: MParticleWebSDK = ({
+            const mpInstance: IMParticleWebSDKInstance = ({
                 Logger: {
                     verbose: (message) => verboseSpy(message),
                     error: (message) => errorSpy(message),
@@ -404,7 +397,7 @@ describe('Identity Api Client', () => {
                     },
                 },
                 _Persistence: {},
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
                 mpInstance
@@ -457,7 +450,7 @@ describe('Identity Api Client', () => {
             const verboseSpy = sinon.spy();
             const errorSpy = sinon.spy();
 
-            const mpInstance: MParticleWebSDK = ({
+            const mpInstance: IMParticleWebSDKInstance = ({
                 Logger: {
                     verbose: (message) => verboseSpy(message),
                     error: (message) => errorSpy(message),
@@ -476,7 +469,7 @@ describe('Identity Api Client', () => {
                     },
                 },
                 _Persistence: {},
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
                 mpInstance
@@ -519,7 +512,7 @@ describe('Identity Api Client', () => {
             const verboseSpy = sinon.spy();
             const errorSpy = sinon.spy();
 
-            const mpInstance: MParticleWebSDK = ({
+            const mpInstance: IMParticleWebSDKInstance = ({
                 Logger: {
                     verbose: (message) => verboseSpy(message),
                     error: (message) => errorSpy(message),
@@ -537,7 +530,7 @@ describe('Identity Api Client', () => {
                     },
                 },
                 _Persistence: {},
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
                 mpInstance
@@ -581,7 +574,7 @@ describe('Identity Api Client', () => {
             const verboseSpy = sinon.spy();
             const errorSpy = sinon.spy();
 
-            const mpInstance: MParticleWebSDK = ({
+            const mpInstance: IMParticleWebSDKInstance = ({
                 Logger: {
                     verbose: (message) => verboseSpy(message),
                     error: (message) => errorSpy(message),
@@ -599,7 +592,7 @@ describe('Identity Api Client', () => {
                     },
                 },
                 _Persistence: {},
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
                 mpInstance
@@ -651,7 +644,7 @@ describe('Identity Api Client', () => {
             const verboseSpy = sinon.spy();
             const errorSpy = sinon.spy();
 
-            const mpInstance: MParticleWebSDK = ({
+            const mpInstance: IMParticleInstanceManager = ({
                 Logger: {
                     verbose: (message) => verboseSpy(message),
                     error: (message) => errorSpy(message),
@@ -669,7 +662,7 @@ describe('Identity Api Client', () => {
                     },
                 },
                 _Persistence: {},
-            } as unknown) as MParticleWebSDK;
+            } as unknown) as IMParticleInstanceManager;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
                 mpInstance
@@ -707,7 +700,7 @@ describe('Identity Api Client', () => {
         });
 
         it('should have just an httpCode on the result passed to the callback on a 200', async () => {
-            const mpInstance: MParticleWebSDK = mParticle.getInstance();
+            const mpInstance: IMParticleWebSDKInstance = mParticle.getInstance();
             const identityApiClient = new IdentityAPIClient(mpInstance);
 
             const aliasRequest: IAliasRequest = {
@@ -730,7 +723,7 @@ describe('Identity Api Client', () => {
         });
 
         it('should have just an httpCode on the result passed to the callback on a 202', async () => {
-            const mpInstance: MParticleWebSDK = mParticle.getInstance();
+            const mpInstance: IMParticleWebSDKInstance = mParticle.getInstance();
             const identityApiClient = new IdentityAPIClient(mpInstance);
             const aliasRequest: IAliasRequest = {
                 destinationMpid: '123',
@@ -752,7 +745,7 @@ describe('Identity Api Client', () => {
         });
 
         it('should have just an httpCode on the result passed to the callback on a 400', async () => {
-            const mpInstance: MParticleWebSDK = mParticle.getInstance();
+            const mpInstance: IMParticleWebSDKInstance = mParticle.getInstance();
             const identityApiClient = new IdentityAPIClient(mpInstance);
             const aliasRequest: IAliasRequest = {
                 destinationMpid: '123',
@@ -784,7 +777,7 @@ describe('Identity Api Client', () => {
         });
 
         it('should have an httpCode and an error message passed to the callback on a 401', async () => {
-            const mpInstance: MParticleWebSDK = mParticle.getInstance();
+            const mpInstance: IMParticleWebSDKInstance = mParticle.getInstance();
             const identityApiClient = new IdentityAPIClient(mpInstance);
             const aliasRequest: IAliasRequest = {
                 destinationMpid: '123',
@@ -810,7 +803,7 @@ describe('Identity Api Client', () => {
         });
 
         it('should have an httpCode and an error message passed to the callback on a 403', async () => {
-            const mpInstance: MParticleWebSDK = mParticle.getInstance();
+            const mpInstance: IMParticleWebSDKInstance = mParticle.getInstance();
             const identityApiClient = new IdentityAPIClient(mpInstance);
             const aliasRequest: IAliasRequest = {
                 destinationMpid: '123',
@@ -836,7 +829,7 @@ describe('Identity Api Client', () => {
         });
 
         it('should have an httpCode and an error message passed to the callback on a 404', async () => {
-            const mpInstance: MParticleWebSDK = mParticle.getInstance();
+            const mpInstance: IMParticleWebSDKInstance = mParticle.getInstance();
             const identityApiClient = new IdentityAPIClient(mpInstance);
             const aliasRequest: IAliasRequest = {
                 destinationMpid: '123',
@@ -862,7 +855,7 @@ describe('Identity Api Client', () => {
         });
 
         it('should have an httpCode and an error message passed to the callback on a 500', async () => {
-            const mpInstance: MParticleWebSDK = mParticle.getInstance();
+            const mpInstance: IMParticleWebSDKInstance = mParticle.getInstance();
             const identityApiClient = new IdentityAPIClient(mpInstance);
             const aliasRequest: IAliasRequest = {
                 destinationMpid: '123',

@@ -16,31 +16,75 @@
 //  Uses portions of code from jQuery
 //  jQuery v1.10.2 | (c) 2005, 2013 jQuery Foundation, Inc. | jquery.org/license
 
-import Types from './types';
+import { EventType, IdentityType, CommerceEventType, PromotionActionType, ProductActionType, MessageType } from './types';
 import Constants from './constants';
-import APIClient from './apiClient';
+import APIClient, { IAPIClient } from './apiClient';
 import Helpers from './helpers';
 import NativeSdkHelpers from './nativeSdkHelpers';
-import CookieSyncManager from './cookieSyncManager';
-import SessionManager from './sessionManager';
+import CookieSyncManager, { ICookieSyncManager } from './cookieSyncManager';
+import SessionManager, { ISessionManager } from './sessionManager';
 import Ecommerce from './ecommerce';
-import Store from './store';
+import Store, { IStore } from './store';
 import Logger from './logger';
 import Persistence from './persistence';
 import Events from './events';
 import Forwarders from './forwarders';
-import ServerModel from './serverModel';
+import ServerModel, { IServerModel } from './serverModel';
 import ForwardingStatsUploader from './forwardingStatsUploader';
 import Identity from './identity';
-import Consent from './consent';
+import Consent, { IConsent } from './consent';
 import KitBlocker from './kitBlocking';
 import ConfigAPIClient from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
-import { isFunction } from './utils';
+import { isFunction, valueof } from './utils';
 import { LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
-import { processReadyQueue } from './pre-init-utils';
+import { IPreInit, processReadyQueue } from './pre-init-utils';
+import { BaseEvent, MParticleWebSDK, SDKHelpersApi } from './sdkRuntimeModels';
+import { Dictionary, SDKEventAttrs } from '@mparticle/web-sdk';
+import { IIdentity } from './identity.interfaces';
+import { IEvents } from './events.interfaces';
+import { IECommerce } from './ecommerce.interfaces';
+import { INativeSdkHelpers } from './nativeSdkHelpers.interfaces';
+import { IPersistence } from './persistence.interfaces';
+
+export interface IErrorLogMessage {
+    message?: string;
+    name?: string;
+    stack?: string;
+}
+
+export interface IErrorLogMessageMinified {
+    m?: string;
+    s?: string;
+    t?: string;
+}
+
+export type IntegrationDelays = Dictionary<boolean>;
+
+// https://go.mparticle.com/work/SQDSDKS-6949
+export interface IMParticleWebSDKInstance extends MParticleWebSDK {
+    // Private Properties
+    _APIClient: IAPIClient;
+    _Consent: IConsent;
+    _CookieSyncManager: ICookieSyncManager;
+    _Ecommerce: IECommerce;
+    _Events: IEvents;
+    _Forwarders: any; // https://go.mparticle.com/work/SQDSDKS-5767
+    _ForwardingStatsUploader: ForwardingStatsUploader;
+    _Helpers: SDKHelpersApi;
+    _Identity: IIdentity;
+    _IdentityAPIClient: typeof IdentityAPIClient;
+    _IntegrationCapture: IntegrationCapture;
+    _NativeSdkHelpers: INativeSdkHelpers;
+    _Persistence: IPersistence;
+    _SessionManager: ISessionManager;
+    _ServerModel: IServerModel;
+    _Store: IStore;
+    _instanceName: string;
+    _preInit: IPreInit;
+}
 
 const { Messages, HTTPCodes, FeatureFlags } = Constants;
 const { ReportBatching, CaptureIntegrationSpecificIds } = FeatureFlags;
@@ -59,8 +103,8 @@ const { StartingInitialization } = Messages.InformationMessages;
  * @class mParticle & mParticleInstance
  */
 
-export default function mParticleInstance(instanceName) {
-    var self = this;
+export default function mParticleInstance(this: IMParticleWebSDKInstance, instanceName: string) {
+    const self = this;
     // These classes are for internal use only. Not documented for public consumption
     this._instanceName = instanceName;
     this._NativeSdkHelpers = new NativeSdkHelpers(this);
@@ -82,11 +126,12 @@ export default function mParticleInstance(instanceName) {
     this._IntegrationCapture = new IntegrationCapture();
 
     // required for forwarders once they reference the mparticle instance
-    this.IdentityType = Types.IdentityType;
-    this.EventType = Types.EventType;
-    this.CommerceEventType = Types.CommerceEventType;
-    this.PromotionType = Types.PromotionActionType;
-    this.ProductActionType = Types.ProductActionType;
+    this.IdentityType = IdentityType;
+    this.EventType = EventType as unknown as valueof<typeof EventType>;
+    this.CommerceEventType = CommerceEventType as unknown as valueof<typeof CommerceEventType>;
+    this.PromotionType = PromotionActionType as unknown as valueof<typeof PromotionActionType>;
+    this.ProductActionType = ProductActionType as unknown as valueof<typeof ProductActionType>;
+
 
     this._Identity = new Identity(this);
     this.Identity = this._Identity.IdentityAPI;
@@ -229,7 +274,7 @@ export default function mParticleInstance(instanceName) {
      * @param {String} version version number
      */
     this.setAppVersion = function(version) {
-        var queued = queueIfNotInitialized(function() {
+        const queued = queueIfNotInitialized(function() {
             self.setAppVersion(version);
         }, self);
 
@@ -244,7 +289,7 @@ export default function mParticleInstance(instanceName) {
      * @param {String} name device ID (UUIDv4-formatted string)
      */
     this.setDeviceId = function(guid) {
-        var queued = queueIfNotInitialized(function() {
+        const queued = queueIfNotInitialized(function() {
             self.setDeviceId(guid);
         }, self);
         if (queued) return;
@@ -273,7 +318,7 @@ export default function mParticleInstance(instanceName) {
      * @param {String} name App Name
      */
     this.setAppName = function(name) {
-        var queued = queueIfNotInitialized(function() {
+        const queued = queueIfNotInitialized(function() {
             self.setAppName(name);
         }, self);
 
@@ -319,7 +364,7 @@ export default function mParticleInstance(instanceName) {
      * @param {Number} longitude longitude digit
      */
     this.setPosition = function(lat, lng) {
-        var queued = queueIfNotInitialized(function() {
+        const queued = queueIfNotInitialized(function() {
             self.setPosition(lat, lng);
         }, self);
 
@@ -359,7 +404,7 @@ export default function mParticleInstance(instanceName) {
      * @param {Object} [eventOptions] For Event-level Configuration Options
      */
     this.logBaseEvent = function(event, eventOptions) {
-        var queued = queueIfNotInitialized(function() {
+        const queued = queueIfNotInitialized(function() {
             self.logBaseEvent(event, eventOptions);
         }, self);
 
@@ -372,7 +417,7 @@ export default function mParticleInstance(instanceName) {
         }
 
         if (!event.eventType) {
-            event.eventType = Types.EventType.Unknown;
+            event.eventType = EventType.Unknown;
         }
 
         if (!self._Helpers.canLog()) {
@@ -398,7 +443,7 @@ export default function mParticleInstance(instanceName) {
         customFlags,
         eventOptions
     ) {
-        var queued = queueIfNotInitialized(function() {
+        const queued = queueIfNotInitialized(function() {
             self.logEvent(
                 eventName,
                 eventType,
@@ -417,7 +462,7 @@ export default function mParticleInstance(instanceName) {
         }
 
         if (!eventType) {
-            eventType = Types.EventType.Unknown;
+            eventType = EventType.Unknown;
         }
 
         if (!self._Helpers.isEventType(eventType)) {
@@ -425,7 +470,7 @@ export default function mParticleInstance(instanceName) {
                 'Invalid event type: ' +
                     eventType +
                     ', must be one of: \n' +
-                    JSON.stringify(Types.EventType)
+                    JSON.stringify(EventType)
             );
             return;
         }
@@ -437,12 +482,12 @@ export default function mParticleInstance(instanceName) {
 
         self._Events.logEvent(
             {
-                messageType: Types.MessageType.PageEvent,
+                messageType: MessageType.PageEvent,
                 name: eventName,
                 data: eventInfo,
                 eventType: eventType,
                 customFlags: customFlags,
-            },
+            } as BaseEvent,
             eventOptions
         );
     };
@@ -454,7 +499,7 @@ export default function mParticleInstance(instanceName) {
      * @param {Object} [attrs] Custom attrs to be passed along with the error event; values must be string, number, or boolean
      */
     this.logError = function(error, attrs) {
-        var queued = queueIfNotInitialized(function() {
+        const queued = queueIfNotInitialized(function() {
             self.logError(error, attrs);
         }, self);
 
@@ -471,24 +516,24 @@ export default function mParticleInstance(instanceName) {
             };
         }
 
-        var data = {
-            m: error.message ? error.message : error,
+        const data: IErrorLogMessageMinified = {
+            m: error.message ? error.message : error as string,
             s: 'Error',
             t: error.stack || null,
         };
 
         if (attrs) {
-            var sanitized = self._Helpers.sanitizeAttributes(attrs, data.m);
-            for (var prop in sanitized) {
+            const sanitized = self._Helpers.sanitizeAttributes(attrs, data.m);
+            for (const prop in sanitized) {
                 data[prop] = sanitized[prop];
             }
         }
 
         self._Events.logEvent({
-            messageType: Types.MessageType.CrashReport,
+            messageType: MessageType.CrashReport,
             name: error.name ? error.name : 'Error',
-            data: data,
-            eventType: Types.EventType.Other,
+            eventType: EventType.Other,
+            data: data as SDKEventAttrs,
         });
     };
     /**
@@ -534,7 +579,7 @@ export default function mParticleInstance(instanceName) {
      * @param {Object} [eventOptions] For Event-level Configuration Options
      */
     this.logPageView = function(eventName, attrs, customFlags, eventOptions) {
-        var queued = queueIfNotInitialized(function() {
+        const queued = queueIfNotInitialized(function() {
             self.logPageView(eventName, attrs, customFlags, eventOptions);
         }, self);
 
@@ -571,10 +616,10 @@ export default function mParticleInstance(instanceName) {
 
         self._Events.logEvent(
             {
-                messageType: Types.MessageType.PageView,
+                messageType: MessageType.PageView,
                 name: eventName,
-                data: attrs,
-                eventType: Types.EventType.Unknown,
+                data: attrs as SDKEventAttrs,
+                eventType: EventType.Unknown,
                 customFlags: customFlags,
             },
             eventOptions
@@ -658,8 +703,8 @@ export default function mParticleInstance(instanceName) {
                 self.Logger.warning(
                     'Deprecated function eCommerce.Cart.add() will be removed in future releases'
                 );
-                var mpid,
-                    currentUser = self.Identity.getCurrentUser();
+                let mpid;
+                const currentUser = self.Identity.getCurrentUser();
                 if (currentUser) {
                     mpid = currentUser.getMPID();
                 }
@@ -678,8 +723,8 @@ export default function mParticleInstance(instanceName) {
                 self.Logger.warning(
                     'Deprecated function eCommerce.Cart.remove() will be removed in future releases'
                 );
-                var mpid,
-                    currentUser = self.Identity.getCurrentUser();
+                let mpid;
+                const currentUser = self.Identity.getCurrentUser();
                 if (currentUser) {
                     mpid = currentUser.getMPID();
                 }
@@ -696,8 +741,8 @@ export default function mParticleInstance(instanceName) {
                 self.Logger.warning(
                     'Deprecated function eCommerce.Cart.clear() will be removed in future releases'
                 );
-                var mpid,
-                    currentUser = self.Identity.getCurrentUser();
+                let mpid;
+                const currentUser = self.Identity.getCurrentUser();
                 if (currentUser) {
                     mpid = currentUser.getMPID();
                 }
@@ -711,7 +756,7 @@ export default function mParticleInstance(instanceName) {
          * @param {String} code The currency code
          */
         setCurrencyCode: function(code) {
-            var queued = queueIfNotInitialized(function() {
+            const queued = queueIfNotInitialized(function() {
                 self.eCommerce.setCurrencyCode(code);
             }, self);
 
@@ -869,7 +914,7 @@ export default function mParticleInstance(instanceName) {
             transactionAttributes,
             eventOptions
         ) {
-            var queued = queueIfNotInitialized(function() {
+            const queued = queueIfNotInitialized(function() {
                 self.eCommerce.logProductAction(
                     productActionType,
                     product,
@@ -954,7 +999,7 @@ export default function mParticleInstance(instanceName) {
             customFlags,
             eventOptions
         ) {
-            var queued = queueIfNotInitialized(function() {
+            const queued = queueIfNotInitialized(function() {
                 self.eCommerce.logPromotion(
                     type,
                     promotion,
@@ -985,7 +1030,7 @@ export default function mParticleInstance(instanceName) {
          * @param {Object} [eventOptions] For Event-level Configuration Options
          */
         logImpression: function(impression, attrs, customFlags, eventOptions) {
-            var queued = queueIfNotInitialized(function() {
+            const queued = queueIfNotInitialized(function() {
                 self.eCommerce.logImpression(
                     impression,
                     attrs,
@@ -1056,7 +1101,7 @@ export default function mParticleInstance(instanceName) {
      * @param {String or Number} value value for session attribute
      */
     this.setSessionAttribute = function(key, value) {
-        var queued = queueIfNotInitialized(function() {
+        const queued = queueIfNotInitialized(function() {
             self.setSessionAttribute(key, value);
         }, self);
 
@@ -1082,7 +1127,7 @@ export default function mParticleInstance(instanceName) {
                     JSON.stringify({ key: key, value: value })
                 );
             } else {
-                var existingProp = self._Helpers.findKeyInObject(
+                const existingProp = self._Helpers.findKeyInObject(
                     self._Store.sessionAttributes,
                     key
                 );
@@ -1107,7 +1152,7 @@ export default function mParticleInstance(instanceName) {
      * @param {Boolean} isOptingOut boolean to opt out or not. When set to true, opt out of logging.
      */
     this.setOptOut = function(isOptingOut) {
-        var queued = queueIfNotInitialized(function() {
+        const queued = queueIfNotInitialized(function() {
             self.setOptOut(isOptingOut);
         }, self);
 
@@ -1122,7 +1167,7 @@ export default function mParticleInstance(instanceName) {
         if (self._Store.activeForwarders.length) {
             self._Store.activeForwarders.forEach(function(forwarder) {
                 if (forwarder.setOptOut) {
-                    var result = forwarder.setOptOut(isOptingOut);
+                    const result = forwarder.setOptOut(isOptingOut);
 
                     if (result) {
                         self.Logger.verbose(result);
@@ -1145,7 +1190,7 @@ export default function mParticleInstance(instanceName) {
      * also pass a null or empty map here to remove all of the attributes.
      */
     this.setIntegrationAttribute = function(integrationId, attrs) {
-        var queued = queueIfNotInitialized(function() {
+        const queued = queueIfNotInitialized(function() {
             self.setIntegrationAttribute(integrationId, attrs);
         }, self);
 
@@ -1161,7 +1206,7 @@ export default function mParticleInstance(instanceName) {
             if (Object.keys(attrs).length === 0) {
                 self._Store.integrationAttributes[integrationId] = {};
             } else {
-                for (var key in attrs) {
+                for (const key in attrs) {
                     if (typeof key === 'string') {
                         if (typeof attrs[key] === 'string') {
                             if (
@@ -1281,7 +1326,7 @@ export default function mParticleInstance(instanceName) {
 
     // Internal use only. Used by our wrapper SDKs to identify themselves during initialization.
     this._setWrapperSDKInfo = function(name, version) {
-        var queued = queueIfNotInitialized(function() {
+        const queued = queueIfNotInitialized(function() {
             self._setWrapperSDKInfo(name, version);
         }, self);
 
@@ -1302,7 +1347,7 @@ export default function mParticleInstance(instanceName) {
 
 // Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment
 function completeSDKInitialization(apiKey, config, mpInstance) {
-    var kitBlocker = createKitBlocker(config, mpInstance);
+    const kitBlocker = createKitBlocker(config, mpInstance);
 
     mpInstance._APIClient = new APIClient(mpInstance, kitBlocker);
     mpInstance._Forwarders = new Forwarders(mpInstance, kitBlocker);
@@ -1381,8 +1426,12 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     }
 }
 
+// https://go.mparticle.com/work/SQDSDKS-7061
 function createKitBlocker(config, mpInstance) {
-    var kitBlocker, dataPlanForKitBlocker, kitBlockError, kitBlockOptions;
+    let kitBlocker;
+    let dataPlanForKitBlocker;
+    let kitBlockError;
+    let kitBlockOptions;
 
     /*  There are three ways a data plan object for blocking can be passed to the SDK:
             1. Manually via config.dataPlanOptions (this takes priority)
