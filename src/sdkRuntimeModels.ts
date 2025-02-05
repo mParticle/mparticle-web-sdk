@@ -163,6 +163,7 @@ export interface SDKProduct {
 
 export interface MParticleWebSDK {
     addForwarder(mockForwarder: MPForwarder): void;
+    _instanceName: string;
     _IntegrationCapture: IntegrationCapture;
     IdentityType: valueof<typeof IdentityType>;
     CommerceEventType: valueof<typeof CommerceEventType>;
