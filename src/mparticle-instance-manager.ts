@@ -490,8 +490,10 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
 const mParticleManager = new mParticleInstanceManager();
 
 if (typeof window !== 'undefined') {
-    // mParticle is the global object used to access the SDK and predates instance manager
-    // it is now used to access both the default instance and the instance manager.
+    // mParticle is the global object used to access the SDK and predates instance manager,
+    // when mParticle was a singleton.  We now support multiple instances. Calling methods
+    // on mParticle directly will access the default instance, but mParticle can also be used 
+    // as the instance manager in self hosted mode.
     window.mParticle = mParticleManager;
 
     // https://go.mparticle.com/work/SQDSDKS-5053
