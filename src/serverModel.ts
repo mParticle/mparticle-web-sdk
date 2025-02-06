@@ -345,7 +345,7 @@ export default function ServerModel(
                         event.data,
                         event.name
                     ),
-                    ActiveTimeOnSite: mpInstance._timer.getTimeInForeground(),
+                    // ActiveTimeOnSite: mpInstance._timer.getTimeInForeground(),
                     SourceMessageId:
                         event.sourceMessageId ||
                         mpInstance._Helpers.generateUniqueId(),
