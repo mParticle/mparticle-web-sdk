@@ -12,7 +12,7 @@ import Validators from './validators';
 import { Dictionary, valueof } from './utils';
 import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
-import { IMPSideloadedKit } from './sideloadedKit';
+import MPSideloadedKit from './sideloadedKit';
 import { ISessionManager } from './sessionManager';
 import { Kit, MPForwarder } from './forwarders.interfaces';
 import {
@@ -236,7 +236,7 @@ export interface IMParticleInstanceManager extends MParticleWebSDK {
     // Public Properties
     config: SDKInitConfig;
     isIOS?: boolean;
-    MPSideloadedKit: IMPSideloadedKit;
+    MPSideloadedKit: typeof MPSideloadedKit;
     // https://go.mparticle.com/work/SQDSDKS-7060
     sessionManager: Pick<ISessionManager, 'getSession'>; 
     Store: IStore;

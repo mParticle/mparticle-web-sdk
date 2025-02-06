@@ -6,9 +6,9 @@ import ConfigAPIClient  from '../../src/configAPIClient';
 import {
     DataPlanConfig,
     DataPlanResult,
+    IMParticleInstanceManager,
     SDKInitConfig,
 } from '../../src/sdkRuntimeModels';
-import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
 
 declare global {
     interface Window {

@@ -1,14 +1,13 @@
 import sinon from 'sinon';
 import { expect } from 'chai';
 import { urls, apiKey, MPConfig, testMPID } from './config/constants';
-import { SDKEvent, SDKProductActionType, DataPlanResult, KitBlockerDataPlan } from  '../../src/sdkRuntimeModels';
+import { SDKEvent, SDKProductActionType, DataPlanResult, KitBlockerDataPlan, IMParticleInstanceManager } from  '../../src/sdkRuntimeModels';
 import * as dataPlan from './dataPlan.json';
 import Utils from './config/utils';
 import KitBlocker from '../../src/kitBlocking';
 import Types from '../../src/types';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
 import fetchMock from 'fetch-mock/esm/client';
-import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
 const { waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
 
 let forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,

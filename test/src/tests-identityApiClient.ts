@@ -18,8 +18,8 @@ import Constants, {
 import IdentityAPIClient, { IIdentityApiClient } from '../../src/identityApiClient';
 import { IIdentityResponse } from '../../src/identity-user-interfaces';
 import Utils from './config/utils';
-import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
+import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 const { fetchMockSuccess } = Utils;
 const { HTTPCodes }  = Constants;
 
@@ -128,7 +128,7 @@ describe('Identity Api Client', () => {
 
             const invokeCallbackSpy = sinon.spy();
 
-            const mpInstance: IMParticleInstanceManager = ({
+            const mpInstance: IMParticleWebSDKInstance = ({
                 Logger: {
                     verbose: () => {},
                     error: () => {},
@@ -147,7 +147,7 @@ describe('Identity Api Client', () => {
                     identityCallInFlight: true,
                 },
                 _Persistence: {},
-            } as unknown) as IMParticleInstanceManager;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
                 mpInstance
@@ -302,7 +302,7 @@ describe('Identity Api Client', () => {
 
             const callbackSpy = sinon.spy();
 
-            const mpInstance: IMParticleInstanceManager = ({
+            const mpInstance: IMParticleWebSDKInstance = ({
                 Logger: {
                     verbose: () => {},
                     error: () => {},
@@ -320,7 +320,7 @@ describe('Identity Api Client', () => {
                     },
                 },
                 _Persistence: {},
-            } as unknown) as IMParticleInstanceManager;;
+            } as unknown) as IMParticleWebSDKInstance;;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
                 mpInstance
@@ -644,7 +644,7 @@ describe('Identity Api Client', () => {
             const verboseSpy = sinon.spy();
             const errorSpy = sinon.spy();
 
-            const mpInstance: IMParticleInstanceManager = ({
+            const mpInstance: IMParticleWebSDKInstance = ({
                 Logger: {
                     verbose: (message) => verboseSpy(message),
                     error: (message) => errorSpy(message),
@@ -662,7 +662,7 @@ describe('Identity Api Client', () => {
                     },
                 },
                 _Persistence: {},
-            } as unknown) as IMParticleInstanceManager;
+            } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
                 mpInstance

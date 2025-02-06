@@ -5,7 +5,7 @@ import { urls, apiKey, MPConfig, testMPID } from './config/constants';
 import { expect } from 'chai';
 import { GDPRConsentState, PrivacyConsentState } from '@mparticle/web-sdk';
 import { Dictionary } from '../../src/utils';
-import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
+import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 const { hasIdentifyReturned, waitForCondition, fetchMockSuccess } = Utils;
 
 declare global {

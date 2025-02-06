@@ -3,7 +3,7 @@ import Utils from './config/utils';
 import { expect } from 'chai';
 import _BatchValidator from '../../src/mockBatchCreator';
 import fetchMock from 'fetch-mock/esm/client';
-import { IMParticleInstanceManager } from '../../src/mparticle-instance-manager';
+import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 import { CustomEvent } from '@mparticle/event-models';
 const { fetchMockSuccess, waitForCondition, hasIdentifyReturned  } = Utils;
 
