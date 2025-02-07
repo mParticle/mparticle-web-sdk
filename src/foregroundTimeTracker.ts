@@ -4,8 +4,8 @@ export default class ForegroundTimeTracker {
     public startTime: number = 0;
     public totalTime: number = 0;
 
-    constructor(apiKey: string) {
-        this.localStorageName = `mp-time-${apiKey}`;
+    constructor(timerKey: string) {
+        this.localStorageName = `mp-time-${timerKey}`;
         this.loadTimeFromStorage();
         this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
         this.syncAcrossTabs = this.syncAcrossTabs.bind(this);

@@ -6,6 +6,8 @@ describe('ForegroundTimeTracker', () => {
     const mockStorageKey = `mp-time-${apiKey}`;
 
     beforeEach(() => {
+        // Although in Jest, document.hidden should be false by default, we force it to be this way
+        // to ensure the page is in the foreground
         Object.defineProperty(document, 'hidden', { value: false, configurable: true });
         jest.useFakeTimers();
         localStorage.clear();
@@ -16,7 +18,6 @@ describe('ForegroundTimeTracker', () => {
         jest.restoreAllMocks();
     });
 
-    // in Jest, document.hidden by default is false
     it('should initialize with correct localStorage key', () => {
         foregroundTimeTracker = new ForegroundTimeTracker(apiKey);
         expect(foregroundTimeTracker['localStorageName']).toBe(mockStorageKey);
