@@ -162,10 +162,12 @@ export interface SDKProduct {
 // https://go.mparticle.com/work/SQDSDKS-6949
 export interface MParticleWebSDK {
     addForwarder(mockForwarder: MPForwarder): void;
+    // FIXME: Make these consistent
     IdentityType: valueof<typeof IdentityType>;
     CommerceEventType: valueof<typeof CommerceEventType>;
-    EventType: valueof<typeof EventType>;
+    EventType: typeof EventType;
     PromotionType: valueof<typeof PromotionActionType>;
+    ProductActionType: typeof ProductActionType;
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
     Consent: SDKConsentApi;
@@ -207,7 +209,6 @@ export interface MParticleWebSDK {
     setOptOut(isOptingOut: boolean): void;
     eCommerce: SDKECommerceAPI;
     isInitialized(): boolean;
-    ProductActionType: valueof<typeof ProductActionType>;
     ready(f: Function): void;
     reset(instance: IMParticleWebSDKInstance): void;
     setAppName(name: string): void;

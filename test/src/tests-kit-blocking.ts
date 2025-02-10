@@ -8,14 +8,18 @@ import KitBlocker from '../../src/kitBlocking';
 import Types from '../../src/types';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
 import fetchMock from 'fetch-mock/esm/client';
+// import { IMockForwarder } from './tests-forwarders';
 const { waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
 
-let forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
-    MockForwarder = Utils.MockForwarder;
+let forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration;
+const MockForwarder = Utils.MockForwarder;
 
 declare global {
     interface Window {
         mParticle: IMParticleInstanceManager;
+
+        // FIXME: Define this
+        // MockForwarder1: IMockForwarder;
         MockForwarder1: any;
     }
 }
