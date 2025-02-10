@@ -151,7 +151,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this.init = function(apiKey, config) {
         if (!config) {
             console.warn(
-                'You did not pass a config object to init(). mParticle will not initialize properly'
+                'You did not pass a config object to init(). mParticle will not initialize properly',
             );
         }
 
@@ -168,14 +168,14 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 const configApiClient = new ConfigAPIClient(
                     apiKey,
                     config,
-                    this
+                    this,
                 );
 
                 configApiClient.getSDKConfiguration().then(result => {
                     const mergedConfig = this._Helpers.extend(
                         {},
                         config,
-                        result
+                        result,
                     );
 
                     completeSDKInitialization(apiKey, mergedConfig, this);
@@ -185,7 +185,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             }
         } else {
             console.error(
-                'No config available on the window, please pass a config object to mParticle.init()'
+                'No config available on the window, please pass a config object to mParticle.init()',
             );
             return;
         }
@@ -222,7 +222,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         }
         instance._Store = new Store(config, instance);
         instance._Store.isLocalStorageAvailable = instance._Persistence.determineLocalStorageAvailability(
-            window.localStorage
+            window.localStorage,
         );
         instance._Events.stopTracking();
         if (!keepPersistence) {
@@ -350,7 +350,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this.startTrackingLocation = function(callback) {
         if (!isFunction(callback)) {
             self.Logger.warning(
-                'Warning: Location tracking is triggered, but not including a callback into the `startTrackingLocation` may result in events logged too quickly and not being associated with a location.'
+                'Warning: Location tracking is triggered, but not including a callback into the `startTrackingLocation` may result in events logged too quickly and not being associated with a location.',
             );
         }
 
@@ -378,7 +378,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             };
         } else {
             self.Logger.error(
-                'Position latitude and/or longitude must both be of type number'
+                'Position latitude and/or longitude must both be of type number',
             );
         }
     };
@@ -441,7 +441,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         eventType,
         eventInfo,
         customFlags,
-        eventOptions
+        eventOptions,
     ) {
         const queued = queueIfNotInitialized(function() {
             self.logEvent(
@@ -449,7 +449,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 eventType,
                 eventInfo,
                 customFlags,
-                eventOptions
+                eventOptions,
             );
         }, self);
 
@@ -470,7 +470,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 'Invalid event type: ' +
                     eventType +
                     ', must be one of: \n' +
-                    JSON.stringify(EventType)
+                    JSON.stringify(EventType),
             );
             return;
         }
@@ -488,7 +488,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 eventType: eventType,
                 customFlags: customFlags,
             } as BaseEvent,
-            eventOptions
+            eventOptions,
         );
     };
     /**
@@ -550,7 +550,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             selector,
             eventName,
             eventInfo,
-            eventType
+            eventType,
         );
     };
     /**
@@ -567,7 +567,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             selector,
             eventName,
             eventInfo,
-            eventType
+            eventType,
         );
     };
     /**
@@ -600,7 +600,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 self.Logger.error(
                     'The attributes argument must be an object. A ' +
                         typeof attrs +
-                        ' was entered. Please correct and retry.'
+                        ' was entered. Please correct and retry.',
                 );
                 return;
             }
@@ -608,7 +608,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 self.Logger.error(
                     'The customFlags argument must be an object. A ' +
                         typeof customFlags +
-                        ' was entered. Please correct and retry.'
+                        ' was entered. Please correct and retry.',
                 );
                 return;
             }
@@ -622,7 +622,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 eventType: EventType.Unknown,
                 customFlags: customFlags,
             },
-            eventOptions
+            eventOptions,
         );
     };
     /**
@@ -633,7 +633,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         if (self._Helpers.canLog()) {
             if (self._Store.webviewBridgeEnabled) {
                 self._NativeSdkHelpers.sendToNative(
-                    Constants.NativeSdkPaths.Upload
+                    Constants.NativeSdkPaths.Upload,
                 );
             } else {
                 self._APIClient?.uploader?.prepareAndUpload(false, false);
@@ -701,7 +701,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              */
             add: function(product, logEventBoolean) {
                 self.Logger.warning(
-                    'Deprecated function eCommerce.Cart.add() will be removed in future releases'
+                    'Deprecated function eCommerce.Cart.add() will be removed in future releases',
                 );
                 let mpid;
                 const currentUser = self.Identity.getCurrentUser();
@@ -721,7 +721,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              */
             remove: function(product, logEventBoolean) {
                 self.Logger.warning(
-                    'Deprecated function eCommerce.Cart.remove() will be removed in future releases'
+                    'Deprecated function eCommerce.Cart.remove() will be removed in future releases',
                 );
                 let mpid;
                 const currentUser = self.Identity.getCurrentUser();
@@ -739,7 +739,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              */
             clear: function() {
                 self.Logger.warning(
-                    'Deprecated function eCommerce.Cart.clear() will be removed in future releases'
+                    'Deprecated function eCommerce.Cart.clear() will be removed in future releases',
                 );
                 let mpid;
                 const currentUser = self.Identity.getCurrentUser();
@@ -794,7 +794,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             brand,
             position,
             coupon,
-            attributes
+            attributes,
         ) {
             return self._Ecommerce.createProduct(
                 name,
@@ -806,7 +806,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 brand,
                 position,
                 coupon,
-                attributes
+                attributes,
             );
         },
         /**
@@ -823,7 +823,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 id,
                 creative,
                 name,
-                position
+                position,
             );
         },
         /**
@@ -853,7 +853,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             couponCode,
             revenue,
             shipping,
-            tax
+            tax,
         ) {
             return self._Ecommerce.createTransactionAttributes(
                 id,
@@ -861,7 +861,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 couponCode,
                 revenue,
                 shipping,
-                tax
+                tax,
             );
         },
         /**
@@ -876,7 +876,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
          */
         logCheckout: function(step, option, attrs, customFlags) {
             self.Logger.warning(
-                'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead'
+                'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead',
             );
 
             if (!self._Store.isInitialized) {
@@ -885,7 +885,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                         step,
                         option,
                         attrs,
-                        customFlags
+                        customFlags,
                     );
                 });
 
@@ -912,7 +912,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             attrs,
             customFlags,
             transactionAttributes,
-            eventOptions
+            eventOptions,
         ) {
             const queued = queueIfNotInitialized(function() {
                 self.eCommerce.logProductAction(
@@ -921,7 +921,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                     attrs,
                     customFlags,
                     transactionAttributes,
-                    eventOptions
+                    eventOptions,
                 );
             }, self);
 
@@ -934,7 +934,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 attrs,
                 customFlags,
                 transactionAttributes,
-                eventOptions
+                eventOptions,
             );
         },
         /**
@@ -953,10 +953,10 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             product,
             clearCart,
             attrs,
-            customFlags
+            customFlags,
         ) {
             self.Logger.warning(
-                'mParticle.logPurchase is deprecated, please use mParticle.logProductAction instead'
+                'mParticle.logPurchase is deprecated, please use mParticle.logProductAction instead',
             );
             if (!self._Store.isInitialized) {
                 self.ready(function() {
@@ -965,7 +965,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                         product,
                         clearCart,
                         attrs,
-                        customFlags
+                        customFlags,
                     );
                 });
                 return;
@@ -979,7 +979,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 transactionAttributes,
                 product,
                 attrs,
-                customFlags
+                customFlags,
             );
         },
         /**
@@ -997,7 +997,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             promotion,
             attrs,
             customFlags,
-            eventOptions
+            eventOptions,
         ) {
             const queued = queueIfNotInitialized(function() {
                 self.eCommerce.logPromotion(
@@ -1005,7 +1005,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                     promotion,
                     attrs,
                     customFlags,
-                    eventOptions
+                    eventOptions,
                 );
             }, self);
 
@@ -1017,7 +1017,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 promotion,
                 attrs,
                 customFlags,
-                eventOptions
+                eventOptions,
             );
         },
         /**
@@ -1035,7 +1035,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                     impression,
                     attrs,
                     customFlags,
-                    eventOptions
+                    eventOptions,
                 );
             }, self);
 
@@ -1046,7 +1046,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 impression,
                 attrs,
                 customFlags,
-                eventOptions
+                eventOptions,
             );
         },
         /**
@@ -1065,10 +1065,10 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             product,
             clearCart,
             attrs,
-            customFlags
+            customFlags,
         ) {
             self.Logger.warning(
-                'mParticle.logRefund is deprecated, please use mParticle.logProductAction instead'
+                'mParticle.logRefund is deprecated, please use mParticle.logProductAction instead',
             );
             if (!self._Store.isInitialized) {
                 self.ready(function() {
@@ -1077,7 +1077,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                         product,
                         clearCart,
                         attrs,
-                        customFlags
+                        customFlags,
                     );
                 });
                 return;
@@ -1087,7 +1087,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 transactionAttributes,
                 product,
                 attrs,
-                customFlags
+                customFlags,
             );
         },
         expandCommerceEvent: function(event) {
@@ -1124,12 +1124,12 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             if (self._Store.webviewBridgeEnabled) {
                 self._NativeSdkHelpers.sendToNative(
                     Constants.NativeSdkPaths.SetSessionAttribute,
-                    JSON.stringify({ key: key, value: value })
+                    JSON.stringify({ key: key, value: value }),
                 );
             } else {
                 const existingProp = self._Helpers.findKeyInObject(
                     self._Store.sessionAttributes,
-                    key
+                    key,
                 );
 
                 if (existingProp) {
@@ -1213,7 +1213,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                                 self._Helpers.isObject(
                                     self._Store.integrationAttributes[
                                         integrationId
-                                    ]
+                                    ],
                                 )
                             ) {
                                 self._Store.integrationAttributes[
@@ -1230,13 +1230,13 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                         } else {
                             self.Logger.error(
                                 'Values for integration attributes must be strings. You entered a ' +
-                                    typeof attrs[key]
+                                    typeof attrs[key],
                             );
                             continue;
                         }
                     } else {
                         self.Logger.error(
-                            'Keys must be strings, you entered a ' + typeof key
+                            'Keys must be strings, you entered a ' + typeof key,
                         );
                         continue;
                     }
@@ -1245,7 +1245,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         } else {
             self.Logger.error(
                 'Attrs must be an object with keys and values. You entered a ' +
-                    typeof attrs
+                    typeof attrs,
             );
             return;
         }
@@ -1279,7 +1279,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     };
     /*
         An integration delay is a workaround that prevents events from being sent when it is necessary to do so.
-        Some server side integrations require a client side value to be included in the payload to successfully 
+        Some server side integrations require a client side value to be included in the payload to successfully
         forward.  This value can only be pulled from the client side partner SDK.
 
         During the kit initialization, the kit:
@@ -1306,7 +1306,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         // other integration delays set to true.  It not, process the queued events/.
 
         const integrationDelaysKeys = Object.keys(
-            self._preInit.integrationDelays
+            self._preInit.integrationDelays,
         );
 
         if (integrationDelaysKeys.length === 0) {
@@ -1314,7 +1314,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         }
 
         const hasIntegrationDelays = integrationDelaysKeys.some(function(
-            integration
+            integration,
         ) {
             return self._preInit.integrationDelays[integration] === true;
         });
@@ -1390,7 +1390,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
 
         mpInstance._Forwarders.processForwarders(
             config,
-            mpInstance._APIClient.prepareForwardingStats
+            mpInstance._APIClient.prepareForwardingStats,
         );
         mpInstance._Forwarders.processPixelConfigs(config);
 
@@ -1403,7 +1403,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance,
             currentUser,
             currentUserMPID,
-            currentUserIdentities
+            currentUserIdentities,
         );
     }
 
@@ -1416,7 +1416,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         mpInstance._Store.isInitialized = true;
 
         mpInstance._preInit.readyQueue = processReadyQueue(
-            mpInstance._preInit.readyQueue
+            mpInstance._preInit.readyQueue,
         );
     }
 
@@ -1508,11 +1508,11 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     // TODO: Refactor this when we refactor User Identity Persistence
     try {
         mpInstance._Store.isLocalStorageAvailable = mpInstance._Persistence.determineLocalStorageAvailability(
-            window.localStorage
+            window.localStorage,
         );
     } catch (e) {
         mpInstance.Logger.warning(
-            'localStorage is not available, using cookies if available'
+            'localStorage is not available, using cookies if available',
         );
         mpInstance._Store.isLocalStorageAvailable = false;
     }
@@ -1522,7 +1522,7 @@ function processIdentityCallback(
     mpInstance,
     currentUser,
     currentUserMPID,
-    currentUserIdentities
+    currentUserIdentities,
 ) {
     // https://go.mparticle.com/work/SQDSDKS-6323
     // Call mParticle._Store.SDKConfig.identityCallback when identify was not called

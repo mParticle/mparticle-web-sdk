@@ -9,7 +9,7 @@ export default function Ecommerce(mpInstance) {
     // https://go.mparticle.com/work/SQDSDKS-4801
     this.convertTransactionAttributesToProductAction = function(
         transactionAttributes,
-        productAction
+        productAction,
     ) {
         if (transactionAttributes.hasOwnProperty('Id')) {
             productAction.TransactionId = transactionAttributes.Id;
@@ -23,19 +23,19 @@ export default function Ecommerce(mpInstance) {
         if (transactionAttributes.hasOwnProperty('Revenue')) {
             productAction.TotalAmount = this.sanitizeAmount(
                 transactionAttributes.Revenue,
-                'Revenue'
+                'Revenue',
             );
         }
         if (transactionAttributes.hasOwnProperty('Shipping')) {
             productAction.ShippingAmount = this.sanitizeAmount(
                 transactionAttributes.Shipping,
-                'Shipping'
+                'Shipping',
             );
         }
         if (transactionAttributes.hasOwnProperty('Tax')) {
             productAction.TaxAmount = this.sanitizeAmount(
                 transactionAttributes.Tax,
-                'Tax'
+                'Tax',
             );
         }
         if (transactionAttributes.hasOwnProperty('Step')) {
@@ -116,7 +116,7 @@ export default function Ecommerce(mpInstance) {
                 mpInstance.Logger.error(
                     'Could not convert product action type ' +
                         productActionType +
-                        ' to event type'
+                        ' to event type',
                 );
                 return null;
         }
@@ -132,7 +132,7 @@ export default function Ecommerce(mpInstance) {
                 mpInstance.Logger.error(
                     'Could not convert promotion action type ' +
                         promotionActionType +
-                        ' to event type'
+                        ' to event type',
                 );
                 return null;
         }
@@ -257,7 +257,7 @@ export default function Ecommerce(mpInstance) {
         brand,
         position,
         couponCode,
-        attributes
+        attributes,
     ) {
         attributes = mpInstance._Helpers.sanitizeAttributes(attributes, name);
 
@@ -268,14 +268,14 @@ export default function Ecommerce(mpInstance) {
 
         if (!mpInstance._Helpers.Validators.isStringOrNumber(sku)) {
             mpInstance.Logger.error(
-                'SKU is required when creating a product, and must be a string or a number'
+                'SKU is required when creating a product, and must be a string or a number',
             );
             return null;
         }
 
         if (!mpInstance._Helpers.Validators.isStringOrNumber(price)) {
             mpInstance.Logger.error(
-                'Price is required when creating a product, and must be a string or a number'
+                'Price is required when creating a product, and must be a string or a number',
             );
             return null;
         } else {
@@ -284,7 +284,7 @@ export default function Ecommerce(mpInstance) {
 
         if (position && !mpInstance._Helpers.Validators.isNumber(position)) {
             mpInstance.Logger.error(
-                'Position must be a number, it will be set to null.'
+                'Position must be a number, it will be set to null.',
             );
             position = null;
         }
@@ -327,14 +327,14 @@ export default function Ecommerce(mpInstance) {
     this.createImpression = function(name, product) {
         if (typeof name !== 'string') {
             mpInstance.Logger.error(
-                'Name is required when creating an impression.'
+                'Name is required when creating an impression.',
             );
             return null;
         }
 
         if (!product) {
             mpInstance.Logger.error(
-                'Product is required when creating an impression.'
+                'Product is required when creating an impression.',
             );
             return null;
         }
@@ -351,11 +351,11 @@ export default function Ecommerce(mpInstance) {
         couponCode,
         revenue,
         shipping,
-        tax
+        tax,
     ) {
         if (!mpInstance._Helpers.Validators.isStringOrNumber(id)) {
             mpInstance.Logger.error(
-                Messages.ErrorMessages.TransactionIdRequired
+                Messages.ErrorMessages.TransactionIdRequired,
             );
             return null;
         }
@@ -381,7 +381,7 @@ export default function Ecommerce(mpInstance) {
                     var attributes = mpInstance._Helpers.extend(
                         false,
                         {},
-                        commerceEvent.EventAttributes
+                        commerceEvent.EventAttributes,
                     );
                     if (product.Attributes) {
                         for (var attribute in product.Attributes) {
@@ -428,7 +428,7 @@ export default function Ecommerce(mpInstance) {
             var attributes = mpInstance._Helpers.extend(
                 false,
                 {},
-                commerceEvent.EventAttributes
+                commerceEvent.EventAttributes,
             );
             self.extractPromotionAttributes(attributes, promotion);
 
@@ -436,8 +436,8 @@ export default function Ecommerce(mpInstance) {
                 messageType: Types.MessageType.PageEvent,
                 name: self.generateExpandedEcommerceName(
                     Types.PromotionActionType.getExpansionName(
-                        commerceEvent.PromotionAction.PromotionActionType
-                    )
+                        commerceEvent.PromotionAction.PromotionActionType,
+                    ),
                 ),
                 data: attributes,
                 eventType: Types.EventType.Transaction,
@@ -462,7 +462,7 @@ export default function Ecommerce(mpInstance) {
             var attributes = mpInstance._Helpers.extend(
                 false,
                 {},
-                commerceEvent.EventAttributes
+                commerceEvent.EventAttributes,
             );
             attributes['Product Count'] = commerceEvent.ProductAction
                 .ProductList
@@ -470,7 +470,7 @@ export default function Ecommerce(mpInstance) {
                 : 0;
             self.extractActionAttributes(
                 attributes,
-                commerceEvent.ProductAction
+                commerceEvent.ProductAction,
             );
             if (commerceEvent.CurrencyCode) {
                 attributes['Currency Code'] = commerceEvent.CurrencyCode;
@@ -479,9 +479,9 @@ export default function Ecommerce(mpInstance) {
                 messageType: Types.MessageType.PageEvent,
                 name: self.generateExpandedEcommerceName(
                     Types.ProductActionType.getExpansionName(
-                        commerceEvent.ProductAction.ProductActionType
+                        commerceEvent.ProductAction.ProductActionType,
                     ),
-                    true
+                    true,
                 ),
                 data: attributes,
                 eventType: Types.EventType.Transaction,
@@ -501,17 +501,17 @@ export default function Ecommerce(mpInstance) {
             var attributes = mpInstance._Helpers.extend(
                 false,
                 commerceEvent.EventAttributes,
-                product.Attributes
+                product.Attributes,
             );
             if (shouldExtractActionAttributes) {
                 self.extractActionAttributes(
                     attributes,
-                    commerceEvent.ProductAction
+                    commerceEvent.ProductAction,
                 );
             } else {
                 self.extractTransactionId(
                     attributes,
-                    commerceEvent.ProductAction
+                    commerceEvent.ProductAction,
                 );
             }
             self.extractProductAttributes(attributes, product);
@@ -520,8 +520,8 @@ export default function Ecommerce(mpInstance) {
                 messageType: Types.MessageType.PageEvent,
                 name: self.generateExpandedEcommerceName(
                     Types.ProductActionType.getExpansionName(
-                        commerceEvent.ProductAction.ProductActionType
-                    )
+                        commerceEvent.ProductAction.ProductActionType,
+                    ),
                 ),
                 data: attributes,
                 eventType: Types.EventType.Transaction,
@@ -538,7 +538,7 @@ export default function Ecommerce(mpInstance) {
         var { extend } = mpInstance._Helpers;
 
         mpInstance.Logger.verbose(
-            Messages.InformationMessages.StartingLogCommerceEvent
+            Messages.InformationMessages.StartingLogCommerceEvent,
         );
 
         if (mpInstance._Helpers.canLog()) {
@@ -555,7 +555,7 @@ export default function Ecommerce(mpInstance) {
             return baseEvent;
         } else {
             mpInstance.Logger.verbose(
-                Messages.InformationMessages.AbandonLogEvent
+                Messages.InformationMessages.AbandonLogEvent,
             );
         }
 

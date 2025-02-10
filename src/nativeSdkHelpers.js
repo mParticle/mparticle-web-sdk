@@ -59,10 +59,10 @@ export default function NativeSdkHelpers(mpInstance) {
 
     this.isWebviewEnabled = function(
         requiredWebviewBridgeName,
-        minWebviewBridgeVersion
+        minWebviewBridgeVersion,
     ) {
         mpInstance._Store.bridgeV2Available = self.isBridgeV2Available(
-            requiredWebviewBridgeName
+            requiredWebviewBridgeName,
         );
         mpInstance._Store.bridgeV1Available = self.isBridgeV1Available();
 
@@ -112,7 +112,7 @@ export default function NativeSdkHelpers(mpInstance) {
             self.sendViaBridgeV2(
                 path,
                 value,
-                mpInstance._Store.SDKConfig.requiredWebviewBridgeName
+                mpInstance._Store.SDKConfig.requiredWebviewBridgeName,
             );
             return;
         }
@@ -123,7 +123,7 @@ export default function NativeSdkHelpers(mpInstance) {
             self.sendViaBridgeV2(
                 path,
                 value,
-                mpInstance._Store.SDKConfig.requiredWebviewBridgeName
+                mpInstance._Store.SDKConfig.requiredWebviewBridgeName,
             );
             return;
         }
@@ -142,12 +142,12 @@ export default function NativeSdkHelpers(mpInstance) {
             window.mParticleAndroid.hasOwnProperty(path)
         ) {
             mpInstance.Logger.verbose(
-                Messages.InformationMessages.SendAndroid + path
+                Messages.InformationMessages.SendAndroid + path,
             );
             window.mParticleAndroid[path](value);
         } else if (mpInstance._Store.SDKConfig.isIOS) {
             mpInstance.Logger.verbose(
-                Messages.InformationMessages.SendIOS + path
+                Messages.InformationMessages.SendIOS + path,
             );
             self.sendViaIframeToIOS(path, value);
         }
@@ -157,7 +157,7 @@ export default function NativeSdkHelpers(mpInstance) {
         var iframe = document.createElement('IFRAME');
         iframe.setAttribute(
             'src',
-            'mp-sdk://' + path + '/' + encodeURIComponent(value)
+            'mp-sdk://' + path + '/' + encodeURIComponent(value),
         );
         document.documentElement.appendChild(iframe);
         iframe.parentNode.removeChild(iframe);
@@ -191,24 +191,24 @@ export default function NativeSdkHelpers(mpInstance) {
 
         if (androidBridge && androidBridge.hasOwnProperty(path)) {
             mpInstance.Logger.verbose(
-                Messages.InformationMessages.SendAndroid + path
+                Messages.InformationMessages.SendAndroid + path,
             );
             androidBridge[path](value);
             return;
         } else if (iOSBridgeMessageHandler) {
             mpInstance.Logger.verbose(
-                Messages.InformationMessages.SendIOS + path
+                Messages.InformationMessages.SendIOS + path,
             );
 
             iOSBridgeMessageHandler.postMessage(
                 JSON.stringify({
                     path: path,
                     value: value ? JSON.parse(value) : null,
-                })
+                }),
             );
         } else if (iOSBridgeNonMessageHandler) {
             mpInstance.Logger.verbose(
-                Messages.InformationMessages.SendIOS + path
+                Messages.InformationMessages.SendIOS + path,
             );
             self.sendViaIframeToIOS(path, value);
         }

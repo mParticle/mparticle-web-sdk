@@ -18,9 +18,9 @@ var pluses = /\+/g,
                 localStorage.getItem(
                     mParticle
                         .getInstance()
-                        ._Helpers.createProductStorageName(workspaceToken)
-                )
-            )
+                        ._Helpers.createProductStorageName(workspaceToken),
+                ),
+            ),
         );
     },
     decoded = function decoded(s) {
@@ -69,9 +69,7 @@ var pluses = /\+/g,
             cookie = mParticle.getInstance()._Persistence.getCookie();
         } else if (cookieName === v3CookieKey) {
             cookie = JSON.parse(
-                Utils.replacePipesWithCommas(
-                        findEncodedCookie(cookieName)
-                    )
+                Utils.replacePipesWithCommas(findEncodedCookie(cookieName)),
             );
         } else {
             cookie = JSON.parse(findEncodedCookie(cookieName));
@@ -96,7 +94,7 @@ var pluses = /\+/g,
     setCookie = function(cname, data, raw) {
         var date = new Date(),
             expires = new Date(
-                date.getTime() + 365 * 24 * 60 * 60 * 1000
+                date.getTime() + 365 * 24 * 60 * 60 * 1000,
             ).toGMTString(),
             domain,
             cookieDomain,
@@ -179,12 +177,15 @@ var pluses = /\+/g,
                 switch (event.event_type) {
                     case 'screen_view':
                         // The SDK sets "PageView" as the default for a screen_name if one is not provided
-                        return ['PageView', eventName].includes(event.data.screen_name);
+                        return ['PageView', eventName].includes(
+                            event.data.screen_name,
+                        );
                     case 'commerce_event':
                         if (event.data.product_action) {
-                            return event.data.product_action.action === eventName;
-                        }
-                        else if (event.data.promotion_action) {
+                            return (
+                                event.data.product_action.action === eventName
+                            );
+                        } else if (event.data.promotion_action) {
                             // return the promotion action
                             return true;
                         } else {
@@ -198,28 +199,32 @@ var pluses = /\+/g,
                         return true;
                     default:
                         // all other events are lifecycle events (session start, end, AST)
-                        return event.event_type === eventName
+                        return event.event_type === eventName;
                 }
-            })
+            });
         }
         return null;
     },
     getForwarderEvent = function(requests, eventName) {
-        var url = `https://jssdks.mparticle.com/v2/JS/${apiKey}/Forwarding`
+        var url = `https://jssdks.mparticle.com/v2/JS/${apiKey}/Forwarding`;
         var returnedReqs = [];
         if (requests.length) {
-            requests.filter(function(request) {
-                return (request.url === url)
-            }).forEach(function(request) {
-                JSON.parse(request.requestBody).data.forEach(function(internalRequest) {
-                    if (internalRequest.n === eventName) {
-                        returnedReqs.push(internalRequest)
-                    }
+            requests
+                .filter(function(request) {
+                    return request.url === url;
                 })
-            });
+                .forEach(function(request) {
+                    JSON.parse(request.requestBody).data.forEach(function(
+                        internalRequest,
+                    ) {
+                        if (internalRequest.n === eventName) {
+                            returnedReqs.push(internalRequest);
+                        }
+                    });
+                });
         }
         if (returnedReqs.length) {
-            return (returnedReqs[0]);
+            return returnedReqs[0];
         } else {
             return null;
         }
@@ -247,12 +252,12 @@ var pluses = /\+/g,
                     break;
                 }
             }
-        })
+        });
 
         return matchingRequest;
     },
     findRequestURL = function(requests, eventName) {
-        return findRequest(requests, eventName)[0]
+        return findRequest(requests, eventName)[0];
     },
     findBatch = function(requests, eventName) {
         var request = findRequest(requests, eventName);
@@ -261,16 +266,14 @@ var pluses = /\+/g,
         } else {
             return null;
         }
-
     },
-    findEventFromRequest= function(requests, eventName) {
+    findEventFromRequest = function(requests, eventName) {
         var batch = findBatch(requests, eventName);
         if (batch) {
             return findEventFromBatch(batch, eventName);
         } else {
             return null;
         }
-
     },
     getIdentityRequests = function(requests, path) {
         var returnedRequests = [],
@@ -375,7 +378,7 @@ var pluses = /\+/g,
                 userAttributes,
                 userIdentities,
                 appVersion,
-                appName
+                appName,
             ) {
                 self.reportingService = reportingService;
                 self.initCalled = true;
@@ -419,7 +422,7 @@ var pluses = /\+/g,
 
             this.onIdentifyComplete = function(
                 filteredUser,
-                filteredUserIdentities
+                filteredUserIdentities,
             ) {
                 this.onIdentifyCompleteCalled = true;
                 this.onIdentifyCompleteUser = filteredUser;
@@ -428,7 +431,7 @@ var pluses = /\+/g,
 
             this.onLoginComplete = function(
                 filteredUser,
-                filteredUserIdentities
+                filteredUserIdentities,
             ) {
                 this.onLoginCompleteCalled = true;
                 this.onLoginCompleteUser = filteredUser;
@@ -437,7 +440,7 @@ var pluses = /\+/g,
 
             this.onLogoutComplete = function(
                 filteredUser,
-                filteredUserIdentities
+                filteredUserIdentities,
             ) {
                 this.onLogoutCompleteCalled = true;
                 this.onLogoutCompleteUser = filteredUser;
@@ -446,7 +449,7 @@ var pluses = /\+/g,
 
             this.onModifyComplete = function(
                 filteredUser,
-                filteredUserIdentities
+                filteredUserIdentities,
             ) {
                 this.onModifyCompleteCalled = true;
                 this.onModifyCompleteUser = filteredUser;
@@ -460,7 +463,7 @@ var pluses = /\+/g,
 
             this.removeUserAttribute = function(key) {
                 this.removeUserAttributeCalled = true;
-                delete this.userAttributes[key]
+                delete this.userAttributes[key];
             };
 
             window[this.name + this.id] = {
@@ -490,7 +493,7 @@ var pluses = /\+/g,
             getId: getId,
             constructor: constructor,
             name: this.name,
-            suffix: this.suffix
+            suffix: this.suffix,
         };
     },
     MockSideloadedKit = MockForwarder,
@@ -593,19 +596,19 @@ var pluses = /\+/g,
         };
     },
     deleteAllCookies = function() {
-        var cookies = document.cookie.split(";");
+        var cookies = document.cookie.split(';');
 
         for (var i = 0; i < cookies.length; i++) {
             var cookie = cookies[i];
-            var eqPos = cookie.indexOf("=");
+            var eqPos = cookie.indexOf('=');
             var name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
-            document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT";
+            document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT';
         }
     },
     waitForCondition = function async(
         conditionFn,
         timeout = 200,
-        interval = 10
+        interval = 10,
     ) {
         return new Promise((resolve, reject) => {
             const startTime = Date.now();
@@ -621,21 +624,25 @@ var pluses = /\+/g,
             })();
         });
     },
-    fetchMockSuccess = function (url, body) {
+    fetchMockSuccess = function(url, body) {
         fetchMock.post(
             url,
             {
                 status: 200,
                 body: JSON.stringify(body),
             },
-            { overwriteRoutes: true }
+            { overwriteRoutes: true },
         );
     },
     hasIdentifyReturned = () => {
-        return window.mParticle.Identity.getCurrentUser()?.getMPID() === testMPID;
+        return (
+            window.mParticle.Identity.getCurrentUser()?.getMPID() === testMPID
+        );
     },
-    hasIdentityCallInflightReturned = () => !mParticle.getInstance()?._Store?.identityCallInFlight,
-    hasConfigLoaded = () => !!mParticle.getInstance()?._Store?.configurationLoaded
+    hasIdentityCallInflightReturned = () =>
+        !mParticle.getInstance()?._Store?.identityCallInFlight,
+    hasConfigLoaded = () =>
+        !!mParticle.getInstance()?._Store?.configurationLoaded;
 
 var TestsCore = {
     getLocalStorageProducts: getLocalStorageProducts,

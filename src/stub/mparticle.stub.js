@@ -1,4 +1,4 @@
-let mParticle = {
+const mParticle = {
     endSession: voidFunction,
     getAppName: returnString,
     getAppVersion: returnString,

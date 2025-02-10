@@ -4,7 +4,7 @@ export default function filteredMparticleUser(
     mpid,
     forwarder,
     mpInstance,
-    kitBlocker
+    kitBlocker,
 ) {
     var self = this;
     return {
@@ -15,7 +15,7 @@ export default function filteredMparticleUser(
             for (var identityType in identities) {
                 if (identities.hasOwnProperty(identityType)) {
                     var identityName = Types.IdentityType.getIdentityName(
-                        mpInstance._Helpers.parseNumber(identityType)
+                        mpInstance._Helpers.parseNumber(identityType),
                     );
                     if (
                         !kitBlocker ||
@@ -30,7 +30,7 @@ export default function filteredMparticleUser(
 
             currentUserIdentities = mpInstance._Helpers.filterUserIdentitiesForForwarders(
                 currentUserIdentities,
-                forwarder.userIdentityFilters
+                forwarder.userIdentityFilters,
             );
 
             return {
@@ -61,7 +61,7 @@ export default function filteredMparticleUser(
 
             userAttributesLists = mpInstance._Helpers.filterUserAttributes(
                 userAttributesLists,
-                forwarder.userAttributeFilters
+                forwarder.userAttributeFilters,
             );
 
             return userAttributesLists;
@@ -92,7 +92,7 @@ export default function filteredMparticleUser(
 
             userAttributesCopy = mpInstance._Helpers.filterUserAttributes(
                 userAttributesCopy,
-                forwarder.userAttributeFilters
+                forwarder.userAttributeFilters,
             );
 
             return userAttributesCopy;

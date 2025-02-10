@@ -63,7 +63,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
     this.init = function(apiKey, config, instanceName) {
         if (!config && (window.mParticle && window.mParticle.config)) {
             console.warn(
-                'You did not pass a config object to mParticle.init(). Attempting to use the window.mParticle.config if it exists. Please note that in a future release, this may not work and mParticle will not initialize properly'
+                'You did not pass a config object to mParticle.init(). Attempting to use the window.mParticle.config if it exists. Please note that in a future release, this may not work and mParticle will not initialize properly',
             );
             config = window.mParticle ? window.mParticle.config : {};
         }
@@ -97,7 +97,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
                 console.log(
                     'You tried to initialize an instance named ' +
                         instanceName +
-                        '. This instance does not exist. Check your instance name or initialize a new instance with this name before calling it.'
+                        '. This instance does not exist. Check your instance name or initialize a new instance with this name before calling it.',
                 );
                 return null;
             }
@@ -164,14 +164,14 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
         eventType,
         eventInfo,
         customFlags,
-        eventOptions
+        eventOptions,
     ) {
         self.getInstance().logEvent(
             eventName,
             eventType,
             eventInfo,
             customFlags,
-            eventOptions
+            eventOptions,
         );
     };
     this.logError = function(error, attrs) {
@@ -188,7 +188,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
             eventName,
             attrs,
             customFlags,
-            eventOptions
+            eventOptions,
         );
     };
     this.upload = function() {
@@ -202,7 +202,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
             remove: function(product, logEventBoolean) {
                 self.getInstance().eCommerce.Cart.remove(
                     product,
-                    logEventBoolean
+                    logEventBoolean,
                 );
             },
             clear: function() {
@@ -222,7 +222,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
             brand,
             position,
             coupon,
-            attributes
+            attributes,
         ) {
             return self
                 .getInstance()
@@ -236,7 +236,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
                     brand,
                     position,
                     coupon,
-                    attributes
+                    attributes,
                 );
         },
         createPromotion: function(id, creative, name, position) {
@@ -253,7 +253,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
             couponCode,
             revenue,
             shipping,
-            tax
+            tax,
         ) {
             return self
                 .getInstance()
@@ -263,7 +263,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
                     couponCode,
                     revenue,
                     shipping,
-                    tax
+                    tax,
                 );
         },
         logCheckout: function(step, options, attrs, customFlags) {
@@ -271,7 +271,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
                 step,
                 options,
                 attrs,
-                customFlags
+                customFlags,
             );
         },
         logProductAction: function(
@@ -280,7 +280,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
             attrs,
             customFlags,
             transactionAttributes,
-            eventOptions
+            eventOptions,
         ) {
             self.getInstance().eCommerce.logProductAction(
                 productActionType,
@@ -288,7 +288,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
                 attrs,
                 customFlags,
                 transactionAttributes,
-                eventOptions
+                eventOptions,
             );
         },
         logPurchase: function(
@@ -296,14 +296,14 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
             product,
             clearCart,
             attrs,
-            customFlags
+            customFlags,
         ) {
             self.getInstance().eCommerce.logPurchase(
                 transactionAttributes,
                 product,
                 clearCart,
                 attrs,
-                customFlags
+                customFlags,
             );
         },
         logPromotion: function(
@@ -311,14 +311,14 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
             promotion,
             attrs,
             customFlags,
-            eventOptions
+            eventOptions,
         ) {
             self.getInstance().eCommerce.logPromotion(
                 type,
                 promotion,
                 attrs,
                 customFlags,
-                eventOptions
+                eventOptions,
             );
         },
         logImpression: function(impression, attrs, customFlags, eventOptions) {
@@ -326,7 +326,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
                 impression,
                 attrs,
                 customFlags,
-                eventOptions
+                eventOptions,
             );
         },
         logRefund: function(
@@ -334,14 +334,14 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
             product,
             clearCart,
             attrs,
-            customFlags
+            customFlags,
         ) {
             self.getInstance().eCommerce.logRefund(
                 transactionAttributes,
                 product,
                 clearCart,
                 attrs,
-                customFlags
+                customFlags,
             );
         },
         expandCommerceEvent: function(event) {
@@ -409,7 +409,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
             timestamp,
             consentDocument,
             location,
-            hardwareId
+            hardwareId,
         ) {
             return self
                 .getInstance()
@@ -418,7 +418,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
                     timestamp,
                     consentDocument,
                     location,
-                    hardwareId
+                    hardwareId,
                 );
         },
         createCCPAConsent: function(
@@ -426,7 +426,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
             timestamp,
             consentDocument,
             location,
-            hardwareId
+            hardwareId,
         ) {
             return self
                 .getInstance()
@@ -435,7 +435,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
                     timestamp,
                     consentDocument,
                     location,
-                    hardwareId
+                    hardwareId,
                 );
         },
     };
@@ -449,13 +449,13 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
             self.getInstance()._resetForTests(
                 MPConfig,
                 keepPersistence,
-                self.getInstance()
+                self.getInstance(),
             );
         } else {
             self.getInstance()._resetForTests(
                 MPConfig,
                 false,
-                self.getInstance()
+                self.getInstance(),
             );
         }
     };

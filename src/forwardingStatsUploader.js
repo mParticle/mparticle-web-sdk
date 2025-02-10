@@ -26,7 +26,7 @@ export default function forwardingStatsUploader(mpInstance) {
                                     mpInstance.Logger.verbose(
                                         'Successfully sent  ' +
                                             xhr.statusText +
-                                            ' from server'
+                                            ' from server',
                                     );
                                     delete uploadsTable[date];
                                 } else if (xhr.status.toString()[0] === '4') {
@@ -44,7 +44,7 @@ export default function forwardingStatsUploader(mpInstance) {
                         uploadsTable[date].uploading = true;
                         mpInstance._APIClient.sendBatchForwardingStatsToServer(
                             forwardingStatsData,
-                            xhr
+                            xhr,
                         );
                     }
                 }

@@ -11,7 +11,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
     var self = this;
     this.forwarderStatsUploader = new APIClient(
         mpInstance,
-        kitBlocker
+        kitBlocker,
     ).initializeForwarderStatsUploader();
 
     const UserAttributeActionTypes = {
@@ -39,7 +39,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     if (
                         !mpInstance._Consent.isEnabledForUserConsent(
                             forwarder.filteringConsentRuleValues,
-                            user
+                            user,
                         )
                     ) {
                         return false;
@@ -47,7 +47,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     if (
                         !self.isEnabledForUserAttributes(
                             forwarder.filteringUserAttributeValue,
-                            user
+                            user,
                         )
                     ) {
                         return false;
@@ -55,7 +55,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     if (
                         !self.isEnabledForUnknownUser(
                             forwarder.excludeAnonymousUser,
-                            user
+                            user,
                         )
                     ) {
                         return false;
@@ -63,11 +63,11 @@ export default function Forwarders(mpInstance, kitBlocker) {
 
                     var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(
                         userIdentities,
-                        forwarder.userIdentityFilters
+                        forwarder.userIdentityFilters,
                     );
                     var filteredUserAttributes = mpInstance._Helpers.filterUserAttributes(
                         user ? user.getAllUserAttributes() : {},
-                        forwarder.userAttributeFilters
+                        forwarder.userAttributeFilters,
                     );
                     if (!forwarder.initialized) {
                         forwarder.logger = mpInstance.Logger;
@@ -81,13 +81,13 @@ export default function Forwarders(mpInstance, kitBlocker) {
                             mpInstance._Store.SDKConfig.appVersion,
                             mpInstance._Store.SDKConfig.appName,
                             mpInstance._Store.SDKConfig.customFlags,
-                            mpInstance._Store.clientId
+                            mpInstance._Store.clientId,
                         );
                         forwarder.initialized = true;
                     }
 
                     return true;
-                }
+                },
             );
         }
     };
@@ -120,10 +120,10 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 for (var attrName in userAttributes) {
                     if (userAttributes.hasOwnProperty(attrName)) {
                         attrHash = KitFilterHelper.hashAttributeConditionalForwarding(
-                            attrName
+                            attrName,
                         );
                         valueHash = KitFilterHelper.hashAttributeConditionalForwarding(
-                            userAttributes[attrName]
+                            userAttributes[attrName],
                         );
 
                         if (
@@ -187,8 +187,8 @@ export default function Forwarders(mpInstance, kitBlocker) {
                             mpInstance._Helpers.inArray(
                                 filterList,
                                 KitFilterHelper.hashUserIdentity(
-                                    userIdentity.Type
-                                )
+                                    userIdentity.Type,
+                                ),
                             )
                         ) {
                             event.UserIdentities.splice(i, 1);
@@ -212,7 +212,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                         hash = KitFilterHelper.hashEventAttributeKey(
                             event.EventCategory,
                             event.EventName,
-                            attrName
+                            attrName,
                         );
 
                         if (mpInstance._Helpers.inArray(filterList, hash)) {
@@ -242,10 +242,10 @@ export default function Forwarders(mpInstance, kitBlocker) {
         ) {
             hashedEventName = KitFilterHelper.hashEventName(
                 event.EventName,
-                event.EventCategory
+                event.EventCategory,
             );
             hashedEventType = KitFilterHelper.hashEventType(
-                event.EventCategory
+                event.EventCategory,
             );
 
             for (
@@ -276,7 +276,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                         for (var prop in event.EventAttributes) {
                             var hashedEventAttributeName;
                             hashedEventAttributeName = KitFilterHelper.hashAttributeConditionalForwarding(
-                                prop
+                                prop,
                             );
 
                             if (
@@ -288,7 +288,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                                 foundProp = {
                                     name: hashedEventAttributeName,
                                     value: KitFilterHelper.hashAttributeConditionalForwarding(
-                                        event.EventAttributes[prop]
+                                        event.EventAttributes[prop],
                                     ),
                                 };
                             }
@@ -323,19 +323,19 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 clonedEvent = mpInstance._Helpers.extend(
                     true,
                     clonedEvent,
-                    event
+                    event,
                 );
                 // Check event filtering rules
                 if (
                     event.EventDataType === Types.MessageType.PageEvent &&
                     (inFilteredList(
                         mpInstance._Store.activeForwarders[i].eventNameFilters,
-                        hashedEventName
+                        hashedEventName,
                     ) ||
                         inFilteredList(
                             mpInstance._Store.activeForwarders[i]
                                 .eventTypeFilters,
-                            hashedEventType
+                            hashedEventType,
                         ))
                 ) {
                     continue;
@@ -343,7 +343,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     event.EventDataType === Types.MessageType.Commerce &&
                     inFilteredList(
                         mpInstance._Store.activeForwarders[i].eventTypeFilters,
-                        hashedEventType
+                        hashedEventType,
                     )
                 ) {
                     continue;
@@ -351,7 +351,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     event.EventDataType === Types.MessageType.PageView &&
                     inFilteredList(
                         mpInstance._Store.activeForwarders[i].screenNameFilters,
-                        hashedEventName
+                        hashedEventName,
                     )
                 ) {
                     continue;
@@ -363,7 +363,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                         filterAttributes(
                             clonedEvent,
                             mpInstance._Store.activeForwarders[i]
-                                .attributeFilters
+                                .attributeFilters,
                         );
                     } else if (
                         event.EventDataType === Types.MessageType.PageView
@@ -371,7 +371,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                         filterAttributes(
                             clonedEvent,
                             mpInstance._Store.activeForwarders[i]
-                                .screenAttributeFilters
+                                .screenAttributeFilters,
                         );
                     }
                 }
@@ -379,22 +379,22 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 // Check user identity filtering rules
                 filterUserIdentities(
                     clonedEvent,
-                    mpInstance._Store.activeForwarders[i].userIdentityFilters
+                    mpInstance._Store.activeForwarders[i].userIdentityFilters,
                 );
 
                 // Check user attribute filtering rules
                 clonedEvent.UserAttributes = mpInstance._Helpers.filterUserAttributes(
                     clonedEvent.UserAttributes,
-                    mpInstance._Store.activeForwarders[i].userAttributeFilters
+                    mpInstance._Store.activeForwarders[i].userAttributeFilters,
                 );
 
                 if (mpInstance._Store.activeForwarders[i].process) {
                     mpInstance.Logger.verbose(
                         'Sending message to forwarder: ' +
-                            mpInstance._Store.activeForwarders[i].name
+                            mpInstance._Store.activeForwarders[i].name,
                     );
                     var result = mpInstance._Store.activeForwarders[i].process(
-                        clonedEvent
+                        clonedEvent,
                     );
 
                     if (result) {
@@ -419,7 +419,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 !forwarderFunction ||
                 mpInstance._Helpers.isFilteredUserAttribute(
                     key,
-                    forwarder.userAttributeFilters
+                    forwarder.userAttributeFilters,
                 )
             ) {
                 return;
@@ -453,13 +453,13 @@ export default function Forwarders(mpInstance, kitBlocker) {
         mpInstance._Store.activeForwarders.forEach(function(forwarder) {
             var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(
                 userIdentities,
-                forwarder.userIdentityFilters
+                forwarder.userIdentityFilters,
             );
             if (forwarder.setUserIdentity) {
                 filteredUserIdentities.forEach(function(identity) {
                     var result = forwarder.setUserIdentity(
                         identity.Identity,
-                        identity.Type
+                        identity.Type,
                     );
                     if (result) {
                         mpInstance.Logger.verbose(result);
@@ -475,7 +475,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 user.getMPID(),
                 forwarder,
                 mpInstance,
-                kitBlocker
+                kitBlocker,
             );
             if (forwarder.onUserIdentified) {
                 var result = forwarder.onUserIdentified(filteredUser);
@@ -494,7 +494,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 user.getMPID(),
                 forwarder,
                 mpInstance,
-                kitBlocker
+                kitBlocker,
             );
 
             const filteredUserIdentities = filteredUser.getUserIdentities();
@@ -503,7 +503,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 if (forwarder.onIdentifyComplete) {
                     result = forwarder.onIdentifyComplete(
                         filteredUser,
-                        filteredUserIdentities
+                        filteredUserIdentities,
                     );
                     if (result) {
                         mpInstance.Logger.verbose(result);
@@ -513,7 +513,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 if (forwarder.onLoginComplete) {
                     result = forwarder.onLoginComplete(
                         filteredUser,
-                        filteredUserIdentities
+                        filteredUserIdentities,
                     );
                     if (result) {
                         mpInstance.Logger.verbose(result);
@@ -523,7 +523,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 if (forwarder.onLogoutComplete) {
                     result = forwarder.onLogoutComplete(
                         filteredUser,
-                        filteredUserIdentities
+                        filteredUserIdentities,
                     );
                     if (result) {
                         mpInstance.Logger.verbose(result);
@@ -533,7 +533,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 if (forwarder.onModifyComplete) {
                     result = forwarder.onModifyComplete(
                         filteredUser,
-                        filteredUserIdentities
+                        filteredUserIdentities,
                     );
                     if (result) {
                         mpInstance.Logger.verbose(result);
@@ -561,7 +561,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
     this.processForwarders = function(config, forwardingStatsCallback) {
         if (!config) {
             mpInstance.Logger.warning(
-                'No config was passed. Cannot process forwarders'
+                'No config was passed. Cannot process forwarders',
             );
         } else {
             this.processUIEnabledKits(config);
@@ -569,7 +569,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
 
             self.initForwarders(
                 mpInstance._Store.SDKConfig.identifyRequest.userIdentities,
-                forwardingStatsCallback
+                forwardingStatsCallback,
             );
         }
     };
@@ -581,7 +581,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
     // if there is a match before being initialized.
     // Only kits that are configured properly can be active and used for kit forwarding.
     this.processUIEnabledKits = function(config) {
-        let kits = this.returnKitConstructors();
+        const kits = this.returnKitConstructors();
 
         try {
             if (Array.isArray(config.kitConfigs) && config.kitConfigs.length) {
@@ -592,7 +592,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
         } catch (e) {
             mpInstance.Logger.error(
                 'MP Kits not configured propertly. Kits may not be initialized. ' +
-                    e
+                    e,
             );
         }
     };
@@ -605,7 +605,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
             // otherwise mParticle is loaded via script tag
         } else if (!isEmpty(mpInstance._preInit.forwarderConstructors)) {
             mpInstance._preInit.forwarderConstructors.forEach(function(
-                kitConstructor
+                kitConstructor,
             ) {
                 // A suffix is added to a kitConstructor and kit config if there are multiple different
                 // versions of a client kit.  This matches the suffix in the DB.  As an example
@@ -629,7 +629,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
         let newKit = null;
         const config = configuration;
 
-        for (let name in kits) {
+        for (const name in kits) {
             // Configs are returned with suffixes also. We need to consider the
             // config suffix here to match the constructor suffix
             let kitNameWithConfigSuffix;
@@ -671,7 +671,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                         // Register each sideloaded kit, which adds a key of the sideloaded kit name
                         // and a value of the sideloaded kit constructor.
                         unregisteredKit.kitInstance.register(
-                            registeredSideloadedKits
+                            registeredSideloadedKits,
                         );
                         const kitName = unregisteredKit.kitInstance.name;
                         // Then add the kit filters to each registered kit.
@@ -680,7 +680,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     } catch (e) {
                         console.error(
                             'Error registering sideloaded kit ' +
-                                unregisteredKit.kitInstance.name
+                                unregisteredKit.kitInstance.name,
                         );
                     }
                 });
@@ -702,7 +702,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
         } catch (e) {
             mpInstance.Logger.error(
                 'Sideloaded Kits not configured propertly. Kits may not be initialized. ' +
-                    e
+                    e,
             );
         }
     };
@@ -710,7 +710,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
     // kits can be included via mParticle UI, or via sideloaded kit config API
     this.configureSideloadedKit = function(kitConstructor) {
         mpInstance._Store.configuredForwarders.push(
-            this.returnConfiguredKit(kitConstructor, kitConstructor.filters)
+            this.returnConfiguredKit(kitConstructor, kitConstructor.filters),
         );
     };
 
@@ -772,7 +772,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
         } catch (e) {
             mpInstance.Logger.error(
                 'Cookie Sync configs not configured propertly. Cookie Sync may not be initialized. ' +
-                    e
+                    e,
             );
         }
     };

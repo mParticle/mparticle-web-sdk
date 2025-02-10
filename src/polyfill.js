@@ -132,7 +132,7 @@ var UTF8 = {
                 c1 = utftext.charCodeAt(i + 1);
                 c2 = utftext.charCodeAt(i + 2);
                 s += String.fromCharCode(
-                    ((c & 15) << 12) | ((c1 & 63) << 6) | (c2 & 63)
+                    ((c & 15) << 12) | ((c1 & 63) << 6) | (c2 & 63),
                 );
                 i += 3;
             }

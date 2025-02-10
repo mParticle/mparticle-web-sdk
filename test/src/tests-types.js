@@ -19,60 +19,60 @@ describe('Types', function() {
 
     it('event type should return name', function(done) {
         mParticle.EventType.getName(EventType.Navigation).should.equal(
-            'Navigation'
+            'Navigation',
         );
         mParticle.EventType.getName(EventType.Location).should.equal(
-            'Location'
+            'Location',
         );
         mParticle.EventType.getName(EventType.Search).should.equal('Search');
         mParticle.EventType.getName(EventType.Transaction).should.equal(
-            'Transaction'
+            'Transaction',
         );
         mParticle.EventType.getName(EventType.UserContent).should.equal(
-            'User Content'
+            'User Content',
         );
         mParticle.EventType.getName(EventType.UserPreference).should.equal(
-            'User Preference'
+            'User Preference',
         );
         mParticle.EventType.getName(EventType.Social).should.equal('Social');
         mParticle.EventType.getName(
-            CommerceEventType.ProductAddToCart
+            CommerceEventType.ProductAddToCart,
         ).should.equal('Product Added to Cart');
         mParticle.EventType.getName(
-            CommerceEventType.ProductAddToWishlist
+            CommerceEventType.ProductAddToWishlist,
         ).should.equal('Product Added to Wishlist');
         mParticle.EventType.getName(
-            CommerceEventType.ProductCheckout
+            CommerceEventType.ProductCheckout,
         ).should.equal('Product Checkout');
         mParticle.EventType.getName(
-            CommerceEventType.ProductCheckoutOption
+            CommerceEventType.ProductCheckoutOption,
         ).should.equal('Product Checkout Options');
         mParticle.EventType.getName(
-            CommerceEventType.ProductClick
+            CommerceEventType.ProductClick,
         ).should.equal('Product Click');
         mParticle.EventType.getName(
-            CommerceEventType.ProductImpression
+            CommerceEventType.ProductImpression,
         ).should.equal('Product Impression');
         mParticle.EventType.getName(
-            CommerceEventType.ProductPurchase
+            CommerceEventType.ProductPurchase,
         ).should.equal('Product Purchased');
         mParticle.EventType.getName(
-            CommerceEventType.ProductRefund
+            CommerceEventType.ProductRefund,
         ).should.equal('Product Refunded');
         mParticle.EventType.getName(
-            CommerceEventType.ProductRemoveFromCart
+            CommerceEventType.ProductRemoveFromCart,
         ).should.equal('Product Removed From Cart');
         mParticle.EventType.getName(
-            CommerceEventType.ProductRemoveFromWishlist
+            CommerceEventType.ProductRemoveFromWishlist,
         ).should.equal('Product Removed from Wishlist');
         mParticle.EventType.getName(
-            CommerceEventType.ProductViewDetail
+            CommerceEventType.ProductViewDetail,
         ).should.equal('Product View Details');
         mParticle.EventType.getName(
-            CommerceEventType.PromotionClick
+            CommerceEventType.PromotionClick,
         ).should.equal('Promotion Click');
         mParticle.EventType.getName(
-            CommerceEventType.PromotionView
+            CommerceEventType.PromotionView,
         ).should.equal('Promotion View');
         mParticle.EventType.getName(null).should.equal('Other');
 
@@ -81,28 +81,28 @@ describe('Types', function() {
 
     it('identity type should return name', function(done) {
         mParticle.IdentityType.getName(IdentityType.CustomerId).should.equal(
-            'Customer ID'
+            'Customer ID',
         );
         mParticle.IdentityType.getName(IdentityType.Facebook).should.equal(
-            'Facebook ID'
+            'Facebook ID',
         );
         mParticle.IdentityType.getName(IdentityType.Twitter).should.equal(
-            'Twitter ID'
+            'Twitter ID',
         );
         mParticle.IdentityType.getName(IdentityType.Google).should.equal(
-            'Google ID'
+            'Google ID',
         );
         mParticle.IdentityType.getName(IdentityType.Microsoft).should.equal(
-            'Microsoft ID'
+            'Microsoft ID',
         );
         mParticle.IdentityType.getName(IdentityType.Yahoo).should.equal(
-            'Yahoo ID'
+            'Yahoo ID',
         );
         mParticle.IdentityType.getName(IdentityType.Email).should.equal(
-            'Email'
+            'Email',
         );
         mParticle.IdentityType.getName(
-            IdentityType.FacebookCustomAudienceId
+            IdentityType.FacebookCustomAudienceId,
         ).should.equal('Facebook App User ID');
         mParticle.IdentityType.getName(null).should.equal('Other ID');
 
@@ -111,34 +111,34 @@ describe('Types', function() {
 
     it('product action type should return name', function(done) {
         mParticle.ProductActionType.getName(
-            ProductActionType.AddToCart
+            ProductActionType.AddToCart,
         ).should.equal('Add to Cart');
         mParticle.ProductActionType.getName(
-            ProductActionType.RemoveFromCart
+            ProductActionType.RemoveFromCart,
         ).should.equal('Remove from Cart');
         mParticle.ProductActionType.getName(
-            ProductActionType.Checkout
+            ProductActionType.Checkout,
         ).should.equal('Checkout');
         mParticle.ProductActionType.getName(
-            ProductActionType.CheckoutOption
+            ProductActionType.CheckoutOption,
         ).should.equal('Checkout Option');
         mParticle.ProductActionType.getName(
-            ProductActionType.Click
+            ProductActionType.Click,
         ).should.equal('Click');
         mParticle.ProductActionType.getName(
-            ProductActionType.ViewDetail
+            ProductActionType.ViewDetail,
         ).should.equal('View Detail');
         mParticle.ProductActionType.getName(
-            ProductActionType.Purchase
+            ProductActionType.Purchase,
         ).should.equal('Purchase');
         mParticle.ProductActionType.getName(
-            ProductActionType.Refund
+            ProductActionType.Refund,
         ).should.equal('Refund');
         mParticle.ProductActionType.getName(
-            ProductActionType.AddToWishlist
+            ProductActionType.AddToWishlist,
         ).should.equal('Add to Wishlist');
         mParticle.ProductActionType.getName(
-            ProductActionType.RemoveFromWishlist
+            ProductActionType.RemoveFromWishlist,
         ).should.equal('Remove from Wishlist');
         mParticle.ProductActionType.getName(null).should.equal('Unknown');
 
@@ -147,10 +147,10 @@ describe('Types', function() {
 
     it('promotion action type should return name', function(done) {
         mParticle.PromotionType.getName(
-            PromotionType.PromotionView
+            PromotionType.PromotionView,
         ).should.equal('Promotion View');
         mParticle.PromotionType.getName(
-            PromotionType.PromotionClick
+            PromotionType.PromotionClick,
         ).should.equal('Promotion Click');
         mParticle.PromotionType.getName(null).should.equal('Unknown');
 

@@ -7,14 +7,14 @@ export default function Events(mpInstance) {
     var self = this;
     this.logEvent = function(event, options) {
         mpInstance.Logger.verbose(
-            Messages.InformationMessages.StartingLogEvent + ': ' + event.name
+            Messages.InformationMessages.StartingLogEvent + ': ' + event.name,
         );
         if (mpInstance._Helpers.canLog()) {
             var uploadObject = mpInstance._ServerModel.createEventObject(event);
             mpInstance._APIClient.sendEventToServer(uploadObject, options);
         } else {
             mpInstance.Logger.verbose(
-                Messages.InformationMessages.AbandonLogEvent
+                Messages.InformationMessages.AbandonLogEvent,
             );
         }
     };
@@ -24,7 +24,7 @@ export default function Events(mpInstance) {
             if ('geolocation' in navigator) {
                 mpInstance._Store.watchPositionId = navigator.geolocation.watchPosition(
                     successTracking,
-                    errorTracking
+                    errorTracking,
                 );
             }
         } else {
@@ -67,7 +67,7 @@ export default function Events(mpInstance) {
                     }
                 } catch (e) {
                     mpInstance.Logger.error(
-                        'Error invoking the callback passed to startTrackingLocation.'
+                        'Error invoking the callback passed to startTrackingLocation.',
                     );
                     mpInstance.Logger.error(e);
                 }
@@ -85,7 +85,7 @@ export default function Events(mpInstance) {
 
     this.logOptOut = function() {
         mpInstance.Logger.verbose(
-            Messages.InformationMessages.StartingLogOptOut
+            Messages.InformationMessages.StartingLogOptOut,
         );
 
         var event = mpInstance._ServerModel.createEventObject({
@@ -101,12 +101,12 @@ export default function Events(mpInstance) {
 
     this.logCheckoutEvent = function(step, option, attrs, customFlags) {
         var event = mpInstance._Ecommerce.createCommerceEventObject(
-            customFlags
+            customFlags,
         );
 
         if (event) {
             event.EventName += mpInstance._Ecommerce.getProductActionEventName(
-                Types.ProductActionType.Checkout
+                Types.ProductActionType.Checkout,
             );
             event.EventCategory = Types.CommerceEventType.ProductCheckout;
             event.ProductAction = {
@@ -126,11 +126,11 @@ export default function Events(mpInstance) {
         customAttrs,
         customFlags,
         transactionAttributes,
-        options
+        options,
     ) {
         var event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags,
-            options
+            options,
         );
 
         var productList = Array.isArray(product) ? product : [product];
@@ -139,35 +139,35 @@ export default function Events(mpInstance) {
             if (product.TotalAmount) {
                 product.TotalAmount = mpInstance._Ecommerce.sanitizeAmount(
                     product.TotalAmount,
-                    'TotalAmount'
+                    'TotalAmount',
                 );
             }
             if (product.Position) {
                 product.Position = mpInstance._Ecommerce.sanitizeAmount(
                     product.Position,
-                    'Position'
+                    'Position',
                 );
             }
             if (product.Price) {
                 product.Price = mpInstance._Ecommerce.sanitizeAmount(
                     product.Price,
-                    'Price'
+                    'Price',
                 );
             }
             if (product.Quantity) {
                 product.Quantity = mpInstance._Ecommerce.sanitizeAmount(
                     product.Quantity,
-                    'Quantity'
+                    'Quantity',
                 );
             }
         });
 
         if (event) {
             event.EventCategory = mpInstance._Ecommerce.convertProductActionToEventType(
-                productActionType
+                productActionType,
             );
             event.EventName += mpInstance._Ecommerce.getProductActionEventName(
-                productActionType
+                productActionType,
             );
             event.ProductAction = {
                 ProductActionType: productActionType,
@@ -177,7 +177,7 @@ export default function Events(mpInstance) {
             if (mpInstance._Helpers.isObject(transactionAttributes)) {
                 mpInstance._Ecommerce.convertTransactionAttributesToProductAction(
                     transactionAttributes,
-                    event.ProductAction
+                    event.ProductAction,
                 );
             }
 
@@ -189,15 +189,15 @@ export default function Events(mpInstance) {
         transactionAttributes,
         product,
         attrs,
-        customFlags
+        customFlags,
     ) {
         var event = mpInstance._Ecommerce.createCommerceEventObject(
-            customFlags
+            customFlags,
         );
 
         if (event) {
             event.EventName += mpInstance._Ecommerce.getProductActionEventName(
-                Types.ProductActionType.Purchase
+                Types.ProductActionType.Purchase,
             );
             event.EventCategory = Types.CommerceEventType.ProductPurchase;
             event.ProductAction = {
@@ -205,12 +205,12 @@ export default function Events(mpInstance) {
             };
             event.ProductAction.ProductList = mpInstance._Ecommerce.buildProductList(
                 event,
-                product
+                product,
             );
 
             mpInstance._Ecommerce.convertTransactionAttributesToProductAction(
                 transactionAttributes,
-                event.ProductAction
+                event.ProductAction,
             );
 
             self.logCommerceEvent(event, attrs);
@@ -221,7 +221,7 @@ export default function Events(mpInstance) {
         transactionAttributes,
         product,
         attrs,
-        customFlags
+        customFlags,
     ) {
         if (!transactionAttributes) {
             mpInstance.Logger.error(Messages.ErrorMessages.TransactionRequired);
@@ -229,12 +229,12 @@ export default function Events(mpInstance) {
         }
 
         var event = mpInstance._Ecommerce.createCommerceEventObject(
-            customFlags
+            customFlags,
         );
 
         if (event) {
             event.EventName += mpInstance._Ecommerce.getProductActionEventName(
-                Types.ProductActionType.Refund
+                Types.ProductActionType.Refund,
             );
             event.EventCategory = Types.CommerceEventType.ProductRefund;
             event.ProductAction = {
@@ -242,12 +242,12 @@ export default function Events(mpInstance) {
             };
             event.ProductAction.ProductList = mpInstance._Ecommerce.buildProductList(
                 event,
-                product
+                product,
             );
 
             mpInstance._Ecommerce.convertTransactionAttributesToProductAction(
                 transactionAttributes,
-                event.ProductAction
+                event.ProductAction,
             );
 
             self.logCommerceEvent(event, attrs);
@@ -259,18 +259,18 @@ export default function Events(mpInstance) {
         promotion,
         attrs,
         customFlags,
-        eventOptions
+        eventOptions,
     ) {
         var event = mpInstance._Ecommerce.createCommerceEventObject(
-            customFlags
+            customFlags,
         );
 
         if (event) {
             event.EventName += mpInstance._Ecommerce.getPromotionActionEventName(
-                promotionType
+                promotionType,
             );
             event.EventCategory = mpInstance._Ecommerce.convertPromotionActionToEventType(
-                promotionType
+                promotionType,
             );
             event.PromotionAction = {
                 PromotionActionType: promotionType,
@@ -287,10 +287,10 @@ export default function Events(mpInstance) {
         impression,
         attrs,
         customFlags,
-        options
+        options,
     ) {
         var event = mpInstance._Ecommerce.createCommerceEventObject(
-            customFlags
+            customFlags,
         );
 
         if (event) {
@@ -317,7 +317,7 @@ export default function Events(mpInstance) {
 
     this.logCommerceEvent = function(commerceEvent, attrs, options) {
         mpInstance.Logger.verbose(
-            Messages.InformationMessages.StartingLogCommerceEvent
+            Messages.InformationMessages.StartingLogCommerceEvent,
         );
 
         // If a developer typos the ProductActionType, the event category will be
@@ -329,14 +329,14 @@ export default function Events(mpInstance) {
             commerceEvent.EventCategory === null
         ) {
             mpInstance.Logger.error(
-                'Commerce event not sent.  The mParticle.ProductActionType you passed was invalid. Re-check your code.'
+                'Commerce event not sent.  The mParticle.ProductActionType you passed was invalid. Re-check your code.',
             );
             return;
         }
 
         attrs = mpInstance._Helpers.sanitizeAttributes(
             attrs,
-            commerceEvent.EventName
+            commerceEvent.EventName,
         );
 
         if (mpInstance._Helpers.canLog()) {
@@ -355,7 +355,7 @@ export default function Events(mpInstance) {
             mpInstance._Persistence.update();
         } else {
             mpInstance.Logger.verbose(
-                Messages.InformationMessages.AbandonLogEvent
+                Messages.InformationMessages.AbandonLogEvent,
             );
         }
     };
@@ -365,7 +365,7 @@ export default function Events(mpInstance) {
         selector,
         eventName,
         data,
-        eventType
+        eventType,
     ) {
         var elements = [],
             handler = function(e) {
@@ -378,7 +378,7 @@ export default function Events(mpInstance) {
                 };
 
                 mpInstance.Logger.verbose(
-                    'DOM event triggered, handling event'
+                    'DOM event triggered, handling event',
                 );
 
                 self.logEvent({
@@ -406,7 +406,7 @@ export default function Events(mpInstance) {
 
                     setTimeout(
                         timeoutHandler,
-                        mpInstance._Store.SDKConfig.timeout
+                        mpInstance._Store.SDKConfig.timeout,
                     );
                 }
             },
@@ -431,7 +431,7 @@ export default function Events(mpInstance) {
                     elements.length +
                     ' element' +
                     (elements.length > 1 ? 's' : '') +
-                    ', attaching event handlers'
+                    ', attaching event handlers',
             );
 
             for (i = 0; i < elements.length; i++) {

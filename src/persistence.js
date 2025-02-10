@@ -2,11 +2,11 @@ import Constants from './constants';
 import Polyfill from './polyfill';
 import * as Utils from './utils';
 
-var Base64 = Polyfill.Base64,
-    Messages = Constants.Messages,
-    Base64CookieKeys = Constants.Base64CookieKeys,
-    SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys,
-    StorageNames = Constants.StorageNames;
+var Base64 = Polyfill.Base64;
+var Messages = Constants.Messages;
+var Base64CookieKeys = Constants.Base64CookieKeys;
+var SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys;
+var StorageNames = Constants.StorageNames;
 
 export default function _Persistence(mpInstance) {
     var self = this;
@@ -21,10 +21,10 @@ export default function _Persistence(mpInstance) {
 
     this.initializeStorage = function() {
         try {
-            var storage,
-                localStorageData = self.getLocalStorage(),
-                cookies = self.getCookie(),
-                allData;
+            var storage;
+            var localStorageData = self.getLocalStorage();
+            var cookies = self.getCookie();
+            var allData;
 
             // https://go.mparticle.com/work/SQDSDKS-6045
             // Determine if there is any data in cookies or localStorage to figure out if it is the first time the browser is loading mParticle
@@ -52,7 +52,7 @@ export default function _Persistence(mpInstance) {
                             allData = mpInstance._Helpers.extend(
                                 false,
                                 localStorageData,
-                                cookies
+                                cookies,
                             );
                         } else {
                             allData = localStorageData;
@@ -71,7 +71,7 @@ export default function _Persistence(mpInstance) {
                             allData = mpInstance._Helpers.extend(
                                 false,
                                 localStorageData,
-                                cookies
+                                cookies,
                             );
                         } else {
                             allData = cookies;
@@ -90,18 +90,18 @@ export default function _Persistence(mpInstance) {
             try {
                 if (mpInstance._Store.isLocalStorageAvailable) {
                     var encodedProducts = localStorage.getItem(
-                        mpInstance._Store.prodStorageName
+                        mpInstance._Store.prodStorageName,
                     );
 
                     if (encodedProducts) {
                         var decodedProducts = JSON.parse(
-                            Base64.decode(encodedProducts)
+                            Base64.decode(encodedProducts),
                         );
                     }
                     if (mpInstance._Store.mpid) {
                         self.storeProductsInMemory(
                             decodedProducts,
-                            mpInstance._Store.mpid
+                            mpInstance._Store.mpid,
                         );
                     }
                 }
@@ -111,7 +111,7 @@ export default function _Persistence(mpInstance) {
                 }
                 mpInstance._Store.cartProducts = [];
                 mpInstance.Logger.error(
-                    'Error loading products in initialization: ' + e
+                    'Error loading products in initialization: ' + e,
                 );
             }
 
@@ -160,7 +160,7 @@ export default function _Persistence(mpInstance) {
                         : [];
             } catch (e) {
                 mpInstance.Logger.error(
-                    Messages.ErrorMessages.CookieParseError
+                    Messages.ErrorMessages.CookieParseError,
                 );
             }
         }
@@ -171,7 +171,7 @@ export default function _Persistence(mpInstance) {
         try {
             if (!obj) {
                 mpInstance.Logger.verbose(
-                    Messages.InformationMessages.CookieNotFound
+                    Messages.InformationMessages.CookieNotFound,
                 );
                 mpInstance._Store.clientId =
                     mpInstance._Store.clientId ||
@@ -271,12 +271,12 @@ export default function _Persistence(mpInstance) {
             return [];
         }
 
-        var decodedProducts,
-            userProducts,
-            parsedProducts,
-            encodedProducts = localStorage.getItem(
-                mpInstance._Store.prodStorageName
-            );
+        var decodedProducts;
+        var userProducts;
+        var parsedProducts;
+        var encodedProducts = localStorage.getItem(
+            mpInstance._Store.prodStorageName,
+        );
         if (encodedProducts) {
             decodedProducts = Base64.decode(encodedProducts);
         }
@@ -306,11 +306,11 @@ export default function _Persistence(mpInstance) {
     };
 
     this.getAllUserProductsFromLS = function() {
-        var decodedProducts,
-            encodedProducts = localStorage.getItem(
-                mpInstance._Store.prodStorageName
-            ),
-            parsedDecodedProducts;
+        var decodedProducts;
+        var encodedProducts = localStorage.getItem(
+            mpInstance._Store.prodStorageName,
+        );
+        var parsedDecodedProducts;
         if (encodedProducts) {
             decodedProducts = Base64.decode(encodedProducts);
         }
@@ -330,27 +330,27 @@ export default function _Persistence(mpInstance) {
             return;
         }
 
-        var key = mpInstance._Store.storageName,
-            allLocalStorageProducts = self.getAllUserProductsFromLS(),
-            localStorageData = self.getLocalStorage() || {},
-            currentUser = mpInstance.Identity.getCurrentUser(),
-            mpid = currentUser ? currentUser.getMPID() : null,
-            currentUserProducts = {
-                cp: allLocalStorageProducts[mpid]
-                    ? allLocalStorageProducts[mpid].cp
-                    : [],
-            };
+        var key = mpInstance._Store.storageName;
+        var allLocalStorageProducts = self.getAllUserProductsFromLS();
+        var localStorageData = self.getLocalStorage() || {};
+        var currentUser = mpInstance.Identity.getCurrentUser();
+        var mpid = currentUser ? currentUser.getMPID() : null;
+        var currentUserProducts = {
+            cp: allLocalStorageProducts[mpid]
+                ? allLocalStorageProducts[mpid].cp
+                : [],
+        };
         if (mpid) {
             allLocalStorageProducts = allLocalStorageProducts || {};
             allLocalStorageProducts[mpid] = currentUserProducts;
             try {
                 window.localStorage.setItem(
                     encodeURIComponent(mpInstance._Store.prodStorageName),
-                    Base64.encode(JSON.stringify(allLocalStorageProducts))
+                    Base64.encode(JSON.stringify(allLocalStorageProducts)),
                 );
             } catch (e) {
                 mpInstance.Logger.error(
-                    'Error with setting products on localStorage.'
+                    'Error with setting products on localStorage.',
                 );
             }
         }
@@ -374,7 +374,7 @@ export default function _Persistence(mpInstance) {
                 localStorageData = mpInstance._Helpers.extend(
                     {},
                     localStorageData,
-                    mpInstance._Store.nonCurrentUserMPIDs
+                    mpInstance._Store.nonCurrentUserMPIDs,
                 );
                 mpInstance._Store.nonCurrentUserMPIDs = {};
             }
@@ -384,11 +384,11 @@ export default function _Persistence(mpInstance) {
             try {
                 window.localStorage.setItem(
                     encodeURIComponent(key),
-                    self.encodePersistence(JSON.stringify(localStorageData))
+                    self.encodePersistence(JSON.stringify(localStorageData)),
                 );
             } catch (e) {
                 mpInstance.Logger.error(
-                    'Error with setting localStorage item.'
+                    'Error with setting localStorage item.',
                 );
             }
         }
@@ -421,12 +421,12 @@ export default function _Persistence(mpInstance) {
             return null;
         }
 
-        var key = mpInstance._Store.storageName,
-            localStorageData = self.decodePersistence(
-                window.localStorage.getItem(key)
-            ),
-            obj = {},
-            j;
+        var key = mpInstance._Store.storageName;
+        var localStorageData = self.decodePersistence(
+            window.localStorage.getItem(key),
+        );
+        var obj = {};
+        var j;
         if (localStorageData) {
             localStorageData = JSON.parse(localStorageData);
             for (j in localStorageData) {
@@ -448,10 +448,10 @@ export default function _Persistence(mpInstance) {
     }
 
     this.expireCookies = function(cookieName) {
-        var date = new Date(),
-            expires,
-            domain,
-            cookieDomain;
+        var date = new Date();
+        var expires;
+        var domain;
+        var cookieDomain;
 
         cookieDomain = self.getCookieDomain();
 
@@ -467,14 +467,14 @@ export default function _Persistence(mpInstance) {
     };
 
     this.getCookie = function() {
-        var cookies = window.document.cookie.split('; '),
-            key = mpInstance._Store.storageName,
-            i,
-            l,
-            parts,
-            name,
-            cookie,
-            result = key ? undefined : {};
+        var cookies = window.document.cookie.split('; ');
+        var key = mpInstance._Store.storageName;
+        var i;
+        var l;
+        var parts;
+        var name;
+        var cookie;
+        var result = key ? undefined : {};
 
         mpInstance.Logger.verbose(Messages.InformationMessages.CookieSearch);
 
@@ -485,7 +485,7 @@ export default function _Persistence(mpInstance) {
                 cookie = parts.join('=');
             } catch (e) {
                 mpInstance.Logger.verbose(
-                    'Unable to parse cookie: ' + name + '. Skipping.'
+                    'Unable to parse cookie: ' + name + '. Skipping.',
                 );
             }
 
@@ -510,25 +510,25 @@ export default function _Persistence(mpInstance) {
     // https://go.mparticle.com/work/SQDSDKS-5022
     // https://go.mparticle.com/work/SQDSDKS-6021
     this.setCookie = function() {
-        var mpid,
-            currentUser = mpInstance.Identity.getCurrentUser();
+        var mpid;
+        var currentUser = mpInstance.Identity.getCurrentUser();
         if (currentUser) {
             mpid = currentUser.getMPID();
         }
-        var date = new Date(),
-            key = mpInstance._Store.storageName,
-            cookies = self.getCookie() || {},
-            expires = new Date(
-                date.getTime() +
-                    mpInstance._Store.SDKConfig.cookieExpiration *
-                        24 *
-                        60 *
-                        60 *
-                        1000
-            ).toGMTString(),
-            cookieDomain,
-            domain,
-            encodedCookiesWithExpirationAndPath;
+        var date = new Date();
+        var key = mpInstance._Store.storageName;
+        var cookies = self.getCookie() || {};
+        var expires = new Date(
+            date.getTime() +
+                mpInstance._Store.SDKConfig.cookieExpiration *
+                    24 *
+                    60 *
+                    60 *
+                    1000,
+        ).toGMTString();
+        var cookieDomain;
+        var domain;
+        var encodedCookiesWithExpirationAndPath;
 
         cookieDomain = self.getCookieDomain();
 
@@ -556,7 +556,7 @@ export default function _Persistence(mpInstance) {
             cookies = mpInstance._Helpers.extend(
                 {},
                 cookies,
-                mpInstance._Store.nonCurrentUserMPIDs
+                mpInstance._Store.nonCurrentUserMPIDs,
             );
             mpInstance._Store.nonCurrentUserMPIDs = {};
         }
@@ -565,7 +565,7 @@ export default function _Persistence(mpInstance) {
             cookies,
             expires,
             domain,
-            mpInstance._Store.SDKConfig.maxCookieSize
+            mpInstance._Store.SDKConfig.maxCookieSize,
         );
 
         mpInstance.Logger.verbose(Messages.InformationMessages.CookieSet);
@@ -590,10 +590,10 @@ export default function _Persistence(mpInstance) {
         persistence,
         expires,
         domain,
-        maxCookieSize
+        maxCookieSize,
     ) {
-        var encodedCookiesWithExpirationAndPath,
-            currentSessionMPIDs = persistence.gs.csm ? persistence.gs.csm : [];
+        var encodedCookiesWithExpirationAndPath;
+        var currentSessionMPIDs = persistence.gs.csm ? persistence.gs.csm : [];
         // Comment 1 above
         if (!currentSessionMPIDs.length) {
             for (var key in persistence) {
@@ -601,7 +601,7 @@ export default function _Persistence(mpInstance) {
                     encodedCookiesWithExpirationAndPath = createFullEncodedCookie(
                         persistence,
                         expires,
-                        domain
+                        domain,
                     );
                     if (
                         encodedCookiesWithExpirationAndPath.length >
@@ -635,7 +635,7 @@ export default function _Persistence(mpInstance) {
                     encodedCookiesWithExpirationAndPath = createFullEncodedCookie(
                         persistence,
                         expires,
-                        domain
+                        domain,
                     );
                     if (
                         encodedCookiesWithExpirationAndPath.length >
@@ -654,7 +654,7 @@ export default function _Persistence(mpInstance) {
                 encodedCookiesWithExpirationAndPath = createFullEncodedCookie(
                     persistence,
                     expires,
-                    domain
+                    domain,
                 );
                 if (
                     encodedCookiesWithExpirationAndPath.length > maxCookieSize
@@ -665,14 +665,14 @@ export default function _Persistence(mpInstance) {
                             'Size of new encoded cookie is larger than maxCookieSize setting of ' +
                                 maxCookieSize +
                                 '. Removing from cookie the earliest logged in MPID containing: ' +
-                                JSON.stringify(persistence[MPIDtoRemove], 0, 2)
+                                JSON.stringify(persistence[MPIDtoRemove], 0, 2),
                         );
                         delete persistence[MPIDtoRemove];
                     } else {
                         mpInstance.Logger.error(
                             'Unable to save MPID data to cookies because the resulting encoded cookie is larger than the maxCookieSize setting of ' +
                                 maxCookieSize +
-                                '. We recommend using a maxCookieSize of 1500.'
+                                '. We recommend using a maxCookieSize of 1500.',
                         );
                     }
                 } else {
@@ -739,12 +739,12 @@ export default function _Persistence(mpInstance) {
                             (Array.isArray(persistence.gs[key]) &&
                                 persistence.gs[key].length) ||
                             (mpInstance._Helpers.isObject(
-                                persistence.gs[key]
+                                persistence.gs[key],
                             ) &&
                                 Object.keys(persistence.gs[key]).length)
                         ) {
                             persistence.gs[key] = Base64.encode(
-                                JSON.stringify(persistence.gs[key])
+                                JSON.stringify(persistence.gs[key]),
                             );
                         } else {
                             delete persistence.gs[key];
@@ -768,12 +768,12 @@ export default function _Persistence(mpInstance) {
                             if (Base64CookieKeys[key]) {
                                 if (
                                     mpInstance._Helpers.isObject(
-                                        persistence[mpid][key]
+                                        persistence[mpid][key],
                                     ) &&
                                     Object.keys(persistence[mpid][key]).length
                                 ) {
                                     persistence[mpid][key] = Base64.encode(
-                                        JSON.stringify(persistence[mpid][key])
+                                        JSON.stringify(persistence[mpid][key]),
                                     );
                                 } else {
                                     delete persistence[mpid][key];
@@ -802,11 +802,11 @@ export default function _Persistence(mpInstance) {
                         if (persistence.gs.hasOwnProperty(key)) {
                             if (Base64CookieKeys[key]) {
                                 persistence.gs[key] = JSON.parse(
-                                    Base64.decode(persistence.gs[key])
+                                    Base64.decode(persistence.gs[key]),
                                 );
                             } else if (key === 'ie') {
                                 persistence.gs[key] = Boolean(
-                                    persistence.gs[key]
+                                    persistence.gs[key],
                                 );
                             }
                         }
@@ -823,8 +823,8 @@ export default function _Persistence(mpInstance) {
                                                     key
                                                 ] = JSON.parse(
                                                     Base64.decode(
-                                                        persistence[mpid][key]
-                                                    )
+                                                        persistence[mpid][key],
+                                                    ),
                                                 );
                                             }
                                         }
@@ -863,10 +863,10 @@ export default function _Persistence(mpInstance) {
     // "domain.co.uk" -> success, return
     // "subdomain.domain.co.uk" -> skipped, because already found
     this.getDomain = function(doc, locationHostname) {
-        var i,
-            testParts,
-            mpTest = 'mptest=cookie',
-            hostname = locationHostname.split('.');
+        var i;
+        var testParts;
+        var mpTest = 'mptest=cookie';
+        var hostname = locationHostname.split('.');
         for (i = hostname.length - 1; i >= 0; i--) {
             testParts = hostname.slice(i).join('.');
             doc.cookie = mpTest + ';domain=.' + testParts + ';';
@@ -883,10 +883,10 @@ export default function _Persistence(mpInstance) {
     };
 
     this.getCartProducts = function(mpid) {
-        var allCartProducts,
-            cartProductsString = localStorage.getItem(
-                mpInstance._Store.prodStorageName
-            );
+        var allCartProducts;
+        var cartProductsString = localStorage.getItem(
+            mpInstance._Store.prodStorageName,
+        );
         if (cartProductsString) {
             allCartProducts = JSON.parse(Base64.decode(cartProductsString));
             if (
@@ -909,11 +909,11 @@ export default function _Persistence(mpInstance) {
         try {
             window.localStorage.setItem(
                 encodeURIComponent(mpInstance._Store.prodStorageName),
-                Base64.encode(JSON.stringify(allProducts))
+                Base64.encode(JSON.stringify(allProducts)),
             );
         } catch (e) {
             mpInstance.Logger.error(
-                'Error with setting products on localStorage.'
+                'Error with setting products on localStorage.',
             );
         }
     };
@@ -937,7 +937,7 @@ export default function _Persistence(mpInstance) {
     this.swapCurrentUser = function(
         previousMPID,
         currentMPID,
-        currentSessionMPIDs
+        currentSessionMPIDs,
     ) {
         if (previousMPID && currentMPID && previousMPID !== currentMPID) {
             var persistence = self.getPersistence();
@@ -952,20 +952,20 @@ export default function _Persistence(mpInstance) {
     // https://go.mparticle.com/work/SQDSDKS-6021
     this.savePersistence = function(persistence) {
         var encodedPersistence = self.encodePersistence(
-                JSON.stringify(persistence)
-            ),
-            date = new Date(),
-            key = mpInstance._Store.storageName,
-            expires = new Date(
-                date.getTime() +
-                    mpInstance._Store.SDKConfig.cookieExpiration *
-                        24 *
-                        60 *
-                        60 *
-                        1000
-            ).toGMTString(),
-            cookieDomain = self.getCookieDomain(),
-            domain;
+            JSON.stringify(persistence),
+        );
+        var date = new Date();
+        var key = mpInstance._Store.storageName;
+        var expires = new Date(
+            date.getTime() +
+                mpInstance._Store.SDKConfig.cookieExpiration *
+                    24 *
+                    60 *
+                    60 *
+                    1000,
+        ).toGMTString();
+        var cookieDomain = self.getCookieDomain();
+        var domain;
 
         if (cookieDomain === '') {
             domain = '';
@@ -978,7 +978,7 @@ export default function _Persistence(mpInstance) {
                 persistence,
                 expires,
                 domain,
-                mpInstance._Store.SDKConfig.maxCookieSize
+                mpInstance._Store.SDKConfig.maxCookieSize,
             );
             window.document.cookie =
                 encodeURIComponent(key) +
@@ -988,7 +988,7 @@ export default function _Persistence(mpInstance) {
             if (mpInstance._Store.isLocalStorageAvailable) {
                 localStorage.setItem(
                     mpInstance._Store.storageName,
-                    encodedPersistence
+                    encodedPersistence,
                 );
             }
         }
@@ -1101,13 +1101,15 @@ export default function _Persistence(mpInstance) {
         if (mParticle._isTestEnv) {
             var testWorkspaceToken = 'abcdef';
             removeLocalStorage(
-                mpInstance._Helpers.createMainStorageName(testWorkspaceToken)
+                mpInstance._Helpers.createMainStorageName(testWorkspaceToken),
             );
             self.expireCookies(
-                mpInstance._Helpers.createMainStorageName(testWorkspaceToken)
+                mpInstance._Helpers.createMainStorageName(testWorkspaceToken),
             );
             removeLocalStorage(
-                mpInstance._Helpers.createProductStorageName(testWorkspaceToken)
+                mpInstance._Helpers.createProductStorageName(
+                    testWorkspaceToken,
+                ),
             );
         }
     };

@@ -32,7 +32,7 @@ export default function Helpers(mpInstance) {
         code,
         body,
         mParticleUser,
-        previousMpid
+        previousMpid,
     ) {
         if (!callback) {
             mpInstance.Logger.warning('There is no callback provided');
@@ -73,7 +73,7 @@ export default function Helpers(mpInstance) {
             }
         } catch (e) {
             mpInstance.Logger.error(
-                'There was an error with your callback: ' + e
+                'There was an error with your callback: ' + e,
             );
         }
     };
@@ -94,7 +94,7 @@ export default function Helpers(mpInstance) {
             }
         } catch (e) {
             mpInstance.Logger.error(
-                'There was an error with your callback: ' + e
+                'There was an error with your callback: ' + e,
             );
         }
     };
@@ -102,72 +102,70 @@ export default function Helpers(mpInstance) {
     // https://go.mparticle.com/work/SQDSDKS-6047
     // Standalone version of jQuery.extend, from https://github.com/dansdom/extend
     this.extend = function() {
-        var options,
-            name,
-            src,
-            copy,
-            copyIsArray,
-            clone,
-            target = arguments[0] || {},
-            i = 1,
-            length = arguments.length,
-            deep = false,
-            // helper which replicates the jquery internal functions
-            objectHelper = {
-                hasOwn: Object.prototype.hasOwnProperty,
-                class2type: {},
-                type: function(obj) {
-                    return obj == null
-                        ? String(obj)
-                        : objectHelper.class2type[
-                              Object.prototype.toString.call(obj)
-                          ] || 'object';
-                },
-                isPlainObject: function(obj) {
+        var options;
+        var name;
+        var src;
+        var copy;
+        var copyIsArray;
+        var clone;
+        var target = arguments[0] || {};
+        var i = 1;
+        var length = arguments.length;
+        var deep = false;
+        // helper which replicates the jquery internal functions
+        var objectHelper = {
+            hasOwn: Object.prototype.hasOwnProperty,
+            class2type: {},
+            type: function(obj) {
+                return obj == null
+                    ? String(obj)
+                    : objectHelper.class2type[
+                          Object.prototype.toString.call(obj)
+                      ] || 'object';
+            },
+            isPlainObject: function(obj) {
+                if (
+                    !obj ||
+                    objectHelper.type(obj) !== 'object' ||
+                    obj.nodeType ||
+                    objectHelper.isWindow(obj)
+                ) {
+                    return false;
+                }
+
+                try {
                     if (
-                        !obj ||
-                        objectHelper.type(obj) !== 'object' ||
-                        obj.nodeType ||
-                        objectHelper.isWindow(obj)
+                        obj.constructor &&
+                        !objectHelper.hasOwn.call(obj, 'constructor') &&
+                        !objectHelper.hasOwn.call(
+                            obj.constructor.prototype,
+                            'isPrototypeOf',
+                        )
                     ) {
                         return false;
                     }
+                } catch (e) {
+                    return false;
+                }
 
-                    try {
-                        if (
-                            obj.constructor &&
-                            !objectHelper.hasOwn.call(obj, 'constructor') &&
-                            !objectHelper.hasOwn.call(
-                                obj.constructor.prototype,
-                                'isPrototypeOf'
-                            )
-                        ) {
-                            return false;
-                        }
-                    } catch (e) {
-                        return false;
-                    }
+                var key;
+                for (key in obj) {
+                } // eslint-disable-line no-empty
 
-                    var key;
-                    for (key in obj) {
-                    } // eslint-disable-line no-empty
-
-                    return (
-                        key === undefined || objectHelper.hasOwn.call(obj, key)
-                    );
+                return key === undefined || objectHelper.hasOwn.call(obj, key);
+            },
+            isArray:
+                Array.isArray ||
+                function(obj) {
+                    return objectHelper.type(obj) === 'array';
                 },
-                isArray:
-                    Array.isArray ||
-                    function(obj) {
-                        return objectHelper.type(obj) === 'array';
-                    },
-                isFunction: function(obj) {
-                    return objectHelper.type(obj) === 'function';
-                },
-                isWindow: function(obj) {
-                    return obj != null && obj == obj.window;
-                },
-            }; // end of objectHelper
+            isFunction: function(obj) {
+                return objectHelper.type(obj) === 'function';
+            },
+            isWindow: function(obj) {
+                return obj != null && obj == obj.window;
+            },
+        }; // end of objectHelper
 
         // Handle a deep copy situation
         if (typeof target === 'boolean') {
@@ -282,7 +280,7 @@ export default function Helpers(mpInstance) {
             for (var userIdentityName in userIdentitiesObject) {
                 if (userIdentitiesObject.hasOwnProperty(userIdentityName)) {
                     var userIdentityType = Types.IdentityType.getIdentityType(
-                        userIdentityName
+                        userIdentityName,
                     );
                     if (!self.inArray(filterList, userIdentityType)) {
                         var identity = {
@@ -306,7 +304,7 @@ export default function Helpers(mpInstance) {
 
     this.filterUserIdentitiesForForwarders = function(
         userIdentitiesObject,
-        filterList
+        filterList,
     ) {
         const filteredUserIdentities = {};
 
@@ -314,7 +312,7 @@ export default function Helpers(mpInstance) {
             for (const userIdentityName in userIdentitiesObject) {
                 if (userIdentitiesObject.hasOwnProperty(userIdentityName)) {
                     const userIdentityType = KitFilterHelper.hashUserIdentity(
-                        Types.IdentityType.getIdentityType(userIdentityName)
+                        Types.IdentityType.getIdentityType(userIdentityName),
                     );
                     if (!self.inArray(filterList, userIdentityType)) {
                         filteredUserIdentities[userIdentityName] =
@@ -334,7 +332,7 @@ export default function Helpers(mpInstance) {
             for (var userAttribute in userAttributes) {
                 if (userAttributes.hasOwnProperty(userAttribute)) {
                     const hashedUserAttribute = KitFilterHelper.hashUserAttribute(
-                        userAttribute
+                        userAttribute,
                     );
                     if (!self.inArray(filterList, hashedUserAttribute)) {
                         filteredUserAttributes[userAttribute] =
@@ -349,7 +347,7 @@ export default function Helpers(mpInstance) {
 
     this.isFilteredUserAttribute = function(userAttributeKey, filterList) {
         const hashedUserAttribute = KitFilterHelper.hashUserAttribute(
-            userAttributeKey
+            userAttributeKey,
         );
         return filterList && self.inArray(filterList, hashedUserAttribute);
     };
@@ -385,7 +383,7 @@ export default function Helpers(mpInstance) {
                         name +
                         "', the corresponding attribute value of '" +
                         prop +
-                        "' must be a string, number, boolean, or null."
+                        "' must be a string, number, boolean, or null.",
                 );
             }
         }
@@ -396,7 +394,7 @@ export default function Helpers(mpInstance) {
     this.isDelayedByIntegration = function(
         delayedIntegrations,
         timeoutStart,
-        now
+        now,
     ) {
         if (
             now - timeoutStart >
