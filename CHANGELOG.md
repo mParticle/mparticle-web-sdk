@@ -1,3 +1,10 @@
+## [2.32.4](https://github.com/mParticle/mparticle-web-sdk/compare/v2.32.3...v2.32.4) (2025-02-10)
+
+
+### Bug Fixes
+
+* Update new mParticleInstance instantiation ([#974](https://github.com/mParticle/mparticle-web-sdk/issues/974)) ([fa9e65e](https://github.com/mParticle/mparticle-web-sdk/commit/fa9e65ea9450db5f583ddf6355b9b648a7db4f2b))
+
 ## [2.32.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.32.2...v2.32.3) (2025-02-03)
 
 ## [2.32.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.32.1...v2.32.2) (2025-01-27)
