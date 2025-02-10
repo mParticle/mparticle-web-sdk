@@ -1,7 +1,7 @@
 import resolve from '@rollup/plugin-node-resolve';
 import babel from '@rollup/plugin-babel';
 import commonjs from '@rollup/plugin-commonjs';
-import babelSettings from './babel.CBT.config.js'
+import babelSettings from './babel.CBT.config.js';
 const extensions = ['.js', '.ts'];
 import typescript from '@rollup/plugin-typescript';
 import json from '@rollup/plugin-json';
@@ -33,7 +33,7 @@ export default [
                 // exclude: ['node_modules/**/*'],
                 babelHelpers: 'runtime',
             }),
-            json()
+            json(),
         ],
     },
     {
@@ -45,7 +45,7 @@ export default [
         },
         plugins: [
             resolve({
-                preferBuiltins: true
+                preferBuiltins: true,
             }),
             commonjs({
                 include: 'node_modules/**',
@@ -57,7 +57,7 @@ export default [
                 exclude: ['node_modules/**/*'],
                 babelHelpers: 'runtime',
             }),
-            json()
+            json(),
         ],
     },
-]
+];

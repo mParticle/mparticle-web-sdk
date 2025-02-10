@@ -1,6 +1,6 @@
 const { DEBUG } = process.env;
 
-let files = ['test-stub-bundle.js'];
+const files = ['test-stub-bundle.js'];
 
 let browsers = ['ChromeHeadless'];
 let singleRun = true;

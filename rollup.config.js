@@ -106,9 +106,9 @@ const builds = {
     },
 };
 
-let selectedBuilds = [];
+const selectedBuilds = [];
 if (BUILDALL) {
-    for (let build of Object.keys(builds)) {
+    for (const build of Object.keys(builds)) {
         selectedBuilds.push(builds[build]);
     }
 } else {

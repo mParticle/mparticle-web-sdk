@@ -18,11 +18,11 @@ switch (FILE_ORDER) {
         break;
     default:
         throw new Error(
-            "Please specify 'FILE_ORDER' env variable as either 'before_mp' or 'after_mp'"
+            "Please specify 'FILE_ORDER' env variable as either 'before_mp' or 'after_mp'",
         );
 }
 
-module.exports = function(config) {
+module.exports = function (config) {
     config.set({
         frameworks: ['mocha', 'chai'],
         files,

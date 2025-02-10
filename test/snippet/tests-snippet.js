@@ -1,16 +1,16 @@
-describe('snippet', function() {
-    beforeEach(function() {
+describe('snippet', function () {
+    beforeEach(function () {
         mParticle.config.rq = [];
     });
 
-    it('mParticle object and proxied methods should exist should exist', function(done) {
+    it('mParticle object and proxied methods should exist should exist', function (done) {
         (typeof window.mParticle).should.equal('object');
         (typeof window.mParticle.Identity).should.equal('object');
         (typeof window.mParticle.eCommerce).should.equal('object');
         done();
     });
 
-    it('mParticle object should proxy main methods', function(done) {
+    it('mParticle object should proxy main methods', function (done) {
         mParticle.endSession();
         mParticle.startNewSession();
         mParticle.startTrackingLocation();
@@ -21,7 +21,7 @@ describe('snippet', function() {
             'test event',
             mParticle.EventType.Other,
             { attrFoo: 'attrBar' },
-            { customFoo: 'customBar' }
+            { customFoo: 'customBar' },
         );
         mParticle.logPageView('test pageView', { attrFoo: 'attrBar' });
         mParticle.setSessionAttribute('sessionAttrFoo', 'sessionAttrBar');
@@ -71,7 +71,7 @@ describe('snippet', function() {
         done();
     });
 
-    it('mParticle object should proxy Identity methods', function(done) {
+    it('mParticle object should proxy Identity methods', function (done) {
         var userIdentities = {
             userIdentities: {
                 customerid: 'test',
@@ -83,31 +83,31 @@ describe('snippet', function() {
         mParticle.Identity.identify(userIdentities);
         mParticle.config.rq[0][0].should.equal('Identity.login');
         mParticle.config.rq[0][1].userIdentities.customerid.should.equal(
-            'test'
+            'test',
         );
         mParticle.config.rq[1][0].should.equal('Identity.logout');
         mParticle.config.rq[1][1].userIdentities.customerid.should.equal(
-            'test'
+            'test',
         );
         mParticle.config.rq[2][0].should.equal('Identity.modify');
         mParticle.config.rq[2][1].userIdentities.customerid.should.equal(
-            'test'
+            'test',
         );
         mParticle.config.rq[3][0].should.equal('Identity.identify');
         mParticle.config.rq[3][1].userIdentities.customerid.should.equal(
-            'test'
+            'test',
         );
 
         done();
     });
 
-    it('mParticle object should proxy eCommerce methods', function(done) {
+    it('mParticle object should proxy eCommerce methods', function (done) {
         mParticle.eCommerce.setCurrencyCode('usd');
         mParticle.eCommerce.logCheckout(
             1,
             { optionFoo: 'optionBar' },
             { attrFoo: 'attrBar' },
-            { customFoo: 'customBar' }
+            { customFoo: 'customBar' },
         );
         mParticle.config.rq[0][0].should.equal('eCommerce.setCurrencyCode');
         mParticle.config.rq[0][1].should.equal('usd');
@@ -120,7 +120,7 @@ describe('snippet', function() {
         done();
     });
 
-    it('mParticle object should have EventTypes on it', function(done) {
+    it('mParticle object should have EventTypes on it', function (done) {
         Object.keys(mParticle.EventType).length.should.equal(9);
         mParticle.EventType.Unknown.should.equal(0);
         mParticle.EventType.Navigation.should.equal(1);

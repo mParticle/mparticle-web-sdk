@@ -1,10 +1,6 @@
 const { DEBUG } = process.env;
 
-const files = [
-    'lib/geomock.js',
-    '../dist/mparticle.js',
-    'test-bundle.js',
-];
+const files = ['lib/geomock.js', '../dist/mparticle.js', 'test-bundle.js'];
 
 let browsers = ['ChromeHeadless', 'FirefoxHeadless'];
 let singleRun = true;
@@ -30,7 +26,7 @@ if (DEBUG === 'true') {
     captureConsole = true;
 }
 
-module.exports = function(config) {
+module.exports = function (config) {
     config.set({
         frameworks: ['mocha', 'should'],
         files,

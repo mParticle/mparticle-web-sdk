@@ -8,10 +8,7 @@ const requirejs = {
         format: 'iife',
         name: 'mpRequireJs',
     },
-    plugins: [
-        resolve(),
-        commonjs()
-    ],
-}
+    plugins: [resolve(), commonjs()],
+};
 
 export default [requirejs];

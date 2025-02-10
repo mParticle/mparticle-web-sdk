@@ -64,7 +64,7 @@ describe('mParticle stubs', function() {
         var product1 = mParticle.eCommerce.createProduct(
             'iphone',
             'iphoneSKU',
-            999
+            999,
         );
 
         mParticle.eCommerce.Cart.add(product1);
@@ -89,7 +89,7 @@ describe('mParticle stubs', function() {
                 'addGDPRConsentState',
                 'setGDPRConsentState',
                 'removeGDPRConsentState',
-                'getGDPRConsentState'
+                'getGDPRConsentState',
             );
         consent
             .setGDPRConsentState()
@@ -97,7 +97,7 @@ describe('mParticle stubs', function() {
                 'addGDPRConsentState',
                 'setGDPRConsentState',
                 'removeGDPRConsentState',
-                'getGDPRConsentState'
+                'getGDPRConsentState',
             );
         consent
             .removeGDPRConsentState()
@@ -105,7 +105,7 @@ describe('mParticle stubs', function() {
                 'addGDPRConsentState',
                 'setGDPRConsentState',
                 'removeGDPRConsentState',
-                'getGDPRConsentState'
+                'getGDPRConsentState',
             );
 
         GDPRConsentState.ConsentDocument.should.equal('doc');
@@ -163,7 +163,7 @@ describe('mParticle stubs', function() {
             'addGDPRConsentState',
             'setGDPRConsentState',
             'removeGDPRConsentState',
-            'getGDPRConsentState'
+            'getGDPRConsentState',
         );
 
         done();
