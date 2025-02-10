@@ -12,10 +12,10 @@ export default class ForegroundTimeTracker {
             this.startTracking();
         }
 
-        // TODO: this is just to ensure when we load it in an app for testing we can see the timer updates in the console
+        // TODO: this logging is only for testing purposes
+        // it is to give an idea to the tester that the timer is working properly
         // setInterval(() => {
             // console.log(this.getTimeInForeground());
-            // console.log(document.hidden);
         // }, 1000);
     }
 
@@ -24,7 +24,7 @@ export default class ForegroundTimeTracker {
         window.addEventListener('beforeunload', () => this.updateTimeInPersistence());       // when user closes tab, refreshes, or navigates to another page via link
         window.addEventListener('blur', () => this.handleWindowBlur());                      // when user switches to another application   
         window.addEventListener('focus', () => this.handleWindowFocus());                    // when window gains focus
-        window.addEventListener('storage', (event) => this.syncAcrossTabs(event));                                // 
+        window.addEventListener('storage', (event) => this.syncAcrossTabs(event));           // this ensures that timers between tabs are in sync
     }
     
     private loadTimeFromStorage(): void {
@@ -40,12 +40,13 @@ export default class ForegroundTimeTracker {
     }
 
     private handleWindowFocus(): void {
+        console.log('handling window focus');
         this.startTracking();
     }
 
     private startTracking(): void {
+        console.log('starting tracking');
         if (!document.hidden) {
-            console.log('starting tracking');
             this.startTime = Math.floor(performance.now()); 
             console.log(this.startTime);
             this.isTrackerActive = true;
@@ -53,8 +54,8 @@ export default class ForegroundTimeTracker {
     }
 
     private stopTracking(): void {
+        console.log('stopping tracking');
         if (this.isTrackerActive) {
-            console.log('stopping tracking');
             this.setTotalTime();
             this.updateTimeInPersistence();
             this.isTrackerActive = false;
@@ -63,7 +64,9 @@ export default class ForegroundTimeTracker {
 
     private setTotalTime(): void {
         if (this.isTrackerActive) {
-            console.log('setting total time');
+            console.log(
+                `setting total time because isTrackerActive is ${this.isTrackerActive}`
+            );
             const now = Math.floor(performance.now());
             this.totalTime += now - this.startTime;
             this.startTime = now;
@@ -72,7 +75,9 @@ export default class ForegroundTimeTracker {
 
     public updateTimeInPersistence(): void {
         if (this.isTrackerActive) {
-            console.log('updating time in persistence');
+            console.log(
+                `updating time in persistence because isTrackerActive is ${this.isTrackerActive}`
+            );
             localStorage.setItem(
                 this.localStorageName,
                 this.totalTime.toFixed(0)
@@ -91,13 +96,15 @@ export default class ForegroundTimeTracker {
 
     private syncAcrossTabs(event: StorageEvent): void {
         console.log('syncAcrossTabs');
+        console.log('event.key', event.key);
+        console.log('this.localStorageName', this.localStorageName);
         if (event.key === this.localStorageName && event.newValue !== null) {
             const newTime = parseFloat(event.newValue) || 0;
+            // we need to set this to 0 if a session has ended.  since the timer should start again.
             // do not overwrite if the new time is smaller than the previous totalTime
-            if (newTime > this.totalTime) {
+            // if (newTime > this.totalTime) {
                 this.totalTime = newTime;
-
-            }
+            // }
         }
     }
 
