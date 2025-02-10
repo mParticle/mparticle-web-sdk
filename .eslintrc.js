@@ -34,9 +34,8 @@ module.exports = {
         'prettier',
     ],
     rules: {
-        // 'prettier/prettier': 'error',
         'prefer-const': [
-            'warn',
+            'error',
             {
                 destructuring: 'any',
                 ignoreReadBeforeAssign: false,
@@ -44,6 +43,7 @@ module.exports = {
         ],
         'no-prototype-builtins': 'off',
         'no-empty': 'warn',
+        'no-unused-vars': 'warn',
         'no-useless-escape': 'off',
     },
 };
