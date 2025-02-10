@@ -150,7 +150,7 @@ describe('ForegroundTimeTracker', () => {
         });
 
         it('should handle non-numeric values gracefully', () => {
-            localStorage.setItem(`mp-time-${timerKey}`, 'invalid');
+            localStorage.setItem(`mp-time-${timerKey}`, '"invalid"');
 
             tracker = new ForegroundTimeTracker(timerKey);
             expect(tracker.totalTime).toBeNaN();
@@ -381,7 +381,7 @@ describe('ForegroundTimeTracker', () => {
 
             tracker.updateTimeInPersistence();
 
-            expect(localStorage.getItem(mockStorageKey)).toBe('5000');
+            expect(tracker['timerVault'].retrieve()).toBe('5000');
         });
 
         it('should not update localStorage when tracking is inactive', () => {
@@ -399,7 +399,7 @@ describe('ForegroundTimeTracker', () => {
 
             tracker.updateTimeInPersistence();
 
-            expect(localStorage.getItem(mockStorageKey)).toBe('1235');
+            expect(tracker['timerVault'].retrieve()).toBe('1235');
         });
     });
 
