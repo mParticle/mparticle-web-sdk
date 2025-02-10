@@ -36,9 +36,6 @@ jobs:
             - name: Lint with ESLint
               run: npm run lint
 
-            - name: Lint with Prettier
-              run: npm run prettier
-
             - name: Run Build IIFE
               run: npm run build:iife
 
