@@ -1,6 +1,5 @@
 .DS_Store
 node_modules/
-.vscode/
 test-bundle.js
 out/
 test/reports
@@ -10,4 +9,3 @@ test/stub/test-stub-bundle.js
 snippet.min.js
 test/lib
 mparticle.js
-test/
