@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.32.3";
+    var version = "2.32.4";
 
     var Constants = {
       sdkVersion: version,
@@ -2174,11 +2174,11 @@ var mParticle = (function () {
                 reject(xhr);
               };
               xhr.open(method, url);
-              Object.entries(headers).forEach(function (_a) {
-                var key = _a[0],
-                  value = _a[1];
-                xhr.setRequestHeader(key, value);
-              });
+              for (var key in headers) {
+                if (headers.hasOwnProperty(key)) {
+                  xhr.setRequestHeader(key, headers[key]);
+                }
+              }
               xhr.send(data);
             })];
           });
@@ -2205,7 +2205,7 @@ var mParticle = (function () {
     var BatchUploader = /** @class */function () {
       /**
        * Creates an instance of a BatchUploader
-       * @param {MParticleWebSDK} mpInstance - the mParticle SDK instance
+       * @param {IMParticleWebSDKInstance} mpInstance - the mParticle SDK instance
        * @param {number} uploadInterval - the desired upload interval in milliseconds
        */
       function BatchUploader(mpInstance, uploadInterval) {
@@ -2388,6 +2388,12 @@ var mParticle = (function () {
        * @param useBeacon whether to use the beacon API - used when the page is being unloaded
        */
       BatchUploader.prototype.prepareAndUpload = function (triggerFuture, useBeacon) {
+        if (triggerFuture === void 0) {
+          triggerFuture = false;
+        }
+        if (useBeacon === void 0) {
+          useBeacon = false;
+        }
         return __awaiter(this, void 0, void 0, function () {
           var currentUser, currentEvents, newBatches, batchesToUpload, batchesThatDidNotUpload;
           var _a, _b, _c;
@@ -9293,13 +9299,13 @@ var mParticle = (function () {
         if (!clickIds) {
           return mappedClickIds;
         }
-        for (var _i = 0, _b = Object.entries(clickIds); _i < _b.length; _i++) {
-          var _c = _b[_i],
-            key = _c[0],
-            value = _c[1];
-          var mappedKey = (_a = mappingList[key]) === null || _a === void 0 ? void 0 : _a.mappedKey;
-          if (!isEmpty(mappedKey)) {
-            mappedClickIds[mappedKey] = value;
+        for (var key in clickIds) {
+          if (clickIds.hasOwnProperty(key)) {
+            var value = clickIds[key];
+            var mappedKey = (_a = mappingList[key]) === null || _a === void 0 ? void 0 : _a.mappedKey;
+            if (!isEmpty(mappedKey)) {
+              mappedClickIds[mappedKey] = value;
+            }
           }
         }
         return mappedClickIds;
@@ -9307,15 +9313,11 @@ var mParticle = (function () {
       IntegrationCapture.prototype.applyProcessors = function (clickIds, url, timestamp) {
         var _a;
         var processedClickIds = {};
-        for (var _i = 0, _b = Object.entries(clickIds); _i < _b.length; _i++) {
-          var _c = _b[_i],
-            key = _c[0],
-            value = _c[1];
-          var processor = (_a = integrationMapping[key]) === null || _a === void 0 ? void 0 : _a.processor;
-          if (processor) {
-            processedClickIds[key] = processor(value, url, timestamp);
-          } else {
-            processedClickIds[key] = value;
+        for (var key in clickIds) {
+          if (clickIds.hasOwnProperty(key)) {
+            var value = clickIds[key];
+            var processor = (_a = integrationMapping[key]) === null || _a === void 0 ? void 0 : _a.processor;
+            processedClickIds[key] = processor ? processor(value, url, timestamp) : value;
           }
         }
         return processedClickIds;
@@ -9338,7 +9340,6 @@ var mParticle = (function () {
     var ReportBatching = FeatureFlags.ReportBatching,
       CaptureIntegrationSpecificIds = FeatureFlags.CaptureIntegrationSpecificIds;
     var StartingInitialization = Messages.InformationMessages.StartingInitialization;
-
     /**
      * <p>All of the following methods can be called on the primary mParticle class. In version 2.10.0, we introduced <a href="https://docs.mparticle.com/developers/sdk/web/multiple-instances/">multiple instances</a>. If you are using multiple instances (self hosted environments only), you should call these methods on each instance.</p>
      * <p>In current versions of mParticle, if your site has one instance, that instance name is 'default_instance'. Any methods called on mParticle on a site with one instance will be mapped to the `default_instance`.</p>
@@ -9351,7 +9352,6 @@ var mParticle = (function () {
      *
      * @class mParticle & mParticleInstance
      */
-
     function mParticleInstance(instanceName) {
       var self = this;
       // These classes are for internal use only. Not documented for public consumption
@@ -9373,17 +9373,15 @@ var mParticle = (function () {
         forwarderConstructors: []
       };
       this._IntegrationCapture = new IntegrationCapture();
-
       // required for forwarders once they reference the mparticle instance
-      this.IdentityType = Types.IdentityType;
-      this.EventType = Types.EventType;
-      this.CommerceEventType = Types.CommerceEventType;
-      this.PromotionType = Types.PromotionActionType;
-      this.ProductActionType = Types.ProductActionType;
+      this.IdentityType = IdentityType;
+      this.EventType = EventType;
+      this.CommerceEventType = CommerceEventType;
+      this.PromotionType = PromotionActionType;
+      this.ProductActionType = ProductActionType;
       this._Identity = new Identity(this);
       this.Identity = this._Identity.IdentityAPI;
       this.generateHash = this._Helpers.generateHash;
-
       // https://go.mparticle.com/work/SQDSDKS-6289
       // TODO: Replace this with Store once Store is moved earlier in the init process
       this.getDeviceId = this._Persistence.getDeviceId;
@@ -9400,7 +9398,6 @@ var mParticle = (function () {
           console.warn('You did not pass a config object to init(). mParticle will not initialize properly');
         }
         runPreConfigFetchInitialization(this, apiKey, config);
-
         // config code - Fetch config when requestConfig = true, otherwise, proceed with SDKInitialization
         // Since fetching the configuration is asynchronous, we must pass completeSDKInitialization
         // to it for it to be run after fetched
@@ -9428,7 +9425,6 @@ var mParticle = (function () {
       this.setLogLevel = function (newLogLevel) {
         self.Logger.setLogLevel(newLogLevel);
       };
-
       /**
        * Resets the SDK to an uninitialized state and removes cookies/localStorage. You MUST call mParticle.init(apiKey, window.mParticle.config)
        * before any other mParticle methods or the SDK will not function as intended.
@@ -9525,7 +9521,6 @@ var mParticle = (function () {
       this.isInitialized = function () {
         return self._Store ? self._Store.isInitialized : false;
       };
-
       /**
        * Gets the app name
        * @method getAppName
@@ -9610,7 +9605,6 @@ var mParticle = (function () {
         // Sends true as an over ride vs when endSession is called from the setInterval
         self._SessionManager.endSession(true);
       };
-
       /**
        * Logs a Base Event to mParticle's servers
        * @param {Object} event Base Event Object
@@ -9627,7 +9621,7 @@ var mParticle = (function () {
           return;
         }
         if (!event.eventType) {
-          event.eventType = Types.EventType.Unknown;
+          event.eventType = EventType.Unknown;
         }
         if (!self._Helpers.canLog()) {
           self.Logger.error(Messages.ErrorMessages.LoggingDisabled);
@@ -9655,10 +9649,10 @@ var mParticle = (function () {
           return;
         }
         if (!eventType) {
-          eventType = Types.EventType.Unknown;
+          eventType = EventType.Unknown;
         }
         if (!self._Helpers.isEventType(eventType)) {
-          self.Logger.error('Invalid event type: ' + eventType + ', must be one of: \n' + JSON.stringify(Types.EventType));
+          self.Logger.error('Invalid event type: ' + eventType + ', must be one of: \n' + JSON.stringify(EventType));
           return;
         }
         if (!self._Helpers.canLog()) {
@@ -9666,7 +9660,7 @@ var mParticle = (function () {
           return;
         }
         self._Events.logEvent({
-          messageType: Types.MessageType.PageEvent,
+          messageType: MessageType$1.PageEvent,
           name: eventName,
           data: eventInfo,
           eventType: eventType,
@@ -9706,10 +9700,10 @@ var mParticle = (function () {
           }
         }
         self._Events.logEvent({
-          messageType: Types.MessageType.CrashReport,
+          messageType: MessageType$1.CrashReport,
           name: error.name ? error.name : 'Error',
-          data: data,
-          eventType: Types.EventType.Other
+          eventType: EventType.Other,
+          data: data
         });
       };
       /**
@@ -9767,10 +9761,10 @@ var mParticle = (function () {
           }
         }
         self._Events.logEvent({
-          messageType: Types.MessageType.PageView,
+          messageType: MessageType$1.PageView,
           name: eventName,
           data: attrs,
-          eventType: Types.EventType.Unknown,
+          eventType: EventType.Unknown,
           customFlags: customFlags
         }, eventOptions);
       };
@@ -9779,12 +9773,12 @@ var mParticle = (function () {
        * @method upload
        */
       this.upload = function () {
+        var _a, _b;
         if (self._Helpers.canLog()) {
           if (self._Store.webviewBridgeEnabled) {
             self._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Upload);
           } else {
-            var _self$_APIClient;
-            (_self$_APIClient = self._APIClient) === null || _self$_APIClient === void 0 || (_self$_APIClient = _self$_APIClient.uploader) === null || _self$_APIClient === void 0 || _self$_APIClient.prepareAndUpload(false, false);
+            (_b = (_a = self._APIClient) === null || _a === void 0 ? void 0 : _a.uploader) === null || _b === void 0 ? void 0 : _b.prepareAndUpload(false, false);
           }
         }
       };
@@ -9849,8 +9843,8 @@ var mParticle = (function () {
            */
           add: function add(product, logEventBoolean) {
             self.Logger.warning('Deprecated function eCommerce.Cart.add() will be removed in future releases');
-            var mpid,
-              currentUser = self.Identity.getCurrentUser();
+            var mpid;
+            var currentUser = self.Identity.getCurrentUser();
             if (currentUser) {
               mpid = currentUser.getMPID();
             }
@@ -9865,8 +9859,8 @@ var mParticle = (function () {
            */
           remove: function remove(product, logEventBoolean) {
             self.Logger.warning('Deprecated function eCommerce.Cart.remove() will be removed in future releases');
-            var mpid,
-              currentUser = self.Identity.getCurrentUser();
+            var mpid;
+            var currentUser = self.Identity.getCurrentUser();
             if (currentUser) {
               mpid = currentUser.getMPID();
             }
@@ -9879,8 +9873,8 @@ var mParticle = (function () {
            */
           clear: function clear() {
             self.Logger.warning('Deprecated function eCommerce.Cart.clear() will be removed in future releases');
-            var mpid,
-              currentUser = self.Identity.getCurrentUser();
+            var mpid;
+            var currentUser = self.Identity.getCurrentUser();
             if (currentUser) {
               mpid = currentUser.getMPID();
             }
@@ -10097,7 +10091,6 @@ var mParticle = (function () {
           self.setSessionAttribute(key, value);
         }, self);
         if (queued) return;
-
         // Logs to cookie
         // And logs to in-memory object
         // Example: mParticle.setSessionAttribute('location', '33431');
@@ -10232,7 +10225,7 @@ var mParticle = (function () {
       };
       /*
           An integration delay is a workaround that prevents events from being sent when it is necessary to do so.
-          Some server side integrations require a client side value to be included in the payload to successfully 
+          Some server side integrations require a client side value to be included in the payload to successfully
           forward.  This value can only be pulled from the client side partner SDK.
            During the kit initialization, the kit:
           * sets an integration delay to `true`
@@ -10246,14 +10239,12 @@ var mParticle = (function () {
       */
       this._setIntegrationDelay = function (module, shouldDelayIntegration) {
         self._preInit.integrationDelays[module] = shouldDelayIntegration;
-
         // If the integration delay is set to true, no further action needed
         if (shouldDelayIntegration === true) {
           return;
         }
         // If the integration delay is set to false, check to see if there are any
         // other integration delays set to true.  It not, process the queued events/.
-
         var integrationDelaysKeys = Object.keys(self._preInit.integrationDelays);
         if (integrationDelaysKeys.length === 0) {
           return;
@@ -10265,7 +10256,6 @@ var mParticle = (function () {
           self._APIClient.processQueuedEvents();
         }
       };
-
       // Internal use only. Used by our wrapper SDKs to identify themselves during initialization.
       this._setWrapperSDKInfo = function (name, version) {
         var queued = queueIfNotInitialized(function () {
@@ -10281,7 +10271,6 @@ var mParticle = (function () {
         }
       };
     }
-
     // Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment
     function completeSDKInitialization(apiKey, config, mpInstance) {
       var kitBlocker = createKitBlocker(config, mpInstance);
@@ -10290,7 +10279,6 @@ var mParticle = (function () {
       mpInstance._Store.processConfig(config);
       mpInstance._Identity.idCache = createIdentityCache(mpInstance);
       removeExpiredIdentityCacheDates(mpInstance._Identity.idCache);
-
       // Web View Bridge is used for cases where the Web SDK is loaded within an iOS or Android device's
       // Web View.  The Web SDK simply acts as a passthrough to the mParticle Native SDK.  It is not
       // responsible for sending events directly to mParticle's servers.  The Web SDK will not initialize
@@ -10299,11 +10287,9 @@ var mParticle = (function () {
         mpInstance._NativeSdkHelpers.initializeSessionAttributes(apiKey);
       } else {
         // Main SDK initialization flow
-
         // Load any settings/identities/attributes from cookie or localStorage
         mpInstance._Persistence.initializeStorage();
         mpInstance._Store.syncPersistenceData();
-
         // Set up user identitiy variables for later use
         var currentUser = mpInstance.Identity.getCurrentUser();
         var currentUserMPID = currentUser ? currentUser.getMPID() : null;
@@ -10319,36 +10305,35 @@ var mParticle = (function () {
         }
         mpInstance._Forwarders.processForwarders(config, mpInstance._APIClient.prepareForwardingStats);
         mpInstance._Forwarders.processPixelConfigs(config);
-
         // Checks if session is created, resumed, or needs to be ended
         // Logs a session start or session end event accordingly
         mpInstance._SessionManager.initialize();
         mpInstance._Events.logAST();
         processIdentityCallback(mpInstance, currentUser, currentUserMPID, currentUserIdentities);
       }
-
       // We will continue to clear out the ready queue as part of the initial init flow
       // if an identify request is unnecessary, such as if there is an existing session
       if (mpInstance._Store.mpid && !mpInstance._Store.identifyCalled || mpInstance._Store.webviewBridgeEnabled) {
         mpInstance._Store.isInitialized = true;
         mpInstance._preInit.readyQueue = processReadyQueue(mpInstance._preInit.readyQueue);
       }
-
       // https://go.mparticle.com/work/SQDSDKS-6040
       if (mpInstance._Store.isFirstRun) {
         mpInstance._Store.isFirstRun = false;
       }
     }
+    // https://go.mparticle.com/work/SQDSDKS-7061
     function createKitBlocker(config, mpInstance) {
-      var kitBlocker, dataPlanForKitBlocker, kitBlockError, kitBlockOptions;
-
+      var kitBlocker;
+      var dataPlanForKitBlocker;
+      var kitBlockError;
+      var kitBlockOptions;
       /*  There are three ways a data plan object for blocking can be passed to the SDK:
               1. Manually via config.dataPlanOptions (this takes priority)
               If not passed in manually, we user the server provided via either
               2. Snippet via /mparticle.js endpoint (config.dataPlan.document)
               3. Self hosting via /config endpoint (config.dataPlanResult)
       */
-
       if (config.dataPlanOptions) {
         mpInstance.Logger.verbose('Customer provided data plan found');
         kitBlockOptions = config.dataPlanOptions;
@@ -10406,7 +10391,6 @@ var mParticle = (function () {
       mpInstance._Store = new Store(config, mpInstance, apiKey);
       window.mParticle.Store = mpInstance._Store;
       mpInstance.Logger.verbose(StartingInitialization);
-
       // Check to see if localStorage is available before main configuration runs
       // since we will need this for the current implementation of user persistence
       // TODO: Refactor this when we refactor User Identity Persistence
@@ -10649,25 +10633,26 @@ var mParticle = (function () {
     if (!Array.prototype.filter) {
       Array.prototype.filter = Polyfill.filter;
     }
+    // https://go.mparticle.com/work/SQDSDKS-6768
     if (!Array.isArray) {
+      // @ts-ignore
       Array.prototype.isArray = Polyfill.isArray;
     }
-    function mParticle$1() {
+    function mParticleInstanceManager() {
       var self = this;
       // Only leaving this here in case any clients are trying to access mParticle.Store, to prevent from throwing
       this.Store = {};
       this._instances = {};
       this.IdentityType = Types.IdentityType;
-      this.EventType = Types.EventType;
-      this.CommerceEventType = Types.CommerceEventType;
-      this.PromotionType = Types.PromotionActionType;
-      this.ProductActionType = Types.ProductActionType;
+      this.EventType = EventType;
+      this.CommerceEventType = CommerceEventType;
+      this.PromotionType = PromotionActionType;
+      this.ProductActionType = ProductActionType;
       this.MPSideloadedKit = MPSideloadedKit;
       if (typeof window !== 'undefined') {
         this.isIOS = window.mParticle && window.mParticle.isIOS ? window.mParticle.isIOS : false;
         this.config = window.mParticle && window.mParticle.config ? window.mParticle.config : {};
       }
-
       /**
        * Initializes the mParticle instance. If no instanceName is provided, an instance name of `default_instance` will be used.
        * <p>
@@ -10685,7 +10670,7 @@ var mParticle = (function () {
         instanceName = (!instanceName || instanceName.length === 0 ? Constants.DefaultInstance : instanceName).toLowerCase();
         var client = self._instances[instanceName];
         if (client === undefined) {
-          client = new mParticleInstance(apiKey);
+          client = new mParticleInstance(instanceName);
           self._instances[instanceName] = client;
         }
         client.init(apiKey, config, instanceName);
@@ -10923,12 +10908,17 @@ var mParticle = (function () {
         self.getInstance()._setWrapperSDKInfo(name, version);
       };
     }
-    var mparticleInstance = new mParticle$1();
+    var mParticleManager = new mParticleInstanceManager();
     if (typeof window !== 'undefined') {
-      window.mParticle = mparticleInstance;
+      // mParticle is the global object used to access the SDK and predates instance manager,
+      // when mParticle was a singleton.  We now support multiple instances. Calling methods
+      // on mParticle directly will access the default instance, but mParticle can also be used 
+      // as the instance manager in self hosted mode.
+      window.mParticle = mParticleManager;
+      // https://go.mparticle.com/work/SQDSDKS-5053
       window.mParticle._BatchValidator = new _BatchValidator();
     }
 
-    return mparticleInstance;
+    return mParticleManager;
 
 })();
