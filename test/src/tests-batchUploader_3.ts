@@ -147,19 +147,19 @@ describe('batch uploader', () => {
             });
         });
 
-        it('should return pending uploads if a 500 is returned', function(done) {
+        it('should return pending uploads if a 500 is returned', async function() {
             window.mParticle._resetForTests(MPConfig);
 
             fetchMock.post(urls.events, 500);
             
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
+            await waitForCondition(hasIdentifyReturned);
+
             window.mParticle.logEvent('Test Event');
 
             let pendingEvents = window.mParticle.getInstance()._APIClient.uploader.eventsQueuedForProcessing;
 
-            pendingEvents.length.should.equal(3)
+            pendingEvents.length.should.equal(3);
             pendingEvents[0].EventName.should.equal(1);
             pendingEvents[1].EventName.should.equal(10);
             pendingEvents[2].EventName.should.equal('Test Event');
@@ -167,7 +167,7 @@ describe('batch uploader', () => {
             fetchMock.post(urls.events, 200);
             
             // First fetch call is an identify call
-            (fetchMock.lastCall()[0].endsWith('identify')).should.equal(true)
+            (fetchMock.lastCall()[0].endsWith('identify')).should.equal(true);
             window.mParticle.upload();
 
             let nowPendingEvents = window.mParticle.getInstance()._APIClient.uploader.eventsQueuedForProcessing;
@@ -178,9 +178,6 @@ describe('batch uploader', () => {
             batch.events[1].event_type.should.equal('application_state_transition');
             batch.events[2].event_type.should.equal('custom_event');
             batch.events[2].data.event_name.should.equal('Test Event');
-
-            done();
-            })
         });
 
         it('should send source_message_id with events to v3 endpoint', function(done) {
