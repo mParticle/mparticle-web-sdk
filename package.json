@@ -66,7 +66,7 @@
         "watch:tests": "cross-env ENVIRONMENT=dev TESTTYPE=main rollup --config rollup.test.config.js -w",
         "lint": "eslint src/ test/src/",
         "lint:fix": "eslint src/ test/src/ --fix",
-        "prettier": "prettier --check \"**\"",
+        "prettier": "prettier --check \"**/*.js\"",
         "prettier:fix": "prettier --check --write \"**/*.js\"",
         "uglify": "npx uglify-js dist/mparticle.js --output dist/mparticle.min.js",
         "gzip": "gzip -c dist/mparticle.min.js > dist/mparticle.min.js.gz",
