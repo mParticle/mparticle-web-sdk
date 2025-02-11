@@ -75,7 +75,7 @@ const mParticle = window.mParticle as unknown as MockMParticleForForwarders;
 
 let mockServer;
 
-describe.only('forwarders', function() {
+describe('forwarders', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
         delete mParticle._instances['default_instance'];
@@ -1509,7 +1509,7 @@ describe.only('forwarders', function() {
         mParticle.startNewSession();
         window.MockForwarder1.instance.receivedEvent = null;
 
-        mParticle.logPageView('Page View');
+        mParticle.logPageView();
 
         expect(window.MockForwarder1.instance.receivedEvent).to.not.be.ok;
     });
@@ -2084,7 +2084,7 @@ describe.only('forwarders', function() {
         window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);
-        await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         window.MockForwarder1.instance.receivedEvent.EventName.should.equal(1);
         window.MockForwarder1.instance.receivedEvent = null;
@@ -2660,7 +2660,7 @@ describe.only('forwarders', function() {
         Object.keys(adobeIntegrationAttributes).length.should.equal(0);
     });
 
-    it('should set only strings as integration attributes', async () => {
+    it('should sanitize any non-strings from integration attributes', async () => {
         mParticle.init(apiKey, window.mParticle.config)
         await waitForCondition(hasIdentityCallInflightReturned);
 
@@ -3046,8 +3046,7 @@ describe.only('forwarders', function() {
             .length.should.equal(1);
 
         // client calls reset
-        // QUESTION: Should this actually take a parameter? it should probably be optional
-        mParticle.reset(null);
+        mParticle.reset();
 
         // forwarderConstructors are still there
         mParticle
