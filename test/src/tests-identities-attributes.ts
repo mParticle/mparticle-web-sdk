@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import fetchMock from 'fetch-mock/esm/client';
+import * as fetchMock from 'fetch-mock/esm/client';
 import {
     urls,
     apiKey,

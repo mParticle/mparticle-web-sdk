@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import Utils from './config/utils';
-import fetchMock from 'fetch-mock/esm/client';
+import * as fetchMock from 'fetch-mock/esm/client';
 import { urls, testMPID, MPConfig, v4LSKey, apiKey } from './config/constants';
 import { IMParticleUser } from '../../src/identity-user-interfaces';
 import { IPixelConfiguration } from '../../src/cookieSyncManager';

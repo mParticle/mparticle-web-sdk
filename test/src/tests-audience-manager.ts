@@ -1,5 +1,5 @@
 import sinon from 'sinon';
-import fetchMock from 'fetch-mock/esm/client';
+import * as fetchMock from 'fetch-mock/esm/client';
 import { expect } from 'chai';
 import { urls, apiKey, testMPID } from './config/constants';
 import Constants from '../../src/constants';

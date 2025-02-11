@@ -7,7 +7,7 @@ import Utils from './config/utils';
 import KitBlocker from '../../src/kitBlocking';
 import Types from '../../src/types';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
-import fetchMock from 'fetch-mock/esm/client';
+import * as fetchMock from 'fetch-mock/esm/client';
 const { waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
 
 let forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,

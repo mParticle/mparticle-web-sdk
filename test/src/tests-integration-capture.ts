@@ -1,7 +1,7 @@
 import sinon from 'sinon';
 import { expect}  from 'chai';
 import Utils from './config/utils';
-import fetchMock from 'fetch-mock/esm/client';
+import * as fetchMock from 'fetch-mock/esm/client';
 import { urls, apiKey, testMPID, MPConfig } from "./config/constants";
 
 const {

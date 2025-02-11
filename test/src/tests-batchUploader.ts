@@ -12,7 +12,7 @@ import { expect } from 'chai';
 import _BatchValidator from '../../src/mockBatchCreator';
 import Logger from '../../src/logger.js';
 import { event0, event1, event2, event3 } from '../fixtures/events';
-import fetchMock from 'fetch-mock/esm/client';
+import * as fetchMock from 'fetch-mock/esm/client';
 const { fetchMockSuccess, waitForCondition, hasIdentifyReturned  } = Utils;
 
 declare global {
@@ -49,7 +49,7 @@ describe('batch uploader', () => {
             it('should add events to the Pending Events Queue', () => {
                 window.mParticle._resetForTests(MPConfig);
                 window.mParticle.init(apiKey, window.mParticle.config);
-                
+
                 waitForCondition(hasIdentifyReturned)
                 .then(() => {
                 const mpInstance = window.mParticle.getInstance();

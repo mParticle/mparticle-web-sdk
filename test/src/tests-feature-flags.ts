@@ -1,8 +1,10 @@
 import Constants from '../../src/constants';
 import sinon from 'sinon';
 import { expect } from 'chai';
-import fetchMock from 'fetch-mock/esm/client';
-import { urls, apiKey,
+import * as fetchMock from 'fetch-mock/esm/client';
+import {
+    urls,
+    apiKey,
     testMPID,
     MPConfig,
 } from './config/constants';
@@ -45,7 +47,7 @@ describe('feature-flags', function() {
 
             window.mParticle._resetForTests(MPConfig);
 
-            // initialize mParticle with feature flag 
+            // initialize mParticle with feature flag
             window.mParticle.init(apiKey, window.mParticle.config);
             waitForCondition(hasIdentifyReturned)
             .then(() => {
@@ -79,21 +81,21 @@ describe('feature-flags', function() {
                 status: 200,
                 body: JSON.stringify(audienceMembershipServerResponse)
             });
-            
+
             window.mParticle._resetForTests(MPConfig);
 
             window.mParticle.config.flags = {
                 audienceAPI: 'True'
             };
 
-            // initialize mParticle with feature flag 
+            // initialize mParticle with feature flag
             window.mParticle.init(apiKey, window.mParticle.config);
             waitForCondition(hasIdentifyReturned)
             .then(() => {
             const bond = sinon.spy(window.mParticle.getInstance().Logger, 'error');
 
             window.mParticle.Identity.getCurrentUser().getUserAudiences((result) => {
-                    console.log(result);   
+                    console.log(result);
             });
             bond.called.should.eql(false);
             })
@@ -135,7 +137,7 @@ describe('feature-flags', function() {
             const captureSpy = sinon.spy(window.mParticle.getInstance()._IntegrationCapture, 'capture');
             const clickIdSpy = sinon.spy(window.mParticle.getInstance()._IntegrationCapture, 'getClickIdsAsCustomFlags');
 
-            // initialize mParticle with feature flag 
+            // initialize mParticle with feature flag
             window.mParticle.init(apiKey, window.mParticle.config);
 
             await waitForCondition(hasIdentifyReturned)
@@ -160,7 +162,7 @@ describe('feature-flags', function() {
             const captureSpy = sinon.spy(window.mParticle.getInstance()._IntegrationCapture, 'capture');
             const clickIdSpy = sinon.spy(window.mParticle.getInstance()._IntegrationCapture, 'getClickIdsAsCustomFlags');
 
-            // initialize mParticle with feature flag 
+            // initialize mParticle with feature flag
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned)
 
