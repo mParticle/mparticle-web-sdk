@@ -34,6 +34,7 @@ module.exports = {
         // Turn off conflicting rules
         'prettier',
     ],
+    plugins: ['prettier'],
     rules: {
         'prettier/prettier': 'error',
         'no-prototype-builtins': 'off',
