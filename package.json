@@ -136,6 +136,7 @@
         "ts-jest": "^29.1.0",
         "tslib": "^2.1.0",
         "typescript": "^5.0.2",
+        "typescript-eslint": "^8.24.0",
         "uglify-js": "^3.4.9",
         "webpack": "^5.36.2",
         "webpack-cli": "^5.0.2"
