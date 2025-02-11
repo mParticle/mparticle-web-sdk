@@ -61,7 +61,6 @@ export default class ForegroundTimeTracker {
             // do not overwrite if the new time is smaller than the previous totalTime
             if (newTime > this.totalTime) {
                 this.totalTime = newTime;
-                this.startTime = Math.floor(performance.now());
             }
 
         }
