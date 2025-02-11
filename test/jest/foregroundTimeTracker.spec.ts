@@ -396,9 +396,9 @@ describe('ForegroundTimeTracker', () => {
         it('should format totalTime correctly before storing', () => {
             tracker['isTrackerActive'] = true;
             tracker.totalTime = 1234.5678;
-
+            debugger
+            console.log('about to call it')
             tracker.updateTimeInPersistence();
-
             expect(tracker['timerVault'].retrieve()).toBe('1235');
         });
     });
