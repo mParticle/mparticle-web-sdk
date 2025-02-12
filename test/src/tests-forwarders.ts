@@ -54,7 +54,7 @@ interface IMockForwarderInstance {
     userIdentities?: UserIdentities;
 }
 
-// ``https://go.mparticle.com/work/SQDSDKS-4475
+// https://go.mparticle.com/work/SQDSDKS-4475
 export interface IMockForwarder {
     instance: IMockForwarderInstance
     register: (config?: SDKInitConfig) => void;
