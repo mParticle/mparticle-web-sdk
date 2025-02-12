@@ -460,7 +460,13 @@ describe('ForegroundTimeTracker', () => {
             expect(tracker.totalTime).toBe(800);
         });
 
-        // TODO: Need to handle case when a session end is called, and 0 is set
+        it('should update trackerTotal time to be 0 (such as when a session end event occurs)', () => {
+            const event = new StorageEvent('storage', { key: mockStorageKey, newValue: '0' });
+
+            window.dispatchEvent(event);
+
+            expect(tracker.totalTime).toBe(0)
+        });
 
         it('should NOT update totalTime if newValue is null', () => {
             const event = new StorageEvent('storage', { key: mockStorageKey, newValue: null });

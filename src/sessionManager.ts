@@ -137,7 +137,7 @@ export default function SessionManager(
         }
 
         if (!mpInstance._Helpers.canLog()) {
-            // At this moment, an AbandonedEndSession is defined when on of three things occurs:
+            // At this moment, an AbandonedEndSession is defined when one of three things occurs:
             // - the SDK's store is not enabled because mParticle.setOptOut was called
             // - the devToken is undefined
             // - webviewBridgeEnabled is set to false
@@ -187,7 +187,6 @@ export default function SessionManager(
         }
 
         mpInstance._timeOnSiteTimer.resetTimer();
-        
     };
 
     this.setSessionTimer = function(): void {
