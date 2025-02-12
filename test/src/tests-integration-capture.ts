@@ -14,7 +14,6 @@ const {
     hasIdentityCallInflightReturned,
 } = Utils;
 
-// interface MockMParticleForIntegrationCapture extends IMParticleInstanceManager {}
 declare global {
     interface Window {
         mParticle: IMParticleInstanceManager;

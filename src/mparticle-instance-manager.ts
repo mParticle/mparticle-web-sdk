@@ -1,5 +1,5 @@
 import Polyfill from './polyfill';
-import Types, { CommerceEventType, EventType, IdentityType, ProductActionType, PromotionActionType } from './types';
+import { CommerceEventType, EventType, IdentityType, ProductActionType, PromotionActionType } from './types';
 import Constants from './constants';
 import mParticleInstance, { IMParticleWebSDKInstance } from './mp-instance.js';
 import _BatchValidator from './mockBatchCreator';
@@ -7,7 +7,6 @@ import MPSideloadedKit from './sideloadedKit';
 import { IMParticleInstanceManager } from './sdkRuntimeModels';
 import { IStore } from './store';
 import { Dictionary } from '@mparticle/web-sdk';
-import { valueof } from './utils';
 
 if (!Array.prototype.forEach) {
     Array.prototype.forEach = Polyfill.forEach;
