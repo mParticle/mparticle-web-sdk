@@ -14,8 +14,6 @@ import { IMParticleInstanceManager, SDKEvent } from '../../src/sdkRuntimeModels'
 import { IMParticleUser, UserAttributes } from '../../src/identity-user-interfaces';
 import { IdentityType } from '../../src/types';
 import { IntegrationAttribute } from '../../src/store';
-import { IConsentRules } from '../../src/consent';
-import { UserIdentities } from '@mparticle/web-sdk';
 
 
 const {

@@ -126,11 +126,10 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this._IntegrationCapture = new IntegrationCapture();
 
     // required for forwarders once they reference the mparticle instance
-    this.IdentityType = IdentityType as unknown as valueof<typeof IdentityType>;
-    // this.EventType = EventType as unknown as valueof<typeof EventType>;
+    this.IdentityType = IdentityType;
     this.EventType = EventType;
-    this.CommerceEventType = CommerceEventType as unknown as valueof<typeof CommerceEventType>;
-    this.PromotionType = PromotionActionType as unknown as valueof<typeof PromotionActionType>;
+    this.CommerceEventType = CommerceEventType;
+    this.PromotionType = PromotionActionType;
     this.ProductActionType = ProductActionType;
 
 

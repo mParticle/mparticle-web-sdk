@@ -32,11 +32,10 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
     // Only leaving this here in case any clients are trying to access mParticle.Store, to prevent from throwing
     this.Store = {} as IStore;
     this._instances = {} as Dictionary<IMParticleWebSDKInstance>;
-    this.IdentityType = IdentityType as unknown as valueof<typeof IdentityType>;
-    // this.EventType = EventType as unknown as valueof<typeof EventType>;
+    this.IdentityType = IdentityType;
     this.EventType = EventType;
-    this.CommerceEventType = CommerceEventType as unknown as valueof<typeof CommerceEventType>;
-    this.PromotionType = PromotionActionType as unknown as valueof<typeof PromotionActionType>;
+    this.CommerceEventType = CommerceEventType;
+    this.PromotionType = PromotionActionType;
     this.ProductActionType = ProductActionType;
 
     this.MPSideloadedKit = MPSideloadedKit;

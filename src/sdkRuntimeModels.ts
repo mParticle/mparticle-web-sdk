@@ -162,11 +162,10 @@ export interface SDKProduct {
 // https://go.mparticle.com/work/SQDSDKS-6949
 export interface MParticleWebSDK {
     addForwarder(mockForwarder: MPForwarder): void;
-    // FIXME: Make these consistent
-    IdentityType: valueof<typeof IdentityType>;
-    CommerceEventType: valueof<typeof CommerceEventType>;
+    IdentityType: typeof IdentityType;
+    CommerceEventType: typeof CommerceEventType;
     EventType: typeof EventType;
-    PromotionType: valueof<typeof PromotionActionType>;
+    PromotionType: typeof PromotionActionType;
     ProductActionType: typeof ProductActionType;
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
