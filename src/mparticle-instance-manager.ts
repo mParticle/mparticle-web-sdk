@@ -1,5 +1,5 @@
 import Polyfill from './polyfill';
-import Types, { CommerceEventType, EventType, ProductActionType, PromotionActionType } from './types';
+import { CommerceEventType, EventType, IdentityType, ProductActionType, PromotionActionType } from './types';
 import Constants from './constants';
 import mParticleInstance, { IMParticleWebSDKInstance } from './mp-instance.js';
 import _BatchValidator from './mockBatchCreator';
@@ -7,7 +7,6 @@ import MPSideloadedKit from './sideloadedKit';
 import { IMParticleInstanceManager } from './sdkRuntimeModels';
 import { IStore } from './store';
 import { Dictionary } from '@mparticle/web-sdk';
-import { valueof } from './utils';
 
 if (!Array.prototype.forEach) {
     Array.prototype.forEach = Polyfill.forEach;
@@ -32,11 +31,11 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
     // Only leaving this here in case any clients are trying to access mParticle.Store, to prevent from throwing
     this.Store = {} as IStore;
     this._instances = {} as Dictionary<IMParticleWebSDKInstance>;
-    this.IdentityType = Types.IdentityType;
-    this.EventType = EventType as unknown as valueof<typeof EventType>;
-    this.CommerceEventType = CommerceEventType as unknown as valueof<typeof CommerceEventType>;
-    this.PromotionType = PromotionActionType as unknown as valueof<typeof PromotionActionType>;
-    this.ProductActionType = ProductActionType as unknown as valueof<typeof ProductActionType>;
+    this.IdentityType = IdentityType;
+    this.EventType = EventType;
+    this.CommerceEventType = CommerceEventType;
+    this.PromotionType = PromotionActionType;
+    this.ProductActionType = ProductActionType;
 
     this.MPSideloadedKit = MPSideloadedKit;
 

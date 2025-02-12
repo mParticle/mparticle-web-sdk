@@ -3,6 +3,7 @@ import { expect}  from 'chai';
 import Utils from './config/utils';
 import fetchMock from 'fetch-mock/esm/client';
 import { urls, apiKey, testMPID, MPConfig } from "./config/constants";
+import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 
 const {
     waitForCondition,
@@ -13,7 +14,14 @@ const {
     hasIdentityCallInflightReturned,
 } = Utils;
 
-const mParticle = window.mParticle;
+declare global {
+    interface Window {
+        mParticle: IMParticleInstanceManager;
+        fetchMock: any;
+    }
+}
+
+const mParticle = window.mParticle as IMParticleInstanceManager;
 
 describe('Integration Capture', () => {
     beforeEach(() => {
@@ -57,7 +65,7 @@ describe('Integration Capture', () => {
 
     it('should add captured integrations to event custom flags', async () => {
         await waitForCondition(hasIdentifyReturned);
-        window.mParticle.logEvent(
+        mParticle.logEvent(
             'Test Event',
             mParticle.EventType.Navigation,
             { mykey: 'myvalue' }
