@@ -10,10 +10,12 @@ import {
     MessageType,
 } from './config/constants';
 import { expect } from 'chai';
-import { IMParticleInstanceManager, SDKEvent } from '../../src/sdkRuntimeModels';
+import { IMParticleInstanceManager, SDKEvent, SDKInitConfig } from '../../src/sdkRuntimeModels';
 import { IMParticleUser, UserAttributes } from '../../src/identity-user-interfaces';
 import { IdentityType } from '../../src/types';
 import { IntegrationAttribute } from '../../src/store';
+import { IConsentRules } from '../../src/consent';
+import { UserIdentities } from '@mparticle/web-sdk';
 
 
 const {
@@ -30,18 +32,33 @@ const {
     hasIdentityCallInflightReturned,
 } = Utils;
 
-// interface IMockForwarderInstance {
-//     filteringConsentRuleValues: IConsentRules;
-//     isVisible: boolean;
-//     receivedEvent: SDKEvent;
-//     userAttributes: UserAttributes;
-//     userIdentities: UserIdentities;
-// }
+interface IMockForwarderInstance {
+    filteringConsentRuleValues?: IConsentRules;
+    isVisible?: boolean;
+    onIdentifyCompleteCalled?: boolean;
+    onIdentifyCompleteFilteredUserIdentities?: UserIdentities;
+    onIdentifyCompleteUser?: IMParticleUser;
+    onLoginCompleteCalled?: boolean;
+    onLoginCompleteFilteredUserIdentities?: UserIdentities;
+    onLoginCompleteUser?: IMParticleUser;
+    onLogoutCompleteCalled?: boolean;
+    onLogoutCompleteFilteredUserIdentities?: UserIdentities;
+    onLogoutCompleteUser?: IMParticleUser;
+    onModifyCompleteCalled?: boolean;
+    onModifyCompleteFilteredUserIdentities?: UserIdentities;
+    onModifyCompleteUser?: IMParticleUser;
+    onUserIdentifiedUser?: IMParticleUser;
+    receivedEvent?: SDKEvent;
+    removeUserAttributeCalled?: boolean;
+    userAttributes?: UserAttributes;
+    userIdentities?: UserIdentities;
+}
 
-// FIXME: Make this a real forwarder interface
-// export interface IMockForwarder {
-//     instance: IMockForwarderInstance
-// }
+// ``https://go.mparticle.com/work/SQDSDKS-4475
+export interface IMockForwarder {
+    instance: IMockForwarderInstance
+    register: (config?: SDKInitConfig) => void;
+}
 
 interface UserIdentitiesFilter {
     Identity: string;
@@ -56,15 +73,10 @@ interface MockMParticleForForwarders extends IMParticleInstanceManager{
 declare global {
     interface Window {
         mParticle: IMParticleInstanceManager;
-
-        // FIXME: Define these types
-        // MockForwarder: IMockForwarder;
-        // MockForwarder1: IMockForwarder;
-
-        // FIXME: Define these types
-        SideloadedKit11: any;
-        SideloadedKit22: any;
-
+        MockForwarder: IMockForwarder;
+        MockForwarder1: IMockForwarder;
+        SideloadedKit11: IMockForwarder;
+        SideloadedKit22: IMockForwarder;
         fetchMock: any;
     }
 }
@@ -3380,11 +3392,6 @@ describe('forwarders', function() {
                     );
                 })
                 .then(() => {
-                const mpInstance = window.mParticle.getInstance();
-
-                // QUESTION: Where is this coming from?
-                // expect(mpInstance._Store.isUsingSideloadedKits).to.be.undefined;
-
                 mParticle.logEvent('foo', mParticle.EventType.Navigation);
 
                 const batch = JSON.parse(fetchMock.lastCall()[1].body as string);
