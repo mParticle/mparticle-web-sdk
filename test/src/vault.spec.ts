@@ -13,6 +13,9 @@ const testArray: Dictionary<string>[] = [
     { narf: 'poit' },
 ];
 
+const testString: string = 'foo';
+const testNumber: number = 123;
+
 describe('Vault', () => {
     describe('SessionStorageVault', () => {
         afterEach(() => {
@@ -47,6 +50,36 @@ describe('Vault', () => {
                 expect(vault.contents).to.equal(testArray);
                 expect(window.sessionStorage.getItem(storageKey)).to.equal(
                     JSON.stringify(testArray)
+                );
+            });
+
+            it('should store a string', () => {
+                const storageKey = 'test-key-store-string';
+
+                const vault = new SessionStorageVault<string>(
+                    storageKey
+                );
+
+                vault.store(testString);
+
+                expect(vault.contents).to.equal(testString);
+                expect(window.sessionStorage.getItem(storageKey)).to.equal(
+                    JSON.stringify(testString)
+                );
+            });
+
+            it('should store a number', () => {
+                const storageKey = 'test-key-store-number';
+
+                const vault = new SessionStorageVault<number>(
+                    storageKey
+                );
+
+                vault.store(testNumber);
+
+                expect(vault.contents).to.equal(testNumber);
+                expect(window.sessionStorage.getItem(storageKey)).to.equal(
+                    JSON.stringify(testNumber)
                 );
             });
         });
@@ -87,6 +120,40 @@ describe('Vault', () => {
                 const retrievedItem = vault.retrieve();
 
                 expect(retrievedItem).to.eql(testArray);
+            });
+
+            it('should retrieve a string', () => {
+                const storageKey = 'test-key-retrieve-string';
+
+                window.sessionStorage.setItem(
+                    storageKey,
+                    JSON.stringify(testString)
+                );
+
+                const vault = new SessionStorageVault<string>(
+                    storageKey
+                );
+
+                const retrievedItem = vault.retrieve();
+
+                expect(retrievedItem).to.eql(testString);
+            });
+
+            it('should retrieve an number', () => {
+                const storageKey = 'test-key-retrieve-number';
+
+                window.sessionStorage.setItem(
+                    storageKey,
+                    JSON.stringify(testNumber)
+                );
+
+                const vault = new SessionStorageVault<number>(
+                    storageKey
+                );
+
+                const retrievedItem = vault.retrieve();
+
+                expect(retrievedItem).to.eql(testNumber);
             });
         });
 
@@ -168,6 +235,36 @@ describe('Vault', () => {
                     JSON.stringify(testArray)
                 );
             });
+
+            it('should store a string', () => {
+                const storageKey = 'test-key-store-array';
+
+                const vault = new LocalStorageVault<string>(
+                    storageKey
+                );
+
+                vault.store(testString);
+
+                expect(vault.contents).to.equal(testString);
+                expect(window.localStorage.getItem(storageKey)).to.equal(
+                    JSON.stringify(testString)
+                );
+            });
+
+            it('should store a number', () => {
+                const storageKey = 'test-key-store-array';
+
+                const vault = new LocalStorageVault<number>(
+                    storageKey
+                );
+
+                vault.store(testNumber);
+
+                expect(vault.contents).to.equal(testNumber);
+                expect(window.localStorage.getItem(storageKey)).to.equal(
+                    JSON.stringify(testNumber)
+                );
+            });
         });
 
         describe('#retrieve', () => {
@@ -206,6 +303,40 @@ describe('Vault', () => {
                 const retrievedItem = vault.retrieve();
 
                 expect(retrievedItem).to.eql(testArray);
+            });
+
+            it('should retrieve a string', () => {
+                const storageKey = 'test-key-retrieve-string';
+
+                window.localStorage.setItem(
+                    storageKey,
+                    JSON.stringify(testString)
+                );
+
+                const vault = new LocalStorageVault<string>(
+                    storageKey
+                );
+
+                const retrievedItem = vault.retrieve();
+
+                expect(retrievedItem).to.eql(testString);
+            });
+
+            it('should retrieve an number', () => {
+                const storageKey = 'test-key-retrieve-number';
+
+                window.localStorage.setItem(
+                    storageKey,
+                    JSON.stringify(testNumber)
+                );
+
+                const vault = new LocalStorageVault<number>(
+                    storageKey
+                );
+
+                const retrievedItem = vault.retrieve();
+
+                expect(retrievedItem).to.eql(testNumber);
             });
         });
 
