@@ -1351,8 +1351,6 @@ describe('forwarders', function() {
         expect(googleUserIdentityExits).to.be.false;
 
         expect(event.UserIdentities[0].Type).to.equal(
-
-            // FIXME: these types show up as "any"
             mParticle.IdentityType.CustomerId
         );
     });
