@@ -1,5 +1,5 @@
 import { Logger } from '@mparticle/web-sdk';
-import { isEmpty } from './utils';
+import { isEmpty, isNumber } from './utils';
 
 export interface IVaultOptions {
     logger?: Logger;
@@ -42,9 +42,14 @@ export abstract class BaseVault<StorableItem> {
      * @param item {StorableItem}
      */
     public store(item: StorableItem): void {
+        let stringifiedItem: string;
         this.contents = item;
 
-        const stringifiedItem = !isEmpty(item) ? JSON.stringify(item) : '';
+        if (isNumber(item)) {
+            stringifiedItem = JSON.stringify(item);
+        } else {
+            stringifiedItem = !isEmpty(item) ? JSON.stringify(item) : '';
+        }
 
         try {
             this.storageObject.setItem(this._storageKey, stringifiedItem);
