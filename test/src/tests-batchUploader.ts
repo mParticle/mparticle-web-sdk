@@ -137,7 +137,7 @@ describe('batch uploader', () => {
                 fetchMock.restore();
             });
 
-            it.only('should reject batches without events', async () => {
+            it('should reject batches without events', async () => {
                 window.mParticle.init(apiKey, window.mParticle.config);
 
                 await waitForCondition(hasIdentifyReturned);
@@ -156,8 +156,7 @@ describe('batch uploader', () => {
                 };
 
                 const actualBatch = batchValidator.returnBatch(baseEvent);
-                console.log('actualBatch.events[0]');
-                console.log(actualBatch.events[0]);
+
                 const eventlessBatch = batchValidator.returnBatch(
                     {} as unknown as BaseEvent
                 );

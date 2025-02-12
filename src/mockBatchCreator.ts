@@ -30,6 +30,9 @@ export default class _BatchValidator {
             },
             _resetForTests: mockFunction,
             _APIClient: null,
+            _timeOnSiteTimer: {
+                getTimeInForeground: mockFunction
+            },
             MPSideloadedKit: null,
             _Consent: null,
             _Events: null,

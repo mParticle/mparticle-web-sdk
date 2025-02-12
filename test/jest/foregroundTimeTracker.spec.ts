@@ -19,8 +19,6 @@ describe('ForegroundTimeTracker', () => {
     });
     
     describe('constructor', () => {
-        let tracker: ForegroundTimeTracker;
-        
         afterEach(() => {
             jest.restoreAllMocks();
         });
@@ -149,11 +147,11 @@ describe('ForegroundTimeTracker', () => {
             expect(tracker.totalTime).toBe(0);
         });
 
-        it('should handle non-numeric values gracefully', () => {
+        it('should set totalTime to 0 if there is a non-numeric value in localStorage for time on site', () => {
             localStorage.setItem(`mp-time-${timerKey}`, '"invalid"');
 
             tracker = new ForegroundTimeTracker(timerKey);
-            expect(tracker.totalTime).toBeNaN();
+            expect(tracker.totalTime).toBe(0);
         });
     });
 
@@ -381,7 +379,7 @@ describe('ForegroundTimeTracker', () => {
 
             tracker.updateTimeInPersistence();
 
-            expect(tracker['timerVault'].retrieve()).toBe('5000');
+            expect(tracker['timerVault'].retrieve()).toBe(5000);
         });
 
         it('should not update localStorage when tracking is inactive', () => {
@@ -396,10 +394,9 @@ describe('ForegroundTimeTracker', () => {
         it('should format totalTime correctly before storing', () => {
             tracker['isTrackerActive'] = true;
             tracker.totalTime = 1234.5678;
-            debugger
-            console.log('about to call it')
+
             tracker.updateTimeInPersistence();
-            expect(tracker['timerVault'].retrieve()).toBe('1235');
+            expect(tracker['timerVault'].retrieve()).toBe(1235);
         });
     });
 
