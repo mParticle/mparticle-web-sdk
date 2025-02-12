@@ -45,10 +45,10 @@ export abstract class BaseVault<StorableItem> {
         let stringifiedItem: string;
         this.contents = item;
 
-        if (isNumber(item)) {
+        if (isNumber(item) || !isEmpty(item)) {
             stringifiedItem = JSON.stringify(item);
         } else {
-            stringifiedItem = !isEmpty(item) ? JSON.stringify(item) : '';
+            stringifiedItem = '';
         }
 
         try {
