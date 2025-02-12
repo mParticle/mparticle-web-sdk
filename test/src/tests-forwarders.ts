@@ -1277,8 +1277,7 @@ describe('forwarders', function() {
         });
     });
 
-    // FIXME: Passes in isolation, but fails when run with other tests
-    it.skip('should filter user identities from forwarder on init and bring customerid as first ID', async () => {
+    it('should filter user identities from forwarder on init and bring customerid as first ID', async () => {
         mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -2535,8 +2534,7 @@ describe('forwarders', function() {
     });
     });
 
-    // FIXME: passes in isolation, fails when entire suite is run
-    it.skip('should initialize all forwarders when a user is logged in and the page reloads', async() => {
+    it('should initialize all forwarders when a user is logged in and the page reloads', async() => {
         const mockForwarder = new MockForwarder();
         const mockForwarder2 = new MockForwarder('MockForwarder2', 2);
 
