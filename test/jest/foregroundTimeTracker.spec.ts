@@ -18,11 +18,7 @@ describe('ForegroundTimeTracker', () => {
         jest.restoreAllMocks();
     });
     
-    describe('constructor', () => {
-        afterEach(() => {
-            jest.restoreAllMocks();
-        });
-
+    describe('#constructor', () => {
         it('should set the localStorageName properly', () => {
             foregroundTimeTracker = new ForegroundTimeTracker(timerKey);
             expect(foregroundTimeTracker['localStorageName']).toBe(mockStorageKey);
@@ -47,7 +43,7 @@ describe('ForegroundTimeTracker', () => {
             expect(startTrackingSpy).toHaveBeenCalled();
         });
 
-        it('should not call startTracking is the document is not hidden', () => {
+        it('should not call startTracking if the document is hidden', () => {
             Object.defineProperty(document, 'hidden', { value: true });
             const startTrackingSpy = jest.spyOn(ForegroundTimeTracker.prototype as any, 'startTracking');
             foregroundTimeTracker = new ForegroundTimeTracker(timerKey);
@@ -56,17 +52,13 @@ describe('ForegroundTimeTracker', () => {
         });
     });
 
-    describe('addHandlers', () => {
+    describe('#addHandlers', () => {
         let tracker: ForegroundTimeTracker;
         
         beforeEach(() => {
             jest.spyOn(document, 'addEventListener');
             jest.spyOn(window, 'addEventListener');
             tracker = new ForegroundTimeTracker(timerKey);
-        });
-        
-        afterEach(() => {
-            jest.restoreAllMocks();
         });
         
         it('should add event listeners when instantiated', () => {
@@ -124,16 +116,8 @@ describe('ForegroundTimeTracker', () => {
         });
     });
 
-    describe('loadTimeFromStorage', () => {
+    describe('#loadTimeFromStorage', () => {
         let tracker: ForegroundTimeTracker;
-
-        beforeEach(() => {
-            localStorage.clear();
-        });
-
-        afterEach(() => {
-            jest.restoreAllMocks();
-        });
 
         it('should load the time from localStorage if it exists', () => {
             localStorage.setItem(`mp-time-${timerKey}`, '1234');
@@ -155,20 +139,15 @@ describe('ForegroundTimeTracker', () => {
         });
     });
 
-    describe('handleWindowBlur', () => {
+    describe('#handleWindowBlur', () => {
         let tracker: ForegroundTimeTracker;
 
         beforeEach(() => {
-            localStorage.clear();
             tracker = new ForegroundTimeTracker(timerKey);
 
             // Manually set startTime and isTrackerActive for testing
             tracker.startTime = 1000;
             tracker['isTrackerActive'] = true;
-        });
-
-        afterEach(() => {
-            jest.restoreAllMocks();
         });
 
         it('should call stopTracking when window loses focus (blur event fired)', () => {
@@ -180,19 +159,14 @@ describe('ForegroundTimeTracker', () => {
         });
     });
 
-    describe('handleWindowFocus', () => {
+    describe('#handleWindowFocus', () => {
         let tracker: ForegroundTimeTracker;
 
         beforeEach(() => {
-            localStorage.clear();
             tracker = new ForegroundTimeTracker(timerKey);
 
             tracker.startTime = 1000;
             tracker['isTrackerActive'] = false;
-        });
-
-        afterEach(() => {
-            jest.restoreAllMocks();
         });
 
         it('should call startTracking when window gains focus', () => {
@@ -204,19 +178,14 @@ describe('ForegroundTimeTracker', () => {
         });
     });
 
-    describe('startTracking', () => {
+    describe('#startTracking', () => {
         let tracker: ForegroundTimeTracker;
 
         beforeEach(() => {
-            localStorage.clear();
             tracker = new ForegroundTimeTracker(timerKey);
 
             tracker.startTime = 0;
             tracker['isTrackerActive'] = false;
-        });
-
-        afterEach(() => {
-            jest.restoreAllMocks();
         });
 
         it('should set startTime to performance.now() when startTracking is called', () => {
@@ -228,6 +197,7 @@ describe('ForegroundTimeTracker', () => {
         });
 
         it('should set isTrackerActive to true when startTracking is called', () => {
+            expect(tracker['isTrackerActive']).toBe(false);
             tracker['startTracking']();
 
             // Check that the tracker is active
@@ -248,21 +218,16 @@ describe('ForegroundTimeTracker', () => {
         });
     });
 
-    describe('stopTracking', () => {
+    describe('#stopTracking', () => {
         let tracker: ForegroundTimeTracker;
 
         beforeEach(() => {
-            localStorage.clear();
             tracker = new ForegroundTimeTracker(timerKey);
 
             // Initialize state as if tracking was already active
             tracker['isTrackerActive'] = true;
             tracker.startTime = 500;
             tracker.totalTime = 1000;
-        });
-
-        afterEach(() => {
-            jest.restoreAllMocks();
         });
 
         it('should set isTrackerActive to false', () => {
@@ -296,21 +261,16 @@ describe('ForegroundTimeTracker', () => {
         });
     });
 
-    describe('setTotalTime', () => {
+    describe('#setTotalTime', () => {
         let tracker: ForegroundTimeTracker;
 
         beforeEach(() => {
-            localStorage.clear();
             tracker = new ForegroundTimeTracker(timerKey);
 
             // Initialize state to simulate active tracking
             tracker['isTrackerActive'] = true;
             tracker.startTime = 1000;
             tracker.totalTime = 5000;
-        });
-
-        afterEach(() => {
-            jest.restoreAllMocks();
         });
 
         it('should update totalTime when tracker is active', () => {
@@ -361,16 +321,11 @@ describe('ForegroundTimeTracker', () => {
     });
 
 
-    describe('updateTimeInPersistence', () => {
+    describe('#updateTimeInPersistence', () => {
         let tracker: ForegroundTimeTracker;
 
         beforeEach(() => {
-            localStorage.clear();
             tracker = new ForegroundTimeTracker(timerKey);
-        });
-
-        afterEach(() => {
-            jest.restoreAllMocks();
         });
 
         it('should store totalTime in localStorage when tracking is active', () => {
@@ -400,15 +355,11 @@ describe('ForegroundTimeTracker', () => {
         });
     });
 
-    describe('handleVisibilityChange', () => {
+    describe('#handleVisibilityChange', () => {
         let tracker: ForegroundTimeTracker;
 
         beforeEach(() => {
             tracker = new ForegroundTimeTracker(timerKey);
-        });
-
-        afterEach(() => {
-            jest.restoreAllMocks();
         });
 
         it('should call stopTracking when document becomes hidden', () => {
@@ -430,17 +381,12 @@ describe('ForegroundTimeTracker', () => {
         });
     });
 
-    describe('syncAcrossTabs', () => {
+    describe('#syncAcrossTabs', () => {
         let tracker: ForegroundTimeTracker;
 
         beforeEach(() => {
-            localStorage.clear();
             tracker = new ForegroundTimeTracker(timerKey);
             tracker['totalTime'] = 500; // Set an initial total time
-        });
-
-        afterEach(() => {
-            jest.restoreAllMocks();
         });
 
         it('should call syncAcrossTabs when a storage event occurs', () => {
@@ -451,7 +397,7 @@ describe('ForegroundTimeTracker', () => {
             expect(syncSpy).toHaveBeenCalled();
         });
 
-        it('should update totalTime when newValue is passed', () => {
+        it('should update totalTime when a new time on site value is passed', () => {
             localStorage.setItem(mockStorageKey, '600');
             const event = new StorageEvent('storage', { key: mockStorageKey, newValue: '800' });
 
@@ -485,18 +431,13 @@ describe('ForegroundTimeTracker', () => {
         });
     });
 
-    describe('getTimeInForeground', () => {
+    describe('#getTimeInForeground', () => {
         let tracker: ForegroundTimeTracker;
 
         beforeEach(() => {
-            localStorage.clear();
             tracker = new ForegroundTimeTracker(timerKey);
             tracker['totalTime'] = 500; // Set an initial total time
             tracker['startTime'] = 1000; // Set an iintial start time
-        });
-
-        afterEach(() => {
-            jest.restoreAllMocks();
         });
 
         it('should call setTotalTime', () => {
@@ -524,16 +465,11 @@ describe('ForegroundTimeTracker', () => {
         });
     });
 
-    describe('resetTimer', () => {
+    describe('#resetTimer', () => {
         let tracker: ForegroundTimeTracker;
 
         beforeEach(() => {
-            localStorage.clear();
             tracker = new ForegroundTimeTracker(timerKey);
-        });
-
-        afterEach(() => {
-            jest.restoreAllMocks();
         });
 
         it('should set totalTime = 0', () => {
