@@ -95,6 +95,7 @@ describe('ServerModel', () => {
                 EventDataType: 0,
                 Debug: true,
                 CurrencyCode: 'USD',
+                ActiveTimeOnSite: 10,
             };
 
             ServerModel.appendUserInfo(user, event as SDKEvent);

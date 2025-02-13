@@ -76,6 +76,7 @@ describe('batch uploader', () => {
                     Debug: false,
                     DeviceId: 'test-device',
                     Timestamp: 0,
+                    ActiveTimeOnSite: 10
                 };
 
                 uploader.queueEvent(event);
@@ -136,11 +137,11 @@ describe('batch uploader', () => {
                 fetchMock.restore();
             });
 
-            it('should reject batches without events', (done) => {
+            it('should reject batches without events', async () => {
                 window.mParticle.init(apiKey, window.mParticle.config);
 
-                waitForCondition(hasIdentifyReturned)
-                .then(async () => {
+                await waitForCondition(hasIdentifyReturned);
+
                 fetchMock.post(urls.events, 200);
 
                 const newLogger = new Logger(window.mParticle.config);
@@ -155,6 +156,7 @@ describe('batch uploader', () => {
                 };
 
                 const actualBatch = batchValidator.returnBatch(baseEvent);
+
                 const eventlessBatch = batchValidator.returnBatch(
                     {} as unknown as BaseEvent
                 );
@@ -175,11 +177,6 @@ describe('batch uploader', () => {
 
                 expect(actualBatchResult.events.length).to.equal(1);
                 expect(actualBatchResult.events).to.eql(actualBatch.events);
-
-                done();
-                })
-                .catch((e) => {
-                });
             });
 
             it('should return batches that fail to upload with 500 errors', () => {
@@ -454,6 +451,7 @@ describe('batch uploader', () => {
                 Debug: false,
                 DeviceId: 'test-device',
                 Timestamp: 0,
+                ActiveTimeOnSite: 10
             };
 
             const expectedEvent = [event];
@@ -515,6 +513,7 @@ describe('batch uploader', () => {
                 Debug: false,
                 DeviceId: 'test-device',
                 Timestamp: 0,
+                ActiveTimeOnSite: 10
             };
 
             uploader.queueEvent(event);

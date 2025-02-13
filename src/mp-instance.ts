@@ -48,6 +48,7 @@ import { IEvents } from './events.interfaces';
 import { IECommerce } from './ecommerce.interfaces';
 import { INativeSdkHelpers } from './nativeSdkHelpers.interfaces';
 import { IPersistence } from './persistence.interfaces';
+import ForegroundTimer from './foregroundTimeTracker';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -84,6 +85,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _Store: IStore;
     _instanceName: string;
     _preInit: IPreInit;
+    _timeOnSiteTimer: ForegroundTimer; 
 }
 
 const { Messages, HTTPCodes, FeatureFlags } = Constants;
