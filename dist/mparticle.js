@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.32.4";
+    var version = "2.32.5";
 
     var Constants = {
       sdkVersion: version,
@@ -2046,8 +2046,13 @@ var mParticle = (function () {
        * @param item {StorableItem}
        */
       BaseVault.prototype.store = function (item) {
+        var stringifiedItem;
         this.contents = item;
-        var stringifiedItem = !isEmpty(item) ? JSON.stringify(item) : '';
+        if (isNumber(item) || !isEmpty(item)) {
+          stringifiedItem = JSON.stringify(item);
+        } else {
+          stringifiedItem = '';
+        }
         try {
           this.storageObject.setItem(this._storageKey, stringifiedItem);
           this.logger.verbose("Saving item to Storage: ".concat(stringifiedItem));
