@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.32.5";
+    var version = "2.33.0";
 
     var Constants = {
       sdkVersion: version,
@@ -1923,7 +1923,8 @@ var mParticle = (function () {
         session_start_unixtime_ms: sdkEvent.SessionStartDate,
         custom_attributes: sdkEvent.EventAttributes,
         location: convertSDKLocation(sdkEvent.Location),
-        source_message_id: sdkEvent.SourceMessageId
+        source_message_id: sdkEvent.SourceMessageId,
+        active_time_on_site_ms: sdkEvent.ActiveTimeOnSite
       };
       return commonEventData;
     }
@@ -3380,21 +3381,23 @@ var mParticle = (function () {
         }
       };
       this.endSession = function (override) {
-        var _a;
+        var _a, _b, _c, _d, _e;
         mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingEndSession);
         if (override) {
           mpInstance._Events.logEvent({
             messageType: Types.MessageType.SessionEnd
           });
           mpInstance._Store.nullifySession();
+          (_a = mpInstance._timeOnSiteTimer) === null || _a === void 0 ? void 0 : _a.resetTimer();
           return;
         }
         if (!mpInstance._Helpers.canLog()) {
-          // At this moment, an AbandonedEndSession is defined when on of three things occurs:
+          // At this moment, an AbandonedEndSession is defined when one of three things occurs:
           // - the SDK's store is not enabled because mParticle.setOptOut was called
           // - the devToken is undefined
           // - webviewBridgeEnabled is set to false
           mpInstance.Logger.verbose(Messages$6.InformationMessages.AbandonEndSession);
+          (_b = mpInstance._timeOnSiteTimer) === null || _b === void 0 ? void 0 : _b.resetTimer();
           return;
         }
         var sessionTimeoutInMilliseconds;
@@ -3402,13 +3405,14 @@ var mParticle = (function () {
         var cookies = mpInstance._Persistence.getPersistence();
         if (!cookies || cookies.gs && !cookies.gs.sid) {
           mpInstance.Logger.verbose(Messages$6.InformationMessages.NoSessionToEnd);
+          (_c = mpInstance._timeOnSiteTimer) === null || _c === void 0 ? void 0 : _c.resetTimer();
           return;
         }
         // sessionId is not equal to cookies.sid if cookies.sid is changed in another tab
         if (cookies.gs.sid && mpInstance._Store.sessionId !== cookies.gs.sid) {
           mpInstance._Store.sessionId = cookies.gs.sid;
         }
-        if ((_a = cookies === null || cookies === void 0 ? void 0 : cookies.gs) === null || _a === void 0 ? void 0 : _a.les) {
+        if ((_d = cookies === null || cookies === void 0 ? void 0 : cookies.gs) === null || _d === void 0 ? void 0 : _d.les) {
           sessionTimeoutInMilliseconds = mpInstance._Store.SDKConfig.sessionTimeout * 60000;
           var newDate = new Date().getTime();
           timeSinceLastEventSent = newDate - cookies.gs.les;
@@ -3422,6 +3426,7 @@ var mParticle = (function () {
             mpInstance._Store.nullifySession();
           }
         }
+        (_e = mpInstance._timeOnSiteTimer) === null || _e === void 0 ? void 0 : _e.resetTimer();
       };
       this.setSessionTimer = function () {
         var sessionTimeoutInMilliseconds = mpInstance._Store.SDKConfig.sessionTimeout * 60000;
@@ -3872,6 +3877,109 @@ var mParticle = (function () {
       };
     }
 
+    var ForegroundTimeTracker = /** @class */function () {
+      function ForegroundTimeTracker(timerKey) {
+        this.isTrackerActive = false;
+        this.localStorageName = '';
+        this.startTime = 0;
+        this.totalTime = 0;
+        this.localStorageName = "mp-time-".concat(timerKey);
+        this.timerVault = new LocalStorageVault(this.localStorageName);
+        this.loadTimeFromStorage();
+        this.addHandlers();
+        if (document.hidden === false) {
+          this.startTracking();
+        }
+      }
+      ForegroundTimeTracker.prototype.addHandlers = function () {
+        var _this = this;
+        // when user switches tabs or minimizes the window
+        document.addEventListener('visibilitychange', function () {
+          return _this.handleVisibilityChange();
+        });
+        // when user switches to another application
+        window.addEventListener('blur', function () {
+          return _this.handleWindowBlur();
+        });
+        // when window gains focus
+        window.addEventListener('focus', function () {
+          return _this.handleWindowFocus();
+        });
+        // this ensures that timers between tabs are in sync
+        window.addEventListener('storage', function (event) {
+          return _this.syncAcrossTabs(event);
+        });
+        // when user closes tab, refreshes, or navigates to another page via link
+        window.addEventListener('beforeunload', function () {
+          return _this.updateTimeInPersistence();
+        });
+      };
+      ForegroundTimeTracker.prototype.handleVisibilityChange = function () {
+        if (document.hidden) {
+          this.stopTracking();
+        } else {
+          this.startTracking();
+        }
+      };
+      ForegroundTimeTracker.prototype.handleWindowBlur = function () {
+        if (this.isTrackerActive) {
+          this.stopTracking();
+        }
+      };
+      ForegroundTimeTracker.prototype.handleWindowFocus = function () {
+        if (!this.isTrackerActive) {
+          this.startTracking();
+        }
+      };
+      ForegroundTimeTracker.prototype.syncAcrossTabs = function (event) {
+        if (event.key === this.localStorageName && event.newValue !== null) {
+          var newTime = parseFloat(event.newValue) || 0;
+          this.totalTime = newTime;
+        }
+      };
+      ForegroundTimeTracker.prototype.updateTimeInPersistence = function () {
+        if (this.isTrackerActive) {
+          this.timerVault.store(Math.round(this.totalTime));
+        }
+      };
+      ForegroundTimeTracker.prototype.loadTimeFromStorage = function () {
+        var storedTime = this.timerVault.retrieve();
+        if (isNumber(storedTime) && storedTime !== null) {
+          this.totalTime = storedTime;
+        }
+      };
+      ForegroundTimeTracker.prototype.startTracking = function () {
+        if (!document.hidden) {
+          this.startTime = Math.floor(performance.now());
+          this.isTrackerActive = true;
+        }
+      };
+      ForegroundTimeTracker.prototype.stopTracking = function () {
+        if (this.isTrackerActive) {
+          this.setTotalTime();
+          this.updateTimeInPersistence();
+          this.isTrackerActive = false;
+        }
+      };
+      ForegroundTimeTracker.prototype.setTotalTime = function () {
+        if (this.isTrackerActive) {
+          var now = Math.floor(performance.now());
+          this.totalTime += now - this.startTime;
+          this.startTime = now;
+        }
+      };
+      ForegroundTimeTracker.prototype.getTimeInForeground = function () {
+        this.setTotalTime();
+        this.updateTimeInPersistence();
+        return this.totalTime;
+      };
+      ForegroundTimeTracker.prototype.resetTimer = function () {
+        this.totalTime = 0;
+        this.updateTimeInPersistence();
+      };
+      return ForegroundTimeTracker;
+    }();
+
     function createSDKConfig(config) {
       // TODO: Refactor to create a default config object
       var sdkConfig = {};
@@ -4220,6 +4328,7 @@ var mParticle = (function () {
         }
         if (workspaceToken) {
           _this.SDKConfig.workspaceToken = workspaceToken;
+          mpInstance._timeOnSiteTimer = new ForegroundTimeTracker(workspaceToken);
         } else {
           mpInstance.Logger.warning('You should have a workspaceToken on your config object for security purposes.');
         }
@@ -6529,6 +6638,7 @@ var mParticle = (function () {
         return jsonObject;
       };
       this.createEventObject = function (event, user) {
+        var _a;
         var uploadObject = {};
         var eventObject = {};
         //  The `optOut` variable is passed later in this method to the `uploadObject`
@@ -6557,6 +6667,7 @@ var mParticle = (function () {
               EventName: event.name || event.messageType,
               EventCategory: event.eventType,
               EventAttributes: mpInstance._Helpers.sanitizeAttributes(event.data, event.name),
+              ActiveTimeOnSite: (_a = mpInstance._timeOnSiteTimer) === null || _a === void 0 ? void 0 : _a.getTimeInForeground(),
               SourceMessageId: event.sourceMessageId || mpInstance._Helpers.generateUniqueId(),
               EventDataType: event.messageType,
               CustomFlags: customFlags,
@@ -10472,6 +10583,9 @@ var mParticle = (function () {
           },
           _resetForTests: mockFunction,
           _APIClient: null,
+          _timeOnSiteTimer: {
+            getTimeInForeground: mockFunction
+          },
           MPSideloadedKit: null,
           _Consent: null,
           _Events: null,
