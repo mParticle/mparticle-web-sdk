@@ -132,7 +132,7 @@ export default function SessionManager(
             });
 
             mpInstance._Store.nullifySession();
-            mpInstance._Store.timeOnSiteTimer.resetTimer();
+            mpInstance._timeOnSiteTimer?.resetTimer();
             return;
         }
 
@@ -144,7 +144,7 @@ export default function SessionManager(
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.AbandonEndSession
             );
-            mpInstance._Store.timeOnSiteTimer.resetTimer();
+            mpInstance._timeOnSiteTimer?.resetTimer();
 
             return;
         }
@@ -158,7 +158,7 @@ export default function SessionManager(
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.NoSessionToEnd
             );
-            mpInstance._Store.timeOnSiteTimer.resetTimer();
+            mpInstance._timeOnSiteTimer?.resetTimer();
 
             return;
         }
@@ -186,7 +186,7 @@ export default function SessionManager(
             }
         }
 
-        mpInstance._Store.timeOnSiteTimer.resetTimer();
+        mpInstance._timeOnSiteTimer?.resetTimer();
     };
 
     this.setSessionTimer = function(): void {

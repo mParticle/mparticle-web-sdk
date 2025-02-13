@@ -176,10 +176,6 @@ describe('batch uploader', () => {
                 );
 
                 expect(actualBatchResult.events.length).to.equal(1);
-                console.log('actualBatchResult.events[0]')
-                console.log(actualBatchResult.events[0])
-                // console.log(actualBatchResult.events);
-                // console.log(actualBatch.events);
                 expect(actualBatchResult.events).to.eql(actualBatch.events);
             });
 

@@ -166,7 +166,6 @@ export interface IStore {
     configurationLoaded: boolean;
     identityCallInFlight: boolean;
     SDKConfig: Partial<SDKConfig>;
-    timeOnSiteTimer: ForegroundTimer;
     nonCurrentUserMPIDs: Record<MPID, Dictionary>;
     identifyCalled: boolean;
     isLoggedIn: boolean;
@@ -682,7 +681,7 @@ export default function Store(
 
         if (workspaceToken) {
             this.SDKConfig.workspaceToken = workspaceToken;
-            mpInstance._Store.timeOnSiteTimer = new ForegroundTimer(workspaceToken);
+            mpInstance._timeOnSiteTimer = new ForegroundTimer(workspaceToken);
         } else {
             mpInstance.Logger.warning(
                 'You should have a workspaceToken on your config object for security purposes.'

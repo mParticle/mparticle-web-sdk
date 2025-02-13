@@ -280,6 +280,7 @@ describe('ForegroundTimeTracker', () => {
 
             // totalTime += performance.now() - startTime
             // 5000 + 2000 - 1000 = 6000
+            // https://go.mparticle.com/work/SQDSDKS-7079
             expect(tracker.totalTime).toBe(6000);
 
             // Ensure startTime is updated to the new current time (performance.now())
