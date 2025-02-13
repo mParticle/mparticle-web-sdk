@@ -79,7 +79,9 @@ export interface SDKEvent {
     DataPlan?: SDKDataPlan;
     LaunchReferral?: string;
     ExpandedEventCount: number;
+    ActiveTimeOnSite: number;
 }
+
 export interface SDKGeoLocation {
     lat: number | string;
     lng: number | string;

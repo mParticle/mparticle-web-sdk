@@ -1511,7 +1511,5 @@ describe('core SDK', function() {
 
             done();
         });
-
-
     });
 });

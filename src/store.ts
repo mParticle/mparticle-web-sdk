@@ -38,6 +38,7 @@ import {
 } from './persistence.interfaces';
 import { CookieSyncDates, IPixelConfiguration } from './cookieSyncManager';
 import { IMParticleWebSDKInstance } from './mp-instance';
+import ForegroundTimer from './foregroundTimeTracker';
 
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and
@@ -680,6 +681,7 @@ export default function Store(
 
         if (workspaceToken) {
             this.SDKConfig.workspaceToken = workspaceToken;
+            mpInstance._timeOnSiteTimer = new ForegroundTimer(workspaceToken);
         } else {
             mpInstance.Logger.warning(
                 'You should have a workspaceToken on your config object for security purposes.'

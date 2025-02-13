@@ -658,6 +658,7 @@ export function convertBaseEventData(
         custom_attributes: sdkEvent.EventAttributes,
         location: convertSDKLocation(sdkEvent.Location),
         source_message_id: sdkEvent.SourceMessageId,
+        active_time_on_site_ms: sdkEvent.ActiveTimeOnSite
     };
 
     return commonEventData;

@@ -335,6 +335,7 @@ describe('Old model to batch model conversion', () => {
             MPID: '1053073459916128825',
             ConsentState: null,
             Timestamp: 1569453613501,
+            ActiveTimeOnSite: 10,
             ProductAction: {
                 ProductActionType: 7,
                 ProductList: [
@@ -446,6 +447,7 @@ describe('Old model to batch model conversion', () => {
             SessionId: "64102C03-592F-440D-8BCC-1D27AAA6B188",
             SessionStartDate: 1603211322698,
             Timestamp: 1603212299414,
+            ActiveTimeOnSite: 10,
             UserAttributes: {},
             UserIdentities: [],
             IsFirstRun: true,
@@ -499,6 +501,7 @@ describe('Old model to batch model conversion', () => {
             SessionId: "64102C03-592F-440D-8BCC-1D27AAA6B188",
             SessionStartDate: 1603211322698,
             Timestamp: 1603212299414,
+            ActiveTimeOnSite: 10,
             UserAttributes: {},
             UserIdentities: [],
             IsFirstRun: true,
