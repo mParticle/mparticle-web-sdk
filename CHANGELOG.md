@@ -1,3 +1,10 @@
+## [2.32.5](https://github.com/mParticle/mparticle-web-sdk/compare/v2.32.4...v2.32.5) (2025-02-13)
+
+
+### Bug Fixes
+
+* Support numbers in vault ([#981](https://github.com/mParticle/mparticle-web-sdk/issues/981)) ([04ca2ab](https://github.com/mParticle/mparticle-web-sdk/commit/04ca2abc2de7b404f8877bbeecc20fd4fbf3160d))
+
 ## [2.32.4](https://github.com/mParticle/mparticle-web-sdk/compare/v2.32.3...v2.32.4) (2025-02-10)
 
 
