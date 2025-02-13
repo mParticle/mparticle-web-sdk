@@ -1,3 +1,10 @@
+# [2.33.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.32.5...v2.33.0) (2025-02-13)
+
+
+### Features
+
+* Add time on site ([#975](https://github.com/mParticle/mparticle-web-sdk/issues/975)) ([3645120](https://github.com/mParticle/mparticle-web-sdk/commit/364512039eb34c511879a7c19746d0da6b28d7a7))
+
 ## [2.32.5](https://github.com/mParticle/mparticle-web-sdk/compare/v2.32.4...v2.32.5) (2025-02-13)
 
 
