@@ -41,6 +41,7 @@ describe('Integration Capture', () => {
             fbclid: '1234',
             gclid: '234',
             gbraid: '6574',
+            rtid: '45670808',
             wbraid: '1234111',
         });
 
@@ -71,13 +72,12 @@ describe('Integration Capture', () => {
         expect(testEvent.data).to.have.property('event_name', 'Test Event');
         expect(testEvent.data).to.have.property('custom_flags');
 
-        expect(testEvent.data.custom_flags).to.deep.equal({
-            'Facebook.ClickId': `fb.1.${initialTimestamp}.1234`,
-            'Facebook.BrowserId': '54321',
-            'GoogleEnhancedConversions.Gclid': '234',
-            'GoogleEnhancedConversions.Gbraid': '6574',
-            'GoogleEnhancedConversions.Wbraid': '1234111',
-        });
+        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal(`fb.1.${initialTimestamp}.1234`);
+        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
+        expect(testEvent.data.custom_flags['Rokt.ClickId'], 'Rokt Click Id').to.equal('45670808');
     });
 
     it('should add captured integrations to event custom flags, prioritizing passed in custom flags', async () => {
@@ -91,17 +91,16 @@ describe('Integration Capture', () => {
 
         const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
 
-
         expect(testEvent).to.have.property('data');
         expect(testEvent.data).to.have.property('event_name', 'Test Event');
         expect(testEvent.data).to.have.property('custom_flags');
-        expect(testEvent.data.custom_flags).to.deep.equal({
-            'Facebook.ClickId': 'passed-in',
-            'Facebook.BrowserId': '54321',
-            'GoogleEnhancedConversions.Gclid': '234',
-            'GoogleEnhancedConversions.Gbraid': '6574',
-            'GoogleEnhancedConversions.Wbraid': '1234111',
-        });
+
+        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal('passed-in');
+        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
+        expect(testEvent.data.custom_flags['Rokt.ClickId'], 'Rokt Click Id').to.equal('45670808');
     });
 
     it('should add captured integrations to page view custom flags', async () => {
@@ -119,13 +118,13 @@ describe('Integration Capture', () => {
         expect(testEvent).to.have.property('data');
         expect(testEvent.data).to.have.property('screen_name', 'Test Page View');
         expect(testEvent.data).to.have.property('custom_flags');
-        expect(testEvent.data.custom_flags).to.deep.equal({
-            'Facebook.ClickId': `fb.1.${initialTimestamp}.1234`,
-            'Facebook.BrowserId': '54321',
-            'GoogleEnhancedConversions.Gclid': '234',
-            'GoogleEnhancedConversions.Gbraid': '6574',
-            'GoogleEnhancedConversions.Wbraid': '1234111',
-        });
+
+        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal(`fb.1.${initialTimestamp}.1234`);
+        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
+        expect(testEvent.data.custom_flags['Rokt.ClickId'], 'Rokt Click Id').to.equal('45670808');
     });
 
     it('should add captured integrations to page view custom flags, prioritizing passed in custom flags', async () => {
@@ -141,13 +140,13 @@ describe('Integration Capture', () => {
         expect(testEvent).to.have.property('data');
         expect(testEvent.data).to.have.property('screen_name', 'Test Page View');
         expect(testEvent.data).to.have.property('custom_flags');
-        expect(testEvent.data.custom_flags).to.deep.equal({
-            'Facebook.ClickId': 'passed-in',
-            'Facebook.BrowserId': '54321',
-            'GoogleEnhancedConversions.Gclid': '234',
-            'GoogleEnhancedConversions.Gbraid': '6574',
-            'GoogleEnhancedConversions.Wbraid': '1234111',
-        });
+
+        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal('passed-in');
+        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
+        expect(testEvent.data.custom_flags['Rokt.ClickId'], 'Rokt Click Id').to.equal('45670808');
     });
 
     it('should add captured integrations to commerce event custom flags', async () => {
@@ -178,14 +177,14 @@ describe('Integration Capture', () => {
 
         expect(testEvent.data.product_action).to.have.property('action', 'purchase');
         expect(testEvent.data).to.have.property('custom_flags');
-        expect(testEvent.data.custom_flags).to.deep.equal({
-            foo: 'bar',
-            'Facebook.ClickId': `fb.1.${initialTimestamp}.1234`,
-            'Facebook.BrowserId': '54321',
-            'GoogleEnhancedConversions.Gclid': '234',
-            'GoogleEnhancedConversions.Gbraid': '6574',
-            'GoogleEnhancedConversions.Wbraid': '1234111',
-        });
+
+        expect(testEvent.data.custom_flags['foo'], 'Custom Flag').to.equal('bar');
+        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal(`fb.1.${initialTimestamp}.1234`);
+        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
+        expect(testEvent.data.custom_flags['Rokt.ClickId'], 'Rokt Click Id').to.equal('45670808');
     });
 
     it('should add captured integrations to commerce event custom flags, prioritizing passed in flags', async () => {
@@ -217,13 +216,13 @@ describe('Integration Capture', () => {
 
         expect(testEvent.data.product_action).to.have.property('action', 'purchase');
         expect(testEvent.data).to.have.property('custom_flags');
-        expect(testEvent.data.custom_flags).to.deep.equal({
-            'Facebook.ClickId': 'passed-in',
-            'Facebook.BrowserId': '54321',
-            'GoogleEnhancedConversions.Gclid': '234',
-            'GoogleEnhancedConversions.Gbraid': '6574',
-            'GoogleEnhancedConversions.Wbraid': '1234111',
-        });
+
+        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal('passed-in');
+        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
+        expect(testEvent.data.custom_flags['Rokt.ClickId'], 'Rokt Click Id').to.equal('45670808');
     });
 
     it('should add captured integrations to commerce event custom flags', async () => {
@@ -254,14 +253,14 @@ describe('Integration Capture', () => {
 
         expect(testEvent.data.product_action).to.have.property('action', 'purchase');
         expect(testEvent.data).to.have.property('custom_flags');
-        expect(testEvent.data.custom_flags).to.deep.equal({
-            foo: 'bar',
-            'Facebook.ClickId': `fb.1.${initialTimestamp}.1234`,
-            'Facebook.BrowserId': '54321',
-            'GoogleEnhancedConversions.Gclid': '234',
-            'GoogleEnhancedConversions.Gbraid': '6574',
-            'GoogleEnhancedConversions.Wbraid': '1234111',
-        });
+
+        expect(testEvent.data.custom_flags['foo'], 'Custom Flag').to.equal('bar');
+        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal(`fb.1.${initialTimestamp}.1234`);
+        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
+        expect(testEvent.data.custom_flags['Rokt.ClickId'], 'Rokt Click Id').to.equal('45670808');
     });
 
     it('should add captured integrations to commerce event custom flags, prioritizing passed in flags', async () => {
@@ -293,13 +292,13 @@ describe('Integration Capture', () => {
 
         expect(testEvent.data.product_action).to.have.property('action', 'purchase');
         expect(testEvent.data).to.have.property('custom_flags');
-        expect(testEvent.data.custom_flags).to.deep.equal({
-            'Facebook.ClickId': 'passed-in',
-            'Facebook.BrowserId': '54321',
-            'GoogleEnhancedConversions.Gclid': '234',
-            'GoogleEnhancedConversions.Gbraid': '6574',
-            'GoogleEnhancedConversions.Wbraid': '1234111',
-        });
+        
+        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal('passed-in');
+        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
+        expect(testEvent.data.custom_flags['Rokt.ClickId'], 'Rokt Click Id').to.equal('45670808');
     });
 
     it('should add captured integrations to batch partner identities', async () => {

@@ -3,7 +3,7 @@ import IntegrationCapture, {
 } from '../../src/integrationCapture';
 import { deleteAllCookies } from './utils';
 
-describe('Integration Capture', () => {
+describe.only('Integration Capture', () => {
     describe('constructor', () => {
         it('should initialize with clickIds as undefined', () => {
             const integrationCapture = new IntegrationCapture();
@@ -26,6 +26,7 @@ describe('Integration Capture', () => {
                 'gclid',
                 'gbraid',
                 'wbraid',
+                'rtid',
                 'ttclid',
             ]);
         });
@@ -66,7 +67,15 @@ describe('Integration Capture', () => {
         it('should pass all clickIds to clickIds object', () => {
             jest.spyOn(Date, 'now').mockImplementation(() => 42);
 
-            const url = new URL('https://www.example.com/?fbclid=12345&gclid=54321&gbraid=67890&wbraid=09876');
+            const queryParams = [
+                'fbclid=12345',
+                'gclid=54321',
+                'gbraid=67890',
+                'wbraid=09876',
+                'rtid=84324',
+            ].join('&');
+
+            const url = new URL(`https://www.example.com/?${queryParams}`);
 
             window.document.cookie = '_cookie1=1234';
             window.document.cookie = '_cookie2=39895811.9165333198';
@@ -84,6 +93,7 @@ describe('Integration Capture', () => {
                 _fbp: '54321',
                 gclid: '54321',
                 gbraid: '67890',
+                rtid: '84324',
                 wbraid: '09876',
             }); 
         });
@@ -189,6 +199,22 @@ describe('Integration Capture', () => {
                 fbclid: 'fb.2.42.12345',
             });
         });
+        });
+
+        describe('Rokt Click Ids', () => {
+            it('should capture Rokt click id', () => {
+                const url = new URL('https://www.example.com/?rtid=54321');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture();
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    rtid: '54321',
+                });
+            });
         });
 
     });

@@ -99,6 +99,12 @@ const integrationMapping: IntegrationIdMapping = {
         output: IntegrationOutputs.CUSTOM_FLAGS,
     },
 
+    // Rokt
+    rtid: {
+        mappedKey: 'Rokt.ClickId',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
+    },
+
     // TIKTOK
     ttclid: {
         mappedKey: 'TikTok.Callback',
