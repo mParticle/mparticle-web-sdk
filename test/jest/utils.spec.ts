@@ -5,6 +5,7 @@ import {
     replaceMPID,
     replaceAmpWithAmpersand,
     createCookieSyncUrl,
+    removeUndefinedValues,
 } from '../../src/utils';
 import { deleteAllCookies } from './utils';
 
@@ -195,6 +196,34 @@ describe('Utils', () => {
 
         it('should return a cookieSyncUrl when pixelUrl is not null but redirectUrl is null', () => {
             expect(createCookieSyncUrl('testMPID', pixelUrl, null)).toBe('https://abc.abcdex.net/ibs:exampleid=12345&exampleuuid=testMPID&redir=');
+        });
+    });
+
+    describe('#removeUndefinedValues', () => {
+        it('should remove undefined values from an object', () => {
+            const obj = {
+                foo: 'bar',
+                baz: undefined,
+                narf: 'poit',
+                quux: undefined,
+                answer: 42,
+            };
+
+            expect(removeUndefinedValues(obj)).toEqual({
+                foo: 'bar',
+                narf: 'poit',
+                answer: 42,
+            });
+        });
+
+        it('should return an empty object if the input is an empty object', () => {
+            expect(removeUndefinedValues({})).toEqual({});
+        });
+
+        it('should return the original array if an array is passed', () => {
+            const arr = ['foo', 'bar', 'baz'];
+
+            expect(removeUndefinedValues(arr)).toEqual(arr);
         });
     });
 });

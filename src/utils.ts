@@ -355,6 +355,16 @@ const getHref = (): string => {
         : '';
 };
 
+const removeUndefinedValues = <T extends object>(obj: T): T => {
+    if (!isObject(obj)) { return obj; }
+    return Object.keys(obj).reduce((acc, key) => {
+        if (obj[key] !== undefined) {
+            acc[key] = obj[key];
+        }
+        return acc;
+    }, {} as T);
+};
+
 export {
     createCookieString,
     revertCookieString,
@@ -391,4 +401,5 @@ export {
     getHref,
     replaceMPID,
     replaceAmpWithAmpersand,
+    removeUndefinedValues,
 };

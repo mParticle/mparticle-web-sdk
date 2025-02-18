@@ -128,7 +128,9 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
     this.setAppVersion = function(version) {
         self.getInstance().setAppVersion(version);
     };
-
+    this.getWorkspace = function () {
+        return self.getInstance().getWorkspace();
+    };
     this.getAppName = function() {
         return self.getInstance().getAppName();
     };

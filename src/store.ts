@@ -18,6 +18,7 @@ import {
     SDKGeoLocation,
     SDKInitConfig,
     SDKProduct,
+    SDKWorkspace,
 } from './sdkRuntimeModels';
 import {
     Dictionary,
@@ -27,6 +28,7 @@ import {
     isObject,
     moveElementToEnd,
     parseNumber,
+    removeUndefinedValues,
     returnConvertedBoolean,
 } from './utils';
 import { IMinifiedConsentJSONObject, SDKConsentState } from './consent';
@@ -56,6 +58,7 @@ export interface SDKConfig {
     dataPlanOptions: KitBlockerOptions; // when the user provides their own data plan
     dataPlanResult?: DataPlanResult; // when the data plan comes from the server via /config
 
+    accountId?: number;
     appName?: string;
     appVersion?: string;
     package?: string;
@@ -80,6 +83,7 @@ export interface SDKConfig {
     isIOS?: boolean;
     maxAliasWindow: number;
     maxProducts: number;
+    organizationId?: number;
     requestConfig?: boolean;
     sessionTimeout?: number;
     useNativeSdk?: boolean;
@@ -90,6 +94,7 @@ export interface SDKConfig {
     v3SecureServiceUrl?: string;
     webviewBridgeName?: string;
     workspaceToken?: string;
+    workspaceId?: number;
     requiredWebviewBridgeName?: string;
 }
 
@@ -203,6 +208,7 @@ export interface IStore {
     setUserAttributes?(mpid: MPID, attributes: UserAttributes): void;
     getUserIdentities?(mpid: MPID): UserIdentities;
     setUserIdentities?(mpid: MPID, userIdentities: UserIdentities): void;
+    getWorkspace?(): SDKWorkspace;
 
     addMpidToSessionHistory?(mpid: MPID, previousMpid?: MPID): void;
     hasInvalidIdentifyRequest?: () => boolean;
@@ -636,6 +642,17 @@ export default function Store(
 
     this.setUserIdentities = (mpid: MPID, userIdentities: UserIdentities) => {
         this._setPersistence(mpid, 'ui', userIdentities);
+    };
+
+    this.getWorkspace = (): SDKWorkspace => {
+        const { organizationId, workspaceId, accountId, appName } = this.SDKConfig;
+
+        return removeUndefinedValues({
+            account_id: accountId,
+            app_name: appName,
+            organization_id: organizationId,
+            workspace_id: workspaceId,
+        });
     };
 
     this.addMpidToSessionHistory = (mpid: MPID, previousMPID?: MPID): void => {

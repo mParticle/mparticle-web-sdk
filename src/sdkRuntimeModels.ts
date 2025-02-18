@@ -161,6 +161,13 @@ export interface SDKProduct {
     Attributes?: Record<string, unknown> | null;
 }
 
+export interface SDKWorkspace {
+    app_name?: string;
+    account_id?: number;
+    workspace_id?: number;
+    organization_id?: number;
+}
+
 // https://go.mparticle.com/work/SQDSDKS-6949
 export interface MParticleWebSDK {
     addForwarder(mockForwarder: MPForwarder): void;
@@ -188,6 +195,7 @@ export interface MParticleWebSDK {
     getDeviceId(): string;
     setDeviceId(deviceId: string): void;
     getEnvironment(): valueof<typeof Constants.Environment>;
+    getWorkspace(): SDKWorkspace;
     setSessionAttribute(key: string, value: string): void;
     getVersion(): string;
     upload(): void;
@@ -288,6 +296,10 @@ export interface SDKInitConfig
     v1SecureServiceUrl?: string;
     v2SecureServiceUrl?: string;
     v3SecureServiceUrl?: string;
+
+    accountId?: number;
+    workspaceId?: number;
+    organizationId?: number;
 
     workspaceToken?: string;
     isDevelopmentMode?: boolean;

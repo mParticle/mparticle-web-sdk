@@ -337,6 +337,14 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         return self._Store.SDKConfig.appVersion;
     };
     /**
+     * Gets the workspace
+     * @method getWorkspace
+     * @return {SDKWorkspace} Workspace
+     */
+    this.getWorkspace = function() {
+        return self._Store.getWorkspace();
+    }
+    /**
      * Stops tracking the location of the user
      * @method stopTrackingLocation
      */

@@ -1134,6 +1134,41 @@ describe('Store', () => {
             });
         });
     });
+
+    describe('#getWorkspace', () => {
+        it('should return the workspace ids from the store', () => {
+            const store: IStore = new Store(
+                {
+                    ...sampleConfig,
+                    accountId: 123,
+                    organizationId: 456,
+                    workspaceId: 789,
+                    appName: 'Workspace Test',
+                },
+                window.mParticle.getInstance()
+            );
+
+            console.log('store', store.getWorkspace());
+
+            expect(store.getWorkspace()).to.deep.equal({
+                account_id: 123,
+                app_name: 'Workspace Test',
+                organization_id: 456,
+                workspace_id: 789,
+            });
+        });
+
+        it('should NOT return workspace ids that are undefined', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            expect(store.getWorkspace()).to.deep.equal({
+                app_name: 'Store Test',
+            });
+        });
+    });
    
     describe('#nullifySessionData', () => {
         it('should nullify session data on the store', () => {
