@@ -26,9 +26,14 @@ describe.only('Integration Capture', () => {
                 'gclid',
                 'gbraid',
                 'wbraid',
-                'rtid',
                 'ttclid',
             ]);
+        });
+
+        it('should initialize with a filtered list of integration attribute mappings', () => {
+            const integrationCapture = new IntegrationCapture();
+            const mappings = integrationCapture.filteredIntegrationAttributeMappings;
+            expect(Object.keys(mappings)).toEqual(['rtid']);
         });
     });
 
@@ -377,6 +382,30 @@ describe.only('Integration Capture', () => {
 
             expect(partnerIdentities).toEqual({
                 tiktok_cookie_id: '1234123999.123123',
+            });
+        });
+    });
+
+    describe('#getClickIdsAsIntegrationAttributes', () => {
+        it('should return empty object if clickIds is empty or undefined', () => {
+            const integrationCapture = new IntegrationCapture();
+            const integrationAttributes = integrationCapture.getClickIdsAsIntegrationAttributes();
+
+            expect(integrationAttributes).toEqual({});
+        });
+
+        it('should only return mapped clickIds as integration attributes', () => {
+            const integrationCapture = new IntegrationCapture();
+            integrationCapture.clickIds = {
+                rtid: '12345',
+            };
+
+            const integrationAttributes = integrationCapture.getClickIdsAsIntegrationAttributes();
+
+            expect(integrationAttributes).toEqual({
+                '1277': {
+                    'rokt_id': '12345',
+                }
             });
         });
     });

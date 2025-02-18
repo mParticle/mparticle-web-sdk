@@ -17,7 +17,7 @@ import {
     Dictionary,
     isValidCustomFlagProperty,
 } from './utils';
-import { ServerSettings } from './store';
+import { IntegrationAttributes, ServerSettings } from './store';
 import { MPID } from '@mparticle/web-sdk';
 import {
     IConsentStateV2DTO,
@@ -319,6 +319,7 @@ export default function ServerModel(
             mpInstance._Store.webviewBridgeEnabled
         ) {
             let customFlags: SDKEventCustomFlags = {...event.customFlags};
+            let integrationAttributes: IntegrationAttributes = mpInstance._Store.integrationAttributes;
 
             // https://go.mparticle.com/work/SQDSDKS-5053
             if (mpInstance._Helpers.getFeatureFlag && mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds)) {
@@ -328,6 +329,9 @@ export default function ServerModel(
                 mpInstance._IntegrationCapture.capture();
                 const transformedClickIDs = mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
                 customFlags = {...transformedClickIDs, ...customFlags};
+
+                const transformedIntegrationAttributes = mpInstance._IntegrationCapture.getClickIdsAsIntegrationAttributes();
+                integrationAttributes = {...transformedIntegrationAttributes, ...integrationAttributes};
             }
 
             if (event.hasOwnProperty('toEventAPIObject')) {
@@ -378,7 +382,7 @@ export default function ServerModel(
                 Package: mpInstance._Store.SDKConfig.package,
                 ClientGeneratedId: mpInstance._Store.clientId,
                 DeviceId: mpInstance._Store.deviceId,
-                IntegrationAttributes: mpInstance._Store.integrationAttributes,
+                IntegrationAttributes: integrationAttributes, 
                 CurrencyCode: mpInstance._Store.currencyCode,
                 DataPlan: mpInstance._Store.SDKConfig.dataPlan
                     ? mpInstance._Store.SDKConfig.dataPlan

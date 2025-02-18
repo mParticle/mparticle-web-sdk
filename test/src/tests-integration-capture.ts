@@ -77,7 +77,6 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
-        expect(testEvent.data.custom_flags['Rokt.ClickId'], 'Rokt Click Id').to.equal('45670808');
     });
 
     it('should add captured integrations to event custom flags, prioritizing passed in custom flags', async () => {
@@ -100,7 +99,6 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
-        expect(testEvent.data.custom_flags['Rokt.ClickId'], 'Rokt Click Id').to.equal('45670808');
     });
 
     it('should add captured integrations to page view custom flags', async () => {
@@ -124,7 +122,6 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
-        expect(testEvent.data.custom_flags['Rokt.ClickId'], 'Rokt Click Id').to.equal('45670808');
     });
 
     it('should add captured integrations to page view custom flags, prioritizing passed in custom flags', async () => {
@@ -146,7 +143,6 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
-        expect(testEvent.data.custom_flags['Rokt.ClickId'], 'Rokt Click Id').to.equal('45670808');
     });
 
     it('should add captured integrations to commerce event custom flags', async () => {
@@ -184,7 +180,6 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
-        expect(testEvent.data.custom_flags['Rokt.ClickId'], 'Rokt Click Id').to.equal('45670808');
     });
 
     it('should add captured integrations to commerce event custom flags, prioritizing passed in flags', async () => {
@@ -222,7 +217,6 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
-        expect(testEvent.data.custom_flags['Rokt.ClickId'], 'Rokt Click Id').to.equal('45670808');
     });
 
     it('should add captured integrations to commerce event custom flags', async () => {
@@ -260,7 +254,6 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
-        expect(testEvent.data.custom_flags['Rokt.ClickId'], 'Rokt Click Id').to.equal('45670808');
     });
 
     it('should add captured integrations to commerce event custom flags, prioritizing passed in flags', async () => {
@@ -298,10 +291,9 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
-        expect(testEvent.data.custom_flags['Rokt.ClickId'], 'Rokt Click Id').to.equal('45670808');
     });
 
-    it('should add captured integrations to batch partner identities', async () => {
+    it('should add captured integrations to batch as partner identities', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
 
         window.mParticle.logEvent('Test Event 1');
@@ -320,5 +312,76 @@ describe('Integration Capture', () => {
             'tiktok_cookie_id': '45670808',
         });
 
+    });
+
+    it('should add captured integrations to batch as integration attributes', async () => {
+        await waitForCondition(hasIdentityCallInflightReturned);
+
+        window.mParticle.logEvent('Test Event 1');
+        window.mParticle.logEvent('Test Event 2');
+        window.mParticle.logEvent('Test Event 3');
+
+        window.mParticle.upload();
+
+        expect(fetchMock.calls().length).to.greaterThan(1);
+
+        const lastCall = fetchMock.lastCall();
+        const batch = JSON.parse(lastCall[1].body as string);
+
+        expect(batch).to.have.property('integration_attributes');
+        expect(batch.integration_attributes['1277']).to.deep.equal({
+            'rokt_id': '45670808',
+        });
+    });
+
+    it('should add captured integrations to batch as integration attributes without colliding with set integration attributes', async () => {
+        await waitForCondition(hasIdentityCallInflightReturned);
+
+        window.mParticle.setIntegrationAttribute(160, { 'client_id': '12354'});
+
+        window.mParticle.logEvent('Test Event 1');
+        window.mParticle.logEvent('Test Event 2');
+        window.mParticle.logEvent('Test Event 3');
+
+        window.mParticle.upload();
+
+        expect(fetchMock.calls().length).to.greaterThan(1);
+
+        const lastCall = fetchMock.lastCall();
+        const batch = JSON.parse(lastCall[1].body as string);
+
+        expect(batch).to.have.property('integration_attributes');
+        expect(batch.integration_attributes).to.have.property('1277');
+        expect(batch.integration_attributes).to.have.property('160');
+        expect(batch.integration_attributes['1277']).to.deep.equal({
+            'rokt_id': '45670808',
+        });
+        expect(batch.integration_attributes['160']).to.deep.equal({
+            'client_id': '12354',
+        });
+
+    });
+
+    it('should add captured integrations to batch as integration attributes, prioritizing passed in integration attributes', async () => {
+        await waitForCondition(hasIdentityCallInflightReturned);
+
+        window.mParticle.setIntegrationAttribute(1277, { 'rokt_id': 'passed-in'});
+        window.mParticle.setIntegrationAttribute(160, { 'client_id': '12354'});
+
+        window.mParticle.logEvent('Test Event 1');
+        window.mParticle.logEvent('Test Event 2');
+        window.mParticle.logEvent('Test Event 3');
+
+        window.mParticle.upload();
+
+        expect(fetchMock.calls().length).to.greaterThan(1);
+
+        const lastCall = fetchMock.lastCall();
+        const batch = JSON.parse(lastCall[1].body as string);
+
+        expect(batch).to.have.property('integration_attributes');
+        expect(batch.integration_attributes['1277']).to.deep.equal({
+            'rokt_id': 'passed-in',
+        });
     });
 });

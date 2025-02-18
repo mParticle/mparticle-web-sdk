@@ -1,4 +1,5 @@
 import { SDKEventCustomFlags } from './sdkRuntimeModels';
+import { IntegrationAttributes } from './store';
 import {
     Dictionary,
     queryStringParser,
@@ -53,16 +54,19 @@ export const facebookClickIdProcessor: IntegrationCaptureProcessorFunction = (
 // Integration outputs are used to determine how click ids are used within the SDK
 // CUSTOM_FLAGS are sent out when an Event is created via ServerModel.createEventObject
 // PARTNER_IDENTITIES are sent out in a Batch when a group of events are converted to a Batch
+// INTEGRATION_ATTRIBUTES are stored on the event level but are also passed up to the Batch
 
 const IntegrationOutputs = {
     CUSTOM_FLAGS: 'custom_flags',
     PARTNER_IDENTITIES: 'partner_identities',
+    INTEGRATION_ATTRIBUTES: 'integration_attributes',
 } as const;
 
 interface IntegrationMappingItem {
     mappedKey: string;
     output: valueof<typeof IntegrationOutputs>;
     processor?: IntegrationCaptureProcessorFunction;
+    moduleId?: number;
 }
 
 interface IntegrationIdMapping {
@@ -101,8 +105,9 @@ const integrationMapping: IntegrationIdMapping = {
 
     // Rokt
     rtid: {
-        mappedKey: 'Rokt.ClickId',
-        output: IntegrationOutputs.CUSTOM_FLAGS,
+        mappedKey: 'rokt_id',
+        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
+        moduleId: 1277,
     },
 
     // TIKTOK
@@ -121,6 +126,7 @@ export default class IntegrationCapture {
     public readonly initialTimestamp: number;
     public readonly filteredPartnerIdentityMappings: IntegrationIdMapping;
     public readonly filteredCustomFlagMappings: IntegrationIdMapping;
+    public readonly filteredIntegrationAttributeMappings: IntegrationIdMapping;
 
     constructor() {
         this.initialTimestamp = Date.now();
@@ -128,6 +134,7 @@ export default class IntegrationCapture {
         // Cache filtered mappings for faster access
         this.filteredPartnerIdentityMappings = this.filterMappings(IntegrationOutputs.PARTNER_IDENTITIES);
         this.filteredCustomFlagMappings = this.filterMappings(IntegrationOutputs.CUSTOM_FLAGS);
+        this.filteredIntegrationAttributeMappings = this.filterMappings(IntegrationOutputs.INTEGRATION_ATTRIBUTES);
     }
 
     /**
@@ -185,6 +192,37 @@ export default class IntegrationCapture {
     public getClickIdsAsPartnerIdentities(): Dictionary<string> {
         return this.getClickIds(this.clickIds, this.filteredPartnerIdentityMappings);
     }
+
+    /**
+     * Returns only the `integration_attributes` mapped integration output.
+     * @returns {Dictionary<string>} The integration attributes.
+     */
+    public getClickIdsAsIntegrationAttributes(): IntegrationAttributes {
+        // Integration IDs are stored in the following format:
+        // {
+        //     "integration_attributes": {
+        //         "<moduleId>": {
+        //           "mappedKey": "clickIdValue"
+        //         }
+        //     }
+        // }
+        const mappedClickIds: IntegrationAttributes = {};
+
+        for (const key in this.clickIds) {
+            if (this.clickIds.hasOwnProperty(key)) {
+                const value = this.clickIds[key];
+                const mappingKey = this.filteredIntegrationAttributeMappings[key]?.mappedKey;
+                if (!isEmpty(mappingKey)) {
+                    const moduleId = this.filteredIntegrationAttributeMappings[key]?.moduleId;
+                    if (moduleId && !mappedClickIds[moduleId]) {
+                        mappedClickIds[moduleId] = { [mappingKey]: value };
+                    }
+                }
+            }
+        }
+        return mappedClickIds;
+    }
+    
 
     private getClickIds(
         clickIds: Dictionary<string>,
