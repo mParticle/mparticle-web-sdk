@@ -3,7 +3,7 @@ import IntegrationCapture, {
 } from '../../src/integrationCapture';
 import { deleteAllCookies } from './utils';
 
-describe.only('Integration Capture', () => {
+describe('Integration Capture', () => {
     describe('constructor', () => {
         it('should initialize with clickIds as undefined', () => {
             const integrationCapture = new IntegrationCapture();
