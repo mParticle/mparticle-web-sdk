@@ -33,7 +33,7 @@ describe('Integration Capture', () => {
         it('should initialize with a filtered list of integration attribute mappings', () => {
             const integrationCapture = new IntegrationCapture();
             const mappings = integrationCapture.filteredIntegrationAttributeMappings;
-            expect(Object.keys(mappings)).toEqual(['rtid']);
+            expect(Object.keys(mappings)).toEqual(['rtid', 'RoktTransactionId']);
         });
     });
 
@@ -55,6 +55,7 @@ describe('Integration Capture', () => {
 
         afterEach(() => {
             window.location = originalLocation;
+            window.localStorage.clear();
             jest.restoreAllMocks();
         });
 
@@ -207,7 +208,7 @@ describe('Integration Capture', () => {
         });
 
         describe('Rokt Click Ids', () => {
-            it('should capture Rokt click id', () => {
+            it('should capture rtid via url param', () => {
                 const url = new URL('https://www.example.com/?rtid=54321');
 
                 window.location.href = url.href;
@@ -218,6 +219,96 @@ describe('Integration Capture', () => {
 
                 expect(integrationCapture.clickIds).toEqual({
                     rtid: '54321',
+                });
+            });
+
+            it('should capture RoktTransactionId via cookies', () => {
+                window.document.cookie = 'RoktTransactionId=12345';
+
+                const url = new URL('https://www.example.com/');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture();
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    RoktTransactionId: '12345',
+                });
+            });
+
+            it('should capture RoktTransactionId via local storage', () => {
+                jest.spyOn(Date, 'now').mockImplementation(() => 42);
+
+                const url = new URL('https://www.example.com/');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                localStorage.setItem('RoktTransactionId', '54321');
+
+                const integrationCapture = new IntegrationCapture();
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    RoktTransactionId: '54321',
+                });
+
+            });
+
+            it('should prioritize rtid over RoktTransactionId via cookies', () => {
+                jest.spyOn(Date, 'now').mockImplementation(() => 42);
+
+                const url = new URL('https://www.example.com/?rtid=54321');
+                
+                window.document.cookie = 'RoktTransactionId=12345';
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture();
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    rtid: '54321',
+                });
+            });
+
+            it('should prioritize rtid over RoktTransactionId via local storage', () => {
+                jest.spyOn(Date, 'now').mockImplementation(() => 42);
+
+                const url = new URL('https://www.example.com/?rtid=54321');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                localStorage.setItem('RoktTransactionId', '12345');
+
+                const integrationCapture = new IntegrationCapture();
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    rtid: '54321',
+                });
+            });
+
+            it('should prioritize local storage over cookies', () => {
+                jest.spyOn(Date, 'now').mockImplementation(() => 42);
+
+                const url = new URL('https://www.example.com/');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                localStorage.setItem('RoktTransactionId', '12345');
+                window.document.cookie = 'RoktTransactionId=67890';
+
+                const integrationCapture = new IntegrationCapture();
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    RoktTransactionId: '12345',
                 });
             });
         });
@@ -329,6 +420,32 @@ describe('Integration Capture', () => {
         });
     });
 
+    describe('#captureLocalStorage', () => {
+        beforeEach(() => {
+            localStorage.clear();
+        });
+
+        it('should capture specific local storage items into clickIds object', () => {
+            localStorage.setItem('RoktTransactionId', '12345');
+
+            const integrationCapture = new IntegrationCapture();
+            const clickIds = integrationCapture.captureLocalStorage();
+
+            expect(clickIds).toEqual({
+                RoktTransactionId: '12345',
+            });
+        });
+
+        it('should NOT capture local storage items if they are not mapped', () => {
+            localStorage.setItem('baz', 'qux');
+
+            const integrationCapture = new IntegrationCapture();
+            const clickIds = integrationCapture.captureLocalStorage();
+
+            expect(clickIds).toEqual({});
+        });
+    });
+
     describe('#getClickIdsAsCustomFlags', () => {
         it('should return empty object if clickIds is empty or undefined', () => {
             const integrationCapture = new IntegrationCapture();
@@ -398,6 +515,7 @@ describe('Integration Capture', () => {
             const integrationCapture = new IntegrationCapture();
             integrationCapture.clickIds = {
                 rtid: '12345',
+                RoktTransactionId: '54321',
             };
 
             const integrationAttributes = integrationCapture.getClickIdsAsIntegrationAttributes();

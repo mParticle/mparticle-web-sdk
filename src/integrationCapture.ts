@@ -109,6 +109,11 @@ const integrationMapping: IntegrationIdMapping = {
         output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
         moduleId: 1277,
     },
+    RoktTransactionId: {
+        mappedKey: 'rokt_id',
+        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
+        moduleId: 1277,
+    },
 
     // TIKTOK
     ttclid: {
@@ -143,6 +148,7 @@ export default class IntegrationCapture {
     public capture(): void {
         const queryParams = this.captureQueryParams() || {};
         const cookies = this.captureCookies() || {};
+        const localStorage = this.captureLocalStorage() || {};
 
         // Exclude _fbc if fbclid is present
         // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc#retrieve-from-fbclid-url-query-parameter
@@ -150,7 +156,21 @@ export default class IntegrationCapture {
             delete cookies['_fbc'];
         }
 
-        this.clickIds = { ...this.clickIds, ...queryParams, ...cookies };
+        // If both rtid and RoktTransactionId are present, prioritize rtid
+        // If RoktTransactionId is present in both cookies and localStorage,
+        // prioritize localStorage
+        if (queryParams['rtid'] && localStorage['RoktTransactionId'] && cookies['RoktTransactionId']) {
+            delete localStorage['RoktTransactionId'];
+            delete cookies['RoktTransactionId'];
+        } else if (queryParams['rtid'] && localStorage['RoktTransactionId']) {
+            delete localStorage['RoktTransactionId'];
+        } else if (queryParams['rtid'] && cookies['RoktTransactionId']) {
+            delete cookies['RoktTransactionId'];
+        } else if (localStorage['RoktTransactionId'] && cookies['RoktTransactionId']) {
+            delete cookies['RoktTransactionId'];
+        }
+
+        this.clickIds = { ...this.clickIds, ...queryParams, ...localStorage, ...cookies };
     }
 
     /**
@@ -167,6 +187,21 @@ export default class IntegrationCapture {
     public captureQueryParams(): Dictionary<string> {
         const queryParams = this.getQueryParams();
         return this.applyProcessors(queryParams, getHref(), this.initialTimestamp);
+    }
+
+    /**
+     * Captures local storage based on the integration ID mapping.
+     */
+    public captureLocalStorage(): Dictionary<string> {
+        let localStorageItems: Dictionary<string> = {};
+        for (const key in integrationMapping) {
+            const localStorageItem = localStorage.getItem(key);
+            if (localStorageItem) {
+                localStorageItems[key] = localStorageItem;
+            }
+        }
+
+        return this.applyProcessors(localStorageItems, getHref(), this.initialTimestamp);
     }
 
     /**
