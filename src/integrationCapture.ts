@@ -105,12 +105,12 @@ const integrationMapping: IntegrationIdMapping = {
 
     // Rokt
     rtid: {
-        mappedKey: 'rokt_id',
+        mappedKey: 'passbackconversiontrackingid',
         output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
         moduleId: 1277,
     },
     RoktTransactionId: {
-        mappedKey: 'rokt_id',
+        mappedKey: 'passbackconversiontrackingid',
         output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
         moduleId: 1277,
     },

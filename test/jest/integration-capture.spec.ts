@@ -522,7 +522,7 @@ describe('Integration Capture', () => {
 
             expect(integrationAttributes).toEqual({
                 '1277': {
-                    'rokt_id': '12345',
+                    'passbackconversiontrackingid': '12345',
                 }
             });
         });
