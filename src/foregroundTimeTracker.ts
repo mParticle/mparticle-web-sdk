@@ -9,7 +9,7 @@ export default class ForegroundTimeTracker {
     public totalTime: number = 0;
 
     constructor(timerKey: string) {
-        this.localStorageName = `mp-time-${timerKey}`;
+        this.localStorageName = `mprtcl-tos-${timerKey}`;
         this.timerVault = new LocalStorageVault<number>(this.localStorageName);
         this.loadTimeFromStorage();
         this.addHandlers();

@@ -3,7 +3,7 @@ import ForegroundTimeTracker from '../../src/foregroundTimeTracker';
 describe('ForegroundTimeTracker', () => {
     let foregroundTimeTracker: ForegroundTimeTracker;
     const timerKey = 'test-key';
-    const mockStorageKey = `mp-time-${timerKey}`;
+    const mockStorageKey = `mprtcl-tos-${timerKey}`;
     
     beforeEach(() => {
         // Although in Jest, document.hidden should be false by default, we force it to be this way
@@ -111,7 +111,7 @@ describe('ForegroundTimeTracker', () => {
 
         it('should call syncAcrossTabs when storage changes', () => {
             const spy = jest.spyOn(tracker as any, 'syncAcrossTabs');
-            window.dispatchEvent(new StorageEvent('storage', { key: 'mp-time-test' }));
+            window.dispatchEvent(new StorageEvent('storage', { key: 'mprtcl-tos-test' }));
             expect(spy).toHaveBeenCalled();
         });
     });
@@ -120,7 +120,7 @@ describe('ForegroundTimeTracker', () => {
         let tracker: ForegroundTimeTracker;
 
         it('should load the time from localStorage if it exists', () => {
-            localStorage.setItem(`mp-time-${timerKey}`, '1234');
+            localStorage.setItem(`mprtcl-tos-${timerKey}`, '1234');
 
             tracker = new ForegroundTimeTracker(timerKey);
             expect(tracker.totalTime).toBe(1234);
@@ -132,7 +132,7 @@ describe('ForegroundTimeTracker', () => {
         });
 
         it('should set totalTime to 0 if there is a non-numeric value in localStorage for time on site', () => {
-            localStorage.setItem(`mp-time-${timerKey}`, '"invalid"');
+            localStorage.setItem(`mprtcl-tos-${timerKey}`, '"invalid"');
 
             tracker = new ForegroundTimeTracker(timerKey);
             expect(tracker.totalTime).toBe(0);
