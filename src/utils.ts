@@ -292,14 +292,19 @@ interface URLSearchParamsFallback {
 }
 
 const queryStringParserFallback = (url: string): URLSearchParamsFallback => {
-    let params: Dictionary<string> = {};
+    const params: Dictionary<string> = {};
     const queryString = url.split('?')[1] || '';
     const pairs = queryString.split('&');
 
     pairs.forEach(pair => {
-        var [key, value] = pair.split('=');
-        if (key && value) {
-            params[key] = decodeURIComponent(value || '');
+        const [key, ...valueParts] = pair.split('=');
+        const value = valueParts.join('=');
+        if (key && value !== undefined) {
+            try {
+                params[key] = decodeURIComponent(value || '');
+            } catch (e) {
+                console.error(`Failed to decode value for key ${key}: ${e}`);
+            }
         }
     });
 

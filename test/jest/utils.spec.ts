@@ -146,6 +146,27 @@ describe('Utils', () => {
 
                 expect(queryStringParser(url, [])).toEqual(expectedResult);
             });
+
+            it('should handle non-standard characters or malformed urls', () => {
+                const malformedUrl = 'https://www.example.com?foo=bar&baz=qux&mal=%E0%A4%A&narf=poit&param0=你好&*;<script>alert("hi")</script>&http://a.com/?c=7&d=8#!/asd+/%^^%zz%%%world你好&param1&param2=&param3=%E0%A4%A&param4=value1=value2&param5=a%AFc';
+                const keys = [
+                    'foo',
+                    'narf',
+                    'param0',
+                    'param1',
+                    'param2',
+                    'param3',
+                    'param4'
+                ];
+
+                const expectedResult = {
+                    foo: 'bar',
+                    narf: 'poit',
+                    param0: '你好',
+                };
+
+                expect(queryStringParser(malformedUrl, keys)).toEqual(expectedResult);
+            });
         });
     });
 
