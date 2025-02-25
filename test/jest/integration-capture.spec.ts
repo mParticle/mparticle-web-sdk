@@ -254,7 +254,6 @@ describe('Integration Capture', () => {
                 expect(integrationCapture.clickIds).toEqual({
                     RoktTransactionId: '54321',
                 });
-
             });
 
             it('should prioritize rtid over RoktTransactionId via cookies', () => {

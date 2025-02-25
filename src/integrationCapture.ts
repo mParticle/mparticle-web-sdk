@@ -54,7 +54,7 @@ export const facebookClickIdProcessor: IntegrationCaptureProcessorFunction = (
 // Integration outputs are used to determine how click ids are used within the SDK
 // CUSTOM_FLAGS are sent out when an Event is created via ServerModel.createEventObject
 // PARTNER_IDENTITIES are sent out in a Batch when a group of events are converted to a Batch
-// INTEGRATION_ATTRIBUTES are stored on the event level but are also passed up to the Batch
+// INTEGRATION_ATTRIBUTES are stored initially on the SDKEvent level but then is added to the Batch when the batch is created
 
 const IntegrationOutputs = {
     CUSTOM_FLAGS: 'custom_flags',
