@@ -1,3 +1,12 @@
+## [2.33.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.33.0...v2.33.1) (2025-02-25)
+
+
+### Bug Fixes
+
+* Add failsafes for queryStringParser ([#983](https://github.com/mParticle/mparticle-web-sdk/issues/983)) ([1c771fd](https://github.com/mParticle/mparticle-web-sdk/commit/1c771fd1e9edfaf1809f7bad10f7cbc2711a65fa))
+* Add Rokt Click ID for Integration Capture ([#985](https://github.com/mParticle/mparticle-web-sdk/issues/985)) ([f5026f9](https://github.com/mParticle/mparticle-web-sdk/commit/f5026f940cbb791e4bb25118eae54240580fd520))
+* Update TOS local storage key ([#987](https://github.com/mParticle/mparticle-web-sdk/issues/987)) ([32503f9](https://github.com/mParticle/mparticle-web-sdk/commit/32503f932c7dbb26dcbe494410ae881d00bb65da))
+
 # [2.33.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.32.5...v2.33.0) (2025-02-13)
 
 
