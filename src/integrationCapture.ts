@@ -104,6 +104,7 @@ const integrationMapping: IntegrationIdMapping = {
     },
 
     // Rokt
+    // https://docs.rokt.com/developers/integration-guides/web/advanced/rokt-id-tag/
     rtid: {
         mappedKey: 'passbackconversiontrackingid',
         output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
@@ -178,7 +179,7 @@ export default class IntegrationCapture {
      */
     public captureCookies(): Dictionary<string> {
         const cookies = getCookies(Object.keys(integrationMapping));
-        return this.applyProcessors(cookies);
+        return this.applyProcessors(cookies, getHref(), this.initialTimestamp);
     }
 
     /**
@@ -230,7 +231,7 @@ export default class IntegrationCapture {
 
     /**
      * Returns only the `integration_attributes` mapped integration output.
-     * @returns {Dictionary<string>} The integration attributes.
+     * @returns {IntegrationAttributes} The integration attributes.
      */
     public getClickIdsAsIntegrationAttributes(): IntegrationAttributes {
         // Integration IDs are stored in the following format:
