@@ -148,7 +148,7 @@ describe('Utils', () => {
             });
 
             it('should handle non-standard characters or malformed urls', () => {
-                const malformedUrl = 'https://www.example.com?foo=bar&baz=qux&narf=poit&param0=你好&*;<script>alert("hi")</script>&http://a.com/?c=7&d=8#!/asd+/%^^%zz%%%world你好&param1&param2=&param3=%E0%A4%A&param4=value1=value2';
+                const malformedUrl = 'https://www.example.com?foo=bar&baz=qux&mal=%E0%A4%A&narf=poit&param0=你好&*;<script>alert("hi")</script>&http://a.com/?c=7&d=8#!/asd+/%^^%zz%%%world你好&param1&param2=&param3=%E0%A4%A&param4=value1=value2&param5=a%AFc';
                 const keys = [
                     'foo',
                     'narf',
