@@ -29,6 +29,12 @@ describe('Integration Capture', () => {
                 'ttclid',
             ]);
         });
+
+        it('should initialize with a filtered list of integration attribute mappings', () => {
+            const integrationCapture = new IntegrationCapture();
+            const mappings = integrationCapture.filteredIntegrationAttributeMappings;
+            expect(Object.keys(mappings)).toEqual(['rtid', 'RoktTransactionId']);
+        });
     });
 
     describe('#capture', () => {
@@ -49,6 +55,7 @@ describe('Integration Capture', () => {
 
         afterEach(() => {
             window.location = originalLocation;
+            window.localStorage.clear();
             jest.restoreAllMocks();
         });
 
@@ -66,7 +73,15 @@ describe('Integration Capture', () => {
         it('should pass all clickIds to clickIds object', () => {
             jest.spyOn(Date, 'now').mockImplementation(() => 42);
 
-            const url = new URL('https://www.example.com/?fbclid=12345&gclid=54321&gbraid=67890&wbraid=09876');
+            const queryParams = [
+                'fbclid=12345',
+                'gclid=54321',
+                'gbraid=67890',
+                'wbraid=09876',
+                'rtid=84324',
+            ].join('&');
+
+            const url = new URL(`https://www.example.com/?${queryParams}`);
 
             window.document.cookie = '_cookie1=1234';
             window.document.cookie = '_cookie2=39895811.9165333198';
@@ -84,6 +99,7 @@ describe('Integration Capture', () => {
                 _fbp: '54321',
                 gclid: '54321',
                 gbraid: '67890',
+                rtid: '84324',
                 wbraid: '09876',
             }); 
         });
@@ -189,6 +205,111 @@ describe('Integration Capture', () => {
                 fbclid: 'fb.2.42.12345',
             });
         });
+        });
+
+        describe('Rokt Click Ids', () => {
+            it('should capture rtid via url param', () => {
+                const url = new URL('https://www.example.com/?rtid=54321');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture();
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    rtid: '54321',
+                });
+            });
+
+            it('should capture RoktTransactionId via cookies', () => {
+                window.document.cookie = 'RoktTransactionId=12345';
+
+                const url = new URL('https://www.example.com/');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture();
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    RoktTransactionId: '12345',
+                });
+            });
+
+            it('should capture RoktTransactionId via local storage', () => {
+                jest.spyOn(Date, 'now').mockImplementation(() => 42);
+
+                const url = new URL('https://www.example.com/');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                localStorage.setItem('RoktTransactionId', '54321');
+
+                const integrationCapture = new IntegrationCapture();
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    RoktTransactionId: '54321',
+                });
+            });
+
+            it('should prioritize rtid over RoktTransactionId via cookies', () => {
+                jest.spyOn(Date, 'now').mockImplementation(() => 42);
+
+                const url = new URL('https://www.example.com/?rtid=54321');
+                
+                window.document.cookie = 'RoktTransactionId=12345';
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture();
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    rtid: '54321',
+                });
+            });
+
+            it('should prioritize rtid over RoktTransactionId via local storage', () => {
+                jest.spyOn(Date, 'now').mockImplementation(() => 42);
+
+                const url = new URL('https://www.example.com/?rtid=54321');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                localStorage.setItem('RoktTransactionId', '12345');
+
+                const integrationCapture = new IntegrationCapture();
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    rtid: '54321',
+                });
+            });
+
+            it('should prioritize local storage over cookies', () => {
+                jest.spyOn(Date, 'now').mockImplementation(() => 42);
+
+                const url = new URL('https://www.example.com/');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                localStorage.setItem('RoktTransactionId', '12345');
+                window.document.cookie = 'RoktTransactionId=67890';
+
+                const integrationCapture = new IntegrationCapture();
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    RoktTransactionId: '12345',
+                });
+            });
         });
 
     });
@@ -298,6 +419,32 @@ describe('Integration Capture', () => {
         });
     });
 
+    describe('#captureLocalStorage', () => {
+        beforeEach(() => {
+            localStorage.clear();
+        });
+
+        it('should capture specific local storage items into clickIds object', () => {
+            localStorage.setItem('RoktTransactionId', '12345');
+
+            const integrationCapture = new IntegrationCapture();
+            const clickIds = integrationCapture.captureLocalStorage();
+
+            expect(clickIds).toEqual({
+                RoktTransactionId: '12345',
+            });
+        });
+
+        it('should NOT capture local storage items if they are not mapped', () => {
+            localStorage.setItem('baz', 'qux');
+
+            const integrationCapture = new IntegrationCapture();
+            const clickIds = integrationCapture.captureLocalStorage();
+
+            expect(clickIds).toEqual({});
+        });
+    });
+
     describe('#getClickIdsAsCustomFlags', () => {
         it('should return empty object if clickIds is empty or undefined', () => {
             const integrationCapture = new IntegrationCapture();
@@ -351,6 +498,31 @@ describe('Integration Capture', () => {
 
             expect(partnerIdentities).toEqual({
                 tiktok_cookie_id: '1234123999.123123',
+            });
+        });
+    });
+
+    describe('#getClickIdsAsIntegrationAttributes', () => {
+        it('should return empty object if clickIds is empty or undefined', () => {
+            const integrationCapture = new IntegrationCapture();
+            const integrationAttributes = integrationCapture.getClickIdsAsIntegrationAttributes();
+
+            expect(integrationAttributes).toEqual({});
+        });
+
+        it('should only return mapped clickIds as integration attributes', () => {
+            const integrationCapture = new IntegrationCapture();
+            integrationCapture.clickIds = {
+                rtid: '12345',
+                RoktTransactionId: '54321',
+            };
+
+            const integrationAttributes = integrationCapture.getClickIdsAsIntegrationAttributes();
+
+            expect(integrationAttributes).toEqual({
+                '1277': {
+                    'passbackconversiontrackingid': '12345',
+                }
             });
         });
     });

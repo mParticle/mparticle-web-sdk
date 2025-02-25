@@ -1,4 +1,5 @@
 import { SDKEventCustomFlags } from './sdkRuntimeModels';
+import { IntegrationAttributes } from './store';
 import {
     Dictionary,
     queryStringParser,
@@ -53,16 +54,19 @@ export const facebookClickIdProcessor: IntegrationCaptureProcessorFunction = (
 // Integration outputs are used to determine how click ids are used within the SDK
 // CUSTOM_FLAGS are sent out when an Event is created via ServerModel.createEventObject
 // PARTNER_IDENTITIES are sent out in a Batch when a group of events are converted to a Batch
+// INTEGRATION_ATTRIBUTES are stored initially on the SDKEvent level but then is added to the Batch when the batch is created
 
 const IntegrationOutputs = {
     CUSTOM_FLAGS: 'custom_flags',
     PARTNER_IDENTITIES: 'partner_identities',
+    INTEGRATION_ATTRIBUTES: 'integration_attributes',
 } as const;
 
 interface IntegrationMappingItem {
     mappedKey: string;
     output: valueof<typeof IntegrationOutputs>;
     processor?: IntegrationCaptureProcessorFunction;
+    moduleId?: number;
 }
 
 interface IntegrationIdMapping {
@@ -99,6 +103,19 @@ const integrationMapping: IntegrationIdMapping = {
         output: IntegrationOutputs.CUSTOM_FLAGS,
     },
 
+    // Rokt
+    // https://docs.rokt.com/developers/integration-guides/web/advanced/rokt-id-tag/
+    rtid: {
+        mappedKey: 'passbackconversiontrackingid',
+        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
+        moduleId: 1277,
+    },
+    RoktTransactionId: {
+        mappedKey: 'passbackconversiontrackingid',
+        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
+        moduleId: 1277,
+    },
+
     // TIKTOK
     ttclid: {
         mappedKey: 'TikTok.Callback',
@@ -115,6 +132,7 @@ export default class IntegrationCapture {
     public readonly initialTimestamp: number;
     public readonly filteredPartnerIdentityMappings: IntegrationIdMapping;
     public readonly filteredCustomFlagMappings: IntegrationIdMapping;
+    public readonly filteredIntegrationAttributeMappings: IntegrationIdMapping;
 
     constructor() {
         this.initialTimestamp = Date.now();
@@ -122,6 +140,7 @@ export default class IntegrationCapture {
         // Cache filtered mappings for faster access
         this.filteredPartnerIdentityMappings = this.filterMappings(IntegrationOutputs.PARTNER_IDENTITIES);
         this.filteredCustomFlagMappings = this.filterMappings(IntegrationOutputs.CUSTOM_FLAGS);
+        this.filteredIntegrationAttributeMappings = this.filterMappings(IntegrationOutputs.INTEGRATION_ATTRIBUTES);
     }
 
     /**
@@ -130,6 +149,7 @@ export default class IntegrationCapture {
     public capture(): void {
         const queryParams = this.captureQueryParams() || {};
         const cookies = this.captureCookies() || {};
+        const localStorage = this.captureLocalStorage() || {};
 
         // Exclude _fbc if fbclid is present
         // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc#retrieve-from-fbclid-url-query-parameter
@@ -137,7 +157,21 @@ export default class IntegrationCapture {
             delete cookies['_fbc'];
         }
 
-        this.clickIds = { ...this.clickIds, ...queryParams, ...cookies };
+        // If both rtid and RoktTransactionId are present, prioritize rtid
+        // If RoktTransactionId is present in both cookies and localStorage,
+        // prioritize localStorage
+        if (queryParams['rtid'] && localStorage['RoktTransactionId'] && cookies['RoktTransactionId']) {
+            delete localStorage['RoktTransactionId'];
+            delete cookies['RoktTransactionId'];
+        } else if (queryParams['rtid'] && localStorage['RoktTransactionId']) {
+            delete localStorage['RoktTransactionId'];
+        } else if (queryParams['rtid'] && cookies['RoktTransactionId']) {
+            delete cookies['RoktTransactionId'];
+        } else if (localStorage['RoktTransactionId'] && cookies['RoktTransactionId']) {
+            delete cookies['RoktTransactionId'];
+        }
+
+        this.clickIds = { ...this.clickIds, ...queryParams, ...localStorage, ...cookies };
     }
 
     /**
@@ -145,7 +179,7 @@ export default class IntegrationCapture {
      */
     public captureCookies(): Dictionary<string> {
         const cookies = getCookies(Object.keys(integrationMapping));
-        return this.applyProcessors(cookies);
+        return this.applyProcessors(cookies, getHref(), this.initialTimestamp);
     }
 
     /**
@@ -154,6 +188,21 @@ export default class IntegrationCapture {
     public captureQueryParams(): Dictionary<string> {
         const queryParams = this.getQueryParams();
         return this.applyProcessors(queryParams, getHref(), this.initialTimestamp);
+    }
+
+    /**
+     * Captures local storage based on the integration ID mapping.
+     */
+    public captureLocalStorage(): Dictionary<string> {
+        let localStorageItems: Dictionary<string> = {};
+        for (const key in integrationMapping) {
+            const localStorageItem = localStorage.getItem(key);
+            if (localStorageItem) {
+                localStorageItems[key] = localStorageItem;
+            }
+        }
+
+        return this.applyProcessors(localStorageItems, getHref(), this.initialTimestamp);
     }
 
     /**
@@ -179,6 +228,37 @@ export default class IntegrationCapture {
     public getClickIdsAsPartnerIdentities(): Dictionary<string> {
         return this.getClickIds(this.clickIds, this.filteredPartnerIdentityMappings);
     }
+
+    /**
+     * Returns only the `integration_attributes` mapped integration output.
+     * @returns {IntegrationAttributes} The integration attributes.
+     */
+    public getClickIdsAsIntegrationAttributes(): IntegrationAttributes {
+        // Integration IDs are stored in the following format:
+        // {
+        //     "integration_attributes": {
+        //         "<moduleId>": {
+        //           "mappedKey": "clickIdValue"
+        //         }
+        //     }
+        // }
+        const mappedClickIds: IntegrationAttributes = {};
+
+        for (const key in this.clickIds) {
+            if (this.clickIds.hasOwnProperty(key)) {
+                const value = this.clickIds[key];
+                const mappingKey = this.filteredIntegrationAttributeMappings[key]?.mappedKey;
+                if (!isEmpty(mappingKey)) {
+                    const moduleId = this.filteredIntegrationAttributeMappings[key]?.moduleId;
+                    if (moduleId && !mappedClickIds[moduleId]) {
+                        mappedClickIds[moduleId] = { [mappingKey]: value };
+                    }
+                }
+            }
+        }
+        return mappedClickIds;
+    }
+    
 
     private getClickIds(
         clickIds: Dictionary<string>,

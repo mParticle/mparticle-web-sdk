@@ -41,6 +41,7 @@ describe('Integration Capture', () => {
             fbclid: '1234',
             gclid: '234',
             gbraid: '6574',
+            rtid: '45670808',
             wbraid: '1234111',
         });
 
@@ -71,13 +72,11 @@ describe('Integration Capture', () => {
         expect(testEvent.data).to.have.property('event_name', 'Test Event');
         expect(testEvent.data).to.have.property('custom_flags');
 
-        expect(testEvent.data.custom_flags).to.deep.equal({
-            'Facebook.ClickId': `fb.1.${initialTimestamp}.1234`,
-            'Facebook.BrowserId': '54321',
-            'GoogleEnhancedConversions.Gclid': '234',
-            'GoogleEnhancedConversions.Gbraid': '6574',
-            'GoogleEnhancedConversions.Wbraid': '1234111',
-        });
+        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal(`fb.1.${initialTimestamp}.1234`);
+        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
     });
 
     it('should add captured integrations to event custom flags, prioritizing passed in custom flags', async () => {
@@ -91,17 +90,15 @@ describe('Integration Capture', () => {
 
         const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
 
-
         expect(testEvent).to.have.property('data');
         expect(testEvent.data).to.have.property('event_name', 'Test Event');
         expect(testEvent.data).to.have.property('custom_flags');
-        expect(testEvent.data.custom_flags).to.deep.equal({
-            'Facebook.ClickId': 'passed-in',
-            'Facebook.BrowserId': '54321',
-            'GoogleEnhancedConversions.Gclid': '234',
-            'GoogleEnhancedConversions.Gbraid': '6574',
-            'GoogleEnhancedConversions.Wbraid': '1234111',
-        });
+
+        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal('passed-in');
+        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
     });
 
     it('should add captured integrations to page view custom flags', async () => {
@@ -119,13 +116,12 @@ describe('Integration Capture', () => {
         expect(testEvent).to.have.property('data');
         expect(testEvent.data).to.have.property('screen_name', 'Test Page View');
         expect(testEvent.data).to.have.property('custom_flags');
-        expect(testEvent.data.custom_flags).to.deep.equal({
-            'Facebook.ClickId': `fb.1.${initialTimestamp}.1234`,
-            'Facebook.BrowserId': '54321',
-            'GoogleEnhancedConversions.Gclid': '234',
-            'GoogleEnhancedConversions.Gbraid': '6574',
-            'GoogleEnhancedConversions.Wbraid': '1234111',
-        });
+
+        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal(`fb.1.${initialTimestamp}.1234`);
+        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
     });
 
     it('should add captured integrations to page view custom flags, prioritizing passed in custom flags', async () => {
@@ -141,13 +137,12 @@ describe('Integration Capture', () => {
         expect(testEvent).to.have.property('data');
         expect(testEvent.data).to.have.property('screen_name', 'Test Page View');
         expect(testEvent.data).to.have.property('custom_flags');
-        expect(testEvent.data.custom_flags).to.deep.equal({
-            'Facebook.ClickId': 'passed-in',
-            'Facebook.BrowserId': '54321',
-            'GoogleEnhancedConversions.Gclid': '234',
-            'GoogleEnhancedConversions.Gbraid': '6574',
-            'GoogleEnhancedConversions.Wbraid': '1234111',
-        });
+
+        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal('passed-in');
+        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
     });
 
     it('should add captured integrations to commerce event custom flags', async () => {
@@ -178,14 +173,13 @@ describe('Integration Capture', () => {
 
         expect(testEvent.data.product_action).to.have.property('action', 'purchase');
         expect(testEvent.data).to.have.property('custom_flags');
-        expect(testEvent.data.custom_flags).to.deep.equal({
-            foo: 'bar',
-            'Facebook.ClickId': `fb.1.${initialTimestamp}.1234`,
-            'Facebook.BrowserId': '54321',
-            'GoogleEnhancedConversions.Gclid': '234',
-            'GoogleEnhancedConversions.Gbraid': '6574',
-            'GoogleEnhancedConversions.Wbraid': '1234111',
-        });
+
+        expect(testEvent.data.custom_flags['foo'], 'Custom Flag').to.equal('bar');
+        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal(`fb.1.${initialTimestamp}.1234`);
+        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
     });
 
     it('should add captured integrations to commerce event custom flags, prioritizing passed in flags', async () => {
@@ -217,13 +211,12 @@ describe('Integration Capture', () => {
 
         expect(testEvent.data.product_action).to.have.property('action', 'purchase');
         expect(testEvent.data).to.have.property('custom_flags');
-        expect(testEvent.data.custom_flags).to.deep.equal({
-            'Facebook.ClickId': 'passed-in',
-            'Facebook.BrowserId': '54321',
-            'GoogleEnhancedConversions.Gclid': '234',
-            'GoogleEnhancedConversions.Gbraid': '6574',
-            'GoogleEnhancedConversions.Wbraid': '1234111',
-        });
+
+        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal('passed-in');
+        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
     });
 
     it('should add captured integrations to commerce event custom flags', async () => {
@@ -254,14 +247,13 @@ describe('Integration Capture', () => {
 
         expect(testEvent.data.product_action).to.have.property('action', 'purchase');
         expect(testEvent.data).to.have.property('custom_flags');
-        expect(testEvent.data.custom_flags).to.deep.equal({
-            foo: 'bar',
-            'Facebook.ClickId': `fb.1.${initialTimestamp}.1234`,
-            'Facebook.BrowserId': '54321',
-            'GoogleEnhancedConversions.Gclid': '234',
-            'GoogleEnhancedConversions.Gbraid': '6574',
-            'GoogleEnhancedConversions.Wbraid': '1234111',
-        });
+
+        expect(testEvent.data.custom_flags['foo'], 'Custom Flag').to.equal('bar');
+        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal(`fb.1.${initialTimestamp}.1234`);
+        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
     });
 
     it('should add captured integrations to commerce event custom flags, prioritizing passed in flags', async () => {
@@ -293,16 +285,15 @@ describe('Integration Capture', () => {
 
         expect(testEvent.data.product_action).to.have.property('action', 'purchase');
         expect(testEvent.data).to.have.property('custom_flags');
-        expect(testEvent.data.custom_flags).to.deep.equal({
-            'Facebook.ClickId': 'passed-in',
-            'Facebook.BrowserId': '54321',
-            'GoogleEnhancedConversions.Gclid': '234',
-            'GoogleEnhancedConversions.Gbraid': '6574',
-            'GoogleEnhancedConversions.Wbraid': '1234111',
-        });
+        
+        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal('passed-in');
+        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
+        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
     });
 
-    it('should add captured integrations to batch partner identities', async () => {
+    it('should add captured integrations to batch as partner identities', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
 
         window.mParticle.logEvent('Test Event 1');
@@ -321,5 +312,76 @@ describe('Integration Capture', () => {
             'tiktok_cookie_id': '45670808',
         });
 
+    });
+
+    it('should add captured integrations to batch as integration attributes', async () => {
+        await waitForCondition(hasIdentityCallInflightReturned);
+
+        window.mParticle.logEvent('Test Event 1');
+        window.mParticle.logEvent('Test Event 2');
+        window.mParticle.logEvent('Test Event 3');
+
+        window.mParticle.upload();
+
+        expect(fetchMock.calls().length).to.greaterThan(1);
+
+        const lastCall = fetchMock.lastCall();
+        const batch = JSON.parse(lastCall[1].body as string);
+
+        expect(batch).to.have.property('integration_attributes');
+        expect(batch.integration_attributes['1277']).to.deep.equal({
+            'passbackconversiontrackingid': '45670808',
+        });
+    });
+
+    it('should add captured integrations to batch as integration attributes without colliding with set integration attributes', async () => {
+        await waitForCondition(hasIdentityCallInflightReturned);
+
+        window.mParticle.setIntegrationAttribute(160, { 'client_id': '12354'});
+
+        window.mParticle.logEvent('Test Event 1');
+        window.mParticle.logEvent('Test Event 2');
+        window.mParticle.logEvent('Test Event 3');
+
+        window.mParticle.upload();
+
+        expect(fetchMock.calls().length).to.greaterThan(1);
+
+        const lastCall = fetchMock.lastCall();
+        const batch = JSON.parse(lastCall[1].body as string);
+
+        expect(batch).to.have.property('integration_attributes');
+        expect(batch.integration_attributes).to.have.property('1277');
+        expect(batch.integration_attributes).to.have.property('160');
+        expect(batch.integration_attributes['1277']).to.deep.equal({
+            'passbackconversiontrackingid': '45670808',
+        });
+        expect(batch.integration_attributes['160']).to.deep.equal({
+            'client_id': '12354',
+        });
+
+    });
+
+    it('should add captured integrations to batch as integration attributes, prioritizing passed in integration attributes', async () => {
+        await waitForCondition(hasIdentityCallInflightReturned);
+
+        window.mParticle.setIntegrationAttribute(1277, { 'passbackconversiontrackingid': 'passed-in'});
+        window.mParticle.setIntegrationAttribute(160, { 'client_id': '12354'});
+
+        window.mParticle.logEvent('Test Event 1');
+        window.mParticle.logEvent('Test Event 2');
+        window.mParticle.logEvent('Test Event 3');
+
+        window.mParticle.upload();
+
+        expect(fetchMock.calls().length).to.greaterThan(1);
+
+        const lastCall = fetchMock.lastCall();
+        const batch = JSON.parse(lastCall[1].body as string);
+
+        expect(batch).to.have.property('integration_attributes');
+        expect(batch.integration_attributes['1277']).to.deep.equal({
+            'passbackconversiontrackingid': 'passed-in',
+        });
     });
 });
