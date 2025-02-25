@@ -330,7 +330,7 @@ describe('Integration Capture', () => {
 
         expect(batch).to.have.property('integration_attributes');
         expect(batch.integration_attributes['1277']).to.deep.equal({
-            'rokt_id': '45670808',
+            'passbackconversiontrackingid': '45670808',
         });
     });
 
@@ -354,7 +354,7 @@ describe('Integration Capture', () => {
         expect(batch.integration_attributes).to.have.property('1277');
         expect(batch.integration_attributes).to.have.property('160');
         expect(batch.integration_attributes['1277']).to.deep.equal({
-            'rokt_id': '45670808',
+            'passbackconversiontrackingid': '45670808',
         });
         expect(batch.integration_attributes['160']).to.deep.equal({
             'client_id': '12354',
@@ -365,7 +365,7 @@ describe('Integration Capture', () => {
     it('should add captured integrations to batch as integration attributes, prioritizing passed in integration attributes', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
 
-        window.mParticle.setIntegrationAttribute(1277, { 'rokt_id': 'passed-in'});
+        window.mParticle.setIntegrationAttribute(1277, { 'passbackconversiontrackingid': 'passed-in'});
         window.mParticle.setIntegrationAttribute(160, { 'client_id': '12354'});
 
         window.mParticle.logEvent('Test Event 1');
@@ -381,7 +381,7 @@ describe('Integration Capture', () => {
 
         expect(batch).to.have.property('integration_attributes');
         expect(batch.integration_attributes['1277']).to.deep.equal({
-            'rokt_id': 'passed-in',
+            'passbackconversiontrackingid': 'passed-in',
         });
     });
 });
