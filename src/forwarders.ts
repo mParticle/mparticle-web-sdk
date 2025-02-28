@@ -1,6 +1,6 @@
 import Types, { EventType } from './types';
 import filteredMparticleUser from './filteredMparticleUser';
-import { inArray, isEmpty, valueof } from './utils';
+import { inArray, isEmpty, isObject, valueof } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
 import APIClient from './apiClient';
@@ -24,13 +24,17 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
     };
 
     this.initForwarders = function(userIdentities, forwardingStatsCallback) {
-        var user = mpInstance.Identity.getCurrentUser();
-        if (
-            !mpInstance._Store.webviewBridgeEnabled &&
-            mpInstance._Store.configuredForwarders
-        ) {
+        const user = mpInstance.Identity.getCurrentUser();
+        const {
+            webviewBridgeEnabled,
+            configuredForwarders,
+        } = mpInstance._Store;
+
+        const { filterUserAttributes, filterUserIdentities } = mpInstance._Helpers;
+        const { isEnabledForUserConsent } = mpInstance._Consent;
+        if (!webviewBridgeEnabled && configuredForwarders) {
             // Some js libraries require that they be loaded first, or last, etc
-            mpInstance._Store.configuredForwarders.sort(function(x, y) {
+            configuredForwarders.sort(function(x, y) {
                 x.settings.PriorityValue = x.settings.PriorityValue || 0;
                 y.settings.PriorityValue = y.settings.PriorityValue || 0;
                 return (
@@ -38,74 +42,71 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
                 );
             });
 
-            mpInstance._Store.activeForwarders = mpInstance._Store.configuredForwarders.filter(
-                function(forwarder) {
-                    if (
-                        !mpInstance._Consent.isEnabledForUserConsent(
-                            forwarder.filteringConsentRuleValues,
-                            user
-                        )
-                    ) {
-                        return false;
-                    }
-                    if (
-                        !self.isEnabledForUserAttributes(
-                            forwarder.filteringUserAttributeValue,
-                            user
-                        )
-                    ) {
-                        return false;
-                    }
-                    if (
-                        !self.isEnabledForUnknownUser(
-                            forwarder.excludeAnonymousUser,
-                            user
-                        )
-                    ) {
-                        return false;
-                    }
-
-                    var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(
-                        userIdentities,
-                        forwarder.userIdentityFilters
-                    );
-                    var filteredUserAttributes = mpInstance._Helpers.filterUserAttributes(
-                        user ? user.getAllUserAttributes() : {},
-                        forwarder.userAttributeFilters
-                    );
-                    if (!forwarder.initialized) {
-                        forwarder.logger = mpInstance.Logger;
-                        forwarder.init(
-                            forwarder.settings,
-                            forwardingStatsCallback,
-                            false,
-                            null,
-                            filteredUserAttributes,
-                            filteredUserIdentities,
-                            mpInstance._Store.SDKConfig.appVersion,
-                            mpInstance._Store.SDKConfig.appName,
-                            mpInstance._Store.SDKConfig.customFlags,
-                            mpInstance._Store.clientId
-                        );
-                        forwarder.initialized = true;
-                    }
-
-                    return true;
+            mpInstance._Store.activeForwarders = configuredForwarders.filter((forwarder) => {
+                if (
+                    !isEnabledForUserConsent(
+                        forwarder.filteringConsentRuleValues,
+                        user
+                    )
+                ) {
+                    return false;
                 }
-            );
+                if (
+                    !self.isEnabledForUserAttributes(
+                        forwarder.filteringUserAttributeValue,
+                        user
+                    )
+                ) {
+                    return false;
+                }
+                if (
+                    !self.isEnabledForUnknownUser(
+                        forwarder.excludeAnonymousUser,
+                        user
+                    )
+                ) {
+                    return false;
+                }
+
+                const filteredUserIdentities = filterUserIdentities(
+                    userIdentities,
+                    forwarder.userIdentityFilters
+                );
+                const filteredUserAttributes = filterUserAttributes(
+                    user ? user.getAllUserAttributes() : {},
+                    forwarder.userAttributeFilters
+                );
+                if (!forwarder.initialized) {
+                    forwarder.logger = mpInstance.Logger;
+                    forwarder.init(
+                        forwarder.settings,
+                        forwardingStatsCallback,
+                        false,
+                        null,
+                        filteredUserAttributes,
+                        filteredUserIdentities,
+                        mpInstance._Store.SDKConfig.appVersion,
+                        mpInstance._Store.SDKConfig.appName,
+                        mpInstance._Store.SDKConfig.customFlags,
+                        mpInstance._Store.clientId
+                    );
+                    forwarder.initialized = true;
+                }
+
+                return true;
+            });
         }
     };
 
     this.isEnabledForUserAttributes = function(filterObject, user) {
-        if (
-            !filterObject ||
-            !mpInstance._Helpers.isObject(filterObject) ||
-            !Object.keys(filterObject).length
-        ) {
+        const { hashAttributeConditionalForwarding } = KitFilterHelper;
+        if (isEmpty(filterObject)) {
             return true;
         }
 
-        var attrHash, valueHash, userAttributes;
+        let attrHash;
+        let valueHash;
+        let userAttributes;
 
         if (!user) {
             return false;
@@ -113,22 +114,15 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
             userAttributes = user.getAllUserAttributes();
         }
 
-        var isMatch = false;
+        let isMatch = false;
 
         try {
-            if (
-                userAttributes &&
-                mpInstance._Helpers.isObject(userAttributes) &&
-                Object.keys(userAttributes).length
-            ) {
-                for (var attrName in userAttributes) {
+            // QUESTION: Do we need to check if userAttributes is an object?
+            if (!isEmpty(userAttributes) && isObject(userAttributes)) {
+                for (const attrName in userAttributes) {
                     if (userAttributes.hasOwnProperty(attrName)) {
-                        attrHash = KitFilterHelper.hashAttributeConditionalForwarding(
-                            attrName
-                        );
-                        valueHash = KitFilterHelper.hashAttributeConditionalForwarding(
-                            userAttributes[attrName]
-                        );
+                        attrHash = hashAttributeConditionalForwarding(attrName);
+                        valueHash = hashAttributeConditionalForwarding(userAttributes[attrName]);
 
                         if (
                             attrHash === filterObject.userAttributeName &&
@@ -141,11 +135,7 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
                 }
             }
 
-            if (filterObject) {
-                return filterObject.includeOnMatch === isMatch;
-            } else {
-                return true;
-            }
+            return filterObject ? filterObject.includeOnMatch === isMatch : true;
         } catch (e) {
             // in any error scenario, err on side of returning true and forwarding event
             return true;
