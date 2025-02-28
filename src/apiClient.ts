@@ -1,15 +1,15 @@
 import Constants from './constants';
-import Types from './types';
+import Types, { MessageType } from './types';
 import { BatchUploader } from './batchUploader';
 import { SDKEvent, SDKDataPlan } from './sdkRuntimeModels';
 import KitBlocker from './kitBlocking';
 import { Dictionary, isEmpty, parseNumber } from './utils';
 import { IUploadObject } from './serverModel';
-import { MPForwarder } from './forwarders.interfaces';
 import { IMParticleUser, ISDKUserAttributes } from './identity-user-interfaces';
 import { AsyncUploader, FetchUploader, XHRUploader } from './uploaders';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { appendUserInfo } from './user-utils';
+import { IMPForwarder } from './forwarders.interfaces';
 
 export interface IAPIClient {
     uploader: BatchUploader | null;
@@ -24,7 +24,7 @@ export interface IAPIClient {
     ) => void;
     initializeForwarderStatsUploader: () => AsyncUploader;
     prepareForwardingStats: (
-        forwarder: MPForwarder,
+        forwarder: IMPForwarder,
         event: IUploadObject
     ) => void;
 }
@@ -140,7 +140,7 @@ export default function APIClient(
         // https://go.mparticle.com/work/SQDSDKS-6935
         // While Event Name is 'usually' a string, there are some cases where it is a number
         // in that it could be a type of MessageType Enum
-        if (event.EventName as unknown as number !== Types.MessageType.AppStateTransition) {
+        if (event.EventName as unknown as number !== MessageType.AppStateTransition) {
             if (kitBlocker && kitBlocker.kitBlockingEnabled) {
                 event = kitBlocker.createBlockedEvent(event);
             }
@@ -193,7 +193,7 @@ export default function APIClient(
     };
 
     this.prepareForwardingStats = function(
-        forwarder: MPForwarder,
+        forwarder: IMPForwarder,
         event:SDKEvent,
     ) : void {
         let forwardingStatsData: IForwardingStatsData;
@@ -206,8 +206,8 @@ export default function APIClient(
                 n: event.EventName,
                 attrs: event.EventAttributes,
                 sdk: event.SDKVersion,
-                dt: event.EventDataType,
-                et: event.EventCategory,
+                dt: event.EventDataType as number,
+                et: event.EventCategory as number,
                 dbg: event.Debug,
                 ct: event.Timestamp,
                 eec: event.ExpandedEventCount,

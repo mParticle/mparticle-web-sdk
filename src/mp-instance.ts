@@ -49,6 +49,7 @@ import { IECommerce } from './ecommerce.interfaces';
 import { INativeSdkHelpers } from './nativeSdkHelpers.interfaces';
 import { IPersistence } from './persistence.interfaces';
 import ForegroundTimer from './foregroundTimeTracker';
+import { IMPForwarder } from './forwarders.interfaces';
 import RoktManager from './roktManager';
 
 export interface IErrorLogMessage {
@@ -73,7 +74,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _CookieSyncManager: ICookieSyncManager;
     _Ecommerce: IECommerce;
     _Events: IEvents;
-    _Forwarders: any; // https://go.mparticle.com/work/SQDSDKS-5767
+    _Forwarders: IMPForwarder
     _ForwardingStatsUploader: ForwardingStatsUploader;
     _Helpers: SDKHelpersApi;
     _Identity: IIdentity;

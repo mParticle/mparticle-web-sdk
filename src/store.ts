@@ -30,7 +30,7 @@ import {
     returnConvertedBoolean,
 } from './utils';
 import { IMinifiedConsentJSONObject, SDKConsentState } from './consent';
-import { ConfiguredKit, MPForwarder, UnregisteredKit } from './forwarders.interfaces';
+import { ConfiguredKit, UnregisteredKit } from './forwarders.interfaces';
 import { IdentityCallback, UserAttributes } from './identity-user-interfaces';
 import {
     IGlobalStoreV2MinifiedKeys,
@@ -39,6 +39,7 @@ import {
 import { CookieSyncDates, IPixelConfiguration } from './cookieSyncManager';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import ForegroundTimer from './foregroundTimeTracker';
+import { IMPSideloadedKit, IMPSideloadedKitConstructor } from './sideloadedKit';
 
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and
@@ -69,6 +70,7 @@ export interface SDKConfig {
     identifyRequest: IdentifyRequest;
     identityCallback: IdentityCallback;
     integrationDelayTimeout: number;
+    // sideloadedKits: IMPSideloadedKit[];
     sideloadedKits: MPForwarder[];
     aliasMaxWindow: number;
     deviceId?: string;
@@ -179,9 +181,9 @@ export interface IStore {
     storageName: string | null;
     prodStorageName: string | null;
     activeForwarders: ConfiguredKit[];
-    kits: Dictionary<MPForwarder>;
-    sideloadedKits: MPForwarder[];
-    configuredForwarders: MPForwarder[];
+    kits: Dictionary<UnregisteredKit>;
+    sideloadedKits: IMPSideloadedKit[];
+    configuredForwarders: ConfiguredKit[];
     pixelConfigurations: IPixelConfiguration[];
     integrationDelayTimeoutStart: number; // UNIX Timestamp
     webviewBridgeEnabled?: boolean;

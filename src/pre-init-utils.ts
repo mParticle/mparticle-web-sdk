@@ -1,12 +1,12 @@
 import { IPixelConfiguration } from './cookieSyncManager';
-import { MPForwarder } from './forwarders.interfaces';
+import { Kit, MPForwarder } from './forwarders.interfaces';
 import { IntegrationDelays } from './mp-instance';
 import { isEmpty, isFunction } from './utils';
 
 export interface IPreInit {
     readyQueue: Function[] | any[];
     integrationDelays: IntegrationDelays;
-    forwarderConstructors: MPForwarder[];
+    forwarderConstructors: Kit[];
     pixelConfigurations?: IPixelConfiguration[];
     isDevelopmentMode?: boolean;
 }

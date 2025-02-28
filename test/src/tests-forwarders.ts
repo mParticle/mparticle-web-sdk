@@ -16,6 +16,9 @@ import { IdentityType } from '../../src/types';
 import { IntegrationAttribute } from '../../src/store';
 import { IConsentRules } from '../../src/consent';
 import { UserIdentities } from '@mparticle/web-sdk';
+import { IMPSideloadedKit } from '../../src/sideloadedKit';
+import { UnregisteredKit } from '../../src/forwarders.interfaces';
+import { IFilteringUserAttributeValue } from '../../src/configAPIClient';
 
 
 const {
@@ -2048,7 +2051,7 @@ describe('forwarders', function() {
 
         enabled = mParticle
             .getInstance()
-            ._Forwarders.isEnabledForUserAttributes({}, null);
+            ._Forwarders.isEnabledForUserAttributes({} as IFilteringUserAttributeValue, null);
         expect(enabled).to.be.ok;
     });
 
@@ -3155,10 +3158,10 @@ describe('forwarders', function() {
             });
 
             describe('filter dictionary integration tests', function() {
-                let sideloadedKit1;
-                let sideloadedKit2;
-                let mpSideloadedKit1;
-                let mpSideloadedKit2;
+                let sideloadedKit1: UnregisteredKit;
+                let sideloadedKit2: UnregisteredKit;
+                let mpSideloadedKit1: IMPSideloadedKit;
+                let mpSideloadedKit2: IMPSideloadedKit;
 
                 beforeEach(function() {
                     sideloadedKit1 = new MockSideloadedKit('SideloadedKit1', 1);
@@ -3201,6 +3204,7 @@ describe('forwarders', function() {
                     // The received event gets replaced by the last event sent to the forwarder
                     // SideloadedKit11 has received the session start event, but not the Test Event
                     // SideloadedKit22 will receive the Test Event
+
                     window.SideloadedKit11.instance.receivedEvent.EventName.should.not.equal(
                         'Test Event'
                     );

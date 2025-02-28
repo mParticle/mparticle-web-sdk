@@ -93,7 +93,7 @@ describe('Api Client', () => {
                 getConsentState: () => {
                     return consentState;
                 },
-            } as IMParticleUser;
+            } as unknown as IMParticleUser;
         };
 
         mParticle
