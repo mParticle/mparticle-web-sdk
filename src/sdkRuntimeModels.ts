@@ -164,10 +164,11 @@ export interface SDKProduct {
 // https://go.mparticle.com/work/SQDSDKS-6949
 export interface MParticleWebSDK {
     addForwarder(mockForwarder: MPForwarder): void;
-    IdentityType: valueof<typeof IdentityType>;
-    CommerceEventType: valueof<typeof CommerceEventType>;
-    EventType: valueof<typeof EventType>;
-    PromotionType: valueof<typeof PromotionActionType>;
+    IdentityType: typeof IdentityType;
+    CommerceEventType: typeof CommerceEventType;
+    EventType: typeof EventType;
+    PromotionType: typeof PromotionActionType;
+    ProductActionType: typeof ProductActionType;
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
     Consent: SDKConsentApi;
@@ -205,13 +206,15 @@ export interface MParticleWebSDK {
     logError(error: IErrorLogMessage, attrs?: SDKEventAttrs): void;
     logLink(selector: string, eventName: string, eventType: valueof<typeof EventType>, eventInfo: SDKEventAttrs): void;
     logForm(selector: string, eventName: string, eventType: valueof<typeof EventType>, eventInfo: SDKEventAttrs): void;
-    logPageView(eventName: string, attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): void;
+    logPageView(eventName?: string, attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): void;
     setOptOut(isOptingOut: boolean): void;
     eCommerce: SDKECommerceAPI;
     isInitialized(): boolean;
-    ProductActionType: valueof<typeof ProductActionType>;
     ready(f: Function): void;
-    reset(instance: IMParticleWebSDKInstance): void;
+
+    // https://go.mparticle.com/work/SQDSDKS-7072
+    reset(instance?: IMParticleWebSDKInstance): void;
+
     setAppName(name: string): void;
     setAppVersion(version: string): void;
     setOptOut(isOptingOut: boolean): void;
