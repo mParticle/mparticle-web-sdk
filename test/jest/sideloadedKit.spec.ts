@@ -5,7 +5,11 @@ import { UnregisteredKit } from '../../src/forwarders.interfaces';
 import { IKitFilterSettings } from '../../src/configAPIClient';
 
 const mockKitInstance: UnregisteredKit = {
-    register: function() {}
+    register: function() {},
+    name: 'mock-kit',
+    // constructor: class {
+    //     constructor() {}
+    // } as new () => IMPForwarder
 };
 
 describe('MPSideloadedKit', () => {

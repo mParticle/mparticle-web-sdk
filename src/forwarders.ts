@@ -1,13 +1,17 @@
-import Types from './types';
+import Types, { EventType } from './types';
 import filteredMparticleUser from './filteredMparticleUser';
-import { isEmpty } from './utils';
+import { inArray, isEmpty, valueof } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
 import APIClient from './apiClient';
+import { IMPForwarder } from './forwarders.interfaces';
+import { IMParticleWebSDKInstance } from './mp-instance';
+import KitBlocker from './kitBlocking';
+import { IKitConfigs } from './configAPIClient';
 
 const { Modify, Identify, Login, Logout } = Constants.IdentityMethods;
 
-export default function Forwarders(mpInstance, kitBlocker) {
+export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWebSDKInstance, kitBlocker: KitBlocker) {
     var self = this;
     this.forwarderStatsUploader = new APIClient(
         mpInstance,
@@ -169,7 +173,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                             mpInstance.Logger.verbose(result);
                         }
                     } catch (e) {
-                        mpInstance.Logger.verbose(e);
+                        mpInstance.Logger.verbose(e as string);
                     }
                 }
             });
@@ -184,7 +188,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 if (event.UserIdentities && event.UserIdentities.length) {
                     event.UserIdentities.forEach(function(userIdentity, i) {
                         if (
-                            mpInstance._Helpers.inArray(
+                            inArray(
                                 filterList,
                                 KitFilterHelper.hashUserIdentity(
                                     userIdentity.Type
@@ -215,7 +219,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                             attrName
                         );
 
-                        if (mpInstance._Helpers.inArray(filterList, hash)) {
+                        if (inArray(filterList, hash)) {
                             delete event.EventAttributes[attrName];
                         }
                     }
@@ -223,7 +227,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
             },
             inFilteredList = function(filterList, hash) {
                 if (filterList && filterList.length) {
-                    if (mpInstance._Helpers.inArray(filterList, hash)) {
+                    if (inArray(filterList, hash)) {
                         return true;
                     }
                 }
@@ -242,10 +246,13 @@ export default function Forwarders(mpInstance, kitBlocker) {
         ) {
             hashedEventName = KitFilterHelper.hashEventName(
                 event.EventName,
-                event.EventCategory
-            );
+
+                // FIXME: Set up union of EventType and EventCategory
+                event.EventCategory as valueof<typeof EventType>
+             );
             hashedEventType = KitFilterHelper.hashEventType(
-                event.EventCategory
+                // FIXME: Set up union of EventType and EventCategory
+                event.EventCategory as valueof<typeof EventType>
             );
 
             for (
@@ -260,6 +267,8 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 // Supported message types for attribute forwarding rules are defined in the forwardingRuleMessageTypes array
 
                 if (
+                    // FIXME:
+                    // @ts-expect-error
                     forwardingRuleMessageTypes.indexOf(event.EventDataType) >
                         -1 &&
                     mpInstance._Store.activeForwarders[i]
@@ -443,7 +452,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     mpInstance.Logger.verbose(result);
                 }
             } catch (e) {
-                mpInstance.Logger.error(e);
+                mpInstance.Logger.error(e as string);
             }
         });
     };
@@ -710,11 +719,12 @@ export default function Forwarders(mpInstance, kitBlocker) {
     // kits can be included via mParticle UI, or via sideloaded kit config API
     this.configureSideloadedKit = function(kitConstructor) {
         mpInstance._Store.configuredForwarders.push(
-            this.returnConfiguredKit(kitConstructor, kitConstructor.filters)
+            // FIXME: Figure out why filters should be typed as IKitConfigs
+            this.returnConfiguredKit(kitConstructor, kitConstructor.filters as IKitConfigs)
         );
     };
 
-    this.returnConfiguredKit = function(forwarder, config = {}) {
+    this.returnConfiguredKit = function(forwarder, config = {} as IKitConfigs) {
         const newForwarder = new forwarder.constructor();
         newForwarder.id = config.moduleId;
 

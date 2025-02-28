@@ -66,7 +66,7 @@ describe('Old model to batch model conversion', () => {
                     getConsentState: () => {
                         return null;
                     },
-                } as IMParticleUser;
+                } as unknown as IMParticleUser;
             };
 
             const publicEvent = {
@@ -143,7 +143,7 @@ describe('Old model to batch model conversion', () => {
                 getConsentState: () => {
                     return null;
                 },
-            } as IMParticleUser;
+            } as unknown as IMParticleUser;
         };
         const publicEvent = {
             messageType: Types.MessageType.PageEvent,

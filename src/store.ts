@@ -30,7 +30,7 @@ import {
     returnConvertedBoolean,
 } from './utils';
 import { IMinifiedConsentJSONObject, SDKConsentState } from './consent';
-import { Kit, MPForwarder } from './forwarders.interfaces';
+import { IMPForwarder, Kit, MPForwarder } from './forwarders.interfaces';
 import { IdentityCallback, UserAttributes } from './identity-user-interfaces';
 import {
     IGlobalStoreV2MinifiedKeys,
@@ -69,6 +69,7 @@ export interface SDKConfig {
     identifyRequest: IdentifyRequest;
     identityCallback: IdentityCallback;
     integrationDelayTimeout: number;
+    // sideloadedKits: IMPSideloadedKit[];
     sideloadedKits: MPForwarder[];
     aliasMaxWindow: number;
     deviceId?: string;
@@ -176,10 +177,10 @@ export interface IStore {
     isLocalStorageAvailable: boolean | null;
     storageName: string | null;
     prodStorageName: string | null;
-    activeForwarders: MPForwarder[];
-    kits: Dictionary<MPForwarder>;
-    sideloadedKits: MPForwarder[];
-    configuredForwarders: MPForwarder[];
+    activeForwarders: IMPForwarder[];
+    kits: Dictionary<IMPForwarder>;
+    sideloadedKits: IMPForwarder[];
+    configuredForwarders: IMPForwarder[];
     pixelConfigurations: IPixelConfiguration[];
     integrationDelayTimeoutStart: number; // UNIX Timestamp
     webviewBridgeEnabled?: boolean;

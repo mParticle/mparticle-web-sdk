@@ -1,7 +1,7 @@
 import { convertEvent } from './sdkToEventsApiConverter';
-import { SDKEvent, MParticleWebSDK, KitBlockerDataPlan, SDKProduct } from './sdkRuntimeModels';
+import { SDKEvent, KitBlockerDataPlan, SDKProduct } from './sdkRuntimeModels';
 import { BaseEvent, EventTypeEnum, CommerceEvent, ScreenViewEvent, CustomEvent } from '@mparticle/event-models';
-import Types from './types'
+import Types, { CommerceEventType } from './types'
 import { DataPlanPoint } from '@mparticle/data-planning-models';
 import { IMParticleWebSDKInstance } from './mp-instance';
 
@@ -415,12 +415,12 @@ export default class KitBlocker {
             }
             if (matchedEvent) {
                 switch (event.EventCategory) {
-                    case Types.CommerceEventType.ProductImpression:
+                    case CommerceEventType.ProductImpression:
                         clonedEvent.ProductImpressions.forEach(impression=> {
                             removeAttribute(matchedEvent, impression?.ProductList)
                         });
                         break;
-                    case Types.CommerceEventType.ProductPurchase:
+                    case CommerceEventType.ProductPurchase:
                         removeAttribute(matchedEvent, clonedEvent.ProductAction?.ProductList)
                         break;
                     default: 

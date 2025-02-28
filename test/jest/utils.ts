@@ -40,7 +40,9 @@ export class MockForwarder {
     public register = (config: SDKInitConfig): void => {
         if (config.kits) {
             config.kits[this.name] = {
+                // @ts-ignore
                 constructor: this.constructor,
+                // constructor: this.constructor as { new(): IMPForwarder },
             };
         }
     }
@@ -74,6 +76,7 @@ export class MockForwarder {
     })
 }
 
+// TODO: Can we finally get rid of this?
 // export const MockForwarder = function(forwarderName, forwarderId) {
         // var constructor = function() {
         //     var self = this;
@@ -187,6 +190,8 @@ export class MockForwarder {
         //         instance: this,
         //     };
         // };
+
+// TODO: Move this into the forwarder tests
 export const MockSideloadedKit = MockForwarder;
 
 export interface IMockSideloadedKit extends MockForwarder {
