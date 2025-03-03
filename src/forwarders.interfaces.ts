@@ -111,6 +111,7 @@ export type UserIdentityFilters = typeof IdentityType[];
 export type UserAttributeFilters = number[];
 
 // FIXME: Remove in favor of IKitConfigs.settings
+// https://go.mparticle.com/work/SQDSDKS-7113
 interface ForwarderSettings {
     PriorityValue?: number;
 }
