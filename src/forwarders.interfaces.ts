@@ -19,7 +19,7 @@ export interface Kit {
     // constructor?: new () => IMPForwarder;
     constructor: () => any;
     name: string;
-    getId: () => number, // Should this be optional?
+    getId?: () => number,
     suffix?: string,
 };
 
@@ -30,8 +30,13 @@ export type MPForwarder = Dictionary;
 // or imported as an NPM package
 export interface UnregisteredKit{
     // FIXME: Consider renaming config to kit config?
-    register(config): void;
+    register(config: KitRegistrationConfig): void;
     name: string;
+}
+
+// FIXME: How does this align with unregistered kits?
+export interface KitRegistrationConfig {
+    kits: Dictionary<RegisteredKit>;
 }
 
 // The state of the kit after being added to forwarderConstructors in the CDN
@@ -41,6 +46,8 @@ export interface RegisteredKit {
     // suffix?: string;
     name: string;
     getId(): number;
+
+    // FIXME: Technically this only applies to sideloaded kits
     filters: IKitFilterSettings;
 }
 
@@ -101,8 +108,9 @@ export type forwardingStatsCallback = (
 
 
 export type UserIdentityFilters = typeof IdentityType[];
-export type UserAttributeFilters = string[];
+export type UserAttributeFilters = number[];
 
+// FIXME: Remove in favor of IKitConfigs.settings
 interface ForwarderSettings {
     PriorityValue?: number;
 }
@@ -114,7 +122,7 @@ export interface IMPForwarder {
 
     setForwarderOnUserIdentified: (user: IMParticleUser) => void;
     setForwarderOnIdentityComplete: (user: IMParticleUser, identityMethod: IdentityAPIMethod) => void;
-    handleForwarderUserAttributes: (functionNameKey: string, key: string, value: string) => void;
+    handleForwarderUserAttributes: (functionNameKey: string, key: string, value: string | string[]) => void;
     id: number;
     settings: ForwarderSettings;
     forwarderStatsUploader: AsyncUploader;
@@ -178,7 +186,7 @@ export interface IMPForwarder {
 
     process?: (event: SDKEvent) => string | void;
     name?: string;
-    setUserAttribute?: (key: string, value: string) => string | void;
+    setUserAttribute?: (key: string, value: string | string[]) => string | void;
     removeUserAttribute?: (key: string) => string | void;
     setUserIdentity?: (identity: string, type: number) => string | void;
 

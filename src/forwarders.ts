@@ -4,7 +4,7 @@ import { inArray, isEmpty, isObject, valueof } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
 import APIClient from './apiClient';
-import { IMPForwarder } from './forwarders.interfaces';
+import { IMPForwarder, KitRegistrationConfig } from './forwarders.interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import KitBlocker from './kitBlocking';
 import { IKitConfigs } from './configAPIClient';
@@ -35,6 +35,7 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
         if (!webviewBridgeEnabled && configuredForwarders) {
             // Some js libraries require that they be loaded first, or last, etc
             configuredForwarders.sort(function(x, y) {
+                // https://go.mparticle.com/work/SQDSDKS-7113
                 x.settings.PriorityValue = x.settings.PriorityValue || 0;
                 y.settings.PriorityValue = y.settings.PriorityValue || 0;
                 return (
@@ -662,7 +663,7 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
     this.processSideloadedKits = function(mpConfig) {
         try {
             if (Array.isArray(mpConfig.sideloadedKits)) {
-                const registeredSideloadedKits = { kits: {} };
+                const registeredSideloadedKits: KitRegistrationConfig = { kits: {} };
                 const unregisteredSideloadedKits = mpConfig.sideloadedKits;
 
                 unregisteredSideloadedKits.forEach(function(unregisteredKit) {
