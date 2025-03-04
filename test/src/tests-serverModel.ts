@@ -92,7 +92,7 @@ describe('ServerModel', () => {
                 SessionId: 'test-session-id',
                 SessionStartDate: 0,
                 Timestamp: 0,
-                EventDataType: 0,
+                EventDataType: 4, // PageEvent
                 Debug: true,
                 CurrencyCode: 'USD',
                 ActiveTimeOnSite: 10,
@@ -1501,7 +1501,7 @@ describe('ServerModel', () => {
                     getConsentState: () => {
                         return consentState;
                     },
-                } as IMParticleUser;
+                } as unknown as IMParticleUser;
             };
             let sdkEvent = mParticle
                 .getInstance()

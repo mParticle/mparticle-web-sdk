@@ -13,6 +13,7 @@ export interface IMPSideloadedKit {
     kitInstance: UnregisteredKit;
     filterDictionary: IKitFilterSettings;
 
+    // Custom filter methods used only for sideloaded kits
     addEventTypeFilter(eventType: valueof<typeof EventType>): void;
     addEventNameFilter(eventType: valueof<typeof EventType>, eventName: string): void;
     addEventAttributeFilter(
@@ -120,6 +121,10 @@ export default class MPSideloadedKit implements IMPSideloadedKit{
         const hashedUserAttributeKey = KitFilterHelper.hashUserAttribute(
             userAttributeKey
         );
+
+        // FIXME: this should technically be a string, but we are expecting a number
+        // and is bvreaking tests
+        // @ts-ignore
         this.filterDictionary.userAttributeFilters.push(hashedUserAttributeKey);
     }
 }

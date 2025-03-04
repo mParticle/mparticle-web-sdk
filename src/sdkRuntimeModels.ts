@@ -6,15 +6,16 @@ import {
     SDKEventOptions,
     SDKEventAttrs,
     Callback,
+    UserIdentities,
 } from '@mparticle/web-sdk';
 import { IntegrationAttribute, IntegrationAttributes, IStore, WrapperSDKTypes } from './store';
 import Validators from './validators';
 import { Dictionary, valueof } from './utils';
 import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
-import MPSideloadedKit from './sideloadedKit';
+import MPSideloadedKit, { IMPSideloadedKit } from './sideloadedKit';
 import { ISessionManager } from './sessionManager';
-import { Kit, MPForwarder } from './forwarders.interfaces';
+import { IMPForwarder, Kit  } from './forwarders.interfaces';
 import {
     SDKIdentityApi,
     IAliasCallback,
@@ -26,6 +27,7 @@ import {
     ISDKUserIdentity,
     IdentityCallback,
     ISDKUserAttributes,
+    UserAttributes,
 } from './identity-user-interfaces';
 import {
     CommerceEventType,
@@ -39,6 +41,7 @@ import _BatchValidator from './mockBatchCreator';
 import {  SDKECommerceAPI } from './ecommerce.interfaces';
 import { IErrorLogMessage, IMParticleWebSDKInstance, IntegrationDelays } from './mp-instance';
 import Constants from './constants';
+import { UserAttributeFilters, UserIdentityFilters } from './forwarders.interfaces';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -47,8 +50,9 @@ export interface SDKEvent {
     DeviceId: string;
     IsFirstRun: boolean;
     EventName: string;
+    // EventCategory: valueof<typeof EventType> | valueof<typeof CommerceEventType>;
     EventCategory: number;
-    UserAttributes?: ISDKUserAttributes;
+    UserAttributes?: UserAttributes;
     UserIdentities?: ISDKUserIdentity[];
     SourceMessageId: string;
     MPID: string;
@@ -59,6 +63,7 @@ export interface SDKEvent {
     SessionLength?: number;
     currentSessionMPIDs?: string[];
     Timestamp: number;
+    // EventDataType: valueof<typeof MessageType>;
     EventDataType: number;
     Debug: boolean;
     Location?: SDKGeoLocation;
@@ -163,7 +168,7 @@ export interface SDKProduct {
 
 // https://go.mparticle.com/work/SQDSDKS-6949
 export interface MParticleWebSDK {
-    addForwarder(mockForwarder: MPForwarder): void;
+    addForwarder(forwarder: Kit): void;
     IdentityType: typeof IdentityType;
     CommerceEventType: typeof CommerceEventType;
     EventType: typeof EventType;
@@ -180,7 +185,7 @@ export interface MParticleWebSDK {
     configurePixel(config: IPixelConfiguration): void;
     endSession(): void;
     init(apiKey: string, config: SDKInitConfig, instanceName?: string): void;
-    _getActiveForwarders(): MPForwarder[];
+    _getActiveForwarders(): IMPForwarder[];
     _getIntegrationDelays(): IntegrationDelays;
     _setIntegrationDelay(module: number, shouldDelayIntegration: boolean): void;
     _setWrapperSDKInfo(name: WrapperSDKTypes, version: string): void;
@@ -270,7 +275,7 @@ export interface SDKInitConfig
 
     kitConfigs?: IKitConfigs[];
     kits?: Dictionary<Kit>;
-    sideloadedKits?: MPForwarder[];
+    sideloadedKits?: IMPSideloadedKit[];
     dataPlanOptions?: KitBlockerOptions;
     flags?: Dictionary;
     pixelConfigs?: IPixelConfiguration[];
@@ -314,6 +319,9 @@ export interface SDKHelpersApi {
     createServiceUrl(url: string, devToken?: string): string;
     createXHR?(cb: () => void): XMLHttpRequest;
     extend?(...args: any[]);
+    isFilteredUserAttribute?: (key: string, filterList: UserAttributeFilters) => boolean;
+    filterUserAttributes?: (userAttributes: UserAttributes, filterList: UserAttributeFilters) => ISDKUserAttributes;
+    filterUserIdentities?: (userIdentities: UserIdentities, filterList: UserIdentityFilters) => ISDKUserIdentity[];
     findKeyInObject?(obj: any, key: string): string;
     parseNumber?(value: string | number): number;
     generateUniqueId();
@@ -371,8 +379,10 @@ export interface SDKConfigApi {
 }
 
 export interface BaseEvent {
+    // messageType: valueof<typeof MessageType>;
     messageType: number;
     name?: string;
+    // eventType?: valueof<typeof EventType> | valueof<typeof CommerceEventType>;
     eventType?: number;
     data?: SDKEventAttrs;
     customFlags?: { [key: string]: string };
