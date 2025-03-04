@@ -319,7 +319,7 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
                 }
 
                 // Clone the event object, as we could be sending different attributes to each forwarder
-                clonedEvent = {};
+                clonedEvent = {} as SDKEvent;
                 clonedEvent = mpInstance._Helpers.extend(
                     true,
                     clonedEvent,

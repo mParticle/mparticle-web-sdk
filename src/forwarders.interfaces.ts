@@ -149,7 +149,7 @@ export interface IMPForwarder {
     screenAttributeFilters: number[];
 
 
-    // Side loaded kit functioanlity in Forwarder methods
+    // Side loaded kit functionality in Forwarder methods
     kitInstance: UnregisteredKit;
 
     // https://go.mparticle.com/work/SQDSDKS-5156
@@ -206,10 +206,4 @@ export interface IMPForwarder {
     processUIEnabledKits: (config: SDKInitConfig) => void;
     returnKitConstructors: () =>  Dictionary<RegisteredKit>;
     configureUIEnabledKit: (config: IKitConfigs, kitConstructor: Dictionary<RegisteredKit>) => void;
-    
-    getKitConstructors: () => RegisteredKit[];
-    getKitInstance: (kitName: string) => UnregisteredKit;
-    getKitInstanceByConstructor: (kitConstructor: RegisteredKit) => UnregisteredKit;
-    getKitInstanceByConstructorName: (kitConstructorName: string) => UnregisteredKit;
-    getKitInstanceByConstructorSuffix: (kitConstructorSuffix: string) => UnregisteredKit;
 }
