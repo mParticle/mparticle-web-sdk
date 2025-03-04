@@ -185,20 +185,19 @@ export interface IMPForwarder {
     isEnabledForUserAttributes: (filterObject?: IFilteringUserAttributeValue, user?: IMParticleUser) => boolean;
     isEnabledForUnknownUser: (excludeAnonymousUserBoolean: boolean, user: IMParticleUser) => boolean;
 
-    process?: (event: SDKEvent) => string | void;
     name?: string;
-    setUserAttribute?: (key: string, value: string | string[]) => string | void;
-    removeUserAttribute?: (key: string) => string | void;
-    setUserIdentity?: (identity: string, type: number) => string | void;
-
-    // Techically these do not return a value, but we sometimes
-    // debug message as a string
+    
+    // Techically these do not return a value, but we sometimes use a string as a debug message
     onUserIdentified?: (user: IMParticleUser, identityApiData?: IdentityApiData) => string;
     onIdentifyComplete?: (user: IMParticleUser, identityApiData: IdentityApiData) => string;
     onLoginComplete?: (user: IMParticleUser, identityApiData: IdentityApiData) => string;
     onLogoutComplete?: (user: IMParticleUser, identityApiData: IdentityApiData) => string;
     onModifyComplete?: (user: IMParticleUser, identityApiData: IdentityApiData) => string;
     setOptOut: (optOut: boolean) => string;
+    setUserAttribute?: (key: string, value: string | string[]) => string;
+    removeUserAttribute?: (key: string) => string;
+    process?: (event: SDKEvent) => string;
+    setUserIdentity?: (identity: string, type: number) => string;
 
     getForwarderStatsQueue: () => IForwardingStatsData[];
     setForwarderStatsQueue: (queue: IForwardingStatsData[]) => void;
