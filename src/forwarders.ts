@@ -1,4 +1,4 @@
-import Types, { EventType } from './types';
+import Types, { EventType, IdentityType } from './types';
 import filteredMparticleUser from './filteredMparticleUser';
 import { inArray, isEmpty, isObject, valueof } from './utils';
 import KitFilterHelper from './kitFilterHelper';
@@ -8,6 +8,8 @@ import { IMPForwarder, KitRegistrationConfig } from './forwarders.interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import KitBlocker from './kitBlocking';
 import { IKitConfigs } from './configAPIClient';
+import { UserAttributes } from './identity-user-interfaces';
+import { SDKEvent } from './sdkRuntimeModels';
 
 const { Modify, Identify, Login, Logout } = Constants.IdentityMethods;
 
