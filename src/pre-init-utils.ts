@@ -6,7 +6,6 @@ import { isEmpty, isFunction } from './utils';
 export interface IPreInit {
     readyQueue: Function[] | any[];
     integrationDelays: IntegrationDelays;
-
     forwarderConstructors: Kit[];
     pixelConfigurations?: IPixelConfiguration[];
     isDevelopmentMode?: boolean;

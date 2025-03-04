@@ -3205,7 +3205,6 @@ describe('forwarders', function() {
                     // SideloadedKit11 has received the session start event, but not the Test Event
                     // SideloadedKit22 will receive the Test Event
 
-                    console.log('EventName', window.SideloadedKit11.instance.receivedEvent.EventName);
                     window.SideloadedKit11.instance.receivedEvent.EventName.should.not.equal(
                         'Test Event'
                     );

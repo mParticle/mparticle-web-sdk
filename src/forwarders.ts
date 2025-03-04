@@ -1,15 +1,16 @@
-import Types, { EventType, IdentityType } from './types';
+import { EventType, IdentityType, MessageType } from './types';
 import filteredMparticleUser from './filteredMparticleUser';
-import { inArray, isEmpty, isObject, valueof } from './utils';
+import { inArray, isEmpty, valueof } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
 import APIClient from './apiClient';
-import { IMPForwarder, KitRegistrationConfig } from './forwarders.interfaces';
+import { IMPForwarder, KitRegistrationConfig, UserAttributeFilters, UserIdentityFilters } from './forwarders.interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import KitBlocker from './kitBlocking';
-import { IKitConfigs } from './configAPIClient';
-import { UserAttributes } from './identity-user-interfaces';
+import { IFilteringUserAttributeValue, IKitConfigs } from './configAPIClient';
+import { IMParticleUser, ISDKUserAttributes, ISDKUserIdentity, UserAttributes } from './identity-user-interfaces';
 import { SDKEvent } from './sdkRuntimeModels';
+import { Callback, UserIdentities } from '@mparticle/web-sdk';
 
 const { Modify, Identify, Login, Logout } = Constants.IdentityMethods;
 
@@ -25,8 +26,8 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
         removeUserAttribute: 'removeUserAttribute',
     };
 
-    this.initForwarders = function(userIdentities, forwardingStatsCallback) {
-        const user = mpInstance.Identity.getCurrentUser();
+    this.initForwarders = (userIdentities: UserIdentities, forwardingStatsCallback: Callback) => {
+        const user: IMParticleUser = mpInstance.Identity.getCurrentUser();
         const {
             webviewBridgeEnabled,
             configuredForwarders,
@@ -45,7 +46,7 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
                 );
             });
 
-            mpInstance._Store.activeForwarders = configuredForwarders.filter((forwarder) => {
+            mpInstance._Store.activeForwarders = configuredForwarders.filter((forwarder: IMPForwarder) => {
                 if (
                     !isEnabledForUserConsent(
                         forwarder.filteringConsentRuleValues,
@@ -71,11 +72,11 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
                     return false;
                 }
 
-                const filteredUserIdentities = filterUserIdentities(
+                const filteredUserIdentities: ISDKUserIdentity[] = filterUserIdentities(
                     userIdentities,
                     forwarder.userIdentityFilters
                 );
-                const filteredUserAttributes = filterUserAttributes(
+                const filteredUserAttributes: ISDKUserAttributes = filterUserAttributes(
                     user ? user.getAllUserAttributes() : {},
                     forwarder.userAttributeFilters
                 );
@@ -101,15 +102,15 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
         }
     };
 
-    this.isEnabledForUserAttributes = function(filterObject, user) {
+    this.isEnabledForUserAttributes = (filterObject: IFilteringUserAttributeValue, user: IMParticleUser) => {
         const { hashAttributeConditionalForwarding } = KitFilterHelper;
         if (isEmpty(filterObject)) {
             return true;
         }
 
-        let attrHash;
-        let valueHash;
-        let userAttributes;
+        let attrHash: string;
+        let valueHash: string;
+        let userAttributes: UserAttributes;
 
         if (!user) {
             return false;
@@ -117,20 +118,22 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
             userAttributes = user.getAllUserAttributes();
         }
 
+        const {
+            userAttributeName,
+            userAttributeValue,
+            includeOnMatch
+        } = filterObject;
+
         let isMatch = false;
 
         try {
-            // QUESTION: Do we need to check if userAttributes is an object?
-            if (!isEmpty(userAttributes) && isObject(userAttributes)) {
+            if (!isEmpty(userAttributes)) {
                 for (const attrName in userAttributes) {
                     if (userAttributes.hasOwnProperty(attrName)) {
                         attrHash = hashAttributeConditionalForwarding(attrName);
-                        valueHash = hashAttributeConditionalForwarding(userAttributes[attrName]);
+                        valueHash = hashAttributeConditionalForwarding(userAttributes[attrName] as string);
 
-                        if (
-                            attrHash === filterObject.userAttributeName &&
-                            valueHash === filterObject.userAttributeValue
-                        ) {
+                        if (attrHash === userAttributeName && valueHash === userAttributeValue) {
                             isMatch = true;
                             break;
                         }
@@ -138,14 +141,14 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
                 }
             }
 
-            return filterObject ? filterObject.includeOnMatch === isMatch : true;
+            return filterObject ? includeOnMatch === isMatch : true;
         } catch (e) {
             // in any error scenario, err on side of returning true and forwarding event
             return true;
         }
     };
 
-    this.isEnabledForUnknownUser = function(excludeAnonymousUserBoolean, user) {
+    this.isEnabledForUnknownUser = (excludeAnonymousUserBoolean: boolean, user: IMParticleUser) => {
         if (!user || !user.isLoggedIn()) {
             if (excludeAnonymousUserBoolean) {
                 return false;
@@ -154,132 +157,120 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
         return true;
     };
 
-    this.applyToForwarders = function(functionName, functionArgs) {
-        if (mpInstance._Store.activeForwarders.length) {
-            mpInstance._Store.activeForwarders.forEach(function(forwarder) {
-                var forwarderFunction = forwarder[functionName];
-                if (forwarderFunction) {
-                    try {
-                        var result = forwarder[functionName](functionArgs);
+    this.applyToForwarders = (functionName: string, functionArgs: any[]) => {
+        const activeForwarders: IMPForwarder[] = mpInstance._Store.activeForwarders;
 
-                        if (result) {
-                            mpInstance.Logger.verbose(result);
-                        }
-                    } catch (e) {
-                        mpInstance.Logger.verbose(e as string);
+        if (!activeForwarders) {
+            return;
+        }
+        activeForwarders.forEach(function(forwarder) {
+            const forwarderFunction: IMPForwarder = forwarder[functionName];
+            if (forwarderFunction) {
+                try {
+                    const result: string = forwarder[functionName](functionArgs);
+
+                    if (result) {
+                        mpInstance.Logger.verbose(result);
+                    }
+                } catch (e) {
+                    mpInstance.Logger.verbose(e as string);
+                }
+            }
+        });
+    };
+
+    this.sendEventToForwarders = (event: SDKEvent) => {
+        const { webviewBridgeEnabled, activeForwarders } = mpInstance._Store;
+
+        let clonedEvent: SDKEvent;
+        let hashedEventName: number;
+        let hashedEventType: number;
+
+        const { hashUserIdentity } = KitFilterHelper;
+
+        const filterUserIdentities = (event: SDKEvent, filterList: UserIdentityFilters) => {
+            if (isEmpty(event.UserIdentities)) {
+                return;
+            }
+            event.UserIdentities.forEach(function(userIdentity: typeof IdentityType, index: number) {
+                const hash: number = hashUserIdentity(userIdentity.Type);
+                if (inArray(filterList, hash)) {
+                    event.UserIdentities.splice(index, 1);
+
+                    if (index > 0) {
+                        index--;
                     }
                 }
             });
-        }
-    };
+        };
 
-    this.sendEventToForwarders = function(event) {
-        var clonedEvent,
-            hashedEventName,
-            hashedEventType,
-            filterUserIdentities = function(event, filterList) {
-                if (event.UserIdentities && event.UserIdentities.length) {
-                    event.UserIdentities.forEach(function(userIdentity, i) {
-                        if (
-                            inArray(
-                                filterList,
-                                KitFilterHelper.hashUserIdentity(
-                                    userIdentity.Type
-                                )
-                            )
-                        ) {
-                            event.UserIdentities.splice(i, 1);
+        const filterAttributes = (event: SDKEvent, filterList: UserAttributeFilters) => {
+            let hash: number;
 
-                            if (i > 0) {
-                                i--;
-                            }
-                        }
-                    });
-                }
-            },
-            filterAttributes = function(event, filterList) {
-                var hash;
+            if (isEmpty(filterList)) {
+                return;
+            }
 
-                if (!filterList) {
-                    return;
-                }
+            for (const attrName in event.EventAttributes) {
+                if (event.EventAttributes.hasOwnProperty(attrName)) {
+                    hash = KitFilterHelper.hashEventAttributeKey(
+                        event.EventCategory as valueof<typeof EventType>,
+                        event.EventName,
+                        attrName
+                    );
 
-                for (var attrName in event.EventAttributes) {
-                    if (event.EventAttributes.hasOwnProperty(attrName)) {
-                        hash = KitFilterHelper.hashEventAttributeKey(
-                            event.EventCategory,
-                            event.EventName,
-                            attrName
-                        );
-
-                        if (inArray(filterList, hash)) {
-                            delete event.EventAttributes[attrName];
-                        }
-                    }
-                }
-            },
-            inFilteredList = function(filterList, hash) {
-                if (filterList && filterList.length) {
                     if (inArray(filterList, hash)) {
-                        return true;
+                        delete event.EventAttributes[attrName];
                     }
                 }
+            }
+        };
 
-                return false;
-            },
-            forwardingRuleMessageTypes = [
-                Types.MessageType.PageEvent,
-                Types.MessageType.PageView,
-                Types.MessageType.Commerce,
-            ];
+        const inFilteredList = (filterList: UserAttributeFilters, hash: number) => !isEmpty(filterList) && inArray(filterList, hash);
 
-        if (
-            !mpInstance._Store.webviewBridgeEnabled &&
-            mpInstance._Store.activeForwarders
-        ) {
-            hashedEventName = KitFilterHelper.hashEventName(
+        const forwardingRuleMessageTypes = [
+            MessageType.PageEvent,
+            MessageType.PageView,
+            MessageType.Commerce,
+        ];
+
+        if (!webviewBridgeEnabled && activeForwarders) {
+            const { hashEventName, hashEventType, hashAttributeConditionalForwarding } = KitFilterHelper;
+            hashedEventName = hashEventName(
                 event.EventName,
 
                 // FIXME: Set up union of EventType and EventCategory
                 event.EventCategory as valueof<typeof EventType>
-             );
-            hashedEventType = KitFilterHelper.hashEventType(
+            );
+            hashedEventType = hashEventType(
                 // FIXME: Set up union of EventType and EventCategory
                 event.EventCategory as valueof<typeof EventType>
             );
 
-            for (
-                var i = 0;
-                i < mpInstance._Store.activeForwarders.length;
-                i++
-            ) {
+            for (let i = 0; i < activeForwarders.length; i++) {
                 // Check attribute forwarding rule. This rule allows users to only forward an event if a
                 // specific attribute exists and has a specific value. Alternatively, they can specify
                 // that an event not be forwarded if the specified attribute name and value exists.
                 // The two cases are controlled by the "includeOnMatch" boolean value.
                 // Supported message types for attribute forwarding rules are defined in the forwardingRuleMessageTypes array
 
+                const { filteringEventAttributeValue } = activeForwarders[i];
+
                 if (
                     // FIXME:
                     // @ts-expect-error
                     forwardingRuleMessageTypes.indexOf(event.EventDataType) >
                         -1 &&
-                    mpInstance._Store.activeForwarders[i]
-                        .filteringEventAttributeValue &&
-                    mpInstance._Store.activeForwarders[i]
-                        .filteringEventAttributeValue.eventAttributeName &&
-                    mpInstance._Store.activeForwarders[i]
-                        .filteringEventAttributeValue.eventAttributeValue
+                    filteringEventAttributeValue &&
+                    filteringEventAttributeValue.eventAttributeName &&
+                    filteringEventAttributeValue.eventAttributeValue
                 ) {
-                    var foundProp = null;
+                    let foundProp = null;
 
                     // Attempt to find the attribute in the collection of event attributes
                     if (event.EventAttributes) {
-                        for (var prop in event.EventAttributes) {
-                            var hashedEventAttributeName;
-                            hashedEventAttributeName = KitFilterHelper.hashAttributeConditionalForwarding(
-                                prop
-                            );
+                        for (const prop in event.EventAttributes) {
+                            const hashedEventAttributeName = hashAttributeConditionalForwarding(prop);
 
                             if (
                                 hashedEventAttributeName ===
@@ -301,19 +292,11 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
                         }
                     }
 
-                    var isMatch =
-                        foundProp !== null &&
-                        foundProp.value ===
-                            mpInstance._Store.activeForwarders[i]
-                                .filteringEventAttributeValue
-                                .eventAttributeValue;
+                    const isMatch = foundProp !== null && foundProp.value === activeForwarders[i].filteringEventAttributeValue.eventAttributeValue;
 
-                    var shouldInclude =
-                        mpInstance._Store.activeForwarders[i]
-                            .filteringEventAttributeValue.includeOnMatch ===
-                        true
-                            ? isMatch
-                            : !isMatch;
+                    const shouldInclude = activeForwarders[i].filteringEventAttributeValue.includeOnMatch === true
+                        ? isMatch
+                        : !isMatch;
 
                     if (!shouldInclude) {
                         continue;
@@ -329,20 +312,20 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
                 );
                 // Check event filtering rules
                 if (
-                    event.EventDataType === Types.MessageType.PageEvent &&
+                    event.EventDataType === MessageType.PageEvent &&
                     (inFilteredList(
-                        mpInstance._Store.activeForwarders[i].eventNameFilters,
+                        activeForwarders[i].eventNameFilters,
                         hashedEventName
                     ) ||
                         inFilteredList(
-                            mpInstance._Store.activeForwarders[i]
+                            activeForwarders[i]
                                 .eventTypeFilters,
                             hashedEventType
                         ))
                 ) {
                     continue;
                 } else if (
-                    event.EventDataType === Types.MessageType.Commerce &&
+                    event.EventDataType === MessageType.Commerce &&
                     inFilteredList(
                         mpInstance._Store.activeForwarders[i].eventTypeFilters,
                         hashedEventType
@@ -350,7 +333,7 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
                 ) {
                     continue;
                 } else if (
-                    event.EventDataType === Types.MessageType.PageView &&
+                    event.EventDataType === MessageType.PageView &&
                     inFilteredList(
                         mpInstance._Store.activeForwarders[i].screenNameFilters,
                         hashedEventName
@@ -361,14 +344,14 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
 
                 // Check attribute filtering rules
                 if (clonedEvent.EventAttributes) {
-                    if (event.EventDataType === Types.MessageType.PageEvent) {
+                    if (event.EventDataType === MessageType.PageEvent) {
                         filterAttributes(
                             clonedEvent,
                             mpInstance._Store.activeForwarders[i]
                                 .attributeFilters
                         );
                     } else if (
-                        event.EventDataType === Types.MessageType.PageView
+                        event.EventDataType === MessageType.PageView
                     ) {
                         filterAttributes(
                             clonedEvent,
@@ -381,23 +364,21 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
                 // Check user identity filtering rules
                 filterUserIdentities(
                     clonedEvent,
-                    mpInstance._Store.activeForwarders[i].userIdentityFilters
+                    activeForwarders[i].userIdentityFilters
                 );
 
                 // Check user attribute filtering rules
                 clonedEvent.UserAttributes = mpInstance._Helpers.filterUserAttributes(
                     clonedEvent.UserAttributes,
-                    mpInstance._Store.activeForwarders[i].userAttributeFilters
+                    activeForwarders[i].userAttributeFilters
                 );
 
-                if (mpInstance._Store.activeForwarders[i].process) {
+                if (activeForwarders[i].process) {
                     mpInstance.Logger.verbose(
                         'Sending message to forwarder: ' +
-                            mpInstance._Store.activeForwarders[i].name
+                            activeForwarders[i].name
                     );
-                    var result = mpInstance._Store.activeForwarders[i].process(
-                        clonedEvent
-                    );
+                    const result = activeForwarders[i].process(clonedEvent);
 
                     if (result) {
                         mpInstance.Logger.verbose(result);
