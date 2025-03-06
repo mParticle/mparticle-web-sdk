@@ -125,6 +125,12 @@ const integrationMapping: IntegrationIdMapping = {
         mappedKey: 'tiktok_cookie_id',
         output: IntegrationOutputs.PARTNER_IDENTITIES,
     },
+
+    // Snapchat
+    ScCid: {
+        mappedKey: 'SnapchatConversions.ClickId',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
+    },
 };
 
 export default class IntegrationCapture {
