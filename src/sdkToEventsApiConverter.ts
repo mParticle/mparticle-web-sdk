@@ -489,11 +489,14 @@ export function convertAST(
     const commonEventData: EventsApi.CommonEventData = convertBaseEventData(
         sdkEvent
     );
+
+    // Determine the transition type based on IsBackgroundAST flag
+    const transitionType = sdkEvent.IsBackgroundAST
+        ? EventsApi.ApplicationStateTransitionEventDataApplicationTransitionTypeEnum.applicationBackground
+        : EventsApi.ApplicationStateTransitionEventDataApplicationTransitionTypeEnum.applicationInitialized;
+
     let astEventData: EventsApi.ApplicationStateTransitionEventData = {
-        application_transition_type:
-            EventsApi
-                .ApplicationStateTransitionEventDataApplicationTransitionTypeEnum
-                .applicationInitialized,
+        application_transition_type: transitionType,
         is_first_run: sdkEvent.IsFirstRun,
         is_upgrade: false,
         launch_referral: sdkEvent.LaunchReferral,

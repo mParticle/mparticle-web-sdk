@@ -2,7 +2,7 @@ import { Batch } from '@mparticle/event-models';
 import Constants from './constants';
 import { SDKEvent, SDKLoggerApi } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
-import { MessageType } from './types';
+import { MessageType, EventType } from './types';
 import { getRampNumber, isEmpty } from './utils';
 import { SessionStorageVault, LocalStorageVault } from './vault';
 import {
@@ -44,6 +44,8 @@ export class BatchUploader {
     private batchVault: LocalStorageVault<Batch[]>;
     private offlineStorageEnabled: boolean = false;
     private uploader: AsyncUploader;
+    private lastASTEventTime: number = 0;
+    private readonly AST_DEBOUNCE_MS: number = 1000; // 1 second debounce
 
     /**
      * Creates an instance of a BatchUploader
@@ -129,21 +131,68 @@ export class BatchUploader {
         return offlineStoragePercentage >= rampNumber;
     }
 
+    private shouldDebounceAST(): boolean {
+        const now = Date.now();
+        if (now - this.lastASTEventTime < this.AST_DEBOUNCE_MS) {
+            return true;
+        }
+
+        this.lastASTEventTime = now;
+
+        return false;
+    }
+
+    private createBackgroundASTEvent(): SDKEvent {
+        const now = Date.now();
+        const { _Store } = this.mpInstance;
+        return {
+            EventDataType: MessageType.AppStateTransition,
+            EventName: 'Application Exit',
+            EventCategory: EventType.Other,
+            Timestamp: now,
+            SessionId: _Store.sessionId,
+            MPID: this.mpInstance.Identity.getCurrentUser()?.getMPID(),
+            DeviceId: _Store.deviceId,
+            IsFirstRun: false,
+            SourceMessageId: '',
+            SDKVersion: Constants.sdkVersion,
+            CustomFlags: {},
+            UserAttributes: {},
+            UserIdentities: [],
+            SessionStartDate: _Store.sessionStartDate?.getTime() || now,
+            Debug: _Store.SDKConfig.isDevelopmentMode,
+            CurrencyCode: null,
+            ExpandedEventCount: 0,
+            ActiveTimeOnSite: this.mpInstance._timeOnSiteTimer?.getTimeInForeground() || 0,
+            IsBackgroundAST: true
+        };
+    }
+
     // Adds listeners to be used trigger Navigator.sendBeacon if the browser
     // loses focus for any reason, such as closing browser tab or minimizing window
     private addEventListeners() {
         const _this = this;
 
+        const handleExit = () => {
+            // Check for debounce before creating and queueing event
+            if (_this.shouldDebounceAST()) {
+                return;
+            }
+            // Add application state transition event to queue
+            const event = _this.createBackgroundASTEvent();
+            _this.queueEvent(event);
+            // Then trigger the upload with beacon
+            _this.prepareAndUpload(false, _this.isBeaconAvailable());
+        };
+
         // visibility change is a document property, not window
         document.addEventListener('visibilitychange', () => {
-            _this.prepareAndUpload(false, _this.isBeaconAvailable());
+            if (document.visibilityState === 'hidden') {
+                handleExit();
+            }
         });
-        window.addEventListener('beforeunload', () => {
-            _this.prepareAndUpload(false, _this.isBeaconAvailable());
-        });
-        window.addEventListener('pagehide', () => {
-            _this.prepareAndUpload(false, _this.isBeaconAvailable());
-        });
+        window.addEventListener('beforeunload', handleExit);
+        window.addEventListener('pagehide', handleExit);
     }
 
     private isBeaconAvailable(): boolean {
@@ -387,6 +436,7 @@ export class BatchUploader {
                 let blob = new Blob([fetchPayload.body], {
                     type: 'text/plain;charset=UTF-8',
                 });
+
                 navigator.sendBeacon(this.uploadUrl, blob);
             } else {
                 try {
