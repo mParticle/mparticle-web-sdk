@@ -491,9 +491,8 @@ export function convertAST(
     );
 
     // Determine the transition type based on IsBackgroundAST flag
-    const transitionType = sdkEvent.IsBackgroundAST
-        ? EventsApi.ApplicationStateTransitionEventDataApplicationTransitionTypeEnum.applicationBackground
-        : EventsApi.ApplicationStateTransitionEventDataApplicationTransitionTypeEnum.applicationInitialized;
+    const { applicationBackground, applicationInitialized } = EventsApi.ApplicationStateTransitionEventDataApplicationTransitionTypeEnum;
+    const transitionType = sdkEvent.IsBackgroundAST ? applicationBackground : applicationInitialized;
 
     let astEventData: EventsApi.ApplicationStateTransitionEventData = {
         application_transition_type: transitionType,
