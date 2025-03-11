@@ -121,6 +121,12 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
     this.setLogLevel = function(newLogLevel) {
         self.getInstance().setLogLevel(newLogLevel);
     };
+    this.onKitReady = function(moduleId, callback) {
+        self.getInstance().onKitReady(moduleId, callback);
+    };
+    this.kitReady = function(moduleId) {
+        self.getInstance().kitReady(moduleId);
+    };
     this.ready = function(argument) {
         self.getInstance().ready(argument);
     };

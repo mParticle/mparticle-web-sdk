@@ -142,6 +142,14 @@ describe('core SDK', function() {
         expect(readyFuncCalled).equal(true);
     });
 
+    it('should initialize kit listeners when initialized', async () => {
+        mParticle.init(apiKey, window.mParticle.config);
+
+        await waitForCondition(hasIdentityCallInflightReturned);
+
+        expect(mParticle.getInstance()._preInit.kitListeners).eqls({});
+    });
+
     it('should set app version on the payload', function(done) {
         waitForCondition(hasIdentifyReturned)
         .then(() => {

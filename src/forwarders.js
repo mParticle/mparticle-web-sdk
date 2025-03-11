@@ -70,6 +70,12 @@ export default function Forwarders(mpInstance, kitBlocker) {
                         forwarder.userAttributeFilters
                     );
                     if (!forwarder.initialized) {
+                        mpInstance._preInit.kitListeners[forwarder.id] = {
+                            isInitialized: true,
+                            isReady: false,
+                            callbackQueue: [],
+                        };
+
                         forwarder.logger = mpInstance.Logger;
                         forwarder.init(
                             forwarder.settings,

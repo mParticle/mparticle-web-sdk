@@ -85,7 +85,7 @@ const mParticle = window.mParticle as unknown as MockMParticleForForwarders;
 
 let mockServer;
 
-describe('forwarders', function() {
+describe.only('forwarders', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
         delete mParticle._instances['default_instance'];
@@ -2926,6 +2926,137 @@ describe('forwarders', function() {
 
         infoMessage.should.equal('Test Event sent');
     });
+
+    describe('kit listeners', function() {
+        it('should default to an empty object when initialize without forwarders', async () => {
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(mParticle.getInstance()._preInit.kitListeners).eqls({});
+        });
+
+        it('should initialize kit listeners when forwarders are added', async () => {
+            const mockForwarder = new MockForwarder();
+            mParticle.addForwarder(mockForwarder);
+
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder')
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            await waitForCondition(hasIdentityCallInflightReturned);
+
+            expect(mParticle.getInstance()._preInit.kitListeners).to.have.key('1');
+            expect(mParticle.getInstance()._preInit.kitListeners).eqls({ '1': {
+                isInitialized: true,
+                isReady: false,
+                callbackQueue: [],
+            } });
+        });
+
+        it('should update isReady flag when kitReady is called', async () => {
+            const mockForwarder = new MockForwarder();
+            mParticle.addForwarder(mockForwarder);
+
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder')
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentityCallInflightReturned);
+
+            expect(mParticle.getInstance()._preInit.kitListeners).to.have.key('1');
+            expect(mParticle.getInstance()._preInit.kitListeners).eqls({ '1': {
+                isInitialized: true,
+                isReady: false,
+                callbackQueue: [],
+            } });
+
+            mParticle.getInstance().kitReady(1);
+
+            expect(mParticle.getInstance()._preInit.kitListeners).eqls({ '1': {
+                isInitialized: true,
+                isReady: true,
+                callbackQueue: [],
+            } });
+        });
+
+        it('should queue a callback when onKitReady is called BEFORE kitReady is called', async () => {
+            const mockForwarder = new MockForwarder();
+            mParticle.addForwarder(mockForwarder);
+
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder')
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentityCallInflightReturned);
+
+            const callback = sinon.spy();
+
+            mParticle.getInstance().onKitReady(1, callback);
+
+            const kitListeners = mParticle.getInstance()._preInit.kitListeners;
+            expect(kitListeners).to.have.property('1');
+            expect(kitListeners['1'].isInitialized, 'isInitialized').to.be.true;
+            expect(kitListeners['1'].isReady, 'isReady').to.be.false;
+            expect(kitListeners['1'].callbackQueue, 'callbackQueue').to.eql([callback]);
+
+            expect(callback.called).to.be.false;
+        });
+
+        it('should call queued callbacks when kitReady is called', async () => {
+            const mockForwarder = new MockForwarder();
+            mParticle.addForwarder(mockForwarder);
+
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder')
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentityCallInflightReturned);
+
+            // Queue a few callbacks
+            const callback = sinon.spy();
+            mParticle.getInstance().onKitReady(1,  () => {
+                callback('first');
+            });
+            mParticle.getInstance().onKitReady(1,  () => {
+                callback('second');
+            });
+
+            expect(callback.called).to.be.false;
+
+            mParticle.getInstance().kitReady(1);
+
+            // The callbacks should be called in the order they were queued
+            expect(callback.called).to.be.true;
+            expect(callback.args[0][0]).to.equal('first');
+            expect(callback.args[1][0]).to.equal('second');
+        });
+
+        it('should call callbacks when onKitReady is called AFTER kitReady is called', async () => {
+            const mockForwarder = new MockForwarder();
+            mParticle.addForwarder(mockForwarder);
+
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder')
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentityCallInflightReturned);
+
+            const callback = sinon.spy();
+
+            mParticle.getInstance().kitReady(1);
+            expect(callback.called).to.be.false;
+
+            mParticle.getInstance().onKitReady(1, callback);
+
+            expect(callback.called).to.be.true;
+        });
+    });
+
 
     describe('kits with suffixes', function() {
         it('should add forwarders with suffixes and initialize them accordingly if there is a coresponding kit config with the same suffix', function(done) {

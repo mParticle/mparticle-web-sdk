@@ -124,6 +124,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         readyQueue: [],
         integrationDelays: {},
         forwarderConstructors: [],
+        kitListeners: {},
     };
     this._IntegrationCapture = new IntegrationCapture();
 
@@ -237,6 +238,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             pixelConfigurations: [],
             integrationDelays: {},
             forwarderConstructors: [],
+            kitListeners: {},
             isDevelopmentMode: false,
         };
     };
@@ -1267,6 +1269,31 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         }
     };
     // Used by our forwarders
+    this.onKitReady = function(moduleId, callback) {
+        const kitListener = self._preInit.kitListeners[moduleId];
+
+        if (!kitListener) {
+            self.Logger.error('Kit listener not found for moduleId: ' + moduleId);
+            return;
+        }
+
+        kitListener.callbackQueue.push(callback);
+
+        if (kitListener.isReady) {
+            kitListener.callbackQueue.forEach(callback => callback());
+            kitListener.callbackQueue = [];
+        }
+    };
+    this.kitReady = function(moduleId) {
+        const kitListener = self._preInit.kitListeners[moduleId];
+        if (!kitListener) {
+            self.Logger.error('Kit listener not found for moduleId: ' + moduleId);
+            return;
+        }
+        kitListener.isReady = true;
+        kitListener.callbackQueue.forEach(callback => callback());
+        kitListener.callbackQueue = [];
+    };
     this.addForwarder = function(forwarder) {
         self._preInit.forwarderConstructors.push(forwarder);
     };

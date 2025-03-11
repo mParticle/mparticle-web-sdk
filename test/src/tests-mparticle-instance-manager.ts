@@ -213,6 +213,8 @@ describe('mParticle instance manager', () => {
             'isInitialized',
             'getEnvironment',
             'upload',
+            'onKitReady',
+            'kitReady',
         ]);
     });
 

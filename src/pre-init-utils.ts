@@ -3,12 +3,19 @@ import { MPForwarder } from './forwarders.interfaces';
 import { IntegrationDelays } from './mp-instance';
 import { isEmpty, isFunction } from './utils';
 
+export interface KitListener {
+    isReady: boolean;
+    isInitialized: boolean;
+    callbackQueue: Function[];
+}
+
 export interface IPreInit {
     readyQueue: Function[] | any[];
     integrationDelays: IntegrationDelays;
     forwarderConstructors: MPForwarder[];
     pixelConfigurations?: IPixelConfiguration[];
     isDevelopmentMode?: boolean;
+    kitListeners: Record<string, KitListener>;
 }
 
 export const processReadyQueue = (readyQueue): Function[] => {

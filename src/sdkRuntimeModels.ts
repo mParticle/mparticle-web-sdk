@@ -226,6 +226,9 @@ export interface MParticleWebSDK {
     generateHash(value: string): string;
     setIntegrationAttribute(integrationModuleId: number, attrs: IntegrationAttribute): void;
     getIntegrationAttributes(integrationModuleId: number): IntegrationAttribute;
+
+    onKitReady(moduleId: number, callback: Callback): void;
+    kitReady(moduleId: number): void;
 }
 
 // https://go.mparticle.com/work/SQDSDKS-4805
