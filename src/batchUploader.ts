@@ -144,26 +144,27 @@ export class BatchUploader {
 
     private createBackgroundASTEvent(): SDKEvent {
         const now = Date.now();
-        const { _Store } = this.mpInstance;
+        const { _Store, Identity, _timeOnSiteTimer  } = this.mpInstance;
+        const { sessionId, deviceId, sessionStartDate, SDKConfig } = _Store;
         return {
             EventDataType: MessageType.AppStateTransition,
             EventName: 'Application Exit',
             EventCategory: EventType.Other,
             Timestamp: now,
-            SessionId: _Store.sessionId,
-            MPID: this.mpInstance.Identity.getCurrentUser()?.getMPID(),
-            DeviceId: _Store.deviceId,
+            SessionId: sessionId,
+            MPID: Identity.getCurrentUser()?.getMPID(),
+            DeviceId: deviceId,
             IsFirstRun: false,
             SourceMessageId: '',
             SDKVersion: Constants.sdkVersion,
             CustomFlags: {},
             UserAttributes: {},
             UserIdentities: [],
-            SessionStartDate: _Store.sessionStartDate?.getTime() || now,
-            Debug: _Store.SDKConfig.isDevelopmentMode,
+            SessionStartDate: sessionStartDate?.getTime() || now,
+            Debug: SDKConfig.isDevelopmentMode,
             CurrencyCode: null,
             ExpandedEventCount: 0,
-            ActiveTimeOnSite: this.mpInstance._timeOnSiteTimer?.getTimeInForeground() || 0,
+            ActiveTimeOnSite: _timeOnSiteTimer?.getTimeInForeground() || 0,
             IsBackgroundAST: true
         };
     }
@@ -176,6 +177,7 @@ export class BatchUploader {
         const handleExit = () => {
             // Check for debounce before creating and queueing event
             if (_this.shouldDebounceAST()) {
+                this.lastASTEventTime = new Date.now();
                 return;
             }
             // Add application state transition event to queue
