@@ -9,10 +9,10 @@ describe('BatchUploader', () => {
         const now = Date.now();
         jest.useFakeTimers({
             now: now,
-            advanceTimers: true // This is equivalent to Sinon's shouldAdvanceTime
+            advanceTimers: true // This improves the performance of nested timers, equivalent to Sinon's shouldAdvanceTime
         });
         
-        // Create a mock mParticle instance with getFeatureFlag method
+        // Create a mock mParticle instance with mocked methods for instantiating a BatchUploader
         mockMPInstance = {
             _Store: {
                 SDKConfig: {

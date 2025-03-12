@@ -131,6 +131,7 @@ export class BatchUploader {
         return offlineStoragePercentage >= rampNumber;
     }
 
+    // debounce AST just in case multiple events are fired in a short period of time due to browser differences
     private shouldDebounceAndUpdateLastASTTime(): boolean {
         const now = Date.now();
         if (now - this.lastASTEventTime < this.AST_DEBOUNCE_MS) {
