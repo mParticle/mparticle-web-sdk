@@ -26,7 +26,7 @@ const enableBatchingConfigFlags = {
     eventBatchingIntervalMillis: 1000,
 };
 
-describe('batch uploader', () => {
+describe.only('batch uploader', () => {
     let clock;
 
     beforeEach(() => {
@@ -37,6 +37,9 @@ describe('batch uploader', () => {
             is_logged_in: false,
         });
         fetchMock.post(urls.events, 200);
+        window.mParticle.config.flags = {
+            eventBatchingIntervalMillis: 1000,
+        };
     });
 
     afterEach(() => {
@@ -45,17 +48,6 @@ describe('batch uploader', () => {
     });
 
     describe('AST Debouncing events', () => {
-        beforeEach(() => {
-            window.mParticle.config.flags = {
-                eventBatchingIntervalMillis: 1000,
-            };
-            fetchMock.post(urls.events, 200);
-        });
-
-        afterEach(() => {
-            fetchMock.restore();
-        });
-
         it('should only fire a single AST when another visibility event happens within the debounce time window', async () => {
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
@@ -198,19 +190,6 @@ describe('batch uploader', () => {
 
     // TODO: Find a way to test beforeunload property in karma
     describe('AST background events fired during page events', () => {
-        beforeEach(() => {
-            window.mParticle.config.flags = {
-                eventBatchingIntervalMillis: 1000,
-            };
-            fetchMock.post(urls.events, 200);
-        });
-
-        afterEach(() => {
-            fetchMock.restore();
-            if (clock) {
-                clock.restore();
-            }
-        });
 
         it('should add application state transition event when visibility changes to hidden', async () => {
             window.mParticle.init(apiKey, window.mParticle.config);
@@ -479,15 +458,6 @@ describe('batch uploader', () => {
         });
 
         describe('#uploadBatches', () => {
-            beforeEach(() => {
-                window.mParticle.config.flags = {
-                    eventBatchingIntervalMillis: 1000,
-                };
-                fetchMock.post(urls.events, 200);
-            });
-            afterEach(() => {
-                fetchMock.restore();
-            });
 
             it('should reject batches without events', async () => {
                 window.mParticle.init(apiKey, window.mParticle.config);
@@ -756,15 +726,10 @@ describe('batch uploader', () => {
                 is_logged_in: false,
             });
 
-            window.localStorage.clear();
             window.sessionStorage.clear();
         });
         afterEach(() => {
             sinon.restore();
-            fetchMock.restore();
-
-            window.localStorage.clear();
-            window.sessionStorage.clear();
         });
 
         it('should use local storage when enabled', (done) => {
@@ -895,11 +860,6 @@ describe('batch uploader', () => {
             window.localStorage.clear();
         });
 
-        afterEach(() => {
-            window.localStorage.clear();
-            fetchMock.restore();
-        });
-
         it('should not save events or batches in local storage', done => {
             const eventStorageKey = 'mprtcl-v4_abcdef-events';
             const batchStorageKey = 'mprtcl-v4_abcdef-batches';
@@ -952,19 +912,16 @@ describe('batch uploader', () => {
                 ...enableBatchingConfigFlags,
             };
 
-            fetchMock.restore();
             fetchMockSuccess(urls.identify, {
                 mpid: testMPID,
                 is_logged_in: false,
             });
 
             window.sessionStorage.clear();
-            window.localStorage.clear();
         });
 
         afterEach(() => {
             sinon.restore();
-            fetchMock.restore();
         });
 
         it('should store events in Session Storage in order of creation', done => {
