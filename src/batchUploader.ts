@@ -153,7 +153,6 @@ export class BatchUploader {
 
         const event = {
             EventDataType: MessageType.AppStateTransition,
-            EventName: 'Application Exit',
             EventCategory: EventType.Other,
             Timestamp: now,
             SessionId: sessionId,
@@ -181,16 +180,26 @@ export class BatchUploader {
 
         const handleExit = () => {
             // Check for debounce before creating and queueing event
-            if (_this.shouldDebounceAndUpdateLastASTTime()) {
-                return;
+            const {
+                _Helpers: { getFeatureFlag },
+            } = this.mpInstance;
+
+            const flagValue = getFeatureFlag(Constants.FeatureFlags.AstBackgroundEvents);
+            if (flagValue) {
+                console.log('Feature flag value:', flagValue, 'type:', typeof flagValue);
             }
-            // Add application state transition event to queue
-            const event = _this.createBackgroundASTEvent();
-            _this.queueEvent(event);
+
+            if (getFeatureFlag(Constants.FeatureFlags.AstBackgroundEvents)) {
+                if (_this.shouldDebounceAndUpdateLastASTTime()) {
+                    return;
+                }
+                // Add application state transition event to queue
+                const event = _this.createBackgroundASTEvent();
+                _this.queueEvent(event);
+            }
             // Then trigger the upload with beacon
             _this.prepareAndUpload(false, _this.isBeaconAvailable());
         };
-
         // visibility change is a document property, not window
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {

@@ -28,7 +28,7 @@ const enableBatchingConfigFlags = {
 
 describe('batch uploader', () => {
     let clock;
-
+    let beaconSpy;
     beforeEach(() => {
         fetchMock.restore();
         fetchMock.config.overwriteRoutes = true;
@@ -48,8 +48,41 @@ describe('batch uploader', () => {
     });
 
     describe('AST Debouncing events', () => {
+        let originalConfig;
+        beforeEach(async () => {
+            // Set up mParticle config with the feature flag enabled
+             // Store the original config
+            originalConfig = { ...window.mParticle.config };
+
+            window.mParticle.config = {
+                ...window.mParticle.config,
+                flags: {
+                    ...window.mParticle.config.flags,
+                    astBackgroundEvents: "True"
+                }
+            };
+            await Promise.resolve()
+        });
+
+        afterEach(() => {
+            // Clean up the feature flag
+            window.mParticle.config = originalConfig
+            // if (window.mParticle.config.flags) {
+            //     delete window.mParticle.config.flags.astBackgroundEvents;
+            // }
+            if (clock) {
+                clock.restore();
+            }
+            if (beaconSpy) {
+                beaconSpy.restore();
+            }
+        });
+
         it('should only fire a single AST when another visibility event happens within the debounce time window', async () => {
+            window.mParticle._resetForTests(window.mParticle.config);
+
             window.mParticle.init(apiKey, window.mParticle.config);
+
             await waitForCondition(hasIdentifyReturned);
             
             const now = Date.now();
@@ -62,20 +95,20 @@ describe('batch uploader', () => {
             window.mParticle.logEvent('Test Event');
 
             // Mock navigator.sendBeacon
-            const beaconSpy = sinon.spy(navigator, 'sendBeacon');
+            beaconSpy = sinon.spy(navigator, 'sendBeacon');
 
             // Trigger visibility change
             Object.defineProperty(document, 'visibilityState', {
                 configurable: true,
                 get: () => 'hidden'
             });
+
             document.dispatchEvent(new Event('visibilitychange'));
 
             // Run all pending promises
             await Promise.resolve();
             // clock.runAll();
 
-            // Verify that beacon was called
             expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
 
             // Get the beacon call data
@@ -104,7 +137,6 @@ describe('batch uploader', () => {
             expect(lastEvent.event_type).to.equal('application_state_transition');
             expect(lastEvent.data.application_transition_type).to.equal('application_background');
 
-            expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
             // Clean up
             clock.tick(500);
             document.dispatchEvent(new Event('visibilitychange'));
@@ -132,7 +164,7 @@ describe('batch uploader', () => {
             window.mParticle.logEvent('Test Event');
 
             // Mock navigator.sendBeacon
-            const beaconSpy = sinon.spy(navigator, 'sendBeacon');
+            beaconSpy = sinon.spy(navigator, 'sendBeacon');
 
             // Trigger visibility change
             Object.defineProperty(document, 'visibilityState', {
@@ -188,13 +220,26 @@ describe('batch uploader', () => {
         });
     })
 
-    // TODO: Find a way to test beforeunload property in karma
-    describe('AST background events fired during page events', () => {
+    // https://go.mparticle.com/work/
+    describe('AST background events fired during page events', () => { 
+        beforeEach(() => {
+            window.mParticle.config.flags.astBackgroundEvents = "True"
+        });
+
+        afterEach(() => {
+            delete window.mParticle.config.flags.astBackgroundEvents;
+        });
 
         it('should add application state transition event when visibility changes to hidden', async () => {
+            window.mParticle.config.identifyRequest = {
+                userIdentities: {
+                    email: 'test@test.com'
+                }
+            };
+
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
-            
+            window.mParticle.Identity.getCurrentUser().setUserAttribute('foo', 'value');
             const now = Date.now();
             clock = sinon.useFakeTimers({
                 now: now,
@@ -205,7 +250,7 @@ describe('batch uploader', () => {
             window.mParticle.logEvent('Test Event');
 
             // Mock navigator.sendBeacon
-            const beaconSpy = sinon.spy(navigator, 'sendBeacon');
+            beaconSpy = sinon.spy(navigator, 'sendBeacon');
 
             // Trigger visibility change
             Object.defineProperty(document, 'visibilityState', {
@@ -240,13 +285,16 @@ describe('batch uploader', () => {
             expect(beaconData.events, 'Expected beacon data to have events').to.exist;
             expect(beaconData.events.length, 'Expected beacon data to have at least one event').to.be.greaterThan(0);
 
+            expect(beaconData.user_identities.email).to.equal('test@test.com');
+            expect(beaconData.user_attributes.foo).to.equal('value');
+
             // Verify the AST event properties
             const lastEvent = beaconData.events[beaconData.events.length - 1];
 
             expect(lastEvent.event_type).to.equal('application_state_transition');
             expect(lastEvent.data.application_transition_type).to.equal('application_background');
-
             expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
+
             beaconSpy.restore();
             clock.restore();
         });
@@ -266,7 +314,7 @@ describe('batch uploader', () => {
             window.mParticle.logEvent('Test Event');
 
             // Mock navigator.sendBeacon
-            const beaconSpy = sinon.spy(navigator, 'sendBeacon');
+            beaconSpy = sinon.spy(navigator, 'sendBeacon');
 
             // Create event listener that prevents default
             const preventUnload = (e) => {
@@ -327,7 +375,7 @@ describe('batch uploader', () => {
             });
 
             // Mock navigator.sendBeacon
-            const beaconSpy = sinon.spy(navigator, 'sendBeacon');
+            beaconSpy = sinon.spy(navigator, 'sendBeacon');
 
             // Trigger visibility change
             Object.defineProperty(document, 'visibilityState', {

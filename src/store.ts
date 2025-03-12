@@ -138,6 +138,8 @@ export interface IFeatureFlags {
     offlineStorage?: string;
     directURLRouting?: boolean;
     cacheIdentity?: boolean;
+    captureIntegrationSpecificIds?: boolean;
+    astBackgroundEvents?: boolean;
 }
 
 // Temporary Interface until Store can be refactored as a class
@@ -714,6 +716,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
         CacheIdentity,
         AudienceAPI,
         CaptureIntegrationSpecificIds,
+        AstBackgroundEvents
     } = Constants.FeatureFlags;
 
     if (!config.flags) {
@@ -732,6 +735,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[CacheIdentity] = config.flags[CacheIdentity] === 'True';
     flags[AudienceAPI] = config.flags[AudienceAPI] === 'True';
     flags[CaptureIntegrationSpecificIds] = config.flags[CaptureIntegrationSpecificIds] === 'True';
+    flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
 
     return flags;
 }

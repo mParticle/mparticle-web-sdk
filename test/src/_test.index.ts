@@ -3,8 +3,8 @@ import './config/setup';
 
 // Import each test module
 import './tests-mparticle-instance-manager';
-import './tests-identity';
 import './tests-batchUploader';
+import './tests-identity';
 import './tests-core-sdk';
 import './tests-beaconUpload';
 import './tests-kit-blocking';
