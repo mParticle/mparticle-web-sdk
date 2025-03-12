@@ -9,6 +9,7 @@ import { MPForwarder } from './forwarders.interfaces';
 import { IMParticleUser, ISDKUserAttributes } from './identity-user-interfaces';
 import { AsyncUploader, FetchUploader, XHRUploader } from './uploaders';
 import { IMParticleWebSDKInstance } from './mp-instance';
+import { appendUserInfo } from './user-utils';
 
 export interface IAPIClient {
     uploader: BatchUploader | null;
@@ -82,7 +83,7 @@ export default function APIClient(
     this.appendUserInfoToEvents = function(user, events) {
         events.forEach(function(event) {
             if (!event.MPID) {
-                mpInstance._ServerModel.appendUserInfo(user, event);
+                appendUserInfo(mpInstance, user, event);
             }
         });
     };

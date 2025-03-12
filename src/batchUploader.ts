@@ -13,6 +13,7 @@ import {
 } from './uploaders';
 import { IMParticleUser } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
+import { appendUserInfo } from './user-utils';
 /**
  * BatchUploader contains all the logic to store/retrieve events and batches
  * to/from persistence, and upload batches to mParticle.
@@ -144,22 +145,23 @@ export class BatchUploader {
     // https://go.mparticle.com/work/SQDSDKS-7133
     private createBackgroundASTEvent(): SDKEvent {
         const now = Date.now();
-        const { _Store, Identity, _timeOnSiteTimer  } = this.mpInstance;
+        const { _Store, Identity, _timeOnSiteTimer, _Helpers  } = this.mpInstance;
         const { sessionId, deviceId, sessionStartDate, SDKConfig } = _Store;
-        return {
+        const { generateUniqueId } = _Helpers;
+        const { getCurrentUser } = Identity;
+
+
+        const event = {
             EventDataType: MessageType.AppStateTransition,
             EventName: 'Application Exit',
             EventCategory: EventType.Other,
             Timestamp: now,
             SessionId: sessionId,
-            MPID: Identity.getCurrentUser()?.getMPID(),
             DeviceId: deviceId,
             IsFirstRun: false,
-            SourceMessageId: '',
+            SourceMessageId: generateUniqueId(),
             SDKVersion: Constants.sdkVersion,
             CustomFlags: {},
-            UserAttributes: {},
-            UserIdentities: [],
             SessionStartDate: sessionStartDate?.getTime() || now,
             Debug: SDKConfig.isDevelopmentMode,
             CurrencyCode: null,
@@ -167,6 +169,9 @@ export class BatchUploader {
             ActiveTimeOnSite: _timeOnSiteTimer?.getTimeInForeground() || 0,
             IsBackgroundAST: true
         };
+
+        appendUserInfo(this.mpInstance, getCurrentUser(), event as SDKEvent);
+        return event as SDKEvent;
     }
 
     // Adds listeners to be used trigger Navigator.sendBeacon if the browser
