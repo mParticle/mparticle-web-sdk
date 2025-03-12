@@ -71,7 +71,6 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     );
                     if (!forwarder.initialized) {
                         mpInstance._preInit.kitListeners[forwarder.id] = {
-                            isInitialized: true,
                             isReady: false,
                             callbackQueue: [],
                         };

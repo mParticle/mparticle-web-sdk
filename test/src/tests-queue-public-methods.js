@@ -1,6 +1,8 @@
 import { apiKey, MPConfig, testMPID, urls } from './config/constants';
 import { SDKProductActionType } from  '../../src/sdkRuntimeModels';
 import Utils from './config/utils';
+import sinon from 'sinon';
+import { expect } from 'chai';
 
 const { waitForCondition, fetchMockSuccess, hasIdentityCallInflightReturned } = Utils;
 
@@ -319,5 +321,27 @@ describe('Queue Public Methods', function () {
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
             });
         });	
+
+        describe('#onKitReady', function () {
+            it('should queue if not initialized', function () {
+                mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
+                const callback = sinon.spy();
+                mParticle.onKitReady(1, callback);
+                expect(callback.called).to.be.false;
+                mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);
+            });
+
+            it.only('should process queue after initialization', async function () {
+                mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
+                const callback = sinon.spy();
+                mParticle.onKitReady(1, callback);
+                expect(callback.called).to.be.false;
+                mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);
+                mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentityCallInflightReturned)
+                expect(callback.called).to.be.true;
+                mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
+            });
+        });
     });
 });

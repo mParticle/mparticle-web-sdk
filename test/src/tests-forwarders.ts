@@ -85,7 +85,7 @@ const mParticle = window.mParticle as unknown as MockMParticleForForwarders;
 
 let mockServer;
 
-describe.only('forwarders', function() {
+describe('forwarders', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
         delete mParticle._instances['default_instance'];
@@ -2948,7 +2948,6 @@ describe.only('forwarders', function() {
 
             expect(mParticle.getInstance()._preInit.kitListeners).to.have.key('1');
             expect(mParticle.getInstance()._preInit.kitListeners).eqls({ '1': {
-                isInitialized: true,
                 isReady: false,
                 callbackQueue: [],
             } });
@@ -2967,7 +2966,6 @@ describe.only('forwarders', function() {
 
             expect(mParticle.getInstance()._preInit.kitListeners).to.have.key('1');
             expect(mParticle.getInstance()._preInit.kitListeners).eqls({ '1': {
-                isInitialized: true,
                 isReady: false,
                 callbackQueue: [],
             } });
@@ -2975,7 +2973,6 @@ describe.only('forwarders', function() {
             mParticle.getInstance().kitReady(1);
 
             expect(mParticle.getInstance()._preInit.kitListeners).eqls({ '1': {
-                isInitialized: true,
                 isReady: true,
                 callbackQueue: [],
             } });
@@ -2998,7 +2995,6 @@ describe.only('forwarders', function() {
 
             const kitListeners = mParticle.getInstance()._preInit.kitListeners;
             expect(kitListeners).to.have.property('1');
-            expect(kitListeners['1'].isInitialized, 'isInitialized').to.be.true;
             expect(kitListeners['1'].isReady, 'isReady').to.be.false;
             expect(kitListeners['1'].callbackQueue, 'callbackQueue').to.eql([callback]);
 

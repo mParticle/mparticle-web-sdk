@@ -5,7 +5,6 @@ import { isEmpty, isFunction } from './utils';
 
 export interface KitListener {
     isReady: boolean;
-    isInitialized: boolean;
     callbackQueue: Function[];
 }
 

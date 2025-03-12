@@ -1268,8 +1268,16 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             return {};
         }
     };
-    // Used by our forwarders
+
+    // onKitReady is called direclty by a partner who is importing mParticle
     this.onKitReady = function(moduleId, callback) {
+        const queued = queueIfNotInitialized(function() {
+            self.onKitReady(moduleId, callback);
+        }, self);
+
+        if (queued) return;
+
+        // https://go.mparticle.com/work/SQDSDKS-4475
         const kitListener = self._preInit.kitListeners[moduleId];
 
         if (!kitListener) {
@@ -1284,7 +1292,10 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             kitListener.callbackQueue = [];
         }
     };
+
+    // kitReady is called by each individual kit
     this.kitReady = function(moduleId) {
+        // https://go.mparticle.com/work/SQDSDKS-4475
         const kitListener = self._preInit.kitListeners[moduleId];
         if (!kitListener) {
             self.Logger.error('Kit listener not found for moduleId: ' + moduleId);
@@ -1294,9 +1305,12 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         kitListener.callbackQueue.forEach(callback => callback());
         kitListener.callbackQueue = [];
     };
+
+    // addForwarder is called by each individual kit
     this.addForwarder = function(forwarder) {
         self._preInit.forwarderConstructors.push(forwarder);
     };
+
     this.configurePixel = function(settings) {
         self._Forwarders.configurePixel(settings);
     };
