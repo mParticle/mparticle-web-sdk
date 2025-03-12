@@ -13,7 +13,6 @@ import {
 } from './uploaders';
 import { IMParticleUser } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
-
 /**
  * BatchUploader contains all the logic to store/retrieve events and batches
  * to/from persistence, and upload batches to mParticle.
@@ -142,6 +141,7 @@ export class BatchUploader {
         return false;
     }
 
+    // https://go.mparticle.com/work/SQDSDKS-7133
     private createBackgroundASTEvent(): SDKEvent {
         const now = Date.now();
         const { _Store, Identity, _timeOnSiteTimer  } = this.mpInstance;
