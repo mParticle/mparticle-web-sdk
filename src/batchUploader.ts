@@ -131,14 +131,13 @@ export class BatchUploader {
         return offlineStoragePercentage >= rampNumber;
     }
 
-    private shouldDebounceAST(): boolean {
+    private shouldDebounceAndUpdateLastASTTime(): boolean {
         const now = Date.now();
         if (now - this.lastASTEventTime < this.AST_DEBOUNCE_MS) {
             return true;
         }
 
         this.lastASTEventTime = now;
-
         return false;
     }
 
@@ -176,8 +175,7 @@ export class BatchUploader {
 
         const handleExit = () => {
             // Check for debounce before creating and queueing event
-            if (_this.shouldDebounceAST()) {
-                this.lastASTEventTime = new Date.now();
+            if (_this.shouldDebounceAndUpdateLastASTTime()) {
                 return;
             }
             // Add application state transition event to queue

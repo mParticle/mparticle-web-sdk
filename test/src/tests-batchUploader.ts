@@ -26,7 +26,7 @@ const enableBatchingConfigFlags = {
     eventBatchingIntervalMillis: 1000,
 };
 
-describe('batch uploader', () => {
+describe.only('batch uploader', () => {
     let mockServer;
     let clock;
 
@@ -400,8 +400,6 @@ describe('batch uploader', () => {
             describe('Application State Transition Events', () => {
                 beforeEach(() => {
                     fetchMock.post(urls.events, 200);
-                    // window.mParticle.init(apiKey, window.mParticle.config);
-                    // await waitForCondition(hasIdentifyReturned);
                 });
 
                 afterEach(() => {
@@ -431,9 +429,8 @@ describe('batch uploader', () => {
                     });
                     document.dispatchEvent(new Event('visibilitychange'));
 
-                    // Run all pending timers and promises
+                    // Run all pending promises
                     await Promise.resolve();
-                    clock.runAll();
 
                     // Verify that beacon was called
                     expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
@@ -460,75 +457,18 @@ describe('batch uploader', () => {
 
                     // Verify the AST event properties
                     const lastEvent = beaconData.events[beaconData.events.length - 1];
-                    console.log(lastEvent)
+
                     expect(lastEvent.event_type).to.equal('application_state_transition');
                     expect(lastEvent.data.application_transition_type).to.equal('application_background');
 
-                    // Clean up
+                    expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
                     beaconSpy.restore();
                     clock.restore();
                 });
 
-                // TODO: this test is failing right now.  there doesn't seem to be a way for karma to deal with beforeunload events properly
-                // it.only('should add application state transition event before beforeunload', async () => {
-                //     window.mParticle.init(apiKey, window.mParticle.config);
-                //     await waitForCondition(hasIdentifyReturned);
+                // TODO: Find a way to test beforeunload property in karma
+                // Add another test
 
-                //     const now = Date.now();
-                //     clock = sinon.useFakeTimers({
-                //         now: now,
-                //         shouldAdvanceTime: true,
-                //         shouldClearNativeTimers: true
-                //     });
-
-                //     // Log a regular event
-                //     window.mParticle.logEvent('Test Event');
-
-                //     // Mock navigator.sendBeacon
-                //     const beaconSpy = sinon.spy(navigator, 'sendBeacon');
-
-                //     // Get the beforeunload event handler that was registered by mParticle
-                //     const beforeUnloadHandler = window.onbeforeunload;
-                //     expect(beforeUnloadHandler, 'beforeunload handler should exist').to.exist;
-
-                //     try {
-                //         // Call the handler directly with proper this context
-                //         beforeUnloadHandler.call(window, new Event('beforeunload') as BeforeUnloadEvent);
-
-                //         // Run all pending timers and promises
-                //         await Promise.resolve();
-                //         clock.runAll();
-
-                //         // Verify that beacon was called
-                //         expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
-
-                //         // Get the beacon call data
-                //         const beaconCall = beaconSpy.getCall(0);
-                //         expect(beaconCall, 'Expected beacon call to exist').to.exist;
-
-                //         // Get the Blob from the beacon call
-                //         const blob = beaconCall.args[1];
-                //         expect(blob).to.be.instanceof(Blob);
-
-                //         // Read the Blob content
-                //         const reader = new FileReader();
-                //         const blobContent = await new Promise((resolve) => {
-                //             reader.onload = () => resolve(reader.result);
-                //             reader.readAsText(blob);
-                //         });
-
-                //         // Parse the beacon data
-                //         const beaconData = JSON.parse(blobContent as string);
-                //         const events = beaconData.events;
-
-                //         // The application state transition event should be the last event
-                //         expect(events[events.length - 1].event_type).to.equal('application_state_transition');
-                //         expect(events[events.length - 2].data.event_name).to.equal('Test Event');
-                //     } finally {
-                //         beaconSpy.restore();
-                //         clock.restore();
-                //     }
-                // });
 
                 it('should add application state transition event before pagehide', async () => {
                     window.mParticle.init(apiKey, window.mParticle.config);
@@ -558,7 +498,7 @@ describe('batch uploader', () => {
                         const pagehideEvent = new Event('pagehide', { cancelable: true });
                         window.dispatchEvent(pagehideEvent);
 
-                        // Run all pending timers and promises
+                        // Run all pending promises
                         await Promise.resolve();
                         clock.runAll();
 
@@ -614,7 +554,7 @@ describe('batch uploader', () => {
                     });
                     document.dispatchEvent(new Event('visibilitychange'));
 
-                    // Run all pending timers and promises
+                    // Run all pending promises
                     await Promise.resolve();
                     clock.runAll();
 
@@ -652,6 +592,154 @@ describe('batch uploader', () => {
                     clock.restore();
                 });
             });
+            describe('AST Debouncing events', () => {
+                beforeEach(() => {
+                    fetchMock.post(urls.events, 200);
+                });
+
+                afterEach(() => {
+                    fetchMock.restore();
+                });
+
+                it('should only fire a single AST when another visibility event happens within the debounce time window', async () => {
+                    window.mParticle.init(apiKey, window.mParticle.config);
+                    await waitForCondition(hasIdentifyReturned);
+                    
+                    const now = Date.now();
+                    clock = sinon.useFakeTimers({
+                        now: now,
+                        shouldAdvanceTime: true
+                    });
+
+                    // Add a regular event first to ensure we have something in the queue
+                    window.mParticle.logEvent('Test Event');
+
+                    // Mock navigator.sendBeacon
+                    const beaconSpy = sinon.spy(navigator, 'sendBeacon');
+
+                    // Trigger visibility change
+                    Object.defineProperty(document, 'visibilityState', {
+                        configurable: true,
+                        get: () => 'hidden'
+                    });
+                    document.dispatchEvent(new Event('visibilitychange'));
+
+                    // Run all pending promises
+                    await Promise.resolve();
+                    // clock.runAll();
+
+                    // Verify that beacon was called
+                    expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
+
+                    // Get the beacon call data
+                    const beaconCall = beaconSpy.getCall(0);
+                    expect(beaconCall, 'Expected beacon call to exist').to.exist;
+
+                    // Get the Blob from the beacon call
+                    const blob = beaconCall.args[1];
+                    expect(blob).to.be.instanceof(Blob);
+
+                    // Read the Blob content
+                    const reader = new FileReader();
+                    const blobContent = await new Promise((resolve) => {
+                        reader.onload = () => resolve(reader.result);
+                        reader.readAsText(blob);
+                    });
+
+                    // Parse the beacon data
+                    const beaconData = JSON.parse(blobContent as string);
+                    expect(beaconData.events, 'Expected beacon data to have events').to.exist;
+                    expect(beaconData.events.length, 'Expected beacon data to have at least one event').to.be.greaterThan(0);
+
+                    // Verify the AST event properties
+                    const lastEvent = beaconData.events[beaconData.events.length - 1];
+
+                    expect(lastEvent.event_type).to.equal('application_state_transition');
+                    expect(lastEvent.data.application_transition_type).to.equal('application_background');
+
+                    expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
+                    // Clean up
+                    clock.tick(500);
+                    document.dispatchEvent(new Event('visibilitychange'));
+
+                    // Run all pending promises
+                    await Promise.resolve();
+
+                    expect(beaconSpy.calledOnce, 'Expected beacon to be called twice').to.be.true;
+
+                    beaconSpy.restore();
+                    clock.restore();
+                });
+
+                it('should fire multiple ASTs when another visibility event happens outside the debounce time window', async () => {
+                    window.mParticle.init(apiKey, window.mParticle.config);
+                    await waitForCondition(hasIdentifyReturned);
+                    
+                    const now = Date.now();
+                    clock = sinon.useFakeTimers({
+                        now: now,
+                        shouldAdvanceTime: true
+                    });
+
+                    // Add a regular event first to ensure we have something in the queue
+                    window.mParticle.logEvent('Test Event');
+
+                    // Mock navigator.sendBeacon
+                    const beaconSpy = sinon.spy(navigator, 'sendBeacon');
+
+                    // Trigger visibility change
+                    Object.defineProperty(document, 'visibilityState', {
+                        configurable: true,
+                        get: () => 'hidden'
+                    });
+                    document.dispatchEvent(new Event('visibilitychange'));
+
+                    // Run all pending promises
+                    await Promise.resolve();
+
+                    // Verify that beacon was called
+                    expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
+
+                    // Get the beacon call data
+                    const beaconCall = beaconSpy.getCall(0);
+                    expect(beaconCall, 'Expected beacon call to exist').to.exist;
+
+                    // Get the Blob from the beacon call
+                    const blob = beaconCall.args[1];
+                    expect(blob).to.be.instanceof(Blob);
+
+                    // Read the Blob content
+                    const reader = new FileReader();
+                    const blobContent = await new Promise((resolve) => {
+                        reader.onload = () => resolve(reader.result);
+                        reader.readAsText(blob);
+                    });
+
+                    // Parse the beacon data
+                    const beaconData = JSON.parse(blobContent as string);
+                    expect(beaconData.events, 'Expected beacon data to have events').to.exist;
+                    expect(beaconData.events.length, 'Expected beacon data to have at least one event').to.be.greaterThan(0);
+
+                    // Verify the AST event properties
+                    const lastEvent = beaconData.events[beaconData.events.length - 1];
+
+                    expect(lastEvent.event_type).to.equal('application_state_transition');
+                    expect(lastEvent.data.application_transition_type).to.equal('application_background');
+
+                    expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
+                    // Clean up
+                    clock.tick(1500);
+                    document.dispatchEvent(new Event('visibilitychange'));
+
+                    // Run all pending promises
+                    await Promise.resolve();
+
+                    expect(beaconSpy.calledTwice, 'Expected beacon to be called twice').to.be.true;
+
+                    beaconSpy.restore();
+                    clock.restore();
+                });
+            })
         });
     });
 
@@ -1380,199 +1468,5 @@ describe('batch uploader', () => {
         .catch((e) => {
         })
         });
-    });
-
-    describe('Application State Transition Event Debouncing', () => {
-        let batchUploader;
-        let mpInstance;
-        let clock;
-
-        beforeEach(async () => {
-            window.mParticle._resetForTests(MPConfig);
-            window.mParticle.init(apiKey, window.mParticle.config);
-            await waitForCondition(hasIdentifyReturned);
-            // mpInstance = window.mParticle.getInstance();
-            // batchUploader = new BatchUploader(mpInstance, 1000);
-            // // Now that initialization is complete, we can use fake timers starting from now
-            // const now = Date.now();
-            // clock = sinon.useFakeTimers(now);
-        });
-        
-        afterEach(() => {
-            // clock.restore();
-        });
-        
-        // these tests are currently passing
-        describe.only('shouldDebounceAST', () => {
-            beforeEach(async () => {
-                window.mParticle._resetForTests(MPConfig);
-                window.mParticle.init(apiKey, window.mParticle.config);
-                await waitForCondition(hasIdentifyReturned);
-                mpInstance = window.mParticle.getInstance();
-                batchUploader = new BatchUploader(mpInstance, 1000);
-                // Now that initialization is complete, we can use fake timers starting from now
-                const now = Date.now();
-                clock = sinon.useFakeTimers(now);
-            });
-            
-            afterEach(() => {
-                clock.restore();
-            });
-            it('should return true for calls within debounce window', async () => {
-                // First call should not be debounced
-                const firstCall = (<any>batchUploader).shouldDebounceAST();
-                expect(firstCall, 'First call should not be debounced').to.be.false;
-                
-                // Immediate second call should be debounced
-                const secondCall = (<any>batchUploader).shouldDebounceAST();
-                expect(secondCall, 'Immediate second call should be debounced').to.be.true;
-                
-                // Call just before debounce window ends should be debounced
-                clock.tick(999);
-                const thirdCall = (<any>batchUploader).shouldDebounceAST();
-                expect(thirdCall, 'Call before window ends should be debounced').to.be.true;
-            });
-
-            it('should return false for calls outside debounce window', async () => {
-                // Initialize without fake timers
-                // await waitForCondition(hasIdentifyReturned);
-                // mpInstance = window.mParticle.getInstance();
-                // batchUploader = new BatchUploader(mpInstance, 1000);
-
-                // // Now that initialization is complete, we can use fake timers starting from now
-                // const now = Date.now();
-                // clock = sinon.useFakeTimers(now);
-
-                // First call
-                expect((<any>batchUploader).shouldDebounceAST()).to.be.false;
-                
-                // Advance past debounce window
-                clock.tick(1001);
-                
-                // Second call should not be debounced
-                expect((<any>batchUploader).shouldDebounceAST()).to.be.false;
-            });
-
-            it('should update lastASTEventTime when not debouncing', async () => {
-                // await waitForCondition(hasIdentifyReturned);
-                // mpInstance = window.mParticle.getInstance();
-                // batchUploader = new BatchUploader(mpInstance, 1000);
-                // const now = Date.now();
-
-                // clock = sinon.useFakeTimers(now);
-
-                // First call
-                (<any>batchUploader).shouldDebounceAST();
-                const firstCallTime = (<any>batchUploader).lastASTEventTime;
-                
-                // Advance past debounce window
-                clock.tick(1001);
-                
-                // Second call
-                (<any>batchUploader).shouldDebounceAST();
-                const secondCallTime = (<any>batchUploader).lastASTEventTime;
-                
-                expect(secondCallTime).to.be.greaterThan(firstCallTime);
-            });
-
-            it('should not update lastASTEventTime when debouncing', async() => {
-                // await waitForCondition(hasIdentifyReturned);
-                // mpInstance = window.mParticle.getInstance();
-                // batchUploader = new BatchUploader(mpInstance, 1000);
-                // First call
-                (<any>batchUploader).shouldDebounceAST();
-                const firstCallTime = (<any>batchUploader).lastASTEventTime;
-                
-                // Immediate second call
-                (<any>batchUploader).shouldDebounceAST();
-                const secondCallTime = (<any>batchUploader).lastASTEventTime;
-                
-                expect(secondCallTime).to.equal(firstCallTime);
-            });
-        });
-
-        // it('should create only one AST event when multiple exit events fire within debounce window', () => {
-        //     // Mock visibilityState as hidden
-        //     Object.defineProperty(document, 'visibilityState', {
-        //         configurable: true,
-        //         get: () => 'hidden'
-        //     });
-
-        //     // Create event listeners that prevent default
-        //     const preventUnload = (e) => {
-        //         e.preventDefault();
-        //         return (e.returnValue = '');
-        //     };
-        //     window.addEventListener('beforeunload', preventUnload);
-        //     window.addEventListener('pagehide', preventUnload);
-
-        //     try {
-        //         // First event
-        //         document.dispatchEvent(new Event('visibilitychange'));
-                
-        //         // Advance a small amount of time but stay within debounce window
-        //         clock.tick(100);
-                
-        //         // Second event
-        //         const beforeUnloadEvent = new Event('beforeunload', { cancelable: true });
-        //         window.dispatchEvent(beforeUnloadEvent);
-                
-        //         // Advance a small amount of time but stay within debounce window
-        //         clock.tick(100);
-                
-        //         // Third event
-        //         const pagehideEvent = new Event('pagehide', { cancelable: true });
-        //         window.dispatchEvent(pagehideEvent);
-
-        //         expect(batchUploader.eventsQueuedForProcessing.length).to.equal(1);
-        //         expect(batchUploader.eventsQueuedForProcessing[0].EventDataType).to.equal(MessageType.AppStateTransition);
-        //         expect(batchUploader.eventsQueuedForProcessing[0].IsBackgroundAST).to.be.true;
-        //     } finally {
-        //         // Clean up event listeners
-        //         window.removeEventListener('beforeunload', preventUnload);
-        //         window.removeEventListener('pagehide', preventUnload);
-        //     }
-        // });
-
-        // it('should create multiple AST events when fired outside debounce window', () => {
-        //     // First event
-        //     document.dispatchEvent(new Event('visibilitychange'));
-        //     expect(batchUploader.eventsQueuedForProcessing.length).to.equal(1);
-
-        //     // Advance time beyond debounce window
-        //     clock.tick(1100);
-
-        //     // Second event with preventDefault
-        //     const beforeUnloadEvent = new Event('beforeunload', { cancelable: true });
-        //     beforeUnloadEvent.preventDefault();
-        //     window.dispatchEvent(beforeUnloadEvent);
-        //     expect(batchUploader.eventsQueuedForProcessing.length).to.equal(2);
-
-        //     // Advance time beyond debounce window again
-        //     clock.tick(1100);
-
-        //     // Third event with preventDefault
-        //     const pagehideEvent = new Event('pagehide', { cancelable: true });
-        //     pagehideEvent.preventDefault();
-        //     window.dispatchEvent(pagehideEvent);
-        //     expect(batchUploader.eventsQueuedForProcessing.length).to.equal(3);
-
-        //     // Verify all events are AST events
-        //     batchUploader.eventsQueuedForProcessing.forEach(event => {
-        //         expect(event.EventDataType).to.equal(MessageType.AppStateTransition);
-        //         expect(event.IsBackgroundAST).to.be.true;
-        //     });
-        // });
-
-        // it('should not create AST event if visibilityState is not hidden', () => {
-        //     // Mock visibilityState as 'visible'
-        //     Object.defineProperty(document, 'visibilityState', {
-        //         value: 'visible',
-        //         writable: true
-        //     });
-
-        //     document.dispatchEvent(new Event('visibilitychange'));
-        //     expect(batchUploader.eventsQueuedForProcessing.length).to.equal(0);
-        // });
     });
 });
