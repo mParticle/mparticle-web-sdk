@@ -141,7 +141,6 @@ export interface IServerModel {
     convertEventToV2DTO: (event: IUploadObject) => IServerV2DTO;
     createEventObject: (event: BaseEvent, user?: IMParticleUser) => SDKEvent;
     convertToConsentStateV2DTO: (state: SDKConsentState) => IConsentStateV2DTO;
-    // appendUserInfo: (user: IMParticleUser, event: SDKEvent) => void;
 }
 
 // TODO: Make this a pure function that returns a new object
