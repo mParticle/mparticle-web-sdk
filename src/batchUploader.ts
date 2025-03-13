@@ -164,10 +164,10 @@ export class BatchUploader {
             Debug: SDKConfig.isDevelopmentMode,
             ActiveTimeOnSite: _timeOnSiteTimer?.getTimeInForeground() || 0,
             IsBackgroundAST: true
-        };
+        } as SDKEvent;
 
-        appendUserInfo(getCurrentUser(), event as SDKEvent);
-        return event as SDKEvent;
+        appendUserInfo(getCurrentUser(), event);
+        return event;
     }
 
     // Adds listeners to be used trigger Navigator.sendBeacon if the browser
@@ -180,13 +180,14 @@ export class BatchUploader {
             const {
                 _Helpers: { getFeatureFlag },
             } = this.mpInstance;
+            const { AstBackgroundEvents } = Constants.FeatureFlags;
 
-            const flagValue = getFeatureFlag(Constants.FeatureFlags.AstBackgroundEvents);
+            const flagValue = getFeatureFlag(AstBackgroundEvents);
             if (flagValue) {
                 console.log('Feature flag value:', flagValue, 'type:', typeof flagValue);
             }
 
-            if (getFeatureFlag(Constants.FeatureFlags.AstBackgroundEvents)) {
+            if (getFeatureFlag(AstBackgroundEvents)) {
                 if (_this.shouldDebounceAndUpdateLastASTTime()) {
                     return;
                 }
