@@ -127,6 +127,7 @@ const integrationMapping: IntegrationIdMapping = {
     },
 
     // Snapchat
+    //https://businesshelp.snapchat.com/s/article/troubleshooting-click-id?language=en_US
     ScCid: {
         mappedKey: 'SnapchatConversions.ClickId',
         output: IntegrationOutputs.CUSTOM_FLAGS,
