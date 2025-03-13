@@ -1596,6 +1596,7 @@ describe('identity', function() {
         waitForCondition(hasIdentityCallInflightReturned)
         .then(() => {
             // 1st call is modify, 2nd call is the UIC event
+            console.log('fetchMock.calls()', fetchMock.calls());
             expect(fetchMock.calls().length).to.equal(2);
 
             const modifyCall = fetchMock.calls()[0];
