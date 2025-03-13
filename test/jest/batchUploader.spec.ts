@@ -40,66 +40,66 @@ describe('BatchUploader', () => {
     describe('shouldDebounceAST', () => {
         it('should return false for first call', () => {
             // First call should not be debounced
-            const firstCall = (batchUploader as any).shouldDebounceAndUpdateLastASTTime();
+            const firstCall = batchUploader['shouldDebounceAndUpdateLastASTTime']();
             expect(firstCall).toBe(false);
         });
 
         it('should return true for immediate second call', () => {
             // First call
-            (batchUploader as any).shouldDebounceAndUpdateLastASTTime();
+            batchUploader['shouldDebounceAndUpdateLastASTTime']();
             
             // Immediate second call should be debounced
-            const secondCall = (batchUploader as any).shouldDebounceAndUpdateLastASTTime();
+            const secondCall = batchUploader['shouldDebounceAndUpdateLastASTTime']();
             expect(secondCall).toBe(true);
         });
 
         it('should return true for calls within debounce window', () => {
             // First call
-            (batchUploader as any).shouldDebounceAndUpdateLastASTTime();
+            batchUploader['shouldDebounceAndUpdateLastASTTime']();
             
             // Advance time but stay within debounce window
             jest.advanceTimersByTime(999);
             
             // Call before window ends should be debounced
-            const thirdCall = (batchUploader as any).shouldDebounceAndUpdateLastASTTime();
+            const thirdCall = batchUploader['shouldDebounceAndUpdateLastASTTime']();
             expect(thirdCall).toBe(true);
         });
 
         it('should return false for calls outside debounce window', () => {
             // First call
-            (batchUploader as any).shouldDebounceAndUpdateLastASTTime();
+            batchUploader['shouldDebounceAndUpdateLastASTTime']();
             
             // Advance past debounce window
             jest.advanceTimersByTime(1001);
             
             // Second call should not be debounced
-            const secondCall = (batchUploader as any).shouldDebounceAndUpdateLastASTTime();
+            const secondCall = batchUploader['shouldDebounceAndUpdateLastASTTime']();
             expect(secondCall).toBe(false);
         });
 
         it('should update lastASTEventTime when not debouncing', () => {
             // First call
-            (batchUploader as any).shouldDebounceAndUpdateLastASTTime();
-            const firstCallTime = (batchUploader as any).lastASTEventTime;
+            batchUploader['shouldDebounceAndUpdateLastASTTime']();
+            const firstCallTime = batchUploader['lastASTEventTime'];
             
             // Advance past debounce window
             jest.advanceTimersByTime(1001);
             
             // Second call
-            (batchUploader as any).shouldDebounceAndUpdateLastASTTime();
-            const secondCallTime = (batchUploader as any).lastASTEventTime;
+            batchUploader['shouldDebounceAndUpdateLastASTTime']();
+            const secondCallTime = batchUploader['lastASTEventTime'];
             
             expect(secondCallTime).toBeGreaterThan(firstCallTime);
         });
 
         it('should not update lastASTEventTime when debouncing', () => {
             // First call
-            (batchUploader as any).shouldDebounceAndUpdateLastASTTime();
-            const firstCallTime = (batchUploader as any).lastASTEventTime;
+            batchUploader['shouldDebounceAndUpdateLastASTTime']();
+            const firstCallTime = batchUploader['lastASTEventTime'];
             
             // Immediate second call
-            (batchUploader as any).shouldDebounceAndUpdateLastASTTime();
-            const secondCallTime = (batchUploader as any).lastASTEventTime;
+            batchUploader['shouldDebounceAndUpdateLastASTTime']();
+            const secondCallTime = batchUploader['lastASTEventTime'];
             
             expect(secondCallTime).toBe(firstCallTime);
         });

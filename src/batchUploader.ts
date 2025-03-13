@@ -150,10 +150,8 @@ export class BatchUploader {
         const { generateUniqueId } = _Helpers;
         const { getCurrentUser } = Identity;
 
-
         const event = {
             EventDataType: MessageType.AppStateTransition,
-            EventCategory: EventType.Other,
             Timestamp: now,
             SessionId: sessionId,
             DeviceId: deviceId,
@@ -161,10 +159,9 @@ export class BatchUploader {
             SourceMessageId: generateUniqueId(),
             SDKVersion: Constants.sdkVersion,
             CustomFlags: {},
+            EventAttributes: {},
             SessionStartDate: sessionStartDate?.getTime() || now,
             Debug: SDKConfig.isDevelopmentMode,
-            CurrencyCode: null,
-            ExpandedEventCount: 0,
             ActiveTimeOnSite: _timeOnSiteTimer?.getTimeInForeground() || 0,
             IsBackgroundAST: true
         };
