@@ -83,7 +83,7 @@ export default function APIClient(
     this.appendUserInfoToEvents = function(user, events) {
         events.forEach(function(event) {
             if (!event.MPID) {
-                appendUserInfo(mpInstance, user, event);
+                appendUserInfo(user, event);
             }
         });
     };

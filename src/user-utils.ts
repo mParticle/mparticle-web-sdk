@@ -1,7 +1,8 @@
+import { UserIdentities } from '@mparticle/web-sdk';
 import { IMParticleUser, ISDKUserIdentity, IdentityResultBody } from './identity-user-interfaces';
 import { SDKEvent } from './sdkRuntimeModels';
-import { IMParticleWebSDKInstance } from './mp-instance';
 import Types from './types';
+import { isObject, parseNumber } from './utils';
 
 export function hasMPIDAndUserLoginChanged(
     previousUser: IMParticleUser,
@@ -27,8 +28,8 @@ export function hasMPIDChanged(
     );
 }
 
+// https://go.mparticle.com/work/SQDSDKS-7136
 export function appendUserInfo(
-    mpInstance: IMParticleWebSDKInstance,
     user: IMParticleUser,
     event: SDKEvent
 ): void {
@@ -50,7 +51,7 @@ export function appendUserInfo(
     event.ConsentState = user.getConsentState();
     event.UserAttributes = user.getAllUserAttributes();
 
-    const userIdentities = user.getUserIdentities().userIdentities;
+    const userIdentities: UserIdentities = user.getUserIdentities().userIdentities;
     const dtoUserIdentities = {};
     for (const identityKey in userIdentities) {
         const identityType = Types.IdentityType.getIdentityType(identityKey);
@@ -59,13 +60,13 @@ export function appendUserInfo(
         }
     }
 
-    const validUserIdentities = [];
-    if (mpInstance._Helpers.isObject(dtoUserIdentities)) {
+    const validUserIdentities: ISDKUserIdentity[] = [];
+    if (isObject(dtoUserIdentities)) {
         if (Object.keys(dtoUserIdentities).length) {
             for (const key in dtoUserIdentities) {
-                const userIdentity: Partial<ISDKUserIdentity> = {};
+                const userIdentity = {} as ISDKUserIdentity;
                 userIdentity.Identity = dtoUserIdentities[key];
-                userIdentity.Type = mpInstance._Helpers.parseNumber(key);
+                userIdentity.Type = parseNumber(key);
                 validUserIdentities.push(userIdentity);
             }
         }

@@ -217,7 +217,7 @@ describe('user-utils', () => {
                 ActiveTimeOnSite: 10,
             };
 
-            appendUserInfo(mockMPInstance, user, event);
+            appendUserInfo(user, event);
 
             expect(event.MPID).toBe('98765');
             expect(event.ConsentState).toEqual({
@@ -257,7 +257,7 @@ describe('user-utils', () => {
         it('sets User Attributes and Identities to null if user is empty', () => {
             const event = {} as SDKEvent;
 
-            appendUserInfo(mockMPInstance, null, event);
+            appendUserInfo(null, event);
             expect(event.MPID).toBeNull();
             expect(event.ConsentState).toBeNull();
             expect(event.UserIdentities).toBeNull();
@@ -265,7 +265,7 @@ describe('user-utils', () => {
         });
 
         it('returns undefined if event is empty', () => {
-            expect(appendUserInfo(mockMPInstance, {} as IMParticleUser, null)).toBeUndefined();
+            expect(appendUserInfo({} as IMParticleUser, null)).toBeUndefined();
         });
 
         it('returns early if event MPID matches User MPID', () => {
@@ -288,7 +288,7 @@ describe('user-utils', () => {
                 MPID: '123456',
             };
 
-            appendUserInfo(mockMPInstance, user as IMParticleUser, event as SDKEvent);
+            appendUserInfo(user as IMParticleUser, event as SDKEvent);
 
             expect(event.MPID).toBe('123456');
             // Verify to make sure we didn't add anything unnecessary to the event
@@ -315,13 +315,13 @@ describe('user-utils', () => {
                 MPID: '555666777',
             };
 
-            appendUserInfo(mockMPInstance, user as IMParticleUser, event as SDKEvent);
+            appendUserInfo(user as IMParticleUser, event as SDKEvent);
 
             expect(event.MPID).toBe('123456');
         });
 
         it('returns early if event and user are not valid', () => {
-            expect(appendUserInfo(mockMPInstance, null, null)).toBeUndefined();
+            expect(appendUserInfo(null, null)).toBeUndefined();
         });
     });
 });

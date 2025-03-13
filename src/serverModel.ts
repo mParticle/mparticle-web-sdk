@@ -352,7 +352,7 @@ export default function ServerModel(
             // FIXME: Remove duplicate occurence
             eventObject.CurrencyCode = mpInstance._Store.currencyCode;
             var currentUser = user || mpInstance.Identity.getCurrentUser();
-            appendUserInfo(mpInstance, currentUser, eventObject as SDKEvent);
+            appendUserInfo(currentUser, eventObject as SDKEvent);
 
             if (event.messageType === Types.MessageType.SessionEnd) {
                 eventObject.SessionLength =

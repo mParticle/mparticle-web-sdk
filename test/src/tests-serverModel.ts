@@ -1377,7 +1377,7 @@ describe('ServerModel', () => {
             identityMapping[Types.IdentityType.Other3] = 'foo-other3';
             identityMapping[Types.IdentityType.Other4] = 'foo-other4';
 
-            appendUserInfo(mParticle.getInstance(), user, sdkEvent);
+            appendUserInfo(user, sdkEvent);
             sdkEvent.UserIdentities.should.be.ok;
             sdkEvent.UserIdentities.length.should.equal(6);
 
@@ -1416,7 +1416,7 @@ describe('ServerModel', () => {
                 },
             } as IMParticleUser;
 
-            appendUserInfo(mParticle.getInstance(), user, sdkEvent);
+            appendUserInfo(user, sdkEvent);
             expect(sdkEvent.UserAttributes).to.be.ok;
             expect(sdkEvent.UserAttributes).to.eql(attributes);
 
@@ -1452,7 +1452,7 @@ describe('ServerModel', () => {
                     return null;
                 },
             } as IMParticleUser;
-            appendUserInfo(mParticle.getInstance(), user, sdkEvent);
+            appendUserInfo(user, sdkEvent);
             expect(sdkEvent.MPID).to.equal('98765');
             done();
             })

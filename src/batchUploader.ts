@@ -169,7 +169,7 @@ export class BatchUploader {
             IsBackgroundAST: true
         };
 
-        appendUserInfo(this.mpInstance, getCurrentUser(), event as SDKEvent);
+        appendUserInfo(getCurrentUser(), event as SDKEvent);
         return event as SDKEvent;
     }
 
