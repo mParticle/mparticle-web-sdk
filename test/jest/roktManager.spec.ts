@@ -11,6 +11,7 @@ describe('RoktManager', () => {
         it('should be initialized', () => {
             expect(roktManager).toBeDefined();
         });
+
         it('should have a null launcher', () => {
             expect(roktManager['launcher']).toBeNull();
         });

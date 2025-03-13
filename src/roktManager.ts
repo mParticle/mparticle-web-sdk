@@ -1,7 +1,9 @@
+// https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export interface IRoktPartnerAttributes {
     [key: string]: string | number | boolean | undefined | null;
 }
 
+// https://docs.rokt.com/developers/integration-guides/web/library/select-placements-options
 export interface ISelectPlacementsOptions {
     attributes: IRoktPartnerAttributes;
     identifier?: string;
