@@ -27,6 +27,7 @@ describe('Integration Capture', () => {
                 'gbraid',
                 'wbraid',
                 'ttclid',
+                'ScCid'
             ]);
         });
 
@@ -79,6 +80,7 @@ describe('Integration Capture', () => {
                 'gbraid=67890',
                 'wbraid=09876',
                 'rtid=84324',
+                'ScCid=1234'
             ].join('&');
 
             const url = new URL(`https://www.example.com/?${queryParams}`);
@@ -101,6 +103,7 @@ describe('Integration Capture', () => {
                 gbraid: '67890',
                 rtid: '84324',
                 wbraid: '09876',
+                ScCid:'1234'
             }); 
         });
 
@@ -118,6 +121,23 @@ describe('Integration Capture', () => {
                     gclid: '54321',
                     gbraid: '67890',
                     wbraid: '09876',
+                });
+            });
+        });
+
+        describe('SnapChat Click Ids', () => {
+            it('should capture Snapchat specific click ids', () => {
+                const url = new URL('https://www.example.com/?ScCid=1234');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture();
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    ScCid: '1234',
+                    
                 });
             });
         });
