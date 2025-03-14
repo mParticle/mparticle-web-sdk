@@ -1406,7 +1406,7 @@ describe('kit blocking', () => {
                 fetchMock.restore();
             });
 
-            it('should create a proper kitblocker on a self hosted set up', function(done) {
+            it('should create a proper kitblocker on a self hosted set up', async () => {
                 fetchMock.get(`${urls.config}&plan_id=robs_plan&plan_version=1`, {
                     status: 200,
                     body: JSON.stringify({ dataPlanResult: dataPlan }),
@@ -1427,21 +1427,17 @@ describe('kit blocking', () => {
                 window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
                 window.mParticle.init(apiKey, window.mParticle.config);
 
+                await waitForCondition(hasIdentifyReturned);
+
                 window.mParticle.logEvent('Blocked event');
 
-                setTimeout(() => {
-                    let event = window.MockForwarder1.instance.receivedEvent;
-                    (event === null).should.equal(true);
-                    
-                    window.mParticle.config.requestConfig = false;
-    
-                    done();
-                    
-                }, 50);
-
+                let event = window.MockForwarder1.instance.receivedEvent;
+                (event === null).should.equal(true);
+                
+                window.mParticle.config.requestConfig = false;
             });
 
-            it('should log an error if the data plan has an error on it', function(done) {
+            it('should log an error if the data plan has an error on it', async () => {
                 const errorMessage = 'This is an error';
 
                 fetchMock.get(`${urls.config}&plan_id=robs_plan&plan_version=1`, {
@@ -1473,12 +1469,10 @@ describe('kit blocking', () => {
                 }
 
                 window.mParticle.init(apiKey, window.mParticle.config);
-                setTimeout(() => {
-                    errorMessages[0].should.equal(errorMessage);
-                    window.mParticle.config.requestConfig = false;
-    
-                    done();
-                }, 50);
+                await waitForCondition(hasIdentifyReturned)
+
+                errorMessages[0].should.equal(errorMessage);
+                window.mParticle.config.requestConfig = false;
             });
         })
     });
