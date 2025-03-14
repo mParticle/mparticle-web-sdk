@@ -48,10 +48,10 @@ describe('RoktManager', () => {
     });
 
     describe('#selectPlacements', () => {
-        it('should call selectPlacements', () => {
-            const launcher = {
+        it('should call launcher.selectPlacements with empty attributes', () => {
+            const launcher: IRoktLauncher = {
                 selectPlacements: jest.fn()
-            } as unknown as IRoktLauncher;
+            };
 
             roktManager.attachLauncher(launcher);
             const options = {
@@ -62,10 +62,10 @@ describe('RoktManager', () => {
             expect(launcher.selectPlacements).toHaveBeenCalledWith(options);
         });
 
-        it('should call selectPlacements with any passed in attributes', () => {
-            const launcher = {
+        it('should call launcher.selectPlacements with passed in attributes', () => {
+            const launcher: IRoktLauncher = {
                 selectPlacements: jest.fn()
-            } as unknown as IRoktLauncher;
+            };
 
             roktManager.attachLauncher(launcher);
 
@@ -97,9 +97,9 @@ describe('RoktManager', () => {
         });
 
         it('should process queued selectPlacements calls once the launcher is attached', () => {
-            const launcher = {
+            const launcher: IRoktLauncher = {
                 selectPlacements: jest.fn()
-            } as unknown as IRoktLauncher;
+            };
 
             const options = {
                 attributes: {}
