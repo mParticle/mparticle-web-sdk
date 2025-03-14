@@ -103,6 +103,9 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
             return client;
         }
     };
+
+    this.Rokt = self.getInstance()._RoktManager;
+
     this.getDeviceId = function() {
         return self.getInstance().getDeviceId();
     };

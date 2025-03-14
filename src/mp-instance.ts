@@ -49,6 +49,7 @@ import { IECommerce } from './ecommerce.interfaces';
 import { INativeSdkHelpers } from './nativeSdkHelpers.interfaces';
 import { IPersistence } from './persistence.interfaces';
 import ForegroundTimer from './foregroundTimeTracker';
+import RoktManager from './roktManager';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -80,6 +81,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _IntegrationCapture: IntegrationCapture;
     _NativeSdkHelpers: INativeSdkHelpers;
     _Persistence: IPersistence;
+    _RoktManager: RoktManager;
     _SessionManager: ISessionManager;
     _ServerModel: IServerModel;
     _Store: IStore;
@@ -126,6 +128,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         forwarderConstructors: [],
     };
     this._IntegrationCapture = new IntegrationCapture();
+    this._RoktManager = new RoktManager();
 
     // required for forwarders once they reference the mparticle instance
     this.IdentityType = IdentityType;

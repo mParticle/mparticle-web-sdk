@@ -213,6 +213,7 @@ describe('mParticle instance manager', () => {
             'isInitialized',
             'getEnvironment',
             'upload',
+            'Rokt',
         ]);
     });
 
