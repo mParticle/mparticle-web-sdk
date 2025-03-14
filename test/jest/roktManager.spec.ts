@@ -25,9 +25,9 @@ describe('RoktManager', () => {
         });
 
         it('should process the message queue if a launcher is attached', () => {
-            const launcher = {
+            const launcher: IRoktLauncher = {
                 selectPlacements: jest.fn()
-            } as unknown as IRoktLauncher;
+            };
             
             roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
             roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
