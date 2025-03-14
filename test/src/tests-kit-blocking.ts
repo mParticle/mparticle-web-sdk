@@ -1427,7 +1427,7 @@ describe('kit blocking', () => {
                 window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
                 window.mParticle.init(apiKey, window.mParticle.config);
 
-                await waitForCondition(hasIdentifyReturned)
+                await waitForCondition(hasIdentifyReturned);
 
                 window.mParticle.logEvent('Blocked event');
 
