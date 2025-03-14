@@ -33,19 +33,9 @@ export default class RoktManager {
         this.launcher = null;
     }
 
-    public attachLauncher(launcher: IRoktLauncher): Promise<void> {
-        return new Promise<void>((resolve) => {
-            if (!launcher) {
-                this.queueMessage({
-                    methodName: 'attachLauncher',
-                    payload: launcher,
-                });
-            } else {
-                this.setLauncher(launcher);
-                this.processMessageQueue();
-            }
-            resolve();
-        });
+    public attachLauncher(launcher: IRoktLauncher): void {
+        this.setLauncher(launcher);
+        this.processMessageQueue();
     }
 
     public selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {

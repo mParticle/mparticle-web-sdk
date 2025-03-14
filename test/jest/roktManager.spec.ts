@@ -24,26 +24,21 @@ describe('RoktManager', () => {
             expect(roktManager['launcher']).not.toBeNull();
         });
 
-        it('should queue the launcher method if no launcher is attached', () => {
-            roktManager.attachLauncher(null);
-            expect(roktManager['launcher']).toBeNull();
-            expect(roktManager['messageQueue'].length).toBe(1);
-            expect(roktManager['messageQueue'][0].methodName).toBe('attachLauncher');
-            expect(roktManager['messageQueue'][0].payload).toBe(null);
-        });
-
         it('should process the message queue if a launcher is attached', () => {
-            const launcher = jest.fn() as unknown as IRoktLauncher;
+            const launcher = {
+                selectPlacements: jest.fn()
+            } as unknown as IRoktLauncher;
+            
+            roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
+            roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
+            roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
 
-            roktManager.attachLauncher(null);
-            expect(roktManager['launcher']).toBeNull();
-            expect(roktManager['messageQueue'].length).toBe(1);
-            expect(roktManager['messageQueue'][0].methodName).toBe('attachLauncher');
-            expect(roktManager['messageQueue'][0].payload).toBe(null);
+            expect(roktManager['messageQueue'].length).toBe(3);
 
             roktManager.attachLauncher(launcher);
             expect(roktManager['launcher']).not.toBeNull();
             expect(roktManager['messageQueue'].length).toBe(0);
+            expect(launcher.selectPlacements).toHaveBeenCalledTimes(3);
         });
     });
 
