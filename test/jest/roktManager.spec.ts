@@ -1,4 +1,4 @@
-import RoktManager, { IRoktLauncher, ISelectPlacementsOptions } from "../../src/roktManager";
+import RoktManager, { IRoktLauncher, IRoktSelectPlacementsOptions } from "../../src/roktManager";
 
 describe('RoktManager', () => {
     let roktManager: RoktManager;
@@ -56,7 +56,7 @@ describe('RoktManager', () => {
             roktManager.attachLauncher(launcher);
             const options = {
                 attributes: {}
-            } as ISelectPlacementsOptions;
+            } as IRoktSelectPlacementsOptions;
 
             roktManager.selectPlacements(options);
             expect(launcher.selectPlacements).toHaveBeenCalledWith(options);
@@ -69,7 +69,7 @@ describe('RoktManager', () => {
 
             roktManager.attachLauncher(launcher);
 
-            const options: ISelectPlacementsOptions = {
+            const options: IRoktSelectPlacementsOptions = {
                 attributes: {
                     age: 25,
                     score: 100.5,
@@ -86,7 +86,7 @@ describe('RoktManager', () => {
         it('should queue the selectPlacements method if no launcher is attached', () => {
             const options = {
                 attributes: {}
-            } as ISelectPlacementsOptions;
+            } as IRoktSelectPlacementsOptions;
 
             roktManager.selectPlacements(options);
 
@@ -103,7 +103,7 @@ describe('RoktManager', () => {
 
             const options = {
                 attributes: {}
-            } as ISelectPlacementsOptions;
+            } as IRoktSelectPlacementsOptions;
 
             roktManager.selectPlacements(options);
             expect(roktManager['launcher']).toBeNull();

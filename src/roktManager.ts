@@ -4,19 +4,20 @@ export interface IRoktPartnerAttributes {
 }
 
 // https://docs.rokt.com/developers/integration-guides/web/library/select-placements-options
-export interface ISelectPlacementsOptions {
+export interface IRoktSelectPlacementsOptions {
     attributes: IRoktPartnerAttributes;
     identifier?: string;
 }
 
-export interface ISelection {
-    placementId?: string;
-    status?: string;
-    error?: string;
+interface IRoktPlacement {}
+
+export interface IRoktSelection {
+    close: () => void;
+    getPlacements: () => Promise<IRoktPlacement[]>;
 }
 
 export interface IRoktLauncher {
-    selectPlacements: (options: ISelectPlacementsOptions) => Promise<ISelection>;
+    selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
 }
 
 export interface IRoktMessage {
@@ -25,7 +26,7 @@ export interface IRoktMessage {
 }
 
 export default class RoktManager {
-    private launcher: IRoktLauncher | null = null;
+    public launcher: IRoktLauncher | null = null;
     private messageQueue: IRoktMessage[] = [];
 
     constructor() {
@@ -47,13 +48,13 @@ export default class RoktManager {
         });
     }
 
-    public selectPlacements(options: ISelectPlacementsOptions): Promise<ISelection> {
+    public selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
         if (!this.launcher) {
             this.queueMessage({
                 methodName: 'selectPlacements',
                 payload: options,
             });
-            return Promise.resolve({});
+            return Promise.resolve({} as IRoktSelection);
         }
 
         try {
