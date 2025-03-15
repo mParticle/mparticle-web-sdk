@@ -1,3 +1,10 @@
+# [2.34.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.33.1...v2.34.0) (2025-03-15)
+
+
+### Features
+
+* Add Rokt Wrapper ([#994](https://github.com/mParticle/mparticle-web-sdk/issues/994)) ([04d1efc](https://github.com/mParticle/mparticle-web-sdk/commit/04d1efcff1b64c6fb7fe1e543dbf8c7e00ccc607))
+
 ## [2.33.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.33.0...v2.33.1) (2025-02-25)
 
 
