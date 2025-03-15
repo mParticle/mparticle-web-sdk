@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.33.1";
+    var version = "2.34.0";
 
     var Constants = {
       sdkVersion: version,
@@ -9530,6 +9530,62 @@ var mParticle = (function () {
       return IntegrationCapture;
     }();
 
+    var RoktManager = /** @class */function () {
+      function RoktManager() {
+        this.launcher = null;
+        this.messageQueue = [];
+        this.launcher = null;
+      }
+      RoktManager.prototype.attachLauncher = function (launcher) {
+        this.setLauncher(launcher);
+        this.processMessageQueue();
+      };
+      RoktManager.prototype.selectPlacements = function (options) {
+        if (!this.launcher) {
+          this.queueMessage({
+            methodName: 'selectPlacements',
+            payload: options
+          });
+          return Promise.resolve({});
+        }
+        try {
+          return this.launcher.selectPlacements(options);
+        } catch (error) {
+          return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
+        }
+      };
+      RoktManager.prototype.processMessageQueue = function () {
+        var _this = this;
+        if (this.messageQueue.length > 0) {
+          this.messageQueue.forEach(function (message) {
+            return __awaiter(_this, void 0, void 0, function () {
+              return __generator(this, function (_a) {
+                switch (_a.label) {
+                  case 0:
+                    if (!(this.launcher && message.methodName in this.launcher)) return [3 /*break*/, 2];
+                    return [4 /*yield*/, this.launcher[message.methodName](message.payload)];
+                  case 1:
+                    _a.sent();
+                    _a.label = 2;
+                  case 2:
+                    return [2 /*return*/];
+                }
+              });
+            });
+          });
+
+          this.messageQueue = [];
+        }
+      };
+      RoktManager.prototype.queueMessage = function (message) {
+        this.messageQueue.push(message);
+      };
+      RoktManager.prototype.setLauncher = function (launcher) {
+        this.launcher = launcher;
+      };
+      return RoktManager;
+    }();
+
     var Messages = Constants.Messages,
       HTTPCodes = Constants.HTTPCodes,
       FeatureFlags = Constants.FeatureFlags;
@@ -9569,6 +9625,7 @@ var mParticle = (function () {
         forwarderConstructors: []
       };
       this._IntegrationCapture = new IntegrationCapture();
+      this._RoktManager = new RoktManager();
       // required for forwarders once they reference the mparticle instance
       this.IdentityType = IdentityType;
       this.EventType = EventType;
@@ -10842,7 +10899,7 @@ var mParticle = (function () {
       // Only leaving this here in case any clients are trying to access mParticle.Store, to prevent from throwing
       this.Store = {};
       this._instances = {};
-      this.IdentityType = Types.IdentityType;
+      this.IdentityType = IdentityType;
       this.EventType = EventType;
       this.CommerceEventType = CommerceEventType;
       this.PromotionType = PromotionActionType;
@@ -10893,6 +10950,7 @@ var mParticle = (function () {
           return client;
         }
       };
+      this.Rokt = self.getInstance()._RoktManager;
       this.getDeviceId = function () {
         return self.getInstance().getDeviceId();
       };
