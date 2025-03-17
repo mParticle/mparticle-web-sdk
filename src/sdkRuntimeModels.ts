@@ -14,7 +14,7 @@ import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
 import MPSideloadedKit from './sideloadedKit';
 import { ISessionManager } from './sessionManager';
-import { Kit, MPForwarder } from './forwarders.interfaces';
+import { ConfiguredKit, MPForwarder, UnregisteredKit } from './forwarders.interfaces';
 import {
     SDKIdentityApi,
     IAliasCallback,
@@ -164,7 +164,7 @@ export interface SDKProduct {
 
 // https://go.mparticle.com/work/SQDSDKS-6949
 export interface MParticleWebSDK {
-    addForwarder(mockForwarder: MPForwarder): void;
+    addForwarder(forwarder: UnregisteredKit): void;
     IdentityType: typeof IdentityType;
     CommerceEventType: typeof CommerceEventType;
     EventType: typeof EventType;
@@ -181,7 +181,7 @@ export interface MParticleWebSDK {
     configurePixel(config: IPixelConfiguration): void;
     endSession(): void;
     init(apiKey: string, config: SDKInitConfig, instanceName?: string): void;
-    _getActiveForwarders(): MPForwarder[];
+    _getActiveForwarders(): ConfiguredKit[];
     _getIntegrationDelays(): IntegrationDelays;
     _setIntegrationDelay(module: number, shouldDelayIntegration: boolean): void;
     _setWrapperSDKInfo(name: WrapperSDKTypes, version: string): void;
@@ -271,7 +271,7 @@ export interface SDKInitConfig
     logLevel?: LogLevelType;
 
     kitConfigs?: IKitConfigs[];
-    kits?: Dictionary<Kit>;
+    kits?: Dictionary<UnregisteredKit>;
     sideloadedKits?: MPForwarder[];
     dataPlanOptions?: KitBlockerOptions;
     flags?: Dictionary;

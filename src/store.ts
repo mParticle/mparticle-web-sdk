@@ -30,7 +30,7 @@ import {
     returnConvertedBoolean,
 } from './utils';
 import { IMinifiedConsentJSONObject, SDKConsentState } from './consent';
-import { Kit, MPForwarder } from './forwarders.interfaces';
+import { ConfiguredKit, MPForwarder, UnregisteredKit } from './forwarders.interfaces';
 import { IdentityCallback, UserAttributes } from './identity-user-interfaces';
 import {
     IGlobalStoreV2MinifiedKeys,
@@ -61,7 +61,7 @@ export interface SDKConfig {
     package?: string;
     flags?: IFeatureFlags;
     kitConfigs: IKitConfigs[];
-    kits: Dictionary<Kit>;
+    kits: Dictionary<UnregisteredKit>;
     logLevel?: LogLevelType;
     cookieDomain?: string;
     maxCookieSize?: number | undefined;
@@ -176,7 +176,7 @@ export interface IStore {
     isLocalStorageAvailable: boolean | null;
     storageName: string | null;
     prodStorageName: string | null;
-    activeForwarders: MPForwarder[];
+    activeForwarders: ConfiguredKit[];
     kits: Dictionary<MPForwarder>;
     sideloadedKits: MPForwarder[];
     configuredForwarders: MPForwarder[];

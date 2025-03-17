@@ -1,4 +1,4 @@
-import { UnregisteredKit } from "../../src/forwarders.interfaces";
+import { ConfiguredKit, KitRegistrationConfig, RegisteredKit, UnregisteredKit } from "../../src/forwarders.interfaces";
 import { SDKInitConfig } from "../../src/sdkRuntimeModels";
 
 // export interface IMockForwarder {
@@ -37,11 +37,11 @@ export class MockForwarder {
         this.moduleId = id || 1;
     }
 
-    public register = (config: SDKInitConfig): void => {
+    public register = (config: KitRegistrationConfig): void => {
         if (config.kits) {
             config.kits[this.name] = {
-                constructor: this.constructor,
-            };
+                constructor: this.constructor as () => RegisteredKit,
+            } as unknown as RegisteredKit;
         }
     }
 
