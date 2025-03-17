@@ -440,10 +440,11 @@ describe('mParticle instance manager', () => {
                 5
             );
 
-            await waitForCondition(hasConfigurationReturned);
             mParticle
-                .getInstance()
-                .eCommerce.logPurchase(ta, [product1, product2]);
+            .getInstance()
+            .eCommerce.logPurchase(ta, [product1, product2]);
+
+            await waitForCondition(hasConfigurationReturned);
 
             const instance1Event = returnEventForMPInstance(
                 fetchMock.calls(),
