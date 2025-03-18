@@ -125,6 +125,13 @@ const integrationMapping: IntegrationIdMapping = {
         mappedKey: 'tiktok_cookie_id',
         output: IntegrationOutputs.PARTNER_IDENTITIES,
     },
+
+    // Snapchat
+    // https://businesshelp.snapchat.com/s/article/troubleshooting-click-id?language=en_US
+    ScCid: {
+        mappedKey: 'SnapchatConversions.ClickId',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
+    },
 };
 
 export default class IntegrationCapture {
