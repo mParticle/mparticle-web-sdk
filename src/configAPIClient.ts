@@ -14,9 +14,8 @@ import {
 } from './uploaders';
 import { IPixelConfiguration } from './cookieSyncManager';
 import { IMParticleWebSDKInstance } from './mp-instance';
-import { UserAttributeFilters, UserIdentityFilters } from './forwarders.interfaces';
+import { ForwarderSettings, UserAttributeFilters, UserIdentityFilters } from './forwarders.interfaces';
 
-// FIXME: Technically this is an overlap of ISDKInitConfig
 export interface IKitConfigs extends IKitFilterSettings {
     name: string;
     suffix?: string;
@@ -25,9 +24,7 @@ export interface IKitConfigs extends IKitFilterSettings {
     isVisible: boolean;
     isDebugString: BooleanStringLowerCase;
     hasDebugString: BooleanStringLowerCase;
-
-    // TODO: These settings overlap with ForwarderSettings
-    settings: Dictionary;
+    settings: ForwarderSettings;
     eventSubscriptionId: number;
     excludeAnonymousUser: boolean;
 
