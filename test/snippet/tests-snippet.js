@@ -121,7 +121,7 @@ describe('snippet', function() {
     });
 
     it('mParticle object should have EventTypes on it', function(done) {
-        Object.keys(mParticle.EventType).length.should.equal(9);
+        Object.keys(mParticle.EventType).length.should.equal(10);
         mParticle.EventType.Unknown.should.equal(0);
         mParticle.EventType.Navigation.should.equal(1);
         mParticle.EventType.Location.should.equal(2);
@@ -131,7 +131,16 @@ describe('snippet', function() {
         mParticle.EventType.UserPreference.should.equal(6);
         mParticle.EventType.Social.should.equal(7);
         mParticle.EventType.Other.should.equal(8);
+        mParticle.EventType.Media.should.equal(9);
 
+        done();
+    });
+
+    it('mParticle object should proxy Rokt methods', function(done) {
+        mParticle.Rokt.attachLauncher();
+        mParticle.Rokt.selectPlacements();
+        mParticle.config.rq[0][0].should.equal('Rokt.attachLauncher');
+        mParticle.config.rq[1][0].should.equal('Rokt.selectPlacements');
         done();
     });
 });
