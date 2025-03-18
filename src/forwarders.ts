@@ -50,40 +50,35 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
             });
 
             mpInstance._Store.activeForwarders = configuredForwarders.filter((forwarder: ConfiguredKit) => {
-                if (
-                    !isEnabledForUserConsent(
-                        forwarder.filteringConsentRuleValues,
-                        user
-                    )
-                ) {
+                const { SDKConfig, clientId } = mpInstance._Store;
+                const {
+                    filteringConsentRuleValues,
+                    filteringUserAttributeValue,
+                    excludeAnonymousUser,
+                    userAttributeFilters,
+                    userIdentityFilters,
+                    initialized,
+                } = forwarder;
+
+                if (!isEnabledForUserConsent(filteringConsentRuleValues, user)) {
                     return false;
                 }
-                if (
-                    !self.isEnabledForUserAttributes(
-                        forwarder.filteringUserAttributeValue,
-                        user
-                    )
-                ) {
+                if (!self.isEnabledForUserAttributes(filteringUserAttributeValue, user)) {
                     return false;
                 }
-                if (
-                    !self.isEnabledForUnknownUser(
-                        forwarder.excludeAnonymousUser,
-                        user
-                    )
-                ) {
+                if (!self.isEnabledForUnknownUser(excludeAnonymousUser, user)) {
                     return false;
                 }
 
                 const filteredUserIdentities: ISDKUserIdentity[] = filterUserIdentities(
                     userIdentities,
-                    forwarder.userIdentityFilters
+                    userIdentityFilters
                 );
                 const filteredUserAttributes: ISDKUserAttributes = filterUserAttributes(
                     user ? user.getAllUserAttributes() : {},
-                    forwarder.userAttributeFilters
+                    userAttributeFilters
                 );
-                if (!forwarder.initialized) {
+                if (!initialized) {
                     forwarder.logger = mpInstance.Logger;
                     forwarder.init(
                         forwarder.settings,
@@ -92,10 +87,10 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
                         null,
                         filteredUserAttributes,
                         filteredUserIdentities,
-                        mpInstance._Store.SDKConfig.appVersion,
-                        mpInstance._Store.SDKConfig.appName,
-                        mpInstance._Store.SDKConfig.customFlags,
-                        mpInstance._Store.clientId
+                        SDKConfig.appVersion,
+                        SDKConfig.appName,
+                        SDKConfig.customFlags,
+                        clientId
                     );
                     forwarder.initialized = true;
                 }
