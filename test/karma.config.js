@@ -44,6 +44,9 @@ module.exports = function(config) {
         browserConsoleLogOptions,
         client: {
             captureConsole,
+            mocha: {
+                timeout: 5000 // 5 seconds.  Increase from default 2 seconds.
+            }
         },
         customLaunchers: {
             FirefoxHeadless: {

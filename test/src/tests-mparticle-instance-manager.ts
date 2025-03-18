@@ -4,10 +4,11 @@ import { expect } from 'chai';
 import { urls, MPConfig } from './config/constants';
 import Utils from './config/utils';
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
-const {
+const { 
     findEventFromRequest,
     waitForCondition,
     fetchMockSuccess,
+    hasConfigurationReturned
 } = Utils;
 
 declare global {
@@ -304,29 +305,18 @@ describe('mParticle instance manager', () => {
             expect(mParticle.getInstance('instance3')._instanceName).to.equal('instance3');
         });
 
-        it('creates multiple instances with their own cookies', done => {
-            // setTimeout to allow config to come back from the beforeEach initialization
-            setTimeout(() => {
-                const cookies1 = window.localStorage.getItem(
-                    'mprtcl-v4_wtTest1'
-                );
-                const cookies2 = window.localStorage.getItem(
-                    'mprtcl-v4_wtTest2'
-                );
-                const cookies3 = window.localStorage.getItem(
-                    'mprtcl-v4_wtTest3'
-                );
+        it('creates multiple instances with their own cookies', async () => {
+            await waitForCondition(hasConfigurationReturned);
+            const cookies1 = window.localStorage.getItem('mprtcl-v4_wtTest1');
+            const cookies2 = window.localStorage.getItem('mprtcl-v4_wtTest2');
+            const cookies3 = window.localStorage.getItem('mprtcl-v4_wtTest3');
 
-                cookies1.includes('apiKey1').should.equal(true);
-                cookies2.includes('apiKey2').should.equal(true);
-                cookies3.includes('apiKey3').should.equal(true);
-
-                done();
-            }, 50);
+            cookies1.includes('apiKey1').should.equal(true);
+            cookies2.includes('apiKey2').should.equal(true);
+            cookies3.includes('apiKey3').should.equal(true);
         });
 
         it('logs events to their own instances', async () => {
-            // setTimeout to allow config to come back from the beforeEach initialization
             await waitForCondition(() => {
                 return (
                     mParticle.getInstance('default_instance')._Store
@@ -336,31 +326,31 @@ describe('mParticle instance manager', () => {
                     mParticle.getInstance('instance3')._Store
                         .configurationLoaded === true
                 );
-            });
+            })
             mParticle.getInstance('default_instance').logEvent('hi1');
             mParticle.getInstance('instance2').logEvent('hi2');
             mParticle.getInstance('instance3').logEvent('hi3');
-
+            
             const instance1Event = returnEventForMPInstance(
                 fetchMock.calls(),
                 'apiKey1',
                 'hi1'
             );
-            instance1Event.should.be.ok();
+            expect(instance1Event).to.be.ok;
 
             const instance2Event = returnEventForMPInstance(
                 fetchMock.calls(),
                 'apiKey2',
                 'hi2'
             );
-            instance2Event.should.be.ok();
+            expect(instance2Event).to.be.ok;
 
             const instance3Event = returnEventForMPInstance(
                 fetchMock.calls(),
                 'apiKey3',
                 'hi3'
             );
-            instance3Event.should.be.ok();
+            expect(instance3Event).to.be.ok;
 
             const instance1EventsFail1 = returnEventForMPInstance(
                 fetchMock.calls(),
@@ -368,45 +358,45 @@ describe('mParticle instance manager', () => {
                 'hi2'
             );
 
-            expect(instance1EventsFail1).not.be.ok;
+            expect(instance1EventsFail1).to.not.be.ok;
 
             const instance1EventsFail2 = returnEventForMPInstance(
                 fetchMock.calls(),
                 'apiKey1',
                 'hi3'
             );
-            expect(instance1EventsFail2).not.be.ok;
+            expect(instance1EventsFail2).to.not.be.ok;
 
             const instance2EventsFail1 = returnEventForMPInstance(
                 fetchMock.calls(),
                 'apiKey2',
                 'hi1'
             );
-            expect(instance2EventsFail1).not.be.ok;
+            expect(instance2EventsFail1).to.not.be.ok;
 
             const instance2EventsFail2 = returnEventForMPInstance(
                 fetchMock.calls(),
                 'apiKey2',
                 'hi3'
             );
-            expect(instance2EventsFail2).not.be.ok;
+            expect(instance2EventsFail2).to.not.be.ok;
 
             const instance3EventsFail1 = returnEventForMPInstance(
                 fetchMock.calls(),
                 'apiKey3',
                 'hi1'
             );
-            expect(instance3EventsFail1).not.be.ok;
+            expect(instance3EventsFail1).to.not.be.ok;
 
             const instance3EventsFail2 = returnEventForMPInstance(
                 fetchMock.calls(),
                 'apiKey3',
                 'hi2'
             );
-            expect(instance3EventsFail2).not.be.ok;
+            expect(instance3EventsFail2).to.not.be.ok;
         });
 
-        it('logs purchase events to their own instances', done => {
+        it('logs purchase events to their own instances', async () => {
             const prodattr1 = {
                 journeyType: 'testjourneytype1',
                 eventMetric1: 'metric2',
@@ -450,74 +440,60 @@ describe('mParticle instance manager', () => {
                 5
             );
 
-            // setTimeout to allow config to come back from the beforeEach initialization
             mParticle
-                .getInstance()
+            .getInstance()
+            .eCommerce.logPurchase(ta, [product1, product2]);
+
+            await waitForCondition(hasConfigurationReturned);
+
+            const instance1Event = returnEventForMPInstance(
+                fetchMock.calls(),
+                'apiKey1',
+                'purchase'
+            );
+            let instance2Event = returnEventForMPInstance(
+                fetchMock.calls(),
+                'apiKey2',
+                'purchase'
+            );
+            let instance3Event = returnEventForMPInstance(
+                fetchMock.calls(),
+                'apiKey3',
+                'purchase'
+            );
+            instance1Event.should.be.ok();
+            expect(instance2Event).to.not.be.ok;
+            expect(instance3Event).to.not.be.ok;
+
+            mParticle
+                .getInstance('instance2')
                 .eCommerce.logPurchase(ta, [product1, product2]);
-            setTimeout(() => {
-                const instance1Event = returnEventForMPInstance(
-                    fetchMock.calls(),
-                    'apiKey1',
-                    'purchase'
-                );
-                let instance2Event = returnEventForMPInstance(
-                    fetchMock.calls(),
-                    'apiKey2',
-                    'purchase'
-                );
-                let instance3Event = returnEventForMPInstance(
-                    fetchMock.calls(),
-                    'apiKey3',
-                    'purchase'
-                );
-                expect(instance1Event).be.ok;
-                expect(instance2Event).not.be.ok;
-                expect(instance3Event).not.be.ok;
 
-                mParticle
-                    .getInstance('instance2')
-                    .eCommerce.logPurchase(
-                        ta,
-                        [product1, product2],
-                        false,
-                        {},
-                        {}
-                    );
+            instance2Event = returnEventForMPInstance(
+                fetchMock.calls(),
+                'apiKey2',
+                'purchase'
+            );
+            instance3Event = returnEventForMPInstance(
+                fetchMock.calls(),
+                'apiKey3',
+                'purchase'
+            );
 
-                instance2Event = returnEventForMPInstance(
-                    fetchMock.calls(),
-                    'apiKey2',
-                    'purchase'
-                );
-                instance3Event = returnEventForMPInstance(
-                    fetchMock.calls(),
-                    'apiKey3',
-                    'purchase'
-                );
+            expect(instance2Event).to.be.ok;
+            expect(instance3Event).to.not.be.ok;
 
-                instance2Event.should.be.ok();
-                expect(instance3Event).not.be.ok;
+            mParticle
+                .getInstance('instance3')
+                .eCommerce.logPurchase(ta, [product1, product2]);
 
-                mParticle
-                    .getInstance('instance3')
-                    .eCommerce.logPurchase(
-                        ta,
-                        [product1, product2],
-                        false,
-                        {},
-                        {}
-                    );
+            instance3Event = returnEventForMPInstance(
+                fetchMock.calls(),
+                'apiKey3',
+                'purchase'
+            );
 
-                instance3Event = returnEventForMPInstance(
-                    fetchMock.calls(),
-                    'apiKey3',
-                    'purchase'
-                );
-
-                instance3Event.should.be.ok();
-
-                done();
-            }, 50);
+            expect(instance3Event).to.be.ok;
         });
     });
 });

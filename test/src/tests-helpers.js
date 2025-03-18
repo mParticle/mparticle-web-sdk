@@ -56,7 +56,7 @@ describe('helpers', function() {
         done();
     });
 
-    it('should return event name in warning when sanitizing invalid attributes', async function() {
+    it('should return event name in warning when sanitizing invalid attributes', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
         const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
         mParticle.logEvent('eventName', mParticle.EventType.Location, {invalidValue: {}});
@@ -93,7 +93,7 @@ describe('helpers', function() {
         done();
     });
 
-    it('should return commerce event name in warning when sanitizing invalid attributes', async function() {
+    it('should return commerce event name in warning when sanitizing invalid attributes', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
 
         const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');

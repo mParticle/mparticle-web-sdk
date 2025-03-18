@@ -17,7 +17,7 @@ const {
     fetchMockSuccess,
     hasIdentifyReturned,
     hasIdentityCallInflightReturned,
-    hasConfigLoaded,
+    hasConfigurationReturned
 } = Utils;
 
 describe('core SDK', function() {
@@ -128,7 +128,7 @@ describe('core SDK', function() {
         });
     });
 
-    it('should process ready queue when initialized', async function() {
+    it('should process ready queue when initialized', async () => {
         let readyFuncCalled = false;
 
         mParticle._resetForTests(MPConfig);
@@ -156,7 +156,7 @@ describe('core SDK', function() {
         })
     });
 
-    it('should get app version', async function() {
+    it('should get app version', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
         mParticle.setAppVersion('2.0');
 
@@ -1100,7 +1100,7 @@ describe('core SDK', function() {
     });
 
     // TODO - there are no actual tests here....what's going on?
-    it('should fetch from /config and keep everything properly on the store', function(done) {
+    it('should fetch from /config and keep everything properly on the store', async () => {
         mParticle._resetForTests(MPConfig);
         const config = {
             appName: 'appNameTest',
@@ -1116,23 +1116,15 @@ describe('core SDK', function() {
         window.mParticle.config.requestConfig = true;
         mParticle.init(apiKey, window.mParticle.config);
 
-        waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.configurationLoaded === true
-            );
-        })
-        .then(() => {
+        await waitForCondition(hasConfigurationReturned);
         mParticle.getInstance()._Store.SDKConfig.appName = config.appName;
         mParticle.getInstance()._Store.SDKConfig.minWebviewBridgeVersion =
             config.minWebviewBridgeVersion;
         mParticle.getInstance()._Store.SDKConfig.workspaceToken = config.workspaceToken;
         localStorage.removeItem(config.workspaceToken);
-
-        done();
-        })
     });
 
-    it('should initialize and log events even with a failed /config fetch and empty config',  async () => {
+    it('should initialize and log events even with a failed /config fetch and empty config', async () => {
         // this instance occurs when self hosting and the user only passes an object into init
         mParticle._resetForTests(MPConfig);
 
@@ -1158,7 +1150,7 @@ describe('core SDK', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasConfigLoaded);
+        await waitForCondition(hasConfigurationReturned);
         // fetching the config is async and we need to wait for it to finish
         mParticle.getInstance()._Store.isInitialized.should.equal(true);
 
@@ -1183,7 +1175,7 @@ describe('core SDK', function() {
         testEvent.should.be.ok();
     });
 
-    it('should initialize without a config object passed to init', async function() {
+    it('should initialize without a config object passed to init', async () => {
         // this instance occurs when self hosting and the user only passes an object into init
         mParticle._resetForTests(MPConfig);
 
@@ -1253,7 +1245,7 @@ describe('core SDK', function() {
         done();
     });
 
-    it('should set a device id when calling setDeviceId', async function() {
+    it('should set a device id when calling setDeviceId', async () => {
         mParticle._resetForTests(MPConfig);
         
         mParticle.init(apiKey, window.mParticle.config);
@@ -1300,7 +1292,7 @@ describe('core SDK', function() {
         done();
     });
 
-    it('should set the wrapper sdk info in Store when mParticle._setWrapperSDKInfo() method is called after init is called', async function() {
+    it('should set the wrapper sdk info in Store when mParticle._setWrapperSDKInfo() method is called after init is called', async () => {
         mParticle._resetForTests(MPConfig);
 
         mParticle._setWrapperSDKInfo('flutter', '1.0.3');
@@ -1313,7 +1305,7 @@ describe('core SDK', function() {
         mParticle.getInstance()._Store.wrapperSDKInfo.isInfoSet.should.equal(true);
     });
 
-    it('should not set the wrapper sdk info in Store after it has previously been set', async function() {
+    it('should not set the wrapper sdk info in Store after it has previously been set', async () => {
         mParticle._resetForTests(MPConfig);
 
         mParticle._setWrapperSDKInfo('flutter', '1.0.3');

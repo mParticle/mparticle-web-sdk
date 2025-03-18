@@ -3,8 +3,13 @@ import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import { urls, apiKey, MPConfig } from './config/constants';
 
-const { findEventFromRequest, findBatch, waitForCondition, fetchMockSuccess } = Utils;
-
+const {
+    findEventFromRequest,
+    findBatch,
+    waitForCondition,
+    fetchMockSuccess,
+    hasConfigurationReturned
+} = Utils;
 
 // Calls to /config are specific to only the self hosting environment
 describe('/config self-hosting integration tests', function() {
@@ -18,7 +23,7 @@ describe('/config self-hosting integration tests', function() {
         window.mParticle.config.requestConfig = false;
     })
 
-    it('queues events in the eventQueue while /config is in flight, then processes them afterwards with correct MPID', function(done) {
+    it('queues events in the eventQueue while /config is in flight, then processes them afterwards with correct MPID', async () => {
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.requestConfig = true;
         window.mParticle.config.flags.eventBatchingIntervalMillis = 0; // trigger event uploads immediately
@@ -57,22 +62,13 @@ describe('/config self-hosting integration tests', function() {
         let event = findEventFromRequest(fetchMock.calls(), 'Test');
         Should(event).not.be.ok();
 
-        waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.configurationLoaded === true
-            );
-        })
-        .then(() => {
-            setTimeout(() => {
-                event = findBatch(fetchMock.calls(), 'Test');
-            
-                event.should.be.ok();
-                event.mpid.should.equal('identifyMPID');
-                
-                window.mParticle.config.requestConfig = false;
-                done();
-            }, 75);
-        })
+        await waitForCondition(hasConfigurationReturned);
+        event = findBatch(fetchMock.calls(), 'Test');
+    
+        event.should.be.ok();
+        event.mpid.should.equal('identifyMPID');
+        
+        window.mParticle.config.requestConfig = false;
     });
 
     // https://go.mparticle.com/work/SQDSDKS-6852
@@ -175,12 +171,11 @@ describe('/config self-hosting integration tests', function() {
         });
     });
 
-    it('cookie name has workspace token in it in self hosting mode after config fetch', function(done) {
+    it('cookie name has workspace token in it in self hosting mode after config fetch', async () => {
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.requestConfig = true;
         window.mParticle.config.logLevel = 'verbose';
         delete window.mParticle.config.workspaceToken;
-
 
         fetchMock.get(urls.config, {
             status: 200,
@@ -191,17 +186,15 @@ describe('/config self-hosting integration tests', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        setTimeout(() => {
-            const data = window.localStorage.getItem('mprtcl-v4_wtTest');
-            (typeof data === 'string').should.equal(true);
-            window.mParticle.config.requestConfig = false;
-    
-            done();
-        }, 75);
+        await waitForCondition(hasConfigurationReturned);
+
+        const data = window.localStorage.getItem('mprtcl-v4_wtTest');
+        (typeof data === 'string').should.equal(true);
+        window.mParticle.config.requestConfig = false;
     });
 
     describe('/config self-hosting with direct url routing', function () {
-        it('should return direct urls when no baseUrls are passed and directURLRouting is true', (done) => {
+        it('should return direct urls when no baseUrls are passed and directURLRouting is true', async () => {
             mParticle._resetForTests(MPConfig);
             window.mParticle.config.requestConfig = true;
             delete window.mParticle.config.workspaceToken;
@@ -223,12 +216,7 @@ describe('/config self-hosting integration tests', function() {
 
             mParticle.init(apiKey, window.mParticle.config);
 
-            waitForCondition(() => {
-                return (
-                    mParticle.getInstance()._Store.configurationLoaded === true
-                );
-            })
-            .then(() => {
+            await waitForCondition(hasConfigurationReturned);
             const {
                 aliasUrl,
                 configUrl,
@@ -240,18 +228,11 @@ describe('/config self-hosting integration tests', function() {
             aliasUrl.should.equal('jssdks.us1.mparticle.com/v1/identity/');
             configUrl.should.equal('jssdkcdns.mparticle.com/JS/v2/');
             identityUrl.should.equal('identity.us1.mparticle.com/v1/');
-                v1SecureServiceUrl.should.equal(
-                    'jssdks.us1.mparticle.com/v1/JS/'
-                );
-                v3SecureServiceUrl.should.equal(
-                    'jssdks.us1.mparticle.com/v3/JS/'
-                );
-
-                done(); 
-            })
+            v1SecureServiceUrl.should.equal('jssdks.us1.mparticle.com/v1/JS/');
+            v3SecureServiceUrl.should.equal('jssdks.us1.mparticle.com/v3/JS/');
         });
             
-        it('should prioritize passed in baseUrls over direct urls', (done) => {
+        it('should prioritize passed in baseUrls over direct urls', async () => {
             mParticle._resetForTests(MPConfig);
             window.mParticle.config.requestConfig = true;
             window.mParticle.config.aliasUrl =
@@ -279,12 +260,7 @@ describe('/config self-hosting integration tests', function() {
 
             mParticle.init(apiKey, window.mParticle.config);
 
-            waitForCondition(() => {
-                return (
-                    mParticle.getInstance()._Store.configurationLoaded === true
-                );
-            })
-            .then(() => {
+            waitForCondition(hasConfigurationReturned);
             const {
                 aliasUrl,
                 configUrl,
@@ -296,15 +272,8 @@ describe('/config self-hosting integration tests', function() {
             configUrl.should.equal('jssdkcdns.mparticle.com/JS/v2/');
             aliasUrl.should.equal('jssdks.foo.mparticle.com/v1/identity/');
             identityUrl.should.equal('identity.foo.mparticle.com/v1/');
-                v1SecureServiceUrl.should.equal(
-                    'jssdks.foo.mparticle.com/v1/JS/'
-                );
-                v3SecureServiceUrl.should.equal(
-                    'jssdks.foo.mparticle.com/v3/JS/'
-                );
-
-                done();
-            })
+            v1SecureServiceUrl.should.equal('jssdks.foo.mparticle.com/v1/JS/');
+            v3SecureServiceUrl.should.equal('jssdks.foo.mparticle.com/v3/JS/');
         });
     });
 });
