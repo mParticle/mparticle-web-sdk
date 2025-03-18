@@ -151,6 +151,9 @@ export class BatchUploader {
         const { getCurrentUser } = Identity;
 
         const event = {
+            AppName: SDKConfig.appName,
+            AppVersion: SDKConfig.appVersion,
+            Package: SDKConfig.package,
             EventDataType: MessageType.AppStateTransition,
             Timestamp: now,
             SessionId: sessionId,
