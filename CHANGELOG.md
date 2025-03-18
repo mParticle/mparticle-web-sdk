@@ -1,3 +1,16 @@
+# [2.35.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.34.0...v2.35.0) (2025-03-18)
+
+
+### Bug Fixes
+
+* Add Rokt Wrapper Methods to snippet.js ([#997](https://github.com/mParticle/mparticle-web-sdk/issues/997)) ([49202b3](https://github.com/mParticle/mparticle-web-sdk/commit/49202b3973a5de5403d64790ca400d85c84b93b1))
+* adds native collection of snap click ID ([#989](https://github.com/mParticle/mparticle-web-sdk/issues/989)) ([92945a9](https://github.com/mParticle/mparticle-web-sdk/commit/92945a94af275b820db68985f5aa41ab019a0562))
+
+
+### Features
+
+* Fire background AST events on page transitions if feature flag enabled ([#991](https://github.com/mParticle/mparticle-web-sdk/issues/991)) ([147bad2](https://github.com/mParticle/mparticle-web-sdk/commit/147bad2da1c0f32a769b079d3d7b3eee4c9a8872))
+
 # [2.34.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.33.1...v2.34.0) (2025-03-15)
 
 
