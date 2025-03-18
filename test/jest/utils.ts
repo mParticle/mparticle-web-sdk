@@ -1,5 +1,4 @@
-import { ConfiguredKit, KitRegistrationConfig, RegisteredKit, UnregisteredKit } from "../../src/forwarders.interfaces";
-import { SDKInitConfig } from "../../src/sdkRuntimeModels";
+import { KitRegistrationConfig, RegisteredKit, UnregisteredKit } from "../../src/forwarders.interfaces";
 
 // export interface IMockForwarder {
 
