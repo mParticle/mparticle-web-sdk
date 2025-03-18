@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.34.0";
+    var version = "2.35.0";
 
     var Constants = {
       sdkVersion: version,
@@ -363,7 +363,8 @@ var mParticle = (function () {
         DirectUrlRouting: 'directURLRouting',
         CacheIdentity: 'cacheIdentity',
         AudienceAPI: 'audienceAPI',
-        CaptureIntegrationSpecificIds: 'captureIntegrationSpecificIds'
+        CaptureIntegrationSpecificIds: 'captureIntegrationSpecificIds',
+        AstBackgroundEvents: 'astBackgroundEvents'
       },
       DefaultInstance: 'default_instance',
       CCPAPurpose: 'data_sale_opt_out',
@@ -1800,8 +1801,13 @@ var mParticle = (function () {
     }
     function convertAST(sdkEvent) {
       var commonEventData = convertBaseEventData(sdkEvent);
+      // Determine the transition type based on IsBackgroundAST flag
+      var _a = dist.ApplicationStateTransitionEventDataApplicationTransitionTypeEnum,
+        applicationBackground = _a.applicationBackground,
+        applicationInitialized = _a.applicationInitialized;
+      var transitionType = sdkEvent.IsBackgroundAST ? applicationBackground : applicationInitialized;
       var astEventData = {
-        application_transition_type: dist.ApplicationStateTransitionEventDataApplicationTransitionTypeEnum.applicationInitialized,
+        application_transition_type: transitionType,
         is_first_run: sdkEvent.IsFirstRun,
         is_upgrade: false,
         launch_referral: sdkEvent.LaunchReferral
@@ -2198,6 +2204,53 @@ var mParticle = (function () {
       return XHRUploader;
     }(AsyncUploader);
 
+    function hasMPIDAndUserLoginChanged(previousUser, newUser) {
+      return !previousUser || newUser.getMPID() !== previousUser.getMPID() || previousUser.isLoggedIn() !== newUser.isLoggedIn();
+    }
+    // https://go.mparticle.com/work/SQDSDKS-6504
+    function hasMPIDChanged(prevUser, identityApiResult) {
+      return !prevUser || prevUser.getMPID() && identityApiResult.mpid && identityApiResult.mpid !== prevUser.getMPID();
+    }
+    // https://go.mparticle.com/work/SQDSDKS-7136
+    function appendUserInfo(user, event) {
+      if (!event) {
+        return;
+      }
+      if (!user) {
+        event.MPID = null;
+        event.ConsentState = null;
+        event.UserAttributes = null;
+        event.UserIdentities = null;
+        return;
+      }
+      if (event.MPID && event.MPID === user.getMPID()) {
+        return;
+      }
+      event.MPID = user.getMPID();
+      event.ConsentState = user.getConsentState();
+      event.UserAttributes = user.getAllUserAttributes();
+      var userIdentities = user.getUserIdentities().userIdentities;
+      var dtoUserIdentities = {};
+      for (var identityKey in userIdentities) {
+        var identityType = Types.IdentityType.getIdentityType(identityKey);
+        if (identityType !== false) {
+          dtoUserIdentities[identityType] = userIdentities[identityKey];
+        }
+      }
+      var validUserIdentities = [];
+      if (isObject(dtoUserIdentities)) {
+        if (Object.keys(dtoUserIdentities).length) {
+          for (var key in dtoUserIdentities) {
+            var userIdentity = {};
+            userIdentity.Identity = dtoUserIdentities[key];
+            userIdentity.Type = parseNumber(key);
+            validUserIdentities.push(userIdentity);
+          }
+        }
+      }
+      event.UserIdentities = validUserIdentities;
+    }
+
     /**
      * BatchUploader contains all the logic to store/retrieve events and batches
      * to/from persistence, and upload batches to mParticle.
@@ -2222,6 +2275,8 @@ var mParticle = (function () {
       function BatchUploader(mpInstance, uploadInterval) {
         var _a;
         this.offlineStorageEnabled = false;
+        this.lastASTEventTime = 0;
+        this.AST_DEBOUNCE_MS = 1000; // 1 second debounce
         this.mpInstance = mpInstance;
         this.uploadIntervalMillis = uploadInterval;
         this.batchingEnabled = uploadInterval >= BatchUploader.MINIMUM_INTERVAL_MILLIS;
@@ -2269,20 +2324,78 @@ var mParticle = (function () {
         //       https://go.mparticle.com/work/SQDSDKS-5022
         return offlineStoragePercentage >= rampNumber;
       };
+      // debounce AST just in case multiple events are fired in a short period of time due to browser differences
+      BatchUploader.prototype.shouldDebounceAndUpdateLastASTTime = function () {
+        var now = Date.now();
+        if (now - this.lastASTEventTime < this.AST_DEBOUNCE_MS) {
+          return true;
+        }
+        this.lastASTEventTime = now;
+        return false;
+      };
+      // https://go.mparticle.com/work/SQDSDKS-7133
+      BatchUploader.prototype.createBackgroundASTEvent = function () {
+        var now = Date.now();
+        var _a = this.mpInstance,
+          _Store = _a._Store,
+          Identity = _a.Identity,
+          _timeOnSiteTimer = _a._timeOnSiteTimer,
+          _Helpers = _a._Helpers;
+        var sessionId = _Store.sessionId,
+          deviceId = _Store.deviceId,
+          sessionStartDate = _Store.sessionStartDate,
+          SDKConfig = _Store.SDKConfig;
+        var generateUniqueId = _Helpers.generateUniqueId;
+        var getCurrentUser = Identity.getCurrentUser;
+        var event = {
+          AppName: SDKConfig.appName,
+          AppVersion: SDKConfig.appVersion,
+          Package: SDKConfig["package"],
+          EventDataType: MessageType$1.AppStateTransition,
+          Timestamp: now,
+          SessionId: sessionId,
+          DeviceId: deviceId,
+          IsFirstRun: false,
+          SourceMessageId: generateUniqueId(),
+          SDKVersion: Constants.sdkVersion,
+          CustomFlags: {},
+          EventAttributes: {},
+          SessionStartDate: (sessionStartDate === null || sessionStartDate === void 0 ? void 0 : sessionStartDate.getTime()) || now,
+          Debug: SDKConfig.isDevelopmentMode,
+          ActiveTimeOnSite: (_timeOnSiteTimer === null || _timeOnSiteTimer === void 0 ? void 0 : _timeOnSiteTimer.getTimeInForeground()) || 0,
+          IsBackgroundAST: true
+        };
+        appendUserInfo(getCurrentUser(), event);
+        return event;
+      };
       // Adds listeners to be used trigger Navigator.sendBeacon if the browser
       // loses focus for any reason, such as closing browser tab or minimizing window
       BatchUploader.prototype.addEventListeners = function () {
+        var _this_1 = this;
         var _this = this;
+        var handleExit = function handleExit() {
+          // Check for debounce before creating and queueing event
+          var getFeatureFlag = _this_1.mpInstance._Helpers.getFeatureFlag;
+          var AstBackgroundEvents = Constants.FeatureFlags.AstBackgroundEvents;
+          if (getFeatureFlag(AstBackgroundEvents)) {
+            if (_this.shouldDebounceAndUpdateLastASTTime()) {
+              return;
+            }
+            // Add application state transition event to queue
+            var event_1 = _this.createBackgroundASTEvent();
+            _this.queueEvent(event_1);
+          }
+          // Then trigger the upload with beacon
+          _this.prepareAndUpload(false, _this.isBeaconAvailable());
+        };
         // visibility change is a document property, not window
         document.addEventListener('visibilitychange', function () {
-          _this.prepareAndUpload(false, _this.isBeaconAvailable());
+          if (document.visibilityState === 'hidden') {
+            handleExit();
+          }
         });
-        window.addEventListener('beforeunload', function () {
-          _this.prepareAndUpload(false, _this.isBeaconAvailable());
-        });
-        window.addEventListener('pagehide', function () {
-          _this.prepareAndUpload(false, _this.isBeaconAvailable());
-        });
+        window.addEventListener('beforeunload', handleExit);
+        window.addEventListener('pagehide', handleExit);
       };
       BatchUploader.prototype.isBeaconAvailable = function () {
         if (navigator.sendBeacon) {
@@ -2567,7 +2680,7 @@ var mParticle = (function () {
       this.appendUserInfoToEvents = function (user, events) {
         events.forEach(function (event) {
           if (!event.MPID) {
-            mpInstance._ServerModel.appendUserInfo(user, event);
+            appendUserInfo(user, event);
           }
         });
       };
@@ -4355,7 +4468,8 @@ var mParticle = (function () {
         DirectUrlRouting = _a.DirectUrlRouting,
         CacheIdentity = _a.CacheIdentity,
         AudienceAPI = _a.AudienceAPI,
-        CaptureIntegrationSpecificIds = _a.CaptureIntegrationSpecificIds;
+        CaptureIntegrationSpecificIds = _a.CaptureIntegrationSpecificIds,
+        AstBackgroundEvents = _a.AstBackgroundEvents;
       if (!config.flags) {
         return {};
       }
@@ -4369,6 +4483,7 @@ var mParticle = (function () {
       flags[CacheIdentity] = config.flags[CacheIdentity] === 'True';
       flags[AudienceAPI] = config.flags[AudienceAPI] === 'True';
       flags[CaptureIntegrationSpecificIds] = config.flags[CaptureIntegrationSpecificIds] === 'True';
+      flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
       return flags;
     }
     function processBaseUrls(config, flags, apiKey) {
@@ -6558,45 +6673,6 @@ var mParticle = (function () {
     }
     function ServerModel(mpInstance) {
       var self = this;
-      // TODO: Can we refactor this to not mutate the event?
-      this.appendUserInfo = function (user, event) {
-        if (!event) {
-          return;
-        }
-        if (!user) {
-          event.MPID = null;
-          event.ConsentState = null;
-          event.UserAttributes = null;
-          event.UserIdentities = null;
-          return;
-        }
-        if (event.MPID && event.MPID === user.getMPID()) {
-          return;
-        }
-        event.MPID = user.getMPID();
-        event.ConsentState = user.getConsentState();
-        event.UserAttributes = user.getAllUserAttributes();
-        var userIdentities = user.getUserIdentities().userIdentities;
-        var dtoUserIdentities = {};
-        for (var identityKey in userIdentities) {
-          var identityType = Types.IdentityType.getIdentityType(identityKey);
-          if (identityType !== false) {
-            dtoUserIdentities[identityType] = userIdentities[identityKey];
-          }
-        }
-        var validUserIdentities = [];
-        if (mpInstance._Helpers.isObject(dtoUserIdentities)) {
-          if (Object.keys(dtoUserIdentities).length) {
-            for (var key in dtoUserIdentities) {
-              var userIdentity = {};
-              userIdentity.Identity = dtoUserIdentities[key];
-              userIdentity.Type = mpInstance._Helpers.parseNumber(key);
-              validUserIdentities.push(userIdentity);
-            }
-          }
-        }
-        event.UserIdentities = validUserIdentities;
-      };
       this.convertToConsentStateV2DTO = function (state) {
         if (!state) {
           return null;
@@ -6713,7 +6789,7 @@ var mParticle = (function () {
           // FIXME: Remove duplicate occurence
           eventObject.CurrencyCode = mpInstance._Store.currencyCode;
           var currentUser = user || mpInstance.Identity.getCurrentUser();
-          self.appendUserInfo(currentUser, eventObject);
+          appendUserInfo(currentUser, eventObject);
           if (event.messageType === Types.MessageType.SessionEnd) {
             eventObject.SessionLength = mpInstance._Store.dateLastEventSent.getTime() - mpInstance._Store.sessionStartDate.getTime();
             eventObject.currentSessionMPIDs = mpInstance._Store.currentSessionMPIDs;
@@ -7087,14 +7163,6 @@ var mParticle = (function () {
 
       return AudienceManager;
     }();
-
-    function hasMPIDAndUserLoginChanged(previousUser, newUser) {
-      return !previousUser || newUser.getMPID() !== previousUser.getMPID() || previousUser.isLoggedIn() !== newUser.isLoggedIn();
-    }
-    // https://go.mparticle.com/work/SQDSDKS-6504
-    function hasMPIDChanged(prevUser, identityApiResult) {
-      return !prevUser || prevUser.getMPID() && identityApiResult.mpid && identityApiResult.mpid !== prevUser.getMPID();
-    }
 
     var _this = undefined;
     var processReadyQueue = function processReadyQueue(readyQueue) {
@@ -9374,6 +9442,12 @@ var mParticle = (function () {
       _ttp: {
         mappedKey: 'tiktok_cookie_id',
         output: IntegrationOutputs.PARTNER_IDENTITIES
+      },
+      // Snapchat
+      // https://businesshelp.snapchat.com/s/article/troubleshooting-click-id?language=en_US
+      ScCid: {
+        mappedKey: 'SnapchatConversions.ClickId',
+        output: IntegrationOutputs.CUSTOM_FLAGS
       }
     };
     var IntegrationCapture = /** @class */function () {
