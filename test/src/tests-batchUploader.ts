@@ -262,16 +262,41 @@ describe('batch uploader', () => {
             }
         });
 
-        it('should create application state transition event with correct properties', async () => {
+        it('should create application state transition event with correct properties on event and batch', async () => {
+            window.mParticle.config.appName = 'Test App';
+            window.mParticle.config.appVersion = '1.0.0';
+            window.mParticle.config.package = 'com.test.app';
+
             window.mParticle.config.identifyRequest = {
                 userIdentities: {
                     email: 'test@test.com'
                 }
             };
 
+            const consentState = window.mParticle.Consent.createConsentState();
+            const timestamp = new Date().getTime();
+            const ccpaConsent = window.mParticle.Consent.createCCPAConsent(
+                true,
+                timestamp,
+                'consentDoc',
+                'location',
+                'hardware'
+            );
+            const gdprConsent = window.mParticle.Consent.createGDPRConsent(
+                false,
+                timestamp,
+                'consentDoc',
+                'location',
+                'hardware'
+            );
+            consentState.setCCPAConsentState(ccpaConsent);
+            consentState.addGDPRConsentState('test purpose', gdprConsent);
+
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
             window.mParticle.Identity.getCurrentUser().setUserAttribute('foo', 'value');
+            const user = window.mParticle.Identity.getCurrentUser();
+            user.setConsentState(consentState);
 
             const now = Date.now();
             clock = sinon.useFakeTimers({
@@ -315,7 +340,21 @@ describe('batch uploader', () => {
             const batch = JSON.parse(blobContent as string);
             expect(batch.user_identities.email).to.equal('test@test.com');
             expect(batch.user_attributes.foo).to.equal('value');
-
+            expect(batch.application_info.application_name).to.equal('Test App');
+            expect(batch.application_info.application_version).to.equal('1.0.0');
+            expect(batch.application_info.package).to.equal('com.test.app');
+            expect(batch.consent_state).to.have.property('ccpa');
+            expect(batch.consent_state.ccpa).to.have.property('data_sale_opt_out');
+            expect(batch.consent_state.ccpa.data_sale_opt_out).to.have.property('consented');
+            expect(batch.consent_state.ccpa.data_sale_opt_out.consented).to.equal(true);
+            expect(batch.consent_state.ccpa.data_sale_opt_out).to.have.property('timestamp_unixtime_ms');
+            expect(batch.consent_state.ccpa.data_sale_opt_out).to.have.property('document');
+            expect(batch.consent_state.gdpr).to.have.property('test purpose');
+            expect(batch.consent_state.gdpr['test purpose']).to.have.property('consented');
+            expect(batch.consent_state.gdpr['test purpose'].consented).to.equal(false);
+            expect(batch.consent_state.gdpr['test purpose']).to.have.property('timestamp_unixtime_ms');
+            expect(batch.consent_state.gdpr['test purpose']).to.have.property('document');
+            
             const astEvent = batch.events[batch.events.length - 1];
 
             expect(astEvent.event_type).to.equal('application_state_transition');
@@ -329,6 +368,11 @@ describe('batch uploader', () => {
             expect(astEvent.data.session_uuid).to.exist;
             expect(astEvent.data.source_message_id).to.be.a('string');
             expect(astEvent.data.timestamp_unixtime_ms).to.be.a('number');
+
+            // reset to prevent other tests from potentially failing
+            delete window.mParticle.config.appName;
+            delete window.mParticle.config.appVersion;
+            delete window.mParticle.config.package;
         });
         });
     });
