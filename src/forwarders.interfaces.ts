@@ -1,6 +1,6 @@
 import { SDKEvent, SDKEventCustomFlags } from './sdkRuntimeModels';
 import { Dictionary } from './utils';
-import { IKitConfigs } from './configAPIClient';
+import { IKitConfigs, IKitFilterSettings } from './configAPIClient';
 import { IdentityApiData } from '@mparticle/web-sdk';
 import {
     IMParticleUser,
@@ -8,28 +8,37 @@ import {
     UserAttributes,
 } from './identity-user-interfaces';
 
-// TODO: https://go.mparticle.com/work/SQDSDKS-6035
-export type Kit = Dictionary;
+// TODO: https://go.mparticle.com/work/SQDSDKS-4475
 export type MPForwarder = Dictionary;
 
 // The state of the kit when accessed via window.KitName via CDN
 // or imported as an NPM package
 export interface UnregisteredKit {
-    register(config): void;
+    constructor: () => void;
+    register(config: KitRegistrationConfig): void;
+    name: string;
+    suffix?: string;
 }
 
 // The state of the kit after being added to forwarderConstructors in the CDN
 // or after registered to SDKConfig.kits via NPM
 export interface RegisteredKit {
-    constructor(): void;
-    name: string;
-    getId(): number;
+    constructor: () => void;
+
+    // Applies to sideloaded kits only
+    filters?: IKitFilterSettings;
+}
+
+// This is the subset of the SDKConfig.kits object that is used to register kits.
+export interface KitRegistrationConfig {
+    kits: Dictionary<RegisteredKit>;
 }
 
 // The state of the kit after being configured. This is what the kit looks like when acted on.
 export interface ConfiguredKit
     extends Omit<IKitConfigs, 'isDebugString' | 'hasDebugString'> {
     common: Dictionary<unknown>;
+    id: number;
     init(
         settings: Dictionary<unknown>,
         service: forwardingStatsCallback,
@@ -45,22 +54,22 @@ export interface ConfiguredKit
     onIdentifyComplete(
         user: IMParticleUser,
         filteredIdentityRequest: IdentityApiData
-    ): string | KitMappedMethodFailure;
+    ): string;
     onLoginComplete(
         user: IMParticleUser,
         filteredIdentityRequest: IdentityApiData
-    ): string | KitMappedMethodFailure;
+    ): string;
     onLogoutComplete(
         user: IMParticleUser,
         filteredIdentityRequest: IdentityApiData
-    ): string | KitMappedMethodFailure;
+    ): string;
     onModifyComplete(
         user: IMParticleUser,
         filteredIdentityRequest: IdentityApiData
-    ): string | KitMappedMethodFailure;
-    onUserIdentified(user: IMParticleUser): string | KitMappedMethodFailure;
+    ): string;
+    onUserIdentified(user: IMParticleUser): string;
     process(event: SDKEvent): string;
-    setOptOut(isOptingOut: boolean): string | KitMappedMethodFailure;
+    setOptOut(isOptingOut: boolean): string;
     removeUserAttribute(key: string): string;
     setUserAttribute(key: string, value: string): string;
     setUserIdentity(id: UserIdentityId, type: UserIdentityType): void;
@@ -68,9 +77,6 @@ export interface ConfiguredKit
     // TODO: https://go.mparticle.com/work/SQDSDKS-5156
     isSandbox: boolean;
     hasSandbox: boolean;
-}
-export interface KitMappedMethodFailure {
-    error: string;
 }
 
 export type UserIdentityId = string;
