@@ -41,7 +41,7 @@ export class MockForwarder {
         if (config.kits) {
             config.kits[this.name] = {
                 constructor: this.constructor as () => RegisteredKit,
-            } as unknown as RegisteredKit;
+            };
         }
     }
 

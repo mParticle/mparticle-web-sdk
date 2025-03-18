@@ -26,7 +26,7 @@ export interface RegisteredKit {
     constructor: () => void;
 
     // Applies to sideloaded kits only
-    filters: IKitFilterSettings;
+    filters?: IKitFilterSettings;
 }
 
 // This is the subset of the SDKConfig.kits object that is used to register kits.
@@ -38,6 +38,7 @@ export interface KitRegistrationConfig {
 export interface ConfiguredKit
     extends Omit<IKitConfigs, 'isDebugString' | 'hasDebugString'> {
     common: Dictionary<unknown>;
+    id: number;
     init(
         settings: Dictionary<unknown>,
         service: forwardingStatsCallback,
