@@ -27,6 +27,7 @@ import {
 } from './consent';
 import { IMParticleUser, ISDKUserIdentity } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
+import { appendUserInfo } from './user-utils';
 
 const MessageType = Types.MessageType;
 const ApplicationTransitionType = Types.ApplicationTransitionType;
@@ -140,7 +141,6 @@ export interface IServerModel {
     convertEventToV2DTO: (event: IUploadObject) => IServerV2DTO;
     createEventObject: (event: BaseEvent, user?: IMParticleUser) => SDKEvent;
     convertToConsentStateV2DTO: (state: SDKConsentState) => IConsentStateV2DTO;
-    appendUserInfo: (user: IMParticleUser, event: SDKEvent) => void;
 }
 
 // TODO: Make this a pure function that returns a new object
@@ -200,51 +200,6 @@ export default function ServerModel(
     mpInstance: IMParticleWebSDKInstance
 ) {
     var self = this;
-
-    // TODO: Can we refactor this to not mutate the event?
-    this.appendUserInfo = function(
-        user: IMParticleUser,
-        event: SDKEvent
-    ): void {
-        if (!event) {
-            return;
-        }
-        if (!user) {
-            event.MPID = null;
-            event.ConsentState = null;
-            event.UserAttributes = null;
-            event.UserIdentities = null;
-            return;
-        }
-        if (event.MPID && event.MPID === user.getMPID()) {
-            return;
-        }
-        event.MPID = user.getMPID();
-        event.ConsentState = user.getConsentState();
-        event.UserAttributes = user.getAllUserAttributes();
-
-        var userIdentities = user.getUserIdentities().userIdentities;
-        var dtoUserIdentities = {};
-        for (var identityKey in userIdentities) {
-            var identityType = Types.IdentityType.getIdentityType(identityKey);
-            if (identityType !== false) {
-                dtoUserIdentities[identityType] = userIdentities[identityKey];
-            }
-        }
-
-        var validUserIdentities = [];
-        if (mpInstance._Helpers.isObject(dtoUserIdentities)) {
-            if (Object.keys(dtoUserIdentities).length) {
-                for (var key in dtoUserIdentities) {
-                    var userIdentity: Partial<ISDKUserIdentity> = {};
-                    userIdentity.Identity = dtoUserIdentities[key];
-                    userIdentity.Type = mpInstance._Helpers.parseNumber(key);
-                    validUserIdentities.push(userIdentity);
-                }
-            }
-        }
-        event.UserIdentities = validUserIdentities;
-    };
 
     this.convertToConsentStateV2DTO = function(
         state: SDKConsentState
@@ -397,7 +352,7 @@ export default function ServerModel(
             // FIXME: Remove duplicate occurence
             eventObject.CurrencyCode = mpInstance._Store.currencyCode;
             var currentUser = user || mpInstance.Identity.getCurrentUser();
-            self.appendUserInfo(currentUser, eventObject as SDKEvent);
+            appendUserInfo(currentUser, eventObject as SDKEvent);
 
             if (event.messageType === Types.MessageType.SessionEnd) {
                 eventObject.SessionLength =

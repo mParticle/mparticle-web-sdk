@@ -12,6 +12,7 @@ import {
 } from '../../src/consent';
 import { IMParticleUser, ISDKUserAttributes } from '../../src/identity-user-interfaces';
 import Utils from './config/utils';
+import { appendUserInfo } from '../../src/user-utils';
 const { hasIdentifyReturned, waitForCondition, fetchMockSuccess } = Utils;
 
 let initialEvent = {};
@@ -28,189 +29,6 @@ describe('ServerModel', () => {
             eventType: Types.EventType.Navigation,
             customFlags: { 'foo-flag': 'foo-flag-val' },
         };
-    });
-
-    describe('#appendUserInfo', () => {
-        it('should append User Identities and Attributes to event', () => {
-            const user = ({
-                getUserIdentities: () => {
-                    return {
-                        userIdentities: {
-                            customerid: '1234567',
-                            email: 'foo-email',
-                            other: 'foo-other',
-                            other2: 'foo-other2',
-                            other3: 'foo-other3',
-                            other4: 'foo-other4',
-                        },
-                    };
-                },
-                getAllUserAttributes: () => {
-                    return {
-                        'foo-user-attr': 'foo-attr-value',
-                        'foo-user-attr-list': ['item1', 'item2'],
-                    };
-                },
-                getMPID: () => {
-                    return '98765';
-                },
-                getConsentState: () => {
-                    return {
-                        gdpr: {
-                            'test-purpose': {
-                                consented: true,
-                                timestamp: 11111,
-                                consent_document: 'gdpr-doc',
-                                location: 'test-gdpr-location',
-                                hardwareId: 'test-gdpr-hardware',
-                            },
-                        },
-                        ccpa: {
-                            data_sale_opt_out: {
-                                consented: false,
-                                timestamp: 22222,
-                                consent_document: 'ccpa-doc',
-                                location: 'test-ccpa-location',
-                                hardwareId: 'test-ccpa-hardware',
-                            },
-                        },
-                    };
-                },
-            } as unknown) as IMParticleUser;
-
-            // TODO: We should move some of the event samples into a reusable module
-            //       or set up an event factory
-            const event: SDKEvent = {
-                EventName: 'Test Event',
-                ExpandedEventCount: 0,
-                MPID: '',
-                IsFirstRun: true,
-                DeviceId: 'test-device',
-                EventCategory: 0,
-                SourceMessageId: 'test-source-message-id',
-                SDKVersion: 'test-version',
-                SessionId: 'test-session-id',
-                SessionStartDate: 0,
-                Timestamp: 0,
-                EventDataType: 0,
-                Debug: true,
-                CurrencyCode: 'USD',
-                ActiveTimeOnSite: 10,
-            };
-
-            ServerModel.appendUserInfo(user, event as SDKEvent);
-
-            expect(event.MPID).to.equal('98765');
-            expect(event.ConsentState).to.eql({
-                gdpr: {
-                    'test-purpose': {
-                        consented: true,
-                        timestamp: 11111,
-                        consent_document: 'gdpr-doc',
-                        location: 'test-gdpr-location',
-                        hardwareId: 'test-gdpr-hardware',
-                    },
-                },
-                ccpa: {
-                    data_sale_opt_out: {
-                        consented: false,
-                        timestamp: 22222,
-                        consent_document: 'ccpa-doc',
-                        location: 'test-ccpa-location',
-                        hardwareId: 'test-ccpa-hardware',
-                    },
-                },
-            });
-            expect(event.UserAttributes).to.eql({
-                'foo-user-attr': 'foo-attr-value',
-                'foo-user-attr-list': ['item1', 'item2'],
-            });
-            expect(event.UserIdentities).to.eql([
-                { Identity: 'foo-other', Type: 0 },
-                { Identity: '1234567', Type: 1 },
-                { Identity: 'foo-email', Type: 7 },
-                { Identity: 'foo-other2', Type: 10 },
-                { Identity: 'foo-other3', Type: 11 },
-                { Identity: 'foo-other4', Type: 12 },
-            ]);
-        });
-
-        it('sets User Attributes and Identities to null if user is empty', () => {
-            const event = {} as SDKEvent;
-
-            ServerModel.appendUserInfo(null, event);
-            expect(event.MPID).to.eql(null);
-            expect(event.ConsentState).to.eql(null);
-            expect(event.UserIdentities).to.eql(null);
-            expect(event.UserAttributes).to.eql(null);
-        });
-
-        it('returns undefined if event is empty', () => {
-            expect(ServerModel.appendUserInfo({} as IMParticleUser, null)).to.be
-                .undefined;
-        });
-
-        it('returns early if event MPID matches User MPID', () => {
-            const user = {
-                getUserIdentities: () => {
-                    return { userIdentities: {} };
-                },
-                getAllUserAttributes: () => {
-                    return null;
-                },
-                getMPID: () => {
-                    return '123456';
-                },
-                getConsentState: () => {
-                    return null;
-                },
-            };
-
-            const event = {
-                MPID: '123456',
-            };
-
-            ServerModel.appendUserInfo(
-                user as IMParticleUser,
-                event as SDKEvent
-            );
-
-            expect(event.MPID).to.equal('123456');
-            // Verify to make sure we didn't add anything unnecessary to the event
-            expect(Object.keys(event).length).to.equal(1);
-        });
-
-        it('updates event MPID with User MPID', () => {
-            const user = {
-                getUserIdentities: () => {
-                    return { userIdentities: {} };
-                },
-                getAllUserAttributes: () => {
-                    return null;
-                },
-                getMPID: () => {
-                    return '123456';
-                },
-                getConsentState: () => {
-                    return null;
-                },
-            };
-
-            const event = {
-                MPID: '555666777',
-            };
-
-            ServerModel.appendUserInfo(
-                user as IMParticleUser,
-                event as SDKEvent
-            );
-
-            expect(event.MPID).to.equal('123456');
-        });
-
-        it('returns early if event and user are not valid', () => {
-            expect(ServerModel.appendUserInfo(null, null)).to.be.undefined;
-        });
     });
 
     describe('#convertToConsentStateDTO', () => {
@@ -1559,7 +1377,7 @@ describe('ServerModel', () => {
             identityMapping[Types.IdentityType.Other3] = 'foo-other3';
             identityMapping[Types.IdentityType.Other4] = 'foo-other4';
 
-            mParticle.getInstance()._ServerModel.appendUserInfo(user, sdkEvent);
+            appendUserInfo(user, sdkEvent);
             sdkEvent.UserIdentities.should.be.ok;
             sdkEvent.UserIdentities.length.should.equal(6);
 
@@ -1598,7 +1416,7 @@ describe('ServerModel', () => {
                 },
             } as IMParticleUser;
 
-            mParticle.getInstance()._ServerModel.appendUserInfo(user, sdkEvent);
+            appendUserInfo(user, sdkEvent);
             expect(sdkEvent.UserAttributes).to.be.ok;
             expect(sdkEvent.UserAttributes).to.eql(attributes);
 
@@ -1634,7 +1452,7 @@ describe('ServerModel', () => {
                     return null;
                 },
             } as IMParticleUser;
-            mParticle.getInstance()._ServerModel.appendUserInfo(user, sdkEvent);
+            appendUserInfo(user, sdkEvent);
             expect(sdkEvent.MPID).to.equal('98765');
             done();
             })

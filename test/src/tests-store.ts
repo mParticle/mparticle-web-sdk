@@ -1240,6 +1240,7 @@ describe('Store', () => {
                     cacheIdentity: 'False',
                     audienceAPI: 'False',
                     captureIntegrationSpecificIds: 'False',
+                    astBackgroundEvents: 'True',
                 },
             };
 
@@ -1258,6 +1259,7 @@ describe('Store', () => {
                 cacheIdentity: false,
                 audienceAPI: false,
                 captureIntegrationSpecificIds: false,
+                astBackgroundEvents: true,
             };
 
             expect(store.SDKConfig.flags).to.deep.equal(expectedResult);
@@ -1459,6 +1461,7 @@ describe('Store', () => {
                 cacheIdentity: false,
                 audienceAPI: false,
                 captureIntegrationSpecificIds: false,
+                astBackgroundEvents: false,
             };
 
             expect(flags).to.deep.equal(expectedResult);
@@ -1473,6 +1476,7 @@ describe('Store', () => {
                 cacheIdentity: 'True',
                 audienceAPI: 'True',
                 captureIntegrationSpecificIds: 'True',
+                astBackgroundEvents: 'True',
             };
 
             const flags = processFlags(
@@ -1487,6 +1491,7 @@ describe('Store', () => {
                 cacheIdentity: true,
                 audienceAPI: true,
                 captureIntegrationSpecificIds: true,
+                astBackgroundEvents: true,
             };
 
             expect(flags).to.deep.equal(expectedResult);
