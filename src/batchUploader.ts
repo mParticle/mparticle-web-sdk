@@ -185,11 +185,6 @@ export class BatchUploader {
             } = this.mpInstance;
             const { AstBackgroundEvents } = Constants.FeatureFlags;
 
-            const flagValue = getFeatureFlag(AstBackgroundEvents);
-            if (flagValue) {
-                console.log('Feature flag value:', flagValue, 'type:', typeof flagValue);
-            }
-
             if (getFeatureFlag(AstBackgroundEvents)) {
                 if (_this.shouldDebounceAndUpdateLastASTTime()) {
                     return;
