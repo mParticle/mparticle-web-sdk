@@ -5,7 +5,6 @@ import {
     SDKEventCustomFlags,
     SDKInitConfig,
 } from './sdkRuntimeModels';
-import { Dictionary } from './utils';
 import {
     AsyncUploader,
     IFetchPayload,
@@ -14,7 +13,11 @@ import {
 } from './uploaders';
 import { IPixelConfiguration } from './cookieSyncManager';
 import { IMParticleWebSDKInstance } from './mp-instance';
-import { ForwarderSettings, UserAttributeFilters, UserIdentityFilters } from './forwarders.interfaces';
+import {
+    ForwarderSettings,
+    UserAttributeFilters,
+    UserIdentityFilters,
+} from './forwarders.interfaces';
 
 export interface IKitConfigs extends IKitFilterSettings {
     name: string;
