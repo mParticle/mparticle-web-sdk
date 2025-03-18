@@ -12,12 +12,14 @@
         UserPreference: 6,
         Social: 7,
         Other: 8,
+        Media: 9,
     };
     window.mParticle.eCommerce = { Cart: {} };
     window.mParticle.Identity = {};
+    window.mParticle.Rokt = {};
     window.mParticle.config = window.mParticle.config || {};
     window.mParticle.config.rq = [];
-    window.mParticle.config.snippetVersion = 2.3;
+    window.mParticle.config.snippetVersion = 2.4;
     window.mParticle.ready = function(f) {
         window.mParticle.config.rq.push(f);
     };
@@ -43,6 +45,7 @@
     ];
     var ecommerceMethods = ['setCurrencyCode', 'logCheckout'];
     var identityMethods = ['identify', 'login', 'logout', 'modify'];
+    var roktMethods = ['attachLauncher', 'selectPlacements'];
 
     // iterates through methods above to create stubs
     mainMethods.forEach(function(method) {
@@ -53,6 +56,9 @@
     });
     identityMethods.forEach(function(method) {
         window.mParticle.Identity[method] = preloadMethod(method, 'Identity');
+    });
+    roktMethods.forEach(function(method) {
+        window.mParticle.Rokt[method] = preloadMethod(method, 'Rokt');
     });
 
     // stubbing function
