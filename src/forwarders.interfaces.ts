@@ -43,7 +43,7 @@ export interface ConfiguredKit
     common: Dictionary<unknown>;
     id: number;
     init(
-        settings: Dictionary<unknown>, // FIXME: Make this a real type
+        settings: ForwarderSettings,
         service: forwardingStatsCallback,
         testMode: boolean,
         trackerId: string | null,
@@ -107,7 +107,7 @@ export type UserAttributeFilters = number[];
 
 // FIXME: Remove in favor of IKitConfigs.settings
 // https://go.mparticle.com/work/SQDSDKS-7113
-interface ForwarderSettings {
+export interface ForwarderSettings {
     PriorityValue?: number;
 }
 
