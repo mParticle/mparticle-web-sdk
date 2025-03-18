@@ -1,12 +1,22 @@
 import { SDKEvent, SDKEventCustomFlags, SDKInitConfig } from './sdkRuntimeModels';
 import { Dictionary } from './utils';
-import { IFilteringConsentRuleValues, IFilteringEventAttributeValue, IFilteringUserAttributeValue, IKitConfigs, IKitFilterSettings } from './configAPIClient';
-import { Callback, IdentityApiData, Logger, UserIdentities } from '@mparticle/web-sdk';
+import {
+    IFilteringConsentRuleValues,
+    IFilteringEventAttributeValue, 
+    IFilteringUserAttributeValue,
+    IKitConfigs,
+    IKitFilterSettings
+} from './configAPIClient';
+import {
+    Callback,
+    IdentityApiData,
+    Logger,
+    UserIdentities
+} from '@mparticle/web-sdk';
 import {
     IMParticleUser,
     ISDKUserAttributes,
-    ISDKUserIdentity,
-    UserAttributes,
+    ISDKUserIdentity
 } from './identity-user-interfaces';
 import { IForwardingStatsData } from './apiClient';
 import { IPixelConfiguration } from './cookieSyncManager';
