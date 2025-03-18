@@ -9,7 +9,7 @@ import { IMParticleUser, ISDKUserAttributes } from './identity-user-interfaces';
 import { AsyncUploader, FetchUploader, XHRUploader } from './uploaders';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { appendUserInfo } from './user-utils';
-import { IMPForwarder } from './forwarders.interfaces';
+import { ConfiguredKit } from './forwarders.interfaces';
 
 export interface IAPIClient {
     uploader: BatchUploader | null;
@@ -24,7 +24,7 @@ export interface IAPIClient {
     ) => void;
     initializeForwarderStatsUploader: () => AsyncUploader;
     prepareForwardingStats: (
-        forwarder: IMPForwarder,
+        forwarder: ConfiguredKit,
         event: IUploadObject
     ) => void;
 }
@@ -193,7 +193,7 @@ export default function APIClient(
     };
 
     this.prepareForwardingStats = function(
-        forwarder: IMPForwarder,
+        forwarder: ConfiguredKit,
         event:SDKEvent,
     ) : void {
         let forwardingStatsData: IForwardingStatsData;
