@@ -15,7 +15,7 @@ import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
 import MPSideloadedKit, { IMPSideloadedKit } from './sideloadedKit';
 import { ISessionManager } from './sessionManager';
-import { ConfiguredKit, IMPForwarder, UnregisteredKit, UserAttributeFilters, UserIdentityFilters  } from './forwarders.interfaces';
+import { ConfiguredKit, UnregisteredKit, UserAttributeFilters, UserIdentityFilters } from './forwarders.interfaces';
 import {
     SDKIdentityApi,
     IAliasCallback,

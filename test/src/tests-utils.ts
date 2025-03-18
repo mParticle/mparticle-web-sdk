@@ -6,7 +6,6 @@ import {
     generateHash,
     generateUniqueId,
     getRampNumber,
-    inArray,
     isDataPlanSlug,
     isEmpty,
     isObject,
@@ -225,20 +224,6 @@ describe('Utils', () => {
             returnConvertedBoolean(null).should.equal(false);
             returnConvertedBoolean(undefined).should.equal(false);
             returnConvertedBoolean('').should.equal(false);
-        });
-    });
-
-    describe('#inArray', () => {
-        it('returns true if element is in the array', ()=> {
-            const things = ['people', 'places', 'things'];
-
-            expect(inArray(things, 'people')).to.eq(true);
-        });
-
-        it('returns false if element is not in the array', ()=> {
-            const things = ['people', 'places', 'things'];
-
-            expect(inArray(things, 'cats')).to.eq(false);
         });
     });
 

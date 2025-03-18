@@ -1,16 +1,19 @@
 import { EventType, IdentityType, MessageType } from './types';
 import filteredMparticleUser from './filteredMparticleUser';
-import { inArray, isEmpty, valueof } from './utils';
+import { Dictionary, inArray, isEmpty, valueof } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
-import APIClient from './apiClient';
-import { IMPForwarder, KitRegistrationConfig, UserAttributeFilters, UserIdentityFilters } from './forwarders.interfaces';
+import APIClient, { IForwardingStatsData } from './apiClient';
+import { ConfiguredKit, IMPForwarder, KitRegistrationConfig, RegisteredKit, UserAttributeFilters, UserIdentityFilters } from './forwarders.interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import KitBlocker from './kitBlocking';
-import { IFilteringUserAttributeValue, IKitConfigs } from './configAPIClient';
+import { IFilteringConsentRuleValues, IFilteringEventAttributeValue, IFilteringUserAttributeValue, IKitConfigs } from './configAPIClient';
 import { IMParticleUser, ISDKUserAttributes, ISDKUserIdentity, UserAttributes } from './identity-user-interfaces';
-import { SDKEvent } from './sdkRuntimeModels';
-import { Callback, UserIdentities } from '@mparticle/web-sdk';
+import { SDKEvent, SDKInitConfig } from './sdkRuntimeModels';
+import { Callback, IdentityApiData, UserIdentities } from '@mparticle/web-sdk';
+import { IdentityAPIMethod } from './identity.interfaces';
+import { IPixelConfiguration } from './cookieSyncManager';
+import { IFetchPayload } from './uploaders';
 
 const { Modify, Identify, Login, Logout } = Constants.IdentityMethods;
 
@@ -46,7 +49,7 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
                 );
             });
 
-            mpInstance._Store.activeForwarders = configuredForwarders.filter((forwarder: IMPForwarder) => {
+            mpInstance._Store.activeForwarders = configuredForwarders.filter((forwarder: ConfiguredKit) => {
                 if (
                     !isEnabledForUserConsent(
                         forwarder.filteringConsentRuleValues,
@@ -158,12 +161,12 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
     };
 
     this.applyToForwarders = (functionName: string, functionArgs: any[]) => {
-        const activeForwarders: IMPForwarder[] = mpInstance._Store.activeForwarders;
+        const activeForwarders: ConfiguredKit[] = mpInstance._Store.activeForwarders;
 
         if (!activeForwarders) {
             return;
         }
-        activeForwarders.forEach(function(forwarder) {
+        activeForwarders.forEach(function(forwarder: ConfiguredKit) {
             const forwarderFunction: IMPForwarder = forwarder[functionName];
             if (forwarderFunction) {
                 try {
@@ -454,7 +457,7 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
     };
 
     this.setForwarderOnUserIdentified = (user: IMParticleUser) => {
-        mpInstance._Store.activeForwarders.forEach((forwarder) => {
+        mpInstance._Store.activeForwarders.forEach((forwarder: ConfiguredKit) => {
             const filteredUser = filteredMparticleUser(
                 user.getMPID(),
                 forwarder,
@@ -473,7 +476,7 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
     this.setForwarderOnIdentityComplete = (user: IMParticleUser, identityMethod: IdentityAPIMethod) => {
         let result: string;
 
-        mpInstance._Store.activeForwarders.forEach((forwarder: IMPForwarder) => {
+        mpInstance._Store.activeForwarders.forEach((forwarder: ConfiguredKit) => {
             const filteredUser: IMParticleUser = filteredMparticleUser(
                 user.getMPID(),
                 forwarder,
@@ -607,7 +610,7 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
     };
 
     this.configureUIEnabledKit = (config: IKitConfigs, kits: Dictionary<RegisteredKit>) => {
-        let newKit: IMPForwarder | null = null;
+        let newKit: ConfiguredKit | null = null;
         const { SDKConfig } = mpInstance._Store;
 
         for (let kitName in kits) {
@@ -698,8 +701,9 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
         );
     };
 
-    this.returnConfiguredKit = function(forwarder, config = {} as IKitConfigs) {
-        const newForwarder = new forwarder.constructor();
+    this.returnConfiguredKit = (forwarder: RegisteredKit, config: IKitConfigs) => {
+        // FIXME: Make this a real type
+        const newForwarder: ConfiguredKit = new forwarder.constructor() as ConfiguredKit;
         newForwarder.id = config.moduleId;
 
         // TODO: isSandbox, hasSandbox is never used in any kit or in core SDK.
@@ -723,12 +727,12 @@ export default function Forwarders(this: IMPForwarder,  mpInstance: IMParticleWe
         newForwarder.userAttributeFilters = config.userAttributeFilters || [];
 
         newForwarder.filteringEventAttributeValue =
-            config.filteringEventAttributeValue || {};
+            config.filteringEventAttributeValue || {} as IFilteringEventAttributeValue;
         newForwarder.filteringUserAttributeValue =
-            config.filteringUserAttributeValue || {};
+            config.filteringUserAttributeValue || {} as IFilteringUserAttributeValue;
         newForwarder.eventSubscriptionId = config.eventSubscriptionId || null;
         newForwarder.filteringConsentRuleValues =
-            config.filteringConsentRuleValues || {};
+            config.filteringConsentRuleValues || {} as IFilteringConsentRuleValues;
         newForwarder.excludeAnonymousUser =
             config.excludeAnonymousUser || false;
 

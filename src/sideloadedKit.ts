@@ -9,6 +9,7 @@ import { UnregisteredKit } from './forwarders.interfaces';
 import { EventType, IdentityType } from './types';
 import { valueof } from './utils';
 
+// FIXME: Decide if this should extend Kit or RegisteredKit depending on the overlap
 export interface IMPSideloadedKit {
     kitInstance: UnregisteredKit;
     filterDictionary: IKitFilterSettings;

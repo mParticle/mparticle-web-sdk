@@ -39,7 +39,7 @@ import {
 import { CookieSyncDates, IPixelConfiguration } from './cookieSyncManager';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import ForegroundTimer from './foregroundTimeTracker';
-import { IMPSideloadedKit, IMPSideloadedKitConstructor } from './sideloadedKit';
+import { IMPSideloadedKit } from './sideloadedKit';
 
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and
@@ -70,8 +70,7 @@ export interface SDKConfig {
     identifyRequest: IdentifyRequest;
     identityCallback: IdentityCallback;
     integrationDelayTimeout: number;
-    // sideloadedKits: IMPSideloadedKit[];
-    sideloadedKits: MPForwarder[];
+    sideloadedKits: IMPSideloadedKit[];
     aliasMaxWindow: number;
     deviceId?: string;
     forceHttps?: boolean;
