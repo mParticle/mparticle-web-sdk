@@ -137,7 +137,6 @@ describe('Integration Capture', () => {
 
                 expect(integrationCapture.clickIds).toEqual({
                     ScCid: '1234',
-                    
                 });
             });
         });
