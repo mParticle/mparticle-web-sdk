@@ -3,7 +3,6 @@ import './config/setup';
 
 // Import each test module
 import './tests-mparticle-instance-manager';
-import './tests-identity';
 import './tests-batchUploader';
 import './tests-core-sdk';
 import './tests-beaconUpload';
@@ -39,4 +38,5 @@ import './tests-legacy-alias-requests';
 import './tests-identityApiClient';
 import './tests-integration-capture';
 import './tests-batchUploader_4';
+import './tests-identity';
 

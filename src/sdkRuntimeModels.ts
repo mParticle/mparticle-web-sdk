@@ -81,6 +81,7 @@ export interface SDKEvent {
     LaunchReferral?: string;
     ExpandedEventCount: number;
     ActiveTimeOnSite: number;
+    IsBackgroundAST?: boolean;
 }
 
 export interface SDKGeoLocation {
