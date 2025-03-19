@@ -30,16 +30,21 @@ const processPreloadedItem = (readyQueueItem): void => {
 
     // if the first argument is a method on the base mParticle object, run it
     if (typeof window !== 'undefined' && window.mParticle && window.mParticle[args[0]]) {
-        window.mParticle[method].apply(this, args);
-        // otherwise, the method is on either eCommerce or Identity objects, ie. "eCommerce.setCurrencyCode", "Identity.login"
+        window.mParticle[method].apply(window.mParticle, args);
     } else {
         const methodArray = method.split('.');
         try {
             let computedMPFunction = window.mParticle;
+            let context = window.mParticle;
+            
+            // Track both the function and its context
             for (const currentMethod of methodArray) {
+                context = computedMPFunction;  // Keep track of the parent object
                 computedMPFunction = computedMPFunction[currentMethod];
             }
-            ((computedMPFunction as unknown) as Function).apply(this, args);
+            
+            // Apply the function with its proper context
+            ((computedMPFunction as unknown) as Function).apply(context, args);
         } catch (e) {
             throw new Error('Unable to compute proper mParticle function ' + e);
         }
