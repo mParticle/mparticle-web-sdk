@@ -18,6 +18,7 @@ export interface IRoktSelection {
 
 export interface IRoktLauncher {
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
+    preSelectionCallback: () => IRoktPartnerAttributes;
 }
 
 export interface IRoktMessage {
@@ -48,6 +49,10 @@ export default class RoktManager {
         }
 
         try {
+            const preSelectionAttributes = this.launcher.preSelectionCallback();
+            console.log('[RoktManager] preSelectionAttributes', preSelectionAttributes);
+            options.attributes = { ...options.attributes, ...preSelectionAttributes };
+            console.log('[RoktManager] selectPlacement attributes', options.attributes);
             return this.launcher.selectPlacements(options);
         } catch (error) {
             return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));

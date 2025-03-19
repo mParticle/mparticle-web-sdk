@@ -9623,6 +9623,10 @@ var mParticle = (function () {
           return Promise.resolve({});
         }
         try {
+          var preSelectionAttributes = this.launcher.preSelectionCallback();
+          console.log('[RoktManager] preSelectionAttributes', preSelectionAttributes);
+          options.attributes = __assign(__assign({}, options.attributes), preSelectionAttributes);
+          console.log('[RoktManager] selectPlacement attributes', options.attributes);
           return this.launcher.selectPlacements(options);
         } catch (error) {
           return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
