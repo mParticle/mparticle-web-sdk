@@ -31,6 +31,7 @@ const processPreloadedItem = (readyQueueItem): void => {
     // if the first argument is a method on the base mParticle object, run it
     if (typeof window !== 'undefined' && window.mParticle && window.mParticle[args[0]]) {
         window.mParticle[method].apply(window.mParticle, args);
+        // otherwise, the method is on either eCommerce or Identity objects, ie. "eCommerce.setCurrencyCode", "Identity.login"
     } else {
         const methodArray = method.split('.');
         try {
