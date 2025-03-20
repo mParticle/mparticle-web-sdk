@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.35.0";
+    var version = "2.35.1";
 
     var Constants = {
       sdkVersion: version,
@@ -7164,7 +7164,6 @@ var mParticle = (function () {
       return AudienceManager;
     }();
 
-    var _this = undefined;
     var processReadyQueue = function processReadyQueue(readyQueue) {
       if (!isEmpty(readyQueue)) {
         readyQueue.forEach(function (readyQueueItem) {
@@ -7182,17 +7181,21 @@ var mParticle = (function () {
       var method = args.splice(0, 1)[0];
       // if the first argument is a method on the base mParticle object, run it
       if (typeof window !== 'undefined' && window.mParticle && window.mParticle[args[0]]) {
-        window.mParticle[method].apply(_this, args);
+        window.mParticle[method].apply(window.mParticle, args);
         // otherwise, the method is on either eCommerce or Identity objects, ie. "eCommerce.setCurrencyCode", "Identity.login"
       } else {
         var methodArray = method.split('.');
         try {
           var computedMPFunction = window.mParticle;
+          var context_1 = window.mParticle;
+          // Track both the function and its context
           for (var _i = 0, methodArray_1 = methodArray; _i < methodArray_1.length; _i++) {
             var currentMethod = methodArray_1[_i];
+            context_1 = computedMPFunction; // Keep track of the parent object
             computedMPFunction = computedMPFunction[currentMethod];
           }
-          computedMPFunction.apply(_this, args);
+          // Apply the function with its proper context
+          computedMPFunction.apply(context_1, args);
         } catch (e) {
           throw new Error('Unable to compute proper mParticle function ' + e);
         }
