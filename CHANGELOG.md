@@ -1,3 +1,10 @@
+## [2.35.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.35.0...v2.35.1) (2025-03-20)
+
+
+### Bug Fixes
+
+* Fix context reference in PreInit.processPreloadedItem ([#1005](https://github.com/mParticle/mparticle-web-sdk/issues/1005)) ([23a1ea5](https://github.com/mParticle/mparticle-web-sdk/commit/23a1ea57871ba1976926e2a9be50f2dd4e6fcf73))
+
 # [2.35.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.34.0...v2.35.0) (2025-03-18)
 
 
