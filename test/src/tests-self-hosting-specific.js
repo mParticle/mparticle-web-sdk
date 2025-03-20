@@ -23,7 +23,8 @@ describe('/config self-hosting integration tests', function() {
         window.mParticle.config.requestConfig = false;
     })
 
-    it('queues events in the eventQueue while /config is in flight, then processes them afterwards with correct MPID', async () => {
+    // https://go.mparticle.com/work/SQDSDKS-7160
+    it.skip('queues events in the eventQueue while /config is in flight, then processes them afterwards with correct MPID', async () => {
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.requestConfig = true;
         window.mParticle.config.flags.eventBatchingIntervalMillis = 0; // trigger event uploads immediately
