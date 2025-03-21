@@ -1,15 +1,28 @@
-import { SDKEvent, SDKEventCustomFlags } from './sdkRuntimeModels';
+import { SDKEvent, SDKEventCustomFlags, SDKInitConfig } from './sdkRuntimeModels';
 import { Dictionary } from './utils';
-import { IKitConfigs, IKitFilterSettings } from './configAPIClient';
-import { IdentityApiData } from '@mparticle/web-sdk';
+import {
+    IFilteringConsentRuleValues,
+    IFilteringEventAttributeValue, 
+    IFilteringUserAttributeValue,
+    IKitConfigs,
+    IKitFilterSettings
+} from './configAPIClient';
+import {
+    Callback,
+    IdentityApiData,
+    Logger,
+    UserIdentities
+} from '@mparticle/web-sdk';
 import {
     IMParticleUser,
-    ISDKUserIdentity,
-    UserAttributes,
+    ISDKUserAttributes,
+    ISDKUserIdentity
 } from './identity-user-interfaces';
-
-// TODO: https://go.mparticle.com/work/SQDSDKS-4475
-export type MPForwarder = Dictionary;
+import { IForwardingStatsData } from './apiClient';
+import { IPixelConfiguration } from './cookieSyncManager';
+import { IdentityAPIMethod } from './identity.interfaces';
+import { AsyncUploader } from './uploaders';
+import { IdentityType } from './types';
 
 // The state of the kit when accessed via window.KitName via CDN
 // or imported as an NPM package
@@ -40,17 +53,17 @@ export interface ConfiguredKit
     common: Dictionary<unknown>;
     id: number;
     init(
-        settings: Dictionary<unknown>,
+        settings: ForwarderSettings,
         service: forwardingStatsCallback,
         testMode: boolean,
         trackerId: string | null,
-        userAttributes: UserAttributes,
-        userIdentities: ISDKUserIdentity,
+        userAttributes: ISDKUserAttributes,
+        userIdentities: ISDKUserIdentity[],
         appVersion: string,
         appName: string,
         customFlags: SDKEventCustomFlags,
         clientId: string
-    ): string;
+    ): string;        
     onIdentifyComplete(
         user: IMParticleUser,
         filteredIdentityRequest: IdentityApiData
@@ -67,16 +80,27 @@ export interface ConfiguredKit
         user: IMParticleUser,
         filteredIdentityRequest: IdentityApiData
     ): string;
-    onUserIdentified(user: IMParticleUser): string;
+
+    // Techically these do not return a value, but we sometimes use a string as a debug message
+    onUserIdentified(user: IMParticleUser, identityApiData?: IdentityApiData): string;
     process(event: SDKEvent): string;
     setOptOut(isOptingOut: boolean): string;
     removeUserAttribute(key: string): string;
-    setUserAttribute(key: string, value: string): string;
-    setUserIdentity(id: UserIdentityId, type: UserIdentityType): void;
+    setUserAttribute(key: string, value: string | string[]): string;
+    setUserIdentity(id: UserIdentityId, type: UserIdentityType): string;
 
     // TODO: https://go.mparticle.com/work/SQDSDKS-5156
     isSandbox: boolean;
     hasSandbox: boolean;
+
+    filteringConsentRuleValues: IFilteringConsentRuleValues;
+    filteringUserAttributeValue: IFilteringUserAttributeValue;
+    filteringEventAttributeValue: IFilteringEventAttributeValue;
+    excludeAnonymousUser: boolean;
+    userIdentityFilters: UserIdentityFilters;
+    userAttributeFilters: UserAttributeFilters;
+    initialized: boolean;
+    logger: Logger;
 }
 
 export type UserIdentityId = string;
@@ -86,3 +110,104 @@ export type forwardingStatsCallback = (
     forwarder: ConfiguredKit,
     event: SDKEvent
 ) => void;
+
+
+export type UserIdentityFilters = typeof IdentityType[];
+export type UserAttributeFilters = number[];
+
+// FIXME: Remove in favor of IKitConfigs.settings
+// https://go.mparticle.com/work/SQDSDKS-7113
+export interface ForwarderSettings {
+    PriorityValue?: number;
+}
+
+// Represents the Forwarder Module in the SDK
+export interface IMPForwarder {
+    // @deprecated
+    setForwarderUserIdentities: (userIdentities: UserIdentities) => void;
+
+    setForwarderOnUserIdentified: (user: IMParticleUser) => void;
+    setForwarderOnIdentityComplete: (user: IMParticleUser, identityMethod: IdentityAPIMethod) => void;
+    handleForwarderUserAttributes: (functionNameKey: string, key: string, value: string | string[]) => void;
+    id: number;
+    settings: ForwarderSettings;
+    forwarderStatsUploader: AsyncUploader;
+    isInitialized: boolean;
+    // filteringConsentRuleValues: IFilteringConsentRuleValues;
+    // filteringUserAttributeValue: IFilteringUserAttributeValue;
+    // filteringEventAttributeValue: IFilteringEventAttributeValue;
+    // excludeAnonymousUser: boolean;
+    // userIdentityFilters: UserIdentityFilters;
+    // userAttributeFilters: UserAttributeFilters;
+    // initialized: boolean;
+    // logger: Logger;
+
+    suffix?: string;
+
+    eventSubscriptionId: number;
+
+    eventNameFilters: number[];
+    eventTypeFilters: number[];
+    attributeFilters: number[];
+
+    screenNameFilters: number[];
+    screenAttributeFilters: number[];
+
+
+    // Side loaded kit functionality in Forwarder methods
+    kitInstance: UnregisteredKit;
+
+    // https://go.mparticle.com/work/SQDSDKS-5156
+    isSandbox?: boolean;
+    hasSandbox?: boolean;
+    isVisible?: boolean;
+
+    configureSideloadedKit: (kitConstructor: RegisteredKit) => void;
+
+    sendSingleForwardingStatsToServer: (forwardingStatsData: IForwardingStatsData) => void;
+    applyToForwarders: (functionName: string, functionArgs: any[]) => void;
+    sendEventToForwarders: (event: SDKEvent) => void;
+    processPixelConfigs: (pixelConfigs: SDKInitConfig) => void;
+    configurePixel: (pixelConfig: IPixelConfiguration) => void;
+    returnConfiguredKit: (forwarder: RegisteredKit, config: IKitConfigs) => ConfiguredKit;
+
+    processSideloadedKits: (mpConfig: SDKInitConfig) => void;
+
+    // init: (
+    //     setting: ForwarderSettings,
+    //     forwarderSettingsCallback: Callback, 
+    //     testMode: boolean,
+    //     trackerId: string | number | null,
+    //     filteredUserAttributes: ISDKUserAttributes,
+    //     filteredUserIdentities: ISDKUserIdentity[],
+    //     appVersion: string,
+    //     appName: string,
+    //     customFlags: SDKEventCustomFlags,
+    //     clientId: string
+    // ) => void;
+
+    initForwarders: (userIdentities: UserIdentities, forwarderStatsCallback: Callback) => void;
+    isEnabledForUserAttributes: (filterObject?: IFilteringUserAttributeValue, user?: IMParticleUser) => boolean;
+    isEnabledForUnknownUser: (excludeAnonymousUserBoolean: boolean, user: IMParticleUser) => boolean;
+
+    name?: string;
+    
+    // Techically these do not return a value, but we sometimes use a string as a debug message
+    // onUserIdentified?: (user: IMParticleUser, identityApiData?: IdentityApiData) => string;
+    // onIdentifyComplete?: (user: IMParticleUser, identityApiData: IdentityApiData) => string;
+    // onLoginComplete?: (user: IMParticleUser, identityApiData: IdentityApiData) => string;
+    // onLogoutComplete?: (user: IMParticleUser, identityApiData: IdentityApiData) => string;
+    // onModifyComplete?: (user: IMParticleUser, identityApiData: IdentityApiData) => string;
+    // setOptOut: (optOut: boolean) => string;
+    // setUserAttribute?: (key: string, value: string | string[]) => string;
+    // removeUserAttribute?: (key: string) => string;
+    // process?: (event: SDKEvent) => string;
+    // setUserIdentity?: (identity: string, type: number) => string;
+
+    getForwarderStatsQueue: () => IForwardingStatsData[];
+    setForwarderStatsQueue: (queue: IForwardingStatsData[]) => void;
+    processForwarders: (config: SDKInitConfig, forwardingStatsCallback: Callback) => void;
+    processUIEnabledKits: (config: SDKInitConfig) => void;
+    returnKitConstructors: () =>  Dictionary<RegisteredKit>;
+    configureUIEnabledKit: (config: IKitConfigs, kitConstructor: Dictionary<RegisteredKit>) => void;
+}

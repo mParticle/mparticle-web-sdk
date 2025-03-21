@@ -6,15 +6,16 @@ import {
     SDKEventOptions,
     SDKEventAttrs,
     Callback,
+    UserIdentities,
 } from '@mparticle/web-sdk';
 import { IntegrationAttribute, IntegrationAttributes, IStore, WrapperSDKTypes } from './store';
 import Validators from './validators';
 import { Dictionary, valueof } from './utils';
 import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
-import MPSideloadedKit from './sideloadedKit';
+import MPSideloadedKit, { IMPSideloadedKit } from './sideloadedKit';
 import { ISessionManager } from './sessionManager';
-import { ConfiguredKit, MPForwarder, UnregisteredKit } from './forwarders.interfaces';
+import { ConfiguredKit, UnregisteredKit, UserAttributeFilters, UserIdentityFilters } from './forwarders.interfaces';
 import {
     SDKIdentityApi,
     IAliasCallback,
@@ -26,6 +27,7 @@ import {
     ISDKUserIdentity,
     IdentityCallback,
     ISDKUserAttributes,
+    UserAttributes,
 } from './identity-user-interfaces';
 import {
     CommerceEventType,
@@ -48,8 +50,9 @@ export interface SDKEvent {
     DeviceId: string;
     IsFirstRun: boolean;
     EventName: string;
+    // EventCategory: valueof<typeof EventType> | valueof<typeof CommerceEventType>;
     EventCategory: number;
-    UserAttributes?: ISDKUserAttributes;
+    UserAttributes?: UserAttributes;
     UserIdentities?: ISDKUserIdentity[];
     SourceMessageId: string;
     MPID: string;
@@ -60,6 +63,7 @@ export interface SDKEvent {
     SessionLength?: number;
     currentSessionMPIDs?: string[];
     Timestamp: number;
+    // EventDataType: valueof<typeof MessageType>;
     EventDataType: number;
     Debug: boolean;
     Location?: SDKGeoLocation;
@@ -273,7 +277,7 @@ export interface SDKInitConfig
 
     kitConfigs?: IKitConfigs[];
     kits?: Dictionary<UnregisteredKit>;
-    sideloadedKits?: MPForwarder[];
+    sideloadedKits?: IMPSideloadedKit[];
     dataPlanOptions?: KitBlockerOptions;
     flags?: Dictionary;
     pixelConfigs?: IPixelConfiguration[];
@@ -317,6 +321,9 @@ export interface SDKHelpersApi {
     createServiceUrl(url: string, devToken?: string): string;
     createXHR?(cb: () => void): XMLHttpRequest;
     extend?(...args: any[]);
+    isFilteredUserAttribute?: (key: string, filterList: UserAttributeFilters) => boolean;
+    filterUserAttributes?: (userAttributes: UserAttributes, filterList: UserAttributeFilters) => ISDKUserAttributes;
+    filterUserIdentities?: (userIdentities: UserIdentities, filterList: UserIdentityFilters) => ISDKUserIdentity[];
     findKeyInObject?(obj: any, key: string): string;
     parseNumber?(value: string | number): number;
     generateUniqueId();
@@ -374,8 +381,10 @@ export interface SDKConfigApi {
 }
 
 export interface BaseEvent {
+    // messageType: valueof<typeof MessageType>;
     messageType: number;
     name?: string;
+    // eventType?: valueof<typeof EventType> | valueof<typeof CommerceEventType>;
     eventType?: number;
     data?: SDKEventAttrs;
     customFlags?: { [key: string]: string };

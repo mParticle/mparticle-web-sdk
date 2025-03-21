@@ -1319,7 +1319,7 @@ describe('ServerModel', () => {
                     getConsentState: () => {
                         return consentState;
                     },
-                } as IMParticleUser;
+                } as unknown as IMParticleUser;
             };
             let sdkEvent = mParticle
                 .getInstance()

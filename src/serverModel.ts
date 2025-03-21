@@ -384,8 +384,8 @@ export default function ServerModel(
     this.convertEventToV2DTO = function(event: IUploadObject): IServerV2DTO {
         var dto: Partial<IServerV2DTO> = {
             n: event.EventName,
-            et: event.EventCategory,
-            ua: event.UserAttributes,
+            et: event.EventCategory as number,
+            ua: event.UserAttributes as Record<string, string | string[]>,
             ui: event.UserIdentities,
             ia: event.IntegrationAttributes,
             str: event.Store,

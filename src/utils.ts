@@ -16,7 +16,7 @@ const createCookieString = (value: string): string =>
 const revertCookieString = (value: string): string =>
     replacePipesWithCommas(replaceApostrophesWithQuotes(value));
 
-const inArray = (items: any[], name: string): boolean => {
+const inArray = (items: any[], name: any): boolean => {
     let i = 0;
 
     if (Array.prototype.indexOf) {
