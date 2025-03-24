@@ -34,9 +34,9 @@ import ForwardingStatsUploader from './forwardingStatsUploader';
 import Identity from './identity';
 import Consent, { IConsent } from './consent';
 import KitBlocker from './kitBlocking';
-import ConfigAPIClient from './configAPIClient';
+import ConfigAPIClient, { IKitConfigs } from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
-import { isFunction, valueof } from './utils';
+import { isFunction, parseConfig } from './utils';
 import { LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
@@ -50,6 +50,7 @@ import { INativeSdkHelpers } from './nativeSdkHelpers.interfaces';
 import { IPersistence } from './persistence.interfaces';
 import ForegroundTimer from './foregroundTimeTracker';
 import RoktManager from './roktManager';
+import filteredMparticleUser from './filteredMparticleUser';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -1393,6 +1394,18 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance._IntegrationCapture.capture();
         }
 
+        // Configure Rokt Manager with filtered user
+        const roktConfig: IKitConfigs = parseConfig(config, 'Rokt', 181);
+        if (roktConfig) {
+            const { userAttributeFilters } = roktConfig;
+            const roktFilteredUser = filteredMparticleUser(
+                currentUserMPID,
+                { userAttributeFilters },
+                mpInstance
+            );
+            mpInstance._RoktManager.init(roktConfig, roktFilteredUser);
+        }
+
         mpInstance._Forwarders.processForwarders(
             config,
             mpInstance._APIClient.prepareForwardingStats
@@ -1574,3 +1587,4 @@ function queueIfNotInitialized(func, self) {
     }
     return false;
 }
+

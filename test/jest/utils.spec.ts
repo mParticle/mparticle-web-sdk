@@ -1,3 +1,5 @@
+import { IKitConfigs } from '../../src/configAPIClient';
+import { SDKInitConfig } from '../../src/sdkRuntimeModels';
 import {
     queryStringParser,
     getCookies,
@@ -5,6 +7,9 @@ import {
     replaceMPID,
     replaceAmpWithAmpersand,
     createCookieSyncUrl,
+    inArray,
+    filterDictionaryWithHash,
+    parseConfig,
 } from '../../src/utils';
 import { deleteAllCookies } from './utils';
 
@@ -216,6 +221,92 @@ describe('Utils', () => {
 
         it('should return a cookieSyncUrl when pixelUrl is not null but redirectUrl is null', () => {
             expect(createCookieSyncUrl('testMPID', pixelUrl, null)).toBe('https://abc.abcdex.net/ibs:exampleid=12345&exampleuuid=testMPID&redir=');
+        });
+    });
+
+    describe('#inArray', () => {
+        it('returns true if the item is in the array', () => {
+            expect(inArray(['foo', 'bar', 'baz'], 'bar')).toBe(true);
+        });
+
+        it('returns false if the item is not in the array', () => {
+            expect(inArray(['foo', 'bar', 'baz'], 'qux')).toBe(false);
+        });
+
+        it('returns false if the array is empty', () => {
+            expect(inArray([], 'foo')).toBe(false);
+        });
+
+        it('returns false if the array is null', () => {
+            expect(inArray(null, 'foo')).toBe(false);
+        });
+
+        it('returns false if the array is undefined', () => {
+            expect(inArray(undefined, 'foo')).toBe(false);
+        });
+
+        it('should handle type-sensitive array membership checks', () => {
+            expect(inArray([1, 2, 3], 2)).toBe(true);
+            expect(inArray([1, '2', 3], 2)).toBe(false);
+            expect(inArray([1, 2, 3], '2')).toBe(false);
+            expect(inArray([1, '2', 3], '2')).toBe(true);
+            expect(inArray([1, 2, 3], 4)).toBe(false);
+            expect(inArray([1, 2, '', 3], NaN)).toBe(false);
+            expect(inArray([1, 2, '', 3], null)).toBe(false);
+            expect(inArray([1, 2, '', 3], undefined)).toBe(false);
+        });
+    });
+
+    describe('#filterDictionaryWithHash', () => {
+        it('should filter a dictionary based on a hash function and filter list', () => {
+            const dictionary = {
+                'foo': 'bar',
+                'bar': 'baz',
+                'baz': 'qux',
+                'quux': 'corge',
+            };
+    
+            const filterList = [
+                98, // charCode for 'b'
+                102, // charCode for 'f'
+            ];
+            const hashFn = (key: string): number => key.charCodeAt(0);
+
+            const filtered = filterDictionaryWithHash(dictionary, filterList, hashFn);
+
+            expect(filtered).toEqual({
+                'quux': 'corge',
+            });
+        });
+    });
+
+    describe('#parseConfig', () => {
+        it('should ONLY return the kit config for Rokt', () => {
+            const roktKitConfig: Partial<IKitConfigs> = {
+                name: 'Rokt',
+                moduleId: 181,
+            };
+
+            const otherKitConfig: Partial<IKitConfigs> = {
+                name: 'Other Kit',
+                moduleId: 42,
+            };
+
+            const config: SDKInitConfig = {
+                kitConfigs: [roktKitConfig as IKitConfigs, otherKitConfig as IKitConfigs],
+            };
+
+            const result = parseConfig(config, 'Rokt', 181);
+            expect(result).toEqual(roktKitConfig);
+        });
+
+        it('should return null if no kit config is found', () => {
+            const config: SDKInitConfig = {
+                kitConfigs: [],
+            };
+
+            const result = parseConfig(config, 'Rokt', 181);
+            expect(result).toBeNull();
         });
     });
 });
