@@ -16,7 +16,11 @@ const createCookieString = (value: string): string =>
 const revertCookieString = (value: string): string =>
     replacePipesWithCommas(replaceApostrophesWithQuotes(value));
 
-const inArray = (items: any[], name: string): boolean => {
+const inArray = (items: any[], name: any): boolean => {
+    if (!items) {
+        return false;
+    }
+
     let i = 0;
 
     if (Array.prototype.indexOf) {
@@ -360,6 +364,27 @@ const getHref = (): string => {
         : '';
 };
 
+const filterDictionaryWithHash = <T>(
+    dictionary: Dictionary<T>,
+    filterList: any[],
+    hashFn: (key: string) => any
+): Dictionary<T> => {
+    const filtered = {};
+
+    if (!isEmpty(dictionary)) {
+        for (const key in dictionary) {
+            if (dictionary.hasOwnProperty(key)) {
+                const hashedKey = hashFn(key);
+                if (!inArray(filterList, hashedKey)) {
+                    filtered[key] = dictionary[key];
+                }
+            }
+        }
+    }
+
+    return filtered;
+}
+
 export {
     createCookieString,
     revertCookieString,
@@ -367,6 +392,7 @@ export {
     valueof,
     converted,
     decoded,
+    filterDictionaryWithHash,
     findKeyInObject,
     generateDeprecationMessage,
     generateHash,

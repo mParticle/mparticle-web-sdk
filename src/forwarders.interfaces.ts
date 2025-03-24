@@ -1,7 +1,7 @@
 import { SDKEvent, SDKEventCustomFlags } from './sdkRuntimeModels';
 import { Dictionary } from './utils';
 import { IKitConfigs, IKitFilterSettings } from './configAPIClient';
-import { IdentityApiData } from '@mparticle/web-sdk';
+import { IdentityApiData, IdentityType } from '@mparticle/web-sdk';
 import {
     IMParticleUser,
     ISDKUserIdentity,
@@ -12,16 +12,27 @@ import {
 export type MPForwarder = Dictionary;
 
 // The state of the kit when accessed via window.KitName via CDN
-// or imported as an NPM package
+// or imported as an NPM package but before it goes through the registration process
+// This also applies to sideloaded kits which have not yet been registered
 export interface UnregisteredKit {
     constructor: () => void;
     register(config: KitRegistrationConfig): void;
     name: string;
+
+
+    // Optional Attributes that are not used for sideloaded kits
+
+    // Module ID is used for kits that are provided via CDN or NPM
+    moduleId?: number;
+
+    // Suffix is used for kits that are provided via CDN or NPM
+    // and is used for version pinning of the SDK
     suffix?: string;
 }
 
 // The state of the kit after being added to forwarderConstructors in the CDN
 // or after registered to SDKConfig.kits via NPM
+// Sideloaded Kits would also be considered registere
 export interface RegisteredKit {
     constructor: () => void;
 
@@ -81,6 +92,8 @@ export interface ConfiguredKit
 
 export type UserIdentityId = string;
 export type UserIdentityType = number;
+export type UserAttributeFilters = number[];
+export type UserIdentityFilters = typeof IdentityType[];
 
 export type forwardingStatsCallback = (
     forwarder: ConfiguredKit,
