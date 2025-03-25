@@ -105,6 +105,7 @@ const integrationMapping: IntegrationIdMapping = {
 
     // Rokt
     // https://docs.rokt.com/developers/integration-guides/web/advanced/rokt-id-tag/
+    // https://go.mparticle.com/work/SQDSDKS-7167
     rtid: {
         mappedKey: 'passbackconversiontrackingid',
         output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
