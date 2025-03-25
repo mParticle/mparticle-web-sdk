@@ -34,7 +34,11 @@ describe('Integration Capture', () => {
         it('should initialize with a filtered list of integration attribute mappings', () => {
             const integrationCapture = new IntegrationCapture();
             const mappings = integrationCapture.filteredIntegrationAttributeMappings;
-            expect(Object.keys(mappings)).toEqual(['rtid', 'RoktTransactionId']);
+            expect(Object.keys(mappings)).toEqual([
+                'rtid',
+                'rclid', 
+                'RoktTransactionId'
+            ]);
         });
     });
 
@@ -80,6 +84,7 @@ describe('Integration Capture', () => {
                 'gbraid=67890',
                 'wbraid=09876',
                 'rtid=84324',
+                'rclid=7183717',
                 'ScCid=1234'
             ].join('&');
 
@@ -102,6 +107,7 @@ describe('Integration Capture', () => {
                 gclid: '54321',
                 gbraid: '67890',
                 rtid: '84324',
+                rclid: '7183717',
                 wbraid: '09876',
                 ScCid:'1234'
             }); 
@@ -241,6 +247,20 @@ describe('Integration Capture', () => {
                 });
             });
 
+            it('should capture rclid via url param', () => {
+                const url = new URL('https://www.example.com/?rclid=7183717');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture();
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    rclid: '7183717',
+                });
+            });
+
             it('should capture RoktTransactionId via cookies', () => {
                 window.document.cookie = 'RoktTransactionId=12345';
 
@@ -293,6 +313,24 @@ describe('Integration Capture', () => {
                 });
             });
 
+            it('should prioritize rclid over RoktTransactionId via cookies', () => {
+                jest.spyOn(Date, 'now').mockImplementation(() => 42);
+
+                const url = new URL('https://www.example.com/?rclid=7183717');
+
+                window.document.cookie = 'RoktTransactionId=12345';
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture();
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    rclid: '7183717',
+                });
+            });
+
             it('should prioritize rtid over RoktTransactionId via local storage', () => {
                 jest.spyOn(Date, 'now').mockImplementation(() => 42);
 
@@ -308,6 +346,24 @@ describe('Integration Capture', () => {
 
                 expect(integrationCapture.clickIds).toEqual({
                     rtid: '54321',
+                });
+            });
+
+            it('should prioritize rclid over RoktTransactionId via local storage', () => {
+                jest.spyOn(Date, 'now').mockImplementation(() => 42);
+
+                const url = new URL('https://www.example.com/?rclid=7183717');
+                
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                localStorage.setItem('RoktTransactionId', '12345');
+
+                const integrationCapture = new IntegrationCapture();
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    rclid: '7183717',
                 });
             });
 
@@ -356,7 +412,7 @@ describe('Integration Capture', () => {
             jest.spyOn(Date, 'now').mockImplementation(() => 42);
 
             const url = new URL(
-                'https://www.example.com/?ttclid=12345&fbclid=67890&gclid=54321'
+                'https://www.example.com/?ttclid=12345&fbclid=67890&gclid=54321&rclid=7183717&rtid=54321'
             );
 
             window.location.href = url.href;
@@ -369,6 +425,8 @@ describe('Integration Capture', () => {
                 fbclid: 'fb.2.42.67890',
                 gclid: '54321',
                 ttclid: '12345',
+                rclid: '7183717',
+                rtid: '54321',
             });
         });
 
