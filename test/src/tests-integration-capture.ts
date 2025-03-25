@@ -50,6 +50,7 @@ describe('Integration Capture', () => {
             gclid: '234',
             gbraid: '6574',
             rtid: '45670808',
+            rclid: '7183717',
             wbraid: '1234111',
             ScCid: '1234',
         });
