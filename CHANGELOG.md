@@ -1,3 +1,10 @@
+## [2.35.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.35.1...v2.35.2) (2025-03-25)
+
+
+### Bug Fixes
+
+* Update Rokt Click ID ([#1008](https://github.com/mParticle/mparticle-web-sdk/issues/1008)) ([03d7aff](https://github.com/mParticle/mparticle-web-sdk/commit/03d7affeae70239199f31cbdd415ff1fb64c7f75))
+
 ## [2.35.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.35.0...v2.35.1) (2025-03-20)
 
 
