@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.35.1";
+    var version = "2.35.2";
 
     var Constants = {
       sdkVersion: version,
@@ -9427,7 +9427,13 @@ var mParticle = (function () {
       },
       // Rokt
       // https://docs.rokt.com/developers/integration-guides/web/advanced/rokt-id-tag/
+      // https://go.mparticle.com/work/SQDSDKS-7167
       rtid: {
+        mappedKey: 'passbackconversiontrackingid',
+        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
+        moduleId: 1277
+      },
+      rclid: {
         mappedKey: 'passbackconversiontrackingid',
         output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
         moduleId: 1277
@@ -9468,22 +9474,30 @@ var mParticle = (function () {
         var queryParams = this.captureQueryParams() || {};
         var cookies = this.captureCookies() || {};
         var localStorage = this.captureLocalStorage() || {};
+        // Facebook Rules
         // Exclude _fbc if fbclid is present
         // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc#retrieve-from-fbclid-url-query-parameter
         if (queryParams['fbclid'] && cookies['_fbc']) {
           delete cookies['_fbc'];
         }
-        // If both rtid and RoktTransactionId are present, prioritize rtid
+        // ROKT Rules
+        // If both rtid or rclid and RoktTransactionId are present, prioritize rtid/rclid
         // If RoktTransactionId is present in both cookies and localStorage,
         // prioritize localStorage
-        if (queryParams['rtid'] && localStorage['RoktTransactionId'] && cookies['RoktTransactionId']) {
-          delete localStorage['RoktTransactionId'];
-          delete cookies['RoktTransactionId'];
-        } else if (queryParams['rtid'] && localStorage['RoktTransactionId']) {
-          delete localStorage['RoktTransactionId'];
-        } else if (queryParams['rtid'] && cookies['RoktTransactionId']) {
-          delete cookies['RoktTransactionId'];
-        } else if (localStorage['RoktTransactionId'] && cookies['RoktTransactionId']) {
+        var hasQueryParamId = queryParams['rtid'] || queryParams['rclid'];
+        var hasLocalStorageId = localStorage['RoktTransactionId'];
+        var hasCookieId = cookies['RoktTransactionId'];
+        if (hasQueryParamId) {
+          // Query param takes precedence, remove both localStorage and cookie if present
+          if (hasLocalStorageId) {
+            delete localStorage['RoktTransactionId'];
+          }
+          if (hasCookieId) {
+            delete cookies['RoktTransactionId'];
+          }
+        } else if (hasLocalStorageId && hasCookieId) {
+          // No query param, but both localStorage and cookie exist
+          // localStorage takes precedence over cookie
           delete cookies['RoktTransactionId'];
         }
         this.clickIds = __assign(__assign(__assign(__assign({}, this.clickIds), queryParams), localStorage), cookies);
