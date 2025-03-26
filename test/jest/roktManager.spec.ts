@@ -112,8 +112,7 @@ describe('RoktManager', () => {
             expect(launcher.selectPlacements).toHaveBeenCalledWith(options);
         });
 
-        // New tests for the 'rokt.testsession' attribute
-        it('should add rokt.testsession with true value when isDevelopmentMode is true', () => {
+        it('should add sandbox with true value when isDevelopmentMode is true', () => {
             const launcher: IRoktLauncher = {
                 selectPlacements: jest.fn()
             };
@@ -132,14 +131,14 @@ describe('RoktManager', () => {
             const expectedOptions = {
                 attributes: {
                     customAttr: 'value',
-                    'rokt.testsession': true
+                    'sandbox': true
                 }
             };
 
             expect(launcher.selectPlacements).toHaveBeenCalledWith(expectedOptions);
         });
 
-        it('should add rokt.testsession with false value when isDevelopmentMode is false', () => {
+        it('should add sandbox with false value when isDevelopmentMode is false', () => {
             const launcher: IRoktLauncher = {
                 selectPlacements: jest.fn()
             };
@@ -158,14 +157,14 @@ describe('RoktManager', () => {
             const expectedOptions = {
                 attributes: {
                     customAttr: 'value',
-                    'rokt.testsession': false
+                    'sandbox': false
                 }
             };
 
             expect(launcher.selectPlacements).toHaveBeenCalledWith(expectedOptions);
         });
 
-        it('should preserve other option properties when adding rokt.testsession', () => {
+        it('should preserve other option properties when adding sandbox', () => {
             const launcher: IRoktLauncher = {
                 selectPlacements: jest.fn()
             };
@@ -185,7 +184,7 @@ describe('RoktManager', () => {
             const expectedOptions = {
                 attributes: {
                     customAttr: 'value',
-                    'rokt.testsession': true
+                    'sandbox': true
                 },
                 identifier: 'test-identifier'
             };
@@ -193,7 +192,7 @@ describe('RoktManager', () => {
             expect(launcher.selectPlacements).toHaveBeenCalledWith(expectedOptions);
         });
 
-        it('should not add rokt.testsession when config is null', () => {
+        it('should not add sandbox when config is null', () => {
             const launcher: IRoktLauncher = {
                 selectPlacements: jest.fn()
             };
@@ -208,8 +207,6 @@ describe('RoktManager', () => {
             };
 
             roktManager.selectPlacements(options);
-
-            // Should pass original options without modification since config is null
             expect(launcher.selectPlacements).toHaveBeenCalledWith(options);
         });
     });
