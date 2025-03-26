@@ -1,3 +1,5 @@
+import {SDKInitConfig} from "./sdkRuntimeModels";
+
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export interface IRoktPartnerAttributes {
     [key: string]: string | number | boolean | undefined | null;
@@ -25,12 +27,18 @@ export interface IRoktMessage {
     payload: any;
 }
 
+
 export default class RoktManager {
     public launcher: IRoktLauncher | null = null;
     private messageQueue: IRoktMessage[] = [];
+    public config: SDKInitConfig | null = null;
 
     constructor() {
         this.launcher = null;
+    }
+
+    public init(config: SDKInitConfig): void {
+        this.config = config;
     }
 
     public attachLauncher(launcher: IRoktLauncher): void {
@@ -48,7 +56,14 @@ export default class RoktManager {
         }
 
         try {
-            return this.launcher.selectPlacements(options);
+            const enhancedOptions = {
+                ...options,
+                attributes: {
+                    ...options.attributes,
+                    'rokt.testsession': this.config.isDevelopmentMode
+                }
+            };
+            return this.launcher.selectPlacements(enhancedOptions);
         } catch (error) {
             return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
         }
@@ -64,7 +79,7 @@ export default class RoktManager {
             this.messageQueue = [];
         }
     }
-    
+
 
     private queueMessage(message: IRoktMessage): void {
         this.messageQueue.push(message);

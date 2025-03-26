@@ -28,7 +28,7 @@ describe('RoktManager', () => {
             const launcher: IRoktLauncher = {
                 selectPlacements: jest.fn()
             };
-            
+
             roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
             roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
             roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
@@ -109,6 +109,107 @@ describe('RoktManager', () => {
             roktManager.attachLauncher(launcher);
             expect(roktManager['launcher']).not.toBeNull();
             expect(roktManager['messageQueue'].length).toBe(0);
+            expect(launcher.selectPlacements).toHaveBeenCalledWith(options);
+        });
+
+        // New tests for the 'rokt.testsession' attribute
+        it('should add rokt.testsession with true value when isDevelopmentMode is true', () => {
+            const launcher: IRoktLauncher = {
+                selectPlacements: jest.fn()
+            };
+
+            roktManager.attachLauncher(launcher);
+            roktManager.init({ isDevelopmentMode: true });
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    customAttr: 'value'
+                }
+            };
+
+            roktManager.selectPlacements(options);
+
+            const expectedOptions = {
+                attributes: {
+                    customAttr: 'value',
+                    'rokt.testsession': true
+                }
+            };
+
+            expect(launcher.selectPlacements).toHaveBeenCalledWith(expectedOptions);
+        });
+
+        it('should add rokt.testsession with false value when isDevelopmentMode is false', () => {
+            const launcher: IRoktLauncher = {
+                selectPlacements: jest.fn()
+            };
+
+            roktManager.attachLauncher(launcher);
+            roktManager.init({ isDevelopmentMode: false });
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    customAttr: 'value'
+                }
+            };
+
+            roktManager.selectPlacements(options);
+
+            const expectedOptions = {
+                attributes: {
+                    customAttr: 'value',
+                    'rokt.testsession': false
+                }
+            };
+
+            expect(launcher.selectPlacements).toHaveBeenCalledWith(expectedOptions);
+        });
+
+        it('should preserve other option properties when adding rokt.testsession', () => {
+            const launcher: IRoktLauncher = {
+                selectPlacements: jest.fn()
+            };
+
+            roktManager.attachLauncher(launcher);
+            roktManager.init({ isDevelopmentMode: true });
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    customAttr: 'value'
+                },
+                identifier: 'test-identifier'
+            };
+
+            roktManager.selectPlacements(options);
+
+            const expectedOptions = {
+                attributes: {
+                    customAttr: 'value',
+                    'rokt.testsession': true
+                },
+                identifier: 'test-identifier'
+            };
+
+            expect(launcher.selectPlacements).toHaveBeenCalledWith(expectedOptions);
+        });
+
+        it('should not add rokt.testsession when config is null', () => {
+            const launcher: IRoktLauncher = {
+                selectPlacements: jest.fn()
+            };
+
+            roktManager.attachLauncher(launcher);
+            // Not initializing config, so it remains null
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    customAttr: 'value'
+                }
+            };
+
+            roktManager.selectPlacements(options);
+
+            // Should pass original options without modification since config is null
             expect(launcher.selectPlacements).toHaveBeenCalledWith(options);
         });
     });

@@ -87,7 +87,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _Store: IStore;
     _instanceName: string;
     _preInit: IPreInit;
-    _timeOnSiteTimer: ForegroundTimer; 
+    _timeOnSiteTimer: ForegroundTimer;
 }
 
 const { Messages, HTTPCodes, FeatureFlags } = Constants;
@@ -1284,7 +1284,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     };
     /*
         An integration delay is a workaround that prevents events from being sent when it is necessary to do so.
-        Some server side integrations require a client side value to be included in the payload to successfully 
+        Some server side integrations require a client side value to be included in the payload to successfully
         forward.  This value can only be pulled from the client side partner SDK.
 
         During the kit initialization, the kit:
@@ -1393,6 +1393,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance._IntegrationCapture.capture();
         }
 
+        mpInstance._RoktManager.init(config);
         mpInstance._Forwarders.processForwarders(
             config,
             mpInstance._APIClient.prepareForwardingStats
