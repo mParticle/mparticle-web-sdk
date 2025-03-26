@@ -60,7 +60,7 @@ export default class RoktManager {
                 ...options,
                 attributes: {
                     ...options.attributes,
-                    'rokt.testsession': this.config.isDevelopmentMode
+                    sandbox: this.config.isDevelopmentMode
                 }
             };
             return this.launcher.selectPlacements(enhancedOptions);
