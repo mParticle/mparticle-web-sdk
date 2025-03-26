@@ -11,8 +11,8 @@ import {
     SDKGDPRConsentState,
     SDKCCPAConsentState,
 } from './consent';
-import Types from './types';
-import { Dictionary, isEmpty } from './utils';
+import Types, { CommerceEventType, EventType } from './types';
+import { Dictionary, isEmpty, valueof } from './utils';
 import { ISDKUserIdentity } from './identity-user-interfaces';
 import { SDKIdentityTypeEnum } from './identity.interfaces';
 import Constants from './constants';
@@ -113,7 +113,7 @@ export function convertEvents(
                     ? window.screen.height
                     : 0,
         },
-        user_attributes: lastEvent.UserAttributes,
+        user_attributes: lastEvent.UserAttributes as Record<string, string | string[]>,
         user_identities: convertUserIdentities(lastEvent.UserIdentities),
         consent_state: convertConsentState(currentConsentState),
         integration_attributes: lastEvent.IntegrationAttributes,
@@ -592,6 +592,7 @@ export function convertCustomEvent(sdkEvent: SDKEvent): EventsApi.CustomEvent {
 }
 
 export function convertSdkEventType(
+    // sdkEventType: valueof<typeof EventType> | valueof<typeof CommerceEventType>
     sdkEventType: number
 ):
     | EventsApi.CustomEventDataCustomEventTypeEnum

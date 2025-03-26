@@ -5,7 +5,6 @@ import {
     SDKEventCustomFlags,
     SDKInitConfig,
 } from './sdkRuntimeModels';
-import { Dictionary } from './utils';
 import {
     AsyncUploader,
     IFetchPayload,
@@ -14,6 +13,11 @@ import {
 } from './uploaders';
 import { IPixelConfiguration } from './cookieSyncManager';
 import { IMParticleWebSDKInstance } from './mp-instance';
+import {
+    ForwarderSettings,
+    UserAttributeFilters,
+    UserIdentityFilters,
+} from './forwarders.interfaces';
 
 export interface IKitConfigs extends IKitFilterSettings {
     name: string;
@@ -23,9 +27,13 @@ export interface IKitConfigs extends IKitFilterSettings {
     isVisible: boolean;
     isDebugString: BooleanStringLowerCase;
     hasDebugString: BooleanStringLowerCase;
-    settings: Dictionary;
+    settings: ForwarderSettings;
     eventSubscriptionId: number;
     excludeAnonymousUser: boolean;
+
+    // https://go.mparticle.com/work/SQDSDKS-5156
+    isSandbox?: boolean;
+    hasSandbox?: boolean;
 }
 
 export interface IKitFilterSettings {
@@ -33,8 +41,8 @@ export interface IKitFilterSettings {
     eventNameFilters: number[];
     screenNameFilters: number[];
     screenAttributeFilters: number[];
-    userIdentityFilters: number[];
-    userAttributeFilters: number[];
+    userIdentityFilters: UserIdentityFilters;
+    userAttributeFilters: UserAttributeFilters;
     attributeFilters: number[];
     filteringEventAttributeValue?: IFilteringEventAttributeValue;
     filteringUserAttributeValue?: IFilteringUserAttributeValue;

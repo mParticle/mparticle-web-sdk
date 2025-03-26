@@ -5,6 +5,7 @@ import {
     replaceMPID,
     replaceAmpWithAmpersand,
     createCookieSyncUrl,
+    inArray,
 } from '../../src/utils';
 import { deleteAllCookies } from './utils';
 
@@ -183,6 +184,24 @@ describe('Utils', () => {
 
             global.window = originalWindow;
         });
+    });
+
+    describe('inArray', () => {
+        it('returns true if the item is in the array', () => {
+            expect(inArray(['foo', 'bar'], 'foo')).toBe(true);
+            expect(inArray([1, 2], 2)).toBe(true);
+        });
+
+        it('returns false if the item is not in the array', () => {
+            expect(inArray(['foo', 'bar'], 'baz')).toBe(false);
+            expect(inArray([1, 2], 3)).toBe(false);
+        });
+
+        it('returns false if the array is empty', () => {
+            expect(inArray([], 'foo')).toBe(false);
+            expect(inArray([], 1)).toBe(false);
+        });
+
     });
 
     describe('#replaceMPID', () => {

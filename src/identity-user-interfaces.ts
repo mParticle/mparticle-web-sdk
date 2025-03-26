@@ -29,7 +29,7 @@ interface ICart {
 // https://go.mparticle.com/work/SQDSDKS-5033
 // https://go.mparticle.com/work/SQDSDKS-6354
 export interface IMParticleUser extends User {
-    getAllUserAttributes(): any;
+    getAllUserAttributes(): UserAttributes;
     setUserTag(tagName: string, value?: any): void;
     setUserAttribute(key: string, value: any): void;
     getUserAudiences?(callback?: IdentityCallback): void;

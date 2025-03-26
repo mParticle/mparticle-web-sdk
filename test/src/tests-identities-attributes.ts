@@ -643,7 +643,7 @@ describe('identities and attributes', function() {
         const userAttributes = mParticle.Identity.getCurrentUser().getAllUserAttributes();
 
         userAttributes.blah = 'test';
-        userAttributes['numbers'].push(6);
+        (userAttributes['numbers'] as number[]).push(6);
 
         const userAttributes1 = mParticle.Identity.getCurrentUser().getAllUserAttributes();
 

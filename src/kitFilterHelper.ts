@@ -1,16 +1,19 @@
 import { generateHash, valueof } from "./utils";
 // TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-5381
-import { EventType, IdentityType } from "./types";
+import { CommerceEventType, EventType, IdentityType } from "./types";
 
 export default class KitFilterHelper {
+    // static hashEventType(eventType: valueof<typeof EventType> | valueof<typeof CommerceEventType>): number {
     static hashEventType(eventType: valueof<typeof EventType>): number {
         return generateHash(eventType as unknown as string);
     };
 
+    // static hashEventName(eventName: string, eventType: valueof<typeof EventType> | valueof<typeof CommerceEventType>): number {
     static hashEventName(eventName: string, eventType: valueof<typeof EventType>): number {
         return generateHash(eventType + eventName);
     };
 
+    // static hashEventAttributeKey(eventType: valueof<typeof EventType> | valueof<typeof CommerceEventType>, eventName: string, customAttributeName: string): number {
     static hashEventAttributeKey(eventType: valueof<typeof EventType>, eventName: string, customAttributeName: string): number {
         return generateHash(eventType + eventName + customAttributeName);
     }
