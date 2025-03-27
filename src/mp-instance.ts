@@ -1385,6 +1385,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             ? { userIdentities: currentUserIdentities }
             : mpInstance._Store.SDKConfig.identifyRequest;
 
+        console.log("[mParticle] completeSDKInitialization", { identifyRequest: JSON.stringify(mpInstance._Store.SDKConfig.identifyRequest)})
+
         if (mpInstance._Helpers.getFeatureFlag(ReportBatching)) {
             mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
         }

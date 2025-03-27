@@ -3455,6 +3455,9 @@ var mParticle = (function () {
             var persistence = mpInstance._Persistence.getPersistence();
             if (persistence && !persistence.cu) {
               // https://go.mparticle.com/work/SQDSDKS-6323
+              console.log("[mParticle] SessionManager.initialize", {
+                identifyRequest: JSON.stringify(mpInstance._Store.SDKConfig.identifyRequest)
+              });
               mpInstance.Identity.identify(mpInstance._Store.SDKConfig.identifyRequest, mpInstance._Store.SDKConfig.identityCallback);
               mpInstance._Store.identifyCalled = true;
               mpInstance._Store.SDKConfig.identityCallback = null;
@@ -3487,6 +3490,9 @@ var mParticle = (function () {
           }
           self.setSessionTimer();
           if (!mpInstance._Store.identifyCalled) {
+            console.log("[mParticle] SessionManager.startNewSession", {
+              identifyRequest: JSON.stringify(mpInstance._Store.SDKConfig.identifyRequest)
+            });
             mpInstance.Identity.identify(mpInstance._Store.SDKConfig.identifyRequest, mpInstance._Store.SDKConfig.identityCallback);
             mpInstance._Store.identifyCalled = true;
             mpInstance._Store.SDKConfig.identityCallback = null;
@@ -6424,6 +6430,9 @@ var mParticle = (function () {
         } else {
           this.processUIEnabledKits(config);
           this.processSideloadedKits(config);
+          console.log('[mParticle] processForwarders', {
+            userIdentities: JSON.stringify(mpInstance._Store.SDKConfig.identifyRequest.userIdentities)
+          });
           self.initForwarders(mpInstance._Store.SDKConfig.identifyRequest.userIdentities, forwardingStatsCallback);
         }
       };
@@ -10627,6 +10636,9 @@ var mParticle = (function () {
         mpInstance._Store.SDKConfig.identifyRequest = mpInstance._Store.hasInvalidIdentifyRequest() ? {
           userIdentities: currentUserIdentities
         } : mpInstance._Store.SDKConfig.identifyRequest;
+        console.log("[mParticle] completeSDKInitialization", {
+          identifyRequest: JSON.stringify(mpInstance._Store.SDKConfig.identifyRequest)
+        });
         if (mpInstance._Helpers.getFeatureFlag(ReportBatching)) {
           mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
         }

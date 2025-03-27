@@ -567,6 +567,12 @@ export default function Forwarders(mpInstance, kitBlocker) {
             this.processUIEnabledKits(config);
             this.processSideloadedKits(config);
 
+            console.log('[mParticle] processForwarders', {
+                userIdentities: JSON.stringify(
+                    mpInstance._Store.SDKConfig.identifyRequest.userIdentities
+                ),
+            });
+
             self.initForwarders(
                 mpInstance._Store.SDKConfig.identifyRequest.userIdentities,
                 forwardingStatsCallback

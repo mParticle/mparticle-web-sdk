@@ -49,6 +49,7 @@ export default function SessionManager(
                 const persistence: IPersistenceMinified = mpInstance._Persistence.getPersistence();
                 if (persistence && !persistence.cu) {
                     // https://go.mparticle.com/work/SQDSDKS-6323
+                    console.log("[mParticle] SessionManager.initialize", {identifyRequest : JSON.stringify(mpInstance._Store.SDKConfig.identifyRequest)})
                     mpInstance.Identity.identify(
                         mpInstance._Store.SDKConfig.identifyRequest,
                         mpInstance._Store.SDKConfig.identityCallback
@@ -103,6 +104,9 @@ export default function SessionManager(
             self.setSessionTimer();
 
             if (!mpInstance._Store.identifyCalled) {
+                console.log("[mParticle] SessionManager.startNewSession", {
+                    identifyRequest: JSON.stringify(mpInstance._Store.SDKConfig.identifyRequest)
+                })
                 mpInstance.Identity.identify(
                     mpInstance._Store.SDKConfig.identifyRequest,
                     mpInstance._Store.SDKConfig.identityCallback
