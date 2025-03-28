@@ -19,7 +19,6 @@ export interface UnregisteredKit {
     register(config: KitRegistrationConfig): void;
     name: string;
 
-
     // Optional Attributes that are not used for sideloaded kits
 
     // Module ID is used for kits that are provided via CDN or NPM
@@ -32,7 +31,7 @@ export interface UnregisteredKit {
 
 // The state of the kit after being added to forwarderConstructors in the CDN
 // or after registered to SDKConfig.kits via NPM
-// Sideloaded Kits would also be considered registere
+// Sideloaded Kits would also be considered registered
 export interface RegisteredKit {
     constructor: () => void;
 
