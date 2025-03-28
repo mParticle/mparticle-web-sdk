@@ -242,13 +242,15 @@ describe('Utils', () => {
             expect(inArray(undefined, 'foo')).toBe(false);
         });
 
-        it('should support different types of arrays', () => {
+        it('should handle type-sensitive array membership checks', () => {
             expect(inArray([1, 2, 3], 2)).toBe(true);
+            expect(inArray([1, '2', 3], 2)).toBe(false);
             expect(inArray([1, 2, 3], '2')).toBe(false);
+            expect(inArray([1, '2', 3], '2')).toBe(true);
             expect(inArray([1, 2, 3], 4)).toBe(false);
-            expect(inArray([1, 2, 3], NaN)).toBe(false);
-            expect(inArray([1, 2, 3], null)).toBe(false);
-            expect(inArray([1, 2, 3], undefined)).toBe(false);
+            expect(inArray([1, 2, '', 3], NaN)).toBe(false);
+            expect(inArray([1, 2, '', 3], null)).toBe(false);
+            expect(inArray([1, 2, '', 3], undefined)).toBe(false);
         });
     });
 
