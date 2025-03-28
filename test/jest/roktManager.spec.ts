@@ -1,4 +1,6 @@
-import RoktManager, { IRoktLauncher, IRoktSelectPlacementsOptions } from "../../src/roktManager";
+import { IKitConfigs } from "../../src/configAPIClient";
+import RoktManager, { IRoktKit, IRoktSelectPlacementsOptions } from "../../src/roktManager";
+import { SDKInitConfig } from "../../src/sdkRuntimeModels";
 
 describe('RoktManager', () => {
     let roktManager: RoktManager;
@@ -12,57 +14,139 @@ describe('RoktManager', () => {
             expect(roktManager).toBeDefined();
         });
 
-        it('should have a null launcher', () => {
-            expect(roktManager['launcher']).toBeNull();
+        it('should have a null kit', () => {
+            expect(roktManager['kit']).toBeNull();
         });
     });
 
-    describe('#attachLauncher', () => {
-        it('should attach a launcher', () => {
-            const launcher = {} as IRoktLauncher;
-            roktManager.attachLauncher(launcher);
-            expect(roktManager['launcher']).not.toBeNull();
+    describe('#init', () => {
+        it('should initialize the manager with defaults when no config is provided', () => {
+            roktManager.init({} as SDKInitConfig);
+            expect(roktManager['kit']).toBeNull();
+            expect(roktManager['filters']).toEqual({
+                userAttributeFilters: undefined,
+                filterUserAttributes: expect.any(Function),
+            });
+            expect(roktManager['filteredUser']).toBeUndefined();
+            expect(roktManager['kit']).toBeNull();
+        });
+        it('should initialize the manager with user attribute filters from a config', () => {
+            const kitConfig: Partial<IKitConfigs> = {
+                name: 'Rokt',
+                moduleId: 181,
+                userAttributeFilters: [816506310, 1463937872, 36300687],
+            };
+
+            const config: SDKInitConfig = {
+                kitConfigs: [kitConfig as IKitConfigs],
+            };
+
+            roktManager.init(config);
+            expect(roktManager['filters']).toEqual({
+                userAttributeFilters: [816506310, 1463937872, 36300687],
+                filterUserAttributes: expect.any(Function),
+            });
+        });
+    });
+
+    describe('#parseConfig', () => {
+        it('should ONLY return the kit config for Rokt', () => {
+            const roktKitConfig: Partial<IKitConfigs> = {
+                name: 'Rokt',
+                moduleId: 181,
+            };
+
+            const otherKitConfig: Partial<IKitConfigs> = {
+                name: 'Other Kit',
+                moduleId: 42,
+            };
+
+            const config: SDKInitConfig = {
+                kitConfigs: [roktKitConfig as IKitConfigs, otherKitConfig as IKitConfigs],
+            };
+
+            const result = roktManager.parseConfig(config);
+            expect(result).toEqual(roktKitConfig);
         });
 
-        it('should process the message queue if a launcher is attached', () => {
-            const launcher: IRoktLauncher = {
+        it('should return null if no kit config is found', () => {
+            const config: SDKInitConfig = {
+                kitConfigs: [],
+            };
+
+            const result = roktManager.parseConfig(config);
+            expect(result).toBeNull();
+        });
+    });
+
+    describe('#attachKit', () => {
+        it('should attach a kit', () => {
+            const kit: IRoktKit = {
+                filters: undefined,
+                filteredUser: undefined,
+                userAttributes: undefined,
                 selectPlacements: jest.fn()
             };
+
+            roktManager.attachKit(kit);
+            expect(roktManager['kit']).not.toBeNull();
+        });
+    });
+
+    describe('#processMessageQueue', () => {
+        it('should process the message queue if a launcher and kit are attached', () => {
+            const kit: IRoktKit = {
+                selectPlacements: jest.fn(),
+                filters: undefined,
+                filteredUser: undefined,
+                userAttributes: undefined
+            };
+
+
+            roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
+            roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
+            roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
             
-            roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
-            roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
-            roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
-
             expect(roktManager['messageQueue'].length).toBe(3);
+            expect(kit.selectPlacements).toHaveBeenCalledTimes(0);
 
-            roktManager.attachLauncher(launcher);
-            expect(roktManager['launcher']).not.toBeNull();
+            // Indirectly attach the launcher and kit to test the message queue
+            roktManager.kit = kit;
+
+            roktManager['processMessageQueue']();
             expect(roktManager['messageQueue'].length).toBe(0);
-            expect(launcher.selectPlacements).toHaveBeenCalledTimes(3);
+            expect(kit.selectPlacements).toHaveBeenCalledTimes(3);
         });
     });
 
     describe('#selectPlacements', () => {
-        it('should call launcher.selectPlacements with empty attributes', () => {
-            const launcher: IRoktLauncher = {
-                selectPlacements: jest.fn()
+        it('should call kit.selectPlacements with empty attributes', () => {
+            const kit: IRoktKit = {
+                selectPlacements: jest.fn(),
+                filters: undefined,
+                filteredUser: undefined,
+                userAttributes: undefined
             };
 
-            roktManager.attachLauncher(launcher);
+            roktManager.attachKit(kit);
+
             const options = {
                 attributes: {}
             } as IRoktSelectPlacementsOptions;
 
             roktManager.selectPlacements(options);
-            expect(launcher.selectPlacements).toHaveBeenCalledWith(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
-        it('should call launcher.selectPlacements with passed in attributes', () => {
-            const launcher: IRoktLauncher = {
-                selectPlacements: jest.fn()
+        it('should call kit.selectPlacements with passed in attributes', () => {
+            const kit: IRoktKit = {
+                selectPlacements: jest.fn(),
+                filters: undefined,
+                filteredUser: undefined,
+                userAttributes: undefined
             };
 
-            roktManager.attachLauncher(launcher);
+            roktManager.attachKit(kit);
 
             const options: IRoktSelectPlacementsOptions = {
                 attributes: {
@@ -75,25 +159,28 @@ describe('RoktManager', () => {
             };
 
             roktManager.selectPlacements(options);
-            expect(launcher.selectPlacements).toHaveBeenCalledWith(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
-        it('should queue the selectPlacements method if no launcher is attached', () => {
+        it('should queue the selectPlacements method if no launcher or kit is attached', () => {
             const options = {
                 attributes: {}
             } as IRoktSelectPlacementsOptions;
 
             roktManager.selectPlacements(options);
 
-            expect(roktManager['launcher']).toBeNull();
+            expect(roktManager['kit']).toBeNull();
             expect(roktManager['messageQueue'].length).toBe(1);
             expect(roktManager['messageQueue'][0].methodName).toBe('selectPlacements');
             expect(roktManager['messageQueue'][0].payload).toBe(options);
         });
 
-        it('should process queued selectPlacements calls once the launcher is attached', () => {
-            const launcher: IRoktLauncher = {
-                selectPlacements: jest.fn()
+        it('should process queued selectPlacements calls once the launcher and kit are attached', () => {
+            const kit: IRoktKit = {
+                selectPlacements: jest.fn(),
+                filters: undefined,
+                filteredUser: undefined,
+                userAttributes: undefined
             };
 
             const options = {
@@ -101,15 +188,15 @@ describe('RoktManager', () => {
             } as IRoktSelectPlacementsOptions;
 
             roktManager.selectPlacements(options);
-            expect(roktManager['launcher']).toBeNull();
+            expect(roktManager['kit']).toBeNull();
             expect(roktManager['messageQueue'].length).toBe(1);
             expect(roktManager['messageQueue'][0].methodName).toBe('selectPlacements');
             expect(roktManager['messageQueue'][0].payload).toBe(options);
 
-            roktManager.attachLauncher(launcher);
-            expect(roktManager['launcher']).not.toBeNull();
+            roktManager.attachKit(kit);
+            expect(roktManager['kit']).not.toBeNull();
             expect(roktManager['messageQueue'].length).toBe(0);
-            expect(launcher.selectPlacements).toHaveBeenCalledWith(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
     });
 });

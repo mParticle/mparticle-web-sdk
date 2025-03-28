@@ -304,55 +304,9 @@ export default function Helpers(mpInstance) {
         return filteredUserIdentities;
     };
 
-    this.filterUserIdentitiesForForwarders = function(
-        userIdentitiesObject,
-        filterList
-    ) {
-        const filteredUserIdentities = {};
-
-        if (userIdentitiesObject && Object.keys(userIdentitiesObject).length) {
-            for (const userIdentityName in userIdentitiesObject) {
-                if (userIdentitiesObject.hasOwnProperty(userIdentityName)) {
-                    const userIdentityType = KitFilterHelper.hashUserIdentity(
-                        Types.IdentityType.getIdentityType(userIdentityName)
-                    );
-                    if (!self.inArray(filterList, userIdentityType)) {
-                        filteredUserIdentities[userIdentityName] =
-                            userIdentitiesObject[userIdentityName];
-                    }
-                }
-            }
-        }
-
-        return filteredUserIdentities;
-    };
-
-    this.filterUserAttributes = function(userAttributes, filterList) {
-        var filteredUserAttributes = {};
-
-        if (userAttributes && Object.keys(userAttributes).length) {
-            for (var userAttribute in userAttributes) {
-                if (userAttributes.hasOwnProperty(userAttribute)) {
-                    const hashedUserAttribute = KitFilterHelper.hashUserAttribute(
-                        userAttribute
-                    );
-                    if (!self.inArray(filterList, hashedUserAttribute)) {
-                        filteredUserAttributes[userAttribute] =
-                            userAttributes[userAttribute];
-                    }
-                }
-            }
-        }
-
-        return filteredUserAttributes;
-    };
-
-    this.isFilteredUserAttribute = function(userAttributeKey, filterList) {
-        const hashedUserAttribute = KitFilterHelper.hashUserAttribute(
-            userAttributeKey
-        );
-        return filterList && self.inArray(filterList, hashedUserAttribute);
-    };
+    this.filterUserIdentitiesForForwarders =
+        KitFilterHelper.filterUserIdentities;
+    this.filterUserAttributes = KitFilterHelper.filterUserAttributes;
 
     this.isEventType = function(type) {
         for (var prop in Types.EventType) {

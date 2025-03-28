@@ -1,4 +1,4 @@
-import { generateHash, valueof } from "./utils";
+import { Dictionary, generateHash, inArray, valueof, filterDictionaryWithHash } from "./utils";
 // TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-5381
 import { EventType, IdentityType } from "./types";
 
@@ -43,4 +43,20 @@ export default class KitFilterHelper {
     static hashConsentPurposeConditionalForwarding(prefix: string, purpose: string): string {
         return this.hashConsentPurpose(prefix, purpose).toString();
     }
+
+    static readonly filterUserAttributes = (userAttributes: Dictionary<string>, filterList: number[]): Dictionary<string> => {
+        return filterDictionaryWithHash(userAttributes, filterList, (key: string) => this.hashUserAttribute(key));
+    }
+
+    static readonly filterUserIdentities = (userIdentities: Dictionary<string>, filterList: number[]): Dictionary<string> => {
+        return filterDictionaryWithHash(userIdentities, filterList, (key: string) => this.hashUserIdentity(
+            IdentityType.getIdentityType(key)
+        ));
+    }
+    
+    static readonly isFilteredUserAttribute = (userAttributeKey: string, filterList: number[]): boolean => {
+        const hashedUserAttribute = this.hashUserAttribute(userAttributeKey);
+        return filterList && inArray(filterList, hashedUserAttribute);
+    }
+        
 }
