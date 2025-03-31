@@ -1,6 +1,5 @@
 import { IKitConfigs } from "../../src/configAPIClient";
 import RoktManager, { IRoktKit, IRoktSelectPlacementsOptions } from "../../src/roktManager";
-import { SDKInitConfig } from "../../src/sdkRuntimeModels";
 
 describe('RoktManager', () => {
     let roktManager: RoktManager;
