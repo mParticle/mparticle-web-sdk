@@ -61,7 +61,7 @@ export default class RoktManager {
     private filteredUser: IMParticleUser | null = null;
     private messageQueue: IRoktMessage[] = [];
 
-    public init(config: IKitConfigs, filteredUser?: IMParticleUser): void {
+    public init(roktConfig: IKitConfigs, filteredUser?: IMParticleUser): void {
         const { userAttributeFilters } = config || {};
 
         this.filters = {
