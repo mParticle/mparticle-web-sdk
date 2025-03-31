@@ -21,7 +21,7 @@ describe('RoktManager', () => {
 
     describe('#init', () => {
         it('should initialize the manager with defaults when no config is provided', () => {
-            roktManager.init({} as SDKInitConfig);
+            roktManager.init({} as IKitConfigs);
             expect(roktManager['kit']).toBeNull();
             expect(roktManager['filters']).toEqual({
                 userAttributeFilters: undefined,
@@ -30,6 +30,7 @@ describe('RoktManager', () => {
             expect(roktManager['filteredUser']).toBeUndefined();
             expect(roktManager['kit']).toBeNull();
         });
+
         it('should initialize the manager with user attribute filters from a config', () => {
             const kitConfig: Partial<IKitConfigs> = {
                 name: 'Rokt',
@@ -37,45 +38,11 @@ describe('RoktManager', () => {
                 userAttributeFilters: [816506310, 1463937872, 36300687],
             };
 
-            const config: SDKInitConfig = {
-                kitConfigs: [kitConfig as IKitConfigs],
-            };
-
-            roktManager.init(config);
+            roktManager.init(kitConfig as IKitConfigs);
             expect(roktManager['filters']).toEqual({
                 userAttributeFilters: [816506310, 1463937872, 36300687],
                 filterUserAttributes: expect.any(Function),
             });
-        });
-    });
-
-    describe('#parseConfig', () => {
-        it('should ONLY return the kit config for Rokt', () => {
-            const roktKitConfig: Partial<IKitConfigs> = {
-                name: 'Rokt',
-                moduleId: 181,
-            };
-
-            const otherKitConfig: Partial<IKitConfigs> = {
-                name: 'Other Kit',
-                moduleId: 42,
-            };
-
-            const config: SDKInitConfig = {
-                kitConfigs: [roktKitConfig as IKitConfigs, otherKitConfig as IKitConfigs],
-            };
-
-            const result = roktManager.parseConfig(config);
-            expect(result).toEqual(roktKitConfig);
-        });
-
-        it('should return null if no kit config is found', () => {
-            const config: SDKInitConfig = {
-                kitConfigs: [],
-            };
-
-            const result = roktManager.parseConfig(config);
-            expect(result).toBeNull();
         });
     });
 

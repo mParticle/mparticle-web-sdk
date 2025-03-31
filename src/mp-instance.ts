@@ -34,14 +34,14 @@ import ForwardingStatsUploader from './forwardingStatsUploader';
 import Identity from './identity';
 import Consent, { IConsent } from './consent';
 import KitBlocker from './kitBlocking';
-import ConfigAPIClient from './configAPIClient';
+import ConfigAPIClient, { IKitConfigs } from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
-import { isFunction, valueof } from './utils';
+import { isFunction } from './utils';
 import { LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
 import { IPreInit, processReadyQueue } from './pre-init-utils';
-import { BaseEvent, MParticleWebSDK, SDKHelpersApi } from './sdkRuntimeModels';
+import { BaseEvent, MParticleWebSDK, SDKHelpersApi, SDKInitConfig } from './sdkRuntimeModels';
 import { Dictionary, SDKEventAttrs } from '@mparticle/web-sdk';
 import { IIdentity } from './identity.interfaces';
 import { IEvents } from './events.interfaces';
@@ -1395,7 +1395,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         }
 
         // Configure Rokt Manager with filtered user
-        const roktConfig = mpInstance._RoktManager.parseConfig(config);
+        const roktConfig = parseConfig(config, 'Rokt', 181);
         if (roktConfig) {
             const { userAttributeFilters } = roktConfig;
             const roktFilteredUser = filteredMparticleUser(
@@ -1403,7 +1403,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
                 { userAttributeFilters },
                 mpInstance
             );
-            mpInstance._RoktManager.init(config, roktFilteredUser);
+            mpInstance._RoktManager.init(roktConfig, roktFilteredUser);
         }
 
         mpInstance._Forwarders.processForwarders(
@@ -1586,5 +1586,12 @@ function queueIfNotInitialized(func, self) {
         return true;
     }
     return false;
+}
+
+function parseConfig(config: SDKInitConfig, moduleName: string, moduleId: number): IKitConfigs {
+    return config.kitConfigs?.find((kitConfig: IKitConfigs) => 
+        kitConfig.name === moduleName && 
+        kitConfig.moduleId === moduleId
+    ) || null;
 }
 

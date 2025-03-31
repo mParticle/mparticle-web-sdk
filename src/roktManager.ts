@@ -44,6 +44,15 @@ export interface IRoktKit  {
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
 }
 
+// The purpose of this class is to create a link between the Core mParticle SDK and the
+// Rokt Web SDK via a Web Kit.
+// The Rokt Manager should load before the Web Kit and stubs out many of the
+// Rokt Web SDK functions with an internal message queue in case a Rokt function
+// is requested before the Rokt Web Kit or SDK is finished loaded.
+// Once the Rokt Kit is attached to the Rokt Manager, we can consider the
+// Rokt Manager in a "ready" state and it can begin sending data to the kit.
+//
+// https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt
 export default class RoktManager {
     public config: SDKInitConfig | null = null;
     public kit: IRoktKit = null;
@@ -52,15 +61,8 @@ export default class RoktManager {
     private filteredUser: IMParticleUser | null = null;
     private messageQueue: IRoktMessage[] = [];
 
-    constructor() {
-        this.kit = null;
-        this.filters = {};
-        this.filteredUser = null;
-    }
-
-    public init(config: SDKInitConfig, filteredUser?: IMParticleUser): void {
-        const roktConfig = this.parseConfig(config);
-        const { userAttributeFilters } = roktConfig || {};
+    public init(config: IKitConfigs, filteredUser?: IMParticleUser): void {
+        const { userAttributeFilters } = config || {};
 
         this.filters = {
             userAttributeFilters,
@@ -68,13 +70,6 @@ export default class RoktManager {
         };
 
         this.filteredUser = filteredUser;
-    }
-
-    public parseConfig(config: SDKInitConfig): IKitConfigs | null {
-        return config.kitConfigs?.find((kitConfig: IKitConfigs) => 
-            kitConfig.name === 'Rokt' && 
-            kitConfig.moduleId === 181
-        ) || null;
     }
 
     public attachKit(kit: IRoktKit): void {
@@ -99,6 +94,7 @@ export default class RoktManager {
     }
 
     private isReady(): boolean {
+        // The Rokt Manager is ready when a kit is attached
         return Boolean(this.kit);
     }
 
