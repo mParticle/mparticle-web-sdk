@@ -36,7 +36,7 @@ import Consent, { IConsent } from './consent';
 import KitBlocker from './kitBlocking';
 import ConfigAPIClient, { IKitConfigs } from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
-import { isFunction } from './utils';
+import { isFunction, parseConfig } from './utils';
 import { LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
@@ -1395,7 +1395,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         }
 
         // Configure Rokt Manager with filtered user
-        const roktConfig = parseConfig(config, 'Rokt', 181);
+        const roktConfig: IKitConfigs = parseConfig(config, 'Rokt', 181);
         if (roktConfig) {
             const { userAttributeFilters } = roktConfig;
             const roktFilteredUser = filteredMparticleUser(
@@ -1586,12 +1586,5 @@ function queueIfNotInitialized(func, self) {
         return true;
     }
     return false;
-}
-
-function parseConfig(config: SDKInitConfig, moduleName: string, moduleId: number): IKitConfigs {
-    return config.kitConfigs?.find((kitConfig: IKitConfigs) => 
-        kitConfig.name === moduleName && 
-        kitConfig.moduleId === moduleId
-    ) || null;
 }
 

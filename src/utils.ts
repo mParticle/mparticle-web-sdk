@@ -1,5 +1,7 @@
 import { MPID } from '@mparticle/web-sdk';
 import Constants from './constants';
+import { SDKInitConfig } from './sdkRuntimeModels';
+import { IKitConfigs } from './configAPIClient';
 
 const { Messages } = Constants;
 
@@ -385,6 +387,13 @@ const filterDictionaryWithHash = <T>(
     return filtered;
 }
 
+const parseConfig = (config: SDKInitConfig, moduleName: string, moduleId: number): IKitConfigs | null => {
+    return config.kitConfigs?.find((kitConfig: IKitConfigs) => 
+        kitConfig.name === moduleName && 
+        kitConfig.moduleId === moduleId
+    ) || null;
+}
+
 export {
     createCookieString,
     revertCookieString,
@@ -401,6 +410,7 @@ export {
     inArray,
     isObject,
     isStringOrNumber,
+    parseConfig,
     parseNumber,
     parseStringOrNumber,
     replaceCommasWithPipes,

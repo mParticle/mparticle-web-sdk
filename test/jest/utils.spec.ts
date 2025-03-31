@@ -1,3 +1,5 @@
+import { IKitConfigs } from '../../src/configAPIClient';
+import { SDKInitConfig } from '../../src/sdkRuntimeModels';
 import {
     queryStringParser,
     getCookies,
@@ -7,6 +9,7 @@ import {
     createCookieSyncUrl,
     inArray,
     filterDictionaryWithHash,
+    parseConfig,
 } from '../../src/utils';
 import { deleteAllCookies } from './utils';
 
@@ -274,6 +277,36 @@ describe('Utils', () => {
             expect(filtered).toEqual({
                 'quux': 'corge',
             });
+        });
+    });
+
+    describe('#parseConfig', () => {
+        it('should ONLY return the kit config for Rokt', () => {
+            const roktKitConfig: Partial<IKitConfigs> = {
+                name: 'Rokt',
+                moduleId: 181,
+            };
+
+            const otherKitConfig: Partial<IKitConfigs> = {
+                name: 'Other Kit',
+                moduleId: 42,
+            };
+
+            const config: SDKInitConfig = {
+                kitConfigs: [roktKitConfig as IKitConfigs, otherKitConfig as IKitConfigs],
+            };
+
+            const result = parseConfig(config, 'Rokt', 181);
+            expect(result).toEqual(roktKitConfig);
+        });
+
+        it('should return null if no kit config is found', () => {
+            const config: SDKInitConfig = {
+                kitConfigs: [],
+            };
+
+            const result = parseConfig(config, 'Rokt', 181);
+            expect(result).toBeNull();
         });
     });
 });
