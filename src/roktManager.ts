@@ -40,6 +40,7 @@ export interface RoktKitFilterSettings {
 export interface IRoktKit  {
     filters: RoktKitFilterSettings;
     filteredUser: IMParticleUser | null;
+    launcher: IRoktLauncher | null;
     userAttributes: Dictionary<string>;
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
 }
@@ -87,15 +88,15 @@ export default class RoktManager {
         }
 
         try {
-            return this.kit.selectPlacements(options);
+            return this.kit.launcher.selectPlacements(options);
         } catch (error) {
             return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
         }
     }
 
     private isReady(): boolean {
-        // The Rokt Manager is ready when a kit is attached
-        return Boolean(this.kit);
+        // The Rokt Manager is ready when a kit is attached and has a launcher
+        return Boolean(this.kit && this.kit.launcher);
     }
 
     private processMessageQueue(): void {
