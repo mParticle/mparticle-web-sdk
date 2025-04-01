@@ -10,7 +10,8 @@ const extensions = ['.js', '.ts'];
 const defaultOutputOptions = {
     name: 'mParticle',
     strict: false,
-    sourcemap: ENVIRONMENT !== 'prod' ? 'inline' : false,
+    // sourcemap: ENVIRONMENT !== 'prod' ? 'inline' : false,
+    sourcemap: false,
 };
 
 const defaultBabel = babel({
@@ -51,7 +52,7 @@ const builds = {
             commonjs({
                 include: 'node_modules/**',
             }),
-            typescript({ tsconfig: './tsconfig.json' }),
+            typescript({ tsconfig: './tsconfig.json', sourceMap: false }),
             json(),
         ],
     },

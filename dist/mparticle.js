@@ -490,6 +490,9 @@ var mParticle = (function () {
       return replacePipesWithCommas(replaceApostrophesWithQuotes(value));
     };
     var inArray = function inArray(items, name) {
+      if (!items) {
+        return false;
+      }
       var i = 0;
       if (Array.prototype.indexOf) {
         return items.indexOf(name, 0) >= 0;
@@ -769,6 +772,26 @@ var mParticle = (function () {
     };
     var getHref = function getHref() {
       return typeof window !== 'undefined' && window.location ? window.location.href : '';
+    };
+    var filterDictionaryWithHash = function filterDictionaryWithHash(dictionary, filterList, hashFn) {
+      var filtered = {};
+      if (!isEmpty(dictionary)) {
+        for (var key in dictionary) {
+          if (dictionary.hasOwnProperty(key)) {
+            var hashedKey = hashFn(key);
+            if (!inArray(filterList, hashedKey)) {
+              filtered[key] = dictionary[key];
+            }
+          }
+        }
+      }
+      return filtered;
+    };
+    var parseConfig = function parseConfig(config, moduleName, moduleId) {
+      var _a;
+      return ((_a = config.kitConfigs) === null || _a === void 0 ? void 0 : _a.find(function (kitConfig) {
+        return kitConfig.name === moduleName && kitConfig.moduleId === moduleId;
+      })) || null;
     };
 
     var MessageType$1 = {
@@ -2907,6 +2930,22 @@ var mParticle = (function () {
       KitFilterHelper.hashConsentPurposeConditionalForwarding = function (prefix, purpose) {
         return this.hashConsentPurpose(prefix, purpose).toString();
       };
+      var _a;
+      _a = KitFilterHelper;
+      KitFilterHelper.filterUserAttributes = function (userAttributes, filterList) {
+        return filterDictionaryWithHash(userAttributes, filterList, function (key) {
+          return _a.hashUserAttribute(key);
+        });
+      };
+      KitFilterHelper.filterUserIdentities = function (userIdentities, filterList) {
+        return filterDictionaryWithHash(userIdentities, filterList, function (key) {
+          return _a.hashUserIdentity(IdentityType.getIdentityType(key));
+        });
+      };
+      KitFilterHelper.isFilteredUserAttribute = function (userAttributeKey, filterList) {
+        var hashedUserAttribute = _a.hashUserAttribute(userAttributeKey);
+        return filterList && inArray(filterList, hashedUserAttribute);
+      };
       return KitFilterHelper;
     }();
 
@@ -3135,38 +3174,8 @@ var mParticle = (function () {
         }
         return filteredUserIdentities;
       };
-      this.filterUserIdentitiesForForwarders = function (userIdentitiesObject, filterList) {
-        var filteredUserIdentities = {};
-        if (userIdentitiesObject && Object.keys(userIdentitiesObject).length) {
-          for (var userIdentityName in userIdentitiesObject) {
-            if (userIdentitiesObject.hasOwnProperty(userIdentityName)) {
-              var userIdentityType = KitFilterHelper.hashUserIdentity(Types.IdentityType.getIdentityType(userIdentityName));
-              if (!self.inArray(filterList, userIdentityType)) {
-                filteredUserIdentities[userIdentityName] = userIdentitiesObject[userIdentityName];
-              }
-            }
-          }
-        }
-        return filteredUserIdentities;
-      };
-      this.filterUserAttributes = function (userAttributes, filterList) {
-        var filteredUserAttributes = {};
-        if (userAttributes && Object.keys(userAttributes).length) {
-          for (var userAttribute in userAttributes) {
-            if (userAttributes.hasOwnProperty(userAttribute)) {
-              var hashedUserAttribute = KitFilterHelper.hashUserAttribute(userAttribute);
-              if (!self.inArray(filterList, hashedUserAttribute)) {
-                filteredUserAttributes[userAttribute] = userAttributes[userAttribute];
-              }
-            }
-          }
-        }
-        return filteredUserAttributes;
-      };
-      this.isFilteredUserAttribute = function (userAttributeKey, filterList) {
-        var hashedUserAttribute = KitFilterHelper.hashUserAttribute(userAttributeKey);
-        return filterList && self.inArray(filterList, hashedUserAttribute);
-      };
+      this.filterUserIdentitiesForForwarders = KitFilterHelper.filterUserIdentities;
+      this.filterUserAttributes = KitFilterHelper.filterUserAttributes;
       this.isEventType = function (type) {
         for (var prop in Types.EventType) {
           if (Types.EventType.hasOwnProperty(prop)) {
@@ -6325,7 +6334,7 @@ var mParticle = (function () {
         }
         mpInstance._Store.activeForwarders.forEach(function (forwarder) {
           var forwarderFunction = forwarder[functionNameKey];
-          if (!forwarderFunction || mpInstance._Helpers.isFilteredUserAttribute(key, forwarder.userAttributeFilters)) {
+          if (!forwarderFunction || KitFilterHelper.isFilteredUserAttribute(key, forwarder.userAttributeFilters)) {
             return;
           }
           try {
@@ -7164,7 +7173,6 @@ var mParticle = (function () {
       return AudienceManager;
     }();
 
-    var _this = undefined;
     var processReadyQueue = function processReadyQueue(readyQueue) {
       if (!isEmpty(readyQueue)) {
         readyQueue.forEach(function (readyQueueItem) {
@@ -7182,17 +7190,21 @@ var mParticle = (function () {
       var method = args.splice(0, 1)[0];
       // if the first argument is a method on the base mParticle object, run it
       if (typeof window !== 'undefined' && window.mParticle && window.mParticle[args[0]]) {
-        window.mParticle[method].apply(_this, args);
+        window.mParticle[method].apply(window.mParticle, args);
         // otherwise, the method is on either eCommerce or Identity objects, ie. "eCommerce.setCurrencyCode", "Identity.login"
       } else {
         var methodArray = method.split('.');
         try {
           var computedMPFunction = window.mParticle;
+          var context_1 = window.mParticle;
+          // Track both the function and its context
           for (var _i = 0, methodArray_1 = methodArray; _i < methodArray_1.length; _i++) {
             var currentMethod = methodArray_1[_i];
+            context_1 = computedMPFunction; // Keep track of the parent object
             computedMPFunction = computedMPFunction[currentMethod];
           }
-          computedMPFunction.apply(_this, args);
+          // Apply the function with its proper context
+          computedMPFunction.apply(context_1, args);
         } catch (e) {
           throw new Error('Unable to compute proper mParticle function ' + e);
         }
@@ -9604,18 +9616,37 @@ var mParticle = (function () {
       return IntegrationCapture;
     }();
 
+    // The purpose of this class is to create a link between the Core mParticle SDK and the
+    // Rokt Web SDK via a Web Kit.
+    // The Rokt Manager should load before the Web Kit and stubs out many of the
+    // Rokt Web SDK functions with an internal message queue in case a Rokt function
+    // is requested before the Rokt Web Kit or SDK is finished loaded.
+    // Once the Rokt Kit is attached to the Rokt Manager, we can consider the
+    // Rokt Manager in a "ready" state and it can begin sending data to the kit.
+    //
+    // https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt
     var RoktManager = /** @class */function () {
       function RoktManager() {
-        this.launcher = null;
+        this.config = null;
+        this.kit = null;
+        this.filters = {};
+        this.filteredUser = null;
         this.messageQueue = [];
-        this.launcher = null;
       }
-      RoktManager.prototype.attachLauncher = function (launcher) {
-        this.setLauncher(launcher);
+      RoktManager.prototype.init = function (roktConfig, filteredUser) {
+        var userAttributeFilters = (roktConfig || {}).userAttributeFilters;
+        this.filters = {
+          userAttributeFilters: userAttributeFilters,
+          filterUserAttributes: KitFilterHelper.filterUserAttributes
+        };
+        this.filteredUser = filteredUser;
+      };
+      RoktManager.prototype.attachKit = function (kit) {
+        this.kit = kit;
         this.processMessageQueue();
       };
       RoktManager.prototype.selectPlacements = function (options) {
-        if (!this.launcher) {
+        if (!this.isReady()) {
           this.queueMessage({
             methodName: 'selectPlacements',
             payload: options
@@ -9623,21 +9654,25 @@ var mParticle = (function () {
           return Promise.resolve({});
         }
         try {
-          return this.launcher.selectPlacements(options);
+          return this.kit.selectPlacements(options);
         } catch (error) {
           return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
         }
       };
+      RoktManager.prototype.isReady = function () {
+        // The Rokt Manager is ready when a kit is attached and has a launcher
+        return Boolean(this.kit && this.kit.launcher);
+      };
       RoktManager.prototype.processMessageQueue = function () {
         var _this = this;
-        if (this.messageQueue.length > 0) {
+        if (this.messageQueue.length > 0 && this.isReady()) {
           this.messageQueue.forEach(function (message) {
             return __awaiter(_this, void 0, void 0, function () {
               return __generator(this, function (_a) {
                 switch (_a.label) {
                   case 0:
-                    if (!(this.launcher && message.methodName in this.launcher)) return [3 /*break*/, 2];
-                    return [4 /*yield*/, this.launcher[message.methodName](message.payload)];
+                    if (!(this.kit && message.methodName in this.kit)) return [3 /*break*/, 2];
+                    return [4 /*yield*/, this.kit[message.methodName](message.payload)];
                   case 1:
                     _a.sent();
                     _a.label = 2;
@@ -9653,9 +9688,6 @@ var mParticle = (function () {
       };
       RoktManager.prototype.queueMessage = function (message) {
         this.messageQueue.push(message);
-      };
-      RoktManager.prototype.setLauncher = function (launcher) {
-        this.launcher = launcher;
       };
       return RoktManager;
     }();
@@ -10629,6 +10661,15 @@ var mParticle = (function () {
         }
         if (mpInstance._Helpers.getFeatureFlag(CaptureIntegrationSpecificIds)) {
           mpInstance._IntegrationCapture.capture();
+        }
+        // Configure Rokt Manager with filtered user
+        var roktConfig = parseConfig(config, 'Rokt', 181);
+        if (roktConfig) {
+          var userAttributeFilters = roktConfig.userAttributeFilters;
+          var roktFilteredUser = filteredMparticleUser(currentUserMPID, {
+            userAttributeFilters: userAttributeFilters
+          }, mpInstance);
+          mpInstance._RoktManager.init(roktConfig, roktFilteredUser);
         }
         mpInstance._Forwarders.processForwarders(config, mpInstance._APIClient.prepareForwardingStats);
         mpInstance._Forwarders.processPixelConfigs(config);
