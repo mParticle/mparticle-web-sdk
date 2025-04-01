@@ -41,7 +41,7 @@ import { LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
 import { IPreInit, processReadyQueue } from './pre-init-utils';
-import { BaseEvent, MParticleWebSDK, SDKHelpersApi, SDKInitConfig } from './sdkRuntimeModels';
+import { BaseEvent, MParticleWebSDK, SDKHelpersApi } from './sdkRuntimeModels';
 import { Dictionary, SDKEventAttrs } from '@mparticle/web-sdk';
 import { IIdentity } from './identity.interfaces';
 import { IEvents } from './events.interfaces';
