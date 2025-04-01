@@ -45,9 +45,33 @@ export default function SessionManager(
                 self.endSession();
                 self.startNewSession();
             } else {
+                const user = mpInstance.Identity.getCurrentUser()
+                let needToIdentify = false
+
+                if (user) {
+                    // If userIdentities is an empty object but identifyRequest
+                    // has at least a customerid, we will force the identify()
+                    // call, regardless of whether any user data is already
+                    // persisted.
+                    const storedUserIdentities = user
+                        .getUserIdentities()?.userIdentities
+                    const hasStoredCustomerId =
+                        storedUserIdentities != null &&
+                        typeof storedUserIdentities.customerid === "string"
+
+                    const identifyRequest = mpInstance._Store.SDKConfig.identifyRequest
+                    const identifyRequestHasCustomerId =
+                        identifyRequest != null &&
+                        typeof identifyRequest.userIdentities.customerid === "string"
+
+                    if (!hasStoredCustomerId && identifyRequestHasCustomerId) {
+                        needToIdentify = true
+                    }
+                }
+
                 // https://go.mparticle.com/work/SQDSDKS-6045
                 const persistence: IPersistenceMinified = mpInstance._Persistence.getPersistence();
-                if (persistence && !persistence.cu) {
+                if (needToIdentify || (persistence && !persistence.cu)) {
                     // https://go.mparticle.com/work/SQDSDKS-6323
                     mpInstance.Identity.identify(
                         mpInstance._Store.SDKConfig.identifyRequest,
