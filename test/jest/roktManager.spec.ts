@@ -92,7 +92,7 @@ describe('RoktManager', () => {
     });
 
     describe('#selectPlacements', () => {
-        it('should call kit.launcher.selectPlacements with empty attributes', () => {
+        it('should call kit.selectPlacements with empty attributes', () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn()
@@ -110,10 +110,10 @@ describe('RoktManager', () => {
             } as IRoktSelectPlacementsOptions;
 
             roktManager.selectPlacements(options);
-            expect(kit.launcher.selectPlacements).toHaveBeenCalledWith(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
-        it('should call kit.launcher.selectPlacements with passed in attributes', () => {
+        it('should call kit.selectPlacements with passed in attributes', () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn()
@@ -137,7 +137,7 @@ describe('RoktManager', () => {
             };
 
             roktManager.selectPlacements(options);
-            expect(kit.launcher.selectPlacements).toHaveBeenCalledWith(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
         it('should queue the selectPlacements method if no launcher or kit is attached', () => {
@@ -161,14 +161,7 @@ describe('RoktManager', () => {
                 filters: undefined,
                 filteredUser: undefined,
                 userAttributes: undefined,
-
-                // We are mocking the selectPlacements method to return the
-                // launcher's selectPlacements method and verify that the
-                // both the kit's and the launcher's selectPlacements methods
-                // are called with the correct options
-                selectPlacements: jest.fn().mockImplementation((options) => {
-                    return kit.launcher.selectPlacements(options);
-                })
+                selectPlacements: jest.fn()
             };
 
             const options = {
@@ -184,6 +177,41 @@ describe('RoktManager', () => {
             roktManager.attachKit(kit);
             expect(roktManager['kit']).not.toBeNull();
             expect(roktManager['messageQueue'].length).toBe(0);
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+        });
+
+        it('should pass through the correct attributes to kit.launcher.selectPlacements', () => {
+            const kit: IRoktKit = {
+                launcher: {
+                    selectPlacements: jest.fn()
+                },
+                filters: undefined,
+                filteredUser: undefined,
+                userAttributes: undefined,
+
+                // We are mocking the selectPlacements method to return the
+                // launcher's selectPlacements method and verify that
+                // both the kit's and the launcher's selectPlacements methods
+                // are called with the correct options
+                // This will happen through the Web Kit's selectPlacements method
+                selectPlacements: jest.fn().mockImplementation((options) => {
+                    return kit.launcher.selectPlacements(options);
+                })
+            };
+
+            roktManager.attachKit(kit);
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    age: 25,
+                    score: 100.5,
+                    isSubscribed: true,
+                    isActive: false,
+                    interests: 'sports,music,books'
+                }
+            };
+
+            roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith(options);
             expect(kit.launcher.selectPlacements).toHaveBeenCalledWith(options);
         });
