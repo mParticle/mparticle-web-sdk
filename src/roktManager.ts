@@ -35,6 +35,7 @@ export interface IRoktMessage {
 export interface RoktKitFilterSettings {
     userAttributeFilters?: UserAttributeFilters;
     filterUserAttributes?: (userAttributes: Dictionary<string>, filterList: number[]) => Dictionary<string>;
+    filteredUser?: IMParticleUser | null;
 }
 
 export interface IRoktKit  {
@@ -68,9 +69,8 @@ export default class RoktManager {
         this.filters = {
             userAttributeFilters,
             filterUserAttributes: KitFilterHelper.filterUserAttributes,
+            filteredUser: filteredUser,
         };
-
-        this.filteredUser = filteredUser;
     }
 
     public attachKit(kit: IRoktKit): void {
