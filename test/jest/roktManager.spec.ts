@@ -25,8 +25,8 @@ describe('RoktManager', () => {
             expect(roktManager['filters']).toEqual({
                 userAttributeFilters: undefined,
                 filterUserAttributes: expect.any(Function),
+                filteredUser: undefined,
             });
-            expect(roktManager['filteredUser']).toBeUndefined();
             expect(roktManager['kit']).toBeNull();
         });
 
