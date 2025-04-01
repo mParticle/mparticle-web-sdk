@@ -163,7 +163,7 @@ describe('RoktManager', () => {
                 userAttributes: undefined,
 
                 // We are mocking the selectPlacements method to return the
-                // launcher's selectPlacements method and verify that the
+                // launcher's selectPlacements method and verify that
                 // both the kit's and the launcher's selectPlacements methods
                 // are called with the correct options
                 selectPlacements: jest.fn().mockImplementation((options) => {
