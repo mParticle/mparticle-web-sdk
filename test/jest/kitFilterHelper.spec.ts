@@ -184,7 +184,7 @@ describe('FilterHashingUtilities', () => {
 
     describe('#hashUserAttribute', () => {
         it('should hash user attributey', () => {
-            const userAttribute :string = 'foo-value';
+            const userAttribute: string = 'foo-value';
 
             const resultHash = KitFilterHelper.hashUserAttribute(userAttribute);
 
@@ -384,6 +384,94 @@ describe('FilterHashingUtilities', () => {
             const expectedHash = "-575335347";
 
             expect(resultHash).toBe(expectedHash);
+        });
+    });
+
+    describe('#filterUserAttributes', () => {
+        it('should return the original user attributes if no filter list is provided', () => {
+            const userAttributes = {
+                'foo-key': 'foo-value',
+                'bar-key': 'bar-value',
+                'baz-key': 'baz-value',
+            };
+
+            const result = KitFilterHelper.filterUserAttributes(userAttributes, []);
+
+            expect(result).toEqual(userAttributes);
+        });
+
+        it('should filter user attributes', () => {
+            const userAttributes = {
+                'foo-key': 'foo-value',
+                'bar-key': 'bar-value',
+                'baz-key': 'baz-value',
+            };
+
+            const fooFilter = KitFilterHelper.hashUserAttribute('foo-key');
+            const barFilter = KitFilterHelper.hashUserAttribute('bar-key');
+
+            const result = KitFilterHelper.filterUserAttributes(userAttributes, [
+                fooFilter,
+                barFilter,
+            ]);
+
+            expect(result).toEqual({
+                'baz-key': 'baz-value',
+            });
+        });
+    });
+
+    describe('#filterUserIdentities', () => {
+        it('should return the original user identities if no filter list is provided', () => {
+            const userIdentities = {
+                'other': 'foo-value',
+                'customerid': 'bar-value',
+                'facebook': 'baz-value',
+            };
+
+            const result = KitFilterHelper.filterUserIdentities(userIdentities, []);
+
+            expect(result).toEqual(userIdentities);
+        });
+
+        it('should filter user identities', () => {
+            const userIdentities = {
+                'other': 'foo-value',
+                'customerid': 'bar-value',
+                'facebook': 'baz-value',
+            };
+
+            const fooFilter = KitFilterHelper.hashUserIdentity(IdentityType.Other);
+            const barFilter = KitFilterHelper.hashUserIdentity(IdentityType.CustomerId);
+
+            const result = KitFilterHelper.filterUserIdentities(userIdentities, [
+                fooFilter,
+                barFilter,
+            ]);
+
+            expect(result).toEqual({
+                'facebook': 'baz-value',
+            });
+        });
+    });
+
+    describe('#isFilteredUserAttribute', () => {
+        it('should return true if the user attribute is filtered', () => {
+            const userAttributeKey = 'foo-key';
+            const filterList = [KitFilterHelper.hashUserAttribute(userAttributeKey)];
+
+            const result = KitFilterHelper.isFilteredUserAttribute(userAttributeKey, filterList);
+
+            expect(result).toBe(true);
+        });
+
+        it('should return false if the user attribute is not filtered', () => {
+            const userAttributeKey = 'foo-key';
+            const filterList = [];
+
+            const result = KitFilterHelper.isFilteredUserAttribute(userAttributeKey, filterList);
+
+            expect(result).toBe(false);
         });
     });
 });

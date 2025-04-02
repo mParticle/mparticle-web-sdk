@@ -417,7 +417,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
             const forwarderFunction = forwarder[functionNameKey];
             if (
                 !forwarderFunction ||
-                mpInstance._Helpers.isFilteredUserAttribute(
+                KitFilterHelper.isFilteredUserAttribute(
                     key,
                     forwarder.userAttributeFilters
                 )
