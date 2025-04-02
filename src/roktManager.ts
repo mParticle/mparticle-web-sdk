@@ -88,7 +88,19 @@ export default class RoktManager {
         }
 
         try {
-            return this.kit.selectPlacements(options);
+            let enhancedOptions = options;
+
+            if (this.config) {
+                enhancedOptions = {
+                    ...options,
+                    attributes: {
+                        sandbox: this.config.isDevelopmentMode,
+                        ...options.attributes,
+                    }
+                };
+            }
+
+            return this.kit.selectPlacements(enhancedOptions);
         } catch (error) {
             return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
         }

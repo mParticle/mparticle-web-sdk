@@ -78,7 +78,7 @@ describe('RoktManager', () => {
             roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
             roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
             roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
-            
+
             expect(roktManager['messageQueue'].length).toBe(3);
             expect(kit.selectPlacements).toHaveBeenCalledTimes(0);
 
@@ -214,6 +214,128 @@ describe('RoktManager', () => {
             roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith(options);
             expect(kit.launcher.selectPlacements).toHaveBeenCalledWith(options);
+        });
+
+        it('should add sandbox with true value when isDevelopmentMode is true', () => {
+            const kit: IRoktKit = {
+                launcher: {
+                    selectPlacements: jest.fn()
+                },
+                filters: undefined,
+                filteredUser: undefined,
+                userAttributes: undefined,
+                selectPlacements: jest.fn()
+            };
+
+            roktManager.attachKit(kit);
+            roktManager.config = { isDevelopmentMode: true } as any;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    customAttr: 'value'
+                }
+            };
+
+            roktManager.selectPlacements(options);
+
+            const expectedOptions = {
+                attributes: {
+                    customAttr: 'value',
+                    'sandbox': true
+                }
+            };
+
+            expect(kit.selectPlacements).toHaveBeenCalledWith(expectedOptions);
+        });
+
+        it('should add sandbox with false value when isDevelopmentMode is false', () => {
+            const kit: IRoktKit = {
+                launcher: {
+                    selectPlacements: jest.fn()
+                },
+                filters: undefined,
+                filteredUser: undefined,
+                userAttributes: undefined,
+                selectPlacements: jest.fn()
+            };
+
+            roktManager.attachKit(kit);
+            roktManager.config = { isDevelopmentMode: false } as any;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    customAttr: 'value'
+                }
+            };
+
+            roktManager.selectPlacements(options);
+
+            const expectedOptions = {
+                attributes: {
+                    customAttr: 'value',
+                    'sandbox': false
+                }
+            };
+
+            expect(kit.selectPlacements).toHaveBeenCalledWith(expectedOptions);
+        });
+
+        it('should preserve other option properties when adding sandbox', () => {
+            const kit: IRoktKit = {
+                launcher: {
+                    selectPlacements: jest.fn()
+                },
+                filters: undefined,
+                filteredUser: undefined,
+                userAttributes: undefined,
+                selectPlacements: jest.fn()
+            };
+
+            roktManager.attachKit(kit);
+            roktManager.config = { isDevelopmentMode: true } as any;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    customAttr: 'value'
+                },
+                identifier: 'test-identifier'
+            };
+
+            roktManager.selectPlacements(options);
+
+            const expectedOptions = {
+                attributes: {
+                    customAttr: 'value',
+                    'sandbox': true
+                },
+                identifier: 'test-identifier'
+            };
+
+            expect(kit.selectPlacements).toHaveBeenCalledWith(expectedOptions);
+        });
+
+        it('should not add sandbox when config is null', () => {
+            const kit: IRoktKit = {
+                launcher: {
+                    selectPlacements: jest.fn()
+                },
+                filters: undefined,
+                filteredUser: undefined,
+                userAttributes: undefined,
+                selectPlacements: jest.fn()
+            };
+
+            roktManager.attachKit(kit);
+            // Not initializing config, so it remains null
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    customAttr: 'value'
+                }
+            };
+
+            roktManager.selectPlacements(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
     });
 });
