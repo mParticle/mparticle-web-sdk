@@ -26,7 +26,8 @@ describe('RoktManager', () => {
 
         it('should process the message queue if a launcher is attached', () => {
             const launcher: IRoktLauncher = {
-                selectPlacements: jest.fn()
+                selectPlacements: jest.fn(),
+                preSelectionCallback: jest.fn()
             };
             
             roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
@@ -45,7 +46,8 @@ describe('RoktManager', () => {
     describe('#selectPlacements', () => {
         it('should call launcher.selectPlacements with empty attributes', () => {
             const launcher: IRoktLauncher = {
-                selectPlacements: jest.fn()
+                selectPlacements: jest.fn(),
+                preSelectionCallback: jest.fn()
             };
 
             roktManager.attachLauncher(launcher);
@@ -59,7 +61,8 @@ describe('RoktManager', () => {
 
         it('should call launcher.selectPlacements with passed in attributes', () => {
             const launcher: IRoktLauncher = {
-                selectPlacements: jest.fn()
+                selectPlacements: jest.fn(),
+                preSelectionCallback: jest.fn()
             };
 
             roktManager.attachLauncher(launcher);
@@ -93,7 +96,8 @@ describe('RoktManager', () => {
 
         it('should process queued selectPlacements calls once the launcher is attached', () => {
             const launcher: IRoktLauncher = {
-                selectPlacements: jest.fn()
+                selectPlacements: jest.fn(),
+                preSelectionCallback: jest.fn()
             };
 
             const options = {
