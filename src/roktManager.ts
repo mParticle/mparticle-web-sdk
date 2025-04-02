@@ -56,7 +56,6 @@ export interface IRoktKit  {
 //
 // https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt
 export default class RoktManager {
-    public config: SDKInitConfig | null = null;
     public kit: IRoktKit = null;
     public filters: RoktKitFilterSettings = {};
 
