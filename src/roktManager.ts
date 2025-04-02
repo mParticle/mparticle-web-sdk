@@ -46,6 +46,15 @@ export interface IRoktKit  {
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
 }
 
+export interface IRoktManager {
+    config: SDKInitConfig | null;
+    kit: IRoktKit | null;
+    filters: RoktKitFilterSettings;
+    init: (roktConfig: IKitConfigs, filteredUser?: IMParticleUser) => void;
+    attachKit: (kit: IRoktKit) => void;
+    selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
+}
+
 // The purpose of this class is to create a link between the Core mParticle SDK and the
 // Rokt Web SDK via a Web Kit.
 // The Rokt Manager should load before the Web Kit and stubs out many of the
@@ -55,7 +64,7 @@ export interface IRoktKit  {
 // Rokt Manager in a "ready" state and it can begin sending data to the kit.
 //
 // https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt
-export default class RoktManager {
+export default class RoktManager implements IRoktManager {
     public config: SDKInitConfig | null = null;
     public kit: IRoktKit = null;
     public filters: RoktKitFilterSettings = {};
