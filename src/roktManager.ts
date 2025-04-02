@@ -45,6 +45,10 @@ export interface IRoktKit  {
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
 }
 
+export interface IRoktManagerOptions {
+    sandbox?: boolean;
+}
+
 // The purpose of this class is to create a link between the Core mParticle SDK and the
 // Rokt Web SDK via a Web Kit.
 // The Rokt Manager should load before the Web Kit and stubs out many of the
@@ -60,8 +64,9 @@ export default class RoktManager {
 
     private filteredUser: IMParticleUser | null = null;
     private messageQueue: IRoktMessage[] = [];
+    private sandbox: boolean | null = null;
 
-    public init(roktConfig: IKitConfigs, filteredUser?: IMParticleUser): void {
+    public init(roktConfig: IKitConfigs, filteredUser?: IMParticleUser, options?: IRoktManagerOptions): void {
         const { userAttributeFilters } = roktConfig || {};
 
         this.filters = {
@@ -69,6 +74,8 @@ export default class RoktManager {
             filterUserAttributes: KitFilterHelper.filterUserAttributes,
             filteredUser: filteredUser,
         };
+
+        this.sandbox = options?.sandbox;
     }
 
     public attachKit(kit: IRoktKit): void {
@@ -85,8 +92,23 @@ export default class RoktManager {
             return Promise.resolve({} as IRoktSelection);
         }
 
+        debugger;
+
         try {
-            return this.kit.selectPlacements(options);
+            let enrichedOptions = options;
+            const { attributes } = options;
+            const sandbox = attributes?.sandbox ?? this.sandbox;
+
+            if (sandbox !== null) {
+                attributes['sandbox'] = sandbox;
+            }
+
+            enrichedOptions = {
+                ...options,
+                attributes,
+            }
+
+            return this.kit.selectPlacements(enrichedOptions);
         } catch (error) {
             return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
         }

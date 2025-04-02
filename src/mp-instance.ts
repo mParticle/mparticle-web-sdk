@@ -49,7 +49,7 @@ import { IECommerce } from './ecommerce.interfaces';
 import { INativeSdkHelpers } from './nativeSdkHelpers.interfaces';
 import { IPersistence } from './persistence.interfaces';
 import ForegroundTimer from './foregroundTimeTracker';
-import RoktManager from './roktManager';
+import RoktManager, { IRoktManagerOptions } from './roktManager';
 import filteredMparticleUser from './filteredMparticleUser';
 
 export interface IErrorLogMessage {
@@ -1403,7 +1403,10 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
                 { userAttributeFilters },
                 mpInstance
             );
-            mpInstance._RoktManager.init(roktConfig, roktFilteredUser);
+            const roktOptions: IRoktManagerOptions = {
+                sandbox: config.isDevelopmentMode,
+            };
+            mpInstance._RoktManager.init(roktConfig, roktFilteredUser, roktOptions);
         }
 
         mpInstance._Forwarders.processForwarders(
