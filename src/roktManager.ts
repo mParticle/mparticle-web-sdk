@@ -2,7 +2,6 @@ import { IKitConfigs } from "./configAPIClient";
 import { UserAttributeFilters  } from "./forwarders.interfaces";
 import { IMParticleUser } from "./identity-user-interfaces";
 import KitFilterHelper from "./kitFilterHelper";
-import { SDKInitConfig } from "./sdkRuntimeModels";
 import { Dictionary } from "./utils";
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
