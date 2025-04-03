@@ -92,21 +92,19 @@ export default class RoktManager {
             return Promise.resolve({} as IRoktSelection);
         }
 
-        debugger;
-
         try {
-            let enrichedOptions = options;
             const { attributes } = options;
-            const sandbox = attributes?.sandbox ?? this.sandbox;
+            const sandboxValue = attributes?.sandbox ?? this.sandbox;
 
-            if (sandbox !== null) {
-                attributes['sandbox'] = sandbox;
-            }
-
-            enrichedOptions = {
+            const enrichedAttributes = {
+                ...attributes,
+                ...(sandboxValue !== null ? { sandbox: sandboxValue } : {}),
+              };
+          
+              const enrichedOptions = {
                 ...options,
-                attributes,
-            }
+                attributes: enrichedAttributes,
+              };
 
             return this.kit.selectPlacements(enrichedOptions);
         } catch (error) {
