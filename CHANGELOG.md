@@ -1,3 +1,10 @@
+# [2.36.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.35.2...v2.36.0) (2025-04-03)
+
+
+### Features
+
+* Add User Filtering for Rokt Wrapper ([#1007](https://github.com/mParticle/mparticle-web-sdk/issues/1007)) ([8f0ecd3](https://github.com/mParticle/mparticle-web-sdk/commit/8f0ecd323c3e8915bcb21fa01d2a4be2cf2528ea))
+
 ## [2.35.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.35.1...v2.35.2) (2025-03-25)
 
 
