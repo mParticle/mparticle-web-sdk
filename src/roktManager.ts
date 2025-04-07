@@ -72,6 +72,16 @@ export default class RoktManager {
     private sandbox: boolean | null = null;
     private userAttributeMapping: Dictionary<string>[] = [];
 
+    /**
+     * Initializes the RoktManager with configuration settings and user data.
+     * 
+     * @param {IKitConfigs} roktConfig - Configuration object containing user attribute filters and settings
+     * @param {IMParticleUser} filteredUser - User object with filtered attributes
+     * @param {IMParticleUser} currentUser - Current mParticle user object
+     * @param {IRoktManagerOptions} options - Options for the RoktManager
+     * 
+     * @throws Logs error to console if userAttributeMapping parsing fails
+     */
     public init(roktConfig: IKitConfigs, filteredUser: IMParticleUser, currentUser: IMParticleUser, options?: IRoktManagerOptions): void {
         const { userAttributeFilters, settings } = roktConfig || {};
         const { userAttributeMapping = '' } = settings as IRoktKitSettings || {};
