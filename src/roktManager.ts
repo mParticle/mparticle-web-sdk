@@ -2,7 +2,7 @@ import { IKitConfigs } from "./configAPIClient";
 import { UserAttributeFilters  } from "./forwarders.interfaces";
 import { IMParticleUser } from "./identity-user-interfaces";
 import KitFilterHelper from "./kitFilterHelper";
-import { Dictionary, isEmpty, parseSettingsString } from "./utils";
+import { Dictionary, parseSettingsString } from "./utils";
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export interface IRoktPartnerAttributes {
@@ -37,10 +37,6 @@ export interface RoktKitFilterSettings {
     filteredUser?: IMParticleUser | null;
 }
 
-export interface IRoktKitSettings {
-    userAttributeMapping: string;
-}
-
 export interface IRoktKit  {
     filters: RoktKitFilterSettings;
     filteredUser: IMParticleUser | null;
@@ -70,7 +66,7 @@ export default class RoktManager {
     private filteredUser: IMParticleUser | null = null;
     private messageQueue: IRoktMessage[] = [];
     private sandbox: boolean | null = null;
-    private userAttributeMapping: Dictionary<string>[] | null = null;
+    private userAttributeMapping: Dictionary<string>[] = [];
 
     /**
      * Initializes the RoktManager with configuration settings and user data.
@@ -84,7 +80,7 @@ export default class RoktManager {
      */
     public init(roktConfig: IKitConfigs, filteredUser: IMParticleUser, currentUser: IMParticleUser, options?: IRoktManagerOptions): void {
         const { userAttributeFilters, settings } = roktConfig || {};
-        const { userAttributeMapping = '' } = settings as IRoktKitSettings || {};
+        const { userAttributeMapping } = settings || {};
 
         try {
             this.userAttributeMapping = parseSettingsString(userAttributeMapping);
@@ -150,13 +146,9 @@ export default class RoktManager {
     }
 
     private mapUserAttributes(attributes: IRoktPartnerAttributes, userAttributeMapping: Dictionary<string>[]): IRoktPartnerAttributes {
-        if (isEmpty(userAttributeMapping)) {
-            return attributes;
-        }
-
         const mappingLookup: { [key: string]: string } = {};
-        for (const mapping of userAttributeMapping) {
-            mappingLookup[mapping.map] = mapping.value;
+        for (let i = 0; i < userAttributeMapping.length; i++) {
+            mappingLookup[userAttributeMapping[i].map] = userAttributeMapping[i].value;
         }
     
         const mappedAttributes: IRoktPartnerAttributes = {};
