@@ -70,7 +70,7 @@ export default class RoktManager {
     private filteredUser: IMParticleUser | null = null;
     private messageQueue: IRoktMessage[] = [];
     private sandbox: boolean | null = null;
-    private userAttributeMapping: Dictionary<string>[] = [];
+    private userAttributeMapping: Dictionary<string>[] | null = null;
 
     /**
      * Initializes the RoktManager with configuration settings and user data.
