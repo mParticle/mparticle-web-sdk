@@ -122,7 +122,11 @@ export default class RoktManager {
             const sandboxValue = attributes?.sandbox ?? this.sandbox;
             const mappedAttributes = this.mapUserAttributes(attributes, this.userAttributeMapping);
 
-            this.currentUser?.setUserAttributes(mappedAttributes);
+            try {
+                this.currentUser.setUserAttributes(mappedAttributes);
+            } catch (error) {
+                console.error('Error setting user attributes', error);
+            }
 
             const enrichedAttributes = {
                 ...mappedAttributes,

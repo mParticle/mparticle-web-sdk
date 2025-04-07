@@ -4,9 +4,13 @@ import RoktManager, { IRoktKit, IRoktSelectPlacementsOptions } from "../../src/r
 
 describe('RoktManager', () => {
     let roktManager: RoktManager;
+    let currentUser: IMParticleUser;
 
     beforeEach(() => {
         roktManager = new RoktManager();
+        currentUser = {
+            setUserAttributes: jest.fn()
+        } as unknown as IMParticleUser;
     });
 
     describe('constructor', () => {
@@ -21,7 +25,7 @@ describe('RoktManager', () => {
 
     describe('#init', () => {
         it('should initialize the manager with defaults when no config is provided', () => {
-            roktManager.init({} as IKitConfigs, {} as IMParticleUser, {} as IMParticleUser);
+            roktManager.init({} as IKitConfigs, {} as IMParticleUser, currentUser);
             expect(roktManager['kit']).toBeNull();
             expect(roktManager['filters']).toEqual({
                 userAttributeFilters: undefined,
@@ -29,7 +33,7 @@ describe('RoktManager', () => {
                 filteredUser: {},
             });
             expect(roktManager['kit']).toBeNull();
-            expect(roktManager['currentUser']).toEqual({});
+            expect(roktManager['currentUser']).toEqual(currentUser);
         });
 
         it('should initialize the manager with user attribute filters from a config', () => {
@@ -39,7 +43,7 @@ describe('RoktManager', () => {
                 userAttributeFilters: [816506310, 1463937872, 36300687],
             };
 
-            roktManager.init(kitConfig as IKitConfigs, {} as IMParticleUser, {} as IMParticleUser);
+            roktManager.init(kitConfig as IKitConfigs, {} as IMParticleUser, currentUser);
             expect(roktManager['filters']).toEqual({
                 userAttributeFilters: [816506310, 1463937872, 36300687],
                 filterUserAttributes: expect.any(Function),
@@ -73,7 +77,7 @@ describe('RoktManager', () => {
                     ])
                 },
             };
-            roktManager.init(kitConfig as IKitConfigs, {} as IMParticleUser, {} as IMParticleUser);
+            roktManager.init(kitConfig as IKitConfigs, {} as IMParticleUser, currentUser);
             expect(roktManager['userAttributeMapping']).toEqual([
                 { 
                     jsmap: null,
@@ -138,6 +142,10 @@ describe('RoktManager', () => {
     });
 
     describe('#selectPlacements', () => {
+        beforeEach(() => {
+            roktManager['currentUser'] = currentUser;
+        });
+
         it('should call kit.selectPlacements with empty attributes', () => {
             const kit: IRoktKit = {
                 launcher: {
