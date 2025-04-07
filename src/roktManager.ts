@@ -2,7 +2,7 @@ import { IKitConfigs } from "./configAPIClient";
 import { UserAttributeFilters  } from "./forwarders.interfaces";
 import { IMParticleUser } from "./identity-user-interfaces";
 import KitFilterHelper from "./kitFilterHelper";
-import { Dictionary } from "./utils";
+import { Dictionary, parseSettingsString } from "./utils";
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export interface IRoktPartnerAttributes {
@@ -65,9 +65,17 @@ export default class RoktManager {
     private filteredUser: IMParticleUser | null = null;
     private messageQueue: IRoktMessage[] = [];
     private sandbox: boolean | null = null;
+    private userAttributeMapping: Dictionary<string>[] = [];
 
     public init(roktConfig: IKitConfigs, filteredUser?: IMParticleUser, options?: IRoktManagerOptions): void {
-        const { userAttributeFilters } = roktConfig || {};
+        const { userAttributeFilters, settings } = roktConfig || {};
+        const { userAttributeMapping } = settings || {};
+
+        try {
+            this.userAttributeMapping = parseSettingsString(userAttributeMapping);
+        } catch (error) {
+            console.error('Error parsing user attribute mapping from config', error);
+        }
 
         this.filters = {
             userAttributeFilters,
@@ -96,15 +104,17 @@ export default class RoktManager {
             const { attributes } = options;
             const sandboxValue = attributes?.sandbox ?? this.sandbox;
 
+            const mappedAttributes = this.mapUserAttributes(attributes, this.userAttributeMapping);
+
             const enrichedAttributes = {
-                ...attributes,
+                ...mappedAttributes,
                 ...(sandboxValue !== null ? { sandbox: sandboxValue } : {}),
               };
-          
-              const enrichedOptions = {
+
+            const enrichedOptions = {
                 ...options,
                 attributes: enrichedAttributes,
-              };
+            };
 
             return this.kit.selectPlacements(enrichedOptions);
         } catch (error) {
@@ -115,6 +125,22 @@ export default class RoktManager {
     private isReady(): boolean {
         // The Rokt Manager is ready when a kit is attached and has a launcher
         return Boolean(this.kit && this.kit.launcher);
+    }
+
+    private mapUserAttributes(attributes: IRoktPartnerAttributes, userAttributeMapping: Dictionary<string>[]): IRoktPartnerAttributes {
+        const mappingLookup: { [key: string]: string } = {};
+        for (let i = 0; i < userAttributeMapping.length; i++) {
+            mappingLookup[userAttributeMapping[i].map] = userAttributeMapping[i].value;
+        }
+    
+        const mappedAttributes: IRoktPartnerAttributes = {};
+        for (const key in attributes) {
+            if (attributes.hasOwnProperty(key)) {
+                const newKey = mappingLookup[key] || key;
+                mappedAttributes[newKey] = attributes[key];
+            }
+        }
+        return mappedAttributes;
     }
 
     private processMessageQueue(): void {

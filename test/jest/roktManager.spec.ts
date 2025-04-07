@@ -48,6 +48,44 @@ describe('RoktManager', () => {
             roktManager.init({} as IKitConfigs, undefined, { sandbox: true });
             expect(roktManager['sandbox']).toBe(true);
         });
+
+        it('should initialize the manager with user attribute mapping from a config', () => {
+            const kitConfig: Partial<IKitConfigs> = {
+                name: 'Rokt',
+                moduleId: 181,
+                settings: {
+                    userAttributeMapping: JSON.stringify([
+                        {
+                            jsmap: null,
+                            map: 'f.name',
+                            maptype: 'UserAttributeClass.Name',
+                            value: 'firstname',
+                        },
+                        {
+                            jsmap: null,
+                            map: 'last_name',
+                            maptype: 'UserAttributeClass.Name',
+                            value: 'lastname',
+                        }
+                    ])
+                },
+            };
+            roktManager.init(kitConfig as IKitConfigs);
+            expect(roktManager['userAttributeMapping']).toEqual([
+                { 
+                    jsmap: null,
+                    map: 'f.name',
+                    maptype: 'UserAttributeClass.Name',
+                    value: 'firstname',
+                },
+                {
+                    jsmap: null,
+                    map: 'last_name', 
+                    maptype: 'UserAttributeClass.Name',
+                    value: 'lastname',
+                }
+            ]);
+        });
     });
 
     describe('#attachKit', () => {
@@ -317,7 +355,7 @@ describe('RoktManager', () => {
 
             expect(kit.selectPlacements).toHaveBeenCalledWith(expectedOptions);
         });
-
+    
         it('should preserve other option properties when adding sandbox', () => {
             const kit: IRoktKit = {
                 launcher: {
@@ -351,7 +389,6 @@ describe('RoktManager', () => {
 
             expect(kit.selectPlacements).toHaveBeenCalledWith(expectedOptions);
         });
-
         it('should not add sandbox when sandbox is null', () => {
             const kit: IRoktKit = {
                 launcher: {
@@ -396,6 +433,74 @@ describe('RoktManager', () => {
                     sandbox: true
                 },
                 identifier: 'test-identifier'
+            };
+
+            roktManager.selectPlacements(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+        });
+
+        it('should pass mapped attributes to kit.launcher.selectPlacements', () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn()
+                },
+                selectPlacements: jest.fn()
+            };
+
+            roktManager.kit = kit as IRoktKit;
+            roktManager['userAttributeMapping'] = [
+                {
+                    jsmap: null,
+                    map: 'f.name',
+                    maptype: 'UserAttributeClass.Name',
+                    value: 'firstname'
+                },
+                {
+                    jsmap: null,
+                    map: 'last_name',
+                    maptype: 'UserAttributeClass.Name',
+                    value: 'lastname'
+                }
+            ];
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    'f.name': 'John',
+                    'last_name': 'Doe',
+                    'score': 42,
+                }
+            };
+
+            const expectedOptions = {
+                attributes: {
+                    firstname: 'John',
+                    lastname: 'Doe',
+                    score: 42,
+                }
+            };
+
+            roktManager.selectPlacements(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith(expectedOptions);
+        });
+
+        it('should pass original attributes to kit.launcher.selectPlacements if no mapping is provided', () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn()
+                },
+                selectPlacements: jest.fn()
+            };
+
+            roktManager.kit = kit as IRoktKit;
+            roktManager['userAttributeMapping'] = [];
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    'f.name': 'John',
+                    'last_name': 'Doe',
+                    'score': 42,
+                    'age': 25,
+                }
             };
 
             roktManager.selectPlacements(options);
