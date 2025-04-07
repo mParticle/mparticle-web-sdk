@@ -1,0 +1,83 @@
+---
+description: Project-Wide Context
+globs: 
+---
+# mParticle Web SDK
+
+## About the product
+mParticle offers a real-time CDP. For more information, see [the following link](mdc:web-sdk/web-sdk/https:/www.mparticle.com/platform).
+
+## About the project
+The mParticle Web SDK is data-collection SDK for mParticle, written for JavaScript and TypeScript Partner Developers to use when integrating the mParticle CDP into their projects. This SDK intended to be embedded into applications via a Script Tag (vCDN) or Self-Hosted (NPM). The project is well-organized with a clear separation between modules. For more information, see [the following link](mdc:web-sdk/web-sdk/https:/docs.mparticle.com/developers/quickstart/web/overview).
+
+1. **Project Structure**
+   - The project consists of separate modules
+   - Written in JavaScript and TypeScript
+   - Is transpiled to ES5 compatible JavaScript
+   - Has CI/CD configuration (.github directory)
+
+2. **Main Components** (under `src/`)
+   - **Main Modules** 
+     - `mparticle-instance-manager.ts`: Public interface for the entire mParticle Web SDK
+     - `mp-instance.ts`: An individual instance of the mParticle Instance
+     - `rokt-manager.ts`: Manages functionality that is shared with the Rokt Web Kit and Rokt Web SDK
+     - `identity.js`: Identity functions. Sometimes referred to as IDSYNC
+     - `identityApiClient.ts`: API Client used to make requests to the Identity Service
+     - `persistence.js`: Wrapper functions for Cookie and LocalStorage APIs
+     - `store.ts`: Stores current state of the Web SDK
+   
+   - **Core Services**
+     - `Audience/`: Audience management and scheduling
+     - `DataProcessing/`: Data processing pipelines
+     - `Cache/`: Caching services
+     - `Messaging/`: Message handling (includes Pulsar integration)
+     - `Sdk/`: SDK-related components
+     - `UI/`: User interface components
+
+3. **Supporting Directories**
+   - `test/`: Test runners and specs
+   - `test/jest`: Jest Tests used for Unit Tests
+   - `test/integrations`: Karma Integration tests used for testing the built es5 JavaScript bundle
+
+# Documentation
+Documentation is a major part of the project. When you begin a coding session you should try to find relevant documentation about the feature you're working on. You should use that documentation to further add context to the feature by following important modules that are either directly or indirectly discussed in the documentation.
+
+Documentation may exist as independent files that are related to the current area you're working in. If it is not clear from the initial context which documentation files you should be using, you should ask before suggesting any changes. 
+
+Whenever you make any changes you should either start a new documentation file or update an existing one. The structure of a documentation file should always start with an introduction about the area that is being documented. This is followed by a description of the key components in that area and how they interact. All good documentation will also include an appendix of all models associated with this area. You may also want to include miscellanea like associated test files.
+
+# Progress doc
+Establishing a pattern of maintaining a progress file for the current coding session is very useful. To establish one it is necessary to understand the current feature being requested, and to break down that feature into blocks of work. If the feature is considered to be small, ie, if the feature has a single working block, a progress document would not be required. 
+
+With this philosophy your work should be done in small manageable chunks. The size of a block should be considered by how much work you can reliably do at a single time. Smaller blocks means better work. 
+
+# Working from a Progress doc
+IF you are working from a Progress doc, you should only focus on the immediate next section. You should ask the human user to approve or correct the work. Once the work is approved you must update you progress.
+
+# Working from a Jira ticket
+If you are provided a description of a Jira ticket (this could be an image or a text description which include a subject, a description, and (optionally) acceptance criteria) you may ask clarifying questions to fix the context of the requirements. Make sure to look for any techinical documentation that may have been written about the components you will be working on.
+
+You may also ask if there's an execution strategy document. Then you should attempt to find a [Progress doc](mdc:web-sdk/web-sdk/#progress-doc) to get a better understanding of what has already been completed. 
+
+# Working with Tech Specs
+If you are provided a tech spec that outlines a feature, read the spec carefully, and follow all reference provided in the doc to gain a deep understanding of the business requirements. The end goal of your analysis will be to create a clear list of use-cases and to create an execution strategy  that will break down the tasks to enable those use-cases. 
+
+You must ask clarifying questions to ensure that you unambigously understand the business requirements.
+
+This execution strategy document must include all relevant information you have gleaned through searching through the codebase and through reasoning. It should be complete enough so that any new engineer that is not familiar with the work area should have a good working understanding of the requirements. I does not need to include every detail you have learned in the course of investigating the tech spec, but enough detail to eliminate all ambiguities that may arise from the requirements or the source code.
+
+Once you have created the execution strategy, you will create a [Progress doc](mdc:web-sdk/web-sdk/#progress-doc) from the tasks within. 
+
+When you have created these workproducts your should prompt the user if the user would want to either:
+1. Create a file that describes the tasks that will be necessary to fulfill the business requirements. The file would be a CSV. The schema is as follows:
+  - Epic: The major category the task belongs in. For example, if a task requires backend and frontend work, each would be an epic. Or, if there a several components in the tech spec, each would be an epic. You may find other patterns in the execution strategy that outline major sections.
+  - Subject: An expressive but succint descrption of the task (no more than 10 words)
+  - Description: A summary of the task, complete with references to the tech spec (these should be expressive but succint). The summary should have just enough information for the engineer working on the task to have an unambigous understanding of business requirements for this task.
+  - Acceptance criteria: The list of deliverables expected from the business requirements for this task, in order to consider this task complete
+  - Estimate: A rough calculation of how complex the task is
+  - Blocked by: Whether work has to be completed on another task before this task can be completed
+2. Like to start work right away. In which case you must go through the progress doc and start loading the relevant parts of the strategy doc to begin coding out the features. 
+
+
+# Editing legacy code 
+When editing legacy code and you are provided with a section of code where there might be a problem ensure you understand the entire call stack for that code and all the models associated with it and all the dependencies for those models also look for associated documentation that might help you understand that area of the code.

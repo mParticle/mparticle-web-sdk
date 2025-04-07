@@ -1,0 +1,89 @@
+---
+description: 
+globs: *.js, *.ts
+---
+ # JavaScript and TypeScript Coding Best Practices
+
+ Coding best practices for the mParticle project including code style, structure, and maintenance guidelines for .js and .ts files
+ 
+ ## General Guidelines
+ 
+ This document outlines the coding best practices to be followed in the mParticle project.
+ 
+ ## Code Organization
+ 
+ ## Updating Cursor Rules
+ 
+ <rule>
+ name: update_cursor_rules_when_corrected
+ description: Always update rules when a correction is made
+ filters:
+   - type: event
+     pattern: "conversation"
+ 
+ actions:
+   - type: suggest
+     message: |
+       When corrections are made to your code or approach:
+ 
+       1. Always update existing Cursor rules or create new ones to reflect the correction
+       2. Document the reasoning behind the correction
+       3. Include examples of both incorrect and correct approaches
+       4. Make sure rule updates are committed along with code changes
+ 
+       This ensures that future work will benefit from the lessons learned and helps maintain consistent coding practices.
+ 
+ examples:
+   - input: |
+       // Correction made about unnecessary usings but rules not updated
+       // Future similar mistakes likely to occur
+     output: |
+       // Correction made about unnecessary usings
+       // Rules updated to prevent similar issues:
+       // .cursor/rules/coding-best-practices.mdc updated with using directive guidelines
+       // Future work will avoid the same mistake
+ 
+ metadata:
+   priority: high
+   version: 1.0
+ </rule>
+ 
+ ## Code Style
+ 
+ ### Naming Conventions
+ 
+ - Use PascalCase for class names
+ - Use camelCase for method parameters and local variables
+ - Use camelCase for method names, and property names
+ - Prefix interfaces with 'I'
+ - Use meaningful, descriptive names that communicate intent
+ 
+ ### Formatting
+ 
+ - Use consistent indentation (4 spaces recommended)
+ - Limit line length to improve readability
+ - Use blank lines to separate logical blocks of code
+ 
+ ## Documentation
+ 
+ - Document public APIs with comments (use JSDocs format for .js files or TSDocs format for .ts files)
+ - Include a summary for each class and method
+ - Document parameters, return values, and exceptions
+ - Provide examples for complex APIs
+ 
+ ## Error Handling
+ 
+ - Be specific about the exceptions you catch
+ - Avoid empty catch blocks
+ - Log exceptions with relevant context
+ - Consider using exception filters
+ 
+ ## Testing
+ 
+ - Write unit tests for all public APIs
+ - Focus on testing behavior, not implementation details
+ - Use meaningful assertion strings that describe the scenario being tested
+ - Follow the Rspec pattern for organizing tests into `describe` and `it` blocks
+ 
+ @version "1.0.0"
+ @last_updated "2025-03-10"

@@ -14,3 +14,8 @@ local.log
 test/cross-browser-testing/CBT-tests-es5.js
 test/cross-browser-testing/CBT-tests.js
 coverage/
+
+# Personal cursor rules
+.cursor/rules/personal-*.mdc
+.cursor/rules/_personal.mdc
+**/_personal.mdc
