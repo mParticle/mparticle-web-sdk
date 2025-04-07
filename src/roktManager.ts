@@ -107,7 +107,6 @@ export default class RoktManager {
         try {
             const { attributes } = options;
             const sandboxValue = attributes?.sandbox ?? this.sandbox;
-
             const mappedAttributes = this.mapUserAttributes(attributes, this.userAttributeMapping);
 
             const enrichedAttributes = {
