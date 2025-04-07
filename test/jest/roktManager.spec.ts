@@ -221,7 +221,7 @@ describe('RoktManager', () => {
             expect(kit.launcher.selectPlacements).toHaveBeenCalledWith(options);
         });
 
-        it('should set sandbox to false in placement attributes when initialized as true', () => {
+        it('should set sandbox to true in placement attributes when initialized as true', () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn()
@@ -399,16 +399,7 @@ describe('RoktManager', () => {
             };
 
             roktManager.selectPlacements(options);
-
-            const expectedOptions = {
-                attributes: {
-                    customAttr: 'value',
-                    'sandbox': true
-                },
-                identifier: 'test-identifier'
-            };
-
-            expect(kit.selectPlacements).toHaveBeenCalledWith(expectedOptions);
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
     });
 });
