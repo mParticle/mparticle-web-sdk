@@ -66,12 +66,13 @@ export default class RoktManager {
     public kit: IRoktKit = null;
     public filters: RoktKitFilterSettings = {};
 
+    private currentUser: IMParticleUser | null = null;
     private filteredUser: IMParticleUser | null = null;
     private messageQueue: IRoktMessage[] = [];
     private sandbox: boolean | null = null;
     private userAttributeMapping: Dictionary<string>[] = [];
 
-    public init(roktConfig: IKitConfigs, filteredUser?: IMParticleUser, options?: IRoktManagerOptions): void {
+    public init(roktConfig: IKitConfigs, filteredUser: IMParticleUser, currentUser: IMParticleUser, options?: IRoktManagerOptions): void {
         const { userAttributeFilters, settings } = roktConfig || {};
         const { userAttributeMapping = '' } = settings as IRoktKitSettings || {};
 
@@ -80,6 +81,8 @@ export default class RoktManager {
         } catch (error) {
             console.error('Error parsing user attribute mapping from config', error);
         }
+
+        this.currentUser = currentUser;
 
         this.filters = {
             userAttributeFilters,
@@ -108,6 +111,8 @@ export default class RoktManager {
             const { attributes } = options;
             const sandboxValue = attributes?.sandbox ?? this.sandbox;
             const mappedAttributes = this.mapUserAttributes(attributes, this.userAttributeMapping);
+
+            this.currentUser?.setUserAttributes(mappedAttributes);
 
             const enrichedAttributes = {
                 ...mappedAttributes,

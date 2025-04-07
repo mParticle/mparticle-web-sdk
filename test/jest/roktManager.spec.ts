@@ -1,4 +1,5 @@
 import { IKitConfigs } from "../../src/configAPIClient";
+import { IMParticleUser } from "../../src/identity-user-interfaces";
 import RoktManager, { IRoktKit, IRoktSelectPlacementsOptions } from "../../src/roktManager";
 
 describe('RoktManager', () => {
@@ -20,14 +21,15 @@ describe('RoktManager', () => {
 
     describe('#init', () => {
         it('should initialize the manager with defaults when no config is provided', () => {
-            roktManager.init({} as IKitConfigs);
+            roktManager.init({} as IKitConfigs, {} as IMParticleUser, {} as IMParticleUser);
             expect(roktManager['kit']).toBeNull();
             expect(roktManager['filters']).toEqual({
                 userAttributeFilters: undefined,
                 filterUserAttributes: expect.any(Function),
-                filteredUser: undefined,
+                filteredUser: {},
             });
             expect(roktManager['kit']).toBeNull();
+            expect(roktManager['currentUser']).toEqual({});
         });
 
         it('should initialize the manager with user attribute filters from a config', () => {
@@ -37,10 +39,11 @@ describe('RoktManager', () => {
                 userAttributeFilters: [816506310, 1463937872, 36300687],
             };
 
-            roktManager.init(kitConfig as IKitConfigs);
+            roktManager.init(kitConfig as IKitConfigs, {} as IMParticleUser, {} as IMParticleUser);
             expect(roktManager['filters']).toEqual({
                 userAttributeFilters: [816506310, 1463937872, 36300687],
                 filterUserAttributes: expect.any(Function),
+                filteredUser: {},
             });
         });
 
@@ -70,7 +73,7 @@ describe('RoktManager', () => {
                     ])
                 },
             };
-            roktManager.init(kitConfig as IKitConfigs);
+            roktManager.init(kitConfig as IKitConfigs, {} as IMParticleUser, {} as IMParticleUser);
             expect(roktManager['userAttributeMapping']).toEqual([
                 { 
                     jsmap: null,
@@ -506,6 +509,52 @@ describe('RoktManager', () => {
 
             roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+        });
+
+        it('should set the mapped attributes on the current user via setUserAttributes', () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn()
+                },
+                selectPlacements: jest.fn()
+            };
+
+            roktManager.kit = kit as IRoktKit;
+            roktManager['currentUser'] = {
+                setUserAttributes: jest.fn()
+            } as unknown as IMParticleUser;
+
+            roktManager['userAttributeMapping'] = [
+                {
+                    jsmap: null,
+                    map: 'f.name',
+                    maptype: 'UserAttributeClass.Name',
+                    value: 'firstname'
+                },
+                {
+                    jsmap: null,
+                    map: 'last_name',
+                    maptype: 'UserAttributeClass.Name',
+                    value: 'lastname'
+                }
+            ];
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    'f.name': 'John',
+                    'last_name': 'Doe',
+                    'age': 25,
+                    'score': 42,
+                }
+            };
+
+            roktManager.selectPlacements(options);
+            expect(roktManager['currentUser'].setUserAttributes).toHaveBeenCalledWith({
+                firstname: 'John',
+                lastname: 'Doe',
+                age: 25,
+                score: 42,
+            });
         });
     });
 });
