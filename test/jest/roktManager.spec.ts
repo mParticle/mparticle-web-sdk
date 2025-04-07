@@ -389,6 +389,7 @@ describe('RoktManager', () => {
 
             expect(kit.selectPlacements).toHaveBeenCalledWith(expectedOptions);
         });
+
         it('should not add sandbox when sandbox is null', () => {
             const kit: IRoktKit = {
                 launcher: {
