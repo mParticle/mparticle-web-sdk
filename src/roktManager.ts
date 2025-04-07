@@ -2,7 +2,7 @@ import { IKitConfigs } from "./configAPIClient";
 import { UserAttributeFilters  } from "./forwarders.interfaces";
 import { IMParticleUser } from "./identity-user-interfaces";
 import KitFilterHelper from "./kitFilterHelper";
-import { Dictionary, parseSettingsString } from "./utils";
+import { Dictionary, isEmpty, parseSettingsString } from "./utils";
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export interface IRoktPartnerAttributes {
@@ -37,6 +37,10 @@ export interface RoktKitFilterSettings {
     filteredUser?: IMParticleUser | null;
 }
 
+export interface IRoktKitSettings {
+    userAttributeMapping: string;
+}
+
 export interface IRoktKit  {
     filters: RoktKitFilterSettings;
     filteredUser: IMParticleUser | null;
@@ -69,7 +73,7 @@ export default class RoktManager {
 
     public init(roktConfig: IKitConfigs, filteredUser?: IMParticleUser, options?: IRoktManagerOptions): void {
         const { userAttributeFilters, settings } = roktConfig || {};
-        const { userAttributeMapping } = settings || {};
+        const { userAttributeMapping = '' } = settings as IRoktKitSettings || {};
 
         try {
             this.userAttributeMapping = parseSettingsString(userAttributeMapping);
@@ -128,9 +132,13 @@ export default class RoktManager {
     }
 
     private mapUserAttributes(attributes: IRoktPartnerAttributes, userAttributeMapping: Dictionary<string>[]): IRoktPartnerAttributes {
+        if (isEmpty(userAttributeMapping)) {
+            return attributes;
+        }
+
         const mappingLookup: { [key: string]: string } = {};
-        for (let i = 0; i < userAttributeMapping.length; i++) {
-            mappingLookup[userAttributeMapping[i].map] = userAttributeMapping[i].value;
+        for (const mapping of userAttributeMapping) {
+            mappingLookup[mapping.map] = mapping.value;
         }
     
         const mappedAttributes: IRoktPartnerAttributes = {};
