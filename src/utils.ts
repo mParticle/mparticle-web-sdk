@@ -160,6 +160,14 @@ const parseNumber = (value: string | number): number => {
     return isNaN(floatValue) ? 0 : floatValue;
 };
 
+const parseSettingsString = (settingsString: string): Dictionary<string>[] => {
+    try {
+        return settingsString ? JSON.parse(settingsString.replace(/&quot;/g, '"')) : [];
+    } catch (error) {
+        throw new Error('Settings string contains invalid JSON');
+    }
+};
+
 const parseStringOrNumber = (
     value: string | number
 ): string | number | null => {
@@ -412,6 +420,7 @@ export {
     isStringOrNumber,
     parseConfig,
     parseNumber,
+    parseSettingsString,
     parseStringOrNumber,
     replaceCommasWithPipes,
     replacePipesWithCommas,

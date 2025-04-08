@@ -10,6 +10,7 @@ import {
     inArray,
     filterDictionaryWithHash,
     parseConfig,
+    parseSettingsString,
 } from '../../src/utils';
 import { deleteAllCookies } from './utils';
 
@@ -307,6 +308,26 @@ describe('Utils', () => {
 
             const result = parseConfig(config, 'Rokt', 181);
             expect(result).toBeNull();
+        });
+    });
+
+    describe('#parseSettingsString', () => {
+        it('should parse a settings string', () => {
+            const settingsString = "[{&quot;jsmap&quot;:null,&quot;map&quot;:&quot;f.name&quot;,&quot;maptype&quot;:&quot;UserAttributeClass.Name&quot;,&quot;value&quot;:&quot;firstname&quot;},{&quot;jsmap&quot;:null,&quot;map&quot;:&quot;last_name&quot;,&quot;maptype&quot;:&quot;UserAttributeClass.Name&quot;,&quot;value&quot;:&quot;lastname&quot;}]";
+            expect(parseSettingsString(settingsString)).toEqual([
+                { jsmap: null, map: 'f.name', maptype: 'UserAttributeClass.Name', value: 'firstname' },
+                { jsmap: null, map: 'last_name', maptype: 'UserAttributeClass.Name', value: 'lastname' },
+            ]);
+        });
+
+        it('returns an empty array if the settings string is empty', () => {
+            const settingsString = "";
+            expect(parseSettingsString(settingsString)).toEqual([]);
+        });
+
+        it('throws an error message if the settings string is not a valid JSON', () => {
+            const settingsString = "not a valid JSON";
+            expect(() => parseSettingsString(settingsString)).toThrow('Settings string contains invalid JSON');
         });
     });
 });
