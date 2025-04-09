@@ -145,7 +145,7 @@ export default class RoktManager {
         const reservedAttributes = ['sandbox'];
         const filteredAttributes = {};
         
-        for (var key in attributes) {
+        for (const key in attributes) {
             if (attributes.hasOwnProperty(key) && reservedAttributes.indexOf(key) === -1) {
                 filteredAttributes[key] = attributes[key];
             }
@@ -160,8 +160,8 @@ export default class RoktManager {
 
     private mapUserAttributes(attributes: IRoktPartnerAttributes, userAttributeMapping: Dictionary<string>[]): IRoktPartnerAttributes {
         const mappingLookup: { [key: string]: string } = {};
-        for (let i = 0; i < userAttributeMapping.length; i++) {
-            mappingLookup[userAttributeMapping[i].map] = userAttributeMapping[i].value;
+        for (const mapping of userAttributeMapping) {
+            mappingLookup[mapping.map] = mapping.value;
         }
     
         const mappedAttributes: IRoktPartnerAttributes = {};
