@@ -52,7 +52,12 @@ describe('RoktManager', () => {
         });
 
         it('should initialize the manager with sandbox from options', () => {
-            roktManager.init({} as IKitConfigs, undefined, { sandbox: true });
+            roktManager.init(
+                {} as IKitConfigs,
+                undefined,
+                currentUser,
+                { sandbox: true }
+            );
             expect(roktManager['sandbox']).toBe(true);
         });
 
@@ -562,6 +567,32 @@ describe('RoktManager', () => {
                 lastname: 'Doe',
                 age: 25,
                 score: 42,
+            });
+        });
+
+        it('should not set reserved attributes on the current user', () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn()
+                },
+                selectPlacements: jest.fn()
+            };
+
+            roktManager.kit = kit as IRoktKit;
+            roktManager['currentUser'] = {
+                setUserAttributes: jest.fn()
+            } as unknown as IMParticleUser;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    'sandbox': true
+                }
+            };
+
+            roktManager.selectPlacements(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+            expect(roktManager['currentUser'].setUserAttributes).not.toHaveBeenCalledWith({
+                sandbox: true
             });
         });
     });
