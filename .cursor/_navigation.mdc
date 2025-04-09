@@ -1,0 +1,15 @@
+---
+description: Codebase Navigation Rules
+globs: 
+---
+# Cursor Rules Navigation Configuration
+
+## Global base rules (applied to all files unless overridden)
+[/**/*]
+.cursor/rules/base.mdc
+
+### Testing subcategories
+
+## Personal rules
+[/**/*]
+.cursor/rules/_personal_.mdc 
