@@ -1394,7 +1394,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance._IntegrationCapture.capture();
         }
 
-        // Configure Rokt Manager with filtered user
+        // Configure Rokt Manager with user and filtered user
         const roktConfig: IKitConfigs = parseConfig(config, 'Rokt', 181);
         if (roktConfig) {
             const { userAttributeFilters } = roktConfig;
@@ -1406,7 +1406,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             const roktOptions: IRoktManagerOptions = {
                 sandbox: config.isDevelopmentMode,
             };
-            mpInstance._RoktManager.init(roktConfig, roktFilteredUser, roktOptions);
+            mpInstance._RoktManager.init(roktConfig, roktFilteredUser, currentUser, roktOptions);
         }
 
         mpInstance._Forwarders.processForwarders(
