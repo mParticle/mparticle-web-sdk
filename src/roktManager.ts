@@ -118,11 +118,7 @@ export default class RoktManager {
             const sandboxValue = attributes?.sandbox ?? this.sandbox;
             const mappedAttributes = this.mapUserAttributes(attributes, this.userAttributeMapping);
 
-            try {
-                this.currentUser.setUserAttributes(mappedAttributes);
-            } catch (error) {
-                console.error('Error setting user attributes', error);
-            }
+            this.setUserAttributes(mappedAttributes);
 
             const enrichedAttributes = {
                 ...mappedAttributes,
@@ -143,6 +139,23 @@ export default class RoktManager {
     private isReady(): boolean {
         // The Rokt Manager is ready when a kit is attached and has a launcher
         return Boolean(this.kit && this.kit.launcher);
+    }
+
+    private setUserAttributes(attributes: IRoktPartnerAttributes): void {
+        const reservedAttributes = ['sandbox'];
+        const filteredAttributes = {};
+        
+        for (var key in attributes) {
+            if (attributes.hasOwnProperty(key) && reservedAttributes.indexOf(key) === -1) {
+                filteredAttributes[key] = attributes[key];
+            }
+        }
+
+        try {
+            this.currentUser.setUserAttributes(filteredAttributes);
+        } catch (error) {
+            console.error('Error setting user attributes', error);
+        }
     }
 
     private mapUserAttributes(attributes: IRoktPartnerAttributes, userAttributeMapping: Dictionary<string>[]): IRoktPartnerAttributes {
