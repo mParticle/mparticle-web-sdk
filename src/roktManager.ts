@@ -2,7 +2,7 @@ import { IKitConfigs } from "./configAPIClient";
 import { UserAttributeFilters  } from "./forwarders.interfaces";
 import { IMParticleUser } from "./identity-user-interfaces";
 import KitFilterHelper from "./kitFilterHelper";
-import { Dictionary, isEmpty, parseSettingsString } from "./utils";
+import { Dictionary, parseSettingsString } from "./utils";
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export interface IRoktPartnerAttributes {
@@ -37,10 +37,6 @@ export interface RoktKitFilterSettings {
     filteredUser?: IMParticleUser | null;
 }
 
-export interface IRoktKitSettings {
-    userAttributeMapping: string;
-}
-
 export interface IRoktKit  {
     filters: RoktKitFilterSettings;
     filteredUser: IMParticleUser | null;
@@ -66,20 +62,33 @@ export default class RoktManager {
     public kit: IRoktKit = null;
     public filters: RoktKitFilterSettings = {};
 
+    private currentUser: IMParticleUser | null = null;
     private filteredUser: IMParticleUser | null = null;
     private messageQueue: IRoktMessage[] = [];
     private sandbox: boolean | null = null;
     private userAttributeMapping: Dictionary<string>[] = [];
 
-    public init(roktConfig: IKitConfigs, filteredUser?: IMParticleUser, options?: IRoktManagerOptions): void {
+    /**
+     * Initializes the RoktManager with configuration settings and user data.
+     * 
+     * @param {IKitConfigs} roktConfig - Configuration object containing user attribute filters and settings
+     * @param {IMParticleUser} filteredUser - User object with filtered attributes
+     * @param {IMParticleUser} currentUser - Current mParticle user object
+     * @param {IRoktManagerOptions} options - Options for the RoktManager
+     * 
+     * @throws Logs error to console if userAttributeMapping parsing fails
+     */
+    public init(roktConfig: IKitConfigs, filteredUser: IMParticleUser, currentUser: IMParticleUser, options?: IRoktManagerOptions): void {
         const { userAttributeFilters, settings } = roktConfig || {};
-        const { userAttributeMapping = '' } = settings as IRoktKitSettings || {};
+        const { userAttributeMapping } = settings || {};
 
         try {
             this.userAttributeMapping = parseSettingsString(userAttributeMapping);
         } catch (error) {
             console.error('Error parsing user attribute mapping from config', error);
         }
+
+        this.currentUser = currentUser;
 
         this.filters = {
             userAttributeFilters,
@@ -107,8 +116,9 @@ export default class RoktManager {
         try {
             const { attributes } = options;
             const sandboxValue = attributes?.sandbox ?? this.sandbox;
-
             const mappedAttributes = this.mapUserAttributes(attributes, this.userAttributeMapping);
+
+            this.setUserAttributes(mappedAttributes);
 
             const enrichedAttributes = {
                 ...mappedAttributes,
@@ -131,11 +141,24 @@ export default class RoktManager {
         return Boolean(this.kit && this.kit.launcher);
     }
 
-    private mapUserAttributes(attributes: IRoktPartnerAttributes, userAttributeMapping: Dictionary<string>[]): IRoktPartnerAttributes {
-        if (isEmpty(userAttributeMapping)) {
-            return attributes;
+    private setUserAttributes(attributes: IRoktPartnerAttributes): void {
+        const reservedAttributes = ['sandbox'];
+        const filteredAttributes = {};
+        
+        for (const key in attributes) {
+            if (attributes.hasOwnProperty(key) && reservedAttributes.indexOf(key) === -1) {
+                filteredAttributes[key] = attributes[key];
+            }
         }
 
+        try {
+            this.currentUser.setUserAttributes(filteredAttributes);
+        } catch (error) {
+            console.error('Error setting user attributes', error);
+        }
+    }
+
+    private mapUserAttributes(attributes: IRoktPartnerAttributes, userAttributeMapping: Dictionary<string>[]): IRoktPartnerAttributes {
         const mappingLookup: { [key: string]: string } = {};
         for (const mapping of userAttributeMapping) {
             mappingLookup[mapping.map] = mapping.value;

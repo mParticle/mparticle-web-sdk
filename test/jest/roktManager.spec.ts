@@ -1,11 +1,16 @@
 import { IKitConfigs } from "../../src/configAPIClient";
+import { IMParticleUser } from "../../src/identity-user-interfaces";
 import RoktManager, { IRoktKit, IRoktSelectPlacementsOptions } from "../../src/roktManager";
 
 describe('RoktManager', () => {
     let roktManager: RoktManager;
+    let currentUser: IMParticleUser;
 
     beforeEach(() => {
         roktManager = new RoktManager();
+        currentUser = {
+            setUserAttributes: jest.fn()
+        } as unknown as IMParticleUser;
     });
 
     describe('constructor', () => {
@@ -20,14 +25,15 @@ describe('RoktManager', () => {
 
     describe('#init', () => {
         it('should initialize the manager with defaults when no config is provided', () => {
-            roktManager.init({} as IKitConfigs);
+            roktManager.init({} as IKitConfigs, {} as IMParticleUser, currentUser);
             expect(roktManager['kit']).toBeNull();
             expect(roktManager['filters']).toEqual({
                 userAttributeFilters: undefined,
                 filterUserAttributes: expect.any(Function),
-                filteredUser: undefined,
+                filteredUser: {},
             });
             expect(roktManager['kit']).toBeNull();
+            expect(roktManager['currentUser']).toEqual(currentUser);
         });
 
         it('should initialize the manager with user attribute filters from a config', () => {
@@ -37,15 +43,21 @@ describe('RoktManager', () => {
                 userAttributeFilters: [816506310, 1463937872, 36300687],
             };
 
-            roktManager.init(kitConfig as IKitConfigs);
+            roktManager.init(kitConfig as IKitConfigs, {} as IMParticleUser, currentUser);
             expect(roktManager['filters']).toEqual({
                 userAttributeFilters: [816506310, 1463937872, 36300687],
                 filterUserAttributes: expect.any(Function),
+                filteredUser: {},
             });
         });
 
         it('should initialize the manager with sandbox from options', () => {
-            roktManager.init({} as IKitConfigs, undefined, { sandbox: true });
+            roktManager.init(
+                {} as IKitConfigs,
+                undefined,
+                currentUser,
+                { sandbox: true }
+            );
             expect(roktManager['sandbox']).toBe(true);
         });
 
@@ -70,7 +82,7 @@ describe('RoktManager', () => {
                     ])
                 },
             };
-            roktManager.init(kitConfig as IKitConfigs);
+            roktManager.init(kitConfig as IKitConfigs, {} as IMParticleUser, currentUser);
             expect(roktManager['userAttributeMapping']).toEqual([
                 { 
                     jsmap: null,
@@ -135,6 +147,10 @@ describe('RoktManager', () => {
     });
 
     describe('#selectPlacements', () => {
+        beforeEach(() => {
+            roktManager['currentUser'] = currentUser;
+        });
+
         it('should call kit.selectPlacements with empty attributes', () => {
             const kit: IRoktKit = {
                 launcher: {
@@ -389,6 +405,7 @@ describe('RoktManager', () => {
 
             expect(kit.selectPlacements).toHaveBeenCalledWith(expectedOptions);
         });
+
         it('should not add sandbox when sandbox is null', () => {
             const kit: IRoktKit = {
                 launcher: {
@@ -505,6 +522,78 @@ describe('RoktManager', () => {
 
             roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+        });
+
+        it('should set the mapped attributes on the current user via setUserAttributes', () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn()
+                },
+                selectPlacements: jest.fn()
+            };
+
+            roktManager.kit = kit as IRoktKit;
+            roktManager['currentUser'] = {
+                setUserAttributes: jest.fn()
+            } as unknown as IMParticleUser;
+
+            roktManager['userAttributeMapping'] = [
+                {
+                    jsmap: null,
+                    map: 'f.name',
+                    maptype: 'UserAttributeClass.Name',
+                    value: 'firstname'
+                },
+                {
+                    jsmap: null,
+                    map: 'last_name',
+                    maptype: 'UserAttributeClass.Name',
+                    value: 'lastname'
+                }
+            ];
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    'f.name': 'John',
+                    'last_name': 'Doe',
+                    'age': 25,
+                    'score': 42,
+                }
+            };
+
+            roktManager.selectPlacements(options);
+            expect(roktManager['currentUser'].setUserAttributes).toHaveBeenCalledWith({
+                firstname: 'John',
+                lastname: 'Doe',
+                age: 25,
+                score: 42,
+            });
+        });
+
+        it('should not set reserved attributes on the current user', () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn()
+                },
+                selectPlacements: jest.fn()
+            };
+
+            roktManager.kit = kit as IRoktKit;
+            roktManager['currentUser'] = {
+                setUserAttributes: jest.fn()
+            } as unknown as IMParticleUser;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    'sandbox': true
+                }
+            };
+
+            roktManager.selectPlacements(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+            expect(roktManager['currentUser'].setUserAttributes).not.toHaveBeenCalledWith({
+                sandbox: true
+            });
         });
     });
 });
