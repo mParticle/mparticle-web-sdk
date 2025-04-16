@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.36.0";
+    var version = "2.37.0";
 
     var Constants = {
       sdkVersion: version,
@@ -599,6 +599,13 @@ var mParticle = (function () {
       }
       var floatValue = parseFloat(value);
       return isNaN(floatValue) ? 0 : floatValue;
+    };
+    var parseSettingsString = function parseSettingsString(settingsString) {
+      try {
+        return settingsString ? JSON.parse(settingsString.replace(/&quot;/g, '"')) : [];
+      } catch (error) {
+        throw new Error('Settings string contains invalid JSON');
+      }
     };
     var parseStringOrNumber = function parseStringOrNumber(value) {
       if (isStringOrNumber(value)) {
@@ -9643,22 +9650,46 @@ var mParticle = (function () {
       function RoktManager() {
         this.kit = null;
         this.filters = {};
+        this.currentUser = null;
         this.filteredUser = null;
         this.messageQueue = [];
+        this.sandbox = null;
+        this.userAttributeMapping = [];
       }
-      RoktManager.prototype.init = function (roktConfig, filteredUser) {
-        var userAttributeFilters = (roktConfig || {}).userAttributeFilters;
+      /**
+       * Initializes the RoktManager with configuration settings and user data.
+       *
+       * @param {IKitConfigs} roktConfig - Configuration object containing user attribute filters and settings
+       * @param {IMParticleUser} filteredUser - User object with filtered attributes
+       * @param {IMParticleUser} currentUser - Current mParticle user object
+       * @param {IRoktManagerOptions} options - Options for the RoktManager
+       *
+       * @throws Logs error to console if userAttributeMapping parsing fails
+       */
+      RoktManager.prototype.init = function (roktConfig, filteredUser, currentUser, options) {
+        var _a = roktConfig || {},
+          userAttributeFilters = _a.userAttributeFilters,
+          settings = _a.settings;
+        var userAttributeMapping = (settings || {}).userAttributeMapping;
+        try {
+          this.userAttributeMapping = parseSettingsString(userAttributeMapping);
+        } catch (error) {
+          console.error('Error parsing user attribute mapping from config', error);
+        }
+        this.currentUser = currentUser;
         this.filters = {
           userAttributeFilters: userAttributeFilters,
           filterUserAttributes: KitFilterHelper.filterUserAttributes,
           filteredUser: filteredUser
         };
+        this.sandbox = options === null || options === void 0 ? void 0 : options.sandbox;
       };
       RoktManager.prototype.attachKit = function (kit) {
         this.kit = kit;
         this.processMessageQueue();
       };
       RoktManager.prototype.selectPlacements = function (options) {
+        var _a;
         if (!this.isReady()) {
           this.queueMessage({
             methodName: 'selectPlacements',
@@ -9667,7 +9698,17 @@ var mParticle = (function () {
           return Promise.resolve({});
         }
         try {
-          return this.kit.selectPlacements(options);
+          var attributes = options.attributes;
+          var sandboxValue = (_a = attributes === null || attributes === void 0 ? void 0 : attributes.sandbox) !== null && _a !== void 0 ? _a : this.sandbox;
+          var mappedAttributes = this.mapUserAttributes(attributes, this.userAttributeMapping);
+          this.setUserAttributes(mappedAttributes);
+          var enrichedAttributes = __assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
+            sandbox: sandboxValue
+          } : {});
+          var enrichedOptions = __assign(__assign({}, options), {
+            attributes: enrichedAttributes
+          });
+          return this.kit.selectPlacements(enrichedOptions);
         } catch (error) {
           return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
         }
@@ -9675,6 +9716,35 @@ var mParticle = (function () {
       RoktManager.prototype.isReady = function () {
         // The Rokt Manager is ready when a kit is attached and has a launcher
         return Boolean(this.kit && this.kit.launcher);
+      };
+      RoktManager.prototype.setUserAttributes = function (attributes) {
+        var reservedAttributes = ['sandbox'];
+        var filteredAttributes = {};
+        for (var key in attributes) {
+          if (attributes.hasOwnProperty(key) && reservedAttributes.indexOf(key) === -1) {
+            filteredAttributes[key] = attributes[key];
+          }
+        }
+        try {
+          this.currentUser.setUserAttributes(filteredAttributes);
+        } catch (error) {
+          console.error('Error setting user attributes', error);
+        }
+      };
+      RoktManager.prototype.mapUserAttributes = function (attributes, userAttributeMapping) {
+        var mappingLookup = {};
+        for (var _i = 0, userAttributeMapping_1 = userAttributeMapping; _i < userAttributeMapping_1.length; _i++) {
+          var mapping = userAttributeMapping_1[_i];
+          mappingLookup[mapping.map] = mapping.value;
+        }
+        var mappedAttributes = {};
+        for (var key in attributes) {
+          if (attributes.hasOwnProperty(key)) {
+            var newKey = mappingLookup[key] || key;
+            mappedAttributes[newKey] = attributes[key];
+          }
+        }
+        return mappedAttributes;
       };
       RoktManager.prototype.processMessageQueue = function () {
         var _this = this;
@@ -10675,14 +10745,17 @@ var mParticle = (function () {
         if (mpInstance._Helpers.getFeatureFlag(CaptureIntegrationSpecificIds)) {
           mpInstance._IntegrationCapture.capture();
         }
-        // Configure Rokt Manager with filtered user
+        // Configure Rokt Manager with user and filtered user
         var roktConfig = parseConfig(config, 'Rokt', 181);
         if (roktConfig) {
           var userAttributeFilters = roktConfig.userAttributeFilters;
           var roktFilteredUser = filteredMparticleUser(currentUserMPID, {
             userAttributeFilters: userAttributeFilters
           }, mpInstance);
-          mpInstance._RoktManager.init(roktConfig, roktFilteredUser);
+          var roktOptions = {
+            sandbox: config.isDevelopmentMode
+          };
+          mpInstance._RoktManager.init(roktConfig, roktFilteredUser, currentUser, roktOptions);
         }
         mpInstance._Forwarders.processForwarders(config, mpInstance._APIClient.prepareForwardingStats);
         mpInstance._Forwarders.processPixelConfigs(config);
