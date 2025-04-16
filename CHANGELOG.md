@@ -1,3 +1,12 @@
+# [2.37.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.36.0...v2.37.0) (2025-04-16)
+
+
+### Features
+
+* Add select placement attributes to current user ([#1019](https://github.com/mParticle/mparticle-web-sdk/issues/1019)) ([1048fdf](https://github.com/mParticle/mparticle-web-sdk/commit/1048fdf908743406556f800f763290236c5d59e1))
+* Add support for sandbox mode via selectPlacements ([#1015](https://github.com/mParticle/mparticle-web-sdk/issues/1015)) ([d1373c6](https://github.com/mParticle/mparticle-web-sdk/commit/d1373c69ad19ce2882de92a10d78079ad1e96b9a))
+* Add user attribute mapping to Rokt Manager ([#1018](https://github.com/mParticle/mparticle-web-sdk/issues/1018)) ([99c9b54](https://github.com/mParticle/mparticle-web-sdk/commit/99c9b54f1f9160752ed7d6636755b980d4201321))
+
 # [2.36.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.35.2...v2.36.0) (2025-04-03)
 
 
