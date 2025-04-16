@@ -3445,31 +3445,15 @@ var mParticle = (function () {
     function SessionManager(mpInstance) {
       var self = this;
       this.initialize = function () {
-        var _a;
         if (mpInstance._Store.sessionId) {
           var sessionTimeoutInMilliseconds = mpInstance._Store.SDKConfig.sessionTimeout * 60000;
           if (new Date() > new Date(mpInstance._Store.dateLastEventSent.getTime() + sessionTimeoutInMilliseconds)) {
             self.endSession();
             self.startNewSession();
           } else {
-            var user = mpInstance.Identity.getCurrentUser();
-            var needToIdentify = false;
-            if (user) {
-              // If userIdentities is an empty object but identifyRequest
-              // has at least a customerid, we will force the identify()
-              // call, regardless of whether any user data is already
-              // persisted.
-              var storedUserIdentities = (_a = user.getUserIdentities()) === null || _a === void 0 ? void 0 : _a.userIdentities;
-              var hasStoredCustomerId = storedUserIdentities != null && typeof storedUserIdentities.customerid === "string";
-              var identifyRequest = mpInstance._Store.SDKConfig.identifyRequest;
-              var identifyRequestHasCustomerId = identifyRequest != null && typeof identifyRequest.userIdentities.customerid === "string";
-              if (!hasStoredCustomerId && identifyRequestHasCustomerId) {
-                needToIdentify = true;
-              }
-            }
             // https://go.mparticle.com/work/SQDSDKS-6045
             var persistence = mpInstance._Persistence.getPersistence();
-            if (needToIdentify || persistence && !persistence.cu) {
+            if (persistence && !persistence.cu) {
               // https://go.mparticle.com/work/SQDSDKS-6323
               mpInstance.Identity.identify(mpInstance._Store.SDKConfig.identifyRequest, mpInstance._Store.SDKConfig.identityCallback);
               mpInstance._Store.identifyCalled = true;

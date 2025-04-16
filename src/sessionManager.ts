@@ -10,6 +10,7 @@ const { Messages } = Constants;
 
 export interface ISessionManager {
     initialize: () => void;
+    isIdentifyNeeded: () => boolean;
     getSessionId: () => string;
     startNewSession: () => void;
     endSession: (override?: boolean) => void;
@@ -45,33 +46,13 @@ export default function SessionManager(
                 self.endSession();
                 self.startNewSession();
             } else {
-                const user = mpInstance.Identity.getCurrentUser()
-                let needToIdentify = false
-
-                if (user) {
-                    // If userIdentities is an empty object but identifyRequest
-                    // has at least a customerid, we will force the identify()
-                    // call, regardless of whether any user data is already
-                    // persisted.
-                    const storedUserIdentities = user
-                        .getUserIdentities()?.userIdentities
-                    const hasStoredCustomerId =
-                        storedUserIdentities != null &&
-                        typeof storedUserIdentities.customerid === "string"
-
-                    const identifyRequest = mpInstance._Store.SDKConfig.identifyRequest
-                    const identifyRequestHasCustomerId =
-                        identifyRequest != null &&
-                        typeof identifyRequest.userIdentities.customerid === "string"
-
-                    if (!hasStoredCustomerId && identifyRequestHasCustomerId) {
-                        needToIdentify = true
-                    }
-                }
-
                 // https://go.mparticle.com/work/SQDSDKS-6045
                 const persistence: IPersistenceMinified = mpInstance._Persistence.getPersistence();
-                if (needToIdentify || (persistence && !persistence.cu)) {
+
+                // If isIdentifyNeeded() returns `true`, we will force the
+                // identify() call, regardless of whether any user data is
+                // already persisted.
+                if (this.isIdentifyNeeded() || (persistence && !persistence.cu)) {
                     // https://go.mparticle.com/work/SQDSDKS-6323
                     mpInstance.Identity.identify(
                         mpInstance._Store.SDKConfig.identifyRequest,
@@ -85,6 +66,34 @@ export default function SessionManager(
             self.startNewSession();
         }
     };
+
+    /**
+     * Returns `true` if `userIdentities` is an empty object but the config's
+     * `identifyRequest` has at least a `customerid`.
+     */
+    this.isIdentifyNeeded = function(): boolean {
+        const user = mpInstance.Identity.getCurrentUser()
+        let needsToIdentify = false
+
+        if (user) {
+            const storedUserIdentities = user
+                .getUserIdentities()?.userIdentities
+            const hasStoredCustomerId =
+                storedUserIdentities != null &&
+                typeof storedUserIdentities.customerid !== "undefined"
+
+            const identifyRequest = mpInstance._Store.SDKConfig.identifyRequest
+            const identifyRequestHasCustomerId =
+                identifyRequest != null &&
+                typeof identifyRequest.userIdentities.customerid !== "undefined"
+
+            if (!hasStoredCustomerId && identifyRequestHasCustomerId) {
+                needsToIdentify = true
+            }
+        }
+
+        return needsToIdentify
+    }
 
     this.getSession = function(): string {
         mpInstance.Logger.warning(
