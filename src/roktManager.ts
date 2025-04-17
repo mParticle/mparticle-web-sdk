@@ -138,13 +138,13 @@ export default class RoktManager {
         }
     }
 
-    public async hashedAttributes(attributes: IRoktPartnerAttributes): Promise<Record<string, string>> {
+    public hashedAttributes(attributes: IRoktPartnerAttributes): Promise<Record<string, string>> {
         if (!this.isReady()) {
             this.queueMessage({
                 methodName: 'hashedAttributes',
                 payload: attributes,
             });
-            return {};
+            return Promise.resolve({} as Record<string, string>);
         }
 
         try {
