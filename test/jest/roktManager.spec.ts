@@ -23,6 +23,129 @@ describe('RoktManager', () => {
         });
     });
 
+    describe('#hashedAttributes', () => {
+        beforeEach(() => {
+            roktManager['currentUser'] = currentUser;
+        });
+
+        it('should call kit.hashedAttributes with empty attributes', () => {
+            const kit: IRoktKit = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashedAttributes: jest.fn()
+                },
+                filters: undefined,
+                filteredUser: undefined,
+                userAttributes: undefined,
+                selectPlacements: jest.fn(),
+                hashedAttributes: jest.fn()
+            };
+
+            roktManager.attachKit(kit);
+
+            const attributes = {};
+
+            roktManager.hashedAttributes(attributes);
+            expect(kit.hashedAttributes).toHaveBeenCalledWith(attributes);
+        });
+
+        it('should call kit.hashedAttributes with passed in attributes', () => {
+            const kit: IRoktKit = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashedAttributes: jest.fn()
+                },
+                filters: undefined,
+                filteredUser: undefined,
+                userAttributes: undefined,
+                selectPlacements: jest.fn(),
+                hashedAttributes: jest.fn()
+            };
+
+            roktManager.attachKit(kit);
+
+            const attributes = {
+                email: 'test@example.com',
+                phone: '1234567890'
+            };
+
+            roktManager.hashedAttributes(attributes);
+            expect(kit.hashedAttributes).toHaveBeenCalledWith(attributes);
+        });
+
+        it('should queue the hashedAttributes method if no launcher or kit is attached', () => {
+            const attributes = {
+                email: 'test@example.com'
+            };
+
+            roktManager.hashedAttributes(attributes);
+
+            expect(roktManager['kit']).toBeNull();
+            expect(roktManager['messageQueue'].length).toBe(1);
+            expect(roktManager['messageQueue'][0].methodName).toBe('hashedAttributes');
+            expect(roktManager['messageQueue'][0].payload).toBe(attributes);
+        });
+
+        it('should process queued hashedAttributes calls once the launcher and kit are attached', () => {
+            const kit: IRoktKit = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashedAttributes: jest.fn()
+                },
+                filters: undefined,
+                filteredUser: undefined,
+                userAttributes: undefined,
+                selectPlacements: jest.fn(),
+                hashedAttributes: jest.fn()
+            };
+
+            const attributes = {
+                email: 'test@example.com'
+            };
+
+            roktManager.hashedAttributes(attributes);
+            expect(roktManager['kit']).toBeNull();
+            expect(roktManager['messageQueue'].length).toBe(1);
+            expect(roktManager['messageQueue'][0].methodName).toBe('hashedAttributes');
+            expect(roktManager['messageQueue'][0].payload).toBe(attributes);
+            expect(kit.hashedAttributes).not.toHaveBeenCalled();
+
+            roktManager.attachKit(kit);
+            expect(roktManager['kit']).not.toBeNull();
+            expect(roktManager['messageQueue'].length).toBe(0);
+            expect(kit.hashedAttributes).toHaveBeenCalledWith(attributes);
+        });
+
+        it('should pass through the correct attributes to kit.launcher.hashedAttributes', async () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashedAttributes: jest.fn()
+                },
+
+                // We are mocking the hashedAttributes method to return the
+                // launcher's hashedAttributes method and verify that
+                // both the kit's and the launcher's hashedAttributes methods
+                // are called with the correct attributes
+                // This will happen through the Web Kit's hashedAttributes method
+                hashedAttributes: jest.fn().mockImplementation((attributes) => {
+                    return kit.launcher.hashedAttributes(attributes);
+                })
+            };
+
+            roktManager.attachKit(kit as IRoktKit);
+
+            const attributes = {
+                email: 'test@example.com',
+                phone: '1234567890'
+            };
+
+            roktManager.hashedAttributes(attributes);
+            expect(kit.hashedAttributes).toHaveBeenCalledWith(attributes);
+            expect(kit.launcher.hashedAttributes).toHaveBeenCalledWith(attributes);
+        });
+    });
+
     describe('#init', () => {
         it('should initialize the manager with defaults when no config is provided', () => {
             roktManager.init({} as IKitConfigs, {} as IMParticleUser, currentUser);
@@ -104,12 +227,14 @@ describe('RoktManager', () => {
         it('should attach a kit', () => {
             const kit: IRoktKit = {
                 launcher: {
-                    selectPlacements: jest.fn()
+                    selectPlacements: jest.fn(),
+                    hashedAttributes: jest.fn()
                 },
                 filters: undefined,
                 filteredUser: undefined,
                 userAttributes: undefined,
-                selectPlacements: jest.fn()
+                selectPlacements: jest.fn(),
+                hashedAttributes: jest.fn()
             };
 
             roktManager.attachKit(kit);
@@ -121,10 +246,12 @@ describe('RoktManager', () => {
         it('should process the message queue if a launcher and kit are attached', () => {
             const kit: IRoktKit = {
                 launcher: {
-                    selectPlacements: jest.fn()
+                    selectPlacements: jest.fn(),
+                    hashedAttributes: jest.fn()
                 },
                 filters: undefined,
                 selectPlacements: jest.fn(),
+                hashedAttributes: jest.fn(),
                 filteredUser: undefined,
                 userAttributes: undefined
             };
@@ -154,12 +281,14 @@ describe('RoktManager', () => {
         it('should call kit.selectPlacements with empty attributes', () => {
             const kit: IRoktKit = {
                 launcher: {
-                    selectPlacements: jest.fn()
+                    selectPlacements: jest.fn(),
+                    hashedAttributes: jest.fn()
                 },
                 filters: undefined,
                 filteredUser: undefined,
                 userAttributes: undefined,
-                selectPlacements: jest.fn()
+                selectPlacements: jest.fn(),
+                hashedAttributes: jest.fn()
             };
 
             roktManager.attachKit(kit);
@@ -175,12 +304,14 @@ describe('RoktManager', () => {
         it('should call kit.selectPlacements with passed in attributes', () => {
             const kit: IRoktKit = {
                 launcher: {
-                    selectPlacements: jest.fn()
+                    selectPlacements: jest.fn(),
+                    hashedAttributes: jest.fn()
                 },
                 filters: undefined,
                 filteredUser: undefined,
                 userAttributes: undefined,
-                selectPlacements: jest.fn()
+                selectPlacements: jest.fn(),
+                hashedAttributes: jest.fn()
             };
 
             roktManager.attachKit(kit);
@@ -215,12 +346,14 @@ describe('RoktManager', () => {
         it('should process queued selectPlacements calls once the launcher and kit are attached', async () => {
             const kit: IRoktKit = {
                 launcher: {
-                    selectPlacements: jest.fn()
+                    selectPlacements: jest.fn(),
+                    hashedAttributes: jest.fn()
                 },
                 filters: undefined,
                 filteredUser: undefined,
                 userAttributes: undefined,
-                selectPlacements: jest.fn()
+                selectPlacements: jest.fn(),
+                hashedAttributes: jest.fn()
             };
 
             const options = {
@@ -242,7 +375,8 @@ describe('RoktManager', () => {
         it('should pass through the correct attributes to kit.launcher.selectPlacements', () => {
             const kit: IRoktKit = {
                 launcher: {
-                    selectPlacements: jest.fn()
+                    selectPlacements: jest.fn(),
+                    hashedAttributes: jest.fn()
                 },
                 filters: undefined,
                 filteredUser: undefined,
@@ -255,7 +389,8 @@ describe('RoktManager', () => {
                 // This will happen through the Web Kit's selectPlacements method
                 selectPlacements: jest.fn().mockImplementation((options) => {
                     return kit.launcher.selectPlacements(options);
-                })
+                }),
+                hashedAttributes: jest.fn()
             };
 
             roktManager.attachKit(kit);
@@ -278,12 +413,14 @@ describe('RoktManager', () => {
         it('should set sandbox to true in placement attributes when initialized as true', () => {
             const kit: IRoktKit = {
                 launcher: {
-                    selectPlacements: jest.fn()
+                    selectPlacements: jest.fn(),
+                    hashedAttributes: jest.fn()
                 },
                 filters: undefined,
                 filteredUser: undefined,
                 userAttributes: undefined,
-                selectPlacements: jest.fn()
+                selectPlacements: jest.fn(),
+                hashedAttributes: jest.fn()
             };
 
             roktManager.attachKit(kit);
@@ -310,12 +447,14 @@ describe('RoktManager', () => {
         it('should set sandbox to false in placement attributes when initialized as false', () => {
             const kit: IRoktKit = {
                 launcher: {
-                    selectPlacements: jest.fn()
+                    selectPlacements: jest.fn(),
+                    hashedAttributes: jest.fn()
                 },
                 filters: undefined,
                 filteredUser: undefined,
                 userAttributes: undefined,
-                selectPlacements: jest.fn()
+                selectPlacements: jest.fn(),
+                hashedAttributes: jest.fn()
             };
 
             roktManager.attachKit(kit);
@@ -342,12 +481,14 @@ describe('RoktManager', () => {
         it('should override sandbox to false in placement attributes when initialized as true', () => {
             const kit: IRoktKit = {
                 launcher: {
-                    selectPlacements: jest.fn()
+                    selectPlacements: jest.fn(),
+                    hashedAttributes: jest.fn()
                 },
                 filters: undefined,
                 filteredUser: undefined,
                 userAttributes: undefined,
-                selectPlacements: jest.fn()
+                selectPlacements: jest.fn(),
+                hashedAttributes: jest.fn()
             };
 
             roktManager.attachKit(kit);
@@ -375,12 +516,14 @@ describe('RoktManager', () => {
         it('should preserve other option properties when adding sandbox', () => {
             const kit: IRoktKit = {
                 launcher: {
-                    selectPlacements: jest.fn()
+                    selectPlacements: jest.fn(),
+                    hashedAttributes: jest.fn()
                 },
                 filters: undefined,
                 filteredUser: undefined,
                 userAttributes: undefined,
-                selectPlacements: jest.fn()
+                selectPlacements: jest.fn(),
+                hashedAttributes: jest.fn()
             };
 
             roktManager.attachKit(kit);
@@ -409,12 +552,14 @@ describe('RoktManager', () => {
         it('should not add sandbox when sandbox is null', () => {
             const kit: IRoktKit = {
                 launcher: {
-                    selectPlacements: jest.fn()
+                    selectPlacements: jest.fn(),
+                    hashedAttributes: jest.fn()
                 },
                 filters: undefined,
                 filteredUser: undefined,
                 userAttributes: undefined,
-                selectPlacements: jest.fn()
+                selectPlacements: jest.fn(),
+                hashedAttributes: jest.fn()
             };
 
             roktManager.attachKit(kit);
@@ -433,12 +578,14 @@ describe('RoktManager', () => {
         it('should set sandbox in placement attributes when not initialized', () => {
             const kit: IRoktKit = {
                 launcher: {
-                    selectPlacements: jest.fn()
+                    selectPlacements: jest.fn(),
+                    hashedAttributes: jest.fn()
                 },
                 filters: undefined,
                 filteredUser: undefined,
                 userAttributes: undefined,
-                selectPlacements: jest.fn()
+                selectPlacements: jest.fn(),
+                hashedAttributes: jest.fn()
             };
 
             roktManager.attachKit(kit);
@@ -459,9 +606,11 @@ describe('RoktManager', () => {
         it('should pass mapped attributes to kit.launcher.selectPlacements', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
-                    selectPlacements: jest.fn()
+                    selectPlacements: jest.fn(),
+                    hashedAttributes: jest.fn()
                 },
-                selectPlacements: jest.fn()
+                selectPlacements: jest.fn(),
+                hashedAttributes: jest.fn()
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -503,9 +652,11 @@ describe('RoktManager', () => {
         it('should pass original attributes to kit.launcher.selectPlacements if no mapping is provided', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
-                    selectPlacements: jest.fn()
+                    selectPlacements: jest.fn(),
+                    hashedAttributes: jest.fn()
                 },
-                selectPlacements: jest.fn()
+                selectPlacements: jest.fn(),
+                hashedAttributes: jest.fn()
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -527,9 +678,11 @@ describe('RoktManager', () => {
         it('should set the mapped attributes on the current user via setUserAttributes', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
-                    selectPlacements: jest.fn()
+                    selectPlacements: jest.fn(),
+                    hashedAttributes: jest.fn()
                 },
-                selectPlacements: jest.fn()
+                selectPlacements: jest.fn(),
+                hashedAttributes: jest.fn()
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -573,9 +726,11 @@ describe('RoktManager', () => {
         it('should not set reserved attributes on the current user', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
-                    selectPlacements: jest.fn()
+                    selectPlacements: jest.fn(),
+                    hashedAttributes: jest.fn()
                 },
-                selectPlacements: jest.fn()
+                selectPlacements: jest.fn(),
+                hashedAttributes: jest.fn()
             };
 
             roktManager.kit = kit as IRoktKit;
