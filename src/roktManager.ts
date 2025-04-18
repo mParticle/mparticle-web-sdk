@@ -24,6 +24,7 @@ export interface IRoktSelection {
 
 export interface IRoktLauncher {
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
+    hashAttributes: (attributes: IRoktPartnerAttributes) => Promise<Record<string, string>>;
 }
 
 export interface IRoktMessage {
@@ -43,6 +44,7 @@ export interface IRoktKit  {
     launcher: IRoktLauncher | null;
     userAttributes: Dictionary<string>;
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
+    hashAttributes: (attributes: IRoktPartnerAttributes) => Promise<Record<string, string>>;
 }
 
 export interface IRoktManagerOptions {
@@ -131,6 +133,22 @@ export default class RoktManager {
             };
 
             return this.kit.selectPlacements(enrichedOptions);
+        } catch (error) {
+            return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
+        }
+    }
+
+    public hashAttributes(attributes: IRoktPartnerAttributes): Promise<Record<string, string>> {
+        if (!this.isReady()) {
+            this.queueMessage({
+                methodName: 'hashAttributes',
+                payload: attributes,
+            });
+            return Promise.resolve({} as Record<string, string>);
+        }
+
+        try {
+            return this.kit.hashAttributes(attributes);
         } catch (error) {
             return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
         }
