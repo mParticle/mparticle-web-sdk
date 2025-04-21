@@ -126,7 +126,7 @@ describe('RoktManager', () => {
                 // We are mocking the hashAttributes method to return the
                 // launcher's hashAttributes method and verify that
                 // both the kit's and the launcher's methods
-                // are called with the correct attributes
+                // are called with the correct attributes.
                 // This will happen through the Web Kit's hashAttributes method
                 hashAttributes: jest.fn().mockImplementation((attributes) => {
                     return kit.launcher.hashAttributes(attributes);
