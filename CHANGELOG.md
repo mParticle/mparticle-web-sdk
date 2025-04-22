@@ -1,3 +1,10 @@
+# [2.38.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.37.0...v2.38.0) (2025-04-22)
+
+
+### Features
+
+* Add hashAttributes method to RoktManager ([#1021](https://github.com/mParticle/mparticle-web-sdk/issues/1021)) ([4f4b168](https://github.com/mParticle/mparticle-web-sdk/commit/4f4b168a6b383ca1234320e2f9bc115d62fa4837))
+
 # [2.37.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.36.0...v2.37.0) (2025-04-16)
 
 
