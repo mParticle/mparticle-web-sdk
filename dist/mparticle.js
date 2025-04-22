@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.37.0";
+    var version = "2.38.0";
 
     var Constants = {
       sdkVersion: version,
@@ -9709,6 +9709,20 @@ var mParticle = (function () {
             attributes: enrichedAttributes
           });
           return this.kit.selectPlacements(enrichedOptions);
+        } catch (error) {
+          return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
+        }
+      };
+      RoktManager.prototype.hashAttributes = function (attributes) {
+        if (!this.isReady()) {
+          this.queueMessage({
+            methodName: 'hashAttributes',
+            payload: attributes
+          });
+          return Promise.resolve({});
+        }
+        try {
+          return this.kit.hashAttributes(attributes);
         } catch (error) {
           return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
         }
