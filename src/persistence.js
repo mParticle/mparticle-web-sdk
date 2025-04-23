@@ -467,7 +467,7 @@ export default function _Persistence(mpInstance) {
     };
 
     this.getCookie = function() {
-        var cookies = window.document.cookie.split('; '),
+        var cookies,
             key = mpInstance._Store.storageName,
             i,
             l,
@@ -477,6 +477,13 @@ export default function _Persistence(mpInstance) {
             result = key ? undefined : {};
 
         mpInstance.Logger.verbose(Messages.InformationMessages.CookieSearch);
+
+        try {
+            cookies = window.document.cookie.split('; ');
+        } catch (e) {
+            mpInstance.Logger.verbose('Unable to parse undefined cookie');
+            return null;
+        }
 
         for (i = 0, l = cookies.length; i < l; i++) {
             try {
