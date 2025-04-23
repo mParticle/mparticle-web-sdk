@@ -84,6 +84,16 @@ export interface SDKECommerceAPI extends IECommerceShared {
         transactionAttributes?: TransactionAttributes,
         eventOptions?: SDKEventOptions
     ): void;
+    logProductActionV2(
+        productActionType: valueof<typeof ProductActionType>,
+        product: SDKProduct | SDKProduct[],
+        options?: {
+            attrs?: SDKEventAttrs;
+            customFlags?: SDKEventCustomFlags;
+            transactionAttributes?: TransactionAttributes;
+            eventOptions?: SDKEventOptions;
+        }
+    ): void;
     logPromotion(
         type: valueof<typeof PromotionActionType>,
         promotion: SDKPromotion,

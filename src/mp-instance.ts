@@ -944,6 +944,36 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             );
         },
         /**
+         * Logs a product action with optional parameters in an optional dictionary
+         * @for mParticle.eCommerce
+         * @method logProductActionV2
+         * @param {Number} productActionType product action type as found [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/src/types.js#L206-L218)
+         * @param {Object} product the product for which you are creating the product action
+         * @param {Object} [options] options object containing attrs, customFlags, transactionAttributes, and eventOptions
+         */
+        logProductActionV2: function(
+            productActionType,
+            product,
+            options = {}
+        ) {
+            const {
+                attrs = {},
+                customFlags = {},
+                transactionAttributes,
+                eventOptions
+            } = options;
+
+            this.logProductAction(
+                productActionType,
+                product,
+                attrs,
+                customFlags,
+                transactionAttributes,
+                eventOptions
+            );
+        },
+
+        /**
          * Logs a product purchase
          * @for mParticle.eCommerce
          * @method logPurchase
