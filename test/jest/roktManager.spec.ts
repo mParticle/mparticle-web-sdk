@@ -184,12 +184,12 @@ describe('RoktManager', () => {
             expect(roktManager['sandbox']).toBe(true);
         });
 
-        it('should initialize the manager with user attribute mapping from a config', () => {
+        it('should initialize the manager with placement attributes mapping from a config', () => {
             const kitConfig: Partial<IKitConfigs> = {
                 name: 'Rokt',
                 moduleId: 181,
                 settings: {
-                    userAttributeMapping: JSON.stringify([
+                    placementAttributesMapping: JSON.stringify([
                         {
                             jsmap: null,
                             map: 'f.name',
@@ -206,7 +206,7 @@ describe('RoktManager', () => {
                 },
             };
             roktManager.init(kitConfig as IKitConfigs, {} as IMParticleUser, currentUser);
-            expect(roktManager['userAttributeMapping']).toEqual([
+            expect(roktManager['placementAttributesMapping']).toEqual([
                 { 
                     jsmap: null,
                     map: 'f.name',
@@ -614,7 +614,7 @@ describe('RoktManager', () => {
             };
 
             roktManager.kit = kit as IRoktKit;
-            roktManager['userAttributeMapping'] = [
+            roktManager['placementAttributesMapping'] = [
                 {
                     jsmap: null,
                     map: 'f.name',
@@ -660,7 +660,7 @@ describe('RoktManager', () => {
             };
 
             roktManager.kit = kit as IRoktKit;
-            roktManager['userAttributeMapping'] = [];
+            roktManager['placementAttributesMapping'] = [];
 
             const options: IRoktSelectPlacementsOptions = {
                 attributes: {
@@ -690,7 +690,7 @@ describe('RoktManager', () => {
                 setUserAttributes: jest.fn()
             } as unknown as IMParticleUser;
 
-            roktManager['userAttributeMapping'] = [
+            roktManager['placementAttributesMapping'] = [
                 {
                     jsmap: null,
                     map: 'f.name',

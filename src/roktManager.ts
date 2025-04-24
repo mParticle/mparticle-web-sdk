@@ -68,7 +68,7 @@ export default class RoktManager {
     private filteredUser: IMParticleUser | null = null;
     private messageQueue: IRoktMessage[] = [];
     private sandbox: boolean | null = null;
-    private userAttributeMapping: Dictionary<string>[] = [];
+    private placementAttributesMapping: Dictionary<string>[] = [];
 
     /**
      * Initializes the RoktManager with configuration settings and user data.
@@ -78,16 +78,16 @@ export default class RoktManager {
      * @param {IMParticleUser} currentUser - Current mParticle user object
      * @param {IRoktManagerOptions} options - Options for the RoktManager
      * 
-     * @throws Logs error to console if userAttributeMapping parsing fails
+     * @throws Logs error to console if placementAttributesMapping parsing fails
      */
     public init(roktConfig: IKitConfigs, filteredUser: IMParticleUser, currentUser: IMParticleUser, options?: IRoktManagerOptions): void {
         const { userAttributeFilters, settings } = roktConfig || {};
-        const { userAttributeMapping } = settings || {};
+        const { placementAttributesMapping } = settings || {};
 
         try {
-            this.userAttributeMapping = parseSettingsString(userAttributeMapping);
+            this.placementAttributesMapping = parseSettingsString(placementAttributesMapping);
         } catch (error) {
-            console.error('Error parsing user attribute mapping from config', error);
+            console.error('Error parsing placement attributes mapping from config', error);
         }
 
         this.currentUser = currentUser;
@@ -118,7 +118,7 @@ export default class RoktManager {
         try {
             const { attributes } = options;
             const sandboxValue = attributes?.sandbox ?? this.sandbox;
-            const mappedAttributes = this.mapUserAttributes(attributes, this.userAttributeMapping);
+            const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
 
             this.setUserAttributes(mappedAttributes);
 
@@ -176,9 +176,9 @@ export default class RoktManager {
         }
     }
 
-    private mapUserAttributes(attributes: IRoktPartnerAttributes, userAttributeMapping: Dictionary<string>[]): IRoktPartnerAttributes {
+    private mapPlacementAttributes(attributes: IRoktPartnerAttributes, placementAttributesMapping: Dictionary<string>[]): IRoktPartnerAttributes {
         const mappingLookup: { [key: string]: string } = {};
-        for (const mapping of userAttributeMapping) {
+        for (const mapping of placementAttributesMapping) {
             mappingLookup[mapping.map] = mapping.value;
         }
     
