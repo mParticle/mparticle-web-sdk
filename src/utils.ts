@@ -346,7 +346,7 @@ const getCookies = (keys?: string[]): Dictionary<string> => {
             }
             return window.document.cookie.split(';').map(cookie => cookie.trim());
         } catch (e) {
-            console.error('Unable to parse cookies');
+            console.error('Unable to parse cookies', e);
             return [];
         }
     };
