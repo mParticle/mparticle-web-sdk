@@ -1,3 +1,12 @@
+## [2.38.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.38.0...v2.38.1) (2025-04-28)
+
+
+### Bug Fixes
+
+* Add try/catch logic for getCookie to prevent crashes on web extensions ([#1024](https://github.com/mParticle/mparticle-web-sdk/issues/1024)) ([4ac50cc](https://github.com/mParticle/mparticle-web-sdk/commit/4ac50cc3c65356faf8cc7c03902b79c61f946502))
+* Add try/catch to getCookies util function ([#1027](https://github.com/mParticle/mparticle-web-sdk/issues/1027)) ([d143c39](https://github.com/mParticle/mparticle-web-sdk/commit/d143c395a841bc1565c8bb128bbc4dd9b2d4b5c2))
+* Update Placement Attributes Mapping ([#1026](https://github.com/mParticle/mparticle-web-sdk/issues/1026)) ([9ecf540](https://github.com/mParticle/mparticle-web-sdk/commit/9ecf5401977e05804f5e1dbe6e1e8066cacc68bc))
+
 # [2.38.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.37.0...v2.38.0) (2025-04-22)
 
 
