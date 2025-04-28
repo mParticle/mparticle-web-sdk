@@ -340,10 +340,15 @@ const queryStringParserFallback = (url: string): URLSearchParamsFallback => {
 const getCookies = (keys?: string[]): Dictionary<string> => {
     // Helper function to parse cookies from document.cookie
     const parseCookies = (): string[] => {
-        if (typeof window === 'undefined') {
+        try {
+            if (typeof window === 'undefined') {
+                return [];
+            }
+            return window.document.cookie.split(';').map(cookie => cookie.trim());
+        } catch (e) {
+            console.error('Unable to parse cookies');
             return [];
         }
-        return window.document.cookie.split(';').map(cookie => cookie.trim());
     };
 
     // Helper function to filter cookies by keys
