@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.38.0";
+    var version = "2.38.1";
 
     var Constants = {
       sdkVersion: version,
@@ -751,12 +751,17 @@ var mParticle = (function () {
     var getCookies = function getCookies(keys) {
       // Helper function to parse cookies from document.cookie
       var parseCookies = function parseCookies() {
-        if (typeof window === 'undefined') {
+        try {
+          if (typeof window === 'undefined') {
+            return [];
+          }
+          return window.document.cookie.split(';').map(function (cookie) {
+            return cookie.trim();
+          });
+        } catch (e) {
+          console.error('Unable to parse cookies', e);
           return [];
         }
-        return window.document.cookie.split(';').map(function (cookie) {
-          return cookie.trim();
-        });
       };
       // Helper function to filter cookies by keys
       var filterCookies = function filterCookies(cookies, keys) {
@@ -4949,7 +4954,7 @@ var mParticle = (function () {
         document.cookie = cookieName + '=' + '' + expires + '; path=/' + domain;
       };
       this.getCookie = function () {
-        var cookies = window.document.cookie.split('; '),
+        var cookies,
           key = mpInstance._Store.storageName,
           i,
           l,
@@ -4958,6 +4963,12 @@ var mParticle = (function () {
           cookie,
           result = key ? undefined : {};
         mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieSearch);
+        try {
+          cookies = window.document.cookie.split('; ');
+        } catch (e) {
+          mpInstance.Logger.verbose('Unable to parse undefined cookie');
+          return null;
+        }
         for (i = 0, l = cookies.length; i < l; i++) {
           try {
             parts = cookies[i].split('=');
@@ -9654,7 +9665,7 @@ var mParticle = (function () {
         this.filteredUser = null;
         this.messageQueue = [];
         this.sandbox = null;
-        this.userAttributeMapping = [];
+        this.placementAttributesMapping = [];
       }
       /**
        * Initializes the RoktManager with configuration settings and user data.
@@ -9664,17 +9675,17 @@ var mParticle = (function () {
        * @param {IMParticleUser} currentUser - Current mParticle user object
        * @param {IRoktManagerOptions} options - Options for the RoktManager
        *
-       * @throws Logs error to console if userAttributeMapping parsing fails
+       * @throws Logs error to console if placementAttributesMapping parsing fails
        */
       RoktManager.prototype.init = function (roktConfig, filteredUser, currentUser, options) {
         var _a = roktConfig || {},
           userAttributeFilters = _a.userAttributeFilters,
           settings = _a.settings;
-        var userAttributeMapping = (settings || {}).userAttributeMapping;
+        var placementAttributesMapping = (settings || {}).placementAttributesMapping;
         try {
-          this.userAttributeMapping = parseSettingsString(userAttributeMapping);
+          this.placementAttributesMapping = parseSettingsString(placementAttributesMapping);
         } catch (error) {
-          console.error('Error parsing user attribute mapping from config', error);
+          console.error('Error parsing placement attributes mapping from config', error);
         }
         this.currentUser = currentUser;
         this.filters = {
@@ -9700,7 +9711,7 @@ var mParticle = (function () {
         try {
           var attributes = options.attributes;
           var sandboxValue = (_a = attributes === null || attributes === void 0 ? void 0 : attributes.sandbox) !== null && _a !== void 0 ? _a : this.sandbox;
-          var mappedAttributes = this.mapUserAttributes(attributes, this.userAttributeMapping);
+          var mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
           this.setUserAttributes(mappedAttributes);
           var enrichedAttributes = __assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
             sandbox: sandboxValue
@@ -9745,10 +9756,10 @@ var mParticle = (function () {
           console.error('Error setting user attributes', error);
         }
       };
-      RoktManager.prototype.mapUserAttributes = function (attributes, userAttributeMapping) {
+      RoktManager.prototype.mapPlacementAttributes = function (attributes, placementAttributesMapping) {
         var mappingLookup = {};
-        for (var _i = 0, userAttributeMapping_1 = userAttributeMapping; _i < userAttributeMapping_1.length; _i++) {
-          var mapping = userAttributeMapping_1[_i];
+        for (var _i = 0, placementAttributesMapping_1 = placementAttributesMapping; _i < placementAttributesMapping_1.length; _i++) {
+          var mapping = placementAttributesMapping_1[_i];
           mappingLookup[mapping.map] = mapping.value;
         }
         var mappedAttributes = {};
