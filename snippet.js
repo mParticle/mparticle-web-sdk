@@ -19,7 +19,7 @@
     window.mParticle.Rokt = {};
     window.mParticle.config = window.mParticle.config || {};
     window.mParticle.config.rq = [];
-    window.mParticle.config.snippetVersion = 2.4;
+    window.mParticle.config.snippetVersion = 2.5;
     window.mParticle.ready = function(f) {
         window.mParticle.config.rq.push(f);
     };
@@ -45,7 +45,7 @@
     ];
     var ecommerceMethods = ['setCurrencyCode', 'logCheckout'];
     var identityMethods = ['identify', 'login', 'logout', 'modify'];
-    var roktMethods = ['attachLauncher', 'selectPlacements'];
+    var roktMethods = ['attachLauncher', 'selectPlacements', 'hashAttributes'];
 
     // iterates through methods above to create stubs
     mainMethods.forEach(function(method) {
