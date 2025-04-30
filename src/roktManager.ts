@@ -9,10 +9,8 @@ export interface IRoktPartnerAttributes {
     [key: string]: string | number | boolean | undefined | null;
 }
 
-export interface IRoktExtensionData {
-    [extensionName: string]: {
-        [key: string]: string | number | boolean | undefined | null;
-    };
+export interface IRoktPartnerExtensionData<T> {
+    [extensionName: string]: T;
 }
 
 // https://docs.rokt.com/developers/integration-guides/web/library/select-placements-options
@@ -51,7 +49,7 @@ export interface IRoktKit  {
     userAttributes: Dictionary<string>;
     hashAttributes: (attributes: IRoktPartnerAttributes) => Promise<Record<string, string>>;
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
-    setExtensionData: (extensionData: IRoktExtensionData) => void;
+    setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void;
 }
 
 export interface IRoktManagerOptions {
@@ -161,7 +159,7 @@ export default class RoktManager {
         }
     }
 
-    public setExtensionData(extensionData: IRoktExtensionData): void {
+    public setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void {
         if (!this.isReady()) {
             this.queueMessage({
                 methodName: 'setExtensionData',
@@ -171,7 +169,7 @@ export default class RoktManager {
         }
 
         try {
-            this.kit.setExtensionData(extensionData);
+            this.kit.setExtensionData<T>(extensionData);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             throw new Error('Error setting extension data: ' + errorMessage);
