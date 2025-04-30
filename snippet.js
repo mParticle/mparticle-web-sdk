@@ -45,7 +45,11 @@
     ];
     var ecommerceMethods = ['setCurrencyCode', 'logCheckout'];
     var identityMethods = ['identify', 'login', 'logout', 'modify'];
-    var roktMethods = ['attachLauncher', 'selectPlacements', 'hashAttributes'];
+    var roktMethods = [
+        'selectPlacements',
+        'hashAttributes',
+        'setExtensionData',
+    ];
 
     // iterates through methods above to create stubs
     mainMethods.forEach(function(method) {
