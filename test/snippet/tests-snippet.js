@@ -137,10 +137,12 @@ describe('snippet', function() {
     });
 
     it('mParticle object should proxy Rokt methods', function(done) {
-        mParticle.Rokt.attachLauncher();
+        mParticle.Rokt.hashAttributes();
         mParticle.Rokt.selectPlacements();
-        mParticle.config.rq[0][0].should.equal('Rokt.attachLauncher');
+        mParticle.Rokt.setExtensionData();
+        mParticle.config.rq[0][0].should.equal('Rokt.hashAttributes');
         mParticle.config.rq[1][0].should.equal('Rokt.selectPlacements');
+        mParticle.config.rq[2][0].should.equal('Rokt.setExtensionData');
         done();
     });
 });
