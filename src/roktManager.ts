@@ -9,6 +9,10 @@ export interface IRoktPartnerAttributes {
     [key: string]: string | number | boolean | undefined | null;
 }
 
+export interface IRoktPartnerExtensionData<T> {
+    [extensionName: string]: T;
+}
+
 // https://docs.rokt.com/developers/integration-guides/web/library/select-placements-options
 export interface IRoktSelectPlacementsOptions {
     attributes: IRoktPartnerAttributes;
@@ -43,8 +47,9 @@ export interface IRoktKit  {
     filteredUser: IMParticleUser | null;
     launcher: IRoktLauncher | null;
     userAttributes: Dictionary<string>;
-    selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
     hashAttributes: (attributes: IRoktPartnerAttributes) => Promise<Record<string, string>>;
+    selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
+    setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void;
 }
 
 export interface IRoktManagerOptions {
@@ -151,6 +156,23 @@ export default class RoktManager {
             return this.kit.hashAttributes(attributes);
         } catch (error) {
             return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
+        }
+    }
+
+    public setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void {
+        if (!this.isReady()) {
+            this.queueMessage({
+                methodName: 'setExtensionData',
+                payload: extensionData,
+            });
+            return;
+        }
+
+        try {
+            this.kit.setExtensionData<T>(extensionData);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            throw new Error('Error setting extension data: ' + errorMessage);
         }
     }
 

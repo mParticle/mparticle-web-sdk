@@ -36,9 +36,10 @@ describe('RoktManager', () => {
                 },
                 filters: undefined,
                 filteredUser: undefined,
-                userAttributes: undefined,
+                hashAttributes: jest.fn(),
                 selectPlacements: jest.fn(),
-                hashAttributes: jest.fn()
+                setExtensionData: jest.fn(),
+                userAttributes: undefined,
             };
 
             roktManager.attachKit(kit);
@@ -57,9 +58,10 @@ describe('RoktManager', () => {
                 },
                 filters: undefined,
                 filteredUser: undefined,
-                userAttributes: undefined,
+                hashAttributes: jest.fn(),
                 selectPlacements: jest.fn(),
-                hashAttributes: jest.fn()
+                setExtensionData: jest.fn(),
+                userAttributes: undefined,
             };
 
             roktManager.attachKit(kit);
@@ -94,9 +96,10 @@ describe('RoktManager', () => {
                 },
                 filters: undefined,
                 filteredUser: undefined,
-                userAttributes: undefined,
+                hashAttributes: jest.fn(),
                 selectPlacements: jest.fn(),
-                hashAttributes: jest.fn()
+                setExtensionData: jest.fn(),
+                userAttributes: undefined,
             };
 
             const attributes = {
@@ -234,7 +237,8 @@ describe('RoktManager', () => {
                 filteredUser: undefined,
                 userAttributes: undefined,
                 selectPlacements: jest.fn(),
-                hashAttributes: jest.fn()
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn()
             };
 
             roktManager.attachKit(kit);
@@ -253,7 +257,8 @@ describe('RoktManager', () => {
                 selectPlacements: jest.fn(),
                 hashAttributes: jest.fn(),
                 filteredUser: undefined,
-                userAttributes: undefined
+                userAttributes: undefined,
+                setExtensionData: jest.fn()
             };
 
 
@@ -288,7 +293,8 @@ describe('RoktManager', () => {
                 filteredUser: undefined,
                 userAttributes: undefined,
                 selectPlacements: jest.fn(),
-                hashAttributes: jest.fn()
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -311,7 +317,8 @@ describe('RoktManager', () => {
                 filteredUser: undefined,
                 userAttributes: undefined,
                 selectPlacements: jest.fn(),
-                hashAttributes: jest.fn()
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -353,7 +360,8 @@ describe('RoktManager', () => {
                 filteredUser: undefined,
                 userAttributes: undefined,
                 selectPlacements: jest.fn(),
-                hashAttributes: jest.fn()
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
             };
 
             const options = {
@@ -390,7 +398,8 @@ describe('RoktManager', () => {
                 selectPlacements: jest.fn().mockImplementation((options) => {
                     return kit.launcher.selectPlacements(options);
                 }),
-                hashAttributes: jest.fn()
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -420,7 +429,8 @@ describe('RoktManager', () => {
                 filteredUser: undefined,
                 userAttributes: undefined,
                 selectPlacements: jest.fn(),
-                hashAttributes: jest.fn()
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -454,7 +464,8 @@ describe('RoktManager', () => {
                 filteredUser: undefined,
                 userAttributes: undefined,
                 selectPlacements: jest.fn(),
-                hashAttributes: jest.fn()
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -488,7 +499,8 @@ describe('RoktManager', () => {
                 filteredUser: undefined,
                 userAttributes: undefined,
                 selectPlacements: jest.fn(),
-                hashAttributes: jest.fn()
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -521,9 +533,10 @@ describe('RoktManager', () => {
                 },
                 filters: undefined,
                 filteredUser: undefined,
-                userAttributes: undefined,
+                hashAttributes: jest.fn(),
                 selectPlacements: jest.fn(),
-                hashAttributes: jest.fn()
+                setExtensionData: jest.fn(),
+                userAttributes: undefined,
             };
 
             roktManager.attachKit(kit);
@@ -557,9 +570,10 @@ describe('RoktManager', () => {
                 },
                 filters: undefined,
                 filteredUser: undefined,
-                userAttributes: undefined,
+                hashAttributes: jest.fn(),
                 selectPlacements: jest.fn(),
-                hashAttributes: jest.fn()
+                setExtensionData: jest.fn(),
+                userAttributes: undefined,
             };
 
             roktManager.attachKit(kit);
@@ -583,9 +597,10 @@ describe('RoktManager', () => {
                 },
                 filters: undefined,
                 filteredUser: undefined,
-                userAttributes: undefined,
                 selectPlacements: jest.fn(),
-                hashAttributes: jest.fn()
+                setExtensionData: jest.fn(),
+                hashAttributes: jest.fn(),
+                userAttributes: undefined,
             };
 
             roktManager.attachKit(kit);
@@ -609,8 +624,9 @@ describe('RoktManager', () => {
                     selectPlacements: jest.fn(),
                     hashAttributes: jest.fn()
                 },
+                hashAttributes: jest.fn(),
                 selectPlacements: jest.fn(),
-                hashAttributes: jest.fn()
+                setExtensionData: jest.fn()
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -655,8 +671,9 @@ describe('RoktManager', () => {
                     selectPlacements: jest.fn(),
                     hashAttributes: jest.fn()
                 },
+                hashAttributes: jest.fn(),
                 selectPlacements: jest.fn(),
-                hashAttributes: jest.fn()
+                setExtensionData: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -682,7 +699,8 @@ describe('RoktManager', () => {
                     hashAttributes: jest.fn()
                 },
                 selectPlacements: jest.fn(),
-                hashAttributes: jest.fn()
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -730,7 +748,8 @@ describe('RoktManager', () => {
                     hashAttributes: jest.fn()
                 },
                 selectPlacements: jest.fn(),
-                hashAttributes: jest.fn()
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -749,6 +768,93 @@ describe('RoktManager', () => {
             expect(roktManager['currentUser'].setUserAttributes).not.toHaveBeenCalledWith({
                 sandbox: true
             });
+        });
+    });
+
+    describe('#setExtensionData', () => {
+        it('should call kit.setExtensionData with the correct extension data', () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    hashAttributes: jest.fn(),
+                    selectPlacements: jest.fn(),
+                },
+                setExtensionData: jest.fn()
+            };
+
+            roktManager.attachKit(kit as IRoktKit);
+
+            const extensionData = {
+                'my-extension': {
+                    option1: '#value1',
+                    option2: '#value2'
+                }
+            };
+
+            roktManager.setExtensionData(extensionData);
+            expect(kit.setExtensionData).toHaveBeenCalledWith(extensionData);
+        });
+
+        it('should queue the setExtensionData method if no kit is attached', () => {
+            const extensionData = { 'test-ext': { config: 'value' } };
+
+            roktManager.setExtensionData(extensionData);
+
+            expect(roktManager['kit']).toBeNull();
+            expect(roktManager['messageQueue'].length).toBe(1);
+            expect(roktManager['messageQueue'][0].methodName).toBe('setExtensionData');
+            expect(roktManager['messageQueue'][0].payload).toBe(extensionData);
+        });
+
+        it('should process queued setExtensionData calls once the kit is attached', () => {
+            const extensionData = { 'queue-test': { setting: true } };
+
+            roktManager.setExtensionData(extensionData);
+            expect(roktManager['kit']).toBeNull();
+            expect(roktManager['messageQueue'].length).toBe(1);
+
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    hashAttributes: jest.fn(),
+                    selectPlacements: jest.fn()
+                },
+                setExtensionData: jest.fn()
+            };
+
+            roktManager.attachKit(kit as IRoktKit);
+
+            expect(roktManager['kit']).not.toBeNull();
+            expect(roktManager['messageQueue'].length).toBe(0);
+            expect(kit.setExtensionData).toHaveBeenCalledWith(extensionData);
+        });
+
+        it('should throw an error if kit.setExtensionData fails', () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    hashAttributes: jest.fn(),
+                    selectPlacements: jest.fn()
+                },
+                setExtensionData: jest.fn()
+            };
+
+            roktManager.attachKit(kit as IRoktKit);
+
+            const mockError = new Error('Mock error message');
+            // Mock the setExtensionData implementation to throw an error,
+            // so that we can test the error handling behavior
+            (kit.setExtensionData as jest.Mock).mockImplementation(() => {
+                throw mockError;
+            });
+
+            const extensionData = {
+                'my-extension': {
+                    option1: '#value1',
+                    option2: '#value2'
+                }
+            };
+
+            expect(() => {
+                roktManager.setExtensionData(extensionData);
+            }).toThrow('Error setting extension data: ' + mockError.message);
         });
     });
 });
