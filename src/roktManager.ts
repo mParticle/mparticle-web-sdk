@@ -84,7 +84,6 @@ export default class RoktManager {
 
     private experimentAllocation: IRoktExperimentAllocation | null = null;
 
-
     /**
      * Initializes the RoktManager with configuration settings and user data.
      * 
@@ -139,9 +138,9 @@ export default class RoktManager {
             this.setUserAttributes(mappedAttributes);
 
             if (this.experimentAllocation) {
-                mappedAttributes['rokt.experimentid'] = this.experimentAllocation.experimentId;
-                mappedAttributes['rokt.bucketid'] = this.experimentAllocation.bucketId; 
-                mappedAttributes['rokt.userid'] = this.experimentAllocation.userId;
+                mappedAttributes['rokt.partnerexperiment.experimentid'] = this.experimentAllocation.experimentId;
+                mappedAttributes['rokt.partnerexperiment.bucketid'] = this.experimentAllocation.bucketId; 
+                mappedAttributes['rokt.partnerexperiment.userid'] = this.experimentAllocation.userId;
             }
 
             const enrichedAttributes = {
