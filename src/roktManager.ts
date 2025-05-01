@@ -56,6 +56,12 @@ export interface IRoktManagerOptions {
     sandbox?: boolean;
 }
 
+export interface IRoktExperimentAllocation {
+    userId: string;
+    experimentId: string;
+    bucketId: string;
+}
+
 // The purpose of this class is to create a link between the Core mParticle SDK and the
 // Rokt Web SDK via a Web Kit.
 // The Rokt Manager should load before the Web Kit and stubs out many of the
@@ -72,8 +78,12 @@ export default class RoktManager {
     private currentUser: IMParticleUser | null = null;
     private filteredUser: IMParticleUser | null = null;
     private messageQueue: IRoktMessage[] = [];
+
     private sandbox: boolean | null = null;
     private placementAttributesMapping: Dictionary<string>[] = [];
+
+    private experimentAllocation: IRoktExperimentAllocation | null = null;
+
 
     /**
      * Initializes the RoktManager with configuration settings and user data.
@@ -112,6 +122,12 @@ export default class RoktManager {
     }
 
     public selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
+        if (this.experimentAllocation) {
+            options.attributes['rokt.experimentid'] = this.experimentAllocation.experimentId;
+            options.attributes['rokt.bucketid'] = this.experimentAllocation.bucketId;
+            options.attributes['rokt.userid'] = this.experimentAllocation.userId;
+        }
+
         if (!this.isReady()) {
             this.queueMessage({
                 methodName: 'selectPlacements',
@@ -174,6 +190,15 @@ export default class RoktManager {
             const errorMessage = error instanceof Error ? error.message : String(error);
             throw new Error('Error setting extension data: ' + errorMessage);
         }
+    }
+
+    public setExperimentAllocationData(userId: string, experimentId: string, bucketId: string): void {
+        this.experimentAllocation = {
+            userId,
+            experimentId,
+            bucketId,
+        };
+
     }
 
     private isReady(): boolean {
