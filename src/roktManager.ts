@@ -122,11 +122,6 @@ export default class RoktManager {
     }
 
     public selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
-        if (this.experimentAllocation) {
-            options.attributes['rokt.experimentid'] = this.experimentAllocation.experimentId;
-            options.attributes['rokt.bucketid'] = this.experimentAllocation.bucketId;
-            options.attributes['rokt.userid'] = this.experimentAllocation.userId;
-        }
 
         if (!this.isReady()) {
             this.queueMessage({
@@ -142,6 +137,12 @@ export default class RoktManager {
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
 
             this.setUserAttributes(mappedAttributes);
+
+            if (this.experimentAllocation) {
+                mappedAttributes['rokt.experimentid'] = this.experimentAllocation.experimentId;
+                mappedAttributes['rokt.bucketid'] = this.experimentAllocation.bucketId; 
+                mappedAttributes['rokt.userid'] = this.experimentAllocation.userId;
+            }
 
             const enrichedAttributes = {
                 ...mappedAttributes,
