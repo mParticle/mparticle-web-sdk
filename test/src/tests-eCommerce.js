@@ -1670,6 +1670,75 @@ describe('eCommerce', function() {
         done();
     })
     });
+
+    it('should call logProductAction with same arguments when using logProductActionV2', function(done) {
+        const logProductActionSpy = sinon.spy(mParticle.getInstance().eCommerce, 'logProductAction');
+
+        const product = mParticle.eCommerce.createProduct(
+            'iPhone',
+            '12345',
+            400,
+            2,
+            'Plus',
+            'Phones',
+            'Apple',
+            1,
+            'my-coupon-code',
+            { customkey: 'customvalue' }
+        );
+
+        const transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+            '12345',
+            'test-affiliation',
+            'coupon-code',
+            44334,
+            600,
+            200
+        );
+
+        const eventAttributes = {
+            customAttr1: 'value1',
+            customAttr2: 'value2'
+        };
+
+        const customFlags = {
+            flag1: 'value1',
+            flag2: 'value2'
+        };
+
+        const eventOptions = {
+            option1: 'value1',
+            option2: 'value2'
+        };
+
+        // Call logProductActionV2
+
+        mParticle.eCommerce.logProductActionV2(
+            mParticle.ProductActionType.Purchase, 
+            product,
+            {
+                attrs: eventAttributes,
+                customFlags: customFlags,
+                transactionAttributes: transactionAttributes,
+                eventOptions: eventOptions
+            }
+        );
+
+        // Verify logProductAction was called with the same arguments
+        logProductActionSpy.calledOnce.should.be.true;
+
+        const args = logProductActionSpy.firstCall.args;
+        args[0].should.equal(mParticle.ProductActionType.Purchase);
+        args[1].should.equal(product);
+        args[2].should.equal(eventAttributes);
+        args[3].should.equal(customFlags);
+        args[4].should.equal(transactionAttributes);
+        args[5].should.equal(eventOptions);
+
+        logProductActionSpy.restore();
+        done();
+    });
+
     describe('Cart', function() {
         afterEach(function() {
             sinon.restore();

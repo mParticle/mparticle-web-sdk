@@ -143,6 +143,7 @@ describe('mParticle instance manager', () => {
             'createTransactionAttributes',
             'logCheckout',
             'logProductAction',
+            'logProductActionV2',
             'logPurchase',
             'logPromotion',
             'logImpression',
