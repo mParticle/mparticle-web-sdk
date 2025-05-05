@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.38.1";
+    var version = "2.39.0";
 
     var Constants = {
       sdkVersion: version,
@@ -9736,6 +9736,21 @@ var mParticle = (function () {
           return this.kit.hashAttributes(attributes);
         } catch (error) {
           return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
+        }
+      };
+      RoktManager.prototype.setExtensionData = function (extensionData) {
+        if (!this.isReady()) {
+          this.queueMessage({
+            methodName: 'setExtensionData',
+            payload: extensionData
+          });
+          return;
+        }
+        try {
+          this.kit.setExtensionData(extensionData);
+        } catch (error) {
+          var errorMessage = error instanceof Error ? error.message : String(error);
+          throw new Error('Error setting extension data: ' + errorMessage);
         }
       };
       RoktManager.prototype.isReady = function () {
