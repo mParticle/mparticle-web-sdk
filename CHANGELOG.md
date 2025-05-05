@@ -1,3 +1,15 @@
+# [2.39.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.38.1...v2.39.0) (2025-05-05)
+
+
+### Bug Fixes
+
+* Add Rokt hashAttributes and setExtensionData to snippet.js ([#1028](https://github.com/mParticle/mparticle-web-sdk/issues/1028)) ([7c30759](https://github.com/mParticle/mparticle-web-sdk/commit/7c30759e38b3196415d2143b3e3a4e39dfe8693d))
+
+
+### Features
+
+* Add setExtensionData method to RoktManager ([#1025](https://github.com/mParticle/mparticle-web-sdk/issues/1025)) ([d98e83f](https://github.com/mParticle/mparticle-web-sdk/commit/d98e83fe3b4e57b68e604ecb5016bdf9faada218))
+
 ## [2.38.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.38.0...v2.38.1) (2025-04-28)
 
 
