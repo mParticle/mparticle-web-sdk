@@ -25,15 +25,6 @@ export default function Forwarders(mpInstance, kitBlocker) {
             !mpInstance._Store.webviewBridgeEnabled &&
             mpInstance._Store.configuredForwarders
         ) {
-            // Some js libraries require that they be loaded first, or last, etc
-            mpInstance._Store.configuredForwarders.sort(function(x, y) {
-                x.settings.PriorityValue = x.settings.PriorityValue || 0;
-                y.settings.PriorityValue = y.settings.PriorityValue || 0;
-                return (
-                    -1 * (x.settings.PriorityValue - y.settings.PriorityValue)
-                );
-            });
-
             mpInstance._Store.activeForwarders = mpInstance._Store.configuredForwarders.filter(
                 function(forwarder) {
                     if (
