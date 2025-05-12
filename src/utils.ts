@@ -274,6 +274,7 @@ const queryStringParser = (
 ): Dictionary<string> => {
     let urlParams: URLSearchParams | URLSearchParamsFallback;
     let results: Dictionary<string> = {};
+    let lowCaseUrlParams: Dictionary<string> = {};
 
     if (!url) return results;
 
@@ -284,13 +285,15 @@ const queryStringParser = (
         urlParams = queryStringParserFallback(url);
     }
 
+    urlParams.forEach((value, key) => {
+        lowCaseUrlParams[key.toLowerCase()] = value;
+    });
+
     if (isEmpty(keys)) {
-        urlParams.forEach((value, key) => {
-            results[key] = value;
-        });
+        return lowCaseUrlParams;
     } else {
         keys.forEach(key => {
-            const value = urlParams.get(key);
+            const value = lowCaseUrlParams[key];
             if (value) {
                 results[key] = value;
             }
