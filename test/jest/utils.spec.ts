@@ -173,6 +173,23 @@ describe('Utils', () => {
 
                 expect(queryStringParser(malformedUrl, keys)).toEqual(expectedResult);
             });
+
+            it('should handle different params case sensitivity and returns them as lowercased params', () => {
+                const url = 'https://www.example.com?FoO=bar&bAz=qux&NARF=poit'
+                const keys = [
+                    'foo',
+                    'baz',
+                    'narf',
+                ];
+
+                const expectedResult = {
+                    foo: 'bar',
+                    narf: 'poit',
+                    baz: 'qux',
+                };
+
+                expect(queryStringParser(url, keys)).toEqual(expectedResult);
+            });
         });
     });
 
