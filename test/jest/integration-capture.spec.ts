@@ -145,6 +145,20 @@ describe('Integration Capture', () => {
                     ScCid: '1234',
                 });
             });
+
+            it('should capture Snapchat specific click ids without being case sensitive', () => {
+                const url = new URL('https://www.example.com/?sccid=1234');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture();
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    ScCid: '1234',
+                });
+            });
         });
 
         describe('Facebook Click Ids', () => {
