@@ -52,7 +52,7 @@ describe('Integration Capture', () => {
             rtid: '45670808',
             rclid: '7183717',
             wbraid: '1234111',
-            sccid: '1234',
+            ScCid: '1234',
         });
 
         mParticle.init(apiKey, window.mParticle.config);

@@ -27,7 +27,7 @@ describe('Integration Capture', () => {
                 'gbraid',
                 'wbraid',
                 'ttclid',
-                'sccid'
+                'ScCid'
             ]);
         });
 
@@ -109,7 +109,7 @@ describe('Integration Capture', () => {
                 rtid: '84324',
                 rclid: '7183717',
                 wbraid: '09876',
-                sccid:'1234'
+                ScCid:'1234'
             }); 
         });
 
@@ -133,20 +133,6 @@ describe('Integration Capture', () => {
 
         describe('SnapChat Click Ids', () => {
             it('should capture Snapchat specific click ids', () => {
-                const url = new URL('https://www.example.com/?sccid=1234');
-
-                window.location.href = url.href;
-                window.location.search = url.search;
-
-                const integrationCapture = new IntegrationCapture();
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    sccid: '1234',
-                });
-            });
-
-            it('should capture Snapchat specific click ids without being case sensitive', () => {
                 const url = new URL('https://www.example.com/?ScCid=1234');
 
                 window.location.href = url.href;
@@ -156,7 +142,21 @@ describe('Integration Capture', () => {
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
-                    sccid: '1234',
+                    ScCid: '1234',
+                });
+            });
+
+            it('should capture Snapchat specific click ids without being case sensitive', () => {
+                const url = new URL('https://www.example.com/?sccid=1234');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture();
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    ScCid: '1234',
                 });
             });
         });

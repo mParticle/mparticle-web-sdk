@@ -293,7 +293,7 @@ const queryStringParser = (
         return lowerCaseUrlParams;
     } else {
         keys.forEach(key => {
-            const value = lowerCaseUrlParams[key];
+            const value = lowerCaseUrlParams[key.toLowerCase()];
             if (value) {
                 results[key] = value;
             }

@@ -174,7 +174,7 @@ describe('Utils', () => {
                 expect(queryStringParser(malformedUrl, keys)).toEqual(expectedResult);
             });
 
-            it('should handle different params case sensitivity and returns them as lowercased params', () => {
+            it('should handle different params case sensitivity and return them as lowercased params', () => {
                 const url = 'https://www.example.com?FoO=bar&bAz=qux&NARF=poit'
                 const keys = [
                     'foo',
