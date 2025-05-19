@@ -1,16 +1,57 @@
 import { IKitConfigs } from "../../src/configAPIClient";
 import { IMParticleUser } from "../../src/identity-user-interfaces";
+import { SDKIdentityApi } from "../../src/identity.interfaces";
+import { IMParticleWebSDKInstance } from "../../src/mp-instance";
 import RoktManager, { IRoktKit, IRoktSelectPlacementsOptions } from "../../src/roktManager";
+import { testMPID } from '../src/config/constants';
+
 
 describe('RoktManager', () => {
     let roktManager: RoktManager;
     let currentUser: IMParticleUser;
 
+    const mockMPInstance = ({
+        Identity: {
+            getCurrentUser: jest.fn().mockReturnValue({
+                getMPID: () => testMPID,
+                getUserIdentities: () => ({
+                    userIdentities: {}
+                })
+            }),
+            identify: jest.fn().mockReturnValue({
+                context: null,
+                matched_identities: {
+                    device_application_stamp: 'my-das',
+                },
+                is_ephemeral: true,
+                mpid: testMPID,
+                is_logged_in: false,
+            }),
+        },
+        Logger: {
+            verbose: jest.fn(),
+            error: jest.fn(),
+            warning: jest.fn(),
+        },
+    } as unknown) as IMParticleWebSDKInstance;
+
     beforeEach(() => {
         roktManager = new RoktManager();
         currentUser = {
-            setUserAttributes: jest.fn()
+            setUserAttributes: jest.fn(),
+            getUserIdentities: jest.fn().mockReturnValue({
+                userIdentities: {}
+            })
         } as unknown as IMParticleUser;
+
+        // Initialize with required dependencies
+        roktManager.init(
+            {} as IKitConfigs,
+            {} as IMParticleUser,
+            currentUser,
+            mockMPInstance.Identity,
+            mockMPInstance.Logger
+        );
     });
 
     describe('constructor', () => {
@@ -151,7 +192,7 @@ describe('RoktManager', () => {
 
     describe('#init', () => {
         it('should initialize the manager with defaults when no config is provided', () => {
-            roktManager.init({} as IKitConfigs, {} as IMParticleUser, currentUser);
+            roktManager.init({} as IKitConfigs, {} as IMParticleUser, currentUser, );
             expect(roktManager['kit']).toBeNull();
             expect(roktManager['filters']).toEqual({
                 userAttributeFilters: undefined,
@@ -182,6 +223,8 @@ describe('RoktManager', () => {
                 {} as IKitConfigs,
                 undefined,
                 currentUser,
+                undefined,
+                undefined,
                 { sandbox: true }
             );
             expect(roktManager['sandbox']).toBe(true);
@@ -768,6 +811,131 @@ describe('RoktManager', () => {
             expect(roktManager['currentUser'].setUserAttributes).not.toHaveBeenCalledWith({
                 sandbox: true
             });
+        });
+
+        it('should call identify with new email when it differs from current user email', () => {            
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn()
+                },
+                selectPlacements: jest.fn(),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+
+            // Set up fresh mocks for this test
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getUserIdentities: () => ({
+                        userIdentities: {
+                            email: 'old@example.com'
+                        }
+                    })
+                }),
+                identify: jest.fn()
+            };
+
+            roktManager['identity'] = mockIdentity as unknown as SDKIdentityApi;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    email: 'new@example.com'
+                }
+            };
+
+            roktManager.selectPlacements(options);
+
+            expect(mockIdentity.identify).toHaveBeenCalledWith({
+                userIdentities: {
+                    email: 'new@example.com'
+                }
+            });
+            expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(
+                'Email mismatch detected. Current email: old@example.com, New email: new@example.com. Calling identify with new email, but please verify implementation.'
+            );
+        });
+
+        it('should not call identify when email matches current user email', () => {
+            // Reset mocks
+            jest.clearAllMocks();
+            
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn()
+                },
+                selectPlacements: jest.fn(),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+
+            // Set up fresh mocks for this test
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getUserIdentities: () => ({
+                        userIdentities: {
+                            email: 'same@example.com'
+                        }
+                    })
+                }),
+                identify: jest.fn()
+            };
+
+            roktManager['identity'] = mockIdentity as unknown as SDKIdentityApi;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    email: 'same@example.com'
+                }
+            };
+
+            roktManager.selectPlacements(options);
+
+            expect(mockIdentity.identify).not.toHaveBeenCalled();
+            expect(mockMPInstance.Logger.warning).not.toHaveBeenCalled();
+        });
+
+        it('should call identify with new email when current user has no email', () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn()
+                },
+                selectPlacements: jest.fn(),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+
+            mockMPInstance.Identity.getCurrentUser = jest.fn().mockReturnValue({
+                getUserIdentities: () => ({
+                    userIdentities: {
+                    }
+                })
+            });
+
+            roktManager['identity'] = mockMPInstance.Identity;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    email: 'new@example.com'
+                }
+            };
+
+            roktManager.selectPlacements(options);
+
+            expect(mockMPInstance.Identity.identify).toHaveBeenCalledWith({
+                userIdentities: {
+                    email: 'new@example.com'
+                }
+            });
+            expect(mockMPInstance.Logger.warning).not.toHaveBeenCalled();
         });
     });
 

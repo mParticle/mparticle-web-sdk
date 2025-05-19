@@ -3,6 +3,8 @@ import { UserAttributeFilters  } from "./forwarders.interfaces";
 import { IMParticleUser } from "./identity-user-interfaces";
 import KitFilterHelper from "./kitFilterHelper";
 import { Dictionary, parseSettingsString } from "./utils";
+import { SDKIdentityApi } from "./identity.interfaces";
+import { SDKLoggerApi } from "./sdkRuntimeModels";
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export interface IRoktPartnerAttributes {
@@ -42,7 +44,7 @@ export interface RoktKitFilterSettings {
     filteredUser?: IMParticleUser | null;
 }
 
-export interface IRoktKit  {
+export interface IRoktKit {
     filters: RoktKitFilterSettings;
     filteredUser: IMParticleUser | null;
     launcher: IRoktLauncher | null;
@@ -74,6 +76,8 @@ export default class RoktManager {
     private messageQueue: IRoktMessage[] = [];
     private sandbox: boolean | null = null;
     private placementAttributesMapping: Dictionary<string>[] = [];
+    private identity: SDKIdentityApi;
+    private logger: SDKLoggerApi;
 
     /**
      * Initializes the RoktManager with configuration settings and user data.
@@ -81,11 +85,20 @@ export default class RoktManager {
      * @param {IKitConfigs} roktConfig - Configuration object containing user attribute filters and settings
      * @param {IMParticleUser} filteredUser - User object with filtered attributes
      * @param {IMParticleUser} currentUser - Current mParticle user object
+     * @param {SDKIdentityApi} identity - The mParticle Identity instance
+     * @param {SDKLoggerApi} logger - The mParticle Logger instance
      * @param {IRoktManagerOptions} options - Options for the RoktManager
      * 
      * @throws Logs error to console if placementAttributesMapping parsing fails
      */
-    public init(roktConfig: IKitConfigs, filteredUser: IMParticleUser, currentUser: IMParticleUser, options?: IRoktManagerOptions): void {
+    public init(
+        roktConfig: IKitConfigs, 
+        filteredUser: IMParticleUser, 
+        currentUser: IMParticleUser,
+        identity?: SDKIdentityApi,
+        logger?: SDKLoggerApi,
+        options?: IRoktManagerOptions
+    ): void {
         const { userAttributeFilters, settings } = roktConfig || {};
         const { placementAttributesMapping } = settings || {};
 
@@ -96,6 +109,8 @@ export default class RoktManager {
         }
 
         this.currentUser = currentUser;
+        this.identity = identity;
+        this.logger = logger;
 
         this.filters = {
             userAttributeFilters,
@@ -125,12 +140,38 @@ export default class RoktManager {
             const sandboxValue = attributes?.sandbox ?? this.sandbox;
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
 
+            // Get current user identities
+            const currentUser = this.identity.getCurrentUser();
+            const currentUserIdentities = currentUser?.getUserIdentities()?.userIdentities || {};
+            const currentEmail = currentUserIdentities.email;
+            const newEmail = mappedAttributes.email as string;
+
+            // Check if email exists and differs
+            if (newEmail && (!currentEmail || currentEmail !== newEmail)) {
+
+                if (currentEmail && currentEmail !== newEmail) {
+                    this.logger.warning(
+                        'Email mismatch detected. Current email: ' + currentEmail + 
+                        ', New email: ' + newEmail + 
+                        '. Calling identify with new email, but please verify implementation.'
+                    );
+                }
+
+                // Call identify with the new user identities
+                this.identity.identify({
+                    userIdentities: {
+                        ...currentUserIdentities,
+                        email: newEmail
+                    }
+                });
+            }
+
             this.setUserAttributes(mappedAttributes);
 
             const enrichedAttributes = {
                 ...mappedAttributes,
                 ...(sandboxValue !== null ? { sandbox: sandboxValue } : {}),
-              };
+            };
 
             const enrichedOptions = {
                 ...options,
