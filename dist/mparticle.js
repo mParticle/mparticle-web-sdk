@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.39.0";
+    var version = "2.39.1";
 
     var Constants = {
       sdkVersion: version,
@@ -696,6 +696,7 @@ var mParticle = (function () {
       }
       var urlParams;
       var results = {};
+      var lowerCaseUrlParams = {};
       if (!url) return results;
       if (typeof URL !== 'undefined' && typeof URLSearchParams !== 'undefined') {
         var urlObject = new URL(url);
@@ -703,13 +704,14 @@ var mParticle = (function () {
       } else {
         urlParams = queryStringParserFallback(url);
       }
+      urlParams.forEach(function (value, key) {
+        lowerCaseUrlParams[key.toLowerCase()] = value;
+      });
       if (isEmpty(keys)) {
-        urlParams.forEach(function (value, key) {
-          results[key] = value;
-        });
+        return lowerCaseUrlParams;
       } else {
         keys.forEach(function (key) {
-          var value = urlParams.get(key);
+          var value = lowerCaseUrlParams[key.toLowerCase()];
           if (value) {
             results[key] = value;
           }
