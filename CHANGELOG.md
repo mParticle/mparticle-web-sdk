@@ -1,3 +1,10 @@
+## [2.39.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.39.0...v2.39.1) (2025-05-19)
+
+
+### Bug Fixes
+
+* Remove case sesitivity from query params for integration captures ([#1031](https://github.com/mParticle/mparticle-web-sdk/issues/1031)) ([d1e86d4](https://github.com/mParticle/mparticle-web-sdk/commit/d1e86d4e32c7c0d0a3a0203ef20d068f88b7659d))
+
 # [2.39.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.38.1...v2.39.0) (2025-05-05)
 
 
