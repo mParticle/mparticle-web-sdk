@@ -70,13 +70,11 @@ export interface IRoktManagerOptions {
 export default class RoktManager {
     public kit: IRoktKit = null;
     public filters: RoktKitFilterSettings = {};
-
     private currentUser: IMParticleUser | null = null;
-    private filteredUser: IMParticleUser | null = null;
     private messageQueue: IRoktMessage[] = [];
     private sandbox: boolean | null = null;
     private placementAttributesMapping: Dictionary<string>[] = [];
-    private identity: SDKIdentityApi;
+    private identityService: SDKIdentityApi;
     private logger: SDKLoggerApi;
 
     /**
@@ -84,8 +82,7 @@ export default class RoktManager {
      * 
      * @param {IKitConfigs} roktConfig - Configuration object containing user attribute filters and settings
      * @param {IMParticleUser} filteredUser - User object with filtered attributes
-     * @param {IMParticleUser} currentUser - Current mParticle user object
-     * @param {SDKIdentityApi} identity - The mParticle Identity instance
+     * @param {SDKIdentityApi} identityService - The mParticle Identity instance
      * @param {SDKLoggerApi} logger - The mParticle Logger instance
      * @param {IRoktManagerOptions} options - Options for the RoktManager
      * 
@@ -94,8 +91,7 @@ export default class RoktManager {
     public init(
         roktConfig: IKitConfigs, 
         filteredUser: IMParticleUser, 
-        currentUser: IMParticleUser,
-        identity?: SDKIdentityApi,
+        identityService: SDKIdentityApi,
         logger?: SDKLoggerApi,
         options?: IRoktManagerOptions
     ): void {
@@ -108,8 +104,7 @@ export default class RoktManager {
             console.error('Error parsing placement attributes mapping from config', error);
         }
 
-        this.currentUser = currentUser;
-        this.identity = identity;
+        this.identityService = identityService;
         this.logger = logger;
 
         this.filters = {
@@ -126,7 +121,23 @@ export default class RoktManager {
         this.processMessageQueue();
     }
 
-    public selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
+    /**
+     * Selects placements based on the provided options.
+     * This method handles user identity updates and attribute mapping before selecting placements.
+     * 
+     * @param {IRoktSelectPlacementsOptions} options - The options for selecting placements, including attributes and optional identifier
+     * @returns {Promise<IRoktSelection>} A promise that resolves to the selected placements
+     * 
+     * @example
+     * // Correct usage with await
+     * await roktManager.selectPlacements({
+     *   attributes: {
+     *     email: 'user@example.com',
+     *     customAttr: 'value'
+     *   }
+     * });
+     */
+    public async selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
         if (!this.isReady()) {
             this.queueMessage({
                 methodName: 'selectPlacements',
@@ -141,14 +152,13 @@ export default class RoktManager {
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
 
             // Get current user identities
-            const currentUser = this.identity.getCurrentUser();
-            const currentUserIdentities = currentUser?.getUserIdentities()?.userIdentities || {};
+            this.currentUser = this.identityService.getCurrentUser();
+            const currentUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
             const currentEmail = currentUserIdentities.email;
             const newEmail = mappedAttributes.email as string;
 
             // Check if email exists and differs
             if (newEmail && (!currentEmail || currentEmail !== newEmail)) {
-
                 if (currentEmail && currentEmail !== newEmail) {
                     this.logger.warning(
                         'Email mismatch detected. Current email: ' + currentEmail + 
@@ -158,11 +168,15 @@ export default class RoktManager {
                 }
 
                 // Call identify with the new user identities
-                this.identity.identify({
-                    userIdentities: {
-                        ...currentUserIdentities,
-                        email: newEmail
-                    }
+                await new Promise<void>((resolve) => {
+                    this.identityService.identify({
+                        userIdentities: {
+                            ...currentUserIdentities,
+                            email: newEmail
+                        }
+                    }, () => {
+                        resolve();
+                    });
                 });
             }
 

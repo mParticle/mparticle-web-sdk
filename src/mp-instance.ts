@@ -1420,7 +1420,6 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance._RoktManager.init(
                 roktConfig,
                 roktFilteredUser,
-                currentUser,
                 mpInstance.Identity,
                 mpInstance.Logger,
                 roktOptions
