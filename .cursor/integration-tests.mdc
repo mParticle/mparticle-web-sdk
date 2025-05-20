@@ -1,0 +1,134 @@
+---
+description: Unit Testing Guidelines
+globs: 
+alwaysApply: false
+---
+# Integration Testing Conventions
+
+## Test Structure
+
+Integration tests should be organized in a dedicated section within test files, clearly marked with a `describe` block:
+
+```javascript
+describe('Integration Tests', function() {
+    // Integration test cases here
+});
+```
+
+## Setup and Teardown
+
+1. **Before Each Test**
+   - Reset the test environment
+   - Mock necessary external dependencies
+   - Set up test data
+   - Initialize the system under test
+
+   ```javascript
+   beforeEach(function() {
+       mParticle._resetForTests(MPConfig);
+       fetchMockSuccess(urls.identify, {
+           mpid: testMPID,
+           is_logged_in: false
+       });
+       mParticle.init(apiKey, mParticle.config);
+   });
+   ```
+
+2. **After Each Test**
+   - Clean up mocks
+   - Restore original state
+   - Clear test data
+
+   ```javascript
+   afterEach(function() {
+       sinon.restore();
+       fetchMock.restore();
+       mParticle._resetForTests(MPConfig);
+       deleteAllCookies();
+   });
+   ```
+
+## Test Cases
+
+1. **Test Complete Workflows**
+   - Test entire user journeys
+   - Verify end-to-end functionality
+   - Check integration points between components
+
+   ```javascript
+   it('should end a session if the session timeout expires', () => {
+       // Test complete session lifecycle
+   });
+   ```
+
+2. **Test Error Handling**
+   - Verify error propagation
+   - Check error logging
+   - Test recovery mechanisms
+
+   ```javascript
+   it('integration test - should log an error if the data plan has an error on it', function(done) {
+       const errorMessage = 'This is an error';
+       window.mParticle.config.dataPlan = {
+           document: {
+               error_message: errorMessage
+           }
+       };
+       // Test error handling
+   });
+   ```
+
+3. **Test Data Flow**
+   - Verify data transformation
+   - Check data persistence
+   - Test data synchronization
+
+   ```javascript
+   it('Should convert data plan id to server DTO', function(done) {
+       // Test data transformation
+   });
+   ```
+
+## Mocking and Stubs
+
+1. **External Dependencies**
+   - Mock HTTP requests
+   - Stub external services
+   - Simulate third-party integrations
+
+   ```javascript
+   fetchMock.post(urls.events, 200);
+   sinon.stub(window.mParticle.getInstance()._IntegrationCapture, 'getQueryParams')
+   ```
+
+2. **Browser APIs**
+   - Mock cookies
+   - Stub localStorage
+   - Simulate browser events
+
+   ```javascript
+   window.document.cookie = '_cookie1=234';
+   window.document.cookie = '_cookie2=39895811.9165333198';
+   ```
+
+## Best Practices
+
+1. **Isolation**
+   - Each test should be independent
+   - Tests should not rely on the state from other tests
+   - Use `beforeEach` and `afterEach` to reset state
+
+2. **Readability**
+   - Use descriptive test names
+   - Group related tests together
+   - Add comments for complex setup
+
+3. **Maintainability**
+   - Keep test setup DRY
+   - Use helper functions for common operations
+   - Document complex test scenarios
+
+4. **Performance**
+   - Mock expensive operations
+   - Avoid unnecessary setup
+   - Clean up resources after tests
