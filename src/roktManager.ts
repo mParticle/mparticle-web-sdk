@@ -42,7 +42,7 @@ export interface RoktKitFilterSettings {
     filteredUser?: IMParticleUser | null;
 }
 
-export interface IRoktKit  {
+export interface IRoktKit {
     filters: RoktKitFilterSettings;
     filteredUser: IMParticleUser | null;
     launcher: IRoktLauncher | null;
@@ -50,11 +50,18 @@ export interface IRoktKit  {
     hashAttributes: (attributes: IRoktPartnerAttributes) => Promise<Record<string, string>>;
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
     setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void;
+    launcherOptions?: Dictionary<any>;
 }
 
-export interface IRoktManagerOptions {
-    sandbox?: boolean;
+export interface IRoktOptions {
+    managerOptions?: IRoktManagerOptions;
+    launcherOptions?: IRoktLauncherOptions;
 }
+
+export type IRoktLauncherOptions = Dictionary<any>;
+export type IRoktManagerOptions = {
+    sandbox?: boolean;
+};
 
 // The purpose of this class is to create a link between the Core mParticle SDK and the
 // Rokt Web SDK via a Web Kit.
@@ -74,18 +81,18 @@ export default class RoktManager {
     private messageQueue: IRoktMessage[] = [];
     private sandbox: boolean | null = null;
     private placementAttributesMapping: Dictionary<string>[] = [];
-
+    private launcherOptions: IRoktLauncherOptions = {};
     /**
      * Initializes the RoktManager with configuration settings and user data.
      * 
      * @param {IKitConfigs} roktConfig - Configuration object containing user attribute filters and settings
      * @param {IMParticleUser} filteredUser - User object with filtered attributes
      * @param {IMParticleUser} currentUser - Current mParticle user object
-     * @param {IRoktManagerOptions} options - Options for the RoktManager
+     * @param {IRoktOptions} options - Options for the RoktManager
      * 
      * @throws Logs error to console if placementAttributesMapping parsing fails
      */
-    public init(roktConfig: IKitConfigs, filteredUser: IMParticleUser, currentUser: IMParticleUser, options?: IRoktManagerOptions): void {
+    public init(roktConfig: IKitConfigs, filteredUser: IMParticleUser, currentUser: IMParticleUser, options?: IRoktOptions): void {
         const { userAttributeFilters, settings } = roktConfig || {};
         const { placementAttributesMapping } = settings || {};
 
@@ -103,7 +110,8 @@ export default class RoktManager {
             filteredUser: filteredUser,
         };
 
-        this.sandbox = options?.sandbox;
+        this.sandbox = options?.managerOptions?.sandbox;
+        this.launcherOptions = options?.launcherOptions;
     }
 
     public attachKit(kit: IRoktKit): void {

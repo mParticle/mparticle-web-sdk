@@ -182,7 +182,9 @@ describe('RoktManager', () => {
                 {} as IKitConfigs,
                 undefined,
                 currentUser,
-                { sandbox: true }
+                {
+                    managerOptions: { sandbox: true },
+                }
             );
             expect(roktManager['sandbox']).toBe(true);
         });
@@ -223,6 +225,39 @@ describe('RoktManager', () => {
                     value: 'lastname',
                 }
             ]);
+        });
+
+        it('should initialize the manager with launcher options from options', () => {
+            const launcherOptions = {
+                integrationName: 'customName',
+                noFunctional: true,
+                noTargeting: true
+            };
+
+            roktManager.init(
+                {} as IKitConfigs,
+                undefined,
+                currentUser,
+                {
+                    managerOptions: { sandbox: true },
+                    launcherOptions
+                }
+            );
+
+            expect(roktManager['launcherOptions']).toEqual(launcherOptions);
+        });
+
+        it('should initialize the manager with empty launcher options when not provided', () => {
+            roktManager.init(
+                {} as IKitConfigs,
+                undefined,
+                currentUser,
+                {
+                    managerOptions: { sandbox: true }
+                }
+            );
+
+            expect(roktManager['launcherOptions']).toEqual(undefined);
         });
     });
 
