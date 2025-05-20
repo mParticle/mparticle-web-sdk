@@ -1,0 +1,62 @@
+# Commit Message Conventions
+
+<rule>
+name: commit_message_conventions
+description: Standards for writing commit messages following conventional commit standards
+
+format: |
+  The commit message should follow this format:
+  ```
+  <type>[optional scope]: <description>
+
+  [optional body]
+
+  [optional footer]
+  ```
+
+  Breaking changes must be indicated by "BREAKING CHANGE:" in the footer
+
+types: |
+  - feat: A new feature (automatic minor release)
+  - fix: A bug fix (automatic patch release)
+  - docs: Documentation only changes
+  - style: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
+  - refactor: A code change that neither fixes a bug nor adds a feature
+  - perf: A code change that improves performance
+  - test: Adding missing or correcting existing tests
+  - chore: Changes that don't modify src or test files, such as automatic documentation generation
+  - ci: Changes to CI configuration files/scripts
+  - revert: Revert commit
+  - build: Changes that affect the build system or other dependencies
+
+guidelines: |
+  1. First line must follow the type format
+  2. Description should be clear and concise
+  3. Breaking changes must be noted in footer
+  4. Follow conventional commit standards
+
+examples:
+  good:
+  - "feat: Add HashedAttributes method to RoktManager"
+  - "fix: Correct attribute mapping in RoktManager"
+  - "docs: Update README with new API methods"
+  - "refactor: Simplify attribute handling logic"
+  - "test: Add test coverage for hashedAttributes"
+  - |
+    feat: Add new authentication method
+    
+    BREAKING CHANGE: Old auth tokens are no longer supported
+
+  bad:
+  - "feat(rokt): Added hashed attributes feature to roktmanager."
+  - "fixed bug in attributes"
+  - "updates"
+  - "New feature: hashed attributes"
+
+metadata:
+  priority: high
+  version: 1.0
+</rule>
+
+@version "1.0.0"
+@last_updated "2024-03-05" 
