@@ -39,7 +39,7 @@ import _BatchValidator from './mockBatchCreator';
 import {  SDKECommerceAPI } from './ecommerce.interfaces';
 import { IErrorLogMessage, IMParticleWebSDKInstance, IntegrationDelays } from './mp-instance';
 import Constants from './constants';
-import RoktManager from './roktManager';
+import RoktManager, { IRoktLauncherOptions } from './roktManager';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -300,6 +300,8 @@ export interface SDKInitConfig
 
     // https://go.mparticle.com/work/SQDSDKS-6460
     identityCallback?: IdentityCallback;
+
+    launcherOptions?: IRoktLauncherOptions;
 
     rq?: Function[] | any[];
 }
