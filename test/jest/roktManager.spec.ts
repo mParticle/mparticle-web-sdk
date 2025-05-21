@@ -892,7 +892,7 @@ describe('RoktManager', () => {
                 identify: jest.fn()
             };
 
-            roktManager['identity'] = mockIdentity as unknown as SDKIdentityApi;
+            roktManager['identityService'] = mockIdentity as unknown as SDKIdentityApi;
 
             const options: IRoktSelectPlacementsOptions = {
                 attributes: {
