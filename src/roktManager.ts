@@ -81,7 +81,7 @@ export default class RoktManager {
     private messageQueue: IRoktMessage[] = [];
     private sandbox: boolean | null = null;
     private placementAttributesMapping: Dictionary<string>[] = [];
-    private launcherOptions: IRoktLauncherOptions = {};
+    private launcherOptions?: IRoktLauncherOptions;
     /**
      * Initializes the RoktManager with configuration settings and user data.
      * 
