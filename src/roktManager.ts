@@ -82,9 +82,8 @@ export default class RoktManager {
     private sandbox: boolean | null = null;
     private placementAttributesMapping: Dictionary<string>[] = [];
     private identityService: SDKIdentityApi;
-    private launcherOptions: IRoktLauncherOptions = {};
+    private launcherOptions?: IRoktLauncherOptions;
     private logger: SDKLoggerApi;
-
     /**
      * Initializes the RoktManager with configuration settings and user data.
      * 
