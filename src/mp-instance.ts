@@ -1405,7 +1405,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         mpInstance._SessionManager.initialize();
         mpInstance._Events.logAST();
 
-                // Configure Rokt Manager with user and filtered user
+        // Configure Rokt Manager with user and filtered user
         const roktConfig: IKitConfigs = parseConfig(config, 'Rokt', 181);
         if (roktConfig) {
             const { userAttributeFilters } = roktConfig;

@@ -123,14 +123,13 @@ export default class RoktManager {
 
     /**
      * Selects placements based on the provided options.
-     * This method handles user identity updates and attribute mapping before selecting placements.
      * 
      * @param {IRoktSelectPlacementsOptions} options - The options for selecting placements, including attributes and optional identifier
      * @returns {Promise<IRoktSelection>} A promise that resolves to the selected placements
      * 
      * @example
      * // Correct usage with await
-     * await roktManager.selectPlacements({
+     * await window.mParticle.Rokt.selectPlacements({
      *   attributes: {
      *     email: 'user@example.com',
      *     customAttr: 'value'
@@ -160,11 +159,7 @@ export default class RoktManager {
             // Check if email exists and differs
             if (newEmail && (!currentEmail || currentEmail !== newEmail)) {
                 if (currentEmail && currentEmail !== newEmail) {
-                    this.logger.warning(
-                        'Email mismatch detected. Current email: ' + currentEmail + 
-                        ', New email: ' + newEmail + 
-                        '. Calling identify with new email, but please verify implementation.'
-                    );
+                    this.logger.warning(`Email mismatch detected. Current email, ${currentEmail} differs from email passed to selectPlacements call, ${newEmail}. Proceeding to call identify with ${newEmail}. Please verify your implementation.`);
                 }
 
                 // Call identify with the new user identities

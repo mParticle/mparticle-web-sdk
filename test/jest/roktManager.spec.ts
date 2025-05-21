@@ -860,7 +860,7 @@ describe('RoktManager', () => {
                 }
             }, expect.any(Function));
             expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(
-                'Email mismatch detected. Current email: old@example.com, New email: new@example.com. Calling identify with new email, but please verify implementation.'
+                'Email mismatch detected. Current email, old@example.com differs from email passed to selectPlacements call, new@example.com. Proceeding to call identify with new@example.com. Please verify your implementation.'
             );
         });
 
