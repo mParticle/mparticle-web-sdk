@@ -156,6 +156,7 @@ export default class RoktManager {
             const currentEmail = currentUserIdentities.email;
             const newEmail = mappedAttributes.email as string;
 
+            // https://go.mparticle.com/work/SQDSDKS-7338
             // Check if email exists and differs
             if (newEmail && (!currentEmail || currentEmail !== newEmail)) {
                 if (currentEmail && currentEmail !== newEmail) {
