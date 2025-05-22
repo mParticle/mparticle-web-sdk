@@ -3,6 +3,8 @@ import { UserAttributeFilters  } from "./forwarders.interfaces";
 import { IMParticleUser } from "./identity-user-interfaces";
 import KitFilterHelper from "./kitFilterHelper";
 import { Dictionary, parseSettingsString } from "./utils";
+import { SDKIdentityApi } from "./identity.interfaces";
+import { SDKLoggerApi } from "./sdkRuntimeModels";
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export interface IRoktPartnerAttributes {
@@ -42,7 +44,7 @@ export interface RoktKitFilterSettings {
     filteredUser?: IMParticleUser | null;
 }
 
-export interface IRoktKit  {
+export interface IRoktKit {
     filters: RoktKitFilterSettings;
     filteredUser: IMParticleUser | null;
     launcher: IRoktLauncher | null;
@@ -68,24 +70,31 @@ export interface IRoktManagerOptions {
 export default class RoktManager {
     public kit: IRoktKit = null;
     public filters: RoktKitFilterSettings = {};
-
     private currentUser: IMParticleUser | null = null;
-    private filteredUser: IMParticleUser | null = null;
     private messageQueue: IRoktMessage[] = [];
     private sandbox: boolean | null = null;
     private placementAttributesMapping: Dictionary<string>[] = [];
+    private identityService: SDKIdentityApi;
+    private logger: SDKLoggerApi;
 
     /**
      * Initializes the RoktManager with configuration settings and user data.
      * 
      * @param {IKitConfigs} roktConfig - Configuration object containing user attribute filters and settings
      * @param {IMParticleUser} filteredUser - User object with filtered attributes
-     * @param {IMParticleUser} currentUser - Current mParticle user object
+     * @param {SDKIdentityApi} identityService - The mParticle Identity instance
+     * @param {SDKLoggerApi} logger - The mParticle Logger instance
      * @param {IRoktManagerOptions} options - Options for the RoktManager
      * 
      * @throws Logs error to console if placementAttributesMapping parsing fails
      */
-    public init(roktConfig: IKitConfigs, filteredUser: IMParticleUser, currentUser: IMParticleUser, options?: IRoktManagerOptions): void {
+    public init(
+        roktConfig: IKitConfigs, 
+        filteredUser: IMParticleUser, 
+        identityService: SDKIdentityApi,
+        logger?: SDKLoggerApi,
+        options?: IRoktManagerOptions
+    ): void {
         const { userAttributeFilters, settings } = roktConfig || {};
         const { placementAttributesMapping } = settings || {};
 
@@ -95,7 +104,8 @@ export default class RoktManager {
             console.error('Error parsing placement attributes mapping from config', error);
         }
 
-        this.currentUser = currentUser;
+        this.identityService = identityService;
+        this.logger = logger;
 
         this.filters = {
             userAttributeFilters,
@@ -111,7 +121,22 @@ export default class RoktManager {
         this.processMessageQueue();
     }
 
-    public selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
+    /**
+     * Renders ads based on the options provided
+     * 
+     * @param {IRoktSelectPlacementsOptions} options - The options for selecting placements, including attributes and optional identifier
+     * @returns {Promise<IRoktSelection>} A promise that resolves to the selection
+     * 
+     * @example
+     * // Correct usage with await
+     * await window.mParticle.Rokt.selectPlacements({
+     *   attributes: {
+     *     email: 'user@example.com',
+     *     customAttr: 'value'
+     *   }
+     * });
+     */
+    public async selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
         if (!this.isReady()) {
             this.queueMessage({
                 methodName: 'selectPlacements',
@@ -125,12 +150,42 @@ export default class RoktManager {
             const sandboxValue = attributes?.sandbox ?? this.sandbox;
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
 
+            // Get current user identities
+            this.currentUser = this.identityService.getCurrentUser();
+            const currentUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
+            const currentEmail = currentUserIdentities.email;
+            const newEmail = mappedAttributes.email as string;
+
+            // https://go.mparticle.com/work/SQDSDKS-7338
+            // Check if email exists and differs
+            if (newEmail && (!currentEmail || currentEmail !== newEmail)) {
+                if (currentEmail && currentEmail !== newEmail) {
+                    this.logger.warning(`Email mismatch detected. Current email, ${currentEmail} differs from email passed to selectPlacements call, ${newEmail}. Proceeding to call identify with ${newEmail}. Please verify your implementation.`);
+                }
+
+                // Call identify with the new user identities
+                try {
+                    await new Promise<void>((resolve, reject) => {
+                        this.identityService.identify({
+                            userIdentities: {
+                                ...currentUserIdentities,
+                                email: newEmail
+                            }
+                        }, () => {
+                            resolve();
+                        });
+                    });
+                } catch (error) {
+                    this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error));
+                }
+            }
+
             this.setUserAttributes(mappedAttributes);
 
             const enrichedAttributes = {
                 ...mappedAttributes,
                 ...(sandboxValue !== null ? { sandbox: sandboxValue } : {}),
-              };
+            };
 
             const enrichedOptions = {
                 ...options,
