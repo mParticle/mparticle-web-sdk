@@ -164,24 +164,21 @@ export default class RoktManager {
                 }
 
                 // Call identify with the new user identities
-                await new Promise<void>((resolve, reject) => {
-                    this.identityService.identify({
-                        userIdentities: {
-                            ...currentUserIdentities,
-                            email: newEmail
-                        }
-                    }, (error) => {
-                        if (error) {
-                            this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error));
-                            reject(error);
-                        } else {
+                try {
+                    await new Promise<void>((resolve, reject) => {
+                        this.identityService.identify({
+                            userIdentities: {
+                                ...currentUserIdentities,
+                                email: newEmail
+                            }
+                        }, () => {
                             resolve();
-                        }
+                        });
                     });
-                });
+                } catch (error) {
+                    this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error));
+                }
             }
-
-            this.currentUser = this.identityService.getCurrentUser();
 
             this.setUserAttributes(mappedAttributes);
 

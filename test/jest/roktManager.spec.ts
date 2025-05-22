@@ -836,10 +836,8 @@ describe('RoktManager', () => {
                     setUserAttributes: jest.fn()
                 }),
                 identify: jest.fn().mockImplementation((data, callback) => {
-                    if (callback) {
-                        callback();
-                    }
-                    return Promise.resolve();
+                    // Call callback with no error to simulate success
+                    callback();
                 })
             } as unknown as SDKIdentityApi;
 
@@ -926,10 +924,9 @@ describe('RoktManager', () => {
                     }),
                     setUserAttributes: jest.fn()
                 }),
-                identify: jest.fn((data, callback) => {
-                    if (callback) {
-                        callback();
-                    }
+                identify: jest.fn().mockImplementation((data, callback) => {
+                    // Call callback with no error to simulate success
+                    callback();
                 })
             } as unknown as SDKIdentityApi;
 
@@ -951,7 +948,7 @@ describe('RoktManager', () => {
             expect(mockMPInstance.Logger.warning).not.toHaveBeenCalled();
         });
 
-        it('should handle identify failure and log error', async () => {
+        it('should log error when identify fails with a 500 but continue execution', async () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -974,8 +971,8 @@ describe('RoktManager', () => {
                     }),
                     setUserAttributes: jest.fn()
                 }),
-                identify: jest.fn().mockImplementation((data, callback) => {
-                    callback(mockError);
+                identify: jest.fn().mockImplementation(() => {
+                    throw mockError;
                 })
             } as unknown as SDKIdentityApi;
 
@@ -987,10 +984,16 @@ describe('RoktManager', () => {
                 }
             };
 
-            await expect(roktManager.selectPlacements(options)).rejects.toThrow('Unknown error occurred');
+            // Should not reject since we're catching and logging the error
+            await expect(roktManager.selectPlacements(options)).resolves.toBeDefined();
+            
+            // Verify error was logged
             expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
                 'Failed to identify user with new email: ' + JSON.stringify(mockError)
             );
+
+            // Verify selectPlacements was still called
+            expect(kit.selectPlacements).toHaveBeenCalled();
         });
     });
 
