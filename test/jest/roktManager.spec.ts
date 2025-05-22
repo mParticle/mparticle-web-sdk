@@ -836,7 +836,6 @@ describe('RoktManager', () => {
                     setUserAttributes: jest.fn()
                 }),
                 identify: jest.fn().mockImplementation((data, callback) => {
-                    console.log('mock identity callback');
                     if (callback) {
                         callback();
                     }
@@ -887,7 +886,8 @@ describe('RoktManager', () => {
                         userIdentities: {
                             email: 'same@example.com'
                         }
-                    })
+                    }),
+                    setUserAttributes: jest.fn()
                 }),
                 identify: jest.fn()
             };
@@ -923,7 +923,8 @@ describe('RoktManager', () => {
                 getCurrentUser: jest.fn().mockReturnValue({
                     getUserIdentities: () => ({
                         userIdentities: {}
-                    })
+                    }),
+                    setUserAttributes: jest.fn()
                 }),
                 identify: jest.fn((data, callback) => {
                     if (callback) {
@@ -948,6 +949,48 @@ describe('RoktManager', () => {
                 }
             }, expect.any(Function));
             expect(mockMPInstance.Logger.warning).not.toHaveBeenCalled();
+        });
+
+        it('should handle identify failure and log error', async () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn()
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+
+            const mockError = { error: 'Identity service error', code: 500 };
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getUserIdentities: () => ({
+                        userIdentities: {
+                            email: 'old@example.com'
+                        }
+                    }),
+                    setUserAttributes: jest.fn()
+                }),
+                identify: jest.fn().mockImplementation((data, callback) => {
+                    callback(mockError);
+                })
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    email: 'new@example.com'
+                }
+            };
+
+            await expect(roktManager.selectPlacements(options)).rejects.toThrow('Unknown error occurred');
+            expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
+                'Failed to identify user with new email: ' + JSON.stringify(mockError)
+            );
         });
     });
 

@@ -1417,6 +1417,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             const roktOptions: IRoktManagerOptions = {
                 sandbox: config.isDevelopmentMode,
             };
+
+            // https://go.mparticle.com/work/SQDSDKS-7339
             mpInstance._RoktManager.init(
                 roktConfig,
                 roktFilteredUser,

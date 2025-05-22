@@ -122,10 +122,10 @@ export default class RoktManager {
     }
 
     /**
-     * Selects placements based on the provided options.
+     * Renders ads based on the options provided
      * 
      * @param {IRoktSelectPlacementsOptions} options - The options for selecting placements, including attributes and optional identifier
-     * @returns {Promise<IRoktSelection>} A promise that resolves to the selected placements
+     * @returns {Promise<IRoktSelection>} A promise that resolves to the selection
      * 
      * @example
      * // Correct usage with await
@@ -164,17 +164,24 @@ export default class RoktManager {
                 }
 
                 // Call identify with the new user identities
-                await new Promise<void>((resolve) => {
+                await new Promise<void>((resolve, reject) => {
                     this.identityService.identify({
                         userIdentities: {
                             ...currentUserIdentities,
                             email: newEmail
                         }
-                    }, () => {
-                        resolve();
+                    }, (error) => {
+                        if (error) {
+                            this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error));
+                            reject(error);
+                        } else {
+                            resolve();
+                        }
                     });
                 });
             }
+
+            this.currentUser = this.identityService.getCurrentUser();
 
             this.setUserAttributes(mappedAttributes);
 
