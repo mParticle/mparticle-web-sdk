@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.39.1";
+    var version = "2.40.0";
 
     var Constants = {
       sdkVersion: version,
@@ -9664,7 +9664,6 @@ var mParticle = (function () {
         this.kit = null;
         this.filters = {};
         this.currentUser = null;
-        this.filteredUser = null;
         this.messageQueue = [];
         this.sandbox = null;
         this.placementAttributesMapping = [];
@@ -9674,12 +9673,13 @@ var mParticle = (function () {
        *
        * @param {IKitConfigs} roktConfig - Configuration object containing user attribute filters and settings
        * @param {IMParticleUser} filteredUser - User object with filtered attributes
-       * @param {IMParticleUser} currentUser - Current mParticle user object
+       * @param {SDKIdentityApi} identityService - The mParticle Identity instance
+       * @param {SDKLoggerApi} logger - The mParticle Logger instance
        * @param {IRoktManagerOptions} options - Options for the RoktManager
        *
        * @throws Logs error to console if placementAttributesMapping parsing fails
        */
-      RoktManager.prototype.init = function (roktConfig, filteredUser, currentUser, options) {
+      RoktManager.prototype.init = function (roktConfig, filteredUser, identityService, logger, options) {
         var _a = roktConfig || {},
           userAttributeFilters = _a.userAttributeFilters,
           settings = _a.settings;
@@ -9689,7 +9689,8 @@ var mParticle = (function () {
         } catch (error) {
           console.error('Error parsing placement attributes mapping from config', error);
         }
-        this.currentUser = currentUser;
+        this.identityService = identityService;
+        this.logger = logger;
         this.filters = {
           userAttributeFilters: userAttributeFilters,
           filterUserAttributes: KitFilterHelper.filterUserAttributes,
@@ -9701,31 +9702,89 @@ var mParticle = (function () {
         this.kit = kit;
         this.processMessageQueue();
       };
+      /**
+       * Renders ads based on the options provided
+       *
+       * @param {IRoktSelectPlacementsOptions} options - The options for selecting placements, including attributes and optional identifier
+       * @returns {Promise<IRoktSelection>} A promise that resolves to the selection
+       *
+       * @example
+       * // Correct usage with await
+       * await window.mParticle.Rokt.selectPlacements({
+       *   attributes: {
+       *     email: 'user@example.com',
+       *     customAttr: 'value'
+       *   }
+       * });
+       */
       RoktManager.prototype.selectPlacements = function (options) {
-        var _a;
-        if (!this.isReady()) {
-          this.queueMessage({
-            methodName: 'selectPlacements',
-            payload: options
+        var _a, _b, _c;
+        return __awaiter(this, void 0, void 0, function () {
+          var attributes, sandboxValue, mappedAttributes, currentUserIdentities_1, currentEmail, newEmail_1, error_1, enrichedAttributes, enrichedOptions, error_2;
+          var _this = this;
+          return __generator(this, function (_d) {
+            switch (_d.label) {
+              case 0:
+                if (!this.isReady()) {
+                  this.queueMessage({
+                    methodName: 'selectPlacements',
+                    payload: options
+                  });
+                  return [2 /*return*/, Promise.resolve({})];
+                }
+                _d.label = 1;
+              case 1:
+                _d.trys.push([1, 6,, 7]);
+                attributes = options.attributes;
+                sandboxValue = (_a = attributes === null || attributes === void 0 ? void 0 : attributes.sandbox) !== null && _a !== void 0 ? _a : this.sandbox;
+                mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
+                // Get current user identities
+                this.currentUser = this.identityService.getCurrentUser();
+                currentUserIdentities_1 = ((_c = (_b = this.currentUser) === null || _b === void 0 ? void 0 : _b.getUserIdentities()) === null || _c === void 0 ? void 0 : _c.userIdentities) || {};
+                currentEmail = currentUserIdentities_1.email;
+                newEmail_1 = mappedAttributes.email;
+                if (!(newEmail_1 && (!currentEmail || currentEmail !== newEmail_1))) return [3 /*break*/, 5];
+                if (currentEmail && currentEmail !== newEmail_1) {
+                  this.logger.warning("Email mismatch detected. Current email, ".concat(currentEmail, " differs from email passed to selectPlacements call, ").concat(newEmail_1, ". Proceeding to call identify with ").concat(newEmail_1, ". Please verify your implementation."));
+                }
+                _d.label = 2;
+              case 2:
+                _d.trys.push([2, 4,, 5]);
+                return [4 /*yield*/, new Promise(function (resolve, reject) {
+                  _this.identityService.identify({
+                    userIdentities: __assign(__assign({}, currentUserIdentities_1), {
+                      email: newEmail_1
+                    })
+                  }, function () {
+                    resolve();
+                  });
+                })];
+              case 3:
+                _d.sent();
+                return [3 /*break*/, 5];
+              case 4:
+                error_1 = _d.sent();
+                this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error_1));
+                return [3 /*break*/, 5];
+              case 5:
+                this.setUserAttributes(mappedAttributes);
+                enrichedAttributes = __assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
+                  sandbox: sandboxValue
+                } : {});
+                enrichedOptions = __assign(__assign({}, options), {
+                  attributes: enrichedAttributes
+                });
+                return [2 /*return*/, this.kit.selectPlacements(enrichedOptions)];
+              case 6:
+                error_2 = _d.sent();
+                return [2 /*return*/, Promise.reject(error_2 instanceof Error ? error_2 : new Error('Unknown error occurred'))];
+              case 7:
+                return [2 /*return*/];
+            }
           });
-          return Promise.resolve({});
-        }
-        try {
-          var attributes = options.attributes;
-          var sandboxValue = (_a = attributes === null || attributes === void 0 ? void 0 : attributes.sandbox) !== null && _a !== void 0 ? _a : this.sandbox;
-          var mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
-          this.setUserAttributes(mappedAttributes);
-          var enrichedAttributes = __assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
-            sandbox: sandboxValue
-          } : {});
-          var enrichedOptions = __assign(__assign({}, options), {
-            attributes: enrichedAttributes
-          });
-          return this.kit.selectPlacements(enrichedOptions);
-        } catch (error) {
-          return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
-        }
+        });
       };
+
       RoktManager.prototype.hashAttributes = function (attributes) {
         if (!this.isReady()) {
           this.queueMessage({
@@ -10787,6 +10846,12 @@ var mParticle = (function () {
         if (mpInstance._Helpers.getFeatureFlag(CaptureIntegrationSpecificIds)) {
           mpInstance._IntegrationCapture.capture();
         }
+        mpInstance._Forwarders.processForwarders(config, mpInstance._APIClient.prepareForwardingStats);
+        mpInstance._Forwarders.processPixelConfigs(config);
+        // Checks if session is created, resumed, or needs to be ended
+        // Logs a session start or session end event accordingly
+        mpInstance._SessionManager.initialize();
+        mpInstance._Events.logAST();
         // Configure Rokt Manager with user and filtered user
         var roktConfig = parseConfig(config, 'Rokt', 181);
         if (roktConfig) {
@@ -10797,14 +10862,9 @@ var mParticle = (function () {
           var roktOptions = {
             sandbox: config.isDevelopmentMode
           };
-          mpInstance._RoktManager.init(roktConfig, roktFilteredUser, currentUser, roktOptions);
+          // https://go.mparticle.com/work/SQDSDKS-7339
+          mpInstance._RoktManager.init(roktConfig, roktFilteredUser, mpInstance.Identity, mpInstance.Logger, roktOptions);
         }
-        mpInstance._Forwarders.processForwarders(config, mpInstance._APIClient.prepareForwardingStats);
-        mpInstance._Forwarders.processPixelConfigs(config);
-        // Checks if session is created, resumed, or needs to be ended
-        // Logs a session start or session end event accordingly
-        mpInstance._SessionManager.initialize();
-        mpInstance._Events.logAST();
         processIdentityCallback(mpInstance, currentUser, currentUserMPID, currentUserIdentities);
       }
       // We will continue to clear out the ready queue as part of the initial init flow
