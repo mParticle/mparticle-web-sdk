@@ -1,3 +1,10 @@
+# [2.40.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.39.1...v2.40.0) (2025-05-27)
+
+
+### Features
+
+* Fire identify in RoktManager if user email is different from selectPlacements email ([#1032](https://github.com/mParticle/mparticle-web-sdk/issues/1032)) ([1e3c824](https://github.com/mParticle/mparticle-web-sdk/commit/1e3c824fdb5b8230841f1a9a75c3cd1dd9f7d092))
+
 ## [2.39.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.39.0...v2.39.1) (2025-05-19)
 
 
