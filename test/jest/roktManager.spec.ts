@@ -279,7 +279,8 @@ describe('RoktManager', () => {
             roktManager.init(
                 {} as IKitConfigs,
                 undefined,
-                currentUser,
+                mockMPInstance.Identity,
+                mockMPInstance.Logger,
                 {
                     managerOptions: { sandbox: true },
                     launcherOptions
@@ -293,7 +294,8 @@ describe('RoktManager', () => {
             roktManager.init(
                 {} as IKitConfigs,
                 undefined,
-                currentUser,
+                mockMPInstance.Identity,
+                mockMPInstance.Logger,
                 {
                     managerOptions: { sandbox: true }
                 }
