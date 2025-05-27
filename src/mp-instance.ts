@@ -1394,17 +1394,6 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance._IntegrationCapture.capture();
         }
 
-        mpInstance._Forwarders.processForwarders(
-            config,
-            mpInstance._APIClient.prepareForwardingStats
-        );
-        mpInstance._Forwarders.processPixelConfigs(config);
-
-        // Checks if session is created, resumed, or needs to be ended
-        // Logs a session start or session end event accordingly
-        mpInstance._SessionManager.initialize();
-        mpInstance._Events.logAST();
-
         // Configure Rokt Manager with user and filtered user
         const roktConfig: IKitConfigs = parseConfig(config, 'Rokt', 181);
         if (roktConfig) {
@@ -1427,6 +1416,17 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
                 roktOptions
             );
         }
+
+        mpInstance._Forwarders.processForwarders(
+            config,
+            mpInstance._APIClient.prepareForwardingStats
+        );
+        mpInstance._Forwarders.processPixelConfigs(config);
+
+        // Checks if session is created, resumed, or needs to be ended
+        // Logs a session start or session end event accordingly
+        mpInstance._SessionManager.initialize();
+        mpInstance._Events.logAST();
 
         processIdentityCallback(
             mpInstance,
