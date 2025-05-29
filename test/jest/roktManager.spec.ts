@@ -1,4 +1,3 @@
-import { setDefaultResultOrder } from "dns";
 import { IKitConfigs } from "../../src/configAPIClient";
 import { IMParticleUser } from "../../src/identity-user-interfaces";
 import { SDKIdentityApi } from "../../src/identity.interfaces";
@@ -290,7 +289,7 @@ describe('RoktManager', () => {
             expect(roktManager['launcherOptions']).toEqual(launcherOptions);
         });
 
-        it('should initialize the manager with empty launcher options when not provided', () => {
+        it('should initialize the manager with launcher options as undefined when not provided', () => {
             roktManager.init(
                 {} as IKitConfigs,
                 undefined,
