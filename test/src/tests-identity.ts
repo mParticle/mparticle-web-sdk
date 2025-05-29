@@ -2,7 +2,7 @@ import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import { expect } from 'chai';
 import Utils from './config/utils';
-import Constants, { HTTP_ACCEPTED } from '../../src/constants';
+import Constants, { HTTP_ACCEPTED, HTTP_BAD_REQUEST } from '../../src/constants';
 import {
     urls,
     apiKey,
@@ -27,6 +27,8 @@ import {
     IdentityResultBody,
 } from '../../src/identity-user-interfaces';
 import { IMParticleInstanceManager, SDKProduct } from '../../src/sdkRuntimeModels';
+import { IRoktKit } from '../../src/roktManager';
+import { IKitConfigs } from '../../src/configAPIClient';
 
 const {
     setLocalStorage,
@@ -88,9 +90,10 @@ const fetchMockSuccess = (url: string, body: any = {}, headers: any = {}) => {
     );
 };
 
-describe('identity', function() {
+describe.only('identity', function() {
     let clock;
     let hasIdentifyReturned;
+    let hasIdentifyReturnedWithEmail;
     let hasLoginReturned;
     let hasLogOutReturned;
     let beforeEachCallbackCalled = false;
@@ -121,6 +124,10 @@ describe('identity', function() {
 
         hasIdentifyReturned = (mpid = testMPID) => {
             return mParticle.Identity.getCurrentUser()?.getMPID() === mpid;
+        };
+
+        hasIdentifyReturnedWithEmail = (email = 'test@email.com') => {
+            return mParticle.Identity.getCurrentUser()?.getUserIdentities()?.userIdentities?.email === email;
         };
 
         hasLoginReturned = () => {
@@ -4353,6 +4360,151 @@ describe('identity', function() {
             );
             expect(secondIdCache).to.not.be.ok;
         });
+    });
+
+    describe('Rokt Manager', function() {
+        let roktConfig: IKitConfigs;
+        let roktKit: IRoktKit;
+        const testRoktEmail = 'test@rokt.com';
+        const testRoktMPID = 'rokt-user';
+
+        beforeEach(function() {
+            mParticle._resetForTests(MPConfig);
+            fetchMock.resetHistory();
+
+            roktConfig = {
+                name: 'Rokt',
+                moduleId: 181,
+            } as IKitConfigs;
+
+            roktKit = {
+                filters: {
+                    userAttributeFilters: [],
+                    filterUserAttributes: () => ({}),
+                    filteredUser: null,
+                },
+                launcher: () => {},
+            } as unknown as IRoktKit;
+        });
+
+        it('should set currentUser once the email is positively identified', async () => {
+            fetchMockSuccess(urls.identify, {
+                mpid: testRoktMPID,
+                is_logged_in: false,
+                matched_identities: {
+                    email: testRoktEmail,
+                },
+            });
+
+            mParticle.init(apiKey, { ...window.mParticle.config, kitConfigs: [roktConfig] });
+
+            await waitForCondition(() => hasIdentifyReturned(testRoktMPID));
+
+            const mpInstance = mParticle.getInstance();
+
+            mpInstance._RoktManager.attachKit(roktKit);
+            
+            mParticle.Identity.identify({
+                userIdentities: {
+                    email: testRoktEmail,
+                },
+            });
+
+            await waitForCondition(() => hasIdentifyReturnedWithEmail(testRoktEmail));
+
+            expect(mpInstance._RoktManager['currentUser']).to.not.be.null;
+            expect(mpInstance._RoktManager['currentUser'].getUserIdentities().userIdentities.email).to.equal(testRoktEmail);
+        });
+
+        it('should not set currentUser if the initial identify call is not successful', async () => {
+            fetchMock.post(urls.identify, {
+                status: HTTP_BAD_REQUEST,
+                body: {
+                    Errors: [
+                        {
+                            message: 'knownIdentities is empty.',
+                            code: 'LOOKUP_ERROR'
+                        },
+                    ],
+                    ErrorCode: 'LOOKUP_ERROR',
+                    StatusCode: HTTP_BAD_REQUEST,
+                    RequestId: '123',
+                },
+            }, {
+                overwriteRoutes: true,
+            });
+
+            mParticle.init(apiKey, { ...window.mParticle.config, kitConfigs: [roktConfig] });
+
+            await waitForCondition(hasIdentityCallInflightReturned);
+
+            const mpInstance = mParticle.getInstance();
+
+            mpInstance._RoktManager.attachKit(roktKit);
+
+            await waitForCondition(hasIdentityCallInflightReturned);
+
+            expect(mpInstance._RoktManager['currentUser']).be.null;
+        })
+
+        it('should not set currentUser if the email is not positively identified', async () => {
+            fetchMockSuccess(urls.logout, {
+                context: null,
+                matched_identities: {
+                    device_application_stamp: 'my-das',
+                },
+                is_ephemeral: true,
+                mpid: testMPID,
+                is_logged_in: false,
+            });
+
+            mParticle.init(apiKey, { ...window.mParticle.config, kitConfigs: [roktConfig] });
+
+            await waitForCondition(() => {
+                console.log('hasIdentifyReturned', mParticle.Identity.getCurrentUser()?.getMPID());
+                return hasIdentifyReturned('testMPID');
+            });
+
+            fetchMock.post(urls.identify, {
+                status: HTTP_BAD_REQUEST,
+                body: {
+                    Errors: [
+                        {
+                            message: 'knownIdentities is empty.',
+                            code: 'LOOKUP_ERROR'
+                        },
+                    ],
+                    ErrorCode: 'LOOKUP_ERROR',
+                    StatusCode: HTTP_BAD_REQUEST,
+                    RequestId: '123',
+                },
+            }, {
+                overwriteRoutes: true,
+            });
+
+            const mpInstance = mParticle.getInstance();
+
+            mpInstance._RoktManager.attachKit(roktKit);
+
+            mParticle.Identity.identify({
+                userIdentities: {
+                    email: testRoktEmail,
+                },
+            });
+
+            // await waitForCondition(() => {
+            //     console.log('hasIdentifyReturned 2', mParticle.Identity.getCurrentUser()?.getMPID());
+            //     return hasIdentifyReturned(testEmail);
+            // });
+
+            await waitForCondition(hasIdentityCallInflightReturned);
+
+
+            // Current user will be the initial anonymous user from the initial identify call via mParticle.init
+            // but should not have an email
+            expect(mpInstance._RoktManager['currentUser']).to.not.be.null;
+            expect(mpInstance._RoktManager['currentUser'].getUserIdentities().userIdentities.email).to.equal(undefined);
+        })
     });
 
     describe('Deprecate Cart', function() {
