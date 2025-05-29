@@ -4494,7 +4494,6 @@ describe('identity', function() {
 
             await waitForCondition(hasIdentityCallInflightReturned);
 
-
             // Current user will be the initial anonymous user from the initial identify call via mParticle.init
             // but should not have an email
             expect(mpInstance._RoktManager['currentUser']).to.not.be.null;
