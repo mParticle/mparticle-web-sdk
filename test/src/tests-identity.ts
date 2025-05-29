@@ -4492,11 +4492,6 @@ describe('identity', function() {
                 },
             });
 
-            // await waitForCondition(() => {
-            //     console.log('hasIdentifyReturned 2', mParticle.Identity.getCurrentUser()?.getMPID());
-            //     return hasIdentifyReturned(testEmail);
-            // });
-
             await waitForCondition(hasIdentityCallInflightReturned);
 
 
