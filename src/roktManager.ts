@@ -121,8 +121,9 @@ export default class RoktManager {
         };
 
         // This is the global setting for sandbox mode
-        // It is set here and passed in to the selectPlacements method
-        // but can be overridden if sandbox is manually set on the placement attributes by the partner
+        // It is set here and passed in to the createLauncher method in the Rokt Kit
+        // This is not to be confused for the `sandbox` flag in the selectPlacements attributes
+        // as that is independent of this setting, though they share the same name.
         this.sandbox = options?.managerOptions?.sandbox;
 
         // Launcher options are set here for the kit to pick up and pass through
