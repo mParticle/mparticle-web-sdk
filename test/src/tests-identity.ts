@@ -4448,7 +4448,7 @@ describe('identity', function() {
         })
 
         it('should not set currentUser if the email is not positively identified', async () => {
-            fetchMockSuccess(urls.logout, {
+            fetchMockSuccess(urls.identify, {
                 context: null,
                 matched_identities: {
                     device_application_stamp: 'my-das',
@@ -4460,10 +4460,7 @@ describe('identity', function() {
 
             mParticle.init(apiKey, { ...window.mParticle.config, kitConfigs: [roktConfig] });
 
-            await waitForCondition(() => {
-                console.log('hasIdentifyReturned', mParticle.Identity.getCurrentUser()?.getMPID());
-                return hasIdentifyReturned('testMPID');
-            });
+            await waitForCondition(() => hasIdentifyReturned('testMPID'));
 
             fetchMock.post(urls.identify, {
                 status: HTTP_BAD_REQUEST,
