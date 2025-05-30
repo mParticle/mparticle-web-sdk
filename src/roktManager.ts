@@ -162,7 +162,7 @@ export default class RoktManager {
 
         try {
             const { attributes } = options;
-            const sandboxValue = attributes?.sandbox ?? this.sandbox;
+            const sandboxValue = attributes?.sandbox || null;
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
 
             // Get current user identities
