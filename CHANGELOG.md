@@ -1,3 +1,15 @@
+# [2.41.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.40.0...v2.41.0) (2025-06-02)
+
+
+### Bug Fixes
+
+* Initialize Rokt before processing forwarders ([#1034](https://github.com/mParticle/mparticle-web-sdk/issues/1034)) ([cf09cd0](https://github.com/mParticle/mparticle-web-sdk/commit/cf09cd06dba53491431205dd35cf860d592e40d2))
+
+
+### Features
+
+* Expose Rokt launcher config options ([#1033](https://github.com/mParticle/mparticle-web-sdk/issues/1033)) ([c2d25af](https://github.com/mParticle/mparticle-web-sdk/commit/c2d25af45115109ea1e6e9474ffdfa007c8b3e50))
+
 # [2.40.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.39.1...v2.40.0) (2025-05-27)
 
 
