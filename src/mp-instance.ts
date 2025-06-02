@@ -49,7 +49,7 @@ import { IECommerce } from './ecommerce.interfaces';
 import { INativeSdkHelpers } from './nativeSdkHelpers.interfaces';
 import { IPersistence } from './persistence.interfaces';
 import ForegroundTimer from './foregroundTimeTracker';
-import RoktManager, { IRoktManagerOptions, IRoktOptions } from './roktManager';
+import RoktManager, { IRoktOptions } from './roktManager';
 import filteredMparticleUser from './filteredMparticleUser';
 
 export interface IErrorLogMessage {
@@ -1404,9 +1404,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
                 mpInstance
             );
             const roktOptions: IRoktOptions = {
-                managerOptions: {
-                    sandbox: config.isDevelopmentMode,
-                },
+                sandbox: config?.isDevelopmentMode,
                 launcherOptions: config?.launcherOptions,
             };
             // https://go.mparticle.com/work/SQDSDKS-7339
