@@ -1677,6 +1677,10 @@ export default function Identity(mpInstance) {
         }
         mpInstance._Store.isInitialized = true;
 
+        if (mpInstance._RoktManager.isReady()) {
+            mpInstance._RoktManager.currentUser = mpInstance.Identity.getCurrentUser();
+        }
+
         mpInstance._preInit.readyQueue = processReadyQueue(
             mpInstance._preInit.readyQueue
         );

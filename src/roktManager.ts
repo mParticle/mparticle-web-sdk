@@ -52,11 +52,18 @@ export interface IRoktKit {
     hashAttributes: (attributes: IRoktPartnerAttributes) => Promise<Record<string, string>>;
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
     setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void;
+    launcherOptions?: Dictionary<any>;
 }
 
-export interface IRoktManagerOptions {
-    sandbox?: boolean;
+export interface IRoktOptions {
+    managerOptions?: IRoktManagerOptions;
+    launcherOptions?: IRoktLauncherOptions;
 }
+
+export type IRoktLauncherOptions = Dictionary<any>;
+export type IRoktManagerOptions = {
+    sandbox?: boolean;
+};
 
 // The purpose of this class is to create a link between the Core mParticle SDK and the
 // Rokt Web SDK via a Web Kit.
@@ -75,8 +82,8 @@ export default class RoktManager {
     private sandbox: boolean | null = null;
     private placementAttributesMapping: Dictionary<string>[] = [];
     private identityService: SDKIdentityApi;
+    private launcherOptions?: IRoktLauncherOptions;
     private logger: SDKLoggerApi;
-
     /**
      * Initializes the RoktManager with configuration settings and user data.
      * 
@@ -84,7 +91,7 @@ export default class RoktManager {
      * @param {IMParticleUser} filteredUser - User object with filtered attributes
      * @param {SDKIdentityApi} identityService - The mParticle Identity instance
      * @param {SDKLoggerApi} logger - The mParticle Logger instance
-     * @param {IRoktManagerOptions} options - Options for the RoktManager
+     * @param {IRoktOptions} options - Options for the RoktManager
      * 
      * @throws Logs error to console if placementAttributesMapping parsing fails
      */
@@ -93,7 +100,7 @@ export default class RoktManager {
         filteredUser: IMParticleUser, 
         identityService: SDKIdentityApi,
         logger?: SDKLoggerApi,
-        options?: IRoktManagerOptions
+        options?: IRoktOptions
     ): void {
         const { userAttributeFilters, settings } = roktConfig || {};
         const { placementAttributesMapping } = settings || {};
@@ -113,7 +120,15 @@ export default class RoktManager {
             filteredUser: filteredUser,
         };
 
-        this.sandbox = options?.sandbox;
+        // This is the global setting for sandbox mode
+        // It is set here and passed in to the createLauncher method in the Rokt Kit
+        // This is not to be confused for the `sandbox` flag in the selectPlacements attributes
+        // as that is independent of this setting, though they share the same name.
+        this.sandbox = options?.managerOptions?.sandbox;
+
+        // Launcher options are set here for the kit to pick up and pass through
+        // to the Rokt Launcher.
+        this.launcherOptions = options?.launcherOptions;
     }
 
     public attachKit(kit: IRoktKit): void {
@@ -147,7 +162,7 @@ export default class RoktManager {
 
         try {
             const { attributes } = options;
-            const sandboxValue = attributes?.sandbox ?? this.sandbox;
+            const sandboxValue = attributes?.sandbox || null;
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
 
             // Get current user identities

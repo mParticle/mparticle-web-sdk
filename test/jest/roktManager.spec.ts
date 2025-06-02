@@ -1,4 +1,3 @@
-import { setDefaultResultOrder } from "dns";
 import { IKitConfigs } from "../../src/configAPIClient";
 import { IMParticleUser } from "../../src/identity-user-interfaces";
 import { SDKIdentityApi } from "../../src/identity.interfaces";
@@ -224,7 +223,9 @@ describe('RoktManager', () => {
                 undefined,
                 mockMPInstance.Identity,
                 undefined,
-                { sandbox: true }
+                {
+                    managerOptions: { sandbox: true },
+                }
             );
             expect(roktManager['sandbox']).toBe(true);
         });
@@ -265,6 +266,41 @@ describe('RoktManager', () => {
                     value: 'lastname',
                 }
             ]);
+        });
+
+        it('should initialize the manager with launcher options from options', () => {
+            const launcherOptions = {
+                integrationName: 'customName',
+                noFunctional: true,
+                noTargeting: true
+            };
+
+            roktManager.init(
+                {} as IKitConfigs,
+                undefined,
+                mockMPInstance.Identity,
+                mockMPInstance.Logger,
+                {
+                    managerOptions: { sandbox: true },
+                    launcherOptions
+                }
+            );
+
+            expect(roktManager['launcherOptions']).toEqual(launcherOptions);
+        });
+
+        it('should initialize the manager with launcher options as undefined when not provided', () => {
+            roktManager.init(
+                {} as IKitConfigs,
+                undefined,
+                mockMPInstance.Identity,
+                mockMPInstance.Logger,
+                {
+                    managerOptions: { sandbox: true }
+                }
+            );
+
+            expect(roktManager['launcherOptions']).toEqual(undefined);
         });
     });
 
@@ -422,7 +458,7 @@ describe('RoktManager', () => {
             expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
-        it('should pass through the correct attributes to kit.launcher.selectPlacements', () => {
+        it('should pass through the correct attributes to kit.selectPlacements', () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -461,7 +497,7 @@ describe('RoktManager', () => {
             expect(kit.launcher.selectPlacements).toHaveBeenCalledWith(options);
         });
 
-        it('should set sandbox to true in placement attributes when initialized as true', () => {
+        it('should pass sandbox flag as an attribute through to kit.selectPlacements', ()=> {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -469,69 +505,27 @@ describe('RoktManager', () => {
                 },
                 filters: undefined,
                 filteredUser: undefined,
-                userAttributes: undefined,
                 selectPlacements: jest.fn(),
-                hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
+                hashAttributes: jest.fn(),
+                userAttributes: undefined,
             };
 
             roktManager.attachKit(kit);
-            roktManager['sandbox'] = true;
 
             const options: IRoktSelectPlacementsOptions = {
                 attributes: {
-                    customAttr: 'value'
-                }
-            };
-
-            roktManager.selectPlacements(options);
-
-            const expectedOptions = {
-                attributes: {
                     customAttr: 'value',
-                    'sandbox': true
-                }
-            };
-
-            expect(kit.selectPlacements).toHaveBeenCalledWith(expectedOptions);
-        });
-
-        it('should set sandbox to false in placement attributes when initialized as false', () => {
-            const kit: IRoktKit = {
-                launcher: {
-                    selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    sandbox: true
                 },
-                filters: undefined,
-                filteredUser: undefined,
-                userAttributes: undefined,
-                selectPlacements: jest.fn(),
-                hashAttributes: jest.fn(),
-                setExtensionData: jest.fn(),
-            };
-
-            roktManager.attachKit(kit);
-            roktManager['sandbox'] = false;
-
-            const options: IRoktSelectPlacementsOptions = {
-                attributes: {
-                    customAttr: 'value'
-                }
+                identifier: 'test-identifier'
             };
 
             roktManager.selectPlacements(options);
-
-            const expectedOptions = {
-                attributes: {
-                    customAttr: 'value',
-                    'sandbox': false
-                }
-            };
-
-            expect(kit.selectPlacements).toHaveBeenCalledWith(expectedOptions);
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options); 
         });
 
-        it('should override sandbox to false in placement attributes when initialized as true', () => {
+        it('should NOT override global sandbox in placement attributes when initialized as true', () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -557,81 +551,11 @@ describe('RoktManager', () => {
 
             roktManager.selectPlacements(options);
 
-            const expectedOptions = {
-                attributes: {
-                    customAttr: 'value',
-                    sandbox: false
-                }
-            };
-
-            expect(kit.selectPlacements).toHaveBeenCalledWith(expectedOptions);
-        });
-    
-        it('should preserve other option properties when adding sandbox', () => {
-            const kit: IRoktKit = {
-                launcher: {
-                    selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
-                },
-                filters: undefined,
-                filteredUser: undefined,
-                hashAttributes: jest.fn(),
-                selectPlacements: jest.fn(),
-                setExtensionData: jest.fn(),
-                userAttributes: undefined,
-            };
-
-            roktManager.attachKit(kit);
-            roktManager['sandbox'] = true;
-
-            const options: IRoktSelectPlacementsOptions = {
-                attributes: {
-                    customAttr: 'value'
-                },
-                identifier: 'test-identifier'
-            };
-
-            roktManager.selectPlacements(options);
-
-            const expectedOptions = {
-                attributes: {
-                    customAttr: 'value',
-                    'sandbox': true
-                },
-                identifier: 'test-identifier'
-            };
-
-            expect(kit.selectPlacements).toHaveBeenCalledWith(expectedOptions);
-        });
-
-        it('should not add sandbox when sandbox is null', () => {
-            const kit: IRoktKit = {
-                launcher: {
-                    selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
-                },
-                filters: undefined,
-                filteredUser: undefined,
-                hashAttributes: jest.fn(),
-                selectPlacements: jest.fn(),
-                setExtensionData: jest.fn(),
-                userAttributes: undefined,
-            };
-
-            roktManager.attachKit(kit);
-            // Not initializing sandbox, so it remains null 
-
-            const options: IRoktSelectPlacementsOptions = {
-                attributes: {
-                    customAttr: 'value'
-                }
-            };
-
-            roktManager.selectPlacements(options);
+            expect(roktManager['sandbox']).toBeTruthy();
             expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
-        it('should set sandbox in placement attributes when not initialized', () => {
+        it('should set sandbox in placement attributes when not initialized globally', () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
