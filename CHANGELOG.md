@@ -1,3 +1,10 @@
+## [2.41.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.41.0...v2.41.1) (2025-06-03)
+
+
+### Bug Fixes
+
+* Revise sandbox setting ([#1036](https://github.com/mParticle/mparticle-web-sdk/issues/1036)) ([e768139](https://github.com/mParticle/mparticle-web-sdk/commit/e768139092f9c8d85482477519ae0ff5dcddb16b))
+
 # [2.41.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.40.0...v2.41.0) (2025-06-02)
 
 
