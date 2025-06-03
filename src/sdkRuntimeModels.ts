@@ -294,6 +294,7 @@ export interface SDKInitConfig
     v1SecureServiceUrl?: string;
     v2SecureServiceUrl?: string;
     v3SecureServiceUrl?: string;
+    domain?: string;
 
     workspaceToken?: string;
     isDevelopmentMode?: boolean;

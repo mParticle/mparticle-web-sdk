@@ -764,9 +764,17 @@ export function processBaseUrls(
 
 function processCustomBaseUrls(config: SDKInitConfig): Dictionary<string> {
     const defaultBaseUrls: Dictionary<string> = Constants.DefaultBaseUrls;
+    const CNAMEUrlPaths: Dictionary<string> = Constants.CNAMEUrlPaths;
     const newBaseUrls: Dictionary<string> = {};
+    // If config.domain exists, the customer is using a CNAME, and we append the url paths to the domain
+    if (!isEmpty(config.domain)) {
+        for (let pathKey in CNAMEUrlPaths) {
+            newBaseUrls[pathKey] = `${config.domain}${CNAMEUrlPaths[pathKey]}`;
+        }
 
-    // If there is no custo base url, we use the default base url
+        return newBaseUrls;
+    }
+
     for (let baseUrlKey in defaultBaseUrls) {
         newBaseUrls[baseUrlKey] =
             config[baseUrlKey] || defaultBaseUrls[baseUrlKey];

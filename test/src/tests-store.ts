@@ -1541,6 +1541,56 @@ describe('Store', () => {
 
                 expect(result).to.deep.equal(expectedResult);
             });
+
+            it('should append url paths to domain when config.domain is set', () => {
+                const config = {
+                    domain: 'custom.domain.com'
+                };
+
+                const result = processBaseUrls(
+                    (config as unknown) as SDKInitConfig,
+                    (featureFlags as unknown) as IFeatureFlags,
+                    'apikey'
+                );
+
+                const expectedResult = {
+                    v3SecureServiceUrl: 'custom.domain.com/webevents/v3/JS/',
+                    configUrl: 'custom.domain.com/tags/JS/v2/',
+                    identityUrl: 'custom.domain.com/identity/v1/',
+                    aliasUrl: 'custom.domain.com/webevents/v1/identity/',
+                    v1SecureServiceUrl: 'custom.domain.com/webevents/v1/JS/',
+                    v2SecureServiceUrl: 'custom.domain.com/webevents/v2/JS/',
+                };
+
+                expect(result).to.deep.equal(expectedResult);
+            });
+
+            it('should prioritize domain over custom baseUrls when both are set', () => {
+                const config = {
+                    domain: 'custom.domain.com',
+                    v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
+                    configUrl: 'foo-configUrl.customer.mp.com/v2/JS/',
+                    identityUrl: 'foo-identity.customer.mp.com/',
+                    aliasUrl: 'foo-alias.customer.mp.com/',
+                };
+
+                const result = processBaseUrls(
+                    (config as unknown) as SDKInitConfig,
+                    (featureFlags as unknown) as IFeatureFlags,
+                    'apikey'
+                );
+
+                const expectedResult = {
+                    v3SecureServiceUrl: 'custom.domain.com/webevents/v3/JS/',
+                    configUrl: 'custom.domain.com/tags/JS/v2/',
+                    identityUrl: 'custom.domain.com/identity/v1/',
+                    aliasUrl: 'custom.domain.com/webevents/v1/identity/',
+                    v1SecureServiceUrl: 'custom.domain.com/webevents/v1/JS/',
+                    v2SecureServiceUrl: 'custom.domain.com/webevents/v2/JS/',
+                };
+
+                expect(result).to.deep.equal(expectedResult);
+            });
         });
 
         describe('directURLRouting === true', () => {
