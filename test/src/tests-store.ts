@@ -1530,13 +1530,13 @@ describe('Store', () => {
                 );
 
                 const expectedResult = {
-                    v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
                     configUrl: 'foo-configUrl.customer.mp.com/v2/JS/',
                     identityUrl: 'foo-identity.customer.mp.com/',
                     userAudienceUrl: 'foo-user-segment.customer.mp.com/',
                     aliasUrl: 'foo-alias.customer.mp.com/',
                     v1SecureServiceUrl: 'jssdks.mparticle.com/v1/JS/',
                     v2SecureServiceUrl: 'jssdks.mparticle.com/v2/JS/',
+                    v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
                 };
 
                 expect(result).to.deep.equal(expectedResult);
@@ -1554,12 +1554,12 @@ describe('Store', () => {
                 );
 
                 const expectedResult = {
-                    v3SecureServiceUrl: 'custom.domain.com/webevents/v3/JS/',
                     configUrl: 'custom.domain.com/tags/JS/v2/',
                     identityUrl: 'custom.domain.com/identity/v1/',
                     aliasUrl: 'custom.domain.com/webevents/v1/identity/',
                     v1SecureServiceUrl: 'custom.domain.com/webevents/v1/JS/',
                     v2SecureServiceUrl: 'custom.domain.com/webevents/v2/JS/',
+                    v3SecureServiceUrl: 'custom.domain.com/webevents/v3/JS/',
                 };
 
                 expect(result).to.deep.equal(expectedResult);
@@ -1581,12 +1581,12 @@ describe('Store', () => {
                 );
 
                 const expectedResult = {
-                    v3SecureServiceUrl: 'custom.domain.com/webevents/v3/JS/',
                     configUrl: 'custom.domain.com/tags/JS/v2/',
                     identityUrl: 'custom.domain.com/identity/v1/',
                     aliasUrl: 'custom.domain.com/webevents/v1/identity/',
                     v1SecureServiceUrl: 'custom.domain.com/webevents/v1/JS/',
                     v2SecureServiceUrl: 'custom.domain.com/webevents/v2/JS/',
+                    v3SecureServiceUrl: 'custom.domain.com/webevents/v3/JS/',
                 };
 
                 expect(result).to.deep.equal(expectedResult);
@@ -1644,13 +1644,13 @@ describe('Store', () => {
                 );
 
                 const expectedResult = {
-                    v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
                     configUrl: 'foo-configUrl.customer.mp.com/v2/JS/',
                     identityUrl: 'foo-identity.customer.mp.com/',
                     userAudienceUrl: 'foo-user-segment.customer.mp.com/',
                     aliasUrl: 'foo-alias.customer.mp.com/',
                     v1SecureServiceUrl: 'jssdks.us1.mparticle.com/v1/JS/',
                     v2SecureServiceUrl: 'jssdks.us1.mparticle.com/v2/JS/',
+                    v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
                 };
 
                 expect(result).to.deep.equal(expectedResult);
