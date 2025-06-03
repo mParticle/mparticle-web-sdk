@@ -217,17 +217,17 @@ describe('RoktManager', () => {
             });
         });
 
-        it('should initialize the manager with sandbox from options', () => {
+        it('should initialize the manager with sandbox from options as launcherOptions', () => {
             roktManager.init(
                 {} as IKitConfigs,
                 undefined,
                 mockMPInstance.Identity,
                 undefined,
                 {
-                    managerOptions: { sandbox: true },
+                    sandbox: true,
                 }
             );
-            expect(roktManager['sandbox']).toBe(true);
+            expect(roktManager['launcherOptions']).toEqual({ sandbox: true });
         });
 
         it('should initialize the manager with placement attributes mapping from a config', () => {
@@ -281,26 +281,32 @@ describe('RoktManager', () => {
                 mockMPInstance.Identity,
                 mockMPInstance.Logger,
                 {
-                    managerOptions: { sandbox: true },
                     launcherOptions
                 }
             );
 
-            expect(roktManager['launcherOptions']).toEqual(launcherOptions);
+            const expectedOptions = {
+                sandbox: false,
+                ...launcherOptions
+            };
+
+            expect(roktManager['launcherOptions']).toEqual(expectedOptions);
         });
 
-        it('should initialize the manager with launcher options as undefined when not provided', () => {
+        it('should initialize the manager with default launcher options not provided', () => {
             roktManager.init(
                 {} as IKitConfigs,
                 undefined,
                 mockMPInstance.Identity,
                 mockMPInstance.Logger,
-                {
-                    managerOptions: { sandbox: true }
-                }
+                undefined,
             );
 
-            expect(roktManager['launcherOptions']).toEqual(undefined);
+            const expectedOptions = {
+                sandbox: false,
+            };
+
+            expect(roktManager['launcherOptions']).toEqual(expectedOptions);
         });
     });
 

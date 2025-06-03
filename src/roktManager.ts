@@ -56,14 +56,11 @@ export interface IRoktKit {
 }
 
 export interface IRoktOptions {
-    managerOptions?: IRoktManagerOptions;
+    sandbox?: boolean;
     launcherOptions?: IRoktLauncherOptions;
 }
 
 export type IRoktLauncherOptions = Dictionary<any>;
-export type IRoktManagerOptions = {
-    sandbox?: boolean;
-};
 
 // The purpose of this class is to create a link between the Core mParticle SDK and the
 // Rokt Web SDK via a Web Kit.
@@ -124,11 +121,11 @@ export default class RoktManager {
         // It is set here and passed in to the createLauncher method in the Rokt Kit
         // This is not to be confused for the `sandbox` flag in the selectPlacements attributes
         // as that is independent of this setting, though they share the same name.
-        this.sandbox = options?.managerOptions?.sandbox;
+        const sandbox = options?.sandbox || false;
 
         // Launcher options are set here for the kit to pick up and pass through
         // to the Rokt Launcher.
-        this.launcherOptions = options?.launcherOptions;
+        this.launcherOptions = { sandbox, ...options?.launcherOptions };
     }
 
     public attachKit(kit: IRoktKit): void {
