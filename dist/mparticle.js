@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.41.0";
+    var version = "2.41.1";
 
     var Constants = {
       sdkVersion: version,
@@ -9683,10 +9683,9 @@ var mParticle = (function () {
        * @throws Logs error to console if placementAttributesMapping parsing fails
        */
       RoktManager.prototype.init = function (roktConfig, filteredUser, identityService, logger, options) {
-        var _a;
-        var _b = roktConfig || {},
-          userAttributeFilters = _b.userAttributeFilters,
-          settings = _b.settings;
+        var _a = roktConfig || {},
+          userAttributeFilters = _a.userAttributeFilters,
+          settings = _a.settings;
         var placementAttributesMapping = (settings || {}).placementAttributesMapping;
         try {
           this.placementAttributesMapping = parseSettingsString(placementAttributesMapping);
@@ -9704,10 +9703,12 @@ var mParticle = (function () {
         // It is set here and passed in to the createLauncher method in the Rokt Kit
         // This is not to be confused for the `sandbox` flag in the selectPlacements attributes
         // as that is independent of this setting, though they share the same name.
-        this.sandbox = (_a = options === null || options === void 0 ? void 0 : options.managerOptions) === null || _a === void 0 ? void 0 : _a.sandbox;
+        var sandbox = (options === null || options === void 0 ? void 0 : options.sandbox) || false;
         // Launcher options are set here for the kit to pick up and pass through
         // to the Rokt Launcher.
-        this.launcherOptions = options === null || options === void 0 ? void 0 : options.launcherOptions;
+        this.launcherOptions = __assign({
+          sandbox: sandbox
+        }, options === null || options === void 0 ? void 0 : options.launcherOptions);
       };
       RoktManager.prototype.attachKit = function (kit) {
         this.kit = kit;
@@ -10865,9 +10866,7 @@ var mParticle = (function () {
             userAttributeFilters: userAttributeFilters
           }, mpInstance);
           var roktOptions = {
-            managerOptions: {
-              sandbox: config.isDevelopmentMode
-            },
+            sandbox: config === null || config === void 0 ? void 0 : config.isDevelopmentMode,
             launcherOptions: config === null || config === void 0 ? void 0 : config.launcherOptions
           };
           // https://go.mparticle.com/work/SQDSDKS-7339
