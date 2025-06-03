@@ -1568,6 +1568,8 @@ describe('Store', () => {
             it('should prioritize domain over custom baseUrls when both are set', () => {
                 const config = {
                     domain: 'custom.domain.com',
+                    v1SecureServiceUrl: 'foo.customer.mp.com/v1/JS/',
+                    v2SecureServiceUrl: 'foo.customer.mp.com/v2/JS/',
                     v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
                     configUrl: 'foo-configUrl.customer.mp.com/v2/JS/',
                     identityUrl: 'foo-identity.customer.mp.com/',
