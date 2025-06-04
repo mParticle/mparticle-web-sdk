@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.41.1";
+    var version = "2.42.0";
 
     var Constants = {
       sdkVersion: version,
@@ -328,6 +328,15 @@ var mParticle = (function () {
         identityUrl: 'identity.mparticle.com/v1/',
         aliasUrl: 'jssdks.mparticle.com/v1/identity/',
         userAudienceUrl: 'nativesdks.mparticle.com/v1/'
+      },
+      // These are the paths that are used to construct the CNAME urls
+      CNAMEUrlPaths: {
+        v1SecureServiceUrl: '/webevents/v1/JS/',
+        v2SecureServiceUrl: '/webevents/v2/JS/',
+        v3SecureServiceUrl: '/webevents/v3/JS/',
+        configUrl: '/tags/JS/v2/',
+        identityUrl: '/identity/v1/',
+        aliasUrl: '/webevents/v1/identity/'
       },
       Base64CookieKeys: {
         csm: 1,
@@ -4524,8 +4533,21 @@ var mParticle = (function () {
     }
     function processCustomBaseUrls(config) {
       var defaultBaseUrls = Constants.DefaultBaseUrls;
+      var CNAMEUrlPaths = Constants.CNAMEUrlPaths;
+      // newBaseUrls are default if the customer is not using a CNAME
+      // If a customer passes either config.domain or config.v3SecureServiceUrl,
+      // config.identityUrl, etc, the customer is using a CNAME.
+      // config.domain will take priority if a customer passes both.
       var newBaseUrls = {};
-      // If there is no custo base url, we use the default base url
+      // If config.domain exists, the customer is using a CNAME.  We append the url paths to the provided domain.
+      // This flag is set on the Rokt/MP snippet (starting at version 2.6), meaning config.domain will alwys be empty
+      // if a customer is using a snippet prior to 2.6.
+      if (!isEmpty(config.domain)) {
+        for (var pathKey in CNAMEUrlPaths) {
+          newBaseUrls[pathKey] = "".concat(config.domain).concat(CNAMEUrlPaths[pathKey]);
+        }
+        return newBaseUrls;
+      }
       for (var baseUrlKey in defaultBaseUrls) {
         newBaseUrls[baseUrlKey] = config[baseUrlKey] || defaultBaseUrls[baseUrlKey];
       }
