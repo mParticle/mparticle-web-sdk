@@ -765,8 +765,15 @@ export function processBaseUrls(
 function processCustomBaseUrls(config: SDKInitConfig): Dictionary<string> {
     const defaultBaseUrls: Dictionary<string> = Constants.DefaultBaseUrls;
     const CNAMEUrlPaths: Dictionary<string> = Constants.CNAMEUrlPaths;
+
+    // newBaseUrls are default if the customer is not using a CNAME
+    // If a customer passes either config.domain or config.v3SecureServiceUrl,
+    // config.identityUrl, etc, the customer is using a CNAME.
+    // config.domain will take priority if a customer passes both.
     const newBaseUrls: Dictionary<string> = {};
-    // If config.domain exists, the customer is using a CNAME, and we append the url paths to the domain
+    // If config.domain exists, the customer is using a CNAME.  We append the url paths to the provided domain.
+    // This flag is set on the Rokt/MP snippet (starting at version 2.6), meaning config.domain will alwys be empty
+    // if a customer is using a snippet prior to 2.6.
     if (!isEmpty(config.domain)) {
         for (let pathKey in CNAMEUrlPaths) {
             newBaseUrls[pathKey] = `${config.domain}${CNAMEUrlPaths[pathKey]}`;

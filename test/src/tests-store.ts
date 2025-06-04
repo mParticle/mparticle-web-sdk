@@ -1543,6 +1543,8 @@ describe('Store', () => {
             });
 
             it('should append url paths to domain when config.domain is set', () => {
+                // This example assumes only the domain is set, and not any of the 
+                // configurable URLs
                 const config = {
                     domain: 'custom.domain.com'
                 };
@@ -1566,6 +1568,9 @@ describe('Store', () => {
             });
 
             it('should prioritize domain over custom baseUrls when both are set', () => {
+                // If both the domain and other configurable URLs are set, then 
+                // we use the domain.  A customer should not be passing in both, as
+                // that would be an implementation error.
                 const config = {
                     domain: 'custom.domain.com',
                     v1SecureServiceUrl: 'foo.customer.mp.com/v1/JS/',
