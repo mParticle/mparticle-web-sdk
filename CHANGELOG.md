@@ -1,3 +1,10 @@
+# [2.42.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.41.1...v2.42.0) (2025-06-04)
+
+
+### Features
+
+* Expose config.domain for easier CNAME configuration ([#1037](https://github.com/mParticle/mparticle-web-sdk/issues/1037)) ([cc859d7](https://github.com/mParticle/mparticle-web-sdk/commit/cc859d7770b7b742336642e4de473ec64362273f))
+
 ## [2.41.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.41.0...v2.41.1) (2025-06-03)
 
 
