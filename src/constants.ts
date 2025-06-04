@@ -139,6 +139,15 @@ const Constants = {
         aliasUrl: 'jssdks.mparticle.com/v1/identity/',
         userAudienceUrl: 'nativesdks.mparticle.com/v1/',
     },
+    // These are the paths that are used to construct the CNAME urls
+    CNAMEUrlPaths: {
+        v1SecureServiceUrl: '/webevents/v1/JS/',
+        v2SecureServiceUrl: '/webevents/v2/JS/',
+        v3SecureServiceUrl: '/webevents/v3/JS/',
+        configUrl: '/tags/JS/v2/',
+        identityUrl: '/identity/v1/',
+        aliasUrl: '/webevents/v1/identity/',
+    },
     Base64CookieKeys: {
         csm: 1,
         sa: 1,

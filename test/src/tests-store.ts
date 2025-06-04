@@ -1530,13 +1530,70 @@ describe('Store', () => {
                 );
 
                 const expectedResult = {
-                    v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
                     configUrl: 'foo-configUrl.customer.mp.com/v2/JS/',
                     identityUrl: 'foo-identity.customer.mp.com/',
                     userAudienceUrl: 'foo-user-segment.customer.mp.com/',
                     aliasUrl: 'foo-alias.customer.mp.com/',
                     v1SecureServiceUrl: 'jssdks.mparticle.com/v1/JS/',
                     v2SecureServiceUrl: 'jssdks.mparticle.com/v2/JS/',
+                    v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
+                };
+
+                expect(result).to.deep.equal(expectedResult);
+            });
+
+            it('should append url paths to domain when config.domain is set', () => {
+                // This example assumes only the domain is set, and not any of the 
+                // configurable URLs
+                const config = {
+                    domain: 'custom.domain.com'
+                };
+
+                const result = processBaseUrls(
+                    (config as unknown) as SDKInitConfig,
+                    (featureFlags as unknown) as IFeatureFlags,
+                    'apikey'
+                );
+
+                const expectedResult = {
+                    configUrl: 'custom.domain.com/tags/JS/v2/',
+                    identityUrl: 'custom.domain.com/identity/v1/',
+                    aliasUrl: 'custom.domain.com/webevents/v1/identity/',
+                    v1SecureServiceUrl: 'custom.domain.com/webevents/v1/JS/',
+                    v2SecureServiceUrl: 'custom.domain.com/webevents/v2/JS/',
+                    v3SecureServiceUrl: 'custom.domain.com/webevents/v3/JS/',
+                };
+
+                expect(result).to.deep.equal(expectedResult);
+            });
+
+            it('should prioritize domain over custom baseUrls when both are set', () => {
+                // If both the domain and other configurable URLs are set, then 
+                // we use the domain.  A customer should not be passing in both, as
+                // that would be an implementation error.
+                const config = {
+                    domain: 'custom.domain.com',
+                    v1SecureServiceUrl: 'foo.customer.mp.com/v1/JS/',
+                    v2SecureServiceUrl: 'foo.customer.mp.com/v2/JS/',
+                    v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
+                    configUrl: 'foo-configUrl.customer.mp.com/v2/JS/',
+                    identityUrl: 'foo-identity.customer.mp.com/',
+                    aliasUrl: 'foo-alias.customer.mp.com/',
+                };
+
+                const result = processBaseUrls(
+                    (config as unknown) as SDKInitConfig,
+                    (featureFlags as unknown) as IFeatureFlags,
+                    'apikey'
+                );
+
+                const expectedResult = {
+                    configUrl: 'custom.domain.com/tags/JS/v2/',
+                    identityUrl: 'custom.domain.com/identity/v1/',
+                    aliasUrl: 'custom.domain.com/webevents/v1/identity/',
+                    v1SecureServiceUrl: 'custom.domain.com/webevents/v1/JS/',
+                    v2SecureServiceUrl: 'custom.domain.com/webevents/v2/JS/',
+                    v3SecureServiceUrl: 'custom.domain.com/webevents/v3/JS/',
                 };
 
                 expect(result).to.deep.equal(expectedResult);
@@ -1594,13 +1651,13 @@ describe('Store', () => {
                 );
 
                 const expectedResult = {
-                    v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
                     configUrl: 'foo-configUrl.customer.mp.com/v2/JS/',
                     identityUrl: 'foo-identity.customer.mp.com/',
                     userAudienceUrl: 'foo-user-segment.customer.mp.com/',
                     aliasUrl: 'foo-alias.customer.mp.com/',
                     v1SecureServiceUrl: 'jssdks.us1.mparticle.com/v1/JS/',
                     v2SecureServiceUrl: 'jssdks.us1.mparticle.com/v2/JS/',
+                    v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
                 };
 
                 expect(result).to.deep.equal(expectedResult);
