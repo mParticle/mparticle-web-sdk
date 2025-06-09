@@ -129,7 +129,9 @@ export default class RoktManager {
         // to the Rokt Launcher.
         this.launcherOptions = { sandbox, ...options?.launcherOptions };
 
-        this.domain = options?.domain;
+        if (options?.domain) {
+            this.domain = options.domain;
+        }
     }
 
     public attachKit(kit: IRoktKit): void {
