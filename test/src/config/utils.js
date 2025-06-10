@@ -11,7 +11,7 @@ import {
 } from './constants';
 import fetchMock from 'fetch-mock/esm/client';
 
-var pluses = /\+/g,
+const pluses = /\+/g,
     getLocalStorageProducts = function getLocalStorageProducts() {
         return JSON.parse(
             atob(
@@ -42,9 +42,8 @@ var pluses = /\+/g,
         }
     },
     getDomain = function (doc, locationHostname) {
-        let i,
-            testParts,
-            mpTest = 'mptest=cookie',
+        let i, testParts;
+        const mpTest = 'mptest=cookie',
             hostname = locationHostname.split('.');
         for (i = hostname.length - 1; i >= 0; i--) {
             testParts = hostname.slice(i).join('.');
@@ -89,13 +88,11 @@ var pluses = /\+/g,
         }
     },
     setCookie = function (cname, data, raw) {
-        let date = new Date(),
+        const date = new Date(),
             expires = new Date(
                 date.getTime() + 365 * 24 * 60 * 60 * 1000,
-            ).toGMTString(),
-            domain,
-            cookieDomain,
-            value;
+            ).toGMTString();
+        let domain, value;
         if (cname === v4CookieKey || cname === workspaceCookieName) {
             value = Utils.replaceCommasWithPipes(data);
         } else if (cname === v3CookieKey) {
@@ -108,7 +105,7 @@ var pluses = /\+/g,
             value = data;
         }
 
-        cookieDomain = getCookieDomain();
+        const cookieDomain = getCookieDomain();
 
         if (cookieDomain === '') {
             domain = '';

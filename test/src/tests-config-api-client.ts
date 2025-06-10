@@ -18,7 +18,6 @@ declare global {
 
 describe('ConfigAPIClient', () => {
     let mockServer;
-    let sdkInitCompleteCallback;
     let configUrl;
     let dataPlan: DataPlanConfig;
     let dataPlanResult: DataPlanResult;
@@ -27,7 +26,6 @@ describe('ConfigAPIClient', () => {
         fetchMock.restore();
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
-        sdkInitCompleteCallback = sinon.spy();
         window.mParticle._resetForTests(MPConfig);
     });
 
@@ -150,8 +148,7 @@ describe('ConfigAPIClient', () => {
                         window.mParticle.getInstance(),
                     );
 
-                    const response =
-                        await configAPIClient.getSDKConfiguration();
+                    await configAPIClient.getSDKConfiguration();
 
                     expect(fetchMock.calls().length).to.equal(1);
                     expect(fetchMock.calls()[0][0]).to.equal(configUrl);
@@ -304,8 +301,7 @@ describe('ConfigAPIClient', () => {
                         window.mParticle.getInstance(),
                     );
 
-                    const response =
-                        await configAPIClient.getSDKConfiguration();
+                    await configAPIClient.getSDKConfiguration();
 
                     expect(mockServer.lastRequest).to.haveOwnProperty('url');
                     expect(mockServer.lastRequest.url).to.equal(configUrl);

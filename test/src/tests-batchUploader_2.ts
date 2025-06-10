@@ -1,7 +1,6 @@
 import { urls, apiKey, MPConfig, testMPID } from './config/constants';
 import Utils from './config/utils';
 import { expect } from 'chai';
-import _BatchValidator from '../../src/mockBatchCreator';
 import fetchMock from 'fetch-mock/esm/client';
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 import { CustomEvent } from '@mparticle/event-models';
@@ -18,7 +17,6 @@ const enableBatchingConfigFlags = {
 };
 
 describe('batch uploader', () => {
-    let mockServer;
     let clock;
 
     beforeEach(() => {
@@ -130,7 +128,7 @@ describe('batch uploader', () => {
 
                     done();
                 })
-                .catch((e) => {});
+                .catch(() => {});
         });
 
         // TODO: Investigate workflow with unshift vs push

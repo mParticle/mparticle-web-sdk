@@ -2,7 +2,6 @@ import sinon from 'sinon';
 import { urls, apiKey, MPConfig, testMPID } from './config/constants';
 import Utils from './config/utils';
 import { expect } from 'chai';
-import _BatchValidator from '../../src/mockBatchCreator';
 import fetchMock from 'fetch-mock/esm/client';
 import { ProductActionType } from '../../src/types';
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
@@ -14,12 +13,7 @@ declare global {
     }
 }
 
-const enableBatchingConfigFlags = {
-    eventBatchingIntervalMillis: 1000,
-};
-
 describe('batch uploader', () => {
-    let mockServer;
     let clock;
 
     beforeEach(() => {

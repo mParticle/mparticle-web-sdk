@@ -45,11 +45,11 @@ describe('cookie syncing', function () {
         // Mock the img create onload method
         // https://raminmousavi.medium.com/mock-img-element-in-jest-3341c495ca8b
         window.document.createElement = (function (create) {
-            return function (this: Document) {
-                const element = create.apply(
-                    this,
-                    arguments as unknown as [string, ElementCreationOptions?],
-                );
+            return function (
+                this: Document,
+                ...args: [string, ElementCreationOptions?]
+            ) {
+                const element = create.apply(this, args);
 
                 if (element.tagName === 'IMG') {
                     // Add an `onload` mock that simulates the browser loading the image

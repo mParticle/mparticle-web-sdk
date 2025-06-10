@@ -300,14 +300,9 @@ describe('kit blocking', () => {
     });
 
     describe('kit blocking - user attributes/identities', () => {
-        let kitBlocker;
         let event: SDKEvent;
 
         beforeEach(() => {
-            kitBlocker = new KitBlocker(
-                kitBlockerDataPlan,
-                window.mParticle.getInstance(),
-            );
             event = {
                 DeviceId: 'test',
                 IsFirstRun: true,
@@ -552,15 +547,10 @@ describe('kit blocking', () => {
     });
 
     describe('kit blocking - product attributes', () => {
-        let kitBlocker;
         let event: SDKEvent;
         let products;
 
         beforeEach(() => {
-            kitBlocker = new KitBlocker(
-                kitBlockerDataPlan,
-                window.mParticle.getInstance(),
-            );
             products = [
                 {
                     Attributes: {

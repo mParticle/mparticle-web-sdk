@@ -3,7 +3,6 @@ import { urls, apiKey, MPConfig, testMPID } from './config/constants';
 import { Batch, CustomEventData } from '@mparticle/event-models';
 import Utils from './config/utils';
 import { expect } from 'chai';
-import _BatchValidator from '../../src/mockBatchCreator';
 import fetchMock from 'fetch-mock/esm/client';
 import { ProductActionType } from '../../src/types';
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
@@ -87,7 +86,7 @@ describe('batch uploader', () => {
 
                     done();
                 })
-                .catch((e) => {});
+                .catch(() => {});
         });
 
         it('should force uploads when using public `upload`', function (done) {
@@ -326,7 +325,7 @@ describe('batch uploader', () => {
         it('should add a modified boolean of true to a batch that has been modified via a config.onCreateBatch call', function (done) {
             window.mParticle._resetForTests(MPConfig);
 
-            window.mParticle.config.onCreateBatch = function (batch: Batch) {
+            window.mParticle.config.onCreateBatch = function () {
                 return undefined;
             };
 

@@ -3087,14 +3087,12 @@ describe('identity', function () {
         });
 
         it('should have a getUser function on login result object', async () => {
-            let result;
             let loginResult;
 
             mParticle._resetForTests(MPConfig);
 
             mParticle.config.identityCallback = function (resp) {
                 resp.getUser().setUserAttribute('attr', 'value');
-                result = resp;
             };
 
             fetchMockSuccess(urls.identify, {
@@ -3135,14 +3133,12 @@ describe('identity', function () {
         });
 
         it('should have a getUser function on logout result object', async () => {
-            let result;
             let logoutResult;
 
             mParticle._resetForTests(MPConfig);
 
             mParticle.config.identityCallback = function (resp) {
                 resp.getUser().setUserAttribute('attr', 'value');
-                result = resp;
             };
 
             fetchMockSuccess(urls.identify, {
@@ -3183,14 +3179,12 @@ describe('identity', function () {
         });
 
         it('should have a getUser function on modify result object', async () => {
-            let result;
             let modifyResult;
 
             mParticle._resetForTests(MPConfig);
 
             mParticle.config.identityCallback = function (resp) {
                 resp.getUser().setUserAttribute('attr', 'value');
-                result = resp;
             };
 
             fetchMockSuccess(urls.identify, {
