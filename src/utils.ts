@@ -10,6 +10,8 @@ type valueof<T> = T[keyof T];
 // Placeholder for Dictionary-like Types
 export type Dictionary<V = any> = Record<string, V>;
 
+export type QueueFunction = (payload: unknown) => unknown;
+
 export type Environment = valueof<typeof Constants.Environment>;
 
 const createCookieString = (value: string): string =>
@@ -102,6 +104,7 @@ function generateHash(name: string): number {
     return hash;
 }
 
+// https://go.mparticle.com/work/SQDSDKS-5226
 const generateRandomValue = (value?: string): string => {
     let randomValue: string;
     let a: number;

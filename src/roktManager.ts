@@ -2,7 +2,7 @@ import { IKitConfigs } from './configAPIClient';
 import { UserAttributeFilters } from './forwarders.interfaces';
 import { IMParticleUser } from './identity-user-interfaces';
 import KitFilterHelper from './kitFilterHelper';
-import { Dictionary, parseSettingsString } from './utils';
+import { Dictionary, parseSettingsString, QueueFunction } from './utils';
 import { SDKIdentityApi } from './identity.interfaces';
 import { SDKLoggerApi } from './sdkRuntimeModels';
 
@@ -201,7 +201,7 @@ export default class RoktManager {
 
                 // Call identify with the new user identities
                 try {
-                    await new Promise<void>((resolve, reject) => {
+                    await new Promise<void>((resolve) => {
                         this.identityService.identify(
                             {
                                 userIdentities: {
@@ -334,7 +334,7 @@ export default class RoktManager {
         if (this.messageQueue.length > 0 && this.isReady()) {
             this.messageQueue.forEach(async (message) => {
                 if (this.kit && message.methodName in this.kit) {
-                    await (this.kit[message.methodName] as Function)(
+                    await (this.kit[message.methodName] as QueueFunction)(
                         message.payload,
                     );
                 }

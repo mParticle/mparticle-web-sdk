@@ -4,14 +4,14 @@ import { IntegrationDelays } from './mp-instance';
 import { isEmpty, isFunction } from './utils';
 
 export interface IPreInit {
-    readyQueue: Function[] | any[];
+    readyQueue: (() => void)[] | any[];
     integrationDelays: IntegrationDelays;
     forwarderConstructors: MPForwarder[];
     pixelConfigurations?: IPixelConfiguration[];
     isDevelopmentMode?: boolean;
 }
 
-export const processReadyQueue = (readyQueue): Function[] => {
+export const processReadyQueue = (readyQueue): (() => void)[] => {
     if (!isEmpty(readyQueue)) {
         readyQueue.forEach((readyQueueItem) => {
             if (isFunction(readyQueueItem)) {
@@ -34,7 +34,7 @@ const processPreloadedItem = (readyQueueItem): void => {
         window.mParticle &&
         window.mParticle[args[0]]
     ) {
-        window.mParticle[method].apply(window.mParticle, args);
+        window.mParticle[method](...args);
         // otherwise, the method is on either eCommerce or Identity objects, ie. "eCommerce.setCurrencyCode", "Identity.login"
     } else {
         const methodArray = method.split('.');
@@ -49,7 +49,9 @@ const processPreloadedItem = (readyQueueItem): void => {
             }
 
             // Apply the function with its proper context
-            (computedMPFunction as unknown as Function).apply(context, args);
+            (
+                computedMPFunction as unknown as (...args: unknown[]) => unknown
+            ).apply(context, args);
         } catch (e) {
             throw new Error('Unable to compute proper mParticle function ' + e);
         }

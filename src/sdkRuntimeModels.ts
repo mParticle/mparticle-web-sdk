@@ -237,14 +237,13 @@ export interface MParticleWebSDK {
     setOptOut(isOptingOut: boolean): void;
     eCommerce: SDKECommerceAPI;
     isInitialized(): boolean;
-    ready(f: Function): void;
+    ready(f: () => void): void;
 
     // https://go.mparticle.com/work/SQDSDKS-7072
     reset(instance?: IMParticleWebSDKInstance): void;
 
     setAppName(name: string): void;
     setAppVersion(version: string): void;
-    setOptOut(isOptingOut: boolean): void;
 
     // https://go.mparticle.com/work/SQDSDKS-7063
     startTrackingLocation(callback?: Callback): void;
@@ -331,7 +330,7 @@ export interface SDKInitConfig
 
     launcherOptions?: IRoktLauncherOptions;
 
-    rq?: Function[] | any[];
+    rq?: (() => void)[] | any[];
 }
 
 export interface DataPlanConfig {
