@@ -7,18 +7,24 @@ import {
     SDKEventAttrs,
     Callback,
 } from '@mparticle/web-sdk';
-import { IntegrationAttribute, IntegrationAttributes, IStore, WrapperSDKTypes } from './store';
+import {
+    IntegrationAttribute,
+    IntegrationAttributes,
+    IStore,
+    WrapperSDKTypes,
+} from './store';
 import Validators from './validators';
 import { Dictionary, valueof } from './utils';
 import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
 import MPSideloadedKit from './sideloadedKit';
 import { ISessionManager } from './sessionManager';
-import { ConfiguredKit, MPForwarder, UnregisteredKit } from './forwarders.interfaces';
 import {
-    SDKIdentityApi,
-    IAliasCallback,
-} from './identity.interfaces';
+    ConfiguredKit,
+    MPForwarder,
+    UnregisteredKit,
+} from './forwarders.interfaces';
+import { SDKIdentityApi, IAliasCallback } from './identity.interfaces';
 import {
     ISDKUserAttributeChangeData,
     ISDKUserIdentityChanges,
@@ -36,8 +42,12 @@ import {
 } from './types';
 import { IPixelConfiguration } from './cookieSyncManager';
 import _BatchValidator from './mockBatchCreator';
-import {  SDKECommerceAPI } from './ecommerce.interfaces';
-import { IErrorLogMessage, IMParticleWebSDKInstance, IntegrationDelays } from './mp-instance';
+import { SDKECommerceAPI } from './ecommerce.interfaces';
+import {
+    IErrorLogMessage,
+    IMParticleWebSDKInstance,
+    IntegrationDelays,
+} from './mp-instance';
 import Constants from './constants';
 import RoktManager, { IRoktLauncherOptions } from './roktManager';
 
@@ -202,13 +212,28 @@ export interface MParticleWebSDK {
         eventType?: valueof<typeof EventType>,
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
-        eventOptions?: SDKEventOptions
+        eventOptions?: SDKEventOptions,
     ): void;
     logBaseEvent(event: BaseEvent, eventOptions?: SDKEventOptions): void;
     logError(error: IErrorLogMessage, attrs?: SDKEventAttrs): void;
-    logLink(selector: string, eventName: string, eventType: valueof<typeof EventType>, eventInfo: SDKEventAttrs): void;
-    logForm(selector: string, eventName: string, eventType: valueof<typeof EventType>, eventInfo: SDKEventAttrs): void;
-    logPageView(eventName?: string, attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): void;
+    logLink(
+        selector: string,
+        eventName: string,
+        eventType: valueof<typeof EventType>,
+        eventInfo: SDKEventAttrs,
+    ): void;
+    logForm(
+        selector: string,
+        eventName: string,
+        eventType: valueof<typeof EventType>,
+        eventInfo: SDKEventAttrs,
+    ): void;
+    logPageView(
+        eventName?: string,
+        attrs?: SDKEventAttrs,
+        customFlags?: SDKEventCustomFlags,
+        eventOptions?: SDKEventOptions,
+    ): void;
     setOptOut(isOptingOut: boolean): void;
     eCommerce: SDKECommerceAPI;
     isInitialized(): boolean;
@@ -226,7 +251,10 @@ export interface MParticleWebSDK {
 
     stopTrackingLocation(): void;
     generateHash(value: string): string;
-    setIntegrationAttribute(integrationModuleId: number, attrs: IntegrationAttribute): void;
+    setIntegrationAttribute(
+        integrationModuleId: number,
+        attrs: IntegrationAttribute,
+    ): void;
     getIntegrationAttributes(integrationModuleId: number): IntegrationAttribute;
 }
 
@@ -246,13 +274,12 @@ export interface IMParticleInstanceManager extends MParticleWebSDK {
     MPSideloadedKit: typeof MPSideloadedKit;
     Rokt: RoktManager;
     // https://go.mparticle.com/work/SQDSDKS-7060
-    sessionManager: Pick<ISessionManager, 'getSession'>; 
+    sessionManager: Pick<ISessionManager, 'getSession'>;
     Store: IStore;
 
     // Public Methods
     getInstance(instanceName?: string): IMParticleWebSDKInstance;
 }
-
 
 // Used in cases where server requires booleans as strings
 export type BooleanStringLowerCase = 'false' | 'true';
@@ -329,12 +356,12 @@ export interface SDKHelpersApi {
     invokeAliasCallback(
         aliasCallback: IAliasCallback,
         number: number,
-        errorMessage: string
+        errorMessage: string,
     ): void;
     isDelayedByIntegration?(
         delayedIntegrations: Dictionary<boolean>,
         timeoutStart: number,
-        now: number
+        now: number,
     ): boolean;
     isEventType?(type: valueof<typeof EventType>): boolean;
     isObject?(item: any);
@@ -343,11 +370,11 @@ export interface SDKHelpersApi {
         code: number,
         body: string,
         mParticleUser?: IMParticleUser,
-        previousMpid?: MPID
+        previousMpid?: MPID,
     ): void;
     sanitizeAttributes?(
         attrs: SDKEventAttrs,
-        name: string
+        name: string,
     ): Dictionary<string> | null;
     Validators: typeof Validators;
 }

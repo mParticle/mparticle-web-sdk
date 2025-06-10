@@ -1,13 +1,13 @@
 import Constants from './constants';
 
-var Messages = Constants.Messages;
+const Messages = Constants.Messages;
 
-var androidBridgeNameBase = 'mParticleAndroid';
-var iosBridgeNameBase = 'mParticle';
+const androidBridgeNameBase = 'mParticleAndroid';
+const iosBridgeNameBase = 'mParticle';
 
 export default function NativeSdkHelpers(mpInstance) {
-    var self = this;
-    this.initializeSessionAttributes = function(apiKey) {
+    const self = this;
+    this.initializeSessionAttributes = function (apiKey) {
         const { SetSessionAttribute } = Constants.NativeSdkPaths;
         const env = JSON.stringify({
             key: '$src_env',
@@ -25,13 +25,13 @@ export default function NativeSdkHelpers(mpInstance) {
         }
     };
 
-    this.isBridgeV2Available = function(bridgeName) {
+    this.isBridgeV2Available = function (bridgeName) {
         if (!bridgeName) {
             return false;
         }
-        var androidBridgeName =
+        const androidBridgeName =
             androidBridgeNameBase + '_' + bridgeName + '_v2';
-        var iosBridgeName = iosBridgeNameBase + '_' + bridgeName + '_v2';
+        const iosBridgeName = iosBridgeNameBase + '_' + bridgeName + '_v2';
 
         // iOS v2 bridge
         if (
@@ -57,12 +57,12 @@ export default function NativeSdkHelpers(mpInstance) {
         return false;
     };
 
-    this.isWebviewEnabled = function(
+    this.isWebviewEnabled = function (
         requiredWebviewBridgeName,
-        minWebviewBridgeVersion
+        minWebviewBridgeVersion,
     ) {
         mpInstance._Store.bridgeV2Available = self.isBridgeV2Available(
-            requiredWebviewBridgeName
+            requiredWebviewBridgeName,
         );
         mpInstance._Store.bridgeV1Available = self.isBridgeV1Available();
 
@@ -92,7 +92,7 @@ export default function NativeSdkHelpers(mpInstance) {
         return false;
     };
 
-    this.isBridgeV1Available = function() {
+    this.isBridgeV1Available = function () {
         if (
             mpInstance._Store.SDKConfig.useNativeSdk ||
             window.mParticleAndroid ||
@@ -104,7 +104,7 @@ export default function NativeSdkHelpers(mpInstance) {
         return false;
     };
 
-    this.sendToNative = function(path, value) {
+    this.sendToNative = function (path, value) {
         if (
             mpInstance._Store.bridgeV2Available &&
             mpInstance._Store.SDKConfig.minWebviewBridgeVersion === 2
@@ -112,7 +112,7 @@ export default function NativeSdkHelpers(mpInstance) {
             self.sendViaBridgeV2(
                 path,
                 value,
-                mpInstance._Store.SDKConfig.requiredWebviewBridgeName
+                mpInstance._Store.SDKConfig.requiredWebviewBridgeName,
             );
             return;
         }
@@ -123,7 +123,7 @@ export default function NativeSdkHelpers(mpInstance) {
             self.sendViaBridgeV2(
                 path,
                 value,
-                mpInstance._Store.SDKConfig.requiredWebviewBridgeName
+                mpInstance._Store.SDKConfig.requiredWebviewBridgeName,
             );
             return;
         }
@@ -136,39 +136,39 @@ export default function NativeSdkHelpers(mpInstance) {
         }
     };
 
-    this.sendViaBridgeV1 = function(path, value) {
+    this.sendViaBridgeV1 = function (path, value) {
         if (
             window.mParticleAndroid &&
             window.mParticleAndroid.hasOwnProperty(path)
         ) {
             mpInstance.Logger.verbose(
-                Messages.InformationMessages.SendAndroid + path
+                Messages.InformationMessages.SendAndroid + path,
             );
             window.mParticleAndroid[path](value);
         } else if (mpInstance._Store.SDKConfig.isIOS) {
             mpInstance.Logger.verbose(
-                Messages.InformationMessages.SendIOS + path
+                Messages.InformationMessages.SendIOS + path,
             );
             self.sendViaIframeToIOS(path, value);
         }
     };
 
-    this.sendViaIframeToIOS = function(path, value) {
-        var iframe = document.createElement('IFRAME');
+    this.sendViaIframeToIOS = function (path, value) {
+        const iframe = document.createElement('IFRAME');
         iframe.setAttribute(
             'src',
-            'mp-sdk://' + path + '/' + encodeURIComponent(value)
+            'mp-sdk://' + path + '/' + encodeURIComponent(value),
         );
         document.documentElement.appendChild(iframe);
         iframe.parentNode.removeChild(iframe);
     };
 
-    this.sendViaBridgeV2 = function(path, value, requiredWebviewBridgeName) {
+    this.sendViaBridgeV2 = function (path, value, requiredWebviewBridgeName) {
         if (!requiredWebviewBridgeName) {
             return;
         }
 
-        var androidBridgeName =
+        let androidBridgeName =
                 androidBridgeNameBase + '_' + requiredWebviewBridgeName + '_v2',
             androidBridge = window[androidBridgeName],
             iosBridgeName =
@@ -191,24 +191,24 @@ export default function NativeSdkHelpers(mpInstance) {
 
         if (androidBridge && androidBridge.hasOwnProperty(path)) {
             mpInstance.Logger.verbose(
-                Messages.InformationMessages.SendAndroid + path
+                Messages.InformationMessages.SendAndroid + path,
             );
             androidBridge[path](value);
             return;
         } else if (iOSBridgeMessageHandler) {
             mpInstance.Logger.verbose(
-                Messages.InformationMessages.SendIOS + path
+                Messages.InformationMessages.SendIOS + path,
             );
 
             iOSBridgeMessageHandler.postMessage(
                 JSON.stringify({
                     path: path,
                     value: value ? JSON.parse(value) : null,
-                })
+                }),
             );
         } else if (iOSBridgeNonMessageHandler) {
             mpInstance.Logger.verbose(
-                Messages.InformationMessages.SendIOS + path
+                Messages.InformationMessages.SendIOS + path,
             );
             self.sendViaIframeToIOS(path, value);
         }

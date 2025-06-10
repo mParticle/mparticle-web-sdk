@@ -1,13 +1,13 @@
 function Logger(config) {
-    var self = this;
-    var logLevel = config.logLevel || 'warning';
+    const self = this;
+    let logLevel = config.logLevel || 'warning';
     if (config.hasOwnProperty('logger')) {
         this.logger = config.logger;
     } else {
         this.logger = new ConsoleLogger();
     }
 
-    this.verbose = function(msg) {
+    this.verbose = function (msg) {
         if (logLevel !== 'none') {
             if (self.logger.verbose && logLevel === 'verbose') {
                 self.logger.verbose(msg);
@@ -15,7 +15,7 @@ function Logger(config) {
         }
     };
 
-    this.warning = function(msg) {
+    this.warning = function (msg) {
         if (logLevel !== 'none') {
             if (
                 self.logger.warning &&
@@ -26,7 +26,7 @@ function Logger(config) {
         }
     };
 
-    this.error = function(msg) {
+    this.error = function (msg) {
         if (logLevel !== 'none') {
             if (self.logger.error) {
                 self.logger.error(msg);
@@ -34,24 +34,24 @@ function Logger(config) {
         }
     };
 
-    this.setLogLevel = function(newLogLevel) {
+    this.setLogLevel = function (newLogLevel) {
         logLevel = newLogLevel;
     };
 }
 
 function ConsoleLogger() {
-    this.verbose = function(msg) {
+    this.verbose = function (msg) {
         if (console && console.info) {
             console.info(msg);
         }
     };
 
-    this.error = function(msg) {
+    this.error = function (msg) {
         if (console && console.error) {
             console.error(msg);
         }
     };
-    this.warning = function(msg) {
+    this.warning = function (msg) {
         if (console && console.warn) {
             console.warn(msg);
         }

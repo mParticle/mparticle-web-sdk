@@ -11,7 +11,7 @@ let userApi = null;
 
 window.mParticle._isTestEnv = true;
 
-beforeEach(function() {
+beforeEach(function () {
     // mocha can't clean up after itself, so this lets
     // tests mock the current user and restores in between runs.
     if (!userApi) {
@@ -28,9 +28,9 @@ beforeEach(function() {
         isDevelopmentMode: false,
         flags: {
             eventBatchingIntervalMillis: 0,
-        }
+        },
     };
-    
+
     // This is to tell the resetPersistence method that we are in a test environment
     // It should probably be refactored to be included as an argument
     window.mParticle._resetForTests(MPConfig);

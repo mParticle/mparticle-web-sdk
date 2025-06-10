@@ -22,25 +22,30 @@ import { processReadyQueue } from './pre-init-utils';
 export default function Identity(mpInstance) {
     const { getFeatureFlag, extend } = mpInstance._Helpers;
 
-    var self = this;
+    const self = this;
     this.idCache = null;
     this.audienceManager = null;
 
     // https://go.mparticle.com/work/SQDSDKS-6353
     this.IdentityRequest = {
-        preProcessIdentityRequest: function(identityApiData, callback, method) {
+        preProcessIdentityRequest: function (
+            identityApiData,
+            callback,
+            method,
+        ) {
             mpInstance.Logger.verbose(
-                Messages.InformationMessages.StartingLogEvent + ': ' + method
+                Messages.InformationMessages.StartingLogEvent + ': ' + method,
             );
 
-            var identityValidationResult = mpInstance._Helpers.Validators.validateIdentities(
-                identityApiData,
-                method
-            );
+            const identityValidationResult =
+                mpInstance._Helpers.Validators.validateIdentities(
+                    identityApiData,
+                    method,
+                );
 
             if (!identityValidationResult.valid) {
                 mpInstance.Logger.error(
-                    'ERROR: ' + identityValidationResult.error
+                    'ERROR: ' + identityValidationResult.error,
                 );
                 return {
                     valid: false,
@@ -52,7 +57,7 @@ export default function Identity(mpInstance) {
                 callback &&
                 !mpInstance._Helpers.Validators.isFunction(callback)
             ) {
-                var error =
+                const error =
                     'The optional callback must be a function. You tried entering a(n) ' +
                     typeof callback;
                 mpInstance.Logger.error(error);
@@ -67,16 +72,16 @@ export default function Identity(mpInstance) {
             };
         },
 
-        createIdentityRequest: function(
+        createIdentityRequest: function (
             identityApiData,
             platform,
             sdkVendor,
             sdkVersion,
             deviceId,
             context,
-            mpid
+            mpid,
         ) {
-            var APIRequest = {
+            const APIRequest = {
                 client_sdk: {
                     platform: platform,
                     sdk_vendor: sdkVendor,
@@ -91,20 +96,20 @@ export default function Identity(mpInstance) {
                 previous_mpid: mpid || null,
                 known_identities: createKnownIdentities(
                     identityApiData,
-                    deviceId
+                    deviceId,
                 ),
             };
 
             return APIRequest;
         },
 
-        createModifyIdentityRequest: function(
+        createModifyIdentityRequest: function (
             currentUserIdentities,
             newUserIdentities,
             platform,
             sdkVendor,
             sdkVersion,
-            context
+            context,
         ) {
             return {
                 client_sdk: {
@@ -120,14 +125,14 @@ export default function Identity(mpInstance) {
                 request_timestamp_ms: new Date().getTime(),
                 identity_changes: this.createIdentityChanges(
                     currentUserIdentities,
-                    newUserIdentities
+                    newUserIdentities,
                 ),
             };
         },
 
-        createIdentityChanges: function(previousIdentities, newIdentities) {
-            var identityChanges = [];
-            var key;
+        createIdentityChanges: function (previousIdentities, newIdentities) {
+            const identityChanges = [];
+            let key;
             if (
                 newIdentities &&
                 isObject(newIdentities) &&
@@ -147,12 +152,12 @@ export default function Identity(mpInstance) {
         },
 
         // takes 2 UI objects keyed by name, combines them, returns them keyed by type
-        combineUserIdentities: function(previousUIByName, newUIByName) {
-            var combinedUIByType = {};
-            var combinedUIByName = extend({}, previousUIByName, newUIByName);
+        combineUserIdentities: function (previousUIByName, newUIByName) {
+            const combinedUIByType = {};
+            const combinedUIByName = extend({}, previousUIByName, newUIByName);
 
-            for (var key in combinedUIByName) {
-                var type = Types.IdentityType.getIdentityType(key);
+            for (const key in combinedUIByName) {
+                const type = Types.IdentityType.getIdentityType(key);
                 // this check removes anything that is not whitelisted as an identity type
                 if (type !== false && type >= 0) {
                     combinedUIByType[Types.IdentityType.getIdentityType(key)] =
@@ -163,7 +168,7 @@ export default function Identity(mpInstance) {
             return combinedUIByType;
         },
 
-        createAliasNetworkRequest: function(aliasRequest) {
+        createAliasNetworkRequest: function (aliasRequest) {
             return {
                 request_id: mpInstance._Helpers.generateUniqueId(),
                 request_type: 'alias',
@@ -182,7 +187,7 @@ export default function Identity(mpInstance) {
             };
         },
 
-        convertAliasToNative: function(aliasRequest) {
+        convertAliasToNative: function (aliasRequest) {
             return {
                 DestinationMpid: aliasRequest.destinationMpid,
                 SourceMpid: aliasRequest.sourceMpid,
@@ -191,10 +196,10 @@ export default function Identity(mpInstance) {
             };
         },
 
-        convertToNative: function(identityApiData) {
-            var nativeIdentityRequest = [];
+        convertToNative: function (identityApiData) {
+            const nativeIdentityRequest = [];
             if (identityApiData && identityApiData.userIdentities) {
-                for (var key in identityApiData.userIdentities) {
+                for (const key in identityApiData.userIdentities) {
                     if (identityApiData.userIdentities.hasOwnProperty(key)) {
                         nativeIdentityRequest.push({
                             Type: Types.IdentityType.getIdentityType(key),
@@ -222,32 +227,34 @@ export default function Identity(mpInstance) {
          * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
          * @param {Function} [callback] A callback function that is called when the identify request completes
          */
-        identify: function(identityApiData, callback) {
+        identify: function (identityApiData, callback) {
             // https://go.mparticle.com/work/SQDSDKS-6337
-            var mpid,
+            let mpid,
                 currentUser = mpInstance.Identity.getCurrentUser(),
-                preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(
-                    identityApiData,
-                    callback,
-                    Identify
-                );
+                preProcessResult =
+                    mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(
+                        identityApiData,
+                        callback,
+                        Identify,
+                    );
             if (currentUser) {
                 mpid = currentUser.getMPID();
             }
 
             if (preProcessResult.valid) {
-                var identityApiRequest = mpInstance._Identity.IdentityRequest.createIdentityRequest(
-                    identityApiData,
-                    Constants.platform,
-                    Constants.sdkVendor,
-                    Constants.sdkVersion,
-                    mpInstance._Store.deviceId,
-                    mpInstance._Store.context,
-                    mpid
-                );
+                const identityApiRequest =
+                    mpInstance._Identity.IdentityRequest.createIdentityRequest(
+                        identityApiData,
+                        Constants.platform,
+                        Constants.sdkVendor,
+                        Constants.sdkVersion,
+                        mpInstance._Store.deviceId,
+                        mpInstance._Store.context,
+                        mpid,
+                    );
                 if (
                     mpInstance._Helpers.getFeatureFlag(
-                        Constants.FeatureFlags.CacheIdentity
+                        Constants.FeatureFlags.CacheIdentity,
                     )
                 ) {
                     const successfullyCachedIdentity = tryCacheIdentity(
@@ -257,7 +264,7 @@ export default function Identity(mpInstance) {
                         mpid,
                         callback,
                         identityApiData,
-                        Identify
+                        Identify,
                     );
 
                     if (successfullyCachedIdentity) {
@@ -271,14 +278,14 @@ export default function Identity(mpInstance) {
                             Constants.NativeSdkPaths.Identify,
                             JSON.stringify(
                                 mpInstance._Identity.IdentityRequest.convertToNative(
-                                    identityApiData
-                                )
-                            )
+                                    identityApiData,
+                                ),
+                            ),
                         );
                         mpInstance._Helpers.invokeCallback(
                             callback,
                             HTTPCodes.nativeIdentityRequest,
-                            'Identify request sent to native sdk'
+                            'Identify request sent to native sdk',
                         );
                     } else {
                         mpInstance._IdentityAPIClient.sendIdentityRequest(
@@ -288,24 +295,24 @@ export default function Identity(mpInstance) {
                             identityApiData,
                             self.parseIdentityResponse,
                             mpid,
-                            identityApiRequest.known_identities
+                            identityApiRequest.known_identities,
                         );
                     }
                 } else {
                     mpInstance._Helpers.invokeCallback(
                         callback,
                         HTTPCodes.loggingDisabledOrMissingAPIKey,
-                        Messages.InformationMessages.AbandonLogEvent
+                        Messages.InformationMessages.AbandonLogEvent,
                     );
                     mpInstance.Logger.verbose(
-                        Messages.InformationMessages.AbandonLogEvent
+                        Messages.InformationMessages.AbandonLogEvent,
                     );
                 }
             } else {
                 mpInstance._Helpers.invokeCallback(
                     callback,
                     HTTPCodes.validationIssue,
-                    preProcessResult.error
+                    preProcessResult.error,
                 );
                 mpInstance.Logger.verbose(preProcessResult);
             }
@@ -316,30 +323,32 @@ export default function Identity(mpInstance) {
          * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
          * @param {Function} [callback] A callback function that is called when the logout request completes
          */
-        logout: function(identityApiData, callback) {
+        logout: function (identityApiData, callback) {
             // https://go.mparticle.com/work/SQDSDKS-6337
-            var mpid,
+            let mpid,
                 currentUser = mpInstance.Identity.getCurrentUser(),
-                preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(
-                    identityApiData,
-                    callback,
-                    Logout
-                );
+                preProcessResult =
+                    mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(
+                        identityApiData,
+                        callback,
+                        Logout,
+                    );
             if (currentUser) {
                 mpid = currentUser.getMPID();
             }
 
             if (preProcessResult.valid) {
-                var evt,
-                    identityApiRequest = mpInstance._Identity.IdentityRequest.createIdentityRequest(
-                        identityApiData,
-                        Constants.platform,
-                        Constants.sdkVendor,
-                        Constants.sdkVersion,
-                        mpInstance._Store.deviceId,
-                        mpInstance._Store.context,
-                        mpid
-                    );
+                let evt,
+                    identityApiRequest =
+                        mpInstance._Identity.IdentityRequest.createIdentityRequest(
+                            identityApiData,
+                            Constants.platform,
+                            Constants.sdkVendor,
+                            Constants.sdkVersion,
+                            mpInstance._Store.deviceId,
+                            mpInstance._Store.context,
+                            mpid,
+                        );
 
                 if (mpInstance._Helpers.canLog()) {
                     if (mpInstance._Store.webviewBridgeEnabled) {
@@ -347,14 +356,14 @@ export default function Identity(mpInstance) {
                             Constants.NativeSdkPaths.Logout,
                             JSON.stringify(
                                 mpInstance._Identity.IdentityRequest.convertToNative(
-                                    identityApiData
-                                )
-                            )
+                                    identityApiData,
+                                ),
+                            ),
                         );
                         mpInstance._Helpers.invokeCallback(
                             callback,
                             HTTPCodes.nativeIdentityRequest,
-                            'Logout request sent to native sdk'
+                            'Logout request sent to native sdk',
                         );
                     } else {
                         mpInstance._IdentityAPIClient.sendIdentityRequest(
@@ -363,7 +372,7 @@ export default function Identity(mpInstance) {
                             callback,
                             identityApiData,
                             self.parseIdentityResponse,
-                            mpid
+                            mpid,
                         );
                         evt = mpInstance._ServerModel.createEventObject({
                             messageType: Types.MessageType.Profile,
@@ -372,30 +381,30 @@ export default function Identity(mpInstance) {
                         evt.ProfileMessageType =
                             Types.ProfileMessageType.Logout;
                         if (mpInstance._Store.activeForwarders.length) {
-                            mpInstance._Store.activeForwarders.forEach(function(
-                                forwarder
-                            ) {
-                                if (forwarder.logOut) {
-                                    forwarder.logOut(evt);
-                                }
-                            });
+                            mpInstance._Store.activeForwarders.forEach(
+                                function (forwarder) {
+                                    if (forwarder.logOut) {
+                                        forwarder.logOut(evt);
+                                    }
+                                },
+                            );
                         }
                     }
                 } else {
                     mpInstance._Helpers.invokeCallback(
                         callback,
                         HTTPCodes.loggingDisabledOrMissingAPIKey,
-                        Messages.InformationMessages.AbandonLogEvent
+                        Messages.InformationMessages.AbandonLogEvent,
                     );
                     mpInstance.Logger.verbose(
-                        Messages.InformationMessages.AbandonLogEvent
+                        Messages.InformationMessages.AbandonLogEvent,
                     );
                 }
             } else {
                 mpInstance._Helpers.invokeCallback(
                     callback,
                     HTTPCodes.validationIssue,
-                    preProcessResult.error
+                    preProcessResult.error,
                 );
                 mpInstance.Logger.verbose(preProcessResult);
             }
@@ -406,34 +415,36 @@ export default function Identity(mpInstance) {
          * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
          * @param {Function} [callback] A callback function that is called when the login request completes
          */
-        login: function(identityApiData, callback) {
+        login: function (identityApiData, callback) {
             // https://go.mparticle.com/work/SQDSDKS-6337
-            var mpid,
+            let mpid,
                 currentUser = mpInstance.Identity.getCurrentUser(),
-                preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(
-                    identityApiData,
-                    callback,
-                    Login
-                );
+                preProcessResult =
+                    mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(
+                        identityApiData,
+                        callback,
+                        Login,
+                    );
 
             if (currentUser) {
                 mpid = currentUser.getMPID();
             }
 
             if (preProcessResult.valid) {
-                var identityApiRequest = mpInstance._Identity.IdentityRequest.createIdentityRequest(
-                    identityApiData,
-                    Constants.platform,
-                    Constants.sdkVendor,
-                    Constants.sdkVersion,
-                    mpInstance._Store.deviceId,
-                    mpInstance._Store.context,
-                    mpid
-                );
+                const identityApiRequest =
+                    mpInstance._Identity.IdentityRequest.createIdentityRequest(
+                        identityApiData,
+                        Constants.platform,
+                        Constants.sdkVendor,
+                        Constants.sdkVersion,
+                        mpInstance._Store.deviceId,
+                        mpInstance._Store.context,
+                        mpid,
+                    );
 
                 if (
                     mpInstance._Helpers.getFeatureFlag(
-                        Constants.FeatureFlags.CacheIdentity
+                        Constants.FeatureFlags.CacheIdentity,
                     )
                 ) {
                     const successfullyCachedIdentity = tryCacheIdentity(
@@ -443,7 +454,7 @@ export default function Identity(mpInstance) {
                         mpid,
                         callback,
                         identityApiData,
-                        Login
+                        Login,
                     );
 
                     if (successfullyCachedIdentity) {
@@ -457,14 +468,14 @@ export default function Identity(mpInstance) {
                             Constants.NativeSdkPaths.Login,
                             JSON.stringify(
                                 mpInstance._Identity.IdentityRequest.convertToNative(
-                                    identityApiData
-                                )
-                            )
+                                    identityApiData,
+                                ),
+                            ),
                         );
                         mpInstance._Helpers.invokeCallback(
                             callback,
                             HTTPCodes.nativeIdentityRequest,
-                            'Login request sent to native sdk'
+                            'Login request sent to native sdk',
                         );
                     } else {
                         mpInstance._IdentityAPIClient.sendIdentityRequest(
@@ -474,24 +485,24 @@ export default function Identity(mpInstance) {
                             identityApiData,
                             self.parseIdentityResponse,
                             mpid,
-                            identityApiRequest.known_identities
+                            identityApiRequest.known_identities,
                         );
                     }
                 } else {
                     mpInstance._Helpers.invokeCallback(
                         callback,
                         HTTPCodes.loggingDisabledOrMissingAPIKey,
-                        Messages.InformationMessages.AbandonLogEvent
+                        Messages.InformationMessages.AbandonLogEvent,
                     );
                     mpInstance.Logger.verbose(
-                        Messages.InformationMessages.AbandonLogEvent
+                        Messages.InformationMessages.AbandonLogEvent,
                     );
                 }
             } else {
                 mpInstance._Helpers.invokeCallback(
                     callback,
                     HTTPCodes.validationIssue,
-                    preProcessResult.error
+                    preProcessResult.error,
                 );
                 mpInstance.Logger.verbose(preProcessResult);
             }
@@ -502,33 +513,35 @@ export default function Identity(mpInstance) {
          * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
          * @param {Function} [callback] A callback function that is called when the modify request completes
          */
-        modify: function(identityApiData, callback) {
+        modify: function (identityApiData, callback) {
             // https://go.mparticle.com/work/SQDSDKS-6337
-            var mpid,
+            let mpid,
                 currentUser = mpInstance.Identity.getCurrentUser(),
-                preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(
-                    identityApiData,
-                    callback,
-                    Modify
-                );
+                preProcessResult =
+                    mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(
+                        identityApiData,
+                        callback,
+                        Modify,
+                    );
             if (currentUser) {
                 mpid = currentUser.getMPID();
             }
-            var newUserIdentities =
+            const newUserIdentities =
                 identityApiData && identityApiData.userIdentities
                     ? identityApiData.userIdentities
                     : {};
             if (preProcessResult.valid) {
-                var identityApiRequest = mpInstance._Identity.IdentityRequest.createModifyIdentityRequest(
-                    currentUser
-                        ? currentUser.getUserIdentities().userIdentities
-                        : {},
-                    newUserIdentities,
-                    Constants.platform,
-                    Constants.sdkVendor,
-                    Constants.sdkVersion,
-                    mpInstance._Store.context
-                );
+                const identityApiRequest =
+                    mpInstance._Identity.IdentityRequest.createModifyIdentityRequest(
+                        currentUser
+                            ? currentUser.getUserIdentities().userIdentities
+                            : {},
+                        newUserIdentities,
+                        Constants.platform,
+                        Constants.sdkVendor,
+                        Constants.sdkVersion,
+                        mpInstance._Store.context,
+                    );
 
                 if (mpInstance._Helpers.canLog()) {
                     if (mpInstance._Store.webviewBridgeEnabled) {
@@ -536,14 +549,14 @@ export default function Identity(mpInstance) {
                             Constants.NativeSdkPaths.Modify,
                             JSON.stringify(
                                 mpInstance._Identity.IdentityRequest.convertToNative(
-                                    identityApiData
-                                )
-                            )
+                                    identityApiData,
+                                ),
+                            ),
                         );
                         mpInstance._Helpers.invokeCallback(
                             callback,
                             HTTPCodes.nativeIdentityRequest,
-                            'Modify request sent to native sdk'
+                            'Modify request sent to native sdk',
                         );
                     } else {
                         mpInstance._IdentityAPIClient.sendIdentityRequest(
@@ -553,24 +566,24 @@ export default function Identity(mpInstance) {
                             identityApiData,
                             self.parseIdentityResponse,
                             mpid,
-                            identityApiRequest.known_identities
+                            identityApiRequest.known_identities,
                         );
                     }
                 } else {
                     mpInstance._Helpers.invokeCallback(
                         callback,
                         HTTPCodes.loggingDisabledOrMissingAPIKey,
-                        Messages.InformationMessages.AbandonLogEvent
+                        Messages.InformationMessages.AbandonLogEvent,
                     );
                     mpInstance.Logger.verbose(
-                        Messages.InformationMessages.AbandonLogEvent
+                        Messages.InformationMessages.AbandonLogEvent,
                     );
                 }
             } else {
                 mpInstance._Helpers.invokeCallback(
                     callback,
                     HTTPCodes.validationIssue,
-                    preProcessResult.error
+                    preProcessResult.error,
                 );
                 mpInstance.Logger.verbose(preProcessResult);
             }
@@ -580,15 +593,15 @@ export default function Identity(mpInstance) {
          * @method getCurrentUser
          * @return {Object} the current user object
          */
-        getCurrentUser: function() {
-            var mpid;
+        getCurrentUser: function () {
+            let mpid;
             if (mpInstance._Store) {
                 mpid = mpInstance._Store.mpid;
                 if (mpid) {
                     mpid = mpInstance._Store.mpid.slice();
                     return self.mParticleUser(
                         mpid,
-                        mpInstance._Store.isLoggedIn
+                        mpInstance._Store.isLoggedIn,
                     );
                 } else if (mpInstance._Store.webviewBridgeEnabled) {
                     return self.mParticleUser();
@@ -607,8 +620,8 @@ export default function Identity(mpInstance) {
          * @param {String} mpid of the desired user
          * @return {Object} the user for  mpid
          */
-        getUser: function(mpid) {
-            var persistence = mpInstance._Persistence.getPersistence();
+        getUser: function (mpid) {
+            const persistence = mpInstance._Persistence.getPersistence();
             if (persistence) {
                 if (
                     persistence[mpid] &&
@@ -628,19 +641,19 @@ export default function Identity(mpInstance) {
          * @method getUsers
          * @return {Array} array of users
          */
-        getUsers: function() {
-            var persistence = mpInstance._Persistence.getPersistence();
-            var users = [];
+        getUsers: function () {
+            const persistence = mpInstance._Persistence.getPersistence();
+            const users = [];
             if (persistence) {
-                for (var key in persistence) {
+                for (const key in persistence) {
                     if (!Constants.SDKv2NonMPIDCookieKeys.hasOwnProperty(key)) {
                         users.push(self.mParticleUser(key));
                     }
                 }
             }
-            users.sort(function(a, b) {
-                var aLastSeen = a.getLastSeenTime() || 0;
-                var bLastSeen = b.getLastSeenTime() || 0;
+            users.sort(function (a, b) {
+                const aLastSeen = a.getLastSeenTime() || 0;
+                const bLastSeen = b.getLastSeenTime() || 0;
                 if (aLastSeen > bLastSeen) {
                     return -1;
                 } else {
@@ -656,8 +669,8 @@ export default function Identity(mpInstance) {
          * @param {Object} aliasRequest  object representing an AliasRequest
          * @param {Function} [callback] A callback function that is called when the aliasUsers request completes
          */
-        aliasUsers: function(aliasRequest, callback) {
-            var message;
+        aliasUsers: function (aliasRequest, callback) {
+            let message;
             if (!aliasRequest.destinationMpid || !aliasRequest.sourceMpid) {
                 message = Messages.ValidationMessages.AliasMissingMpid;
             }
@@ -675,7 +688,7 @@ export default function Identity(mpInstance) {
                 mpInstance._Helpers.invokeAliasCallback(
                     callback,
                     HTTPCodes.validationIssue,
-                    message
+                    message,
                 );
                 return;
             }
@@ -685,14 +698,14 @@ export default function Identity(mpInstance) {
                         Constants.NativeSdkPaths.Alias,
                         JSON.stringify(
                             mpInstance._Identity.IdentityRequest.convertAliasToNative(
-                                aliasRequest
-                            )
-                        )
+                                aliasRequest,
+                            ),
+                        ),
                     );
                     mpInstance._Helpers.invokeAliasCallback(
                         callback,
                         HTTPCodes.nativeIdentityRequest,
-                        'Alias request sent to native sdk'
+                        'Alias request sent to native sdk',
                     );
                 } else {
                     mpInstance.Logger.verbose(
@@ -700,24 +713,25 @@ export default function Identity(mpInstance) {
                             ': ' +
                             aliasRequest.sourceMpid +
                             ' -> ' +
-                            aliasRequest.destinationMpid
+                            aliasRequest.destinationMpid,
                     );
-                    var aliasRequestMessage = mpInstance._Identity.IdentityRequest.createAliasNetworkRequest(
-                        aliasRequest
-                    );
+                    const aliasRequestMessage =
+                        mpInstance._Identity.IdentityRequest.createAliasNetworkRequest(
+                            aliasRequest,
+                        );
                     mpInstance._IdentityAPIClient.sendAliasRequest(
                         aliasRequestMessage,
-                        callback
+                        callback,
                     );
                 }
             } else {
                 mpInstance._Helpers.invokeAliasCallback(
                     callback,
                     HTTPCodes.loggingDisabledOrMissingAPIKey,
-                    Messages.InformationMessages.AbandonAliasUsers
+                    Messages.InformationMessages.AbandonAliasUsers,
                 );
                 mpInstance.Logger.verbose(
-                    Messages.InformationMessages.AbandonAliasUsers
+                    Messages.InformationMessages.AbandonAliasUsers,
                 );
             }
         },
@@ -737,17 +751,17 @@ export default function Identity(mpInstance) {
         after applying this adjustment it will be impossible to create an aliasRequest passes the aliasUsers() 
         validation that the startTime must be less than the endTime 
         */
-        createAliasRequest: function(sourceUser, destinationUser) {
+        createAliasRequest: function (sourceUser, destinationUser) {
             try {
                 if (!destinationUser || !sourceUser) {
                     mpInstance.Logger.error(
-                        "'destinationUser' and 'sourceUser' must both be present"
+                        "'destinationUser' and 'sourceUser' must both be present",
                     );
                     return null;
                 }
-                var startTime = sourceUser.getFirstSeenTime();
+                let startTime = sourceUser.getFirstSeenTime();
                 if (!startTime) {
-                    mpInstance.Identity.getUsers().forEach(function(user) {
+                    mpInstance.Identity.getUsers().forEach(function (user) {
                         if (
                             user.getFirstSeenTime() &&
                             (!startTime || user.getFirstSeenTime() < startTime)
@@ -756,14 +770,14 @@ export default function Identity(mpInstance) {
                         }
                     });
                 }
-                var minFirstSeenTimeMs =
+                const minFirstSeenTimeMs =
                     new Date().getTime() -
                     mpInstance._Store.SDKConfig.aliasMaxWindow *
                         24 *
                         60 *
                         60 *
                         1000;
-                var endTime =
+                const endTime =
                     sourceUser.getLastSeenTime() || new Date().getTime();
                 //if the startTime is greater than $maxAliasWindow ago, adjust the startTime to the earliest allowed
                 if (startTime < minFirstSeenTimeMs) {
@@ -772,7 +786,7 @@ export default function Identity(mpInstance) {
                         mpInstance.Logger.warning(
                             'Source User has not been seen in the last ' +
                                 mpInstance._Store.SDKConfig.maxAliasWindow +
-                                ' days, Alias Request will likely fail'
+                                ' days, Alias Request will likely fail',
                         );
                     }
                 }
@@ -784,7 +798,7 @@ export default function Identity(mpInstance) {
                 };
             } catch (e) {
                 mpInstance.Logger.error(
-                    'There was a problem with creating an alias request: ' + e
+                    'There was a problem with creating an alias request: ' + e,
                 );
                 return null;
             }
@@ -797,23 +811,23 @@ export default function Identity(mpInstance) {
      * Example: mParticle.Identity.getCurrentUser().getAllUserAttributes()
      * @class mParticle.Identity.getCurrentUser()
      */
-    this.mParticleUser = function(mpid, isLoggedIn) {
-        var self = this;
+    this.mParticleUser = function (mpid, isLoggedIn) {
+        const self = this;
         return {
             /**
              * Get user identities for current user
              * @method getUserIdentities
              * @return {Object} an object with userIdentities as its key
              */
-            getUserIdentities: function() {
+            getUserIdentities: function () {
                 const currentUserIdentities = {};
                 const identities = mpInstance._Store.getUserIdentities(mpid);
 
-                for (var identityType in identities) {
+                for (const identityType in identities) {
                     if (identities.hasOwnProperty(identityType)) {
                         currentUserIdentities[
                             Types.IdentityType.getIdentityName(
-                                mpInstance._Helpers.parseNumber(identityType)
+                                mpInstance._Helpers.parseNumber(identityType),
                             )
                         ] = identities[identityType];
                     }
@@ -828,7 +842,7 @@ export default function Identity(mpInstance) {
              * @method getMPID
              * @return {String} the current user MPID as a string
              */
-            getMPID: function() {
+            getMPID: function () {
                 return mpid;
             },
             /**
@@ -836,7 +850,7 @@ export default function Identity(mpInstance) {
              * @method setUserTag
              * @param {String} tagName
              */
-            setUserTag: function(tagName) {
+            setUserTag: function (tagName) {
                 if (!mpInstance._Helpers.Validators.isValidKeyValue(tagName)) {
                     mpInstance.Logger.error(Messages.ErrorMessages.BadKey);
                     return;
@@ -849,7 +863,7 @@ export default function Identity(mpInstance) {
              * @method removeUserTag
              * @param {String} tagName
              */
-            removeUserTag: function(tagName) {
+            removeUserTag: function (tagName) {
                 if (!mpInstance._Helpers.Validators.isValidKeyValue(tagName)) {
                     mpInstance.Logger.error(Messages.ErrorMessages.BadKey);
                     return;
@@ -865,17 +879,17 @@ export default function Identity(mpInstance) {
              */
             // https://go.mparticle.com/work/SQDSDKS-4576
             // https://go.mparticle.com/work/SQDSDKS-6373
-            setUserAttribute: function(key, newValue) {
+            setUserAttribute: function (key, newValue) {
                 mpInstance._SessionManager.resetSessionTimer();
 
                 if (mpInstance._Helpers.canLog()) {
                     if (
                         !mpInstance._Helpers.Validators.isValidAttributeValue(
-                            newValue
+                            newValue,
                         )
                     ) {
                         mpInstance.Logger.error(
-                            Messages.ErrorMessages.BadAttribute
+                            Messages.ErrorMessages.BadAttribute,
                         );
                         return;
                     }
@@ -887,17 +901,18 @@ export default function Identity(mpInstance) {
                     if (mpInstance._Store.webviewBridgeEnabled) {
                         mpInstance._NativeSdkHelpers.sendToNative(
                             Constants.NativeSdkPaths.SetUserAttribute,
-                            JSON.stringify({ key: key, value: newValue })
+                            JSON.stringify({ key: key, value: newValue }),
                         );
                     } else {
                         const userAttributes = this.getAllUserAttributes();
                         let previousUserAttributeValue;
                         let isNewAttribute;
 
-                        const existingProp = mpInstance._Helpers.findKeyInObject(
-                            userAttributes,
-                            key
-                        );
+                        const existingProp =
+                            mpInstance._Helpers.findKeyInObject(
+                                userAttributes,
+                                key,
+                            );
 
                         if (existingProp) {
                             isNewAttribute = false;
@@ -911,7 +926,7 @@ export default function Identity(mpInstance) {
                         userAttributes[key] = newValue;
                         mpInstance._Store.setUserAttributes(
                             mpid,
-                            userAttributes
+                            userAttributes,
                         );
 
                         self.sendUserAttributeChangeEvent(
@@ -920,17 +935,17 @@ export default function Identity(mpInstance) {
                             previousUserAttributeValue,
                             isNewAttribute,
                             false,
-                            this
+                            this,
                         );
 
                         mpInstance._Forwarders.initForwarders(
                             self.IdentityAPI.getCurrentUser().getUserIdentities(),
-                            mpInstance._APIClient.prepareForwardingStats
+                            mpInstance._APIClient.prepareForwardingStats,
                         );
                         mpInstance._Forwarders.handleForwarderUserAttributes(
                             'setUserAttribute',
                             key,
-                            newValue
+                            newValue,
                         );
                     }
                 }
@@ -941,11 +956,11 @@ export default function Identity(mpInstance) {
              * @param {Object} user attribute object with keys of the attribute type, and value of the attribute value
              */
             // https://go.mparticle.com/work/SQDSDKS-6373
-            setUserAttributes: function(userAttributes) {
+            setUserAttributes: function (userAttributes) {
                 mpInstance._SessionManager.resetSessionTimer();
                 if (isObject(userAttributes)) {
                     if (mpInstance._Helpers.canLog()) {
-                        for (var key in userAttributes) {
+                        for (const key in userAttributes) {
                             if (userAttributes.hasOwnProperty(key)) {
                                 this.setUserAttribute(key, userAttributes[key]);
                             }
@@ -954,7 +969,7 @@ export default function Identity(mpInstance) {
                 } else {
                     mpInstance.Logger.error(
                         'Must pass an object into setUserAttributes. You passed a ' +
-                            typeof userAttributes
+                            typeof userAttributes,
                     );
                 }
             },
@@ -963,8 +978,8 @@ export default function Identity(mpInstance) {
              * @method removeUserAttribute
              * @param {String} key
              */
-            removeUserAttribute: function(key) {
-                var cookies, userAttributes;
+            removeUserAttribute: function (key) {
+                let cookies, userAttributes;
                 mpInstance._SessionManager.resetSessionTimer();
 
                 if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
@@ -975,23 +990,23 @@ export default function Identity(mpInstance) {
                 if (mpInstance._Store.webviewBridgeEnabled) {
                     mpInstance._NativeSdkHelpers.sendToNative(
                         Constants.NativeSdkPaths.RemoveUserAttribute,
-                        JSON.stringify({ key: key, value: null })
+                        JSON.stringify({ key: key, value: null }),
                     );
                 } else {
                     cookies = mpInstance._Persistence.getPersistence();
 
                     userAttributes = this.getAllUserAttributes();
 
-                    var existingProp = mpInstance._Helpers.findKeyInObject(
+                    const existingProp = mpInstance._Helpers.findKeyInObject(
                         userAttributes,
-                        key
+                        key,
                     );
 
                     if (existingProp) {
                         key = existingProp;
                     }
 
-                    var deletedUAKeyCopy = userAttributes[key]
+                    const deletedUAKeyCopy = userAttributes[key]
                         ? userAttributes[key].toString()
                         : null;
 
@@ -1008,17 +1023,17 @@ export default function Identity(mpInstance) {
                         deletedUAKeyCopy,
                         false,
                         true,
-                        this
+                        this,
                     );
 
                     mpInstance._Forwarders.initForwarders(
                         self.IdentityAPI.getCurrentUser().getUserIdentities(),
-                        mpInstance._APIClient.prepareForwardingStats
+                        mpInstance._APIClient.prepareForwardingStats,
                     );
                     mpInstance._Forwarders.handleForwarderUserAttributes(
                         'removeUserAttribute',
                         key,
-                        null
+                        null,
                     );
                 }
             },
@@ -1029,7 +1044,7 @@ export default function Identity(mpInstance) {
              * @param {Array} value an array of values
              */
             // https://go.mparticle.com/work/SQDSDKS-6373
-            setUserAttributeList: function(key, newValue) {
+            setUserAttributeList: function (key, newValue) {
                 mpInstance._SessionManager.resetSessionTimer();
 
                 if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
@@ -1040,7 +1055,7 @@ export default function Identity(mpInstance) {
                 if (!Array.isArray(newValue)) {
                     mpInstance.Logger.error(
                         'The value you passed in to setUserAttributeList must be an array. You passed in a ' +
-                            typeof value
+                            typeof value,
                     );
                     return;
                 }
@@ -1050,7 +1065,7 @@ export default function Identity(mpInstance) {
                 if (mpInstance._Store.webviewBridgeEnabled) {
                     mpInstance._NativeSdkHelpers.sendToNative(
                         Constants.NativeSdkPaths.SetUserAttributeList,
-                        JSON.stringify({ key: key, value: arrayCopy })
+                        JSON.stringify({ key: key, value: arrayCopy }),
                     );
                 } else {
                     const userAttributes = this.getAllUserAttributes();
@@ -1060,7 +1075,7 @@ export default function Identity(mpInstance) {
 
                     const existingProp = mpInstance._Helpers.findKeyInObject(
                         userAttributes,
-                        key
+                        key,
                     );
 
                     if (existingProp) {
@@ -1088,7 +1103,7 @@ export default function Identity(mpInstance) {
                     ) {
                         userAttributeChange = true;
                     } else {
-                        for (var i = 0; i < newValue.length; i++) {
+                        for (let i = 0; i < newValue.length; i++) {
                             if (previousUserAttributeValue[i] !== newValue[i]) {
                                 userAttributeChange = true;
                                 break;
@@ -1103,18 +1118,18 @@ export default function Identity(mpInstance) {
                             previousUserAttributeValue,
                             isNewAttribute,
                             false,
-                            this
+                            this,
                         );
                     }
 
                     mpInstance._Forwarders.initForwarders(
                         self.IdentityAPI.getCurrentUser().getUserIdentities(),
-                        mpInstance._APIClient.prepareForwardingStats
+                        mpInstance._APIClient.prepareForwardingStats,
                     );
                     mpInstance._Forwarders.handleForwarderUserAttributes(
                         'setUserAttribute',
                         key,
-                        arrayCopy
+                        arrayCopy,
                     );
                 }
             },
@@ -1122,29 +1137,29 @@ export default function Identity(mpInstance) {
              * Removes all user attributes
              * @method removeAllUserAttributes
              */
-            removeAllUserAttributes: function() {
-                var userAttributes;
+            removeAllUserAttributes: function () {
+                let userAttributes;
 
                 mpInstance._SessionManager.resetSessionTimer();
 
                 if (mpInstance._Store.webviewBridgeEnabled) {
                     mpInstance._NativeSdkHelpers.sendToNative(
-                        Constants.NativeSdkPaths.RemoveAllUserAttributes
+                        Constants.NativeSdkPaths.RemoveAllUserAttributes,
                     );
                 } else {
                     userAttributes = this.getAllUserAttributes();
 
                     mpInstance._Forwarders.initForwarders(
                         self.IdentityAPI.getCurrentUser().getUserIdentities(),
-                        mpInstance._APIClient.prepareForwardingStats
+                        mpInstance._APIClient.prepareForwardingStats,
                     );
                     if (userAttributes) {
-                        for (var prop in userAttributes) {
+                        for (const prop in userAttributes) {
                             if (userAttributes.hasOwnProperty(prop)) {
                                 mpInstance._Forwarders.handleForwarderUserAttributes(
                                     'removeUserAttribute',
                                     prop,
-                                    null
+                                    null,
                                 );
                             }
                             this.removeUserAttribute(prop);
@@ -1157,12 +1172,12 @@ export default function Identity(mpInstance) {
              * @method getUserAttributesLists
              * @return {Object} an object of only keys with array values. Example: { attr1: [1, 2, 3], attr2: ['a', 'b', 'c'] }
              */
-            getUserAttributesLists: function() {
-                var userAttributes,
+            getUserAttributesLists: function () {
+                let userAttributes,
                     userAttributesLists = {};
 
                 userAttributes = this.getAllUserAttributes();
-                for (var key in userAttributes) {
+                for (const key in userAttributes) {
                     if (
                         userAttributes.hasOwnProperty(key) &&
                         Array.isArray(userAttributes[key])
@@ -1178,7 +1193,7 @@ export default function Identity(mpInstance) {
              * @method getAllUserAttributes
              * @return {Object} an object of all user attributes. Example: { attr1: 'value1', attr2: ['a', 'b', 'c'] }
              */
-            getAllUserAttributes: function() {
+            getAllUserAttributes: function () {
                 const { getUserAttributes } = mpInstance._Store;
                 const userAttributesCopy = {};
                 const userAttributes = getUserAttributes(mpid);
@@ -1187,9 +1202,8 @@ export default function Identity(mpInstance) {
                     for (const prop in userAttributes) {
                         if (userAttributes.hasOwnProperty(prop)) {
                             if (Array.isArray(userAttributes[prop])) {
-                                userAttributesCopy[prop] = userAttributes[
-                                    prop
-                                ].slice();
+                                userAttributesCopy[prop] =
+                                    userAttributes[prop].slice();
                             } else {
                                 userAttributesCopy[prop] = userAttributes[prop];
                             }
@@ -1204,9 +1218,9 @@ export default function Identity(mpInstance) {
              * @method getCart
              * @return a cart object
              */
-            getCart: function() {
+            getCart: function () {
                 mpInstance.Logger.warning(
-                    'Deprecated function Identity.getCurrentUser().getCart() will be removed in future releases'
+                    'Deprecated function Identity.getCurrentUser().getCart() will be removed in future releases',
                 );
                 return self.mParticleUserCart(mpid);
             },
@@ -1216,7 +1230,7 @@ export default function Identity(mpInstance) {
              * @method getConsentState
              * @return a ConsentState object
              */
-            getConsentState: function() {
+            getConsentState: function () {
                 return mpInstance._Store.getConsentState(mpid);
             },
             /**
@@ -1224,21 +1238,21 @@ export default function Identity(mpInstance) {
              * @method setConsentState
              * @param {Object} consent state
              */
-            setConsentState: function(state) {
+            setConsentState: function (state) {
                 mpInstance._Store.setConsentState(mpid, state);
                 mpInstance._Forwarders.initForwarders(
                     this.getUserIdentities().userIdentities,
-                    mpInstance._APIClient.prepareForwardingStats
+                    mpInstance._APIClient.prepareForwardingStats,
                 );
                 mpInstance._CookieSyncManager.attemptCookieSync(this.getMPID());
             },
-            isLoggedIn: function() {
+            isLoggedIn: function () {
                 return isLoggedIn;
             },
-            getLastSeenTime: function() {
+            getLastSeenTime: function () {
                 return mpInstance._Persistence.getLastSeenTime(mpid);
             },
-            getFirstSeenTime: function() {
+            getFirstSeenTime: function () {
                 return mpInstance._Persistence.getFirstSeenTime(mpid);
             },
             /**
@@ -1247,15 +1261,15 @@ export default function Identity(mpInstance) {
              * @param {Function} [callback] A callback function that is invoked when the user audience request completes
              */
             // https://go.mparticle.com/work/SQDSDKS-6436
-            getUserAudiences: function(callback) {
+            getUserAudiences: function (callback) {
                 // user audience API is feature flagged
                 if (
                     !mpInstance._Helpers.getFeatureFlag(
-                        FeatureFlags.AudienceAPI
+                        FeatureFlags.AudienceAPI,
                     )
                 ) {
                     mpInstance.Logger.error(
-                        ErrorMessages.AudienceAPINotEnabled
+                        ErrorMessages.AudienceAPINotEnabled,
                     );
                     return;
                 }
@@ -1264,7 +1278,7 @@ export default function Identity(mpInstance) {
                         mpInstance._Store.SDKConfig.userAudienceUrl,
                         mpInstance._Store.devToken,
                         mpInstance.Logger,
-                        mpid
+                        mpid,
                     );
                 }
 
@@ -1279,7 +1293,7 @@ export default function Identity(mpInstance) {
      * @class mParticle.Identity.getCurrentUser().getCart()
      * @deprecated
      */
-    this.mParticleUserCart = function(mpid) {
+    this.mParticleUserCart = function (mpid) {
         return {
             /**
              * Adds a cart product to the user cart
@@ -1288,43 +1302,42 @@ export default function Identity(mpInstance) {
              * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
              * @deprecated
              */
-            add: function(product, logEvent) {
+            add: function (product, logEvent) {
                 mpInstance.Logger.warning(
-                    'Deprecated function Identity.getCurrentUser().getCart().add() will be removed in future releases'
+                    'Deprecated function Identity.getCurrentUser().getCart().add() will be removed in future releases',
                 );
-                var allProducts, userProducts, arrayCopy;
+                let allProducts, userProducts, arrayCopy;
 
                 arrayCopy = Array.isArray(product)
                     ? product.slice()
                     : [product];
-                arrayCopy.forEach(function(product) {
+                arrayCopy.forEach(function (product) {
                     product.Attributes = mpInstance._Helpers.sanitizeAttributes(
-                        product.Attributes
+                        product.Attributes,
                     );
                 });
 
                 if (mpInstance._Store.webviewBridgeEnabled) {
                     mpInstance._NativeSdkHelpers.sendToNative(
                         Constants.NativeSdkPaths.AddToCart,
-                        JSON.stringify(arrayCopy)
+                        JSON.stringify(arrayCopy),
                     );
                 } else {
                     mpInstance._SessionManager.resetSessionTimer();
 
-                    userProducts = mpInstance._Persistence.getUserProductsFromLS(
-                        mpid
-                    );
+                    userProducts =
+                        mpInstance._Persistence.getUserProductsFromLS(mpid);
 
                     userProducts = userProducts.concat(arrayCopy);
 
                     if (logEvent === true) {
                         mpInstance._Events.logProductActionEvent(
                             Types.ProductActionType.AddToCart,
-                            arrayCopy
+                            arrayCopy,
                         );
                     }
 
-                    var productsForMemory = {};
+                    const productsForMemory = {};
                     productsForMemory[mpid] = { cp: userProducts };
 
                     if (
@@ -1336,14 +1349,15 @@ export default function Identity(mpInstance) {
                                 userProducts.length +
                                 ' items. Only ' +
                                 mpInstance._Store.SDKConfig.maxProducts +
-                                ' can currently be saved in cookies.'
+                                ' can currently be saved in cookies.',
                         );
                         userProducts = userProducts.slice(
-                            -mpInstance._Store.SDKConfig.maxProducts
+                            -mpInstance._Store.SDKConfig.maxProducts,
                         );
                     }
 
-                    allProducts = mpInstance._Persistence.getAllUserProductsFromLS();
+                    allProducts =
+                        mpInstance._Persistence.getAllUserProductsFromLS();
                     allProducts[mpid].cp = userProducts;
 
                     mpInstance._Persistence.setCartProducts(allProducts);
@@ -1356,11 +1370,11 @@ export default function Identity(mpInstance) {
              * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
              * @deprecated
              */
-            remove: function(product, logEvent) {
+            remove: function (product, logEvent) {
                 mpInstance.Logger.warning(
-                    'Deprecated function Identity.getCurrentUser().getCart().remove() will be removed in future releases'
+                    'Deprecated function Identity.getCurrentUser().getCart().remove() will be removed in future releases',
                 );
-                var allProducts,
+                let allProducts,
                     userProducts,
                     cartIndex = -1,
                     cartItem = null;
@@ -1368,17 +1382,16 @@ export default function Identity(mpInstance) {
                 if (mpInstance._Store.webviewBridgeEnabled) {
                     mpInstance._NativeSdkHelpers.sendToNative(
                         Constants.NativeSdkPaths.RemoveFromCart,
-                        JSON.stringify(product)
+                        JSON.stringify(product),
                     );
                 } else {
                     mpInstance._SessionManager.resetSessionTimer();
 
-                    userProducts = mpInstance._Persistence.getUserProductsFromLS(
-                        mpid
-                    );
+                    userProducts =
+                        mpInstance._Persistence.getUserProductsFromLS(mpid);
 
                     if (userProducts) {
-                        userProducts.forEach(function(cartProduct, i) {
+                        userProducts.forEach(function (cartProduct, i) {
                             if (cartProduct.Sku === product.Sku) {
                                 cartIndex = i;
                                 cartItem = cartProduct;
@@ -1391,16 +1404,17 @@ export default function Identity(mpInstance) {
                             if (logEvent === true) {
                                 mpInstance._Events.logProductActionEvent(
                                     Types.ProductActionType.RemoveFromCart,
-                                    cartItem
+                                    cartItem,
                                 );
                             }
                         }
                     }
 
-                    var productsForMemory = {};
+                    const productsForMemory = {};
                     productsForMemory[mpid] = { cp: userProducts };
 
-                    allProducts = mpInstance._Persistence.getAllUserProductsFromLS();
+                    allProducts =
+                        mpInstance._Persistence.getAllUserProductsFromLS();
 
                     allProducts[mpid].cp = userProducts;
 
@@ -1412,20 +1426,21 @@ export default function Identity(mpInstance) {
              * @method clear
              * @deprecated
              */
-            clear: function() {
+            clear: function () {
                 mpInstance.Logger.warning(
-                    'Deprecated function Identity.getCurrentUser().getCart().clear() will be removed in future releases'
+                    'Deprecated function Identity.getCurrentUser().getCart().clear() will be removed in future releases',
                 );
 
-                var allProducts;
+                let allProducts;
 
                 if (mpInstance._Store.webviewBridgeEnabled) {
                     mpInstance._NativeSdkHelpers.sendToNative(
-                        Constants.NativeSdkPaths.ClearCart
+                        Constants.NativeSdkPaths.ClearCart,
                     );
                 } else {
                     mpInstance._SessionManager.resetSessionTimer();
-                    allProducts = mpInstance._Persistence.getAllUserProductsFromLS();
+                    allProducts =
+                        mpInstance._Persistence.getAllUserProductsFromLS();
 
                     if (
                         allProducts &&
@@ -1446,9 +1461,9 @@ export default function Identity(mpInstance) {
              * @return {Array} array of cart products
              * @deprecated
              */
-            getCartProducts: function() {
+            getCartProducts: function () {
                 mpInstance.Logger.warning(
-                    'Deprecated function Identity.getCurrentUser().getCart().getCartProducts() will be removed in future releases'
+                    'Deprecated function Identity.getCurrentUser().getCart().getCartProducts() will be removed in future releases',
                 );
                 return mpInstance._Persistence.getCartProducts(mpid);
             },
@@ -1456,14 +1471,14 @@ export default function Identity(mpInstance) {
     };
 
     // https://go.mparticle.com/work/SQDSDKS-6355
-    this.parseIdentityResponse = function(
+    this.parseIdentityResponse = function (
         identityResponse,
         previousMPID,
         callback,
         identityApiData,
         method,
         knownIdentities,
-        parsingCachedResponse
+        parsingCachedResponse,
     ) {
         const prevUser = mpInstance.Identity.getUser(previousMPID);
         const prevUserMPID = prevUser ? prevUser.getMPID() : null;
@@ -1480,7 +1495,7 @@ export default function Identity(mpInstance) {
 
         try {
             mpInstance.Logger.verbose(
-                'Parsing "' + method + '" identity response from server'
+                'Parsing "' + method + '" identity response from server',
             );
 
             identityApiResult = identityResponse.responseText ?? null;
@@ -1499,12 +1514,12 @@ export default function Identity(mpInstance) {
                 }
 
                 mpidIsNotInCookies = !mpInstance._Persistence.getFirstSeenTime(
-                    identityApiResult.mpid
+                    identityApiResult.mpid,
                 );
 
                 // https://go.mparticle.com/work/SQDSDKS-6329
                 mpInstance._Persistence.setFirstSeenTime(
-                    identityApiResult.mpid
+                    identityApiResult.mpid,
                 );
             }
 
@@ -1515,12 +1530,12 @@ export default function Identity(mpInstance) {
                         knownIdentities,
                         self.idCache,
                         identityResponse,
-                        parsingCachedResponse
+                        parsingCachedResponse,
                     );
                 }
 
                 const incomingUser = self.IdentityAPI.getUser(
-                    identityApiResult.mpid
+                    identityApiResult.mpid,
                 );
 
                 const incomingUIByName = incomingUser
@@ -1528,14 +1543,15 @@ export default function Identity(mpInstance) {
                     : {};
 
                 if (method === Modify) {
-                    newIdentitiesByType = mpInstance._Identity.IdentityRequest.combineUserIdentities(
-                        previousUIByName,
-                        identityApiData.userIdentities
-                    );
+                    newIdentitiesByType =
+                        mpInstance._Identity.IdentityRequest.combineUserIdentities(
+                            previousUIByName,
+                            identityApiData.userIdentities,
+                        );
 
                     mpInstance._Store.setUserIdentities(
                         previousMPID,
-                        newIdentitiesByType
+                        newIdentitiesByType,
                     );
                 } else {
                     // https://go.mparticle.com/work/SQDSDKS-6356
@@ -1549,46 +1565,47 @@ export default function Identity(mpInstance) {
                     ) {
                         // https://go.mparticle.com/work/SQDSDKS-6329
                         mpInstance._Persistence.setFirstSeenTime(
-                            identityApiResult.mpid
+                            identityApiResult.mpid,
                         );
                     }
 
                     mpInstance._Store.addMpidToSessionHistory(
                         identityApiResult.mpid,
-                        previousMPID
+                        previousMPID,
                     );
 
                     mpInstance._CookieSyncManager.attemptCookieSync(
                         identityApiResult.mpid,
-                        mpidIsNotInCookies
+                        mpidIsNotInCookies,
                     );
 
                     mpInstance._Persistence.swapCurrentUser(
                         previousMPID,
                         identityApiResult.mpid,
-                        mpInstance._Store.currentSessionMPIDs
+                        mpInstance._Store.currentSessionMPIDs,
                     );
 
                     if (
                         identityApiData &&
                         !isEmpty(identityApiData.userIdentities)
                     ) {
-                        newIdentitiesByType = self.IdentityRequest.combineUserIdentities(
-                            incomingUIByName,
-                            identityApiData.userIdentities
-                        );
+                        newIdentitiesByType =
+                            self.IdentityRequest.combineUserIdentities(
+                                incomingUIByName,
+                                identityApiData.userIdentities,
+                            );
                     }
 
                     // https://go.mparticle.com/work/SQDSDKS-6041
                     mpInstance._Store.setUserIdentities(
                         identityApiResult.mpid,
-                        newIdentitiesByType
+                        newIdentitiesByType,
                     );
                     mpInstance._Persistence.update();
                     mpInstance._Store.syncPersistenceData();
 
                     mpInstance._Persistence.findPrevCookiesBasedOnUI(
-                        identityApiData
+                        identityApiData,
                     );
 
                     // https://go.mparticle.com/work/SQDSDKS-6357
@@ -1603,7 +1620,7 @@ export default function Identity(mpInstance) {
                     prevUser,
                     newUser,
                     identityApiData,
-                    mpInstance.Logger
+                    mpInstance.Logger,
                 );
 
                 const persistence = mpInstance._Persistence.getPersistence();
@@ -1611,16 +1628,15 @@ export default function Identity(mpInstance) {
                 if (newUser) {
                     mpInstance._Persistence.storeDataInMemory(
                         persistence,
-                        newUser.getMPID()
+                        newUser.getMPID(),
                     );
 
                     self.reinitForwardersOnUserChange(prevUser, newUser);
                     self.setForwarderCallbacks(newUser, method);
                 }
 
-                const newIdentitiesByName = IdentityType.getNewIdentitiesByName(
-                    newIdentitiesByType
-                );
+                const newIdentitiesByName =
+                    IdentityType.getNewIdentitiesByName(newIdentitiesByType);
 
                 const uiByName =
                     method === Modify ? previousUIByName : incomingUIByName;
@@ -1630,7 +1646,7 @@ export default function Identity(mpInstance) {
                     newIdentitiesByName,
                     method,
                     identityApiResult.mpid,
-                    uiByName
+                    uiByName,
                 );
             }
 
@@ -1644,7 +1660,7 @@ export default function Identity(mpInstance) {
                     callback,
                     callbackCode,
                     identityApiResult || null,
-                    newUser
+                    newUser,
                 );
             } else if (
                 identityApiResult &&
@@ -1655,7 +1671,7 @@ export default function Identity(mpInstance) {
                     'Received HTTP response code of ' +
                         identityResponse.status +
                         ' - ' +
-                        identityApiResult.errors[0].message
+                        identityApiResult.errors[0].message,
                 );
             }
 
@@ -1668,32 +1684,33 @@ export default function Identity(mpInstance) {
                 mpInstance._Helpers.invokeCallback(
                     callback,
                     identityResponse.status,
-                    identityApiResult || null
+                    identityApiResult || null,
                 );
             }
             mpInstance.Logger.error(
-                'Error parsing JSON response from Identity server: ' + e
+                'Error parsing JSON response from Identity server: ' + e,
             );
         }
         mpInstance._Store.isInitialized = true;
 
         if (mpInstance._RoktManager.isReady()) {
-            mpInstance._RoktManager.currentUser = mpInstance.Identity.getCurrentUser();
+            mpInstance._RoktManager.currentUser =
+                mpInstance.Identity.getCurrentUser();
         }
 
         mpInstance._preInit.readyQueue = processReadyQueue(
-            mpInstance._preInit.readyQueue
+            mpInstance._preInit.readyQueue,
         );
     };
 
     // send a user identity change request on identify, login, logout, modify when any values change.
     // compare what identities exist vs what is previously was for the specific user if they were in memory before.
     // if it's the first time the user is logging in, send a user identity change request with
-    this.sendUserIdentityChangeEvent = function(
+    this.sendUserIdentityChangeEvent = function (
         newUserIdentities,
         method,
         mpid,
-        prevUserIdentities
+        prevUserIdentities,
     ) {
         if (!mpid) {
             // https://go.mparticle.com/work/SQDSDKS-6501
@@ -1705,7 +1722,7 @@ export default function Identity(mpInstance) {
         // https://go.mparticle.com/work/SQDSDKS-6354
         const currentUserInMemory = this.IdentityAPI.getUser(mpid);
 
-        for (var identityType in newUserIdentities) {
+        for (const identityType in newUserIdentities) {
             // Verifies a change actually happened
             if (
                 prevUserIdentities[identityType] !==
@@ -1720,23 +1737,23 @@ export default function Identity(mpInstance) {
                     newUserIdentities[identityType],
                     prevUserIdentities[identityType],
                     isNewUserIdentityType,
-                    currentUserInMemory
+                    currentUserInMemory,
                 );
                 mpInstance._APIClient?.sendEventToServer(
-                    userIdentityChangeEvent
+                    userIdentityChangeEvent,
                 );
             }
         }
     };
 
-    this.createUserIdentityChange = function(
+    this.createUserIdentityChange = function (
         identityType,
         newIdentity,
         oldIdentity,
         isIdentityTypeNewToBatch,
-        userInMemory
+        userInMemory,
     ) {
-        var userIdentityChangeEvent;
+        let userIdentityChangeEvent;
 
         // https://go.mparticle.com/work/SQDSDKS-6439
         userIdentityChangeEvent = mpInstance._ServerModel.createEventObject({
@@ -1759,71 +1776,72 @@ export default function Identity(mpInstance) {
         return userIdentityChangeEvent;
     };
 
-    this.sendUserAttributeChangeEvent = function(
+    this.sendUserAttributeChangeEvent = function (
         attributeKey,
         newUserAttributeValue,
         previousUserAttributeValue,
         isNewAttribute,
         deleted,
-        user
+        user,
     ) {
-        var userAttributeChangeEvent = self.createUserAttributeChange(
+        const userAttributeChangeEvent = self.createUserAttributeChange(
             attributeKey,
             newUserAttributeValue,
             previousUserAttributeValue,
             isNewAttribute,
             deleted,
-            user
+            user,
         );
         if (userAttributeChangeEvent) {
             mpInstance._APIClient?.sendEventToServer(userAttributeChangeEvent);
         }
     };
 
-    this.createUserAttributeChange = function(
+    this.createUserAttributeChange = function (
         key,
         newValue,
         previousUserAttributeValue,
         isNewAttribute,
         deleted,
-        user
+        user,
     ) {
         if (typeof previousUserAttributeValue === 'undefined') {
             previousUserAttributeValue = null;
         }
-        var userAttributeChangeEvent;
+        let userAttributeChangeEvent;
         if (newValue !== previousUserAttributeValue) {
             // https://go.mparticle.com/work/SQDSDKS-6439
-            userAttributeChangeEvent = mpInstance._ServerModel.createEventObject(
-                {
-                    messageType: Types.MessageType.UserAttributeChange,
-                    userAttributeChanges: {
-                        UserAttributeName: key,
-                        New: newValue,
-                        Old: previousUserAttributeValue,
-                        Deleted: deleted,
-                        IsNewAttribute: isNewAttribute,
+            userAttributeChangeEvent =
+                mpInstance._ServerModel.createEventObject(
+                    {
+                        messageType: Types.MessageType.UserAttributeChange,
+                        userAttributeChanges: {
+                            UserAttributeName: key,
+                            New: newValue,
+                            Old: previousUserAttributeValue,
+                            Deleted: deleted,
+                            IsNewAttribute: isNewAttribute,
+                        },
                     },
-                },
-                user
-            );
+                    user,
+                );
         }
         return userAttributeChangeEvent;
     };
 
-    this.reinitForwardersOnUserChange = function(prevUser, newUser) {
+    this.reinitForwardersOnUserChange = function (prevUser, newUser) {
         if (hasMPIDAndUserLoginChanged(prevUser, newUser)) {
             mpInstance._Forwarders?.initForwarders(
                 newUser.getUserIdentities().userIdentities,
-                mpInstance._APIClient.prepareForwardingStats
+                mpInstance._APIClient.prepareForwardingStats,
             );
         }
     };
 
-    this.setForwarderCallbacks = function(user, method) {
+    this.setForwarderCallbacks = function (user, method) {
         // https://go.mparticle.com/work/SQDSDKS-6036
         mpInstance._Forwarders?.setForwarderUserIdentities(
-            user.getUserIdentities().userIdentities
+            user.getUserIdentities().userIdentities,
         );
         mpInstance._Forwarders?.setForwarderOnIdentityComplete(user, method);
         mpInstance._Forwarders?.setForwarderOnUserIdentified(user);
@@ -1842,7 +1860,7 @@ function tryOnUserAlias(previousUser, newUser, identityApiData, logger) {
             identityApiData.onUserAlias(previousUser, newUser);
         } catch (e) {
             logger.error(
-                'There was an error with your onUserAlias function - ' + e
+                'There was an error with your onUserAlias function - ' + e,
             );
         }
     }

@@ -1,5 +1,5 @@
-import { SDKInitConfig } from "../../../src/sdkRuntimeModels";
-import { MILLIS_IN_ONE_SEC, ONE_DAY_IN_SECONDS } from "../../../src/constants";
+import { SDKInitConfig } from '../../../src/sdkRuntimeModels';
+import { MILLIS_IN_ONE_SEC, ONE_DAY_IN_SECONDS } from '../../../src/constants';
 
 export const urls = {
     events: 'https://jssdks.mparticle.com/v3/JS/test_key/events',
@@ -9,11 +9,12 @@ export const urls = {
     modify: 'https://identity.mparticle.com/v1/testMPID/modify',
     config: 'https://jssdkcdns.mparticle.com/JS/v2/test_key/config?env=0',
     alias: 'https://jssdks.mparticle.com/v1/identity/test_key/Alias',
-    forwarding: 'https://jssdks.mparticle.com/v1/JS/test_key/Forwarding'
+    forwarding: 'https://jssdks.mparticle.com/v1/JS/test_key/Forwarding',
 };
 
-export const MILLISECONDS_IN_ONE_DAY = ONE_DAY_IN_SECONDS * MILLIS_IN_ONE_SEC
-export const MILLISECONDS_IN_ONE_DAY_PLUS_ONE_SECOND = MILLISECONDS_IN_ONE_DAY + 1;
+export const MILLISECONDS_IN_ONE_DAY = ONE_DAY_IN_SECONDS * MILLIS_IN_ONE_SEC;
+export const MILLISECONDS_IN_ONE_DAY_PLUS_ONE_SECOND =
+    MILLISECONDS_IN_ONE_DAY + 1;
 
 export const mParticle = window.mParticle;
 

@@ -66,7 +66,6 @@ export interface IConsentRuleValue {
     hasConsented: boolean;
 }
 
-
 export interface IConfigResponse {
     appName: string;
     dataPlanResult: DataPlanResult;
@@ -90,7 +89,7 @@ const buildUrl = (
     configUrl: string,
     apiKey: string,
     dataPlanConfig?: DataPlanConfig | null,
-    isDevelopmentMode?: boolean | null
+    isDevelopmentMode?: boolean | null,
 ): string => {
     const url = configUrl + apiKey + '/config';
     const env = isDevelopmentMode ? '1' : '0';
@@ -113,7 +112,7 @@ export default function ConfigAPIClient(
     this: IConfigAPIClient,
     apiKey: string,
     config: SDKInitConfig,
-    mpInstance: IMParticleWebSDKInstance
+    mpInstance: IMParticleWebSDKInstance,
 ): void {
     const baseUrl = 'https://' + mpInstance._Store.SDKConfig.configUrl;
     const { isDevelopmentMode } = config;
@@ -138,7 +137,7 @@ export default function ConfigAPIClient(
             const response = await uploader.upload(fetchPayload);
             if (response.status === 200) {
                 mpInstance?.Logger?.verbose(
-                    'Successfully received configuration from server'
+                    'Successfully received configuration from server',
                 );
 
                 // https://go.mparticle.com/work/SQDSDKS-6568
@@ -157,11 +156,11 @@ export default function ConfigAPIClient(
 
             mpInstance?.Logger?.verbose(
                 'Issue with receiving configuration from server, received HTTP Code of ' +
-                    response.statusText
+                    response.statusText,
             );
         } catch (e) {
             mpInstance?.Logger?.error(
-                'Error getting forwarder configuration from mParticle servers.'
+                'Error getting forwarder configuration from mParticle servers.',
             );
         }
 

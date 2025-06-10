@@ -1,5 +1,11 @@
 import Polyfill from './polyfill';
-import { CommerceEventType, EventType, IdentityType, ProductActionType, PromotionActionType } from './types';
+import {
+    CommerceEventType,
+    EventType,
+    IdentityType,
+    ProductActionType,
+    PromotionActionType,
+} from './types';
 import Constants from './constants';
 import mParticleInstance, { IMParticleWebSDKInstance } from './mp-instance.js';
 import _BatchValidator from './mockBatchCreator';
@@ -59,17 +65,18 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
      * @param {Object} [config] an options object for additional configuration
      * @param {String} [instanceName] If you are self hosting the JS SDK and working with multiple instances, you would pass an instanceName to `init`. This instance will be selected when invoking other methods. See the above link to the doc site for more info and examples.
      */
-    this.init = function(apiKey, config, instanceName) {
-        if (!config && (window.mParticle && window.mParticle.config)) {
+    this.init = function (apiKey, config, instanceName) {
+        if (!config && window.mParticle && window.mParticle.config) {
             console.warn(
-                'You did not pass a config object to mParticle.init(). Attempting to use the window.mParticle.config if it exists. Please note that in a future release, this may not work and mParticle will not initialize properly'
+                'You did not pass a config object to mParticle.init(). Attempting to use the window.mParticle.config if it exists. Please note that in a future release, this may not work and mParticle will not initialize properly',
             );
             config = window.mParticle ? window.mParticle.config : {};
         }
 
-        instanceName = (!instanceName || instanceName.length === 0
-            ? Constants.DefaultInstance
-            : instanceName
+        instanceName = (
+            !instanceName || instanceName.length === 0
+                ? Constants.DefaultInstance
+                : instanceName
         ).toLowerCase();
         let client: IMParticleWebSDKInstance = self._instances[instanceName];
         if (client === undefined) {
@@ -96,7 +103,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
                 console.log(
                     'You tried to initialize an instance named ' +
                         instanceName +
-                        '. This instance does not exist. Check your instance name or initialize a new instance with this name before calling it.'
+                        '. This instance does not exist. Check your instance name or initialize a new instance with this name before calling it.',
                 );
                 return null;
             }
@@ -106,115 +113,115 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
 
     this.Rokt = self.getInstance()._RoktManager;
 
-    this.getDeviceId = function() {
+    this.getDeviceId = function () {
         return self.getInstance().getDeviceId();
     };
-    this.setDeviceId = function(guid) {
+    this.setDeviceId = function (guid) {
         return self.getInstance().setDeviceId(guid);
     };
-    this.isInitialized = function() {
+    this.isInitialized = function () {
         return self.getInstance().isInitialized();
     };
-    this.startNewSession = function() {
+    this.startNewSession = function () {
         self.getInstance().startNewSession();
     };
-    this.endSession = function() {
+    this.endSession = function () {
         self.getInstance().endSession();
     };
-    this.setLogLevel = function(newLogLevel) {
+    this.setLogLevel = function (newLogLevel) {
         self.getInstance().setLogLevel(newLogLevel);
     };
-    this.ready = function(argument) {
+    this.ready = function (argument) {
         self.getInstance().ready(argument);
     };
-    this.setAppVersion = function(version) {
+    this.setAppVersion = function (version) {
         self.getInstance().setAppVersion(version);
     };
 
-    this.getAppName = function() {
+    this.getAppName = function () {
         return self.getInstance().getAppName();
     };
-    this.setAppName = function(name) {
+    this.setAppName = function (name) {
         self.getInstance().setAppName(name);
     };
-    this.getAppVersion = function() {
+    this.getAppVersion = function () {
         return self.getInstance().getAppVersion();
     };
-    this.getEnvironment = function() {
+    this.getEnvironment = function () {
         return self.getInstance().getEnvironment();
     };
-    this.stopTrackingLocation = function() {
+    this.stopTrackingLocation = function () {
         self.getInstance().stopTrackingLocation();
     };
-    this.startTrackingLocation = function(callback) {
+    this.startTrackingLocation = function (callback) {
         self.getInstance().startTrackingLocation(callback);
     };
-    this.setPosition = function(lat, lng) {
+    this.setPosition = function (lat, lng) {
         self.getInstance().setPosition(lat, lng);
     };
-    this.startNewSession = function() {
+    this.startNewSession = function () {
         self.getInstance().startNewSession();
     };
-    this.endSession = function() {
+    this.endSession = function () {
         self.getInstance().endSession();
     };
-    this.logBaseEvent = function(event, eventOptions) {
+    this.logBaseEvent = function (event, eventOptions) {
         self.getInstance().logBaseEvent(event, eventOptions);
     };
-    this.logEvent = function(
+    this.logEvent = function (
         eventName,
         eventType,
         eventInfo,
         customFlags,
-        eventOptions
+        eventOptions,
     ) {
         self.getInstance().logEvent(
             eventName,
             eventType,
             eventInfo,
             customFlags,
-            eventOptions
+            eventOptions,
         );
     };
-    this.logError = function(error, attrs) {
+    this.logError = function (error, attrs) {
         self.getInstance().logError(error, attrs);
     };
-    this.logLink = function(selector, eventName, eventType, eventInfo) {
+    this.logLink = function (selector, eventName, eventType, eventInfo) {
         self.getInstance().logLink(selector, eventName, eventType, eventInfo);
     };
-    this.logForm = function(selector, eventName, eventType, eventInfo) {
+    this.logForm = function (selector, eventName, eventType, eventInfo) {
         self.getInstance().logForm(selector, eventName, eventType, eventInfo);
     };
-    this.logPageView = function(eventName, attrs, customFlags, eventOptions) {
+    this.logPageView = function (eventName, attrs, customFlags, eventOptions) {
         self.getInstance().logPageView(
             eventName,
             attrs,
             customFlags,
-            eventOptions
+            eventOptions,
         );
     };
-    this.upload = function() {
+    this.upload = function () {
         self.getInstance().upload();
     };
     this.eCommerce = {
         Cart: {
-            add: function(product, logEventBoolean) {
+            add: function (product, logEventBoolean) {
                 self.getInstance().eCommerce.Cart.add(product, logEventBoolean);
             },
-            remove: function(product, logEventBoolean) {
+            remove: function (product, logEventBoolean) {
                 self.getInstance().eCommerce.Cart.remove(
                     product,
-                    logEventBoolean
+                    logEventBoolean,
                 );
             },
-            clear: function() {
+            clear: function () {
                 self.getInstance().eCommerce.Cart.clear();
             },
         },
-        setCurrencyCode: function(code) {
+        setCurrencyCode: function (code) {
             self.getInstance().eCommerce.setCurrencyCode(code);
         },
-        createProduct: function(
+        createProduct: function (
             name,
             sku,
             price,
@@ -224,7 +231,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
             brand,
             position,
             coupon,
-            attributes
+            attributes,
         ) {
             return self
                 .getInstance()
@@ -238,24 +245,24 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
                     brand,
                     position,
                     coupon,
-                    attributes
+                    attributes,
                 );
         },
-        createPromotion: function(id, creative, name, position) {
+        createPromotion: function (id, creative, name, position) {
             return self
                 .getInstance()
                 .eCommerce.createPromotion(id, creative, name, position);
         },
-        createImpression: function(name, product) {
+        createImpression: function (name, product) {
             return self.getInstance().eCommerce.createImpression(name, product);
         },
-        createTransactionAttributes: function(
+        createTransactionAttributes: function (
             id,
             affiliation,
             couponCode,
             revenue,
             shipping,
-            tax
+            tax,
         ) {
             return self
                 .getInstance()
@@ -265,24 +272,24 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
                     couponCode,
                     revenue,
                     shipping,
-                    tax
+                    tax,
                 );
         },
-        logCheckout: function(step, options, attrs, customFlags) {
+        logCheckout: function (step, options, attrs, customFlags) {
             self.getInstance().eCommerce.logCheckout(
                 step,
                 options,
                 attrs,
-                customFlags
+                customFlags,
             );
         },
-        logProductAction: function(
+        logProductAction: function (
             productActionType,
             product,
             attrs,
             customFlags,
             transactionAttributes,
-            eventOptions
+            eventOptions,
         ) {
             self.getInstance().eCommerce.logProductAction(
                 productActionType,
@@ -290,128 +297,128 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
                 attrs,
                 customFlags,
                 transactionAttributes,
-                eventOptions
+                eventOptions,
             );
         },
-        logPurchase: function(
+        logPurchase: function (
             transactionAttributes,
             product,
             clearCart,
             attrs,
-            customFlags
+            customFlags,
         ) {
             self.getInstance().eCommerce.logPurchase(
                 transactionAttributes,
                 product,
                 clearCart,
                 attrs,
-                customFlags
+                customFlags,
             );
         },
-        logPromotion: function(
+        logPromotion: function (
             type,
             promotion,
             attrs,
             customFlags,
-            eventOptions
+            eventOptions,
         ) {
             self.getInstance().eCommerce.logPromotion(
                 type,
                 promotion,
                 attrs,
                 customFlags,
-                eventOptions
+                eventOptions,
             );
         },
-        logImpression: function(impression, attrs, customFlags, eventOptions) {
+        logImpression: function (impression, attrs, customFlags, eventOptions) {
             self.getInstance().eCommerce.logImpression(
                 impression,
                 attrs,
                 customFlags,
-                eventOptions
+                eventOptions,
             );
         },
-        logRefund: function(
+        logRefund: function (
             transactionAttributes,
             product,
             clearCart,
             attrs,
-            customFlags
+            customFlags,
         ) {
             self.getInstance().eCommerce.logRefund(
                 transactionAttributes,
                 product,
                 clearCart,
                 attrs,
-                customFlags
+                customFlags,
             );
         },
-        expandCommerceEvent: function(event) {
+        expandCommerceEvent: function (event) {
             return self.getInstance().eCommerce.expandCommerceEvent(event);
         },
     };
-    this.setSessionAttribute = function(key, value) {
+    this.setSessionAttribute = function (key, value) {
         self.getInstance().setSessionAttribute(key, value);
     };
-    this.setOptOut = function(isOptingOut) {
+    this.setOptOut = function (isOptingOut) {
         self.getInstance().setOptOut(isOptingOut);
     };
-    this.setIntegrationAttribute = function(integrationId, attrs) {
+    this.setIntegrationAttribute = function (integrationId, attrs) {
         self.getInstance().setIntegrationAttribute(integrationId, attrs);
     };
-    this.getIntegrationAttributes = function(moduleId) {
+    this.getIntegrationAttributes = function (moduleId) {
         return self.getInstance().getIntegrationAttributes(moduleId);
     };
 
     this.Identity = {
         HTTPCodes: Constants.HTTPCodes,
-        aliasUsers: function(aliasRequest, callback) {
+        aliasUsers: function (aliasRequest, callback) {
             self.getInstance().Identity.aliasUsers(aliasRequest, callback);
         },
-        createAliasRequest: function(sourceUser, destinationUser) {
+        createAliasRequest: function (sourceUser, destinationUser) {
             return self
                 .getInstance()
                 .Identity.createAliasRequest(sourceUser, destinationUser);
         },
-        getCurrentUser: function() {
+        getCurrentUser: function () {
             return self.getInstance().Identity.getCurrentUser();
         },
-        getUser: function(mpid) {
+        getUser: function (mpid) {
             return self.getInstance().Identity.getUser(mpid);
         },
-        getUsers: function() {
+        getUsers: function () {
             return self.getInstance().Identity.getUsers();
         },
-        identify: function(identityApiData, callback) {
+        identify: function (identityApiData, callback) {
             self.getInstance().Identity.identify(identityApiData, callback);
         },
-        login: function(identityApiData, callback) {
+        login: function (identityApiData, callback) {
             self.getInstance().Identity.login(identityApiData, callback);
         },
-        logout: function(identityApiData, callback) {
+        logout: function (identityApiData, callback) {
             self.getInstance().Identity.logout(identityApiData, callback);
         },
-        modify: function(identityApiData, callback) {
+        modify: function (identityApiData, callback) {
             self.getInstance().Identity.modify(identityApiData, callback);
         },
     };
 
     this.sessionManager = {
-        getSession: function() {
+        getSession: function () {
             return self.getInstance()._SessionManager.getSession();
         },
     };
 
     this.Consent = {
-        createConsentState: function() {
+        createConsentState: function () {
             return self.getInstance().Consent.createConsentState();
         },
-        createGDPRConsent: function(
+        createGDPRConsent: function (
             consented,
             timestamp,
             consentDocument,
             location,
-            hardwareId
+            hardwareId,
         ) {
             return self
                 .getInstance()
@@ -420,15 +427,15 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
                     timestamp,
                     consentDocument,
                     location,
-                    hardwareId
+                    hardwareId,
                 );
         },
-        createCCPAConsent: function(
+        createCCPAConsent: function (
             consented,
             timestamp,
             consentDocument,
             location,
-            hardwareId
+            hardwareId,
         ) {
             return self
                 .getInstance()
@@ -437,54 +444,54 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
                     timestamp,
                     consentDocument,
                     location,
-                    hardwareId
+                    hardwareId,
                 );
         },
     };
 
-    this.reset = function() {
+    this.reset = function () {
         self.getInstance().reset(self.getInstance());
     };
 
-    this._resetForTests = function(MPConfig, keepPersistence) {
+    this._resetForTests = function (MPConfig, keepPersistence) {
         if (typeof keepPersistence === 'boolean') {
             self.getInstance()._resetForTests(
                 MPConfig,
                 keepPersistence,
-                self.getInstance()
+                self.getInstance(),
             );
         } else {
             self.getInstance()._resetForTests(
                 MPConfig,
                 false,
-                self.getInstance()
+                self.getInstance(),
             );
         }
     };
 
-    this.configurePixel = function(settings) {
+    this.configurePixel = function (settings) {
         self.getInstance().configurePixel(settings);
     };
 
-    this._setIntegrationDelay = function(moduleId, boolean) {
+    this._setIntegrationDelay = function (moduleId, boolean) {
         self.getInstance()._setIntegrationDelay(moduleId, boolean);
     };
-    this._getIntegrationDelays = function() {
+    this._getIntegrationDelays = function () {
         return self.getInstance()._getIntegrationDelays();
     };
-    this.getVersion = function() {
+    this.getVersion = function () {
         return self.getInstance().getVersion();
     };
-    this.generateHash = function(string) {
+    this.generateHash = function (string) {
         return self.getInstance().generateHash(string);
     };
-    this.addForwarder = function(forwarder) {
+    this.addForwarder = function (forwarder) {
         self.getInstance().addForwarder(forwarder);
     };
-    this._getActiveForwarders = function() {
+    this._getActiveForwarders = function () {
         return self.getInstance()._getActiveForwarders();
     };
-    this._setWrapperSDKInfo = function(name, version) {
+    this._setWrapperSDKInfo = function (name, version) {
         self.getInstance()._setWrapperSDKInfo(name, version);
     };
 }
@@ -494,7 +501,7 @@ const mParticleManager = new mParticleInstanceManager();
 if (typeof window !== 'undefined') {
     // mParticle is the global object used to access the SDK and predates instance manager,
     // when mParticle was a singleton.  We now support multiple instances. Calling methods
-    // on mParticle directly will access the default instance, but mParticle can also be used 
+    // on mParticle directly will access the default instance, but mParticle can also be used
     // as the instance manager in self hosted mode.
     window.mParticle = mParticleManager;
 

@@ -21,7 +21,7 @@ describe('Api Client', () => {
         mParticle._resetForTests(MPConfig);
     });
 
-    it('should update queued events with latest user info', done => {
+    it('should update queued events with latest user info', (done) => {
         const event = {
             messageType: Types.MessageType.PageEvent,
             name: 'foo page',
@@ -31,7 +31,7 @@ describe('Api Client', () => {
         };
 
         expect(mParticle.getInstance()._Store).to.be.ok;
-        let sdkEvent1 = mParticle
+        const sdkEvent1 = mParticle
             .getInstance()
             ._ServerModel.createEventObject(event);
 
@@ -41,7 +41,7 @@ describe('Api Client', () => {
         expect(sdkEvent1.UserIdentities).equal(null);
         expect(sdkEvent1.ConsentState).equal(null);
 
-        let sdkEvent2 = mParticle
+        const sdkEvent2 = mParticle
             .getInstance()
             ._ServerModel.createEventObject(event);
 
@@ -63,8 +63,8 @@ describe('Api Client', () => {
                     10,
                     'foo document',
                     'foo location',
-                    'foo hardware id'
-                )
+                    'foo hardware id',
+                ),
         );
 
         mParticle.getInstance().Identity.getCurrentUser = () => {
@@ -100,7 +100,7 @@ describe('Api Client', () => {
             .getInstance()
             ._APIClient.appendUserInfoToEvents(
                 mParticle.Identity.getCurrentUser(),
-                [sdkEvent1, sdkEvent2]
+                [sdkEvent1, sdkEvent2],
             );
 
         expect(sdkEvent1.UserIdentities.length).to.equal(6);

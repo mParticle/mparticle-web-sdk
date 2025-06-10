@@ -21,7 +21,7 @@ export abstract class BaseVault<StorableItem> {
     constructor(
         storageKey: string,
         storageObject: Storage,
-        options?: IVaultOptions
+        options?: IVaultOptions,
     ) {
         this._storageKey = storageKey;
         this.storageObject = storageObject;
@@ -57,7 +57,7 @@ export abstract class BaseVault<StorableItem> {
             this.logger.verbose(`Saving item to Storage: ${stringifiedItem}`);
         } catch (error) {
             this.logger.error(
-                `Cannot Save items to Storage: ${stringifiedItem}`
+                `Cannot Save items to Storage: ${stringifiedItem}`,
             );
             this.logger.error(error as string);
         }

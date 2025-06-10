@@ -111,7 +111,7 @@ export interface IPersistence {
         persistence: IPersistenceMinified,
         expires: string,
         domain: string,
-        maxCookieSize: number
+        maxCookieSize: number,
     ): string;
     findPrevCookiesBasedOnUI(identityApiData: IdentityApiData): void;
     encodePersistence(persistence: IPersistenceMinified): string;
@@ -120,7 +120,10 @@ export interface IPersistence {
     getDomain(doc: string, locationHostname: string): string;
     getCartProducts(mpid: MPID): Product[];
     setCartProducts(allProducts: Product[]): void;
-    saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDates): void;
+    saveUserCookieSyncDatesToPersistence(
+        mpid: MPID,
+        csd: CookieSyncDates,
+    ): void;
     savePersistence(persistance: IPersistenceMinified): void;
     getPersistence(): IPersistenceMinified;
     getFirstSeenTime(mpid: MPID): string | null;
@@ -133,7 +136,7 @@ export interface IPersistence {
     swapCurrentUser(
         previousMPID: MPID,
         currentMPID: MPID,
-        currentSessionMPIDs?: MPID[]
+        currentSessionMPIDs?: MPID[],
     ): void;
     forwardingStatsBatches: iForwardingStatsBatches;
 }

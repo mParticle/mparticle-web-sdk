@@ -160,7 +160,7 @@ export const IdentityType = {
     },
 
     getIdentityType: (
-        identityName: string
+        identityName: string,
     ): valueof<typeof IdentityType> | boolean => {
         switch (identityName) {
             case 'other':
@@ -262,20 +262,21 @@ export const IdentityType = {
     // Strips out functions from Identity Types for easier lookups
     getValuesAsStrings: (): string[] =>
         Object.values(IdentityType)
-            .map(value => (isNumber(value) ? value.toString() : undefined))
-            .filter(value => value !== undefined) as string[],
+            .map((value) => (isNumber(value) ? value.toString() : undefined))
+            .filter((value) => value !== undefined) as string[],
 
     getNewIdentitiesByName: (
-        newIdentitiesByType: IdentitiesByType
+        newIdentitiesByType: IdentitiesByType,
     ): IdentitiesByType => {
         const newIdentitiesByName: IdentitiesByType = {};
-        const identityTypeValuesAsStrings: string[] = IdentityType.getValuesAsStrings();
+        const identityTypeValuesAsStrings: string[] =
+            IdentityType.getValuesAsStrings();
 
         for (const key in newIdentitiesByType) {
             // IdentityTypes are stored as numbers but are passed in as strings
             if (identityTypeValuesAsStrings.includes(key)) {
                 const identityNameKey = IdentityType.getIdentityName(
-                    parseNumber(key)
+                    parseNumber(key),
                 );
                 newIdentitiesByName[identityNameKey] = newIdentitiesByType[key];
             }

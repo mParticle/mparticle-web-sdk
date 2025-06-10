@@ -1,10 +1,10 @@
-import { IKitConfigs } from "./configAPIClient";
-import { UserAttributeFilters  } from "./forwarders.interfaces";
-import { IMParticleUser } from "./identity-user-interfaces";
-import KitFilterHelper from "./kitFilterHelper";
-import { Dictionary, parseSettingsString } from "./utils";
-import { SDKIdentityApi } from "./identity.interfaces";
-import { SDKLoggerApi } from "./sdkRuntimeModels";
+import { IKitConfigs } from './configAPIClient';
+import { UserAttributeFilters } from './forwarders.interfaces';
+import { IMParticleUser } from './identity-user-interfaces';
+import KitFilterHelper from './kitFilterHelper';
+import { Dictionary, parseSettingsString } from './utils';
+import { SDKIdentityApi } from './identity.interfaces';
+import { SDKLoggerApi } from './sdkRuntimeModels';
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export interface IRoktPartnerAttributes {
@@ -29,8 +29,12 @@ export interface IRoktSelection {
 }
 
 export interface IRoktLauncher {
-    selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
-    hashAttributes: (attributes: IRoktPartnerAttributes) => Promise<Record<string, string>>;
+    selectPlacements: (
+        options: IRoktSelectPlacementsOptions,
+    ) => Promise<IRoktSelection>;
+    hashAttributes: (
+        attributes: IRoktPartnerAttributes,
+    ) => Promise<Record<string, string>>;
 }
 
 export interface IRoktMessage {
@@ -40,7 +44,10 @@ export interface IRoktMessage {
 
 export interface RoktKitFilterSettings {
     userAttributeFilters?: UserAttributeFilters;
-    filterUserAttributes?: (userAttributes: Dictionary<string>, filterList: number[]) => Dictionary<string>;
+    filterUserAttributes?: (
+        userAttributes: Dictionary<string>,
+        filterList: number[],
+    ) => Dictionary<string>;
     filteredUser?: IMParticleUser | null;
 }
 
@@ -49,8 +56,12 @@ export interface IRoktKit {
     filteredUser: IMParticleUser | null;
     launcher: IRoktLauncher | null;
     userAttributes: Dictionary<string>;
-    hashAttributes: (attributes: IRoktPartnerAttributes) => Promise<Record<string, string>>;
-    selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
+    hashAttributes: (
+        attributes: IRoktPartnerAttributes,
+    ) => Promise<Record<string, string>>;
+    selectPlacements: (
+        options: IRoktSelectPlacementsOptions,
+    ) => Promise<IRoktSelection>;
     setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void;
     launcherOptions?: Dictionary<any>;
 }
@@ -83,29 +94,34 @@ export default class RoktManager {
     private logger: SDKLoggerApi;
     /**
      * Initializes the RoktManager with configuration settings and user data.
-     * 
+     *
      * @param {IKitConfigs} roktConfig - Configuration object containing user attribute filters and settings
      * @param {IMParticleUser} filteredUser - User object with filtered attributes
      * @param {SDKIdentityApi} identityService - The mParticle Identity instance
      * @param {SDKLoggerApi} logger - The mParticle Logger instance
      * @param {IRoktOptions} options - Options for the RoktManager
-     * 
+     *
      * @throws Logs error to console if placementAttributesMapping parsing fails
      */
     public init(
-        roktConfig: IKitConfigs, 
-        filteredUser: IMParticleUser, 
+        roktConfig: IKitConfigs,
+        filteredUser: IMParticleUser,
         identityService: SDKIdentityApi,
         logger?: SDKLoggerApi,
-        options?: IRoktOptions
+        options?: IRoktOptions,
     ): void {
         const { userAttributeFilters, settings } = roktConfig || {};
         const { placementAttributesMapping } = settings || {};
 
         try {
-            this.placementAttributesMapping = parseSettingsString(placementAttributesMapping);
+            this.placementAttributesMapping = parseSettingsString(
+                placementAttributesMapping,
+            );
         } catch (error) {
-            console.error('Error parsing placement attributes mapping from config', error);
+            console.error(
+                'Error parsing placement attributes mapping from config',
+                error,
+            );
         }
 
         this.identityService = identityService;
@@ -135,10 +151,10 @@ export default class RoktManager {
 
     /**
      * Renders ads based on the options provided
-     * 
+     *
      * @param {IRoktSelectPlacementsOptions} options - The options for selecting placements, including attributes and optional identifier
      * @returns {Promise<IRoktSelection>} A promise that resolves to the selection
-     * 
+     *
      * @example
      * // Correct usage with await
      * await window.mParticle.Rokt.selectPlacements({
@@ -148,7 +164,9 @@ export default class RoktManager {
      *   }
      * });
      */
-    public async selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
+    public async selectPlacements(
+        options: IRoktSelectPlacementsOptions,
+    ): Promise<IRoktSelection> {
         if (!this.isReady()) {
             this.queueMessage({
                 methodName: 'selectPlacements',
@@ -160,11 +178,15 @@ export default class RoktManager {
         try {
             const { attributes } = options;
             const sandboxValue = attributes?.sandbox || null;
-            const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
+            const mappedAttributes = this.mapPlacementAttributes(
+                attributes,
+                this.placementAttributesMapping,
+            );
 
             // Get current user identities
             this.currentUser = this.identityService.getCurrentUser();
-            const currentUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
+            const currentUserIdentities =
+                this.currentUser?.getUserIdentities()?.userIdentities || {};
             const currentEmail = currentUserIdentities.email;
             const newEmail = mappedAttributes.email as string;
 
@@ -172,23 +194,31 @@ export default class RoktManager {
             // Check if email exists and differs
             if (newEmail && (!currentEmail || currentEmail !== newEmail)) {
                 if (currentEmail && currentEmail !== newEmail) {
-                    this.logger.warning(`Email mismatch detected. Current email, ${currentEmail} differs from email passed to selectPlacements call, ${newEmail}. Proceeding to call identify with ${newEmail}. Please verify your implementation.`);
+                    this.logger.warning(
+                        `Email mismatch detected. Current email, ${currentEmail} differs from email passed to selectPlacements call, ${newEmail}. Proceeding to call identify with ${newEmail}. Please verify your implementation.`,
+                    );
                 }
 
                 // Call identify with the new user identities
                 try {
                     await new Promise<void>((resolve, reject) => {
-                        this.identityService.identify({
-                            userIdentities: {
-                                ...currentUserIdentities,
-                                email: newEmail
-                            }
-                        }, () => {
-                            resolve();
-                        });
+                        this.identityService.identify(
+                            {
+                                userIdentities: {
+                                    ...currentUserIdentities,
+                                    email: newEmail,
+                                },
+                            },
+                            () => {
+                                resolve();
+                            },
+                        );
                     });
                 } catch (error) {
-                    this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error));
+                    this.logger.error(
+                        'Failed to identify user with new email: ' +
+                            JSON.stringify(error),
+                    );
                 }
             }
 
@@ -206,11 +236,17 @@ export default class RoktManager {
 
             return this.kit.selectPlacements(enrichedOptions);
         } catch (error) {
-            return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
+            return Promise.reject(
+                error instanceof Error
+                    ? error
+                    : new Error('Unknown error occurred'),
+            );
         }
     }
 
-    public hashAttributes(attributes: IRoktPartnerAttributes): Promise<Record<string, string>> {
+    public hashAttributes(
+        attributes: IRoktPartnerAttributes,
+    ): Promise<Record<string, string>> {
         if (!this.isReady()) {
             this.queueMessage({
                 methodName: 'hashAttributes',
@@ -222,11 +258,17 @@ export default class RoktManager {
         try {
             return this.kit.hashAttributes(attributes);
         } catch (error) {
-            return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
+            return Promise.reject(
+                error instanceof Error
+                    ? error
+                    : new Error('Unknown error occurred'),
+            );
         }
     }
 
-    public setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void {
+    public setExtensionData<T>(
+        extensionData: IRoktPartnerExtensionData<T>,
+    ): void {
         if (!this.isReady()) {
             this.queueMessage({
                 methodName: 'setExtensionData',
@@ -238,7 +280,8 @@ export default class RoktManager {
         try {
             this.kit.setExtensionData<T>(extensionData);
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorMessage =
+                error instanceof Error ? error.message : String(error);
             throw new Error('Error setting extension data: ' + errorMessage);
         }
     }
@@ -251,9 +294,12 @@ export default class RoktManager {
     private setUserAttributes(attributes: IRoktPartnerAttributes): void {
         const reservedAttributes = ['sandbox'];
         const filteredAttributes = {};
-        
+
         for (const key in attributes) {
-            if (attributes.hasOwnProperty(key) && reservedAttributes.indexOf(key) === -1) {
+            if (
+                attributes.hasOwnProperty(key) &&
+                reservedAttributes.indexOf(key) === -1
+            ) {
                 filteredAttributes[key] = attributes[key];
             }
         }
@@ -265,12 +311,15 @@ export default class RoktManager {
         }
     }
 
-    private mapPlacementAttributes(attributes: IRoktPartnerAttributes, placementAttributesMapping: Dictionary<string>[]): IRoktPartnerAttributes {
+    private mapPlacementAttributes(
+        attributes: IRoktPartnerAttributes,
+        placementAttributesMapping: Dictionary<string>[],
+    ): IRoktPartnerAttributes {
         const mappingLookup: { [key: string]: string } = {};
         for (const mapping of placementAttributesMapping) {
             mappingLookup[mapping.map] = mapping.value;
         }
-    
+
         const mappedAttributes: IRoktPartnerAttributes = {};
         for (const key in attributes) {
             if (attributes.hasOwnProperty(key)) {
@@ -285,7 +334,9 @@ export default class RoktManager {
         if (this.messageQueue.length > 0 && this.isReady()) {
             this.messageQueue.forEach(async (message) => {
                 if (this.kit && message.methodName in this.kit) {
-                    await (this.kit[message.methodName] as Function)(message.payload);
+                    await (this.kit[message.methodName] as Function)(
+                        message.payload,
+                    );
                 }
             });
             this.messageQueue = [];

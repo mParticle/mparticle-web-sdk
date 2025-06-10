@@ -2,11 +2,11 @@ import { isNumber } from './utils';
 import { LocalStorageVault } from './vault';
 
 export default class ForegroundTimeTracker {
-    private isTrackerActive: boolean = false;
-    private localStorageName: string = '';
+    private isTrackerActive = false;
+    private localStorageName = '';
     private timerVault: LocalStorageVault<number>;
-    public startTime: number = 0;
-    public totalTime: number = 0;
+    public startTime = 0;
+    public totalTime = 0;
 
     constructor(timerKey: string) {
         this.localStorageName = `mprtcl-tos-${timerKey}`;
@@ -21,17 +21,19 @@ export default class ForegroundTimeTracker {
     private addHandlers(): void {
         // when user switches tabs or minimizes the window
         document.addEventListener('visibilitychange', () =>
-            this.handleVisibilityChange()
+            this.handleVisibilityChange(),
         );
         // when user switches to another application
         window.addEventListener('blur', () => this.handleWindowBlur());
         // when window gains focus
         window.addEventListener('focus', () => this.handleWindowFocus());
         // this ensures that timers between tabs are in sync
-        window.addEventListener('storage', event => this.syncAcrossTabs(event));
+        window.addEventListener('storage', (event) =>
+            this.syncAcrossTabs(event),
+        );
         // when user closes tab, refreshes, or navigates to another page via link
         window.addEventListener('beforeunload', () =>
-            this.updateTimeInPersistence()
+            this.updateTimeInPersistence(),
         );
     }
 
@@ -75,7 +77,6 @@ export default class ForegroundTimeTracker {
         }
     }
 
-
     private startTracking(): void {
         if (!document.hidden) {
             this.startTime = Math.floor(performance.now());
@@ -96,7 +97,6 @@ export default class ForegroundTimeTracker {
             const now = Math.floor(performance.now());
             this.totalTime += now - this.startTime;
             this.startTime = now;
-
         }
     }
 

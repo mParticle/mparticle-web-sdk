@@ -65,6 +65,7 @@
         "watch:all": "cross-env ENVIRONMENT=prod BUILDALL=true rollup --config rollup.config.js -w",
         "watch:tests": "cross-env ENVIRONMENT=dev TESTTYPE=main rollup --config rollup.test.config.js -w",
         "lint": "eslint src/ test/src/",
+        "lint:fix": "eslint src/ test/src/ --fix",
         "gts:check": "gts check",
         "gts:fix": "gts fix",
         "prettier": "node_modules/.bin/prettier --check \"**/*.js\"",

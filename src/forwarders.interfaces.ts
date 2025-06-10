@@ -59,23 +59,23 @@ export interface ConfiguredKit
         appVersion: string,
         appName: string,
         customFlags: SDKEventCustomFlags,
-        clientId: string
+        clientId: string,
     ): string;
     onIdentifyComplete(
         user: IMParticleUser,
-        filteredIdentityRequest: IdentityApiData
+        filteredIdentityRequest: IdentityApiData,
     ): string;
     onLoginComplete(
         user: IMParticleUser,
-        filteredIdentityRequest: IdentityApiData
+        filteredIdentityRequest: IdentityApiData,
     ): string;
     onLogoutComplete(
         user: IMParticleUser,
-        filteredIdentityRequest: IdentityApiData
+        filteredIdentityRequest: IdentityApiData,
     ): string;
     onModifyComplete(
         user: IMParticleUser,
-        filteredIdentityRequest: IdentityApiData
+        filteredIdentityRequest: IdentityApiData,
     ): string;
     onUserIdentified(user: IMParticleUser): string;
     process(event: SDKEvent): string;
@@ -92,9 +92,9 @@ export interface ConfiguredKit
 export type UserIdentityId = string;
 export type UserIdentityType = number;
 export type UserAttributeFilters = number[];
-export type UserIdentityFilters = typeof IdentityType[];
+export type UserIdentityFilters = (typeof IdentityType)[];
 
 export type forwardingStatsCallback = (
     forwarder: ConfiguredKit,
-    event: SDKEvent
+    event: SDKEvent,
 ) => void;

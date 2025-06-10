@@ -4,18 +4,18 @@ export default function filteredMparticleUser(
     mpid,
     forwarder,
     mpInstance,
-    kitBlocker
+    kitBlocker,
 ) {
-    var self = this;
+    const self = this;
     return {
-        getUserIdentities: function() {
-            var currentUserIdentities = {};
-            var identities = mpInstance._Store.getUserIdentities(mpid);
+        getUserIdentities: function () {
+            let currentUserIdentities = {};
+            const identities = mpInstance._Store.getUserIdentities(mpid);
 
-            for (var identityType in identities) {
+            for (const identityType in identities) {
                 if (identities.hasOwnProperty(identityType)) {
-                    var identityName = Types.IdentityType.getIdentityName(
-                        mpInstance._Helpers.parseNumber(identityType)
+                    const identityName = Types.IdentityType.getIdentityName(
+                        mpInstance._Helpers.parseNumber(identityType),
                     );
                     if (
                         !kitBlocker ||
@@ -28,24 +28,24 @@ export default function filteredMparticleUser(
                 }
             }
 
-            currentUserIdentities = mpInstance._Helpers.filterUserIdentitiesForForwarders(
-                currentUserIdentities,
-                forwarder.userIdentityFilters
-            );
+            currentUserIdentities =
+                mpInstance._Helpers.filterUserIdentitiesForForwarders(
+                    currentUserIdentities,
+                    forwarder.userIdentityFilters,
+                );
 
             return {
                 userIdentities: currentUserIdentities,
             };
         },
-        getMPID: function() {
+        getMPID: function () {
             return mpid;
         },
-        getUserAttributesLists: function(forwarder) {
-            var userAttributes,
-                userAttributesLists = {};
+        getUserAttributesLists: function (forwarder) {
+            let userAttributesLists = {};
 
-            userAttributes = self.getAllUserAttributes();
-            for (var key in userAttributes) {
+            const userAttributes = self.getAllUserAttributes();
+            for (const key in userAttributes) {
                 if (
                     userAttributes.hasOwnProperty(key) &&
                     Array.isArray(userAttributes[key])
@@ -61,17 +61,17 @@ export default function filteredMparticleUser(
 
             userAttributesLists = mpInstance._Helpers.filterUserAttributes(
                 userAttributesLists,
-                forwarder.userAttributeFilters
+                forwarder.userAttributeFilters,
             );
 
             return userAttributesLists;
         },
-        getAllUserAttributes: function() {
-            var userAttributesCopy = {};
-            var userAttributes = mpInstance._Store.getUserAttributes(mpid);
+        getAllUserAttributes: function () {
+            let userAttributesCopy = {};
+            const userAttributes = mpInstance._Store.getUserAttributes(mpid);
 
             if (userAttributes) {
-                for (var prop in userAttributes) {
+                for (const prop in userAttributes) {
                     if (userAttributes.hasOwnProperty(prop)) {
                         if (
                             !kitBlocker ||
@@ -79,9 +79,8 @@ export default function filteredMparticleUser(
                                 !kitBlocker.isAttributeKeyBlocked(prop))
                         ) {
                             if (Array.isArray(userAttributes[prop])) {
-                                userAttributesCopy[prop] = userAttributes[
-                                    prop
-                                ].slice();
+                                userAttributesCopy[prop] =
+                                    userAttributes[prop].slice();
                             } else {
                                 userAttributesCopy[prop] = userAttributes[prop];
                             }
@@ -92,7 +91,7 @@ export default function filteredMparticleUser(
 
             userAttributesCopy = mpInstance._Helpers.filterUserAttributes(
                 userAttributesCopy,
-                forwarder.userAttributeFilters
+                forwarder.userAttributeFilters,
             );
 
             return userAttributesCopy;

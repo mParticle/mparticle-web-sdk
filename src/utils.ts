@@ -28,7 +28,7 @@ const inArray = (items: any[], name: any): boolean => {
     if (Array.prototype.indexOf) {
         return items.indexOf(name, 0) >= 0;
     } else {
-        for (var n = items.length; i < n; i++) {
+        for (let n = items.length; i < n; i++) {
             if (i in items && items[i] === name) {
                 return true;
             }
@@ -40,7 +40,7 @@ const inArray = (items: any[], name: any): boolean => {
 
 const findKeyInObject = (obj: any, key: string): string => {
     if (key && obj) {
-        for (var prop in obj) {
+        for (const prop in obj) {
             if (
                 obj.hasOwnProperty(prop) &&
                 prop.toLowerCase() === key.toLowerCase()
@@ -55,7 +55,7 @@ const findKeyInObject = (obj: any, key: string): string => {
 
 const generateDeprecationMessage = (
     methodName: string,
-    alternateMethod: string
+    alternateMethod: string,
 ): string => {
     const messageArray: string[] = [
         methodName,
@@ -65,7 +65,7 @@ const generateDeprecationMessage = (
     if (alternateMethod) {
         messageArray.push(alternateMethod);
         messageArray.push(
-            Messages.DeprecationMessages.MethodIsDeprecatedPostfix
+            Messages.DeprecationMessages.MethodIsDeprecatedPostfix,
         );
     }
 
@@ -73,7 +73,7 @@ const generateDeprecationMessage = (
 };
 
 function generateHash(name: string): number {
-    let hash: number = 0;
+    let hash = 0;
     let character: number;
 
     if (name === undefined || name === null) {
@@ -83,7 +83,7 @@ function generateHash(name: string): number {
     name = name.toString().toLowerCase();
 
     if (Array.prototype.reduce) {
-        return name.split('').reduce(function(a: number, b: string) {
+        return name.split('').reduce(function (a: number, b: string) {
             a = (a << 5) - a + b.charCodeAt(0);
             return a & a;
         }, 0);
@@ -118,7 +118,7 @@ const generateRandomValue = (value?: string): string => {
     return (a ^ ((Math.random() * 16) >> (a / 4))).toString(16);
 };
 
-const generateUniqueId = (a: string = ''): string =>
+const generateUniqueId = (a = ''): string =>
     // https://gist.github.com/jed/982883
     // Added support for crypto for better random
 
@@ -131,7 +131,7 @@ const generateUniqueId = (a: string = ''): string =>
           // -1e11 -> //-100000000000,
           `${1e7}-${1e3}-${4e3}-${8e3}-${1e11}`.replace(
               /[018]/g, // zeroes, ones, and eights with
-              generateUniqueId // random hex digits
+              generateUniqueId, // random hex digits
           );
 
 /**
@@ -148,7 +148,7 @@ const getRampNumber = (value?: string): number => {
 };
 
 const isObject = (value: any): boolean => {
-    var objType = Object.prototype.toString.call(value);
+    const objType = Object.prototype.toString.call(value);
     return objType === '[object Object]' || objType === '[object Error]';
 };
 
@@ -156,20 +156,22 @@ const parseNumber = (value: string | number): number => {
     if (isNaN(value as number) || !isFinite(value as number)) {
         return 0;
     }
-    var floatValue = parseFloat(value as string);
+    const floatValue = parseFloat(value as string);
     return isNaN(floatValue) ? 0 : floatValue;
 };
 
 const parseSettingsString = (settingsString: string): Dictionary<string>[] => {
     try {
-        return settingsString ? JSON.parse(settingsString.replace(/&quot;/g, '"')) : [];
+        return settingsString
+            ? JSON.parse(settingsString.replace(/&quot;/g, '"'))
+            : [];
     } catch (error) {
         throw new Error('Settings string contains invalid JSON');
     }
 };
 
 const parseStringOrNumber = (
-    value: string | number
+    value: string | number,
 ): string | number | null => {
     if (isStringOrNumber(value)) {
         return value;
@@ -190,14 +192,16 @@ const replaceApostrophesWithQuotes = (value: string): string =>
 const replaceQuotesWithApostrophes = (value: string): string =>
     value.replace(/\"/g, "'");
 
-const replaceMPID = (value: string, mpid: MPID): string => value.replace('%%mpid%%', mpid);
+const replaceMPID = (value: string, mpid: MPID): string =>
+    value.replace('%%mpid%%', mpid);
 
-const replaceAmpWithAmpersand = (value: string): string => value.replace(/&amp;/g, '&');
+const replaceAmpWithAmpersand = (value: string): string =>
+    value.replace(/&amp;/g, '&');
 
 const createCookieSyncUrl = (
     mpid: MPID,
     pixelUrl: string,
-    redirectUrl?: string
+    redirectUrl?: string,
 ): string => {
     const modifiedPixelUrl = replaceAmpWithAmpersand(pixelUrl);
     const modifiedDirectUrl = redirectUrl
@@ -228,10 +232,7 @@ const decoded = (s: string): string =>
 
 const converted = (s: string): string => {
     if (s.indexOf('"') === 0) {
-        s = s
-            .slice(1, -1)
-            .replace(/\\"/g, '"')
-            .replace(/\\\\/g, '\\');
+        s = s.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
     }
 
     return s;
@@ -270,11 +271,11 @@ const moveElementToEnd = <T>(array: T[], index: number): T[] =>
 
 const queryStringParser = (
     url: string,
-    keys: string[] = []
+    keys: string[] = [],
 ): Dictionary<string> => {
     let urlParams: URLSearchParams | URLSearchParamsFallback;
-    let results: Dictionary<string> = {};
-    let lowerCaseUrlParams: Dictionary<string> = {};
+    const results: Dictionary<string> = {};
+    const lowerCaseUrlParams: Dictionary<string> = {};
 
     if (!url) return results;
 
@@ -292,7 +293,7 @@ const queryStringParser = (
     if (isEmpty(keys)) {
         return lowerCaseUrlParams;
     } else {
-        keys.forEach(key => {
+        keys.forEach((key) => {
             const value = lowerCaseUrlParams[key.toLowerCase()];
             if (value) {
                 results[key] = value;
@@ -313,7 +314,7 @@ const queryStringParserFallback = (url: string): URLSearchParamsFallback => {
     const queryString = url.split('?')[1] || '';
     const pairs = queryString.split('&');
 
-    pairs.forEach(pair => {
+    pairs.forEach((pair) => {
         const [key, ...valueParts] = pair.split('=');
         const value = valueParts.join('=');
         if (key && value !== undefined) {
@@ -326,11 +327,11 @@ const queryStringParserFallback = (url: string): URLSearchParamsFallback => {
     });
 
     return {
-        get: function(key: string) {
+        get: function (key: string) {
             return params[key];
         },
-        forEach: function(callback: (value: string, key: string) => void) {
-            for (var key in params) {
+        forEach: function (callback: (value: string, key: string) => void) {
+            for (const key in params) {
                 if (params.hasOwnProperty(key)) {
                     callback(params[key], key);
                 }
@@ -347,7 +348,9 @@ const getCookies = (keys?: string[]): Dictionary<string> => {
             if (typeof window === 'undefined') {
                 return [];
             }
-            return window.document.cookie.split(';').map(cookie => cookie.trim());
+            return window.document.cookie
+                .split(';')
+                .map((cookie) => cookie.trim());
         } catch (e) {
             console.error('Unable to parse cookies', e);
             return [];
@@ -357,7 +360,7 @@ const getCookies = (keys?: string[]): Dictionary<string> => {
     // Helper function to filter cookies by keys
     const filterCookies = (
         cookies: string[],
-        keys?: string[]
+        keys?: string[],
     ): Dictionary<string> => {
         const results: Dictionary<string> = {};
         for (const cookie of cookies) {
@@ -385,7 +388,7 @@ const getHref = (): string => {
 const filterDictionaryWithHash = <T>(
     dictionary: Dictionary<T>,
     filterList: any[],
-    hashFn: (key: string) => any
+    hashFn: (key: string) => any,
 ): Dictionary<T> => {
     const filtered = {};
 
@@ -401,14 +404,21 @@ const filterDictionaryWithHash = <T>(
     }
 
     return filtered;
-}
+};
 
-const parseConfig = (config: SDKInitConfig, moduleName: string, moduleId: number): IKitConfigs | null => {
-    return config.kitConfigs?.find((kitConfig: IKitConfigs) => 
-        kitConfig.name === moduleName && 
-        kitConfig.moduleId === moduleId
-    ) || null;
-}
+const parseConfig = (
+    config: SDKInitConfig,
+    moduleName: string,
+    moduleId: number,
+): IKitConfigs | null => {
+    return (
+        config.kitConfigs?.find(
+            (kitConfig: IKitConfigs) =>
+                kitConfig.name === moduleName &&
+                kitConfig.moduleId === moduleId,
+        ) || null
+    );
+};
 
 export {
     createCookieString,
