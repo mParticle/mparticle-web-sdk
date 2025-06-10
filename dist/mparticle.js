@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.42.0";
+    var version = "2.43.0";
 
     var Constants = {
       sdkVersion: version,
@@ -9731,6 +9731,9 @@ var mParticle = (function () {
         this.launcherOptions = __assign({
           sandbox: sandbox
         }, options === null || options === void 0 ? void 0 : options.launcherOptions);
+        if (options === null || options === void 0 ? void 0 : options.domain) {
+          this.domain = options.domain;
+        }
       };
       RoktManager.prototype.attachKit = function (kit) {
         this.kit = kit;
@@ -10889,7 +10892,8 @@ var mParticle = (function () {
           }, mpInstance);
           var roktOptions = {
             sandbox: config === null || config === void 0 ? void 0 : config.isDevelopmentMode,
-            launcherOptions: config === null || config === void 0 ? void 0 : config.launcherOptions
+            launcherOptions: config === null || config === void 0 ? void 0 : config.launcherOptions,
+            domain: config === null || config === void 0 ? void 0 : config.domain
           };
           // https://go.mparticle.com/work/SQDSDKS-7339
           mpInstance._RoktManager.init(roktConfig, roktFilteredUser, mpInstance.Identity, mpInstance.Logger, roktOptions);
