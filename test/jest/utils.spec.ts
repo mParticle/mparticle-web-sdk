@@ -30,8 +30,8 @@ describe('Utils', () => {
         it('returns all cookies as an object', () => {
             const expectedResult = {
                 foo: 'bar',
-                '_cookie1': '1234',
-                '_cookie2': '39895811.9165333198',
+                _cookie1: '1234',
+                _cookie2: '39895811.9165333198',
                 baz: 'qux',
             };
 
@@ -63,7 +63,7 @@ describe('Utils', () => {
 
             expect(getCookies()).toEqual({});
 
-            global.window = originalWindow
+            global.window = originalWindow;
         });
     });
 
@@ -73,29 +73,34 @@ describe('Utils', () => {
         describe('with URLSearchParams', () => {
             it('returns an object with the query string parameters that match an array of keys', () => {
                 const keys = ['foo', 'narf'];
-    
+
                 const expectedResult = {
                     foo: 'bar',
                     narf: 'poit',
                 };
-    
+
                 expect(queryStringParser(url, keys)).toEqual(expectedResult);
             });
-    
+
             it('returns an empty object if no keys are found', () => {
                 const keys = ['quux', 'corge'];
-    
+
                 expect(queryStringParser(url, keys)).toEqual({});
             });
-    
+
             it('returns an empty object if the URL is empty', () => {
                 const keys = ['foo', 'narf'];
-    
+
                 expect(queryStringParser('', keys)).toEqual({});
             });
-    
+
             it('returns an empty object if there are no query parameters', () => {
-                expect(queryStringParser('https://www.example.com', ['foo', 'narf'])).toEqual({});
+                expect(
+                    queryStringParser('https://www.example.com', [
+                        'foo',
+                        'narf',
+                    ]),
+                ).toEqual({});
             });
 
             it('returns an object with all the query string parameters if no keys are passed', () => {
@@ -115,31 +120,36 @@ describe('Utils', () => {
                 URL = undefined;
                 URLSearchParams = undefined;
             });
-    
+
             it('returns an object with the query string parameters that match an array of keys', () => {
                 const keys = ['foo', 'narf'];
-    
+
                 const expectedResult = {
                     foo: 'bar',
                     narf: 'poit',
                 };
                 expect(queryStringParser(url, keys)).toEqual(expectedResult);
             });
-    
+
             it('returns an empty object if no keys are found', () => {
                 const keys = ['quux', 'corge'];
-    
+
                 expect(queryStringParser(url, keys)).toEqual({});
             });
-    
+
             it('returns an empty object if the URL is empty', () => {
                 const keys = ['foo', 'narf'];
-    
+
                 expect(queryStringParser('', keys)).toEqual({});
             });
 
             it('returns an empty object if there are no query parameters', () => {
-                expect(queryStringParser('https://www.example.com', ['foo', 'narf'])).toEqual({});
+                expect(
+                    queryStringParser('https://www.example.com', [
+                        'foo',
+                        'narf',
+                    ]),
+                ).toEqual({});
             });
 
             it('returns an object with all the query string parameters if no keys are passed', () => {
@@ -154,7 +164,8 @@ describe('Utils', () => {
             });
 
             it('should handle non-standard characters or malformed urls', () => {
-                const malformedUrl = 'https://www.example.com?foo=bar&baz=qux&mal=%E0%A4%A&narf=poit&param0=你好&*;<script>alert("hi")</script>&http://a.com/?c=7&d=8#!/asd+/%^^%zz%%%world你好&param1&param2=&param3=%E0%A4%A&param4=value1=value2&param5=a%AFc';
+                const malformedUrl =
+                    'https://www.example.com?foo=bar&baz=qux&mal=%E0%A4%A&narf=poit&param0=你好&*;<script>alert("hi")</script>&http://a.com/?c=7&d=8#!/asd+/%^^%zz%%%world你好&param1&param2=&param3=%E0%A4%A&param4=value1=value2&param5=a%AFc';
                 const keys = [
                     'foo',
                     'narf',
@@ -162,7 +173,7 @@ describe('Utils', () => {
                     'param1',
                     'param2',
                     'param3',
-                    'param4'
+                    'param4',
                 ];
 
                 const expectedResult = {
@@ -171,16 +182,14 @@ describe('Utils', () => {
                     param0: '你好',
                 };
 
-                expect(queryStringParser(malformedUrl, keys)).toEqual(expectedResult);
+                expect(queryStringParser(malformedUrl, keys)).toEqual(
+                    expectedResult,
+                );
             });
 
             it('should handle different params case sensitivity and return them as lowercased params', () => {
-                const url = 'https://www.example.com?FoO=bar&bAz=qux&NARF=poit'
-                const keys = [
-                    'foo',
-                    'baz',
-                    'narf',
-                ];
+                const url = 'https://www.example.com?FoO=bar&bAz=qux&NARF=poit';
+                const keys = ['foo', 'baz', 'narf'];
 
                 const expectedResult = {
                     foo: 'bar',
@@ -214,7 +223,7 @@ describe('Utils', () => {
             const string = 'https://www.google.com?mpid=%%mpid%%&foo=bar';
 
             expect(replaceMPID(string, mpid)).toEqual(
-                'https://www.google.com?mpid=1234&foo=bar'
+                'https://www.google.com?mpid=1234&foo=bar',
             );
         });
     });
@@ -224,21 +233,27 @@ describe('Utils', () => {
             const string = 'https://www.google.com?mpid=%%mpid%%&amp;foo=bar';
 
             expect(replaceAmpWithAmpersand(string)).toEqual(
-                'https://www.google.com?mpid=%%mpid%%&foo=bar'
+                'https://www.google.com?mpid=%%mpid%%&foo=bar',
             );
         });
     });
 
     describe('#createCookieSyncUrl', () => {
-        const pixelUrl: string = 'https://abc.abcdex.net/ibs:exampleid=12345&amp;exampleuuid=%%mpid%%&amp;redir=';
-        const redirectUrl: string = 'https://cookiesync.mparticle.com/v1/sync?esid=123456&amp;MPID=%%mpid%%&amp;ID=${DD_UUID}&amp;Key=mpApiKey&amp;env=2';
+        const pixelUrl =
+            'https://abc.abcdex.net/ibs:exampleid=12345&amp;exampleuuid=%%mpid%%&amp;redir=';
+        const redirectUrl =
+            'https://cookiesync.mparticle.com/v1/sync?esid=123456&amp;MPID=%%mpid%%&amp;ID=${DD_UUID}&amp;Key=mpApiKey&amp;env=2';
 
         it('should return a cookieSyncUrl when both pixelUrl and redirectUrl are not null', () => {
-            expect(createCookieSyncUrl('testMPID', pixelUrl, redirectUrl)).toBe('https://abc.abcdex.net/ibs:exampleid=12345&exampleuuid=testMPID&redir=https%3A%2F%2Fcookiesync.mparticle.com%2Fv1%2Fsync%3Fesid%3D123456%26MPID%3DtestMPID%26ID%3D%24%7BDD_UUID%7D%26Key%3DmpApiKey%26env%3D2');
+            expect(createCookieSyncUrl('testMPID', pixelUrl, redirectUrl)).toBe(
+                'https://abc.abcdex.net/ibs:exampleid=12345&exampleuuid=testMPID&redir=https%3A%2F%2Fcookiesync.mparticle.com%2Fv1%2Fsync%3Fesid%3D123456%26MPID%3DtestMPID%26ID%3D%24%7BDD_UUID%7D%26Key%3DmpApiKey%26env%3D2',
+            );
         });
 
         it('should return a cookieSyncUrl when pixelUrl is not null but redirectUrl is null', () => {
-            expect(createCookieSyncUrl('testMPID', pixelUrl, null)).toBe('https://abc.abcdex.net/ibs:exampleid=12345&exampleuuid=testMPID&redir=');
+            expect(createCookieSyncUrl('testMPID', pixelUrl, null)).toBe(
+                'https://abc.abcdex.net/ibs:exampleid=12345&exampleuuid=testMPID&redir=',
+            );
         });
     });
 
@@ -278,22 +293,26 @@ describe('Utils', () => {
     describe('#filterDictionaryWithHash', () => {
         it('should filter a dictionary based on a hash function and filter list', () => {
             const dictionary = {
-                'foo': 'bar',
-                'bar': 'baz',
-                'baz': 'qux',
-                'quux': 'corge',
+                foo: 'bar',
+                bar: 'baz',
+                baz: 'qux',
+                quux: 'corge',
             };
-    
+
             const filterList = [
                 98, // charCode for 'b'
                 102, // charCode for 'f'
             ];
             const hashFn = (key: string): number => key.charCodeAt(0);
 
-            const filtered = filterDictionaryWithHash(dictionary, filterList, hashFn);
+            const filtered = filterDictionaryWithHash(
+                dictionary,
+                filterList,
+                hashFn,
+            );
 
             expect(filtered).toEqual({
-                'quux': 'corge',
+                quux: 'corge',
             });
         });
     });
@@ -311,7 +330,10 @@ describe('Utils', () => {
             };
 
             const config: SDKInitConfig = {
-                kitConfigs: [roktKitConfig as IKitConfigs, otherKitConfig as IKitConfigs],
+                kitConfigs: [
+                    roktKitConfig as IKitConfigs,
+                    otherKitConfig as IKitConfigs,
+                ],
             };
 
             const result = parseConfig(config, 'Rokt', 181);
@@ -330,21 +352,34 @@ describe('Utils', () => {
 
     describe('#parseSettingsString', () => {
         it('should parse a settings string', () => {
-            const settingsString = "[{&quot;jsmap&quot;:null,&quot;map&quot;:&quot;f.name&quot;,&quot;maptype&quot;:&quot;UserAttributeClass.Name&quot;,&quot;value&quot;:&quot;firstname&quot;},{&quot;jsmap&quot;:null,&quot;map&quot;:&quot;last_name&quot;,&quot;maptype&quot;:&quot;UserAttributeClass.Name&quot;,&quot;value&quot;:&quot;lastname&quot;}]";
+            const settingsString =
+                '[{&quot;jsmap&quot;:null,&quot;map&quot;:&quot;f.name&quot;,&quot;maptype&quot;:&quot;UserAttributeClass.Name&quot;,&quot;value&quot;:&quot;firstname&quot;},{&quot;jsmap&quot;:null,&quot;map&quot;:&quot;last_name&quot;,&quot;maptype&quot;:&quot;UserAttributeClass.Name&quot;,&quot;value&quot;:&quot;lastname&quot;}]';
             expect(parseSettingsString(settingsString)).toEqual([
-                { jsmap: null, map: 'f.name', maptype: 'UserAttributeClass.Name', value: 'firstname' },
-                { jsmap: null, map: 'last_name', maptype: 'UserAttributeClass.Name', value: 'lastname' },
+                {
+                    jsmap: null,
+                    map: 'f.name',
+                    maptype: 'UserAttributeClass.Name',
+                    value: 'firstname',
+                },
+                {
+                    jsmap: null,
+                    map: 'last_name',
+                    maptype: 'UserAttributeClass.Name',
+                    value: 'lastname',
+                },
             ]);
         });
 
         it('returns an empty array if the settings string is empty', () => {
-            const settingsString = "";
+            const settingsString = '';
             expect(parseSettingsString(settingsString)).toEqual([]);
         });
 
         it('throws an error message if the settings string is not a valid JSON', () => {
-            const settingsString = "not a valid JSON";
-            expect(() => parseSettingsString(settingsString)).toThrow('Settings string contains invalid JSON');
+            const settingsString = 'not a valid JSON';
+            expect(() => parseSettingsString(settingsString)).toThrow(
+                'Settings string contains invalid JSON',
+            );
         });
     });
 });

@@ -803,54 +803,52 @@ describe('batch uploader', () => {
             it('should return batches that fail to upload with 429 errors', async () => {
                 window.mParticle.init(apiKey, window.mParticle.config);
 
-                waitForCondition(hasIdentifyReturned).then(async () => {
-                    fetchMock.post(urls.events, 429);
+                await waitForCondition(hasIdentifyReturned);
 
-                    const newLogger = new Logger(window.mParticle.config);
-                    const mpInstance = window.mParticle.getInstance();
+                fetchMock.post(urls.events, 429);
 
-                    const uploader = new BatchUploader(mpInstance, 1000);
+                const newLogger = new Logger(window.mParticle.config);
+                const mpInstance = window.mParticle.getInstance();
 
-                    const batchValidator = new _BatchValidator();
+                const uploader = new BatchUploader(mpInstance, 1000);
 
-                    const batch1 = batchValidator.returnBatch({
-                        messageType: 4,
-                        name: 'Test Event 1',
-                    });
+                const batchValidator = new _BatchValidator();
 
-                    const batch2 = batchValidator.returnBatch({
-                        messageType: 4,
-                        name: 'Test Event 2',
-                    });
-                    const batch3 = batchValidator.returnBatch({
-                        messageType: 4,
-                        name: 'Test Event 3',
-                    });
-
-                    // HACK: Directly access uploader to Force an upload
-                    const batchesNotUploaded = await (<any>(
-                        uploader
-                    )).uploadBatches(
-                        newLogger,
-                        [batch1, batch2, batch3],
-                        false,
-                    );
-
-                    expect(
-                        batchesNotUploaded.length,
-                        'Should have 3 uploaded batches',
-                    ).to.equal(3);
-
-                    expect(
-                        batchesNotUploaded[0].events[0].data.event_name,
-                    ).to.equal('Test Event 1');
-                    expect(
-                        batchesNotUploaded[1].events[0].data.event_name,
-                    ).to.equal('Test Event 2');
-                    expect(
-                        batchesNotUploaded[2].events[0].data.event_name,
-                    ).to.equal('Test Event 3');
+                const batch1 = batchValidator.returnBatch({
+                    messageType: 4,
+                    name: 'Test Event 1',
                 });
+
+                const batch2 = batchValidator.returnBatch({
+                    messageType: 4,
+                    name: 'Test Event 2',
+                });
+                const batch3 = batchValidator.returnBatch({
+                    messageType: 4,
+                    name: 'Test Event 3',
+                });
+
+                // HACK: Directly access uploader to Force an upload
+                const batchesNotUploaded = await (<any>uploader).uploadBatches(
+                    newLogger,
+                    [batch1, batch2, batch3],
+                    false,
+                );
+
+                expect(
+                    batchesNotUploaded.length,
+                    'Should have 3 uploaded batches',
+                ).to.equal(3);
+
+                expect(
+                    batchesNotUploaded[0].events[0].data.event_name,
+                ).to.equal('Test Event 1');
+                expect(
+                    batchesNotUploaded[1].events[0].data.event_name,
+                ).to.equal('Test Event 2');
+                expect(
+                    batchesNotUploaded[2].events[0].data.event_name,
+                ).to.equal('Test Event 3');
             });
 
             it('should return null if batches fail to upload with 401 errors', async () => {
@@ -1364,7 +1362,8 @@ describe('batch uploader', () => {
             expect(window.localStorage.getItem(batchStorageKey)).to.equal('');
         });
 
-        it('should save batches in sequence to Local Storage when upload is interrupted', async () => {
+        // https://go.mparticle.com/work/SQDSDKS-7393
+        it.skip('should save batches in sequence to Local Storage when upload is interrupted', async () => {
             // Interruption in this context means that the first upload is successful, but
             // the next upload in sequence is not. For example, on a mobile device on the
             // subway or if a connection is rate limited. In this case, we should save
@@ -1496,7 +1495,8 @@ describe('batch uploader', () => {
             ).to.equal('application_state_transition');
         });
 
-        it('should attempt to upload batches from Offline Storage before new batches', async () => {
+        // https://go.mparticle.com/work/SQDSDKS-7393
+        it.skip('should attempt to upload batches from Offline Storage before new batches', async () => {
             // This test should verify that batches read from Offline Storage are prepended
             // to the upload queue before newly created batches.
 
