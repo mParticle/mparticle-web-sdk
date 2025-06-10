@@ -1,3 +1,10 @@
+# [2.43.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.42.0...v2.43.0) (2025-06-10)
+
+
+### Features
+
+* Add domain to RoktManager to support CNAME for Rokt ([#1039](https://github.com/mParticle/mparticle-web-sdk/issues/1039)) ([5ad8831](https://github.com/mParticle/mparticle-web-sdk/commit/5ad88318ead7422c38413afc7c6c58569fb4c59e))
+
 # [2.42.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.41.1...v2.42.0) (2025-06-04)
 
 
