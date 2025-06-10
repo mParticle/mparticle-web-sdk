@@ -6,23 +6,26 @@ import { convertEvents } from './sdkToEventsApiConverter';
 import { Batch } from '@mparticle/event-models';
 import { IMParticleWebSDKInstance } from './mp-instance';
 
-const mockFunction = function() {
+const mockFunction = function () {
     return null;
 };
 export default class _BatchValidator {
     private getMPInstance() {
-        return ({
+        return {
             // Certain Helper, Store, and Identity properties need to be mocked to be used in the `returnBatch` method
             _Helpers: {
-                sanitizeAttributes: (window.mParticle.getInstance() as unknown as IMParticleWebSDKInstance)._Helpers
-                    .sanitizeAttributes,
-                generateHash: function() {
+                sanitizeAttributes: (
+                    window.mParticle.getInstance() as unknown as IMParticleWebSDKInstance
+                )._Helpers.sanitizeAttributes,
+                generateHash: function () {
                     return 'mockHash';
                 },
-                generateUniqueId: function() {
+                generateUniqueId: function () {
                     return 'mockId';
                 },
-                extend: (window.mParticle.getInstance() as unknown as IMParticleWebSDKInstance)._Helpers.extend,
+                extend: (
+                    window.mParticle.getInstance() as unknown as IMParticleWebSDKInstance
+                )._Helpers.extend,
                 createServiceUrl: mockFunction,
                 parseNumber: mockFunction,
                 isObject: mockFunction,
@@ -31,7 +34,7 @@ export default class _BatchValidator {
             _resetForTests: mockFunction,
             _APIClient: null,
             _timeOnSiteTimer: {
-                getTimeInForeground: mockFunction
+                getTimeInForeground: mockFunction,
             },
             MPSideloadedKit: null,
             _Consent: null,
@@ -120,7 +123,7 @@ export default class _BatchValidator {
             logLevel: 'none',
             setPosition: mockFunction,
             upload: mockFunction,
-        } as unknown) as IMParticleWebSDKInstance;
+        } as unknown as IMParticleWebSDKInstance;
     }
 
     private createSDKEventFunction(event): SDKEvent {
@@ -131,7 +134,7 @@ export default class _BatchValidator {
         const mpInstance = this.getMPInstance();
 
         const sdkEvents: SDKEvent[] = Array.isArray(events)
-            ? events.map(event => this.createSDKEventFunction(event))
+            ? events.map((event) => this.createSDKEventFunction(event))
             : [this.createSDKEventFunction(events)];
 
         const batch: Batch = convertEvents('0', sdkEvents, mpInstance as any);

@@ -29,17 +29,17 @@ export const facebookClickIdProcessor: IntegrationCaptureProcessorFunction = (
         return '';
     }
 
-    const urlSegments = url?.split('//')
+    const urlSegments = url?.split('//');
     if (!urlSegments) {
         return '';
     }
 
     const urlParts = urlSegments[1].split('/');
     const domainParts = urlParts[0].split('.');
-    let subdomainIndex: number = 1;
+    let subdomainIndex = 1;
 
     // The rules for subdomainIndex are for parsing the domain portion
-    // of the URL for cookies, but in this case we are parsing the URL 
+    // of the URL for cookies, but in this case we are parsing the URL
     // itself, so we can ignore the use of 0 for 'com'
     if (domainParts.length >= 3) {
         subdomainIndex = 2;
@@ -151,9 +151,15 @@ export default class IntegrationCapture {
         this.initialTimestamp = Date.now();
 
         // Cache filtered mappings for faster access
-        this.filteredPartnerIdentityMappings = this.filterMappings(IntegrationOutputs.PARTNER_IDENTITIES);
-        this.filteredCustomFlagMappings = this.filterMappings(IntegrationOutputs.CUSTOM_FLAGS);
-        this.filteredIntegrationAttributeMappings = this.filterMappings(IntegrationOutputs.INTEGRATION_ATTRIBUTES);
+        this.filteredPartnerIdentityMappings = this.filterMappings(
+            IntegrationOutputs.PARTNER_IDENTITIES,
+        );
+        this.filteredCustomFlagMappings = this.filterMappings(
+            IntegrationOutputs.CUSTOM_FLAGS,
+        );
+        this.filteredIntegrationAttributeMappings = this.filterMappings(
+            IntegrationOutputs.INTEGRATION_ATTRIBUTES,
+        );
     }
 
     /**
@@ -197,7 +203,7 @@ export default class IntegrationCapture {
             ...this.clickIds,
             ...queryParams,
             ...localStorage,
-            ...cookies
+            ...cookies,
         };
     }
 
@@ -214,14 +220,18 @@ export default class IntegrationCapture {
      */
     public captureQueryParams(): Dictionary<string> {
         const queryParams = this.getQueryParams();
-        return this.applyProcessors(queryParams, getHref(), this.initialTimestamp);
+        return this.applyProcessors(
+            queryParams,
+            getHref(),
+            this.initialTimestamp,
+        );
     }
 
     /**
      * Captures local storage based on the integration ID mapping.
      */
     public captureLocalStorage(): Dictionary<string> {
-        let localStorageItems: Dictionary<string> = {};
+        const localStorageItems: Dictionary<string> = {};
         for (const key in integrationMapping) {
             const localStorageItem = localStorage.getItem(key);
             if (localStorageItem) {
@@ -229,7 +239,11 @@ export default class IntegrationCapture {
             }
         }
 
-        return this.applyProcessors(localStorageItems, getHref(), this.initialTimestamp);
+        return this.applyProcessors(
+            localStorageItems,
+            getHref(),
+            this.initialTimestamp,
+        );
     }
 
     /**
@@ -253,7 +267,10 @@ export default class IntegrationCapture {
      * @returns {Dictionary<string>} The partner identities.
      */
     public getClickIdsAsPartnerIdentities(): Dictionary<string> {
-        return this.getClickIds(this.clickIds, this.filteredPartnerIdentityMappings);
+        return this.getClickIds(
+            this.clickIds,
+            this.filteredPartnerIdentityMappings,
+        );
     }
 
     /**
@@ -274,9 +291,12 @@ export default class IntegrationCapture {
         for (const key in this.clickIds) {
             if (this.clickIds.hasOwnProperty(key)) {
                 const value = this.clickIds[key];
-                const mappingKey = this.filteredIntegrationAttributeMappings[key]?.mappedKey;
+                const mappingKey =
+                    this.filteredIntegrationAttributeMappings[key]?.mappedKey;
                 if (!isEmpty(mappingKey)) {
-                    const moduleId = this.filteredIntegrationAttributeMappings[key]?.moduleId;
+                    const moduleId =
+                        this.filteredIntegrationAttributeMappings[key]
+                            ?.moduleId;
                     if (moduleId && !mappedClickIds[moduleId]) {
                         mappedClickIds[moduleId] = { [mappingKey]: value };
                     }
@@ -285,11 +305,10 @@ export default class IntegrationCapture {
         }
         return mappedClickIds;
     }
-    
 
     private getClickIds(
         clickIds: Dictionary<string>,
-        mappingList: IntegrationIdMapping
+        mappingList: IntegrationIdMapping,
     ): Dictionary<string> {
         const mappedClickIds: Dictionary<string> = {};
 
@@ -313,7 +332,7 @@ export default class IntegrationCapture {
     private applyProcessors(
         clickIds: Dictionary<string>,
         url?: string,
-        timestamp?: number
+        timestamp?: number,
     ): Dictionary<string> {
         const processedClickIds: Dictionary<string> = {};
 
@@ -321,7 +340,9 @@ export default class IntegrationCapture {
             if (clickIds.hasOwnProperty(key)) {
                 const value = clickIds[key];
                 const processor = integrationMapping[key]?.processor;
-                processedClickIds[key] = processor ? processor(value, url, timestamp) : value;
+                processedClickIds[key] = processor
+                    ? processor(value, url, timestamp)
+                    : value;
             }
         }
 
@@ -329,7 +350,7 @@ export default class IntegrationCapture {
     }
 
     private filterMappings(
-        outputType: valueof<typeof IntegrationOutputs>
+        outputType: valueof<typeof IntegrationOutputs>,
     ): IntegrationIdMapping {
         const filteredMappings: IntegrationIdMapping = {};
         for (const key in integrationMapping) {

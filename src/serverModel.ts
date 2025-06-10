@@ -145,15 +145,15 @@ export interface IServerModel {
 
 // TODO: Make this a pure function that returns a new object
 function convertCustomFlags(event: SDKEvent, dto: IServerV2DTO) {
-    var valueArray: string[] = [];
+    let valueArray: string[] = [];
     dto.flags = {};
 
-    for (var prop in event.CustomFlags) {
+    for (const prop in event.CustomFlags) {
         valueArray = [];
 
         if (event.CustomFlags.hasOwnProperty(prop)) {
             if (Array.isArray(event.CustomFlags[prop])) {
-                event.CustomFlags[prop].forEach(customFlagProperty => {
+                event.CustomFlags[prop].forEach((customFlagProperty) => {
                     if (isValidCustomFlagProperty(customFlagProperty)) {
                         valueArray.push(customFlagProperty.toString());
                     }
@@ -190,31 +190,31 @@ function convertProductListToV2DTO(productList: SDKProduct[]): IProductV2DTO[] {
         return [];
     }
 
-    return productList.map(function(product) {
+    return productList.map(function (product) {
         return convertProductToV2DTO(product);
     });
 }
 
 export default function ServerModel(
     this: IServerModel,
-    mpInstance: IMParticleWebSDKInstance
+    mpInstance: IMParticleWebSDKInstance,
 ) {
-    var self = this;
+    const self = this;
 
-    this.convertToConsentStateV2DTO = function(
-        state: SDKConsentState
+    this.convertToConsentStateV2DTO = function (
+        state: SDKConsentState,
     ): IConsentStateV2DTO {
         if (!state) {
             return null;
         }
-        var jsonObject: IConsentStateV2DTO = {};
-        var gdprConsentState = state.getGDPRConsentState();
+        const jsonObject: IConsentStateV2DTO = {};
+        const gdprConsentState = state.getGDPRConsentState();
         if (gdprConsentState) {
-            var gdpr: IGDPRConsentStateV2DTO = {};
+            const gdpr: IGDPRConsentStateV2DTO = {};
             jsonObject.gdpr = gdpr;
-            for (var purpose in gdprConsentState) {
+            for (const purpose in gdprConsentState) {
                 if (gdprConsentState.hasOwnProperty(purpose)) {
-                    var gdprConsent = gdprConsentState[purpose];
+                    const gdprConsent = gdprConsentState[purpose];
                     jsonObject.gdpr[purpose] = {} as IPrivacyV2DTO;
                     if (typeof gdprConsent.Consented === 'boolean') {
                         gdpr[purpose].c = gdprConsent.Consented;
@@ -235,7 +235,7 @@ export default function ServerModel(
             }
         }
 
-        var ccpaConsentState = state.getCCPAConsentState();
+        const ccpaConsentState = state.getCCPAConsentState();
         if (ccpaConsentState) {
             jsonObject.ccpa = {
                 data_sale_opt_out: {
@@ -251,18 +251,18 @@ export default function ServerModel(
         return jsonObject as IConsentStateV2DTO;
     };
 
-    this.createEventObject = function(
+    this.createEventObject = function (
         event: BaseEvent,
-        user?: IMParticleUser
+        user?: IMParticleUser,
     ): SDKEvent | IUploadObject {
-        var uploadObject: Partial<IUploadObject> = {};
-        var eventObject: Partial<SDKEvent> = {};
+        let uploadObject: Partial<IUploadObject> = {};
+        let eventObject: Partial<SDKEvent> = {};
 
         //  The `optOut` variable is passed later in this method to the `uploadObject`
         //  so that it can be used to denote whether or not a user has "opted out" of being
         //  tracked. If this is an `optOut` Event, we set `optOut` to the inverse of the SDK's
         // `isEnabled` boolean which is controlled via `MPInstanceManager.setOptOut`.
-        var optOut =
+        const optOut =
             event.messageType === Types.MessageType.OptOut
                 ? !mpInstance._Store.isEnabled
                 : null;
@@ -273,20 +273,30 @@ export default function ServerModel(
             event.messageType === Types.MessageType.OptOut ||
             mpInstance._Store.webviewBridgeEnabled
         ) {
-            let customFlags: SDKEventCustomFlags = {...event.customFlags};
-            let integrationAttributes: IntegrationAttributes = mpInstance._Store.integrationAttributes;
+            let customFlags: SDKEventCustomFlags = { ...event.customFlags };
+            let integrationAttributes: IntegrationAttributes =
+                mpInstance._Store.integrationAttributes;
 
             // https://go.mparticle.com/work/SQDSDKS-5053
-            if (mpInstance._Helpers.getFeatureFlag && mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds)) {
-
+            if (
+                mpInstance._Helpers.getFeatureFlag &&
+                mpInstance._Helpers.getFeatureFlag(
+                    Constants.FeatureFlags.CaptureIntegrationSpecificIds,
+                )
+            ) {
                 // Attempt to recapture click IDs in case a third party integration
                 // has added or updated  new click IDs since the last event was sent.
                 mpInstance._IntegrationCapture.capture();
-                const transformedClickIDs = mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
-                customFlags = {...transformedClickIDs, ...customFlags};
+                const transformedClickIDs =
+                    mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
+                customFlags = { ...transformedClickIDs, ...customFlags };
 
-                const transformedIntegrationAttributes = mpInstance._IntegrationCapture.getClickIdsAsIntegrationAttributes();
-                integrationAttributes = {...transformedIntegrationAttributes, ...integrationAttributes};
+                const transformedIntegrationAttributes =
+                    mpInstance._IntegrationCapture.getClickIdsAsIntegrationAttributes();
+                integrationAttributes = {
+                    ...transformedIntegrationAttributes,
+                    ...integrationAttributes,
+                };
             }
 
             if (event.hasOwnProperty('toEventAPIObject')) {
@@ -297,14 +307,14 @@ export default function ServerModel(
                     //  names are numbers (1, 2, or 10), but going forward with v3, these lifecycle
                     //  events do not have names, but are denoted by their `event_type`
                     EventName:
-                        event.name ||
-                        ((event.messageType as unknown) as string),
+                        event.name || (event.messageType as unknown as string),
                     EventCategory: event.eventType,
                     EventAttributes: mpInstance._Helpers.sanitizeAttributes(
                         event.data,
-                        event.name
+                        event.name,
                     ),
-                    ActiveTimeOnSite: mpInstance._timeOnSiteTimer?.getTimeInForeground(),
+                    ActiveTimeOnSite:
+                        mpInstance._timeOnSiteTimer?.getTimeInForeground(),
                     SourceMessageId:
                         event.sourceMessageId ||
                         mpInstance._Helpers.generateUniqueId(),
@@ -337,7 +347,7 @@ export default function ServerModel(
                 Package: mpInstance._Store.SDKConfig.package,
                 ClientGeneratedId: mpInstance._Store.clientId,
                 DeviceId: mpInstance._Store.deviceId,
-                IntegrationAttributes: integrationAttributes, 
+                IntegrationAttributes: integrationAttributes,
                 CurrencyCode: mpInstance._Store.currencyCode,
                 DataPlan: mpInstance._Store.SDKConfig.dataPlan
                     ? mpInstance._Store.SDKConfig.dataPlan
@@ -351,7 +361,7 @@ export default function ServerModel(
 
             // FIXME: Remove duplicate occurence
             eventObject.CurrencyCode = mpInstance._Store.currencyCode;
-            var currentUser = user || mpInstance.Identity.getCurrentUser();
+            const currentUser = user || mpInstance.Identity.getCurrentUser();
             appendUserInfo(currentUser, eventObject as SDKEvent);
 
             if (event.messageType === Types.MessageType.SessionEnd) {
@@ -373,7 +383,8 @@ export default function ServerModel(
                 mpInstance._Store.sessionStartDate = null;
             }
 
-            uploadObject.Timestamp = mpInstance._Store.dateLastEventSent.getTime();
+            uploadObject.Timestamp =
+                mpInstance._Store.dateLastEventSent.getTime();
 
             return mpInstance._Helpers.extend({}, eventObject, uploadObject);
         }
@@ -381,8 +392,8 @@ export default function ServerModel(
         return null;
     };
 
-    this.convertEventToV2DTO = function(event: IUploadObject): IServerV2DTO {
-        var dto: Partial<IServerV2DTO> = {
+    this.convertEventToV2DTO = function (event: IUploadObject): IServerV2DTO {
+        const dto: Partial<IServerV2DTO> = {
             n: event.EventName,
             et: event.EventCategory,
             ua: event.UserAttributes,
@@ -414,7 +425,7 @@ export default function ServerModel(
             }
         }
 
-        var consent = self.convertToConsentStateV2DTO(event.ConsentState);
+        const consent = self.convertToConsentStateV2DTO(event.ConsentState);
         if (consent) {
             dto.con = consent;
         }
@@ -441,7 +452,7 @@ export default function ServerModel(
             if (event.ShoppingCart) {
                 dto.sc = {
                     pl: convertProductListToV2DTO(
-                        event.ShoppingCart.ProductList
+                        event.ShoppingCart.ProductList,
                     ),
                 };
             }
@@ -450,41 +461,41 @@ export default function ServerModel(
                 dto.pd = {
                     an: event.ProductAction.ProductActionType,
                     cs: mpInstance._Helpers.parseNumber(
-                        event.ProductAction.CheckoutStep
+                        event.ProductAction.CheckoutStep,
                     ),
                     co: event.ProductAction.CheckoutOptions,
                     pl: convertProductListToV2DTO(
-                        event.ProductAction.ProductList
+                        event.ProductAction.ProductList,
                     ),
                     ti: event.ProductAction.TransactionId,
                     ta: event.ProductAction.Affiliation,
                     tcc: event.ProductAction.CouponCode,
                     tr: mpInstance._Helpers.parseNumber(
-                        event.ProductAction.TotalAmount
+                        event.ProductAction.TotalAmount,
                     ),
                     ts: mpInstance._Helpers.parseNumber(
-                        event.ProductAction.ShippingAmount
+                        event.ProductAction.ShippingAmount,
                     ),
                     tt: mpInstance._Helpers.parseNumber(
-                        event.ProductAction.TaxAmount
+                        event.ProductAction.TaxAmount,
                     ),
                 };
             } else if (event.PromotionAction) {
                 dto.pm = {
                     an: event.PromotionAction.PromotionActionType,
-                    pl: event.PromotionAction.PromotionList.map(function(
-                        promotion
-                    ) {
-                        return {
-                            id: promotion.Id,
-                            nm: promotion.Name,
-                            cr: promotion.Creative,
-                            ps: promotion.Position ? promotion.Position : 0,
-                        };
-                    }),
+                    pl: event.PromotionAction.PromotionList.map(
+                        function (promotion) {
+                            return {
+                                id: promotion.Id,
+                                nm: promotion.Name,
+                                cr: promotion.Creative,
+                                ps: promotion.Position ? promotion.Position : 0,
+                            };
+                        },
+                    ),
                 };
             } else if (event.ProductImpressions) {
-                dto.pi = event.ProductImpressions.map(function(impression) {
+                dto.pi = event.ProductImpressions.map(function (impression) {
                     return {
                         pil: impression.ProductImpressionList,
                         pl: convertProductListToV2DTO(impression.ProductList),

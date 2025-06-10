@@ -2,7 +2,7 @@ import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import { urls, apiKey, MPConfig } from './config/constants';
 import { expect } from 'chai';
-import ConfigAPIClient  from '../../src/configAPIClient';
+import ConfigAPIClient from '../../src/configAPIClient';
 import {
     DataPlanConfig,
     DataPlanResult,
@@ -18,7 +18,6 @@ declare global {
 
 describe('ConfigAPIClient', () => {
     let mockServer;
-    let sdkInitCompleteCallback;
     let configUrl;
     let dataPlan: DataPlanConfig;
     let dataPlanResult: DataPlanResult;
@@ -27,7 +26,6 @@ describe('ConfigAPIClient', () => {
         fetchMock.restore();
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
-        sdkInitCompleteCallback = sinon.spy();
         window.mParticle._resetForTests(MPConfig);
     });
 
@@ -59,7 +57,7 @@ describe('ConfigAPIClient', () => {
                     const configAPIClient = new ConfigAPIClient(
                         apiKey,
                         config,
-                        window.mParticle.getInstance()
+                        window.mParticle.getInstance(),
                     );
 
                     const response =
@@ -82,7 +80,7 @@ describe('ConfigAPIClient', () => {
                     const configAPIClient = new ConfigAPIClient(
                         apiKey,
                         config,
-                        window.mParticle.getInstance()
+                        window.mParticle.getInstance(),
                     );
 
                     const response =
@@ -147,11 +145,10 @@ describe('ConfigAPIClient', () => {
                     const configAPIClient = new ConfigAPIClient(
                         apiKey,
                         config,
-                        window.mParticle.getInstance()
+                        window.mParticle.getInstance(),
                     );
 
-                    const response =
-                        await configAPIClient.getSDKConfiguration();
+                    await configAPIClient.getSDKConfiguration();
 
                     expect(fetchMock.calls().length).to.equal(1);
                     expect(fetchMock.calls()[0][0]).to.equal(configUrl);
@@ -166,7 +163,7 @@ describe('ConfigAPIClient', () => {
                     const configAPIClient = new ConfigAPIClient(
                         apiKey,
                         config,
-                        window.mParticle.getInstance()
+                        window.mParticle.getInstance(),
                     );
 
                     const response =
@@ -176,16 +173,15 @@ describe('ConfigAPIClient', () => {
                     expect(response.appName).to.equal('Test App');
                     expect(response.kitConfigs).to.deep.equal([]);
                     expect(response.dataPlanResult).to.deep.equal(
-                        dataPlanResult
+                        dataPlanResult,
                     );
                 });
             });
         });
     });
 
-
     describe('with XHRUploader', () => {
-        var fetchHolder = window.fetch;
+        const fetchHolder = window.fetch;
         beforeEach(() => {
             delete window.fetch;
         });
@@ -213,7 +209,7 @@ describe('ConfigAPIClient', () => {
                     const configAPIClient = new ConfigAPIClient(
                         apiKey,
                         config,
-                        window.mParticle.getInstance()
+                        window.mParticle.getInstance(),
                     );
 
                     const response =
@@ -221,7 +217,7 @@ describe('ConfigAPIClient', () => {
 
                     expect(mockServer.requests.length).to.equal(1);
                     expect(mockServer.lastRequest).to.haveOwnProperty(
-                        'response'
+                        'response',
                     );
                     expect(mockServer.lastRequest.url).to.equal(urls.config);
 
@@ -237,7 +233,7 @@ describe('ConfigAPIClient', () => {
                     const configAPIClient = new ConfigAPIClient(
                         apiKey,
                         config,
-                        window.mParticle.getInstance()
+                        window.mParticle.getInstance(),
                     );
 
                     const response =
@@ -245,7 +241,7 @@ describe('ConfigAPIClient', () => {
 
                     expect(mockServer.requests.length).to.equal(1);
                     expect(mockServer.lastRequest).to.haveOwnProperty(
-                        'response'
+                        'response',
                     );
                     expect(mockServer.lastRequest.url).to.equal(urls.config);
 
@@ -302,11 +298,10 @@ describe('ConfigAPIClient', () => {
                     const configAPIClient = new ConfigAPIClient(
                         apiKey,
                         config,
-                        window.mParticle.getInstance()
+                        window.mParticle.getInstance(),
                     );
 
-                    const response =
-                        await configAPIClient.getSDKConfiguration();
+                    await configAPIClient.getSDKConfiguration();
 
                     expect(mockServer.lastRequest).to.haveOwnProperty('url');
                     expect(mockServer.lastRequest.url).to.equal(configUrl);
@@ -321,7 +316,7 @@ describe('ConfigAPIClient', () => {
                     const configAPIClient = new ConfigAPIClient(
                         apiKey,
                         config,
-                        window.mParticle.getInstance()
+                        window.mParticle.getInstance(),
                     );
 
                     const response =
@@ -333,7 +328,7 @@ describe('ConfigAPIClient', () => {
                     expect(response.appName).to.equal('Test App');
                     expect(response.kitConfigs).to.deep.equal([]);
                     expect(response.dataPlanResult).to.deep.equal(
-                        dataPlanResult
+                        dataPlanResult,
                     );
                 });
             });

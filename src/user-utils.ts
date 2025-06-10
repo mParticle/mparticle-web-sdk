@@ -1,12 +1,16 @@
 import { UserIdentities } from '@mparticle/web-sdk';
-import { IMParticleUser, ISDKUserIdentity, IdentityResultBody } from './identity-user-interfaces';
+import {
+    IMParticleUser,
+    ISDKUserIdentity,
+    IdentityResultBody,
+} from './identity-user-interfaces';
 import { SDKEvent } from './sdkRuntimeModels';
 import Types from './types';
 import { isObject, parseNumber } from './utils';
 
 export function hasMPIDAndUserLoginChanged(
     previousUser: IMParticleUser,
-    newUser: IMParticleUser
+    newUser: IMParticleUser,
 ): boolean {
     return (
         !previousUser ||
@@ -18,7 +22,7 @@ export function hasMPIDAndUserLoginChanged(
 // https://go.mparticle.com/work/SQDSDKS-6504
 export function hasMPIDChanged(
     prevUser: IMParticleUser,
-    identityApiResult: IdentityResultBody
+    identityApiResult: IdentityResultBody,
 ): boolean {
     return (
         !prevUser ||
@@ -29,10 +33,7 @@ export function hasMPIDChanged(
 }
 
 // https://go.mparticle.com/work/SQDSDKS-7136
-export function appendUserInfo(
-    user: IMParticleUser,
-    event: SDKEvent
-): void {
+export function appendUserInfo(user: IMParticleUser, event: SDKEvent): void {
     if (!event) {
         return;
     }
@@ -51,7 +52,8 @@ export function appendUserInfo(
     event.ConsentState = user.getConsentState();
     event.UserAttributes = user.getAllUserAttributes();
 
-    const userIdentities: UserIdentities = user.getUserIdentities().userIdentities;
+    const userIdentities: UserIdentities =
+        user.getUserIdentities().userIdentities;
     const dtoUserIdentities = {};
     for (const identityKey in userIdentities) {
         const identityType = Types.IdentityType.getIdentityType(identityKey);

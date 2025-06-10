@@ -1,33 +1,47 @@
-import { Dictionary, generateHash, inArray, valueof, filterDictionaryWithHash } from "./utils";
+import {
+    Dictionary,
+    generateHash,
+    inArray,
+    valueof,
+    filterDictionaryWithHash,
+} from './utils';
 // TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-5381
-import { EventType, IdentityType } from "./types";
+import { EventType, IdentityType } from './types';
 
 export default class KitFilterHelper {
     static hashEventType(eventType: valueof<typeof EventType>): number {
         return generateHash(eventType as unknown as string);
-    };
+    }
 
-    static hashEventName(eventName: string, eventType: valueof<typeof EventType>): number {
+    static hashEventName(
+        eventName: string,
+        eventType: valueof<typeof EventType>,
+    ): number {
         return generateHash(eventType + eventName);
-    };
+    }
 
-    static hashEventAttributeKey(eventType: valueof<typeof EventType>, eventName: string, customAttributeName: string): number {
+    static hashEventAttributeKey(
+        eventType: valueof<typeof EventType>,
+        eventName: string,
+        customAttributeName: string,
+    ): number {
         return generateHash(eventType + eventName + customAttributeName);
     }
-    
+
     static hashUserAttribute(userAttributeKey: string): number {
         return generateHash(userAttributeKey);
     }
 
     // User Identities are not actually hashed, this method is named this way to
     // be consistent with the filter class. UserIdentityType is also a number
-    static hashUserIdentity(userIdentity: typeof IdentityType): typeof IdentityType {
+    static hashUserIdentity(
+        userIdentity: typeof IdentityType,
+    ): typeof IdentityType {
         return userIdentity;
     }
 
-    static hashConsentPurpose(prefix: string, purpose: string){
-        return generateHash(prefix + purpose)
-
+    static hashConsentPurpose(prefix: string, purpose: string) {
+        return generateHash(prefix + purpose);
     }
 
     // The methods below are for conditional forwarding, a type of filter
@@ -40,23 +54,41 @@ export default class KitFilterHelper {
         return generateHash(attribute).toString();
     }
 
-    static hashConsentPurposeConditionalForwarding(prefix: string, purpose: string): string {
+    static hashConsentPurposeConditionalForwarding(
+        prefix: string,
+        purpose: string,
+    ): string {
         return this.hashConsentPurpose(prefix, purpose).toString();
     }
 
-    static readonly filterUserAttributes = (userAttributes: Dictionary<string>, filterList: number[]): Dictionary<string> => {
-        return filterDictionaryWithHash(userAttributes, filterList, (key: string) => this.hashUserAttribute(key));
-    }
+    static readonly filterUserAttributes = (
+        userAttributes: Dictionary<string>,
+        filterList: number[],
+    ): Dictionary<string> => {
+        return filterDictionaryWithHash(
+            userAttributes,
+            filterList,
+            (key: string) => this.hashUserAttribute(key),
+        );
+    };
 
-    static readonly filterUserIdentities = (userIdentities: Dictionary<string>, filterList: number[]): Dictionary<string> => {
-        return filterDictionaryWithHash(userIdentities, filterList, (key: string) => this.hashUserIdentity(
-            IdentityType.getIdentityType(key)
-        ));
-    }
-    
-    static readonly isFilteredUserAttribute = (userAttributeKey: string, filterList: number[]): boolean => {
+    static readonly filterUserIdentities = (
+        userIdentities: Dictionary<string>,
+        filterList: number[],
+    ): Dictionary<string> => {
+        return filterDictionaryWithHash(
+            userIdentities,
+            filterList,
+            (key: string) =>
+                this.hashUserIdentity(IdentityType.getIdentityType(key)),
+        );
+    };
+
+    static readonly isFilteredUserAttribute = (
+        userAttributeKey: string,
+        filterList: number[],
+    ): boolean => {
         const hashedUserAttribute = this.hashUserAttribute(userAttributeKey);
         return filterList && inArray(filterList, hashedUserAttribute);
-    }
-        
+    };
 }

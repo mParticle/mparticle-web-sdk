@@ -16,7 +16,9 @@ import { valueof } from './utils';
 import { EventType, ProductActionType, PromotionActionType } from './types';
 
 // Supports wrapping event handlers functions that will ideally return a specific type
-type EventHandlerFunction<T> = (element: HTMLLinkElement | HTMLFormElement) => T;
+type EventHandlerFunction<T> = (
+    element: HTMLLinkElement | HTMLFormElement,
+) => T;
 
 export interface IEvents {
     addEventHandler(
@@ -24,7 +26,7 @@ export interface IEvents {
         selector: string | Node,
         eventName: EventHandlerFunction<string> | string,
         data: EventHandlerFunction<SDKEventAttrs> | SDKEventAttrs,
-        eventType: valueof<typeof EventType>
+        eventType: valueof<typeof EventType>,
     ): void;
     logAST(): void;
     logCheckoutEvent(
@@ -36,19 +38,19 @@ export interface IEvents {
         option?: string,
 
         attrs?: SDKEventAttrs,
-        customFlags?: SDKEventCustomFlags
+        customFlags?: SDKEventCustomFlags,
     ): void;
     logCommerceEvent(
         commerceEvent: SDKEvent,
         attrs?: SDKEventAttrs,
-        options?: SDKEventOptions
+        options?: SDKEventOptions,
     ): void;
     logEvent(event: BaseEvent, eventOptions?: SDKEventOptions): void;
     logImpressionEvent(
         impression: SDKProductImpression,
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
-        eventOptions?: SDKEventOptions
+        eventOptions?: SDKEventOptions,
     );
     logOptOut(): void;
     logProductActionEvent(
@@ -57,26 +59,26 @@ export interface IEvents {
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         transactionAttributes?: TransactionAttributes,
-        eventOptions?: SDKEventOptions
+        eventOptions?: SDKEventOptions,
     ): void;
     logPromotionEvent(
         promotionType: valueof<typeof PromotionActionType>,
         promotion: SDKPromotion,
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
-        eventOptions?: SDKEventOptions
+        eventOptions?: SDKEventOptions,
     ): void;
     logPurchaseEvent(
         transactionAttributes: TransactionAttributes,
         product: SDKProduct | SDKProduct[],
         attrs?: SDKEventAttrs,
-        customFlags?: SDKEventCustomFlags
+        customFlags?: SDKEventCustomFlags,
     ): void;
     logRefundEvent(
         transactionAttributes: TransactionAttributes,
         product: SDKProduct | SDKProduct[],
         attrs?: SDKEventAttrs,
-        customFlags?: SDKEventCustomFlags
+        customFlags?: SDKEventCustomFlags,
     ): void;
     startTracking(callback: Callback): void;
     stopTracking(): void;

@@ -1,16 +1,12 @@
-import {
-    urls,
-    apiKey,
-    testMPID,
-    mParticle,
-} from './config/constants';
+import { urls, apiKey, testMPID, mParticle } from './config/constants';
 import sinon from 'sinon';
 import Utils from './config/utils';
 
-const { waitForCondition, fetchMockSuccess, hasIdentityCallInflightReturned} = Utils;
+const { waitForCondition, fetchMockSuccess, hasIdentityCallInflightReturned } =
+    Utils;
 
-describe('helpers', function() {
-    beforeEach(function() {
+describe('helpers', function () {
+    beforeEach(function () {
         fetchMockSuccess(urls.events);
         fetchMockSuccess(urls.identify, {
             context: null,
@@ -23,10 +19,9 @@ describe('helpers', function() {
         });
 
         mParticle.init(apiKey, window.mParticle.config);
-
     });
 
-    it('should correctly validate an attribute value', function(done) {
+    it('should correctly validate an attribute value', function (done) {
         const validatedString = mParticle
             .getInstance()
             ._Helpers.Validators.isValidAttributeValue('testValue1');
@@ -59,17 +54,19 @@ describe('helpers', function() {
     it('should return event name in warning when sanitizing invalid attributes', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
         const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
-        mParticle.logEvent('eventName', mParticle.EventType.Location, {invalidValue: {}});
+        mParticle.logEvent('eventName', mParticle.EventType.Location, {
+            invalidValue: {},
+        });
 
         bond.called.should.eql(true);
         bond.callCount.should.equal(1);
 
         bond.getCalls()[0].args[0].should.eql(
-            "For 'eventName', the corresponding attribute value of 'invalidValue' must be a string, number, boolean, or null."
+            "For 'eventName', the corresponding attribute value of 'invalidValue' must be a string, number, boolean, or null.",
         );
     });
 
-    it('should return product name in warning when sanitizing invalid attributes', function(done) {
+    it('should return product name in warning when sanitizing invalid attributes', function (done) {
         const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
         mParticle.eCommerce.createProduct(
             'productName',
@@ -77,17 +74,17 @@ describe('helpers', function() {
             1,
             1,
             'variant',
-        'category',
-        'brand',
-        'position',
-        'couponCode',
-        {invalidValue: {}}
-        )
+            'category',
+            'brand',
+            'position',
+            'couponCode',
+            { invalidValue: {} },
+        );
         bond.called.should.eql(true);
         bond.callCount.should.equal(1);
 
         bond.getCalls()[0].args[0].should.eql(
-            "For 'productName', the corresponding attribute value of 'invalidValue' must be a string, number, boolean, or null."
+            "For 'productName', the corresponding attribute value of 'invalidValue' must be a string, number, boolean, or null.",
         );
 
         done();
@@ -98,21 +95,33 @@ describe('helpers', function() {
 
         const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
-        const product1 = mParticle.eCommerce.createProduct('prod1', 'prod1sku', 999);
-        const product2 = mParticle.eCommerce.createProduct('prod2', 'prod2sku', 799);
+        const product1 = mParticle.eCommerce.createProduct(
+            'prod1',
+            'prod1sku',
+            999,
+        );
+        const product2 = mParticle.eCommerce.createProduct(
+            'prod2',
+            'prod2sku',
+            799,
+        );
 
-        const customAttributes = {invalidValue: {}};
-        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.AddToCart, [product1, product2], customAttributes);
+        const customAttributes = { invalidValue: {} };
+        mParticle.eCommerce.logProductAction(
+            mParticle.ProductActionType.AddToCart,
+            [product1, product2],
+            customAttributes,
+        );
 
         bond.called.should.eql(true);
         bond.callCount.should.equal(1);
-        
+
         bond.getCalls()[0].args[0].should.eql(
-            "For 'eCommerce - AddToCart', the corresponding attribute value of 'invalidValue' must be a string, number, boolean, or null."
+            "For 'eCommerce - AddToCart', the corresponding attribute value of 'invalidValue' must be a string, number, boolean, or null.",
         );
     });
 
-    it('should correctly validate an identity request with copyUserAttribute as a key using any identify method', function(done) {
+    it('should correctly validate an identity request with copyUserAttribute as a key using any identify method', function (done) {
         const identityApiData = {
             userIdentities: {
                 customerid: '123',
@@ -121,7 +130,10 @@ describe('helpers', function() {
         };
         const identifyResult = mParticle
             .getInstance()
-            ._Helpers.Validators.validateIdentities(identityApiData, 'identify');
+            ._Helpers.Validators.validateIdentities(
+                identityApiData,
+                'identify',
+            );
         const logoutResult = mParticle
             .getInstance()
             ._Helpers.Validators.validateIdentities(identityApiData, 'logout');
@@ -140,7 +152,7 @@ describe('helpers', function() {
         done();
     });
 
-    it('should correctly parse string or number', function(done) {
+    it('should correctly parse string or number', function (done) {
         const string = 'abc';
         const number = 123;
         const object = {};
@@ -171,7 +183,7 @@ describe('helpers', function() {
         done();
     });
 
-    it('should filterUserIdentities and include customerId as first in the array', function(done) {
+    it('should filterUserIdentities and include customerId as first in the array', function (done) {
         const filterList = [2, 4, 6, 8];
         const userIdentitiesObject = {
             email: 'test@gmail.com',
@@ -190,7 +202,7 @@ describe('helpers', function() {
         filteredIdentities[0].should.have.property('Type', 1);
         filteredIdentities[1].should.have.property(
             'Identity',
-            'test@gmail.com'
+            'test@gmail.com',
         );
         filteredIdentities[1].should.have.property('Type', 7);
         filteredIdentities[2].should.have.property('Identity', 'abc');
@@ -199,7 +211,7 @@ describe('helpers', function() {
         done();
     });
 
-    it('should return the appropriate boolean for if events should be delayed by an integration', function(done) {
+    it('should return the appropriate boolean for if events should be delayed by an integration', function (done) {
         const integrationDelays1 = {
             128: false,
             20: false,
@@ -239,7 +251,7 @@ describe('helpers', function() {
         done();
     });
 
-    it('should return false if integration delay object is empty', function(done) {
+    it('should return false if integration delay object is empty', function (done) {
         const emptyIntegrationDelays = {};
         const result1 = mParticle
             .getInstance()
@@ -250,19 +262,16 @@ describe('helpers', function() {
         done();
     });
 
-    it('should return 0 when hashing undefined or null', function(done) {
-        mParticle.generateHash(undefined)
-            .should.equal(0);
-        mParticle.generateHash(null)
-            .should.equal(0);
+    it('should return 0 when hashing undefined or null', function (done) {
+        mParticle.generateHash(undefined).should.equal(0);
+        mParticle.generateHash(null).should.equal(0);
         (typeof mParticle.generateHash(false)).should.equal('number');
-        mParticle.generateHash(false)
-            .should.not.equal(0);
+        mParticle.generateHash(false).should.not.equal(0);
 
         done();
     });
 
-    it('should generate random value', function(done) {
+    it('should generate random value', function (done) {
         let randomValue = mParticle.getInstance()._Helpers.generateUniqueId();
         randomValue.should.be.ok();
         window.crypto.getRandomValues = undefined;
@@ -270,7 +279,7 @@ describe('helpers', function() {
         randomValue.should.be.ok();
         //old browsers may return undefined despite
         //defining the getRandomValues API.
-        window.crypto.getRandomValues = function(a) {
+        window.crypto.getRandomValues = function (a) {
             a = undefined;
             return a;
         };
@@ -280,7 +289,7 @@ describe('helpers', function() {
         done();
     });
 
-    it('should create a storage name based on default mParticle storage version + apiKey if apiKey is passed in', function(done) {
+    it('should create a storage name based on default mParticle storage version + apiKey if apiKey is passed in', function (done) {
         const cookieName = mParticle
             .getInstance()
             ._Helpers.createMainStorageName(apiKey);
@@ -289,7 +298,7 @@ describe('helpers', function() {
         done();
     });
 
-    it('should create a storage name based on default mParticle storage version if no apiKey is passed in', function(done) {
+    it('should create a storage name based on default mParticle storage version if no apiKey is passed in', function (done) {
         const cookieName = mParticle
             .getInstance()
             ._Helpers.createMainStorageName();
@@ -298,7 +307,7 @@ describe('helpers', function() {
         done();
     });
 
-    it('should create a product storage name based on default mParticle storage version + apiKey if apiKey is passed in', function(done) {
+    it('should create a product storage name based on default mParticle storage version + apiKey if apiKey is passed in', function (done) {
         const cookieName = mParticle
             .getInstance()
             ._Helpers.createProductStorageName(apiKey);
@@ -306,7 +315,7 @@ describe('helpers', function() {
 
         done();
     });
-    it('should create a product storage name based on default mParticle storage version if no apiKey is passed in', function(done) {
+    it('should create a product storage name based on default mParticle storage version if no apiKey is passed in', function (done) {
         const cookieName = mParticle
             .getInstance()
             ._Helpers.createProductStorageName();

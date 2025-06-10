@@ -4,11 +4,11 @@ import * as utils from './utils';
 import Validators from './validators';
 import KitFilterHelper from './kitFilterHelper';
 
-var StorageNames = Constants.StorageNames;
+const StorageNames = Constants.StorageNames;
 
 export default function Helpers(mpInstance) {
-    var self = this;
-    this.canLog = function() {
+    const self = this;
+    this.canLog = function () {
         if (
             mpInstance._Store.isEnabled &&
             (mpInstance._Store.devToken ||
@@ -20,19 +20,19 @@ export default function Helpers(mpInstance) {
         return false;
     };
 
-    this.getFeatureFlag = function(feature) {
+    this.getFeatureFlag = function (feature) {
         if (mpInstance._Store.SDKConfig.flags.hasOwnProperty(feature)) {
             return mpInstance._Store.SDKConfig.flags[feature];
         }
         return null;
     };
 
-    this.invokeCallback = function(
+    this.invokeCallback = function (
         callback,
         code,
         body,
         mParticleUser,
-        previousMpid
+        previousMpid,
     ) {
         if (!callback) {
             mpInstance.Logger.warning('There is no callback provided');
@@ -42,18 +42,18 @@ export default function Helpers(mpInstance) {
                 callback({
                     httpCode: code,
                     body: body,
-                    getUser: function() {
+                    getUser: function () {
                         if (mParticleUser) {
                             return mParticleUser;
                         } else {
                             return mpInstance.Identity.getCurrentUser();
                         }
                     },
-                    getPreviousUser: function() {
+                    getPreviousUser: function () {
                         if (!previousMpid) {
-                            var users = mpInstance.Identity.getUsers();
-                            var mostRecentUser = users.shift();
-                            var currentUser =
+                            const users = mpInstance.Identity.getUsers();
+                            let mostRecentUser = users.shift();
+                            const currentUser =
                                 mParticleUser ||
                                 mpInstance.Identity.getCurrentUser();
                             if (
@@ -73,18 +73,18 @@ export default function Helpers(mpInstance) {
             }
         } catch (e) {
             mpInstance.Logger.error(
-                'There was an error with your callback: ' + e
+                'There was an error with your callback: ' + e,
             );
         }
     };
 
-    this.invokeAliasCallback = function(callback, code, message) {
+    this.invokeAliasCallback = function (callback, code, message) {
         if (!callback) {
             mpInstance.Logger.warning('There is no callback provided');
         }
         try {
             if (self.Validators.isFunction(callback)) {
-                var callbackMessage = {
+                const callbackMessage = {
                     httpCode: code,
                 };
                 if (message) {
@@ -94,14 +94,14 @@ export default function Helpers(mpInstance) {
             }
         } catch (e) {
             mpInstance.Logger.error(
-                'There was an error with your callback: ' + e
+                'There was an error with your callback: ' + e,
             );
         }
     };
 
     // https://go.mparticle.com/work/SQDSDKS-6047
     // Standalone version of jQuery.extend, from https://github.com/dansdom/extend
-    this.extend = function() {
+    this.extend = function () {
         var options,
             name,
             src,
@@ -116,14 +116,14 @@ export default function Helpers(mpInstance) {
             objectHelper = {
                 hasOwn: Object.prototype.hasOwnProperty,
                 class2type: {},
-                type: function(obj) {
+                type: function (obj) {
                     return obj == null
                         ? String(obj)
                         : objectHelper.class2type[
                               Object.prototype.toString.call(obj)
                           ] || 'object';
                 },
-                isPlainObject: function(obj) {
+                isPlainObject: function (obj) {
                     if (
                         !obj ||
                         objectHelper.type(obj) !== 'object' ||
@@ -139,7 +139,7 @@ export default function Helpers(mpInstance) {
                             !objectHelper.hasOwn.call(obj, 'constructor') &&
                             !objectHelper.hasOwn.call(
                                 obj.constructor.prototype,
-                                'isPrototypeOf'
+                                'isPrototypeOf',
                             )
                         ) {
                             return false;
@@ -148,7 +148,7 @@ export default function Helpers(mpInstance) {
                         return false;
                     }
 
-                    var key;
+                    let key;
                     for (key in obj) {
                     } // eslint-disable-line no-empty
 
@@ -158,13 +158,13 @@ export default function Helpers(mpInstance) {
                 },
                 isArray:
                     Array.isArray ||
-                    function(obj) {
+                    function (obj) {
                         return objectHelper.type(obj) === 'array';
                     },
-                isFunction: function(obj) {
+                isFunction: function (obj) {
                     return objectHelper.type(obj) === 'function';
                 },
-                isWindow: function(obj) {
+                isWindow: function (obj) {
                     return obj != null && obj == obj.window;
                 },
             }; // end of objectHelper
@@ -233,12 +233,12 @@ export default function Helpers(mpInstance) {
         return target;
     };
 
-    this.createServiceUrl = function(secureServiceUrl, devToken) {
-        var serviceScheme =
+    this.createServiceUrl = function (secureServiceUrl, devToken) {
+        const serviceScheme =
             window.mParticle && mpInstance._Store.SDKConfig.forceHttps
                 ? 'https://'
                 : window.location.protocol + '//';
-        var baseUrl;
+        let baseUrl;
         if (mpInstance._Store.SDKConfig.forceHttps) {
             baseUrl = 'https://' + secureServiceUrl;
         } else {
@@ -250,8 +250,8 @@ export default function Helpers(mpInstance) {
         return baseUrl;
     };
 
-    this.createXHR = function(cb) {
-        var xhr;
+    this.createXHR = function (cb) {
+        let xhr;
 
         try {
             xhr = new window.XMLHttpRequest();
@@ -275,17 +275,16 @@ export default function Helpers(mpInstance) {
         return xhr;
     };
 
-    this.filterUserIdentities = function(userIdentitiesObject, filterList) {
-        var filteredUserIdentities = [];
+    this.filterUserIdentities = function (userIdentitiesObject, filterList) {
+        const filteredUserIdentities = [];
 
         if (userIdentitiesObject && Object.keys(userIdentitiesObject).length) {
-            for (var userIdentityName in userIdentitiesObject) {
+            for (const userIdentityName in userIdentitiesObject) {
                 if (userIdentitiesObject.hasOwnProperty(userIdentityName)) {
-                    var userIdentityType = Types.IdentityType.getIdentityType(
-                        userIdentityName
-                    );
+                    const userIdentityType =
+                        Types.IdentityType.getIdentityType(userIdentityName);
                     if (!self.inArray(filterList, userIdentityType)) {
-                        var identity = {
+                        const identity = {
                             Type: userIdentityType,
                             Identity: userIdentitiesObject[userIdentityName],
                         };
@@ -308,8 +307,8 @@ export default function Helpers(mpInstance) {
         KitFilterHelper.filterUserIdentities;
     this.filterUserAttributes = KitFilterHelper.filterUserAttributes;
 
-    this.isEventType = function(type) {
-        for (var prop in Types.EventType) {
+    this.isEventType = function (type) {
+        for (const prop in Types.EventType) {
             if (Types.EventType.hasOwnProperty(prop)) {
                 if (Types.EventType[prop] === type) {
                     return true;
@@ -319,14 +318,14 @@ export default function Helpers(mpInstance) {
         return false;
     };
 
-    this.sanitizeAttributes = function(attrs, name) {
+    this.sanitizeAttributes = function (attrs, name) {
         if (!attrs || !self.isObject(attrs)) {
             return null;
         }
 
-        var sanitizedAttrs = {};
+        const sanitizedAttrs = {};
 
-        for (var prop in attrs) {
+        for (const prop in attrs) {
             // Make sure that attribute values are not objects or arrays, which are not valid
             if (
                 attrs.hasOwnProperty(prop) &&
@@ -339,7 +338,7 @@ export default function Helpers(mpInstance) {
                         name +
                         "', the corresponding attribute value of '" +
                         prop +
-                        "' must be a string, number, boolean, or null."
+                        "' must be a string, number, boolean, or null.",
                 );
             }
         }
@@ -347,10 +346,10 @@ export default function Helpers(mpInstance) {
         return sanitizedAttrs;
     };
 
-    this.isDelayedByIntegration = function(
+    this.isDelayedByIntegration = function (
         delayedIntegrations,
         timeoutStart,
-        now
+        now,
     ) {
         if (
             now - timeoutStart >
@@ -358,7 +357,7 @@ export default function Helpers(mpInstance) {
         ) {
             return false;
         }
-        for (var integration in delayedIntegrations) {
+        for (const integration in delayedIntegrations) {
             if (delayedIntegrations[integration] === true) {
                 return true;
             } else {
@@ -368,7 +367,7 @@ export default function Helpers(mpInstance) {
         return false;
     };
 
-    this.createMainStorageName = function(workspaceToken) {
+    this.createMainStorageName = function (workspaceToken) {
         if (workspaceToken) {
             return StorageNames.currentStorageName + '_' + workspaceToken;
         } else {
@@ -376,7 +375,7 @@ export default function Helpers(mpInstance) {
         }
     };
 
-    this.createProductStorageName = function(workspaceToken) {
+    this.createProductStorageName = function (workspaceToken) {
         if (workspaceToken) {
             return (
                 StorageNames.currentStorageProductsName + '_' + workspaceToken

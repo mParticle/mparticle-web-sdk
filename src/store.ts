@@ -30,7 +30,11 @@ import {
     returnConvertedBoolean,
 } from './utils';
 import { IMinifiedConsentJSONObject, SDKConsentState } from './consent';
-import { ConfiguredKit, MPForwarder, UnregisteredKit } from './forwarders.interfaces';
+import {
+    ConfiguredKit,
+    MPForwarder,
+    UnregisteredKit,
+} from './forwarders.interfaces';
 import { IdentityCallback, UserAttributes } from './identity-user-interfaces';
 import {
     IGlobalStoreV2MinifiedKeys,
@@ -218,12 +222,10 @@ export default function Store(
     this: IStore,
     config: SDKInitConfig,
     mpInstance: IMParticleWebSDKInstance,
-    apiKey?: string
+    apiKey?: string,
 ) {
-    const {
-        createMainStorageName,
-        createProductStorageName,
-    } = mpInstance._Helpers;
+    const { createMainStorageName, createProductStorageName } =
+        mpInstance._Helpers;
 
     const { isWebviewEnabled } = mpInstance._NativeSdkHelpers;
 
@@ -277,7 +279,7 @@ export default function Store(
         } as IPersistenceMinified,
     };
 
-    for (var key in defaultStore) {
+    for (const key in defaultStore) {
         this[key] = defaultStore[key];
     }
     this.devToken = apiKey || null;
@@ -303,7 +305,7 @@ export default function Store(
         }
         if (config.hasOwnProperty('isDevelopmentMode')) {
             this.SDKConfig.isDevelopmentMode = returnConvertedBoolean(
-                config.isDevelopmentMode
+                config.isDevelopmentMode,
             );
         } else {
             this.SDKConfig.isDevelopmentMode = false;
@@ -312,7 +314,7 @@ export default function Store(
         const baseUrls: Dictionary<string> = processBaseUrls(
             config,
             this.SDKConfig.flags,
-            apiKey
+            apiKey,
         );
 
         for (const baseUrlKeys in baseUrls) {
@@ -378,14 +380,14 @@ export default function Store(
         }
 
         if (config.hasOwnProperty('identityCallback')) {
-            var callback = config.identityCallback;
+            const callback = config.identityCallback;
             if (mpInstance._Helpers.Validators.isFunction(callback)) {
                 this.SDKConfig.identityCallback = config.identityCallback;
             } else {
                 mpInstance.Logger.warning(
                     'The optional callback must be a function. You tried entering a(n) ' +
                         typeof callback +
-                        ' . Callback not set. Please set your callback again.'
+                        ' . Callback not set. Please set your callback again.',
                 );
             }
         }
@@ -414,7 +416,7 @@ export default function Store(
                     this.SDKConfig.dataPlan.PlanId = dataPlan.planId;
                 } else {
                     mpInstance.Logger.error(
-                        'Your data plan id must be a string and match the data plan slug format (i.e. under_case_slug)'
+                        'Your data plan id must be a string and match the data plan slug format (i.e. under_case_slug)',
                     );
                 }
             }
@@ -424,7 +426,7 @@ export default function Store(
                     this.SDKConfig.dataPlan.PlanVersion = dataPlan.planVersion;
                 } else {
                     mpInstance.Logger.error(
-                        'Your data plan version must be a number'
+                        'Your data plan version must be a number',
                     );
                 }
             }
@@ -465,7 +467,7 @@ export default function Store(
                 !dataPlanOptions.hasOwnProperty('blockUserIdentities')
             ) {
                 mpInstance.Logger.error(
-                    'Ensure your config.dataPlanOptions object has the following keys: a "dataPlanVersion" object, and "blockUserAttributes", "blockEventAttributes", "blockEvents", "blockUserIdentities" booleans'
+                    'Ensure your config.dataPlanOptions object has the following keys: a "dataPlanVersion" object, and "blockUserAttributes", "blockEventAttributes", "blockEvents", "blockUserIdentities" booleans',
                 );
             }
         }
@@ -475,7 +477,7 @@ export default function Store(
                 this.SDKConfig.onCreateBatch = config.onCreateBatch;
             } else {
                 mpInstance.Logger.error(
-                    'config.onCreateBatch must be a function'
+                    'config.onCreateBatch must be a function',
                 );
                 // set to undefined because all items are set on createSDKConfig
                 this.SDKConfig.onCreateBatch = undefined;
@@ -541,13 +543,11 @@ export default function Store(
     };
 
     this.getConsentState = (mpid: MPID): ConsentState => {
-        const {
-            fromMinifiedJsonObject,
-        } = mpInstance._Consent.ConsentSerialization;
+        const { fromMinifiedJsonObject } =
+            mpInstance._Consent.ConsentSerialization;
 
-        const serializedConsentState = this._getFromPersistence<
-            IMinifiedConsentJSONObject
-        >(mpid, 'con');
+        const serializedConsentState =
+            this._getFromPersistence<IMinifiedConsentJSONObject>(mpid, 'con');
 
         if (!isEmpty(serializedConsentState)) {
             return fromMinifiedJsonObject(serializedConsentState);
@@ -557,16 +557,15 @@ export default function Store(
     };
 
     this.setConsentState = (mpid: MPID, consentState: ConsentState) => {
-        const {
-            toMinifiedJsonObject,
-        } = mpInstance._Consent.ConsentSerialization;
+        const { toMinifiedJsonObject } =
+            mpInstance._Consent.ConsentSerialization;
 
         // If ConsentState is null, we assume the intent is to clear out the consent state
         if (consentState || consentState === null) {
             this._setPersistence(
                 mpid,
                 'con',
-                toMinifiedJsonObject(consentState)
+                toMinifiedJsonObject(consentState),
             );
         }
     };
@@ -577,7 +576,6 @@ export default function Store(
         this.persistenceData.gs.das = deviceId;
         mpInstance._Persistence.update();
     };
-
 
     this.getFirstSeenTime = (mpid: MPID) =>
         this._getFromPersistence<number>(mpid, 'fst');
@@ -630,7 +628,7 @@ export default function Store(
 
     this.setUserAttributes = (
         mpid: MPID,
-        userAttributes: UserAttributes
+        userAttributes: UserAttributes,
     ): void => this._setPersistence(mpid, 'ua', userAttributes);
 
     this.getUserIdentities = (mpid: MPID): UserIdentities =>
@@ -651,7 +649,7 @@ export default function Store(
         if (indexOfMPID >= 0) {
             this.currentSessionMPIDs = moveElementToEnd(
                 this.currentSessionMPIDs,
-                indexOfMPID
+                indexOfMPID,
             );
         }
     };
@@ -674,7 +672,7 @@ export default function Store(
         const baseUrls: Dictionary<string> = processBaseUrls(
             config,
             this.SDKConfig.flags,
-            apiKey
+            apiKey,
         );
 
         for (const baseUrlKeys in baseUrls) {
@@ -686,7 +684,7 @@ export default function Store(
             mpInstance._timeOnSiteTimer = new ForegroundTimer(workspaceToken);
         } else {
             mpInstance.Logger.warning(
-                'You should have a workspaceToken on your config object for security purposes.'
+                'You should have a workspaceToken on your config object for security purposes.',
             );
         }
         // add a new function to apply items to the store that require config to be returned
@@ -698,7 +696,7 @@ export default function Store(
 
         this.webviewBridgeEnabled = isWebviewEnabled(
             this.SDKConfig.requiredWebviewBridgeName,
-            this.SDKConfig.minWebviewBridgeVersion
+            this.SDKConfig.minWebviewBridgeVersion,
         );
 
         this.configurationLoaded = true;
@@ -716,7 +714,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
         CacheIdentity,
         AudienceAPI,
         CaptureIntegrationSpecificIds,
-        AstBackgroundEvents
+        AstBackgroundEvents,
     } = Constants.FeatureFlags;
 
     if (!config.flags) {
@@ -734,7 +732,8 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[DirectUrlRouting] = config.flags[DirectUrlRouting] === 'True';
     flags[CacheIdentity] = config.flags[CacheIdentity] === 'True';
     flags[AudienceAPI] = config.flags[AudienceAPI] === 'True';
-    flags[CaptureIntegrationSpecificIds] = config.flags[CaptureIntegrationSpecificIds] === 'True';
+    flags[CaptureIntegrationSpecificIds] =
+        config.flags[CaptureIntegrationSpecificIds] === 'True';
     flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
 
     return flags;
@@ -743,7 +742,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
 export function processBaseUrls(
     config: SDKInitConfig,
     flags: IFeatureFlags,
-    apiKey?: string
+    apiKey?: string,
 ): Dictionary<string> {
     // an API key is not present in a webview only mode. In this case, no baseUrls are needed
     if (!apiKey) {
@@ -775,14 +774,14 @@ function processCustomBaseUrls(config: SDKInitConfig): Dictionary<string> {
     // This flag is set on the Rokt/MP snippet (starting at version 2.6), meaning config.domain will alwys be empty
     // if a customer is using a snippet prior to 2.6.
     if (!isEmpty(config.domain)) {
-        for (let pathKey in CNAMEUrlPaths) {
+        for (const pathKey in CNAMEUrlPaths) {
             newBaseUrls[pathKey] = `${config.domain}${CNAMEUrlPaths[pathKey]}`;
         }
 
         return newBaseUrls;
     }
 
-    for (let baseUrlKey in defaultBaseUrls) {
+    for (const baseUrlKey in defaultBaseUrls) {
         newBaseUrls[baseUrlKey] =
             config[baseUrlKey] || defaultBaseUrls[baseUrlKey];
     }
@@ -792,7 +791,7 @@ function processCustomBaseUrls(config: SDKInitConfig): Dictionary<string> {
 
 function processDirectBaseUrls(
     config: SDKInitConfig,
-    apiKey: string
+    apiKey: string,
 ): Dictionary {
     const defaultBaseUrls = Constants.DefaultBaseUrls;
     const directBaseUrls: Dictionary<string> = {};
@@ -809,7 +808,7 @@ function processDirectBaseUrls(
     const routingPrefix: string =
         splitKey.length <= 1 ? DEFAULT_SILO : splitKey[0];
 
-    for (let baseUrlKey in defaultBaseUrls) {
+    for (const baseUrlKey in defaultBaseUrls) {
         // Any custom endpoints passed to mpConfig will take priority over direct
         // mapping to the silo.  The most common use case is a customer provided CNAME.
         if (baseUrlKey === 'configUrl') {

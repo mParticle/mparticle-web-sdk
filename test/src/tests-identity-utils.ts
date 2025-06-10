@@ -8,32 +8,38 @@ import {
     tryCacheIdentity,
     IKnownIdentities,
     ICachedIdentityCall,
-} from "../../src/identity-utils";
-import { LocalStorageVault } from "../../src/vault";
-import { Dictionary, generateHash } from "../../src/utils";
+} from '../../src/identity-utils';
+import { LocalStorageVault } from '../../src/vault';
+import { Dictionary, generateHash } from '../../src/utils';
 import { expect } from 'chai';
-import { 
-    apiKey, MPConfig,
+import {
+    apiKey,
+    MPConfig,
     MILLISECONDS_IN_ONE_DAY,
     MILLISECONDS_IN_ONE_DAY_PLUS_ONE_SECOND,
     testMPID,
-    localStorageIDKey
+    localStorageIDKey,
 } from './config/constants';
 import { IdentityApiData } from '@mparticle/web-sdk';
-import Identity from "../../src/identity";
+import Identity from '../../src/identity';
 
 import Constants from '../../src/constants';
 const { Identify, Login, Logout } = Constants.IdentityMethods;
 
 import sinon from 'sinon';
 // https://go.mparticle.com/work/SQDSDKS-6671
-import { IdentityResultBody, IIdentityResponse } from "../../src/identity-user-interfaces";
+import {
+    IdentityResultBody,
+    IIdentityResponse,
+} from '../../src/identity-user-interfaces';
 
-const DEVICE_ID = 'test-device-id'
+const DEVICE_ID = 'test-device-id';
 
-const knownIdentities: IKnownIdentities = createKnownIdentities({
-    userIdentities: {customerid: 'id1'}},
-    DEVICE_ID
+const knownIdentities: IKnownIdentities = createKnownIdentities(
+    {
+        userIdentities: { customerid: 'id1' },
+    },
+    DEVICE_ID,
 );
 
 const cacheVault = new LocalStorageVault<Dictionary>(localStorageIDKey);
@@ -41,11 +47,11 @@ const cacheVault = new LocalStorageVault<Dictionary>(localStorageIDKey);
 const identifyResponse: IdentityResultBody = {
     context: null,
     matched_identities: {
-        device_application_stamp: "test-das"
+        device_application_stamp: 'test-das',
     },
     is_ephemeral: false,
     mpid: testMPID,
-    is_logged_in: false
+    is_logged_in: false,
 };
 
 const loginResponse: IdentityResultBody = {
@@ -57,15 +63,15 @@ const identityResponse: IIdentityResponse = {
     status: 200,
     responseText: identifyResponse,
     cacheMaxAge: 86400,
-}
+};
 
 describe('identity-utils', () => {
-    beforeEach(()=> {
+    beforeEach(() => {
         window.localStorage.clear();
     });
 
     describe('#cacheOrClearIdCache', () => {
-        afterEach(()=>{
+        afterEach(() => {
             sinon.restore();
         });
 
@@ -79,7 +85,7 @@ describe('identity-utils', () => {
                 knownIdentities,
                 cacheVault,
                 identityResponse,
-                false
+                false,
             );
 
             expect(retrieveSpy.called).to.eq(true);
@@ -97,7 +103,7 @@ describe('identity-utils', () => {
                 knownIdentities,
                 cacheVault,
                 identityResponse,
-                false
+                false,
             );
 
             expect(retrieveSpy.called).to.eq(true);
@@ -109,15 +115,15 @@ describe('identity-utils', () => {
             const retrieveSpy = sinon.spy(cacheVault, 'retrieve');
             const storeSpy = sinon.spy(cacheVault, 'store');
             const purgeSpy = sinon.spy(cacheVault, 'purge');
-            
+
             cacheOrClearIdCache(
                 Logout,
                 knownIdentities,
                 cacheVault,
                 identityResponse,
-                false
+                false,
             );
-                
+
             expect(retrieveSpy.called).to.eq(false);
             expect(storeSpy.called).to.eq(false);
             expect(purgeSpy.called).to.eq(true);
@@ -133,7 +139,7 @@ describe('identity-utils', () => {
                 knownIdentities,
                 cacheVault,
                 identityResponse,
-                true
+                true,
             );
 
             expect(retrieveSpy.called).to.eq(false);
@@ -154,18 +160,20 @@ describe('identity-utils', () => {
                 knownIdentities,
                 currentTime,
                 cacheVault,
-                identityResponse
+                identityResponse,
             );
 
             const updatedMpIdCache = cacheVault.retrieve();
 
             expect(Object.keys(updatedMpIdCache!).length).to.equal(1);
-            const cachedKey =
-                generateHash('identify:device_application_stamp=test-device-id;customerid=id1;');
+            const cachedKey = generateHash(
+                'identify:device_application_stamp=test-device-id;customerid=id1;',
+            );
 
             expect(updatedMpIdCache!.hasOwnProperty(cachedKey)).to.equal(true);
 
-            const cachedIdentityCall: ICachedIdentityCall = updatedMpIdCache![cachedKey];
+            const cachedIdentityCall: ICachedIdentityCall =
+                updatedMpIdCache![cachedKey];
 
             expect(cachedIdentityCall).hasOwnProperty('responseText');
             expect(cachedIdentityCall).hasOwnProperty('status');
@@ -174,16 +182,21 @@ describe('identity-utils', () => {
             expect(cachedIdentityCall.status).to.equal(200);
             expect(cachedIdentityCall.expireTimestamp).to.equal(currentTime);
 
-            const cachedResponseText = JSON.parse(cachedIdentityCall.responseText);
-            
-            const expectedResponseText = {mpid: testMPID, is_logged_in: false};
+            const cachedResponseText = JSON.parse(
+                cachedIdentityCall.responseText,
+            );
+
+            const expectedResponseText = {
+                mpid: testMPID,
+                is_logged_in: false,
+            };
             expect(cachedResponseText).to.deep.equal(expectedResponseText);
         });
 
         it('should save a login request to local storage', () => {
             const mpIdCache = window.localStorage.getItem(localStorageIDKey);
             expect(mpIdCache).to.equal(null);
-            
+
             const currentTime = new Date().getTime();
 
             cacheIdentityRequest(
@@ -191,18 +204,19 @@ describe('identity-utils', () => {
                 knownIdentities,
                 currentTime,
                 cacheVault,
-                { ...identityResponse, responseText: loginResponse }
+                { ...identityResponse, responseText: loginResponse },
             );
 
             const updatedMpIdCache = cacheVault.retrieve();
 
             expect(Object.keys(updatedMpIdCache!).length).to.equal(1);
-            const cachedKey = generateHash('login:device_application_stamp=test-device-id;customerid=id1;');
+            const cachedKey = generateHash(
+                'login:device_application_stamp=test-device-id;customerid=id1;',
+            );
             expect(updatedMpIdCache!.hasOwnProperty(cachedKey)).to.equal(true);
 
-            const cachedLoginCall: ICachedIdentityCall = updatedMpIdCache![
-                cachedKey
-            ];
+            const cachedLoginCall: ICachedIdentityCall =
+                updatedMpIdCache![cachedKey];
 
             expect(cachedLoginCall).hasOwnProperty('responseText');
             expect(cachedLoginCall).hasOwnProperty('status');
@@ -212,7 +226,7 @@ describe('identity-utils', () => {
             expect(cachedLoginCall.expireTimestamp).to.equal(currentTime);
 
             const cachedResponseBody = JSON.parse(cachedLoginCall.responseText);
-            const expectedResponseBody = {mpid: testMPID, is_logged_in: true};
+            const expectedResponseBody = { mpid: testMPID, is_logged_in: true };
             expect(cachedResponseBody).to.deep.equal(expectedResponseBody);
         });
     });
@@ -244,8 +258,12 @@ describe('identity-utils', () => {
                 yahoo: '06',
             };
 
-            const key: string = concatenateIdentities('identify', userIdentities);
-            const expectedResult: string = 'identify:device_application_stamp=first;other=00;customerid=01;facebook=02;twitter=03;google=04;microsoft=05;yahoo=06;email=07;facebookcustomaudienceid=09;other2=10;other3=11;other4=12;other5=13;other6=14;other7=15;other8=16;other9=17;other10=18;mobile_number=19;phone_number_2=20;phone_number_3=21;';
+            const key: string = concatenateIdentities(
+                'identify',
+                userIdentities,
+            );
+            const expectedResult =
+                'identify:device_application_stamp=first;other=00;customerid=01;facebook=02;twitter=03;google=04;microsoft=05;yahoo=06;email=07;facebookcustomaudienceid=09;other2=10;other3=11;other4=12;other5=13;other6=14;other7=15;other8=16;other9=17;other10=18;mobile_number=19;phone_number_2=20;phone_number_3=21;';
 
             expect(key).to.equal(expectedResult);
         });
@@ -290,10 +308,16 @@ describe('identity-utils', () => {
         it('should return false if idCache is empty', () => {
             const mpIdCache = window.localStorage.getItem(localStorageIDKey);
             expect(mpIdCache).to.equal(null);
-            
-            const cacheVault = new LocalStorageVault<Dictionary>(localStorageIDKey);
 
-            const result = hasValidCachedIdentity('identify', userIdentities, cacheVault);
+            const cacheVault = new LocalStorageVault<Dictionary>(
+                localStorageIDKey,
+            );
+
+            const result = hasValidCachedIdentity(
+                'identify',
+                userIdentities,
+                cacheVault,
+            );
             expect(result).to.equal(false);
         });
 
@@ -301,10 +325,16 @@ describe('identity-utils', () => {
             const mpIdCache = window.localStorage.getItem(localStorageIDKey);
             expect(mpIdCache).to.equal(null);
 
-            const cacheVault = new LocalStorageVault<Dictionary>(localStorageIDKey);
+            const cacheVault = new LocalStorageVault<Dictionary>(
+                localStorageIDKey,
+            );
 
             // check to ensure there is nothing on the cache first
-            const result1 = hasValidCachedIdentity('identify', userIdentities, cacheVault);
+            const result1 = hasValidCachedIdentity(
+                'identify',
+                userIdentities,
+                cacheVault,
+            );
             expect(result1).to.equal(false);
 
             const oneDayInMS = 86400 * 60 * 60 * 24;
@@ -316,12 +346,16 @@ describe('identity-utils', () => {
                 userIdentities,
                 expireTime,
                 cacheVault,
-                identityResponse
+                identityResponse,
             );
 
             // tick forward less than oneDayInMS
             clock.tick(5000);
-            const result2 = hasValidCachedIdentity('identify', userIdentities, cacheVault);
+            const result2 = hasValidCachedIdentity(
+                'identify',
+                userIdentities,
+                cacheVault,
+            );
             expect(result2).to.equal(true);
         });
 
@@ -338,11 +372,15 @@ describe('identity-utils', () => {
                 userIdentities,
                 expireTime,
                 cacheVault,
-                identityResponse
+                identityResponse,
             );
 
-            clock.tick(oneDayInMS +1);
-            const result3 = hasValidCachedIdentity('identify', userIdentities, cacheVault);
+            clock.tick(oneDayInMS + 1);
+            const result3 = hasValidCachedIdentity(
+                'identify',
+                userIdentities,
+                cacheVault,
+            );
             expect(result3).to.equal(false);
         });
     });
@@ -372,18 +410,19 @@ describe('identity-utils', () => {
                     mobile_number: 'mobile_number',
                     phone_number_2: 'phone_number_2',
                     phone_number_3: 'phone_number_3',
-                }};
-            
+                },
+            };
+
             const knownIdentities: IKnownIdentities = createKnownIdentities(
                 identities,
-                DEVICE_ID
+                DEVICE_ID,
             );
-    
+
             const expectedResult: IKnownIdentities = {
                 ...identities.userIdentities,
                 device_application_stamp: DEVICE_ID,
             };
-    
+
             expect(knownIdentities).to.deep.equal(expectedResult);
         });
     });
@@ -393,14 +432,20 @@ describe('identity-utils', () => {
             // set up clock in order to force some time stamps to expire later in the test
             const clock = sinon.useFakeTimers();
 
-            const cacheVault = new LocalStorageVault<Dictionary>(localStorageIDKey);
-            const knownIdentities1: IKnownIdentities = createKnownIdentities({
-                userIdentities: {customerid: 'id1'}},
-                DEVICE_ID
+            const cacheVault = new LocalStorageVault<Dictionary>(
+                localStorageIDKey,
             );
-            const knownIdentities2: IKnownIdentities = createKnownIdentities({
-                userIdentities: {customerid: 'id2'}},
-                DEVICE_ID
+            const knownIdentities1: IKnownIdentities = createKnownIdentities(
+                {
+                    userIdentities: { customerid: 'id1' },
+                },
+                DEVICE_ID,
+            );
+            const knownIdentities2: IKnownIdentities = createKnownIdentities(
+                {
+                    userIdentities: { customerid: 'id2' },
+                },
+                DEVICE_ID,
             );
 
             // Cache 1st identity response to expire in 1 day
@@ -409,7 +454,7 @@ describe('identity-utils', () => {
                 knownIdentities1,
                 MILLISECONDS_IN_ONE_DAY,
                 cacheVault,
-                identityResponse
+                identityResponse,
             );
 
             // Cache 2nd identity response to expire in 1 day + 100ms
@@ -418,27 +463,36 @@ describe('identity-utils', () => {
                 knownIdentities2,
                 MILLISECONDS_IN_ONE_DAY + 100,
                 cacheVault,
-                identityResponse
+                identityResponse,
             );
 
             const updatedMpIdCache = cacheVault.retrieve();
 
-            const knownIdentities1CachedKey =
-                generateHash('identify:device_application_stamp=test-device-id;customerid=id1;');
-            const knownIdentities2CachedKey =
-                generateHash('identify:device_application_stamp=test-device-id;customerid=id2;');
-
+            const knownIdentities1CachedKey = generateHash(
+                'identify:device_application_stamp=test-device-id;customerid=id1;',
+            );
+            const knownIdentities2CachedKey = generateHash(
+                'identify:device_application_stamp=test-device-id;customerid=id2;',
+            );
 
             // both known identities cache keys should exist on the cacheVault
-            expect(updatedMpIdCache!.hasOwnProperty(knownIdentities1CachedKey)).to.equal(true);
-            expect(updatedMpIdCache!.hasOwnProperty(knownIdentities2CachedKey)).to.equal(true);
+            expect(
+                updatedMpIdCache!.hasOwnProperty(knownIdentities1CachedKey),
+            ).to.equal(true);
+            expect(
+                updatedMpIdCache!.hasOwnProperty(knownIdentities2CachedKey),
+            ).to.equal(true);
 
             // we do not tick the clock forward at all, so the expiration date should not yet be reached
             // meaning both cached keys are still in the cache vault
             removeExpiredIdentityCacheDates(cacheVault);
             const updatedMpIdCache2 = cacheVault.retrieve();
-            expect(updatedMpIdCache2!.hasOwnProperty(knownIdentities1CachedKey)).to.equal(true);
-            expect(updatedMpIdCache2!.hasOwnProperty(knownIdentities2CachedKey)).to.equal(true);
+            expect(
+                updatedMpIdCache2!.hasOwnProperty(knownIdentities1CachedKey),
+            ).to.equal(true);
+            expect(
+                updatedMpIdCache2!.hasOwnProperty(knownIdentities2CachedKey),
+            ).to.equal(true);
 
             // tick the clock forward 1 day + 1 ms, expiring knownIdentities1CachedKey but not knownIdentities2CachedKey
             clock.tick(MILLISECONDS_IN_ONE_DAY_PLUS_ONE_SECOND);
@@ -446,8 +500,12 @@ describe('identity-utils', () => {
             removeExpiredIdentityCacheDates(cacheVault);
             const updatedMpIdCache3 = cacheVault.retrieve();
 
-            expect(updatedMpIdCache3!.hasOwnProperty(knownIdentities1CachedKey)).to.equal(false);
-            expect(updatedMpIdCache3!.hasOwnProperty(knownIdentities2CachedKey)).to.equal(true);
+            expect(
+                updatedMpIdCache3!.hasOwnProperty(knownIdentities1CachedKey),
+            ).to.equal(false);
+            expect(
+                updatedMpIdCache3!.hasOwnProperty(knownIdentities2CachedKey),
+            ).to.equal(true);
 
             clock.restore();
         });
@@ -458,17 +516,21 @@ describe('identity-utils', () => {
             window.mParticle._resetForTests(MPConfig);
             const clock = sinon.useFakeTimers();
 
-            window.mParticle.config.flags = {cacheIdentity: 'True'};
+            window.mParticle.config.flags = { cacheIdentity: 'True' };
             window.mParticle.init(apiKey, window.mParticle.config);
 
             const mpInstance = window.mParticle.getInstance();
 
-            const cacheVault = new LocalStorageVault<Dictionary>(localStorageIDKey);
+            const cacheVault = new LocalStorageVault<Dictionary>(
+                localStorageIDKey,
+            );
 
-            const customerId = {customerid: 'id1'}
-            const knownIdentities1: IKnownIdentities = createKnownIdentities({
-                userIdentities: customerId},
-                DEVICE_ID
+            const customerId = { customerid: 'id1' };
+            const knownIdentities1: IKnownIdentities = createKnownIdentities(
+                {
+                    userIdentities: customerId,
+                },
+                DEVICE_ID,
             );
 
             // Cache 1st identity response to expire in 1 day
@@ -477,13 +539,13 @@ describe('identity-utils', () => {
                 knownIdentities,
                 MILLISECONDS_IN_ONE_DAY,
                 cacheVault,
-                identityResponse
+                identityResponse,
             );
 
             const identityInstance = new Identity(mpInstance);
 
             const identityApiData: IdentityApiData = {
-                userIdentities: customerId
+                userIdentities: customerId,
             };
             const callback = sinon.spy();
 
@@ -494,7 +556,7 @@ describe('identity-utils', () => {
                 testMPID,
                 callback,
                 identityApiData,
-                'identify'
+                'identify',
             );
 
             expect(successfullyCachedIdentity).to.equal(true);
@@ -506,23 +568,27 @@ describe('identity-utils', () => {
             window.mParticle._resetForTests(MPConfig);
             const clock = sinon.useFakeTimers();
 
-            window.mParticle.config.flags = {cacheIdentity: 'True'};
+            window.mParticle.config.flags = { cacheIdentity: 'True' };
 
             window.mParticle.init(apiKey, window.mParticle.config);
 
             const mpInstance = window.mParticle.getInstance();
-            const cacheVault = new LocalStorageVault<Dictionary>(localStorageIDKey);
+            const cacheVault = new LocalStorageVault<Dictionary>(
+                localStorageIDKey,
+            );
 
-            const customerId = {customerid: 'id1'}
-            const knownIdentities1: IKnownIdentities = createKnownIdentities({
-                userIdentities: customerId},
-                DEVICE_ID
+            const customerId = { customerid: 'id1' };
+            const knownIdentities1: IKnownIdentities = createKnownIdentities(
+                {
+                    userIdentities: customerId,
+                },
+                DEVICE_ID,
             );
 
             const identityInstance = new Identity(mpInstance);
 
             const identityApiData: IdentityApiData = {
-                userIdentities: customerId
+                userIdentities: customerId,
             };
             const callback = sinon.spy();
 
@@ -533,7 +599,7 @@ describe('identity-utils', () => {
                 testMPID,
                 callback,
                 identityApiData,
-                'login'
+                'login',
             );
 
             expect(successfullyCachedIdentity).to.equal(false);

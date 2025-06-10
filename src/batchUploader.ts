@@ -42,9 +42,9 @@ export class BatchUploader {
     batchingEnabled: boolean;
     private eventVault: SessionStorageVault<SDKEvent[]>;
     private batchVault: LocalStorageVault<Batch[]>;
-    private offlineStorageEnabled: boolean = false;
+    private offlineStorageEnabled = false;
     private uploader: AsyncUploader;
-    private lastASTEventTime: number = 0;
+    private lastASTEventTime = 0;
     private readonly AST_DEBOUNCE_MS: number = 1000; // 1 second debounce
 
     /**
@@ -78,14 +78,14 @@ export class BatchUploader {
                 `${mpInstance._Store.storageName}-events`,
                 {
                     logger: mpInstance.Logger,
-                }
+                },
             );
 
             this.batchVault = new LocalStorageVault<Batch[]>(
                 `${mpInstance._Store.storageName}-batches`,
                 {
                     logger: mpInstance.Logger,
-                }
+                },
             );
 
             // Load Events from Session Storage in case we have any in storage
@@ -95,7 +95,7 @@ export class BatchUploader {
         const { SDKConfig, devToken } = this.mpInstance._Store;
         const baseUrl = this.mpInstance._Helpers.createServiceUrl(
             SDKConfig.v3SecureServiceUrl,
-            devToken
+            devToken,
         );
         this.uploadUrl = `${baseUrl}/events`;
 
@@ -115,12 +115,12 @@ export class BatchUploader {
 
         // https://go.mparticle.com/work/SQDSDKS-6317
         const offlineStorageFeatureFlagValue: string = getFeatureFlag(
-            Constants.FeatureFlags.OfflineStorage
+            Constants.FeatureFlags.OfflineStorage,
         ) as string;
 
         const offlineStoragePercentage: number = parseInt(
             offlineStorageFeatureFlagValue,
-            10
+            10,
         );
 
         const rampNumber = getRampNumber(deviceId);
@@ -145,7 +145,8 @@ export class BatchUploader {
     // https://go.mparticle.com/work/SQDSDKS-7133
     private createBackgroundASTEvent(): SDKEvent {
         const now = Date.now();
-        const { _Store, Identity, _timeOnSiteTimer, _Helpers  } = this.mpInstance;
+        const { _Store, Identity, _timeOnSiteTimer, _Helpers } =
+            this.mpInstance;
         const { sessionId, deviceId, sessionStartDate, SDKConfig } = _Store;
         const { generateUniqueId } = _Helpers;
         const { getCurrentUser } = Identity;
@@ -166,7 +167,7 @@ export class BatchUploader {
             SessionStartDate: sessionStartDate?.getTime() || now,
             Debug: SDKConfig.isDevelopmentMode,
             ActiveTimeOnSite: _timeOnSiteTimer?.getTimeInForeground() || 0,
-            IsBackgroundAST: true
+            IsBackgroundAST: true,
         } as SDKEvent;
 
         appendUserInfo(getCurrentUser(), event);
@@ -215,8 +216,8 @@ export class BatchUploader {
 
     // Triggers a setTimeout for prepareAndUpload
     private triggerUploadInterval(
-        triggerFuture: boolean = false,
-        useBeacon: boolean = false
+        triggerFuture = false,
+        useBeacon = false,
     ): void {
         setTimeout(() => {
             this.prepareAndUpload(triggerFuture, useBeacon);
@@ -248,14 +249,19 @@ export class BatchUploader {
     }
 
     // https://go.mparticle.com/work/SQDSDKS-3720
-    private shouldTriggerImmediateUpload (eventDataType: number): boolean {
+    private shouldTriggerImmediateUpload(eventDataType: number): boolean {
         const priorityEvents = [
             MessageType.Commerce,
             MessageType.UserIdentityChange,
         ] as const;
 
-        return !this.batchingEnabled || priorityEvents.includes(eventDataType as typeof priorityEvents[number]);
-    };
+        return (
+            !this.batchingEnabled ||
+            priorityEvents.includes(
+                eventDataType as (typeof priorityEvents)[number],
+            )
+        );
+    }
 
     /**
      * This implements crucial logic to:
@@ -269,7 +275,7 @@ export class BatchUploader {
     private static createNewBatches(
         sdkEvents: SDKEvent[],
         defaultUser: IMParticleUser,
-        mpInstance: IMParticleWebSDKInstance
+        mpInstance: IMParticleWebSDKInstance,
     ): Batch[] | null {
         if (!defaultUser || !sdkEvents || !sdkEvents.length) {
             return null;
@@ -308,7 +314,7 @@ export class BatchUploader {
                 let uploadBatchObject = convertEvents(
                     mpid,
                     entry[1],
-                    mpInstance
+                    mpInstance,
                 );
                 const onCreateBatchCallback =
                     mpInstance._Store.SDKConfig.onCreateBatch;
@@ -320,7 +326,7 @@ export class BatchUploader {
                         uploadBatchObject.modified = true;
                     } else {
                         mpInstance.Logger.warning(
-                            'Skiping batch upload because no batch was returned from onCreateBatch callback'
+                            'Skiping batch upload because no batch was returned from onCreateBatch callback',
                         );
                     }
                 }
@@ -342,8 +348,8 @@ export class BatchUploader {
      * @param useBeacon whether to use the beacon API - used when the page is being unloaded
      */
     public async prepareAndUpload(
-        triggerFuture: boolean = false,
-        useBeacon: boolean = false,
+        triggerFuture = false,
+        useBeacon = false,
     ): Promise<void> {
         // Fetch current user so that events can be grouped by MPID
         const currentUser = this.mpInstance.Identity.getCurrentUser();
@@ -360,14 +366,14 @@ export class BatchUploader {
             newBatches = BatchUploader.createNewBatches(
                 currentEvents,
                 currentUser,
-                this.mpInstance
+                this.mpInstance,
             );
         }
 
         // Top Load any older Batches from Offline Storage so they go out first
         if (this.offlineStorageEnabled && this.batchVault) {
             this.batchesQueuedForProcessing.unshift(
-                ...this.batchVault.retrieve()
+                ...this.batchVault.retrieve(),
             );
 
             // Remove batches from local storage before transmit to
@@ -386,7 +392,7 @@ export class BatchUploader {
         const batchesThatDidNotUpload = await this.uploadBatches(
             this.mpInstance.Logger,
             batchesToUpload,
-            useBeacon
+            useBeacon,
         );
 
         // Batches that do not successfully upload are added back to the process queue
@@ -420,7 +426,7 @@ export class BatchUploader {
     private async uploadBatches(
         logger: SDKLoggerApi,
         batches: Batch[],
-        useBeacon: boolean
+        useBeacon: boolean,
     ): Promise<Batch[] | null> {
         // Filter out any batches that don't have events
         const uploads = batches.filter((batch) => !isEmpty(batch.events));
@@ -444,7 +450,7 @@ export class BatchUploader {
 
             // beacon is only used on onbeforeunload onpagehide events
             if (useBeacon && this.isBeaconAvailable()) {
-                let blob = new Blob([fetchPayload.body], {
+                const blob = new Blob([fetchPayload.body], {
                     type: 'text/plain;charset=UTF-8',
                 });
 
@@ -455,20 +461,20 @@ export class BatchUploader {
 
                     if (response.status >= 200 && response.status < 300) {
                         logger.verbose(
-                            `Upload success for request ID: ${uploads[i].source_request_id}`
+                            `Upload success for request ID: ${uploads[i].source_request_id}`,
                         );
                     } else if (
                         response.status >= 500 ||
                         response.status === 429
                     ) {
                         logger.error(
-                            `HTTP error status ${response.status} received`
+                            `HTTP error status ${response.status} received`,
                         );
                         // Server error, add back current batches and try again later
                         return uploads.slice(i, uploads.length);
                     } else if (response.status >= 401) {
                         logger.error(
-                            `HTTP error status ${response.status} while uploading - please verify your API key.`
+                            `HTTP error status ${response.status} while uploading - please verify your API key.`,
                         );
                         //if we're getting a 401, assume we'll keep getting a 401 and clear the uploads.
                         return null;
@@ -476,16 +482,16 @@ export class BatchUploader {
                         // In case there is an HTTP error we did not anticipate.
                         console.error(
                             `HTTP error status ${response.status} while uploading events.`,
-                            response
+                            response,
                         );
 
                         throw new Error(
-                            `Uncaught HTTP Error ${response.status}.  Batch upload will be re-attempted.`
+                            `Uncaught HTTP Error ${response.status}.  Batch upload will be re-attempted.`,
                         );
                     }
                 } catch (e) {
                     logger.error(
-                        `Error sending event to mParticle servers. ${e}`
+                        `Error sending event to mParticle servers. ${e}`,
                     );
                     return uploads.slice(i, uploads.length);
                 }
