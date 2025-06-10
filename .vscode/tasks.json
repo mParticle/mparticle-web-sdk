@@ -1,0 +1,57 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "shell",
+            "label": "Web SDK Build Watch",
+            "command": "npm run watch",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "group": "Web SDK Watchers"
+            },
+            "runOptions": {
+                "runOn": "folderOpen"
+            },
+            "group": "build"
+        },
+        {
+            "type": "shell",
+            "label": "Web SDK Build Tests Watch",
+            "command": "npm run watch:tests",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "group": "Web SDK Watchers"
+            },
+            "runOptions": {
+                "runOn": "folderOpen"
+            },
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "type": "shell",
+            "label": "Web SDK Test Debug",
+            "command": "npm run test:debug",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "group": "Web SDK Watchers"
+            },
+            "runOptions": {
+                "runOn": "folderOpen"
+            },
+            "group": "build"
+        },
+        {
+            "label": "Web SDK Watchers",
+            "dependsOn": [
+                "Web SDK Build Watch",
+                "Web SDK Tests Watch",
+                "Web SDK Test Debug"
+            ],
+            "dependsOrder": "sequence"
+        }
+    ]
+}

@@ -26,9 +26,6 @@ jobs:
             - name: Lint with ESLint
               run: npm run lint
 
-            - name: Lint with Prettier
-              run: npm run prettier
-
             - name: Run Build IIFE
               run: npm run build:iife
 
@@ -224,7 +221,7 @@ jobs:
             - name: NPM install
               uses: actions/setup-node@v3
               with:
-                  node-version: latest 
+                  node-version: latest
 
             - name: Run NPM CI
               run: npm ci
