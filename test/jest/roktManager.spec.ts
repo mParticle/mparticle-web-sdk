@@ -308,6 +308,20 @@ describe('RoktManager', () => {
 
             expect(roktManager['launcherOptions']).toEqual(expectedOptions);
         });
+
+        it('should set the domain property when passed in options', () => {
+            const domain = 'custom.domain.com';
+            roktManager.init(
+                {} as IKitConfigs,
+                undefined,
+                mockMPInstance.Identity,
+                mockMPInstance.Logger,
+                {
+                    domain,
+                }
+            );
+            expect(roktManager['domain']).toBe(domain);
+        });
     });
 
     describe('#attachKit', () => {

@@ -58,6 +58,7 @@ export interface IRoktKit {
 export interface IRoktOptions {
     sandbox?: boolean;
     launcherOptions?: IRoktLauncherOptions;
+    domain?: string;
 }
 
 export type IRoktLauncherOptions = Dictionary<any>;
@@ -81,6 +82,7 @@ export default class RoktManager {
     private identityService: SDKIdentityApi;
     private launcherOptions?: IRoktLauncherOptions;
     private logger: SDKLoggerApi;
+    private domain?: string;
     /**
      * Initializes the RoktManager with configuration settings and user data.
      * 
@@ -126,6 +128,10 @@ export default class RoktManager {
         // Launcher options are set here for the kit to pick up and pass through
         // to the Rokt Launcher.
         this.launcherOptions = { sandbox, ...options?.launcherOptions };
+
+        if (options?.domain) {
+            this.domain = options.domain;
+        }
     }
 
     public attachKit(kit: IRoktKit): void {
