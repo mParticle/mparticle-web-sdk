@@ -20,8 +20,8 @@ const hasIdentifyReturned = () => {
 };
 
 // https://go.mparticle.com/work/SQDSDKS-6508
-describe('mParticle User', function () {
-    beforeEach(function () {
+describe('mParticle User', () => {
+    beforeEach(() => {
         delete mParticle.config.useCookieStorage;
         fetchMock.post(urls.events, 200);
         localStorage.clear();
@@ -34,12 +34,13 @@ describe('mParticle User', function () {
         mParticle.init(apiKey, window.mParticle.config);
     });
 
-    afterEach(function () {
+    afterEach(() => {
         fetchMock.restore();
         mParticle._resetForTests(MPConfig);
     });
 
-    describe('Consent State', function () {
+    describe('Consent State', () => {
+        // https://go.mparticle.com/work/SQDSDKS-7393
         it('get/set consent state for single user', (done) => {
             mParticle._resetForTests(MPConfig);
 
@@ -80,126 +81,125 @@ describe('mParticle User', function () {
             });
         });
 
-        it('get/set consent state for multiple users', (done) => {
+        it('get/set consent state for multiple users', async () => {
             mParticle._resetForTests(MPConfig);
 
             mParticle.init(apiKey, mParticle.config);
 
-            waitForCondition(hasIdentifyReturned).then(() => {
-                const userIdentities1 = {
-                    userIdentities: {
-                        customerid: 'foo1',
-                    },
-                };
+            await waitForCondition(hasIdentifyReturned);
+            
+            const userIdentities1 = {
+                userIdentities: {
+                    customerid: 'foo1',
+                },
+            };
 
-                fetchMockSuccess(urls.login, {
-                    mpid: 'loginMPID1',
-                    is_logged_in: false,
-                });
-
-                mParticle.Identity.login(userIdentities1);
-                waitForCondition(() => {
-                    return (
-                        mParticle.Identity.getCurrentUser()?.getMPID() ===
-                        'loginMPID1'
-                    );
-                }).then(() => {
-                    let user1StoredConsentState = mParticle
-                        .getInstance()
-                        .Identity.getCurrentUser()
-                        .getConsentState();
-                    expect(user1StoredConsentState).to.equal(null);
-                    const consentState = mParticle.Consent.createConsentState();
-                    consentState.addGDPRConsentState(
-                        'foo purpose',
-                        mParticle.Consent.createGDPRConsent(true, 10),
-                    );
-
-                    mParticle
-                        .getInstance()
-                        .Identity.getCurrentUser()
-                        .setConsentState(consentState);
-
-                    fetchMockSuccess(urls.login, {
-                        mpid: 'loginMPID2',
-                        is_logged_in: false,
-                    });
-
-                    const userIdentities2 = {
-                        userIdentities: {
-                            customerid: 'foo2',
-                        },
-                    };
-
-                    mParticle.Identity.login(userIdentities2);
-                    waitForCondition(() => {
-                        return (
-                            mParticle.Identity.getCurrentUser()?.getMPID() ===
-                            'loginMPID2'
-                        );
-                    }).then(() => {
-                        let user2StoredConsentState = mParticle
-                            .getInstance()
-                            .Identity.getCurrentUser()
-                            .getConsentState();
-                        expect(user2StoredConsentState).to.equal(null);
-
-                        consentState.removeGDPRConsentState('foo purpose');
-
-                        consentState.addGDPRConsentState(
-                            'foo purpose 2',
-                            mParticle.Consent.createGDPRConsent(false, 11),
-                        );
-
-                        mParticle
-                            .getInstance()
-                            .Identity.getCurrentUser()
-                            .setConsentState(consentState);
-
-                        user1StoredConsentState = mParticle
-                            .getInstance()
-                            ._Store.getConsentState('loginMPID1');
-                        user2StoredConsentState = mParticle
-                            .getInstance()
-                            ._Store.getConsentState('loginMPID2');
-
-                        expect(
-                            user1StoredConsentState.getGDPRConsentState(),
-                        ).to.have.property('foo purpose');
-                        expect(
-                            user1StoredConsentState.getGDPRConsentState(),
-                        ).to.not.have.property('foo purpose 2');
-                        expect(
-                            user1StoredConsentState.getGDPRConsentState()[
-                                'foo purpose'
-                            ],
-                        ).to.have.property('Consented', true);
-                        expect(
-                            user1StoredConsentState.getGDPRConsentState()[
-                                'foo purpose'
-                            ],
-                        ).to.have.property('Timestamp', 10);
-
-                        expect(
-                            user2StoredConsentState.getGDPRConsentState(),
-                        ).to.have.property('foo purpose 2');
-                        expect(
-                            user1StoredConsentState.getGDPRConsentState(),
-                        ).to.not.have.property('foo purpose 1');
-                        expect(
-                            user2StoredConsentState.getGDPRConsentState()[
-                                'foo purpose 2'
-                            ],
-                        ).to.have.property('Consented', false);
-                        expect(
-                            user2StoredConsentState.getGDPRConsentState()[
-                                'foo purpose 2'
-                            ],
-                        ).to.have.property('Timestamp', 11);
-                        done();
-                    });
-                });
+            fetchMockSuccess(urls.login, {
+                mpid: 'loginMPID1',
+                is_logged_in: false,
             });
+
+            mParticle.Identity.login(userIdentities1);
+            await waitForCondition(() => {
+                return (
+                    mParticle.Identity.getCurrentUser()?.getMPID() ===
+                    'loginMPID1'
+                );
+            });
+            
+            let user1StoredConsentState = mParticle
+                .getInstance()
+                .Identity.getCurrentUser()
+                .getConsentState();
+            expect(user1StoredConsentState).to.equal(null);
+            const consentState = mParticle.Consent.createConsentState();
+            consentState.addGDPRConsentState(
+                'foo purpose',
+                mParticle.Consent.createGDPRConsent(true, 10),
+            );
+
+            mParticle
+                .getInstance()
+                .Identity.getCurrentUser()
+                .setConsentState(consentState);
+
+            fetchMockSuccess(urls.login, {
+                mpid: 'loginMPID2',
+                is_logged_in: false,
+            });
+
+            const userIdentities2 = {
+                userIdentities: {
+                    customerid: 'foo2',
+                },
+            };
+
+            mParticle.Identity.login(userIdentities2);
+            await waitForCondition(() => {
+                return (
+                    mParticle.Identity.getCurrentUser()?.getMPID() ===
+                    'loginMPID2'
+                );
+            });
+            
+            let user2StoredConsentState = mParticle
+                .getInstance()
+                .Identity.getCurrentUser()
+                .getConsentState();
+            expect(user2StoredConsentState).to.equal(null);
+
+            consentState.removeGDPRConsentState('foo purpose');
+
+            consentState.addGDPRConsentState(
+                'foo purpose 2',
+                mParticle.Consent.createGDPRConsent(false, 11),
+            );
+
+            mParticle
+                .getInstance()
+                .Identity.getCurrentUser()
+                .setConsentState(consentState);
+
+            user1StoredConsentState = mParticle
+                .getInstance()
+                ._Store.getConsentState('loginMPID1');
+            user2StoredConsentState = mParticle
+                .getInstance()
+                ._Store.getConsentState('loginMPID2');
+
+            expect(
+                user1StoredConsentState.getGDPRConsentState(),
+            ).to.have.property('foo purpose');
+            expect(
+                user1StoredConsentState.getGDPRConsentState(),
+            ).to.not.have.property('foo purpose 2');
+            expect(
+                user1StoredConsentState.getGDPRConsentState()[
+                    'foo purpose'
+                ],
+            ).to.have.property('Consented', true);
+            expect(
+                user1StoredConsentState.getGDPRConsentState()[
+                    'foo purpose'
+                ],
+            ).to.have.property('Timestamp', 10);
+
+            expect(
+                user2StoredConsentState.getGDPRConsentState(),
+            ).to.have.property('foo purpose 2');
+            expect(
+                user1StoredConsentState.getGDPRConsentState(),
+            ).to.not.have.property('foo purpose 1');
+            expect(
+                user2StoredConsentState.getGDPRConsentState()[
+                    'foo purpose 2'
+                ],
+            ).to.have.property('Consented', false);
+            expect(
+                user2StoredConsentState.getGDPRConsentState()[
+                    'foo purpose 2'
+                ],
+            ).to.have.property('Timestamp', 11);
         });
     });
 });
