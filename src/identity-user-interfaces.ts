@@ -1,4 +1,4 @@
-import { AllUserAttributes, MPID, Product, User } from '@mparticle/web-sdk';
+import { AllUserAttributes, MPID, User } from '@mparticle/web-sdk';
 import { SDKIdentityTypeEnum } from './identity.interfaces';
 import { MessageType } from './types';
 import { BaseEvent, SDKProduct } from './sdkRuntimeModels';

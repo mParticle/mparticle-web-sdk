@@ -53,10 +53,10 @@ describe('Utils', () => {
             expect(generateHash('3569038')).to.equal(-412991536);
             expect(generateHash('TestHash')).to.equal(-1146196832);
             expect(generateHash('mParticle'), 'mParticle String').to.equal(
-                1744810483
+                1744810483,
             );
             expect(
-                generateHash('d71b49a6-4248-4581-afff-abb28dada53d')
+                generateHash('d71b49a6-4248-4581-afff-abb28dada53d'),
             ).to.equal(635757846);
         });
 
@@ -66,7 +66,7 @@ describe('Utils', () => {
 
             // Use bad values to verify expected fail cases
             expect(typeof generateHash(false as unknown as string)).to.equal(
-                'number'
+                'number',
             );
             expect(generateHash(false as unknown as string)).to.not.equal(0);
         });
@@ -98,10 +98,10 @@ describe('Utils', () => {
             expect(getRampNumber()).to.equal(100);
             expect(getRampNumber(null)).to.equal(100);
             expect(
-                getRampNumber('2b907d8b-cefe-4530-a6fe-60a381f2e066')
+                getRampNumber('2b907d8b-cefe-4530-a6fe-60a381f2e066'),
             ).to.equal(60);
             expect(
-                getRampNumber('d71b49a6-4248-4581-afff-abb28dada53d')
+                getRampNumber('d71b49a6-4248-4581-afff-abb28dada53d'),
             ).to.equal(47);
 
             const uniqueId = generateUniqueId();
@@ -115,7 +115,7 @@ describe('Utils', () => {
         it('returns true if object is an object', () => {
             const validObject = {
                 foo: 'bar',
-                fizz:'buzz',
+                fizz: 'buzz',
             };
             expect(isObject(validObject)).to.eq(true);
         });
@@ -131,7 +131,7 @@ describe('Utils', () => {
     });
 
     describe('#isStringOrNumber', () => {
-        it(' should correctly validate a string or number', ()=> {
+        it(' should correctly validate a string or number', () => {
             expect(isStringOrNumber(42)).to.eq(true);
             expect(isStringOrNumber('42')).to.eq(true);
 
@@ -139,7 +139,7 @@ describe('Utils', () => {
             expect(isStringOrNumber(undefined)).to.eq(false);
             expect(isStringOrNumber([])).to.eq(false);
             expect(isStringOrNumber({})).to.eq(false);
-            expect(isStringOrNumber(function (){})).to.eq(false);
+            expect(isStringOrNumber(function () {})).to.eq(false);
         });
     });
 
@@ -159,11 +159,9 @@ describe('Utils', () => {
         it('should correctly parse string or number', () => {
             expect(parseStringOrNumber('abc')).to.eq('abc');
             expect(parseStringOrNumber(123)).to.eq(123);
-            expect(parseStringOrNumber(({} as unknown) as string)).to.eq(null);
-            expect(parseStringOrNumber(([] as unknown) as string)).to.eq(null);
-            expect(parseStringOrNumber((null as unknown) as string)).to.eq(
-                null
-            );
+            expect(parseStringOrNumber({} as unknown as string)).to.eq(null);
+            expect(parseStringOrNumber([] as unknown as string)).to.eq(null);
+            expect(parseStringOrNumber(null as unknown as string)).to.eq(null);
         });
     });
 
@@ -212,7 +210,7 @@ describe('Utils', () => {
     });
 
     describe('#returnConvertedBoolean', () => {
-        it ('returns expected boolean value when strings are passed', () => {
+        it('returns expected boolean value when strings are passed', () => {
             returnConvertedBoolean('false').should.equal(false);
             returnConvertedBoolean(false).should.equal(false);
             returnConvertedBoolean('true').should.equal(true);
@@ -229,13 +227,13 @@ describe('Utils', () => {
     });
 
     describe('#inArray', () => {
-        it('returns true if element is in the array', ()=> {
+        it('returns true if element is in the array', () => {
             const things = ['people', 'places', 'things'];
 
             expect(inArray(things, 'people')).to.eq(true);
         });
 
-        it('returns false if element is not in the array', ()=> {
+        it('returns false if element is not in the array', () => {
             const things = ['people', 'places', 'things'];
 
             expect(inArray(things, 'cats')).to.eq(false);
@@ -250,7 +248,7 @@ describe('Utils', () => {
                 music: 'blues',
             };
 
-            expect(findKeyInObject(things, 'music')).to.eq('music')
+            expect(findKeyInObject(things, 'music')).to.eq('music');
         });
 
         it('returns null if the key is not in the object', () => {
@@ -272,9 +270,12 @@ describe('Utils', () => {
 
     describe('#converted', () => {
         it('should convert cookie strings', () => {
-            const cookieString = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='";
-            expect(converted(cookieString)).to.eq("{\'sid\':\'1992BDBB-AD74-49DB-9B20-5EC8037E72DE\'|\'ie\':1|\'ua\':\'eyJ0ZXN\'0Ijoiwq7igJkifQ==\'")
-        })
+            const cookieString =
+                "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='";
+            expect(converted(cookieString)).to.eq(
+                "{\'sid\':\'1992BDBB-AD74-49DB-9B20-5EC8037E72DE\'|\'ie\':1|\'ua\':\'eyJ0ZXN\'0Ijoiwq7igJkifQ==\'",
+            );
+        });
     });
 
     describe('#toDataPlanSlug', () => {
@@ -282,10 +283,16 @@ describe('Utils', () => {
             expect(toDataPlanSlug('string')).to.equal('string');
             expect(toDataPlanSlug('42')).to.equal('42');
             expect(toDataPlanSlug(37)).to.equal('37');
-            expect(toDataPlanSlug('string with spaces')).to.equal('string_with_spaces');
-            expect(toDataPlanSlug('kabob-case-string')).to.equal('kabob_case_string');
+            expect(toDataPlanSlug('string with spaces')).to.equal(
+                'string_with_spaces',
+            );
+            expect(toDataPlanSlug('kabob-case-string')).to.equal(
+                'kabob_case_string',
+            );
             expect(toDataPlanSlug('PascalSlug')).to.equal('pascalslug');
-            expect(toDataPlanSlug('under_score_slug')).to.equal('under_score_slug');
+            expect(toDataPlanSlug('under_score_slug')).to.equal(
+                'under_score_slug',
+            );
         });
 
         it('should convert non-strings to an empty string', () => {
@@ -294,7 +301,7 @@ describe('Utils', () => {
             expect(toDataPlanSlug({})).to.equal('');
             expect(toDataPlanSlug(null)).to.equal('');
             expect(toDataPlanSlug(undefined)).to.equal('');
-            expect(toDataPlanSlug(()=>{})).to.equal('');
+            expect(toDataPlanSlug(() => {})).to.equal('');
         });
     });
 
@@ -339,12 +346,12 @@ describe('Utils', () => {
             expect(isEmpty([1, 2, 3])).to.equal(false);
         });
 
-        it('returns true if object is empty', ()=> {
+        it('returns true if object is empty', () => {
             expect(isEmpty({})).to.equal(true);
         });
 
-        it('returns false if object is not empty', ()=> {
-            expect(isEmpty({'foo': 'bar'})).to.equal(false);
+        it('returns false if object is not empty', () => {
+            expect(isEmpty({ foo: 'bar' })).to.equal(false);
         });
 
         it('returns true if object is null', () => {
@@ -363,7 +370,7 @@ describe('Utils', () => {
             expect(isEmpty('string')).to.equal(false);
         });
     });
-    
+
     describe('#isValidCustomFlagProperty', () => {
         it('returns true if Custom Flag Property is a number', () => {
             expect(isValidCustomFlagProperty(42)).to.equal(true);
@@ -379,8 +386,13 @@ describe('Utils', () => {
 
         it('returns true if Custom Flag Property is not valid', () => {
             expect(isValidCustomFlagProperty(null), 'null').to.equal(false);
-            expect(isValidCustomFlagProperty(function(){}), 'function').to.equal(false);
-            expect(isValidCustomFlagProperty(undefined), 'undefined').to.equal(false);
+            expect(
+                isValidCustomFlagProperty(function () {}),
+                'function',
+            ).to.equal(false);
+            expect(isValidCustomFlagProperty(undefined), 'undefined').to.equal(
+                false,
+            );
         });
     });
 

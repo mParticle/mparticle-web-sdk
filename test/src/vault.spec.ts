@@ -13,8 +13,8 @@ const testArray: Dictionary<string>[] = [
     { narf: 'poit' },
 ];
 
-const testString: string = 'foo';
-const testNumber: number = 123;
+const testString = 'foo';
+const testNumber = 123;
 
 describe('Vault', () => {
     describe('SessionStorageVault', () => {
@@ -34,7 +34,7 @@ describe('Vault', () => {
 
                 expect(vault.contents).to.equal(testObject);
                 expect(window.sessionStorage.getItem(storageKey)).to.equal(
-                    JSON.stringify(testObject)
+                    JSON.stringify(testObject),
                 );
             });
 
@@ -42,44 +42,40 @@ describe('Vault', () => {
                 const storageKey = 'test-key-store-array';
 
                 const vault = new SessionStorageVault<Dictionary<string>[]>(
-                    storageKey
+                    storageKey,
                 );
 
                 vault.store(testArray);
 
                 expect(vault.contents).to.equal(testArray);
                 expect(window.sessionStorage.getItem(storageKey)).to.equal(
-                    JSON.stringify(testArray)
+                    JSON.stringify(testArray),
                 );
             });
 
             it('should store a string', () => {
                 const storageKey = 'test-key-store-string';
 
-                const vault = new SessionStorageVault<string>(
-                    storageKey
-                );
+                const vault = new SessionStorageVault<string>(storageKey);
 
                 vault.store(testString);
 
                 expect(vault.contents).to.equal(testString);
                 expect(window.sessionStorage.getItem(storageKey)).to.equal(
-                    JSON.stringify(testString)
+                    JSON.stringify(testString),
                 );
             });
 
             it('should store a number', () => {
                 const storageKey = 'test-key-store-number';
 
-                const vault = new SessionStorageVault<number>(
-                    storageKey
-                );
+                const vault = new SessionStorageVault<number>(storageKey);
 
                 vault.store(testNumber);
 
                 expect(vault.contents).to.equal(testNumber);
                 expect(window.sessionStorage.getItem(storageKey)).to.equal(
-                    JSON.stringify(testNumber)
+                    JSON.stringify(testNumber),
                 );
             });
         });
@@ -90,7 +86,7 @@ describe('Vault', () => {
 
                 window.sessionStorage.setItem(
                     storageKey,
-                    JSON.stringify(testObject)
+                    JSON.stringify(testObject),
                 );
 
                 const vault = new SessionStorageVault<
@@ -110,11 +106,11 @@ describe('Vault', () => {
 
                 window.sessionStorage.setItem(
                     storageKey,
-                    JSON.stringify(testArray)
+                    JSON.stringify(testArray),
                 );
 
                 const vault = new SessionStorageVault<Dictionary<string>[]>(
-                    storageKey
+                    storageKey,
                 );
 
                 const retrievedItem = vault.retrieve();
@@ -127,12 +123,10 @@ describe('Vault', () => {
 
                 window.sessionStorage.setItem(
                     storageKey,
-                    JSON.stringify(testString)
+                    JSON.stringify(testString),
                 );
 
-                const vault = new SessionStorageVault<string>(
-                    storageKey
-                );
+                const vault = new SessionStorageVault<string>(storageKey);
 
                 const retrievedItem = vault.retrieve();
 
@@ -144,12 +138,10 @@ describe('Vault', () => {
 
                 window.sessionStorage.setItem(
                     storageKey,
-                    JSON.stringify(testNumber)
+                    JSON.stringify(testNumber),
                 );
 
-                const vault = new SessionStorageVault<number>(
-                    storageKey
-                );
+                const vault = new SessionStorageVault<number>(storageKey);
 
                 const retrievedItem = vault.retrieve();
 
@@ -163,7 +155,7 @@ describe('Vault', () => {
 
                 window.sessionStorage.setItem(
                     storageKey,
-                    JSON.stringify(testObject)
+                    JSON.stringify(testObject),
                 );
 
                 const vault = new SessionStorageVault<
@@ -174,7 +166,7 @@ describe('Vault', () => {
 
                 expect(vault.contents).to.equal(null);
                 expect(window.sessionStorage.getItem(storageKey)).to.equal(
-                    null
+                    null,
                 );
             });
 
@@ -183,18 +175,18 @@ describe('Vault', () => {
 
                 window.sessionStorage.setItem(
                     storageKey,
-                    JSON.stringify(testArray)
+                    JSON.stringify(testArray),
                 );
 
                 const vault = new SessionStorageVault<Dictionary<string>[]>(
-                    storageKey
+                    storageKey,
                 );
 
                 vault.purge();
 
                 expect(vault.contents).to.equal(null);
                 expect(window.sessionStorage.getItem(storageKey)).to.equal(
-                    null
+                    null,
                 );
             });
         });
@@ -217,7 +209,7 @@ describe('Vault', () => {
 
                 expect(vault.contents).to.equal(testObject);
                 expect(window.localStorage.getItem(storageKey)).to.equal(
-                    JSON.stringify(testObject)
+                    JSON.stringify(testObject),
                 );
             });
 
@@ -225,44 +217,40 @@ describe('Vault', () => {
                 const storageKey = 'test-key-store-array';
 
                 const vault = new LocalStorageVault<Dictionary<string>[]>(
-                    storageKey
+                    storageKey,
                 );
 
                 vault.store(testArray);
 
                 expect(vault.contents).to.equal(testArray);
                 expect(window.localStorage.getItem(storageKey)).to.equal(
-                    JSON.stringify(testArray)
+                    JSON.stringify(testArray),
                 );
             });
 
             it('should store a string', () => {
                 const storageKey = 'test-key-store-array';
 
-                const vault = new LocalStorageVault<string>(
-                    storageKey
-                );
+                const vault = new LocalStorageVault<string>(storageKey);
 
                 vault.store(testString);
 
                 expect(vault.contents).to.equal(testString);
                 expect(window.localStorage.getItem(storageKey)).to.equal(
-                    JSON.stringify(testString)
+                    JSON.stringify(testString),
                 );
             });
 
             it('should store a number', () => {
                 const storageKey = 'test-key-store-array';
 
-                const vault = new LocalStorageVault<number>(
-                    storageKey
-                );
+                const vault = new LocalStorageVault<number>(storageKey);
 
                 vault.store(testNumber);
 
                 expect(vault.contents).to.equal(testNumber);
                 expect(window.localStorage.getItem(storageKey)).to.equal(
-                    JSON.stringify(testNumber)
+                    JSON.stringify(testNumber),
                 );
             });
         });
@@ -273,7 +261,7 @@ describe('Vault', () => {
 
                 window.localStorage.setItem(
                     storageKey,
-                    JSON.stringify(testObject)
+                    JSON.stringify(testObject),
                 );
 
                 const vault = new LocalStorageVault<
@@ -293,11 +281,11 @@ describe('Vault', () => {
 
                 window.localStorage.setItem(
                     storageKey,
-                    JSON.stringify(testArray)
+                    JSON.stringify(testArray),
                 );
 
                 const vault = new LocalStorageVault<Dictionary<string>[]>(
-                    storageKey
+                    storageKey,
                 );
 
                 const retrievedItem = vault.retrieve();
@@ -310,12 +298,10 @@ describe('Vault', () => {
 
                 window.localStorage.setItem(
                     storageKey,
-                    JSON.stringify(testString)
+                    JSON.stringify(testString),
                 );
 
-                const vault = new LocalStorageVault<string>(
-                    storageKey
-                );
+                const vault = new LocalStorageVault<string>(storageKey);
 
                 const retrievedItem = vault.retrieve();
 
@@ -327,12 +313,10 @@ describe('Vault', () => {
 
                 window.localStorage.setItem(
                     storageKey,
-                    JSON.stringify(testNumber)
+                    JSON.stringify(testNumber),
                 );
 
-                const vault = new LocalStorageVault<number>(
-                    storageKey
-                );
+                const vault = new LocalStorageVault<number>(storageKey);
 
                 const retrievedItem = vault.retrieve();
 
@@ -346,7 +330,7 @@ describe('Vault', () => {
 
                 window.localStorage.setItem(
                     storageKey,
-                    JSON.stringify(testObject)
+                    JSON.stringify(testObject),
                 );
 
                 const vault = new LocalStorageVault<
@@ -364,11 +348,11 @@ describe('Vault', () => {
 
                 window.localStorage.setItem(
                     storageKey,
-                    JSON.stringify(testArray)
+                    JSON.stringify(testArray),
                 );
 
                 const vault = new LocalStorageVault<Dictionary<string>[]>(
-                    storageKey
+                    storageKey,
                 );
 
                 vault.purge();
@@ -431,7 +415,7 @@ describe('Vault', () => {
             expect(vault.retrieve()[4]).to.eql(batch5);
 
             expect(window.localStorage.getItem(storageKey)).to.equal(
-                JSON.stringify([batch1, batch2, batch3, batch4, batch5])
+                JSON.stringify([batch1, batch2, batch3, batch4, batch5]),
             );
         });
     });
