@@ -111,10 +111,10 @@
     var script = document.createElement('script');
     script.type = 'text/javascript';
     script.async = true;
-    var roktDomain = window.ROKT_DOMAIN || 'https://apps.rokt-api.com';
-    config.domain = roktDomain.split('//')[1];
+    window.ROKT_DOMAIN  = ROKT_DOMAIN || 'https://apps.rokt-api.com';
+    window.mParticle.config.domain = ROKT_DOMAIN.split('//')[1];
     script.src =
-        roktDomain +
+        ROKT_DOMAIN +
         '/js/v2/' +
         apiKey +
         '/app.js' +
