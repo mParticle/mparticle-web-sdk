@@ -111,7 +111,7 @@
     var script = document.createElement('script');
     script.type = 'text/javascript';
     script.async = true;
-    window.ROKT_DOMAIN  = ROKT_DOMAIN || 'https://apps.rokt-api.com';
+    window.ROKT_DOMAIN = ROKT_DOMAIN || 'https://apps.rokt-api.com';
     window.mParticle.config.domain = ROKT_DOMAIN.split('//')[1];
     script.src =
         ROKT_DOMAIN +
