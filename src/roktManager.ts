@@ -2,7 +2,7 @@ import { IKitConfigs } from "./configAPIClient";
 import { UserAttributeFilters  } from "./forwarders.interfaces";
 import { IMParticleUser } from "./identity-user-interfaces";
 import KitFilterHelper from "./kitFilterHelper";
-import { Dictionary, parseSettingsString } from "./utils";
+import { Dictionary, generateUniqueId, isFunction, parseSettingsString } from "./utils";
 import { SDKIdentityApi } from "./identity.interfaces";
 import { SDKLoggerApi } from "./sdkRuntimeModels";
 
@@ -289,18 +289,25 @@ export default class RoktManager {
 
         for (const message of messagesToProcess) {
             try {
-                if (!this.kit || !(message.methodName in this.kit)) {
-                    throw new Error(`Method '${message.methodName}' not found on kit`);
+                if (!(message.methodName in this.kit) || !isFunction(this.kit[message.methodName])) {
+                    throw new Error(`Method '${message.methodName}' not found or not callable on kit`);
                 }
 
-                this.logger?.verbose(`RoktManager: Processing queued message: ${message.methodName}`);
+                this.logger?.verbose(`RoktManager: Processing queued message: ${message.methodName} with payload: ${JSON.stringify(message.payload)}`);
                 
-                const result = await (this.kit[message.methodName] as Function)(message.payload);
+                // Add timeout wrapper in case a promise is never resolved
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error(`Method '${message.methodName}' timed out`)), 30000)
+                );
+                
+                const result = await Promise.race([
+                    (this.kit[message.methodName] as Function)(message.payload),
+                    timeoutPromise
+                ]);
+                
                 this.completePendingPromise(message.messageId, result, true);
-                
-                // Optionally log success for debugging
+
                 this.logger?.verbose(`RoktManager: Successfully processed queued message: ${message.methodName}`);
-                
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
                 this.logger?.error(`RoktManager: Failed to process queued message '${message.methodName}': ${errorMessage}`);
@@ -319,7 +326,7 @@ export default class RoktManager {
 
     private deferredCall<T>(methodName: string, payload: any): Promise<T> {
         return new Promise<T>((resolve, reject) => {
-            const messageId = `${methodName}_${Date.now()}_${Math.random()}`;
+            const messageId = `${methodName}_${generateUniqueId()}`;
             
             // Store the promise resolvers
             this.pendingPromises.set(messageId, { resolve, reject });

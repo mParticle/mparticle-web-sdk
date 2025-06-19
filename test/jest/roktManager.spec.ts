@@ -607,33 +607,94 @@ describe('RoktManager', () => {
             await expect(promise3).resolves.toBeUndefined(); // Should succeed (void return)
         });
 
-        it('should expose the method-not-found silent failure bug', () => {
+        it('should throw error for non-existent methods and continue processing other messages', async () => {
             const kit: IRoktKit = {
                 launcher: { selectPlacements: jest.fn(), hashAttributes: jest.fn() },
                 filters: undefined,
-                selectPlacements: jest.fn(),
+                selectPlacements: jest.fn().mockResolvedValue({ success: true }),
                 hashAttributes: jest.fn(),
                 filteredUser: undefined,
                 userAttributes: undefined,
                 setExtensionData: jest.fn()
             };
 
-            // Manually add a message with a non-existent method
+            // Mock logger to verify error handling
+            const mockLogger = {
+                error: jest.fn(),
+                warning: jest.fn(),
+                verbose: jest.fn(),
+                setLogLevel: jest.fn()
+            };
+            roktManager['logger'] = mockLogger;
+
+            // Manually add a message with a non-existent method between valid ones
+            roktManager.selectPlacements({ attributes: { test: 'first' } } as IRoktSelectPlacementsOptions);
             roktManager['queueMessage']({
                 methodName: 'nonExistentMethod',
                 payload: { some: 'data' }
             });
-            roktManager.selectPlacements({ attributes: {} } as IRoktSelectPlacementsOptions);
+            roktManager.selectPlacements({ attributes: { test: 'second' } } as IRoktSelectPlacementsOptions);
+            
+            expect(roktManager['messageQueue'].length).toBe(3);
+            
+            // Process queue - should handle non-existent method with error but continue processing
+            await roktManager.attachKit(kit);
+            expect(roktManager['messageQueue'].length).toBe(0);
+            
+            // Error should be logged for non-existent method
+            expect(mockLogger.error).toHaveBeenCalledWith(
+                "RoktManager: Failed to process queued message 'nonExistentMethod': Method 'nonExistentMethod' not found or not callable on kit"
+            );
+            
+            // Valid methods should still be called (processing continues after error)
+            expect(kit.selectPlacements).toHaveBeenCalledTimes(2);
+            expect(kit.selectPlacements).toHaveBeenCalledWith({ attributes: { test: 'first' } });
+            expect(kit.selectPlacements).toHaveBeenCalledWith({ attributes: { test: 'second' } });
+        });
+
+        it('should throw error for non-callable methods and continue processing other messages', async () => {
+            const kit: IRoktKit = {
+                launcher: { selectPlacements: jest.fn(), hashAttributes: jest.fn() },
+                filters: undefined,
+                selectPlacements: jest.fn().mockResolvedValue({ success: true }),
+                hashAttributes: jest.fn(),
+                filteredUser: undefined,
+                userAttributes: undefined,
+                setExtensionData: jest.fn()
+            };
+
+            // Mock logger to verify error handling
+            const mockLogger = {
+                error: jest.fn(),
+                warning: jest.fn(),
+                verbose: jest.fn(),
+                setLogLevel: jest.fn()
+            };
+            roktManager['logger'] = mockLogger;
+
+            // Add a property that exists but isn't a function
+            (kit as any).notAFunction = 'this is a string, not a function';
+
+            // Queue valid message and invalid method
+            roktManager.selectPlacements({ attributes: { test: 'valid' } } as IRoktSelectPlacementsOptions);
+            roktManager['queueMessage']({
+                methodName: 'notAFunction',
+                payload: { some: 'data' }
+            });
             
             expect(roktManager['messageQueue'].length).toBe(2);
             
-            // Process queue using proper API - should handle non-existent method gracefully
-            // But current implementation doesn't log or handle this properly
-            expect(() => roktManager.attachKit(kit)).not.toThrow();
+            // Process queue - should handle non-callable property gracefully
+            await roktManager.attachKit(kit);
             expect(roktManager['messageQueue'].length).toBe(0);
             
-            // Valid method should still be called
-            expect(kit.selectPlacements).toHaveBeenCalled();
+            // Should call valid method
+            expect(kit.selectPlacements).toHaveBeenCalledWith({ attributes: { test: 'valid' } });
+            
+            // Should log error for attempt to call non-function (this will be a runtime error)
+            expect(mockLogger.error).toHaveBeenCalledWith(
+                expect.stringContaining("Failed to process queued message 'notAFunction'")
+            );
         });
 
         it('should handle race conditions when messages are added during processing', async () => {
@@ -736,7 +797,7 @@ describe('RoktManager', () => {
             expect(roktManager['pendingPromises'].size).toBe(0);
         });
 
-        it('should process the message queue if a launcher and kit are attached', async () => {
+        it('should process the message queue once a launcher and kit are attached', async () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -778,21 +839,80 @@ describe('RoktManager', () => {
             const message = roktManager['messageQueue'][0];
             expect(message.methodName).toBe('testMethod');
             expect(message.payload).toEqual({ test: 'payload' });
-            expect(message.messageId).toMatch(/^testMethod_\d+_0\.\d+$/);
+            expect(message.messageId).toMatch(/^testMethod_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
             
             // Should store pending promise resolvers
             expect(roktManager['pendingPromises'].has(message.messageId!)).toBe(true);
         });
 
         it('should generate unique messageIds for multiple calls', () => {
-            const promise1 = roktManager['deferredCall']<string>('method1', {});
-            const promise2 = roktManager['deferredCall']<string>('method2', {});
+            // Mock generateUniqueId for predictable messageIds
+            const mockGenerateUniqueId = jest.spyOn(require('../../src/utils'), 'generateUniqueId');
+            
+            mockGenerateUniqueId
+                .mockReturnValueOnce('uuid-1234-abcd')
+                .mockReturnValueOnce('uuid-5678-efgh');
+
+            roktManager['deferredCall']<string>('method1', {});
+            roktManager['deferredCall']<string>('method2', {});
             
             const message1 = roktManager['messageQueue'][0];
             const message2 = roktManager['messageQueue'][1];
             
-            expect(message1.messageId).not.toBe(message2.messageId);
+            expect(message1.messageId).toBe('method1_uuid-1234-abcd');
+            expect(message2.messageId).toBe('method2_uuid-5678-efgh');
             expect(roktManager['pendingPromises'].size).toBe(2);
+
+            expect(Array.from(roktManager['pendingPromises'].keys())).toEqual([
+                'method1_uuid-1234-abcd',
+                'method2_uuid-5678-efgh',
+            ]);
+
+            // Cleanup mocks
+            mockGenerateUniqueId.mockRestore();
+        });
+
+        it('should handle concurrent attachKit calls gracefully', async () => {
+            const kit1: IRoktKit = {
+                launcher: { selectPlacements: jest.fn(), hashAttributes: jest.fn() },
+                filters: undefined,
+                selectPlacements: jest.fn().mockResolvedValue({ kit: 'kit1' }),
+                hashAttributes: jest.fn(),
+                filteredUser: undefined,
+                userAttributes: undefined,
+                setExtensionData: jest.fn()
+            };
+            
+            const kit2: IRoktKit = {
+                launcher: { selectPlacements: jest.fn(), hashAttributes: jest.fn() },
+                filters: undefined,
+                selectPlacements: jest.fn().mockResolvedValue({ kit: 'kit2' }),
+                hashAttributes: jest.fn(),
+                filteredUser: undefined,
+                userAttributes: undefined,
+                setExtensionData: jest.fn()
+            };
+
+            // Queue a message before attaching kits
+            const promise = roktManager.selectPlacements({ attributes: { test: 'concurrent' } } as IRoktSelectPlacementsOptions);
+            
+            // Attempt concurrent kit attachments
+            const [result1, result2] = await Promise.allSettled([
+                roktManager.attachKit(kit1),
+                roktManager.attachKit(kit2)
+            ]);
+
+            // Both should complete successfully (last one wins)
+            expect(result1.status).toBe('fulfilled');
+            expect(result2.status).toBe('fulfilled');
+            
+            // The promise should resolve with result from whichever kit processed it
+            const promiseResult = await promise;
+            expect(promiseResult).toBeDefined();
+            
+            // Queue should be empty after processing
+            expect(roktManager['messageQueue'].length).toBe(0);
+            expect(roktManager['pendingPromises'].size).toBe(0);
         });
     });
 
