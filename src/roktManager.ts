@@ -235,7 +235,7 @@ export default class RoktManager {
             return await this.kit.setExtensionData<T>(extensionData);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            return Promise.reject(new Error('Error setting extension data: ' + errorMessage));
+            throw new Error('Error setting extension data: ' + errorMessage);
         }
     }
 
