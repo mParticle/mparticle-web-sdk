@@ -208,21 +208,21 @@ export default class RoktManager {
                 attributes: enrichedAttributes,
             };
 
-            return this.kit.selectPlacements(enrichedOptions);
+            return await this.kit.selectPlacements(enrichedOptions);
         } catch (error) {
-            return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
+            throw error instanceof Error ? error : new Error('Unknown error occurred');
         }
     }
 
-    public hashAttributes(attributes: IRoktPartnerAttributes): Promise<Record<string, string>> {
+    public async hashAttributes(attributes: IRoktPartnerAttributes): Promise<Record<string, string>> {
         if (!this.isReady()) {
             return this.deferredCall<Record<string, string>>('hashAttributes', attributes);
         }
 
         try {
-            return this.kit.hashAttributes(attributes);
+            return await this.kit.hashAttributes(attributes);
         } catch (error) {
-            return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
+            throw error instanceof Error ? error : new Error('Unknown error occurred');
         }
     }
 
