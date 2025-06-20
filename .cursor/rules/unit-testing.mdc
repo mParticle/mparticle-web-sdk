@@ -1,0 +1,155 @@
+---
+description: Unit Testing Guidelines
+globs: 
+alwaysApply: false
+---
+# Unit Testing Guidelines
+
+## Overview
+This document outlines the unit testing standards and best practices for the mParticle Web SDK project. Our unit testing framework uses Jest, and we follow a structured approach to ensure code quality and maintainability.
+
+## Test File Structure
+
+### Naming Convention
+- Unit Test files should be named with `.spec.ts` extension
+- Unit Test files should mirror the directory structure of the source files they're testing
+- Example: `utils.ts` → `utils.spec.ts`
+
+### File Organization
+- Unit Tests should be organized in the `test/jest` directory
+- Each unit test file should focus on testing a single module or component
+- Group related tests using `describe` blocks
+- Use `beforeEach` and `afterEach` hooks for test setup and cleanup
+- Use a `before` hook for test set up that applies to ALL tests
+
+## Testing Conventions
+
+### Method Naming in Tests
+
+When writing tests, use the following conventions to distinguish between instance and class/static methods:
+
+- Use `#methodName` to reference instance methods
+- Use `.methodName` to reference class/static methods
+
+### Examples
+
+```javascript
+// Instance method test
+describe('#isInitialized', function () {
+    it('should be a valid method on both mParticle and mParticle.getInstance() objects', function () {
+        // ...
+    });
+});
+
+// Class/static method test
+describe('Types', function() {
+    describe('.Environment', function() {
+        it('should return `production`', function() {
+            mParticle.Types.Environment.Production.should.equal('production');
+        });
+    });
+});
+```
+
+This convention helps developers quickly understand whether they're looking at a test for an instance method or a class/static method. It's particularly useful in test files to make it clear what kind of method is being tested.
+
+## Writing Tests
+
+### Test Structure
+```typescript
+describe('ModuleName', () => {
+    describe('functionName', () => {
+        beforeEach(() => {
+            // Setup code
+        });
+
+        afterEach(() => {
+            // Cleanup code
+        });
+
+        it('should do something specific', () => {
+            // Test implementation
+        });
+    });
+});
+```
+
+### Best Practices
+1. **Test Isolation**
+   - Each test should be independent
+   - Use `beforeEach` to set up fresh test state
+   - Use `afterEach` to clean up after tests
+   - Avoid test interdependencies
+
+2. **Test Naming**
+   - Use descriptive test names that explain the expected behavior
+   - Follow the pattern: "should [expected behavior]"
+   - Example: "should return an empty object if no keys are found"
+
+3. **Assertions**
+   - Use specific assertions that test exactly what you intend
+   - Prefer `toEqual` for object comparisons
+   - Use `expect().toBe()` for primitive values
+   - Test both positive and negative cases
+
+4. **Mocking**
+   - Mock external dependencies
+   - Use Jest's mocking capabilities for functions and modules
+   - Reset mocks between tests using `jest.resetAllMocks()`
+
+5. **Edge Cases**
+   - Test boundary conditions
+   - Test error cases
+   - Test null/undefined inputs
+   - Test empty inputs
+
+## Example Test Pattern
+```typescript
+describe('functionName', () => {
+    it('should handle normal case', () => {
+        const input = 'normal input';
+        const expected = 'expected output';
+        expect(functionName(input)).toEqual(expected);
+    });
+
+    it('should handle edge case', () => {
+        const input = '';
+        const expected = {};
+        expect(functionName(input)).toEqual(expected);
+    });
+
+    it('should handle error case', () => {
+        const input = null;
+        expect(() => functionName(input)).toThrow();
+    });
+});
+```
+
+## Code Coverage
+- Aim for high test coverage, especially for critical paths
+- Focus on testing business logic and edge cases
+- Don't sacrifice test quality for coverage metrics
+
+## Running Tests
+- Use `npm run test:jest` to run all tests
+- Use `npm run test:jest:watch` for development
+
+## Common Patterns
+
+### Testing Async Code
+```typescript
+it('should handle async operations', async () => {
+    const result = await asyncFunction();
+    expect(result).toEqual(expectedValue);
+});
+```
+
+## Maintenance
+- Keep tests up to date with code changes
+- Refactor tests when refactoring code
+- Suggest obsolete tests for removal, but don't remove them unless asked to do so
+- Document complex test scenarios
+
+## Resources
+- [Jest Documentation](mdc:rokt-launcher-config/https:/jestjs.io/docs/getting-started)
+- Internal test examples in `test/jest/` directory
