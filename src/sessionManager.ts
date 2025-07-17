@@ -48,26 +48,14 @@ export default function SessionManager(
                 self.startNewSession();
             } else {
                 // https://go.mparticle.com/work/SQDSDKS-6045
-                const persistence: IPersistenceMinified =
-                    mpInstance._Persistence.getPersistence();
-                if (persistence && !persistence.cu) {
-                    // https://go.mparticle.com/work/SQDSDKS-6323
+                // https://go.mparticle.com/work/SQDSDKS-6323
+                if (self.hasIdentityRequestChanged()) {
                     mpInstance.Identity.identify(
                         mpInstance._Store.SDKConfig.identifyRequest,
                         mpInstance._Store.SDKConfig.identityCallback
                     );
                     mpInstance._Store.identifyCalled = true;
                     mpInstance._Store.SDKConfig.identityCallback = null;
-                } else if (persistence && persistence.cu) {
-                    // Check if the identity request differs from current user identities
-                    if (self.hasIdentityRequestChanged()) {
-                        mpInstance.Identity.identify(
-                            mpInstance._Store.SDKConfig.identifyRequest,
-                            mpInstance._Store.SDKConfig.identityCallback
-                        );
-                        mpInstance._Store.identifyCalled = true;
-                        mpInstance._Store.SDKConfig.identityCallback = null;
-                    }
                 }
             }
         } else {
@@ -75,7 +63,7 @@ export default function SessionManager(
         }
     };
 
-    this.hasIdentityRequestChanged = function (): boolean {
+    this.hasIdentityRequestChanged = (): boolean => {
         const currentUser = mpInstance.Identity.getCurrentUser();
         if (!currentUser) {
             return false;
