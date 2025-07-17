@@ -1,6 +1,7 @@
 import Utils from './config/utils';
-const { waitForCondition, fetchMockSuccess } = Utils;
+const { waitForCondition, fetchMockSuccess, hasIdentifyReturned, hasIdentityCallInflightReturned } = Utils;
 import sinon from 'sinon';
+import fetchMock from 'fetch-mock/esm/client';
 import { expect } from 'chai';
 import {
     apiKey,
@@ -32,7 +33,7 @@ describe('SessionManager', () => {
 
     beforeEach(() => {
         sandbox = sinon.createSandbox();
-        clock = sinon.useFakeTimers(now.getTime());
+        fetchMock.post(urls.events, 200);
 
         fetchMockSuccess(urls.identify, {
             mpid: testMPID, is_logged_in: false
@@ -41,11 +42,21 @@ describe('SessionManager', () => {
 
     afterEach(function() {
         sandbox.restore();
-        clock.restore();
         mParticle._resetForTests(MPConfig);
+        fetchMock.restore();
     });
 
     describe('Unit Tests', () => {
+        beforeEach(() => {
+            clock = sinon.useFakeTimers(now.getTime());
+        });
+
+        afterEach(function() {
+            sandbox.restore();
+            clock.restore();
+            mParticle._resetForTests(MPConfig);
+        });
+
         describe('#initialize', () => {
             beforeEach(() => {
                 // Change timeout to 10 minutes so we can make sure defaults are not in use
@@ -842,14 +853,19 @@ describe('SessionManager', () => {
     });
 
     describe('Integration Tests', () => {
+        afterEach(function() {
+            fetchMock.restore();
+        });
+
         it('should end a session if the session timeout expires', () => {
             const generateUniqueIdSpy = sinon.stub(
                 mParticle.getInstance()._Helpers,
                 'generateUniqueId'
             );
             generateUniqueIdSpy.returns('test-unique-id');
-
+            
             const now = new Date();
+            clock = sinon.useFakeTimers(now.getTime());
 
             mParticle.init(apiKey, window.mParticle.config);
             const mpInstance = mParticle.getInstance();
@@ -880,6 +896,95 @@ describe('SessionManager', () => {
             // Persistence isn't necessary for this feature, but we should test
             // to see that it is called in case this ever needs to be refactored
             expect(persistenceSpy.called).to.equal(true);
+
+            clock.restore();
         });
+
+        it('should call identify when identity request differs from current user identities on page refresh', async () => {
+                // First initialization with initial identity request
+                const initialIdentityApiData: IdentityApiData = {
+                    userIdentities: {
+                        customerid: 'initial-customer-id',
+                        email: 'initial@email.com',
+                    },
+                };
+
+                window.mParticle.config.identifyRequest = initialIdentityApiData;
+
+                mParticle.init(apiKey, window.mParticle.config);
+                
+                // Wait for the first identify call to complete
+                await waitForCondition(hasIdentifyReturned);
+
+                fetchMockSuccess(urls.identify, {
+                    mpid: 'testMPID2',
+                    is_logged_in: false,
+                    matched_identities: {
+                        customerid: 'new-customer-id',
+                        email: 'new@email.com',
+                    },
+                });
+
+                // Set new identity request that differs from the stored user
+                const newIdentityApiData: IdentityApiData = {
+                    userIdentities: {
+                        customerid: 'new-customer-id',
+                        email: 'new@email.com',
+                    },
+                };
+
+                window.mParticle.config.identifyRequest = newIdentityApiData;
+                
+                // Second initialization (simulating page refresh) - keep persistence
+                // mParticle._resetForTests(MPConfig, true);
+                const identifySpy = sinon.spy(mParticle.getInstance().Identity, 'identify');
+
+                fetchMockSuccess(urls.identify, {
+                    mpid: 'testMPID2', is_logged_in: false,
+                });
+                mParticle.init(apiKey, window.mParticle.config);
+                
+                // Wait for the second identify call to complete
+                await waitForCondition(() => hasIdentifyReturned('testMPID2'));
+                
+                expect(identifySpy.called).to.equal(true);
+                expect(identifySpy.getCall(0).args[0]).to.eql(newIdentityApiData);
+            });
+
+            it('should NOT call identify when identity request matches current user identities on page refresh', async () => {
+                // First initialization with initial identity request
+                const initialIdentityApiData: IdentityApiData = {
+                    userIdentities: {
+                        customerid: 'initial-customer-id',
+                        email: 'initial@email.com',
+                    },
+                };
+
+                window.mParticle.config.identifyRequest = initialIdentityApiData;
+
+                mParticle.init(apiKey, window.mParticle.config);
+                
+                // Wait for the first identify call to complete
+                await waitForCondition(hasIdentifyReturned);
+
+                // Set the same data again in an initialization request
+                window.mParticle.config.identifyRequest = initialIdentityApiData;
+                
+                // Second initialization (simulating page refresh) - keep persistence
+                // mParticle._resetForTests(MPConfig, true);
+                const identifySpy = sinon.spy(mParticle.getInstance().Identity, 'identify');
+
+                fetchMockSuccess(urls.identify, {
+                    mpid: 'testMPID', is_logged_in: false,
+                });
+
+                mParticle.getInstance()._Store.identifyCalled = false;
+                mParticle.init(apiKey, window.mParticle.config);
+                
+                // Wait for the second identify call to complete
+                await waitForCondition(hasIdentityCallInflightReturned);
+                
+                expect(identifySpy.called).to.equal(false);
+            });
     });
 });

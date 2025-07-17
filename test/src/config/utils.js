@@ -631,8 +631,8 @@ var pluses = /\+/g,
             { overwriteRoutes: true }
         );
     },
-    hasIdentifyReturned = () => {
-        return window.mParticle.Identity.getCurrentUser()?.getMPID() === testMPID;
+    hasIdentifyReturned = (mpid = testMPID) => {
+        return window.mParticle.Identity.getCurrentUser()?.getMPID() === mpid;
     },
     hasIdentityCallInflightReturned = () => !mParticle.getInstance()?._Store?.identityCallInFlight,
     hasConfigurationReturned = () => !!mParticle.getInstance()?._Store?.configurationLoaded;

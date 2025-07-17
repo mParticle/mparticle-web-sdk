@@ -22,6 +22,8 @@ export interface ISessionManager {
      * @deprecated
      */
     getSession: () => string;
+
+    hasIdentityRequestChanged: () => boolean;
 }
 
 export default function SessionManager(
@@ -30,7 +32,7 @@ export default function SessionManager(
 ) {
     const self = this;
 
-    this.initialize = function(): void {
+    this.initialize = function (): void {
         if (mpInstance._Store.sessionId) {
             const sessionTimeoutInMilliseconds: number =
                 mpInstance._Store.SDKConfig.sessionTimeout * 60000;
@@ -46,7 +48,8 @@ export default function SessionManager(
                 self.startNewSession();
             } else {
                 // https://go.mparticle.com/work/SQDSDKS-6045
-                const persistence: IPersistenceMinified = mpInstance._Persistence.getPersistence();
+                const persistence: IPersistenceMinified =
+                    mpInstance._Persistence.getPersistence();
                 if (persistence && !persistence.cu) {
                     // https://go.mparticle.com/work/SQDSDKS-6323
                     mpInstance.Identity.identify(
@@ -55,6 +58,16 @@ export default function SessionManager(
                     );
                     mpInstance._Store.identifyCalled = true;
                     mpInstance._Store.SDKConfig.identityCallback = null;
+                } else if (persistence && persistence.cu) {
+                    // Check if the identity request differs from current user identities
+                    if (self.hasIdentityRequestChanged()) {
+                        mpInstance.Identity.identify(
+                            mpInstance._Store.SDKConfig.identifyRequest,
+                            mpInstance._Store.SDKConfig.identityCallback
+                        );
+                        mpInstance._Store.identifyCalled = true;
+                        mpInstance._Store.SDKConfig.identityCallback = null;
+                    }
                 }
             }
         } else {
@@ -62,7 +75,47 @@ export default function SessionManager(
         }
     };
 
-    this.getSession = function(): string {
+    this.hasIdentityRequestChanged = function (): boolean {
+        const currentUser = mpInstance.Identity.getCurrentUser();
+        if (!currentUser) {
+            return false;
+        }
+
+        const currentUserIdentities =
+            currentUser.getUserIdentities().userIdentities;
+        const newIdentityRequest = mpInstance._Store.SDKConfig.identifyRequest;
+
+        if (!newIdentityRequest || !newIdentityRequest.userIdentities) {
+            return false;
+        }
+
+        const newIdentities = newIdentityRequest.userIdentities;
+
+        // Compare current user identities with new identity request
+        for (const identityType in newIdentities) {
+            if (newIdentities.hasOwnProperty(identityType)) {
+                const currentValue = currentUserIdentities[identityType];
+                const newValue = newIdentities[identityType];
+
+                if (currentValue !== newValue) {
+                    return true;
+                }
+            }
+        }
+
+        // Check if any current identities are missing from the new request
+        for (const identityType in currentUserIdentities) {
+            if (currentUserIdentities.hasOwnProperty(identityType)) {
+                if (!newIdentities.hasOwnProperty(identityType)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    };
+
+    this.getSession = function (): string {
         mpInstance.Logger.warning(
             generateDeprecationMessage(
                 'SessionManager.getSession()',
@@ -73,11 +126,11 @@ export default function SessionManager(
         return this.getSessionId();
     };
 
-    this.getSessionId = function(): string {
+    this.getSessionId = function (): string {
         return mpInstance._Store.sessionId;
     };
 
-    this.startNewSession = function(): void {
+    this.startNewSession = function (): void {
         mpInstance.Logger.verbose(
             Messages.InformationMessages.StartingNewSession
         );
@@ -87,7 +140,8 @@ export default function SessionManager(
                 .generateUniqueId()
                 .toUpperCase();
 
-            const currentUser: IMParticleUser = mpInstance.Identity.getCurrentUser();
+            const currentUser: IMParticleUser =
+                mpInstance.Identity.getCurrentUser();
             const mpid: MPID = currentUser ? currentUser.getMPID() : null;
 
             if (mpid) {
@@ -121,7 +175,7 @@ export default function SessionManager(
         }
     };
 
-    this.endSession = function(override: boolean): void {
+    this.endSession = function (override: boolean): void {
         mpInstance.Logger.verbose(
             Messages.InformationMessages.StartingEndSession
         );
@@ -152,9 +206,10 @@ export default function SessionManager(
         let sessionTimeoutInMilliseconds: number;
         let timeSinceLastEventSent: number;
 
-        const cookies: IPersistenceMinified = mpInstance._Persistence.getPersistence();
+        const cookies: IPersistenceMinified =
+            mpInstance._Persistence.getPersistence();
 
-        if (!cookies || cookies.gs && !cookies.gs.sid) {
+        if (!cookies || (cookies.gs && !cookies.gs.sid)) {
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.NoSessionToEnd
             );
@@ -189,16 +244,16 @@ export default function SessionManager(
         mpInstance._timeOnSiteTimer?.resetTimer();
     };
 
-    this.setSessionTimer = function(): void {
+    this.setSessionTimer = function (): void {
         const sessionTimeoutInMilliseconds: number =
             mpInstance._Store.SDKConfig.sessionTimeout * 60000;
 
-        mpInstance._Store.globalTimer = window.setTimeout(function() {
+        mpInstance._Store.globalTimer = window.setTimeout(function () {
             self.endSession();
         }, sessionTimeoutInMilliseconds);
     };
 
-    this.resetSessionTimer = function(): void {
+    this.resetSessionTimer = function (): void {
         if (!mpInstance._Store.webviewBridgeEnabled) {
             if (!mpInstance._Store.sessionId) {
                 self.startNewSession();
@@ -209,7 +264,7 @@ export default function SessionManager(
         self.startNewSessionIfNeeded();
     };
 
-    this.clearSessionTimeout = function(): void {
+    this.clearSessionTimeout = function (): void {
         clearTimeout(mpInstance._Store.globalTimer);
     };
 

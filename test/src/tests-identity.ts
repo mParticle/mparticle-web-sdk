@@ -1951,7 +1951,7 @@ describe('identity', function() {
         products2.testMPID.cp[0].should.have.property('Quantity', 2);
     });
 
-    it('should maintain cookie structure when initializing multiple identity requests, and reinitializing with a previous one will keep the last MPID ', async () => {
+    it('should maintain cookie structure when initializing multiple identity requests, and reinitializing with a previous identity within the same session will return the correct mpid ', async () => {
         mParticle._resetForTests(MPConfig);
 
         const user1 = {
@@ -2017,7 +2017,6 @@ describe('identity', function() {
             is_logged_in: true,
         });
 
-
         mParticle.Identity.login(user4);
 
         await waitForCondition(hasIdentityCallInflightReturned)
@@ -2035,12 +2034,12 @@ describe('identity', function() {
         await waitForCondition(hasIdentityCallInflightReturned)
 
         const user5 = mParticle.Identity.getCurrentUser();
-        user5.getUserIdentities().userIdentities.customerid.should.equal('4');
-        user5.getMPID().should.equal('mpid4');
+        user5.getUserIdentities().userIdentities.customerid.should.equal('1');
+        user5.getMPID().should.equal('testMPID');
 
         const data = mParticle.getInstance()._Persistence.getLocalStorage();
 
-        data.cu.should.equal('mpid4');
+        data.cu.should.equal('testMPID');
         data.testMPID.ui[1].should.equal('1');
         data.mpid2.ui[1].should.equal('2');
         data.mpid3.ui[1].should.equal('3');
