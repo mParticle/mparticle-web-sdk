@@ -850,6 +850,154 @@ describe('SessionManager', () => {
                 expect(startNewSessionSpy.called).to.equal(false);
             });
         });
+
+        describe('#hasIdentityRequestChanged', () => {
+            it('should return true when identifyRequest differs from current user identities', () => {
+                mParticle.init(apiKey, window.mParticle.config);
+                const mpInstance = mParticle.getInstance();
+
+                // Mock current user with specific identities
+                const mockCurrentUser = {
+                    getMPID: () => 'test-mpid',
+                    getUserIdentities: () => ({
+                        userIdentities: {
+                            customerid: 'current-customer-id',
+                            email: 'current@email.com',
+                        },
+                    }),
+                    getAllUserAttributes: () => ({}),
+                    setUserTag: () => {},
+                    setUserAttribute: () => {},
+                    getCart: () => ({}),
+                } as any;
+
+                mpInstance.Identity.getCurrentUser = () => mockCurrentUser;
+
+                // Set different identifyRequest
+                mpInstance._Store.SDKConfig.identifyRequest = {
+                    userIdentities: {
+                        customerid: 'different-customer-id',
+                        email: 'different@email.com',
+                    },
+                };
+
+                const result = mpInstance._SessionManager.hasIdentityRequestChanged();
+                expect(result).to.equal(true);
+            });
+
+            it('should return false when identifyRequest matches current user identities', () => {
+                mParticle.init(apiKey, window.mParticle.config);
+                const mpInstance = mParticle.getInstance();
+
+                // Mock current user with specific identities
+                const mockCurrentUser = {
+                    getMPID: () => 'test-mpid',
+                    getUserIdentities: () => ({
+                        userIdentities: {
+                            customerid: 'same-customer-id',
+                            email: 'same@email.com',
+                        },
+                    }),
+                    getAllUserAttributes: () => ({}),
+                    setUserTag: () => {},
+                    setUserAttribute: () => {},
+                    getCart: () => ({}),
+                } as any;
+
+                mpInstance.Identity.getCurrentUser = () => mockCurrentUser;
+
+                // Set same identifyRequest
+                mpInstance._Store.SDKConfig.identifyRequest = {
+                    userIdentities: {
+                        customerid: 'same-customer-id',
+                        email: 'same@email.com',
+                    },
+                };
+
+                const result = mpInstance._SessionManager.hasIdentityRequestChanged();
+                expect(result).to.equal(false);
+            });
+
+            it('should return false when no current user exists', () => {
+                mParticle.init(apiKey, window.mParticle.config);
+                const mpInstance = mParticle.getInstance();
+
+                // Mock no current user
+                mpInstance.Identity.getCurrentUser = () => null;
+
+                // Set identifyRequest
+                mpInstance._Store.SDKConfig.identifyRequest = {
+                    userIdentities: {
+                        customerid: 'some-customer-id',
+                    },
+                };
+
+                const result = mpInstance._SessionManager.hasIdentityRequestChanged();
+                expect(result).to.equal(false);
+            });
+
+            it('should return false when no identifyRequest exists', () => {
+                mParticle.init(apiKey, window.mParticle.config);
+                const mpInstance = mParticle.getInstance();
+
+                // Mock current user
+                const mockCurrentUser = {
+                    getMPID: () => 'test-mpid',
+                    getUserIdentities: () => ({
+                        userIdentities: {
+                            customerid: 'current-customer-id',
+                        },
+                    }),
+                    getAllUserAttributes: () => ({}),
+                    setUserTag: () => {},
+                    setUserAttribute: () => {},
+                    getCart: () => ({}),
+                } as any;
+
+                mpInstance.Identity.getCurrentUser = () => mockCurrentUser;
+
+                // No identifyRequest
+                mpInstance._Store.SDKConfig.identifyRequest = null;
+
+                const result = mpInstance._SessionManager.hasIdentityRequestChanged();
+                expect(result).to.equal(false);
+            });
+
+            it('should handle partial identity differences correctly', () => {
+                mParticle.init(apiKey, window.mParticle.config);
+                const mpInstance = mParticle.getInstance();
+
+                // Mock current user with multiple identities
+                const mockCurrentUser = {
+                    getMPID: () => 'test-mpid',
+                    getUserIdentities: () => ({
+                        userIdentities: {
+                            customerid: 'same-customer-id',
+                            email: 'current@email.com',
+                            other: 'same-value',
+                        },
+                    }),
+                    getAllUserAttributes: () => ({}),
+                    setUserTag: () => {},
+                    setUserAttribute: () => {},
+                    getCart: () => ({}),
+                } as any;
+
+                mpInstance.Identity.getCurrentUser = () => mockCurrentUser;
+
+                // Set identifyRequest with different email but same customerid
+                mpInstance._Store.SDKConfig.identifyRequest = {
+                    userIdentities: {
+                        customerid: 'same-customer-id',
+                        email: 'different@email.com',
+                        other: 'same-value',
+                    },
+                };
+
+                const result = mpInstance._SessionManager.hasIdentityRequestChanged();
+                expect(result).to.equal(true);
+            });
+        });
     });
 
     describe('Integration Tests', () => {
