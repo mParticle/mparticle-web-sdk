@@ -555,30 +555,14 @@ describe('identity-utils', () => {
                     email: 'different@email.com',
                 };
 
-                // Create a mock mpInstance
-                const mockMPInstance = {
-                    Identity: {
-                        getCurrentUser: () => ({
-                            getMPID: () => 'test-mpid',
-                            getUserIdentities: () => ({
-                                userIdentities: userIdentities,
-                            }),
-                            getAllUserAttributes: () => ({}),
-                            setUserTag: () => {},
-                            setUserAttribute: () => {},
-                            getCart: () => ({}),
-                        }),
-                    },
-                    _Store: {
-                        SDKConfig: {
-                            identifyRequest: {
-                                userIdentities: newIdentities,
-                            },
-                        },
-                    },
+                // Create a mock current user
+                const mockCurrentUser = {
+                    getUserIdentities: () => ({
+                        userIdentities: userIdentities,
+                    }),
                 } as any;
 
-                const result = hasIdentityRequestChanged(mockMPInstance);
+                const result = hasIdentityRequestChanged(mockCurrentUser, { userIdentities: newIdentities });
                 expect(result).to.equal(true);
             });
 
@@ -588,79 +572,35 @@ describe('identity-utils', () => {
                     email: 'same@email.com',
                 };
 
-                // Create a mock mpInstance
-                const mockMPInstance = {
-                    Identity: {
-                        getCurrentUser: () => ({
-                            getMPID: () => 'test-mpid',
-                            getUserIdentities: () => ({
-                                userIdentities: userIdentities,
-                            }),
-                            getAllUserAttributes: () => ({}),
-                            setUserTag: () => {},
-                            setUserAttribute: () => {},
-                            getCart: () => ({}),
-                        }),
-                    },
-                    _Store: {
-                        SDKConfig: {
-                            identifyRequest: {
-                                userIdentities: userIdentities,
-                            },
-                        },
-                    },
+                // Create a mock current user
+                const mockCurrentUser = {
+                    getUserIdentities: () => ({
+                        userIdentities: userIdentities,
+                    }),
                 } as any;
 
-                const result = hasIdentityRequestChanged(mockMPInstance);
+                const result = hasIdentityRequestChanged(mockCurrentUser, { userIdentities: userIdentities });
                 expect(result).to.equal(false);
             });
 
             it('returns false when getCurrentUser() is null', () => {
-                // Create a mock mpInstance with no current user
-                const mockMPInstance = {
-                    Identity: {
-                        getCurrentUser: () => null,
-                    },
-                    _Store: {
-                        SDKConfig: {
-                            identifyRequest: {
-                                userIdentities: {
-                                    customerid: 'some-customer-id',
-                                },
-                            },
-                        },
-                    },
-                } as any;
-
-                const result = hasIdentityRequestChanged(mockMPInstance);
+                const result = hasIdentityRequestChanged(null, { 
+                    userIdentities: { customerid: 'some-customer-id' } 
+                });
                 expect(result).to.equal(false);
             });
 
-            it('returns false when  SDKConfig.identifyRequest is null', () => {
-                // Create a mock mpInstance with current user but no identifyRequest
-                const mockMPInstance = {
-                    Identity: {
-                        getCurrentUser: () => ({
-                            getMPID: () => 'test-mpid',
-                            getUserIdentities: () => ({
-                                userIdentities: {
-                                    customerid: 'current-customer-id',
-                                },
-                            }),
-                            getAllUserAttributes: () => ({}),
-                            setUserTag: () => {},
-                            setUserAttribute: () => {},
-                            getCart: () => ({}),
-                        }),
-                    },
-                    _Store: {
-                        SDKConfig: {
-                            identifyRequest: null,
+            it('returns false when SDKConfig.identifyRequest is null', () => {
+                // Create a mock current user
+                const mockCurrentUser = {
+                    getUserIdentities: () => ({
+                        userIdentities: {
+                            customerid: 'current-customer-id',
                         },
-                    },
+                    }),
                 } as any;
 
-                const result = hasIdentityRequestChanged(mockMPInstance);
+                const result = hasIdentityRequestChanged(mockCurrentUser, null);
                 expect(result).to.equal(false);
             });
         });

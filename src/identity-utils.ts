@@ -7,10 +7,11 @@ import {
     UserIdentities,
     IdentityCallback,
 } from '@mparticle/web-sdk';
-import { IdentityAPIMethod } from './identity.interfaces';
+import { IdentityAPIMethod, IIdentityRequest } from './identity.interfaces';
 import {
     IdentityResultBody,
     IIdentityResponse,
+    IMParticleUser,
 } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 
@@ -282,17 +283,10 @@ const parseIdentityResponse = (responseText: string): IdentityResultBody =>
     responseText ? JSON.parse(responseText) : ({} as IdentityResultBody);
 
 export const hasIdentityRequestChanged = (
-    mpInstance: IMParticleWebSDKInstance
+    currentUser: IMParticleUser,
+    newIdentityRequest: IdentityApiData
 ): boolean => {
-    const currentUser = mpInstance.Identity.getCurrentUser();
-
-    const newIdentityRequest = mpInstance._Store.SDKConfig.identifyRequest;
-
-    if (
-        !currentUser ||
-        !newIdentityRequest ||
-        !newIdentityRequest.userIdentities
-    ) {
+    if (!currentUser || !newIdentityRequest?.userIdentities) {
         return false;
     }
 

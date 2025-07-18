@@ -48,7 +48,13 @@ export default function SessionManager(
             } else {
                 // https://go.mparticle.com/work/SQDSDKS-6045
                 // https://go.mparticle.com/work/SQDSDKS-6323
-                if (hasIdentityRequestChanged(mpInstance)) {
+                const currentUser = mpInstance.Identity.getCurrentUser();
+                const sdkIdentityRequest =
+                    mpInstance._Store.SDKConfig.identifyRequest;
+
+                if (
+                    hasIdentityRequestChanged(currentUser, sdkIdentityRequest)
+                ) {
                     mpInstance.Identity.identify(
                         mpInstance._Store.SDKConfig.identifyRequest,
                         mpInstance._Store.SDKConfig.identityCallback
