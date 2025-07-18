@@ -13,7 +13,6 @@ import {
     IIdentityResponse,
     IMParticleUser,
 } from './identity-user-interfaces';
-import { IMParticleWebSDKInstance } from './mp-instance';
 
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 export const CACHE_HEADER = 'x-mp-max-age' as const;
