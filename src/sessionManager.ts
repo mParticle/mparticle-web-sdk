@@ -5,6 +5,7 @@ import Types from './types';
 import { generateDeprecationMessage } from './utils';
 import { IMParticleUser } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
+import { hasIdentityRequestChanged } from './identity-utils';
 
 const { Messages } = Constants;
 
@@ -22,8 +23,6 @@ export interface ISessionManager {
      * @deprecated
      */
     getSession: () => string;
-
-    hasIdentityRequestChanged: () => boolean;
 }
 
 export default function SessionManager(
@@ -49,7 +48,7 @@ export default function SessionManager(
             } else {
                 // https://go.mparticle.com/work/SQDSDKS-6045
                 // https://go.mparticle.com/work/SQDSDKS-6323
-                if (self.hasIdentityRequestChanged()) {
+                if (hasIdentityRequestChanged(mpInstance)) {
                     mpInstance.Identity.identify(
                         mpInstance._Store.SDKConfig.identifyRequest,
                         mpInstance._Store.SDKConfig.identityCallback
@@ -61,46 +60,6 @@ export default function SessionManager(
         } else {
             self.startNewSession();
         }
-    };
-
-    this.hasIdentityRequestChanged = (): boolean => {
-        const currentUser = mpInstance.Identity.getCurrentUser();
-        if (!currentUser) {
-            return false;
-        }
-
-        const currentUserIdentities =
-            currentUser.getUserIdentities().userIdentities;
-        const newIdentityRequest = mpInstance._Store.SDKConfig.identifyRequest;
-
-        if (!newIdentityRequest || !newIdentityRequest.userIdentities) {
-            return false;
-        }
-
-        const newIdentities = newIdentityRequest.userIdentities;
-
-        // Compare current user identities with new identity request
-        for (const identityType in newIdentities) {
-            if (newIdentities.hasOwnProperty(identityType)) {
-                const currentValue = currentUserIdentities[identityType];
-                const newValue = newIdentities[identityType];
-
-                if (currentValue !== newValue) {
-                    return true;
-                }
-            }
-        }
-
-        // Check if any current identities are missing from the new request
-        for (const identityType in currentUserIdentities) {
-            if (currentUserIdentities.hasOwnProperty(identityType)) {
-                if (!newIdentities.hasOwnProperty(identityType)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     };
 
     this.getSession = function (): string {

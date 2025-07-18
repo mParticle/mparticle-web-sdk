@@ -1951,7 +1951,7 @@ describe('identity', function() {
         products2.testMPID.cp[0].should.have.property('Quantity', 2);
     });
 
-    it('should maintain cookie structure when initializing multiple identity requests, and reinitializing with a previous identity within the same session will return the correct mpid ', async () => {
+    it('should add new MPIDs to cookie structure when initializing new identity requests, returning an existing mpid when reinitializing with a previous identity', async () => {
         mParticle._resetForTests(MPConfig);
 
         const user1 = {

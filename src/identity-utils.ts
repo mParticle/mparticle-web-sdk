@@ -12,6 +12,7 @@ import {
     IdentityResultBody,
     IIdentityResponse,
 } from './identity-user-interfaces';
+import { IMParticleWebSDKInstance } from './mp-instance';
 
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 export const CACHE_HEADER = 'x-mp-max-age' as const;
@@ -279,3 +280,28 @@ const getExpireTimestamp = (maxAge: number = ONE_DAY_IN_SECONDS): number =>
 
 const parseIdentityResponse = (responseText: string): IdentityResultBody =>
     responseText ? JSON.parse(responseText) : ({} as IdentityResultBody);
+
+export const hasIdentityRequestChanged = (
+    mpInstance: IMParticleWebSDKInstance
+): boolean => {
+    const currentUser = mpInstance.Identity.getCurrentUser();
+
+    const newIdentityRequest = mpInstance._Store.SDKConfig.identifyRequest;
+
+    if (
+        !currentUser ||
+        !newIdentityRequest ||
+        !newIdentityRequest.userIdentities
+    ) {
+        return false;
+    }
+
+    const currentUserIdentities =
+        currentUser.getUserIdentities().userIdentities;
+
+    const newIdentities = newIdentityRequest.userIdentities;
+
+    return (
+        JSON.stringify(currentUserIdentities) !== JSON.stringify(newIdentities)
+    );
+};
