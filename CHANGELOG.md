@@ -1,3 +1,10 @@
+## [2.43.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.43.0...v2.43.1) (2025-07-21)
+
+
+### Bug Fixes
+
+* fire identify call if config identities differ from current user ([#1046](https://github.com/mParticle/mparticle-web-sdk/issues/1046)) ([d424ef6](https://github.com/mParticle/mparticle-web-sdk/commit/d424ef644180d922377f718d02e5e903d41cee41))
+
 # [2.43.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.42.0...v2.43.0) (2025-06-10)
 
 
