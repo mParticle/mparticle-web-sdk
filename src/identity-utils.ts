@@ -7,10 +7,11 @@ import {
     UserIdentities,
     IdentityCallback,
 } from '@mparticle/web-sdk';
-import { IdentityAPIMethod } from './identity.interfaces';
+import { IdentityAPIMethod, IIdentityRequest } from './identity.interfaces';
 import {
     IdentityResultBody,
     IIdentityResponse,
+    IMParticleUser,
 } from './identity-user-interfaces';
 
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
@@ -279,3 +280,21 @@ const getExpireTimestamp = (maxAge: number = ONE_DAY_IN_SECONDS): number =>
 
 const parseIdentityResponse = (responseText: string): IdentityResultBody =>
     responseText ? JSON.parse(responseText) : ({} as IdentityResultBody);
+
+export const hasIdentityRequestChanged = (
+    currentUser: IMParticleUser,
+    newIdentityRequest: IdentityApiData
+): boolean => {
+    if (!currentUser || !newIdentityRequest?.userIdentities) {
+        return false;
+    }
+
+    const currentUserIdentities =
+        currentUser.getUserIdentities().userIdentities;
+
+    const newIdentities = newIdentityRequest.userIdentities;
+
+    return (
+        JSON.stringify(currentUserIdentities) !== JSON.stringify(newIdentities)
+    );
+};

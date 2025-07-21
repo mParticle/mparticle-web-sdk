@@ -8,6 +8,7 @@ import {
     tryCacheIdentity,
     IKnownIdentities,
     ICachedIdentityCall,
+    hasIdentityRequestChanged,
 } from "../../src/identity-utils";
 import { LocalStorageVault } from "../../src/vault";
 import { Dictionary, generateHash } from "../../src/utils";
@@ -540,6 +541,68 @@ describe('identity-utils', () => {
             // callback does not get called in the above method
             expect(callback.called).to.equal(false);
             clock.restore();
+        });
+
+        describe('#hasIdentityRequestChanged', () => {
+            it('returns true when SDKConfig.identifyRequest differs from getCurrentUser().userIdentities', () => {
+                const userIdentities = {
+                    customerid: 'current-customer-id',
+                    email: 'current@email.com',
+                };
+
+                const newIdentities = {
+                    customerid: 'different-customer-id',
+                    email: 'different@email.com',
+                };
+
+                // Create a mock current user
+                const mockCurrentUser = {
+                    getUserIdentities: () => ({
+                        userIdentities: userIdentities,
+                    }),
+                } as any;
+
+                const result = hasIdentityRequestChanged(mockCurrentUser, { userIdentities: newIdentities });
+                expect(result).to.equal(true);
+            });
+
+            it('returns false when SDKConfig.identifyRequest matches getCurrentUser().userIdentities', () => {
+                const userIdentities = {
+                    customerid: 'same-customer-id',
+                    email: 'same@email.com',
+                };
+
+                // Create a mock current user
+                const mockCurrentUser = {
+                    getUserIdentities: () => ({
+                        userIdentities: userIdentities,
+                    }),
+                } as any;
+
+                const result = hasIdentityRequestChanged(mockCurrentUser, { userIdentities: userIdentities });
+                expect(result).to.equal(false);
+            });
+
+            it('returns false when getCurrentUser() is null', () => {
+                const result = hasIdentityRequestChanged(null, { 
+                    userIdentities: { customerid: 'some-customer-id' } 
+                });
+                expect(result).to.equal(false);
+            });
+
+            it('returns false when SDKConfig.identifyRequest is null', () => {
+                // Create a mock current user
+                const mockCurrentUser = {
+                    getUserIdentities: () => ({
+                        userIdentities: {
+                            customerid: 'current-customer-id',
+                        },
+                    }),
+                } as any;
+
+                const result = hasIdentityRequestChanged(mockCurrentUser, null);
+                expect(result).to.equal(false);
+            });
         });
     });
 });
