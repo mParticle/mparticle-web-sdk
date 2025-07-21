@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.43.0";
+    var version = "2.43.1";
 
     var Constants = {
       sdkVersion: version,
@@ -2844,6 +2844,25 @@ var mParticle = (function () {
       isValidKeyValue: function isValidKeyValue(key) {
         return Boolean(key && !isObject(key) && !Array.isArray(key) && !this.isFunction(key));
       },
+      removeFalsyIdentityValues: function removeFalsyIdentityValues(identityApiData, logger) {
+        if (!identityApiData || !identityApiData.userIdentities) {
+          return identityApiData;
+        }
+        var cleanedData = {};
+        var cleanedUserIdentities = __assign({}, identityApiData.userIdentities);
+        for (var identityType in identityApiData.userIdentities) {
+          if (identityApiData.userIdentities.hasOwnProperty(identityType)) {
+            var value = identityApiData.userIdentities[identityType];
+            // Check if value is falsy (undefined, false, 0, '', etc.) but not null
+            if (value !== null && !value) {
+              logger.warning("Identity value for '".concat(identityType, "' is falsy (").concat(value, "). This value will be removed from the request."));
+              delete cleanedUserIdentities[identityType];
+            }
+          }
+        }
+        cleanedData.userIdentities = cleanedUserIdentities;
+        return cleanedData;
+      },
       validateIdentities: function validateIdentities(identityApiData, method) {
         var validIdentityRequestKeys = {
           userIdentities: 1,
@@ -3473,6 +3492,164 @@ var mParticle = (function () {
       return new Date().getTime() > new Date(lastSyncDate).getTime() + frequencyCap * DAYS_IN_MILLISECONDS;
     };
 
+    var _a = Constants.IdentityMethods,
+      Identify$2 = _a.Identify,
+      Modify$3 = _a.Modify,
+      Login$2 = _a.Login,
+      Logout$2 = _a.Logout;
+    var CACHE_HEADER = 'x-mp-max-age';
+    var cacheOrClearIdCache = function cacheOrClearIdCache(method, knownIdentities, idCache, identityResponse, parsingCachedResponse) {
+      // when parsing a response that has already been cached, simply return instead of attempting another cache
+      if (parsingCachedResponse) {
+        return;
+      }
+      // default the expire timestamp to one day in milliseconds unless a header comes back
+      var expireTimestamp = getExpireTimestamp(identityResponse === null || identityResponse === void 0 ? void 0 : identityResponse.cacheMaxAge);
+      switch (method) {
+        case Login$2:
+        case Identify$2:
+          cacheIdentityRequest(method, knownIdentities, expireTimestamp, idCache, identityResponse);
+          break;
+        case Modify$3:
+        case Logout$2:
+          idCache.purge();
+          break;
+      }
+    };
+    var cacheIdentityRequest = function cacheIdentityRequest(method, identities, expireTimestamp, idCache, identityResponse) {
+      var responseText = identityResponse.responseText,
+        status = identityResponse.status;
+      var cache = idCache.retrieve() || {};
+      var cacheKey = concatenateIdentities(method, identities);
+      var hashedKey = generateHash(cacheKey);
+      var mpid = responseText.mpid,
+        is_logged_in = responseText.is_logged_in;
+      var cachedResponseBody = {
+        mpid: mpid,
+        is_logged_in: is_logged_in
+      };
+      cache[hashedKey] = {
+        responseText: JSON.stringify(cachedResponseBody),
+        status: status,
+        expireTimestamp: expireTimestamp
+      };
+      idCache.store(cache);
+    };
+    // We need to ensure that identities are concatenated in a deterministic way, so
+    // we sort the identities based on their enum.
+    // we create an array, set the user identity at the index of the user identity type
+    var concatenateIdentities = function concatenateIdentities(method, userIdentities) {
+      var DEVICE_APPLICATION_STAMP = 'device_application_stamp';
+      // set DAS first since it is not an official identity type
+      var cacheKey = "".concat(method, ":").concat(DEVICE_APPLICATION_STAMP, "=").concat(userIdentities.device_application_stamp, ";");
+      var idLength = Object.keys(userIdentities).length;
+      var concatenatedIdentities = '';
+      if (idLength) {
+        var userIDArray = new Array();
+        // create an array where each index is equal to the user identity type
+        for (var key in userIdentities) {
+          if (key === DEVICE_APPLICATION_STAMP) {
+            continue;
+          } else {
+            userIDArray[Types.IdentityType.getIdentityType(key)] = userIdentities[key];
+          }
+        }
+        concatenatedIdentities = userIDArray.reduce(function (prevValue, currentValue, index) {
+          var idName = Types.IdentityType.getIdentityName(index);
+          return "".concat(prevValue).concat(idName, "=").concat(currentValue, ";");
+        }, cacheKey);
+      }
+      return concatenatedIdentities;
+    };
+    var hasValidCachedIdentity = function hasValidCachedIdentity(method, proposedUserIdentities, idCache) {
+      // There is an edge case where multiple identity calls are taking place
+      // before identify fires, so there may not be a cache.  See what happens when
+      // the ? in idCache is removed to the following test
+      // "queued events contain login mpid instead of identify mpid when calling
+      // login immediately after mParticle initializes"
+      var cache = idCache === null || idCache === void 0 ? void 0 : idCache.retrieve();
+      // if there is no cache, then there is no valid cached identity
+      if (!cache) {
+        return false;
+      }
+      var cacheKey = concatenateIdentities(method, proposedUserIdentities);
+      var hashedKey = generateHash(cacheKey);
+      // if cache doesn't have the cacheKey, there is no valid cached identity
+      if (!cache.hasOwnProperty(hashedKey)) {
+        return false;
+      }
+      // If there is a valid cache key, compare the expireTimestamp to the current time.
+      // If the current time is greater than the expireTimestamp, it is not a valid
+      // cached identity.
+      var expireTimestamp = cache[hashedKey].expireTimestamp;
+      if (expireTimestamp < new Date().getTime()) {
+        return false;
+      } else {
+        return true;
+      }
+    };
+    var getCachedIdentity = function getCachedIdentity(method, proposedUserIdentities, idCache) {
+      var cacheKey = concatenateIdentities(method, proposedUserIdentities);
+      var hashedKey = generateHash(cacheKey);
+      var cache = idCache.retrieve();
+      var cachedIdentity = cache ? cache[hashedKey] : null;
+      return {
+        responseText: parseIdentityResponse(cachedIdentity.responseText),
+        expireTimestamp: cachedIdentity.expireTimestamp,
+        status: cachedIdentity.status
+      };
+    };
+    // https://go.mparticle.com/work/SQDSDKS-6079
+    var createKnownIdentities = function createKnownIdentities(identityApiData, deviceId) {
+      var identitiesResult = {};
+      if (isObject(identityApiData === null || identityApiData === void 0 ? void 0 : identityApiData.userIdentities)) {
+        for (var identity in identityApiData.userIdentities) {
+          identitiesResult[identity] = identityApiData.userIdentities[identity];
+        }
+      }
+      identitiesResult.device_application_stamp = deviceId;
+      return identitiesResult;
+    };
+    var removeExpiredIdentityCacheDates = function removeExpiredIdentityCacheDates(idCache) {
+      var cache = idCache.retrieve() || {};
+      var currentTime = new Date().getTime();
+      // Iterate over the cache and remove any key/value pairs that are expired
+      for (var key in cache) {
+        if (cache[key].expireTimestamp < currentTime) {
+          delete cache[key];
+        }
+      }
+      idCache.store(cache);
+    };
+    var tryCacheIdentity = function tryCacheIdentity(knownIdentities, idCache, parseIdentityResponse, mpid, callback, identityApiData, identityMethod) {
+      // https://go.mparticle.com/work/SQDSDKS-6095
+      var shouldReturnCachedIdentity = hasValidCachedIdentity(identityMethod, knownIdentities, idCache);
+      // If Identity is cached, then immediately parse the identity response
+      if (shouldReturnCachedIdentity) {
+        var cachedIdentity = getCachedIdentity(identityMethod, knownIdentities, idCache);
+        parseIdentityResponse(cachedIdentity, mpid, callback, identityApiData, identityMethod, knownIdentities, true);
+        return true;
+      }
+      return false;
+    };
+    var getExpireTimestamp = function getExpireTimestamp(maxAge) {
+      if (maxAge === void 0) {
+        maxAge = ONE_DAY_IN_SECONDS;
+      }
+      return new Date().getTime() + maxAge * MILLIS_IN_ONE_SEC;
+    };
+    var parseIdentityResponse = function parseIdentityResponse(responseText) {
+      return responseText ? JSON.parse(responseText) : {};
+    };
+    var hasIdentityRequestChanged = function hasIdentityRequestChanged(currentUser, newIdentityRequest) {
+      if (!currentUser || !(newIdentityRequest === null || newIdentityRequest === void 0 ? void 0 : newIdentityRequest.userIdentities)) {
+        return false;
+      }
+      var currentUserIdentities = currentUser.getUserIdentities().userIdentities;
+      var newIdentities = newIdentityRequest.userIdentities;
+      return JSON.stringify(currentUserIdentities) !== JSON.stringify(newIdentities);
+    };
+
     var Messages$6 = Constants.Messages;
     function SessionManager(mpInstance) {
       var self = this;
@@ -3484,9 +3661,10 @@ var mParticle = (function () {
             self.startNewSession();
           } else {
             // https://go.mparticle.com/work/SQDSDKS-6045
-            var persistence = mpInstance._Persistence.getPersistence();
-            if (persistence && !persistence.cu) {
-              // https://go.mparticle.com/work/SQDSDKS-6323
+            // https://go.mparticle.com/work/SQDSDKS-6323
+            var currentUser = mpInstance.Identity.getCurrentUser();
+            var sdkIdentityRequest = mpInstance._Store.SDKConfig.identifyRequest;
+            if (hasIdentityRequestChanged(currentUser, sdkIdentityRequest)) {
               mpInstance.Identity.identify(mpInstance._Store.SDKConfig.identifyRequest, mpInstance._Store.SDKConfig.identityCallback);
               mpInstance._Store.identifyCalled = true;
               mpInstance._Store.SDKConfig.identityCallback = null;
@@ -6158,10 +6336,10 @@ var mParticle = (function () {
     }
 
     var _Constants$IdentityMe = Constants.IdentityMethods,
-      Modify$3 = _Constants$IdentityMe.Modify,
-      Identify$2 = _Constants$IdentityMe.Identify,
-      Login$2 = _Constants$IdentityMe.Login,
-      Logout$2 = _Constants$IdentityMe.Logout;
+      Modify$2 = _Constants$IdentityMe.Modify,
+      Identify$1 = _Constants$IdentityMe.Identify,
+      Login$1 = _Constants$IdentityMe.Login,
+      Logout$1 = _Constants$IdentityMe.Logout;
     function Forwarders(mpInstance, kitBlocker) {
       var _this = this;
       var self = this;
@@ -6425,28 +6603,28 @@ var mParticle = (function () {
         mpInstance._Store.activeForwarders.forEach(function (forwarder) {
           var filteredUser = filteredMparticleUser(user.getMPID(), forwarder, mpInstance, kitBlocker);
           var filteredUserIdentities = filteredUser.getUserIdentities();
-          if (identityMethod === Identify$2) {
+          if (identityMethod === Identify$1) {
             if (forwarder.onIdentifyComplete) {
               result = forwarder.onIdentifyComplete(filteredUser, filteredUserIdentities);
               if (result) {
                 mpInstance.Logger.verbose(result);
               }
             }
-          } else if (identityMethod === Login$2) {
+          } else if (identityMethod === Login$1) {
             if (forwarder.onLoginComplete) {
               result = forwarder.onLoginComplete(filteredUser, filteredUserIdentities);
               if (result) {
                 mpInstance.Logger.verbose(result);
               }
             }
-          } else if (identityMethod === Logout$2) {
+          } else if (identityMethod === Logout$1) {
             if (forwarder.onLogoutComplete) {
               result = forwarder.onLogoutComplete(filteredUser, filteredUserIdentities);
               if (result) {
                 mpInstance.Logger.verbose(result);
               }
             }
-          } else if (identityMethod === Modify$3) {
+          } else if (identityMethod === Modify$2) {
             if (forwarder.onModifyComplete) {
               result = forwarder.onModifyComplete(filteredUser, filteredUserIdentities);
               if (result) {
@@ -6999,156 +7177,6 @@ var mParticle = (function () {
       }
     }
 
-    var _a = Constants.IdentityMethods,
-      Identify$1 = _a.Identify,
-      Modify$2 = _a.Modify,
-      Login$1 = _a.Login,
-      Logout$1 = _a.Logout;
-    var CACHE_HEADER = 'x-mp-max-age';
-    var cacheOrClearIdCache = function cacheOrClearIdCache(method, knownIdentities, idCache, identityResponse, parsingCachedResponse) {
-      // when parsing a response that has already been cached, simply return instead of attempting another cache
-      if (parsingCachedResponse) {
-        return;
-      }
-      // default the expire timestamp to one day in milliseconds unless a header comes back
-      var expireTimestamp = getExpireTimestamp(identityResponse === null || identityResponse === void 0 ? void 0 : identityResponse.cacheMaxAge);
-      switch (method) {
-        case Login$1:
-        case Identify$1:
-          cacheIdentityRequest(method, knownIdentities, expireTimestamp, idCache, identityResponse);
-          break;
-        case Modify$2:
-        case Logout$1:
-          idCache.purge();
-          break;
-      }
-    };
-    var cacheIdentityRequest = function cacheIdentityRequest(method, identities, expireTimestamp, idCache, identityResponse) {
-      var responseText = identityResponse.responseText,
-        status = identityResponse.status;
-      var cache = idCache.retrieve() || {};
-      var cacheKey = concatenateIdentities(method, identities);
-      var hashedKey = generateHash(cacheKey);
-      var mpid = responseText.mpid,
-        is_logged_in = responseText.is_logged_in;
-      var cachedResponseBody = {
-        mpid: mpid,
-        is_logged_in: is_logged_in
-      };
-      cache[hashedKey] = {
-        responseText: JSON.stringify(cachedResponseBody),
-        status: status,
-        expireTimestamp: expireTimestamp
-      };
-      idCache.store(cache);
-    };
-    // We need to ensure that identities are concatenated in a deterministic way, so
-    // we sort the identities based on their enum.
-    // we create an array, set the user identity at the index of the user identity type
-    var concatenateIdentities = function concatenateIdentities(method, userIdentities) {
-      var DEVICE_APPLICATION_STAMP = 'device_application_stamp';
-      // set DAS first since it is not an official identity type
-      var cacheKey = "".concat(method, ":").concat(DEVICE_APPLICATION_STAMP, "=").concat(userIdentities.device_application_stamp, ";");
-      var idLength = Object.keys(userIdentities).length;
-      var concatenatedIdentities = '';
-      if (idLength) {
-        var userIDArray = new Array();
-        // create an array where each index is equal to the user identity type
-        for (var key in userIdentities) {
-          if (key === DEVICE_APPLICATION_STAMP) {
-            continue;
-          } else {
-            userIDArray[Types.IdentityType.getIdentityType(key)] = userIdentities[key];
-          }
-        }
-        concatenatedIdentities = userIDArray.reduce(function (prevValue, currentValue, index) {
-          var idName = Types.IdentityType.getIdentityName(index);
-          return "".concat(prevValue).concat(idName, "=").concat(currentValue, ";");
-        }, cacheKey);
-      }
-      return concatenatedIdentities;
-    };
-    var hasValidCachedIdentity = function hasValidCachedIdentity(method, proposedUserIdentities, idCache) {
-      // There is an edge case where multiple identity calls are taking place
-      // before identify fires, so there may not be a cache.  See what happens when
-      // the ? in idCache is removed to the following test
-      // "queued events contain login mpid instead of identify mpid when calling
-      // login immediately after mParticle initializes"
-      var cache = idCache === null || idCache === void 0 ? void 0 : idCache.retrieve();
-      // if there is no cache, then there is no valid cached identity
-      if (!cache) {
-        return false;
-      }
-      var cacheKey = concatenateIdentities(method, proposedUserIdentities);
-      var hashedKey = generateHash(cacheKey);
-      // if cache doesn't have the cacheKey, there is no valid cached identity
-      if (!cache.hasOwnProperty(hashedKey)) {
-        return false;
-      }
-      // If there is a valid cache key, compare the expireTimestamp to the current time.
-      // If the current time is greater than the expireTimestamp, it is not a valid
-      // cached identity.
-      var expireTimestamp = cache[hashedKey].expireTimestamp;
-      if (expireTimestamp < new Date().getTime()) {
-        return false;
-      } else {
-        return true;
-      }
-    };
-    var getCachedIdentity = function getCachedIdentity(method, proposedUserIdentities, idCache) {
-      var cacheKey = concatenateIdentities(method, proposedUserIdentities);
-      var hashedKey = generateHash(cacheKey);
-      var cache = idCache.retrieve();
-      var cachedIdentity = cache ? cache[hashedKey] : null;
-      return {
-        responseText: parseIdentityResponse(cachedIdentity.responseText),
-        expireTimestamp: cachedIdentity.expireTimestamp,
-        status: cachedIdentity.status
-      };
-    };
-    // https://go.mparticle.com/work/SQDSDKS-6079
-    var createKnownIdentities = function createKnownIdentities(identityApiData, deviceId) {
-      var identitiesResult = {};
-      if (isObject(identityApiData === null || identityApiData === void 0 ? void 0 : identityApiData.userIdentities)) {
-        for (var identity in identityApiData.userIdentities) {
-          identitiesResult[identity] = identityApiData.userIdentities[identity];
-        }
-      }
-      identitiesResult.device_application_stamp = deviceId;
-      return identitiesResult;
-    };
-    var removeExpiredIdentityCacheDates = function removeExpiredIdentityCacheDates(idCache) {
-      var cache = idCache.retrieve() || {};
-      var currentTime = new Date().getTime();
-      // Iterate over the cache and remove any key/value pairs that are expired
-      for (var key in cache) {
-        if (cache[key].expireTimestamp < currentTime) {
-          delete cache[key];
-        }
-      }
-      idCache.store(cache);
-    };
-    var tryCacheIdentity = function tryCacheIdentity(knownIdentities, idCache, parseIdentityResponse, mpid, callback, identityApiData, identityMethod) {
-      // https://go.mparticle.com/work/SQDSDKS-6095
-      var shouldReturnCachedIdentity = hasValidCachedIdentity(identityMethod, knownIdentities, idCache);
-      // If Identity is cached, then immediately parse the identity response
-      if (shouldReturnCachedIdentity) {
-        var cachedIdentity = getCachedIdentity(identityMethod, knownIdentities, idCache);
-        parseIdentityResponse(cachedIdentity, mpid, callback, identityApiData, identityMethod, knownIdentities, true);
-        return true;
-      }
-      return false;
-    };
-    var getExpireTimestamp = function getExpireTimestamp(maxAge) {
-      if (maxAge === void 0) {
-        maxAge = ONE_DAY_IN_SECONDS;
-      }
-      return new Date().getTime() + maxAge * MILLIS_IN_ONE_SEC;
-    };
-    var parseIdentityResponse = function parseIdentityResponse(responseText) {
-      return responseText ? JSON.parse(responseText) : {};
-    };
-
     var AudienceManager = /** @class */function () {
       function AudienceManager(userAudienceUrl, apiKey, logger) {
         this.url = '';
@@ -7275,7 +7303,10 @@ var mParticle = (function () {
       this.IdentityRequest = {
         preProcessIdentityRequest: function preProcessIdentityRequest(identityApiData, callback, method) {
           mpInstance.Logger.verbose(Messages$2.InformationMessages.StartingLogEvent + ': ' + method);
-          var identityValidationResult = mpInstance._Helpers.Validators.validateIdentities(identityApiData, method);
+
+          // First, remove any falsy identity values and warn about them
+          var cleanedIdentityApiData = mpInstance._Helpers.Validators.removeFalsyIdentityValues(identityApiData, mpInstance.Logger);
+          var identityValidationResult = mpInstance._Helpers.Validators.validateIdentities(cleanedIdentityApiData, method);
           if (!identityValidationResult.valid) {
             mpInstance.Logger.error('ERROR: ' + identityValidationResult.error);
             return {
@@ -7292,7 +7323,8 @@ var mParticle = (function () {
             };
           }
           return {
-            valid: true
+            valid: true,
+            cleanedIdentities: cleanedIdentityApiData
           };
         },
         createIdentityRequest: function createIdentityRequest(identityApiData, platform, sdkVendor, sdkVersion, deviceId, context, mpid) {
@@ -7415,7 +7447,7 @@ var mParticle = (function () {
             mpid = currentUser.getMPID();
           }
           if (preProcessResult.valid) {
-            var identityApiRequest = mpInstance._Identity.IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, mpInstance._Store.deviceId, mpInstance._Store.context, mpid);
+            var identityApiRequest = mpInstance._Identity.IdentityRequest.createIdentityRequest(preProcessResult.cleanedIdentities, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, mpInstance._Store.deviceId, mpInstance._Store.context, mpid);
             if (mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CacheIdentity)) {
               var successfullyCachedIdentity = tryCacheIdentity(identityApiRequest.known_identities, self.idCache, self.parseIdentityResponse, mpid, callback, identityApiData, Identify);
               if (successfullyCachedIdentity) {
@@ -7454,7 +7486,7 @@ var mParticle = (function () {
           }
           if (preProcessResult.valid) {
             var evt,
-              identityApiRequest = mpInstance._Identity.IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, mpInstance._Store.deviceId, mpInstance._Store.context, mpid);
+              identityApiRequest = mpInstance._Identity.IdentityRequest.createIdentityRequest(preProcessResult.cleanedIdentities, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, mpInstance._Store.deviceId, mpInstance._Store.context, mpid);
             if (mpInstance._Helpers.canLog()) {
               if (mpInstance._Store.webviewBridgeEnabled) {
                 mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Logout, JSON.stringify(mpInstance._Identity.IdentityRequest.convertToNative(identityApiData)));
@@ -7497,7 +7529,7 @@ var mParticle = (function () {
             mpid = currentUser.getMPID();
           }
           if (preProcessResult.valid) {
-            var identityApiRequest = mpInstance._Identity.IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, mpInstance._Store.deviceId, mpInstance._Store.context, mpid);
+            var identityApiRequest = mpInstance._Identity.IdentityRequest.createIdentityRequest(preProcessResult.cleanedIdentities, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, mpInstance._Store.deviceId, mpInstance._Store.context, mpid);
             if (mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CacheIdentity)) {
               var successfullyCachedIdentity = tryCacheIdentity(identityApiRequest.known_identities, self.idCache, self.parseIdentityResponse, mpid, callback, identityApiData, Login);
               if (successfullyCachedIdentity) {
@@ -7534,8 +7566,8 @@ var mParticle = (function () {
           if (currentUser) {
             mpid = currentUser.getMPID();
           }
-          var newUserIdentities = identityApiData && identityApiData.userIdentities ? identityApiData.userIdentities : {};
           if (preProcessResult.valid) {
+            var newUserIdentities = identityApiData && identityApiData.userIdentities ? preProcessResult.cleanedIdentities.userIdentities : {};
             var identityApiRequest = mpInstance._Identity.IdentityRequest.createModifyIdentityRequest(currentUser ? currentUser.getUserIdentities().userIdentities : {}, newUserIdentities, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, mpInstance._Store.context);
             if (mpInstance._Helpers.canLog()) {
               if (mpInstance._Store.webviewBridgeEnabled) {
