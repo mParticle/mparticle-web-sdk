@@ -34,17 +34,15 @@ export default function Identity(mpInstance) {
             );
 
             // First, remove any falsy identity values and warn about them
-            const cleanedIdentityApiData =
-                mpInstance._Helpers.Validators.removeFalsyIdentityValues(
-                    identityApiData,
-                    mpInstance.Logger
-                );
+            const cleanedIdentityApiData = mpInstance._Helpers.Validators.removeFalsyIdentityValues(
+                identityApiData,
+                mpInstance.Logger
+            );
 
-            var identityValidationResult =
-                mpInstance._Helpers.Validators.validateIdentities(
-                    cleanedIdentityApiData,
-                    method
-                );
+            var identityValidationResult = mpInstance._Helpers.Validators.validateIdentities(
+                cleanedIdentityApiData,
+                method
+            );
 
             if (!identityValidationResult.valid) {
                 mpInstance.Logger.error(
@@ -245,16 +243,15 @@ export default function Identity(mpInstance) {
             }
 
             if (preProcessResult.valid) {
-                var identityApiRequest =
-                    mpInstance._Identity.IdentityRequest.createIdentityRequest(
-                        preProcessResult.cleanedIdentities,
-                        Constants.platform,
-                        Constants.sdkVendor,
-                        Constants.sdkVersion,
-                        mpInstance._Store.deviceId,
-                        mpInstance._Store.context,
-                        mpid
-                    );
+                var identityApiRequest = mpInstance._Identity.IdentityRequest.createIdentityRequest(
+                    preProcessResult.cleanedIdentities,
+                    Constants.platform,
+                    Constants.sdkVendor,
+                    Constants.sdkVersion,
+                    mpInstance._Store.deviceId,
+                    mpInstance._Store.context,
+                    mpid
+                );
                 if (
                     mpInstance._Helpers.getFeatureFlag(
                         Constants.FeatureFlags.CacheIdentity
