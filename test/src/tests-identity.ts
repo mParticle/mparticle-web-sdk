@@ -410,6 +410,236 @@ describe('identity', function() {
             );
         });
 
+        it('should strip falsey values from identify request', async () => {
+            await waitForCondition(hasIdentifyReturned)
+
+            const identityApiData = {
+                userIdentities: {
+                    customerid: 'valid-customer-id',
+                    email: undefined,
+                    facebook: false,
+                    twitter: '',
+                    google: 0,
+                    microsoft: null, // null should be preserved
+                },
+            };
+
+            fetchMock.resetHistory();
+
+            mParticle.Identity.identify(identityApiData as unknown as IdentityApiData);
+
+            await waitForCondition(hasIdentifyReturned)
+
+            const firstCall = fetchMock.calls()[0];
+            expect(firstCall[0].split('/')[4]).to.equal('identify');
+
+            const data = JSON.parse(firstCall[1].body as unknown as string) as IIdentityAPIRequestData;
+
+            expect(data).to.have.keys(
+                'client_sdk',
+                'environment',
+                'known_identities',
+                'previous_mpid',
+                'request_id',
+                'request_timestamp_ms',
+                'context'
+            );
+
+            expect(data.known_identities).to.have.property(
+                'device_application_stamp',
+            );
+            expect(data.known_identities).to.have.property(
+                'customerid',
+            );
+            expect(data.known_identities).to.have.property(
+                'microsoft',
+            );
+            expect(data.known_identities).to.not.have.property(
+                'email',
+            );
+            expect(data.known_identities).to.not.have.property(
+                'facebook',
+            );
+            expect(data.known_identities).to.not.have.property(
+                'twitter',
+            );
+            expect(data.known_identities).to.not.have.property(
+                'google',
+            );
+        });
+
+        it('should strip falsey values from login request', async () => {
+            await waitForCondition(hasIdentifyReturned)
+
+            const identityApiData = {
+                    userIdentities: {
+                    customerid: 'valid-customer-id',
+                    email: undefined,
+                    facebook: false,
+                    twitter: '',
+                    google: 0,
+                    microsoft: null, // null should be preserved
+                },
+            };
+
+            fetchMockSuccess(urls.login, {
+                context: null,
+                matched_identities: {
+                    device_application_stamp: 'my-das',
+                },
+                is_ephemeral: true,
+                mpid: testMPID,
+                is_logged_in: false,
+            });
+
+            fetchMock.resetHistory();
+
+            mParticle.Identity.login(identityApiData as unknown as IdentityApiData);
+
+            await waitForCondition(hasIdentityCallInflightReturned)
+
+            const firstCall = fetchMock.calls()[0];
+            expect(firstCall[0].split('/')[4]).to.equal('login');
+
+            const data = JSON.parse(firstCall[1].body as unknown as string) as IIdentityAPIRequestData;
+
+            expect(data.known_identities).to.have.property(
+                'device_application_stamp',
+            );
+            expect(data.known_identities).to.have.property(
+                'customerid',
+            );
+            expect(data.known_identities).to.have.property(
+                'microsoft',
+            );
+            expect(data.known_identities).to.not.have.property(
+                'email',
+            );
+            expect(data.known_identities).to.not.have.property(
+                'facebook',
+            );
+            expect(data.known_identities).to.not.have.property(
+                'twitter',
+            );
+            expect(data.known_identities).to.not.have.property(
+                'google',
+            );
+        });
+
+        it('should strip falsey values from logout request', async () => {
+            await waitForCondition(hasIdentifyReturned)
+
+            const identityApiData = {
+                    userIdentities: {
+                    customerid: 'valid-customer-id',
+                    email: undefined,
+                    facebook: false,
+                    twitter: '',
+                    google: 0,
+                    microsoft: null, // null should be preserved
+                },
+            };
+
+            fetchMockSuccess(urls.logout, {
+                context: null,
+                matched_identities: {
+                    device_application_stamp: 'my-das',
+                },
+                is_ephemeral: true,
+                mpid: testMPID,
+                is_logged_in: false,
+            });
+
+            fetchMock.resetHistory();
+
+            mParticle.Identity.logout(identityApiData as unknown as IdentityApiData);
+
+            await waitForCondition(hasIdentityCallInflightReturned)
+
+            const firstCall = fetchMock.calls()[0];
+            expect(firstCall[0].split('/')[4]).to.equal('logout');
+
+            const data = JSON.parse(firstCall[1].body as unknown as string) as IIdentityAPIRequestData;
+
+            expect(data.known_identities).to.have.property(
+                'device_application_stamp',
+            );
+            expect(data.known_identities).to.have.property(
+                'customerid',
+            );
+            expect(data.known_identities).to.have.property(
+                'microsoft',
+            );
+            expect(data.known_identities).to.not.have.property(
+                'email',
+            );
+            expect(data.known_identities).to.not.have.property(
+                'facebook',
+            );
+            expect(data.known_identities).to.not.have.property(
+                'twitter',
+            );
+            expect(data.known_identities).to.not.have.property(
+                'google',
+            );
+        });
+
+        it('should strip falsey values from modify request', async () => {
+            await waitForCondition(hasIdentifyReturned)
+
+            const identityApiData = {
+                    userIdentities: {
+                    customerid: 'valid-customer-id',
+                    email: undefined,
+                    facebook: false,
+                    twitter: '',
+                    google: 0,
+                    microsoft: null, // null should be preserved
+                },
+            };
+
+            fetchMock.resetHistory();
+
+            fetchMockSuccess(urls.modify, {
+                change_results: [
+                    {
+                        identity_type: 'email',
+                        modified_mpid: testMPID,
+                    },
+                ],
+            });
+
+            mParticle.Identity.modify(identityApiData as unknown as IdentityApiData);
+
+            await waitForCondition(hasIdentityCallInflightReturned)
+
+            const firstCall = fetchMock.calls()[0];
+            debugger
+            expect(firstCall[0].split('/')[5]).to.equal('modify');
+
+            const data = JSON.parse(firstCall[1].body as unknown as string) as IIdentityAPIModifyRequestData;
+
+            expect(data).to.have.keys(
+                'client_sdk',
+                'environment',
+                'identity_changes',
+                'request_id',
+                'request_timestamp_ms',
+                'context'
+            );
+
+            // For modify requests, we check identity_changes instead of known_identities
+            expect(data.identity_changes).to.be.an('array');
+            expect(data.identity_changes).to.have.length(2); // customerid and microsoft (null preserved)
+
+            const identityTypes = data.identity_changes.map(change => change.identity_type);
+            expect(identityTypes).to.include('customerid');
+            expect(identityTypes).to.include('microsoft');
+            expect(identityTypes).to.not.include('email');
+            expect(identityTypes).to.not.include('facebook');
+            expect(identityTypes).to.not.include('twitter');
+            expect(identityTypes).to.not.include('google');
+        });
     });
 
     // https://go.mparticle.com/work/SQDSDKS-6849
@@ -1234,6 +1464,7 @@ describe('identity', function() {
 
     it('should not make a request when an invalid request is sent as a string', async () => {
         const identityAPIRequest = BAD_USER_IDENTITIES_AS_STRING;
+        debugger
         mParticle.Identity.modify(identityAPIRequest);
 
         await waitForCondition(hasIdentityCallInflightReturned)
