@@ -590,14 +590,15 @@ describe('identity-utils', () => {
                 expect(result).to.equal(false);
             });
 
+
             it('returns false when SDKConfig.identifyRequest is null', () => {
                 // Create a mock current user
                 const mockCurrentUser = {
                     getUserIdentities: () => ({
                         userIdentities: {
-                            customerid: 'current-customer-id',
-                        },
-                    }),
+                            customerid: 'current-customer-id'
+                        }
+                    })
                 } as any;
 
                 const result = hasIdentityRequestChanged(mockCurrentUser, null);

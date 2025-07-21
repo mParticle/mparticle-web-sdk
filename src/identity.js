@@ -33,10 +33,18 @@ export default function Identity(mpInstance) {
                 Messages.InformationMessages.StartingLogEvent + ': ' + method
             );
 
-            var identityValidationResult = mpInstance._Helpers.Validators.validateIdentities(
-                identityApiData,
-                method
-            );
+            // First, remove any falsy identity values and warn about them
+            const cleanedIdentityApiData =
+                mpInstance._Helpers.Validators.removeFalsyIdentityValues(
+                    identityApiData,
+                    mpInstance.Logger
+                );
+
+            var identityValidationResult =
+                mpInstance._Helpers.Validators.validateIdentities(
+                    cleanedIdentityApiData,
+                    method
+                );
 
             if (!identityValidationResult.valid) {
                 mpInstance.Logger.error(
@@ -64,6 +72,7 @@ export default function Identity(mpInstance) {
 
             return {
                 valid: true,
+                cleanedIdentities: cleanedIdentityApiData,
             };
         },
 
@@ -236,15 +245,16 @@ export default function Identity(mpInstance) {
             }
 
             if (preProcessResult.valid) {
-                var identityApiRequest = mpInstance._Identity.IdentityRequest.createIdentityRequest(
-                    identityApiData,
-                    Constants.platform,
-                    Constants.sdkVendor,
-                    Constants.sdkVersion,
-                    mpInstance._Store.deviceId,
-                    mpInstance._Store.context,
-                    mpid
-                );
+                var identityApiRequest =
+                    mpInstance._Identity.IdentityRequest.createIdentityRequest(
+                        preProcessResult.cleanedIdentities,
+                        Constants.platform,
+                        Constants.sdkVendor,
+                        Constants.sdkVersion,
+                        mpInstance._Store.deviceId,
+                        mpInstance._Store.context,
+                        mpid
+                    );
                 if (
                     mpInstance._Helpers.getFeatureFlag(
                         Constants.FeatureFlags.CacheIdentity
@@ -332,7 +342,7 @@ export default function Identity(mpInstance) {
             if (preProcessResult.valid) {
                 var evt,
                     identityApiRequest = mpInstance._Identity.IdentityRequest.createIdentityRequest(
-                        identityApiData,
+                        preProcessResult.cleanedIdentities,
                         Constants.platform,
                         Constants.sdkVendor,
                         Constants.sdkVersion,
@@ -422,7 +432,7 @@ export default function Identity(mpInstance) {
 
             if (preProcessResult.valid) {
                 var identityApiRequest = mpInstance._Identity.IdentityRequest.createIdentityRequest(
-                    identityApiData,
+                    preProcessResult.cleanedIdentities,
                     Constants.platform,
                     Constants.sdkVendor,
                     Constants.sdkVersion,
@@ -514,11 +524,11 @@ export default function Identity(mpInstance) {
             if (currentUser) {
                 mpid = currentUser.getMPID();
             }
-            var newUserIdentities =
-                identityApiData && identityApiData.userIdentities
-                    ? identityApiData.userIdentities
-                    : {};
             if (preProcessResult.valid) {
+                var newUserIdentities =
+                    identityApiData && identityApiData.userIdentities
+                        ? preProcessResult.cleanedIdentities.userIdentities
+                        : {};
                 var identityApiRequest = mpInstance._Identity.IdentityRequest.createModifyIdentityRequest(
                     currentUser
                         ? currentUser.getUserIdentities().userIdentities

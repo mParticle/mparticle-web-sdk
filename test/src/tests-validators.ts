@@ -1,5 +1,7 @@
+import { IdentityApiData } from '@mparticle/web-sdk';
 import Validators from '../../src/validators';
 import { expect } from 'chai';
+import sinon from 'sinon';
 
 describe('Validators', () => {
     it('#isValidAttributeValue should correctly validate an attribute value', () => {
@@ -141,5 +143,44 @@ describe('Validators', () => {
 
         expect(Validators.isFunction(function () {})).to.eq(true);
         expect(Validators.isFunction(() => {})).to.eq(true);
+    });
+
+    it('#removeFalsyIdentityValues should remove falsy identity values', () => {
+        const mockLogger = {
+            warning: sinon.spy(),
+        };
+
+        const identityApiData = {
+            userIdentities: {
+                customerid: 'valid-customer-id',
+                email: undefined,
+                facebook: false,
+                twitter: '',
+                google: 0,
+                microsoft: null, // null should be preserved
+            },
+        };
+
+        const result = Validators.removeFalsyIdentityValues(identityApiData as unknown as IdentityApiData, mockLogger);
+
+        // Should warn about each falsy value
+        expect(mockLogger.warning.calledWith(
+            "Identity value for 'email' is falsy (undefined). This value will be removed from the request."
+        )).to.be.true;
+        expect(mockLogger.warning.calledWith(
+            "Identity value for 'facebook' is falsy (false). This value will be removed from the request."
+        )).to.be.true;
+        expect(mockLogger.warning.calledWith(
+            "Identity value for 'twitter' is falsy (). This value will be removed from the request."
+        )).to.be.true;
+        expect(mockLogger.warning.calledWith(
+            "Identity value for 'google' is falsy (0). This value will be removed from the request."
+        )).to.be.true;
+
+        // Should preserve valid values and null
+        expect(result.userIdentities).to.deep.equal({
+            customerid: 'valid-customer-id',
+            microsoft: null,
+        });
     });
 });

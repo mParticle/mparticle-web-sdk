@@ -40,7 +40,37 @@ const Validators = {
         );
     },
 
-    validateIdentities: function(
+    removeFalsyIdentityValues: function (
+        identityApiData: IdentityApiData,
+        logger: any
+    ): IdentityApiData {
+        if (!identityApiData || !identityApiData.userIdentities) {
+            return identityApiData;
+        }
+
+        const cleanedData = {} as IdentityApiData;
+        const cleanedUserIdentities = { ...identityApiData.userIdentities };
+
+        for (const identityType in identityApiData.userIdentities) {
+            if (identityApiData.userIdentities.hasOwnProperty(identityType)) {
+                const value = identityApiData.userIdentities[identityType];
+
+                // Check if value is falsy (undefined, false, 0, '', etc.) but not null
+                if (value !== null && !value) {
+                    logger.warning(
+                        `Identity value for '${identityType}' is falsy (${value}). This value will be removed from the request.`
+                    );
+                    delete cleanedUserIdentities[identityType];
+                }
+            }
+        }
+
+        cleanedData.userIdentities = cleanedUserIdentities;
+
+        return cleanedData;
+    },
+
+    validateIdentities: function (
         identityApiData: IdentityApiData,
         method?: IdentityAPIMethod
     ): ValidationIdentitiesReturn {
