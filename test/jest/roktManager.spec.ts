@@ -449,6 +449,7 @@ describe('RoktManager', () => {
         });
 
         it('should process queued selectPlacements calls once the launcher and kit are attached', async () => {
+            const expectedResult = { placements: ['placement1', 'placement2'] };
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -457,7 +458,7 @@ describe('RoktManager', () => {
                 filters: undefined,
                 filteredUser: undefined,
                 userAttributes: undefined,
-                selectPlacements: jest.fn(),
+                selectPlacements: jest.fn().mockResolvedValue(expectedResult),
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
             };
@@ -466,16 +467,27 @@ describe('RoktManager', () => {
                 attributes: {}
             } as IRoktSelectPlacementsOptions;
 
-            roktManager.selectPlacements(options);
+            // Call selectPlacements and get the promise (should be deferred since kit not ready)
+            const selectionPromise = roktManager.selectPlacements(options);
+            
+            // Verify the call was queued
             expect(roktManager['kit']).toBeNull();
             expect(roktManager['messageQueue'].length).toBe(1);
             expect(roktManager['messageQueue'][0].methodName).toBe('selectPlacements');
             expect(roktManager['messageQueue'][0].payload).toBe(options);
+            expect(roktManager['messageQueue'][0].messageId).toBeDefined();
 
+            // Attach kit (should trigger processing of queued messages)
             roktManager.attachKit(kit);
+            
+            // Verify kit was attached and queue was processed
             expect(roktManager['kit']).not.toBeNull();
             expect(roktManager['messageQueue'].length).toBe(0);
             expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+            
+            // Most importantly: verify the original promise resolves with the actual result
+            const result = await selectionPromise;
+            expect(result).toEqual(expectedResult);
         });
 
         it('should pass through the correct attributes to kit.selectPlacements', () => {
@@ -1025,6 +1037,122 @@ describe('RoktManager', () => {
             expect(() => {
                 roktManager.setExtensionData(extensionData);
             }).toThrow('Error setting extension data: ' + mockError.message);
+        });
+    });
+
+    describe('#deferredCall', () => {
+        it('should create a deferred promise with unique messageId', () => {
+            const testPayload = { test: 'data' };
+            
+            // Call deferredCall
+            const promise = roktManager['deferredCall']<string>('testMethod', testPayload);
+            
+            // Verify promise was created
+            expect(promise).toBeInstanceOf(Promise);
+            
+            // Verify message was queued with unique messageId
+            expect(roktManager['messageQueue'].length).toBe(1);
+            const queuedMessage = roktManager['messageQueue'][0];
+            expect(queuedMessage.methodName).toBe('testMethod');
+            expect(queuedMessage.payload).toBe(testPayload);
+            expect(queuedMessage.messageId).toBeDefined();
+            expect(typeof queuedMessage.messageId).toBe('string');
+            
+            // Verify pending promise is tracked with that messageId
+            expect(roktManager['pendingPromises'].has(queuedMessage.messageId!)).toBe(true);
+        });
+
+        it('should generate unique messageIds for multiple calls', () => {
+            // Make multiple deferred calls
+            const promise1 = roktManager['deferredCall']<string>('method1', { data: 1 });
+            const promise2 = roktManager['deferredCall']<string>('method2', { data: 2 });
+            const promise3 = roktManager['deferredCall']<string>('method3', { data: 3 });
+            
+            // Verify all promises are created
+            expect(promise1).toBeInstanceOf(Promise);
+            expect(promise2).toBeInstanceOf(Promise);
+            expect(promise3).toBeInstanceOf(Promise);
+            
+            // Verify all messages are queued
+            expect(roktManager['messageQueue'].length).toBe(3);
+            
+            // Extract messageIds
+            const messageId1 = roktManager['messageQueue'][0].messageId!;
+            const messageId2 = roktManager['messageQueue'][1].messageId!;
+            const messageId3 = roktManager['messageQueue'][2].messageId!;
+            
+            // Verify all messageIds are unique
+            expect(messageId1).toBeDefined();
+            expect(messageId2).toBeDefined();
+            expect(messageId3).toBeDefined();
+            expect(messageId1).not.toBe(messageId2);
+            expect(messageId2).not.toBe(messageId3);
+            expect(messageId1).not.toBe(messageId3);
+            
+            // Verify all are tracked in pendingPromises
+            expect(roktManager['pendingPromises'].has(messageId1)).toBe(true);
+            expect(roktManager['pendingPromises'].has(messageId2)).toBe(true);
+            expect(roktManager['pendingPromises'].has(messageId3)).toBe(true);
+        });
+    });
+
+    describe('#completePendingPromise', () => {
+        it('should resolve pending promise with success result', async () => {
+            const promise = roktManager['deferredCall']<string>('testMethod', {});
+            const messageId = roktManager['messageQueue'][0].messageId!;
+
+            // Complete the promise with success result
+            roktManager['completePendingPromise'](messageId, 'success result');
+
+            // Promise should resolve with the result
+            await expect(promise).resolves.toBe('success result');
+
+            // Should clean up the pending promise
+            expect(roktManager['pendingPromises'].has(messageId)).toBe(false);
+        });
+
+        it('should reject pending promise with error', async () => {
+            const promise = roktManager['deferredCall']<string>('testMethod', {});
+            const messageId = roktManager['messageQueue'][0].messageId!;
+            const error = new Error('test error');
+
+            // Complete the promise with error (wrapped in rejected promise)
+            roktManager['completePendingPromise'](messageId, Promise.reject(error));
+
+            // Promise should reject with the error
+            await expect(promise).rejects.toThrow('test error');
+
+            // Should clean up the pending promise
+            expect(roktManager['pendingPromises'].has(messageId)).toBe(false);
+        });
+
+        it('should handle async results correctly', async () => {
+            const promise = roktManager['deferredCall']<any>('testMethod', {});
+            const messageId = roktManager['messageQueue'][0].messageId!;
+            const asyncResult = { data: 'async data' };
+
+            // Complete with an async promise
+            roktManager['completePendingPromise'](messageId, Promise.resolve(asyncResult));
+
+            // Should get the unwrapped result, not the promise
+            const result = await promise;
+            expect(result).toEqual(asyncResult);
+            expect(result).not.toBeInstanceOf(Promise);
+
+            // Should clean up the pending promise
+            expect(roktManager['pendingPromises'].has(messageId)).toBe(false);
+        });
+
+        it('should handle missing messageId gracefully', () => {
+            // Should not throw when messageId is undefined
+            expect(() => {
+                roktManager['completePendingPromise'](undefined, 'result');
+            }).not.toThrow();
+
+            // Should not throw when messageId does not exist
+            expect(() => {
+                roktManager['completePendingPromise']('nonexistent', 'result');
+            }).not.toThrow();
         });
     });
 });
