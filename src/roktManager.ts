@@ -2,7 +2,7 @@ import { IKitConfigs } from "./configAPIClient";
 import { UserAttributeFilters  } from "./forwarders.interfaces";
 import { IMParticleUser } from "./identity-user-interfaces";
 import KitFilterHelper from "./kitFilterHelper";
-import { Dictionary, parseSettingsString } from "./utils";
+import { Dictionary, generateUniqueId, isFunction, parseSettingsString } from "./utils";
 import { SDKIdentityApi } from "./identity.interfaces";
 import { SDKLoggerApi } from "./sdkRuntimeModels";
 
@@ -34,6 +34,7 @@ export interface IRoktLauncher {
 }
 
 export interface IRoktMessage {
+    messageId?: string;
     methodName: string;
     payload: any;
 }
@@ -51,7 +52,7 @@ export interface IRoktKit {
     userAttributes: Dictionary<string>;
     hashAttributes: (attributes: IRoktPartnerAttributes) => Promise<Record<string, string>>;
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
-    setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void;
+    setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): Promise<void>;
     launcherOptions?: Dictionary<any>;
 }
 
@@ -77,6 +78,7 @@ export default class RoktManager {
     public filters: RoktKitFilterSettings = {};
     private currentUser: IMParticleUser | null = null;
     private messageQueue: IRoktMessage[] = [];
+    private pendingPromises: Map<string, { resolve: Function, reject: Function }> = new Map();
     private sandbox: boolean | null = null;
     private placementAttributesMapping: Dictionary<string>[] = [];
     private identityService: SDKIdentityApi;
@@ -134,9 +136,9 @@ export default class RoktManager {
         }
     }
 
-    public attachKit(kit: IRoktKit): void {
+    public async attachKit(kit: IRoktKit): Promise<void> {
         this.kit = kit;
-        this.processMessageQueue();
+        await this.processMessageQueue();
     }
 
     /**
@@ -156,11 +158,7 @@ export default class RoktManager {
      */
     public async selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
         if (!this.isReady()) {
-            this.queueMessage({
-                methodName: 'selectPlacements',
-                payload: options,
-            });
-            return Promise.resolve({} as IRoktSelection);
+            return this.deferredCall<IRoktSelection>('selectPlacements', options);
         }
 
         try {
@@ -210,39 +208,31 @@ export default class RoktManager {
                 attributes: enrichedAttributes,
             };
 
-            return this.kit.selectPlacements(enrichedOptions);
+            return await this.kit.selectPlacements(enrichedOptions);
         } catch (error) {
-            return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
+            throw error instanceof Error ? error : new Error('Unknown error occurred');
         }
     }
 
-    public hashAttributes(attributes: IRoktPartnerAttributes): Promise<Record<string, string>> {
+    public async hashAttributes(attributes: IRoktPartnerAttributes): Promise<Record<string, string>> {
         if (!this.isReady()) {
-            this.queueMessage({
-                methodName: 'hashAttributes',
-                payload: attributes,
-            });
-            return Promise.resolve({} as Record<string, string>);
+            return this.deferredCall<Record<string, string>>('hashAttributes', attributes);
         }
 
         try {
-            return this.kit.hashAttributes(attributes);
+            return await this.kit.hashAttributes(attributes);
         } catch (error) {
-            return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
+            throw error instanceof Error ? error : new Error('Unknown error occurred');
         }
     }
 
-    public setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void {
+    public async setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): Promise<void> {
         if (!this.isReady()) {
-            this.queueMessage({
-                methodName: 'setExtensionData',
-                payload: extensionData,
-            });
-            return;
+            return this.deferredCall<void>('setExtensionData', extensionData);
         }
 
         try {
-            this.kit.setExtensionData<T>(extensionData);
+            return await this.kit.setExtensionData<T>(extensionData);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             throw new Error('Error setting extension data: ' + errorMessage);
@@ -287,18 +277,78 @@ export default class RoktManager {
         return mappedAttributes;
     }
 
-    private processMessageQueue(): void {
-        if (this.messageQueue.length > 0 && this.isReady()) {
-            this.messageQueue.forEach(async (message) => {
-                if (this.kit && message.methodName in this.kit) {
-                    await (this.kit[message.methodName] as Function)(message.payload);
-                }
-            });
-            this.messageQueue = [];
+    private async processMessageQueue(): Promise<void> {
+        if (!this.isReady() || this.messageQueue.length === 0) {
+            return;
         }
+
+        const messagesToProcess = [...this.messageQueue]; // Copy before clearing
+        this.messageQueue = []; // Clear queue immediately to prevent re-processing
+
+        this.logger?.verbose(`RoktManager: Processing ${messagesToProcess.length} queued messages`);
+
+        for (const message of messagesToProcess) {
+            try {
+                if (!(message.methodName in this.kit) || !isFunction(this.kit[message.methodName])) {
+                    throw new Error(`Method '${message.methodName}' not found or not callable on kit`);
+                }
+
+                this.logger?.verbose(`RoktManager: Processing queued message: ${message.methodName} with payload: ${JSON.stringify(message.payload)}`);
+                
+                // Add timeout wrapper in case a promise is never resolved
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error(`Method '${message.methodName}' timed out`)), 30000)
+                );
+                
+                const result = await Promise.race([
+                    (this.kit[message.methodName] as Function)(message.payload),
+                    timeoutPromise
+                ]);
+                
+                this.completePendingPromise(message.messageId, result, true);
+
+                this.logger?.verbose(`RoktManager: Successfully processed queued message: ${message.methodName}`);
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                this.logger?.error(`RoktManager: Failed to process queued message '${message.methodName}': ${errorMessage}`);
+                this.completePendingPromise(message.messageId, error, false);
+                
+                // Continue processing other messages despite this failure
+            }
+        }
+
+        this.logger?.verbose(`RoktManager: Finished processing message queue`);
     }
 
     private queueMessage(message: IRoktMessage): void {
         this.messageQueue.push(message);
+    }
+
+    private deferredCall<T>(methodName: string, payload: any): Promise<T> {
+        return new Promise<T>((resolve, reject) => {
+            const messageId = `${methodName}_${generateUniqueId()}`;
+            
+            // Store the promise resolvers
+            this.pendingPromises.set(messageId, { resolve, reject });
+            
+            // Queue the message with the ID
+            this.queueMessage({
+                messageId,
+                methodName,
+                payload,
+            });
+        });
+    }
+
+    private completePendingPromise(messageId: string | undefined, resultOrError: any, isSuccess: boolean): void {
+        if (messageId && this.pendingPromises.has(messageId)) {
+            const { resolve, reject } = this.pendingPromises.get(messageId)!;
+            if (isSuccess) {
+                resolve(resultOrError);
+            } else {
+                reject(resultOrError);
+            }
+            this.pendingPromises.delete(messageId);
+        }
     }
 }
