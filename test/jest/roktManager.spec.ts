@@ -992,7 +992,7 @@ describe('RoktManager', () => {
 
             expect(roktManager['kit']).toBeNull();
             expect(roktManager['messageQueue'].size).toBe(1);
-            const queuedMessage = roktManager['messageQueue'].values().next().value;
+            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
             expect(queuedMessage.methodName).toBe('setExtensionData');
             expect(queuedMessage.payload).toBe(extensionData);
         });
@@ -1109,16 +1109,34 @@ describe('RoktManager', () => {
     });
 
     describe('#completePendingPromise', () => {
-        it('should resolve pending promise with success result', async () => {
+        it('should resolve pending promise when given a direct value', async () => {
             const promise = roktManager['deferredCall']<string>('testMethod', {});
             const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
             const messageId = queuedMessage.messageId!;
 
-            // Complete the promise with success result
+            // Complete the promise with direct value (not wrapped in Promise)
             roktManager['completePendingPromise'](messageId, 'success result');
 
-            // Promise should resolve with the result
+            // Promise should resolve with the direct value
             await expect(promise).resolves.toBe('success result');
+
+            // Should clean up the message from queue
+            expect(roktManager['messageQueue'].has(messageId)).toBe(false);
+        });
+
+        it('should resolve pending promise when given a Promise and unwrap it', async () => {
+            const promise = roktManager['deferredCall']<any>('testMethod', {});
+            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
+            const messageId = queuedMessage.messageId!;
+            const asyncResult = { data: 'async data' };
+
+            // Complete with a Promise that needs unwrapping
+            roktManager['completePendingPromise'](messageId, Promise.resolve(asyncResult));
+
+            // Should get the unwrapped result, not the promise wrapper
+            const result = await promise;
+            expect(result).toEqual(asyncResult);
+            expect(result).not.toBeInstanceOf(Promise);
 
             // Should clean up the message from queue
             expect(roktManager['messageQueue'].has(messageId)).toBe(false);
@@ -1140,23 +1158,7 @@ describe('RoktManager', () => {
             expect(roktManager['messageQueue'].has(messageId)).toBe(false);
         });
 
-        it('should handle async results correctly', async () => {
-            const promise = roktManager['deferredCall']<any>('testMethod', {});
-            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
-            const messageId = queuedMessage.messageId!;
-            const asyncResult = { data: 'async data' };
 
-            // Complete with an async promise
-            roktManager['completePendingPromise'](messageId, Promise.resolve(asyncResult));
-
-            // Should get the unwrapped result, not the promise
-            const result = await promise;
-            expect(result).toEqual(asyncResult);
-            expect(result).not.toBeInstanceOf(Promise);
-
-            // Should clean up the pending promise
-            expect(roktManager['messageQueue'].has(messageId)).toBe(false);
-        });
 
         it('should handle missing messageId gracefully', () => {
             // Should not throw when messageId is undefined
