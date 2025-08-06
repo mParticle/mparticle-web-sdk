@@ -5,6 +5,7 @@ import { IMParticleWebSDKInstance } from "../../src/mp-instance";
 import RoktManager, { IRoktKit, IRoktSelectPlacementsOptions } from "../../src/roktManager";
 import { testMPID } from '../src/config/constants';
 
+const resolvePromise = () => new Promise(resolve => setTimeout(resolve, 0));
 
 describe('RoktManager', () => {
     let roktManager: RoktManager;
@@ -467,8 +468,13 @@ describe('RoktManager', () => {
                 attributes: {}
             } as IRoktSelectPlacementsOptions;
 
-            // Call selectPlacements and get the promise (should be deferred since kit not ready)
-            const selectionPromise = roktManager.selectPlacements(options);
+            // Start the async operation (doesn't await yet)
+            const selectionPromiseTask = (async () => await roktManager.selectPlacements(options))();
+
+            expect(selectionPromiseTask).toBeInstanceOf(Promise);
+
+            // Give it a moment to queue the message
+            await resolvePromise();
             
             // Verify the call was queued
             expect(roktManager['kit']).toBeNull();
@@ -480,13 +486,12 @@ describe('RoktManager', () => {
             // Attach kit (should trigger processing of queued messages)
             roktManager.attachKit(kit);
             
-            // Verify kit was attached and queue was processed
+            // Now await the promise task to verify the actual result
+            const result = await selectionPromiseTask;
+            
             expect(roktManager['kit']).not.toBeNull();
             expect(roktManager['messageQueue'].length).toBe(0);
             expect(kit.selectPlacements).toHaveBeenCalledWith(options);
-            
-            // Most importantly: verify the original promise resolves with the actual result
-            const result = await selectionPromise;
             expect(result).toEqual(expectedResult);
         });
 
