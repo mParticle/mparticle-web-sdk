@@ -1158,8 +1158,6 @@ describe('RoktManager', () => {
             expect(roktManager['messageQueue'].has(messageId)).toBe(false);
         });
 
-
-
         it('should handle missing messageId gracefully', () => {
             // Should not throw when messageId is undefined
             expect(() => {
