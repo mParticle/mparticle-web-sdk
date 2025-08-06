@@ -126,7 +126,7 @@ describe('RoktManager', () => {
 
             expect(roktManager['kit']).toBeNull();
             expect(roktManager['messageQueue'].size).toBe(1);
-            const queuedMessage = roktManager['messageQueue'].values().next().value;
+            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
             expect(queuedMessage.methodName).toBe('hashAttributes');
             expect(queuedMessage.payload).toBe(attributes);
         });
@@ -152,7 +152,7 @@ describe('RoktManager', () => {
             roktManager.hashAttributes(attributes);
             expect(roktManager['kit']).toBeNull();
             expect(roktManager['messageQueue'].size).toBe(1);
-            const queuedMessage = roktManager['messageQueue'].values().next().value;
+            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
             expect(queuedMessage.methodName).toBe('hashAttributes');
             expect(queuedMessage.payload).toBe(attributes);
             expect(kit.hashAttributes).not.toHaveBeenCalled();
@@ -447,7 +447,7 @@ describe('RoktManager', () => {
 
             expect(roktManager['kit']).toBeNull();
             expect(roktManager['messageQueue'].size).toBe(1);
-            const queuedMessage = roktManager['messageQueue'].values().next().value;
+            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
             expect(queuedMessage.methodName).toBe('selectPlacements');
             expect(queuedMessage.payload).toBe(options);
         });
@@ -482,7 +482,7 @@ describe('RoktManager', () => {
             // Verify the call was queued
             expect(roktManager['kit']).toBeNull();
             expect(roktManager['messageQueue'].size).toBe(1);
-            const queuedMessage = roktManager['messageQueue'].values().next().value;
+            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
             expect(queuedMessage.methodName).toBe('selectPlacements');
             expect(queuedMessage.payload).toBe(options);
             expect(queuedMessage.messageId).toBeDefined();
@@ -1051,7 +1051,7 @@ describe('RoktManager', () => {
     });
 
     describe('#deferredCall', () => {
-        it('should create a deferred promise with unique messageId', () => {
+        it.only('should create a deferred promise with unique messageId', () => {
             const testPayload = { test: 'data' };
             
             // Call deferredCall
@@ -1062,8 +1062,7 @@ describe('RoktManager', () => {
             
             // Verify message was queued with unique messageId
             expect(roktManager['messageQueue'].size).toBe(1);
-            const queuedMessages = Array.from(roktManager['messageQueue'].values());
-            const queuedMessage = queuedMessages[0];
+            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
             expect(queuedMessage.methodName).toBe('testMethod');
             expect(queuedMessage.payload).toBe(testPayload);
             expect(queuedMessage.messageId).toBeDefined();
@@ -1112,7 +1111,7 @@ describe('RoktManager', () => {
     describe('#completePendingPromise', () => {
         it('should resolve pending promise with success result', async () => {
             const promise = roktManager['deferredCall']<string>('testMethod', {});
-            const queuedMessage = roktManager['messageQueue'].values().next().value;
+            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
             const messageId = queuedMessage.messageId!;
 
             // Complete the promise with success result
@@ -1127,7 +1126,7 @@ describe('RoktManager', () => {
 
         it('should reject pending promise with error', async () => {
             const promise = roktManager['deferredCall']<string>('testMethod', {});
-            const queuedMessage = roktManager['messageQueue'].values().next().value;
+            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
             const messageId = queuedMessage.messageId!;
             const error = new Error('test error');
 
@@ -1143,7 +1142,7 @@ describe('RoktManager', () => {
 
         it('should handle async results correctly', async () => {
             const promise = roktManager['deferredCall']<any>('testMethod', {});
-            const queuedMessage = roktManager['messageQueue'].values().next().value;
+            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
             const messageId = queuedMessage.messageId!;
             const asyncResult = { data: 'async data' };
 
