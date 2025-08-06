@@ -125,9 +125,10 @@ describe('RoktManager', () => {
             roktManager.hashAttributes(attributes);
 
             expect(roktManager['kit']).toBeNull();
-            expect(roktManager['messageQueue'].length).toBe(1);
-            expect(roktManager['messageQueue'][0].methodName).toBe('hashAttributes');
-            expect(roktManager['messageQueue'][0].payload).toBe(attributes);
+            expect(roktManager['messageQueue'].size).toBe(1);
+            const queuedMessage = roktManager['messageQueue'].values().next().value;
+            expect(queuedMessage.methodName).toBe('hashAttributes');
+            expect(queuedMessage.payload).toBe(attributes);
         });
 
         it('should process queued hashAttributes calls once the launcher and kit are attached', () => {
@@ -150,14 +151,15 @@ describe('RoktManager', () => {
 
             roktManager.hashAttributes(attributes);
             expect(roktManager['kit']).toBeNull();
-            expect(roktManager['messageQueue'].length).toBe(1);
-            expect(roktManager['messageQueue'][0].methodName).toBe('hashAttributes');
-            expect(roktManager['messageQueue'][0].payload).toBe(attributes);
+            expect(roktManager['messageQueue'].size).toBe(1);
+            const queuedMessage = roktManager['messageQueue'].values().next().value;
+            expect(queuedMessage.methodName).toBe('hashAttributes');
+            expect(queuedMessage.payload).toBe(attributes);
             expect(kit.hashAttributes).not.toHaveBeenCalled();
 
             roktManager.attachKit(kit);
             expect(roktManager['kit']).not.toBeNull();
-            expect(roktManager['messageQueue'].length).toBe(0);
+            expect(roktManager['messageQueue'].size).toBe(0);
             expect(kit.hashAttributes).toHaveBeenCalledWith(attributes);
         });
 
@@ -365,14 +367,14 @@ describe('RoktManager', () => {
             roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
             roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
             
-            expect(roktManager['messageQueue'].length).toBe(3);
+            expect(roktManager['messageQueue'].size).toBe(3);
             expect(kit.selectPlacements).toHaveBeenCalledTimes(0);
 
             // Indirectly attach the launcher and kit to test the message queue
             roktManager.kit = kit;
 
             roktManager['processMessageQueue']();
-            expect(roktManager['messageQueue'].length).toBe(0);
+            expect(roktManager['messageQueue'].size).toBe(0);
             expect(kit.selectPlacements).toHaveBeenCalledTimes(3);
         });
     });
@@ -444,9 +446,10 @@ describe('RoktManager', () => {
             roktManager.selectPlacements(options);
 
             expect(roktManager['kit']).toBeNull();
-            expect(roktManager['messageQueue'].length).toBe(1);
-            expect(roktManager['messageQueue'][0].methodName).toBe('selectPlacements');
-            expect(roktManager['messageQueue'][0].payload).toBe(options);
+            expect(roktManager['messageQueue'].size).toBe(1);
+            const queuedMessage = roktManager['messageQueue'].values().next().value;
+            expect(queuedMessage.methodName).toBe('selectPlacements');
+            expect(queuedMessage.payload).toBe(options);
         });
 
         it('should process queued selectPlacements calls once the launcher and kit are attached', async () => {
@@ -478,10 +481,11 @@ describe('RoktManager', () => {
             
             // Verify the call was queued
             expect(roktManager['kit']).toBeNull();
-            expect(roktManager['messageQueue'].length).toBe(1);
-            expect(roktManager['messageQueue'][0].methodName).toBe('selectPlacements');
-            expect(roktManager['messageQueue'][0].payload).toBe(options);
-            expect(roktManager['messageQueue'][0].messageId).toBeDefined();
+            expect(roktManager['messageQueue'].size).toBe(1);
+            const queuedMessage = roktManager['messageQueue'].values().next().value;
+            expect(queuedMessage.methodName).toBe('selectPlacements');
+            expect(queuedMessage.payload).toBe(options);
+            expect(queuedMessage.messageId).toBeDefined();
 
             // Attach kit (should trigger processing of queued messages)
             roktManager.attachKit(kit);
@@ -490,7 +494,7 @@ describe('RoktManager', () => {
             const result = await selectionPromiseTask;
             
             expect(roktManager['kit']).not.toBeNull();
-            expect(roktManager['messageQueue'].length).toBe(0);
+            expect(roktManager['messageQueue'].size).toBe(0);
             expect(kit.selectPlacements).toHaveBeenCalledWith(options);
             expect(result).toEqual(expectedResult);
         });
@@ -987,9 +991,10 @@ describe('RoktManager', () => {
             roktManager.setExtensionData(extensionData);
 
             expect(roktManager['kit']).toBeNull();
-            expect(roktManager['messageQueue'].length).toBe(1);
-            expect(roktManager['messageQueue'][0].methodName).toBe('setExtensionData');
-            expect(roktManager['messageQueue'][0].payload).toBe(extensionData);
+            expect(roktManager['messageQueue'].size).toBe(1);
+            const queuedMessage = roktManager['messageQueue'].values().next().value;
+            expect(queuedMessage.methodName).toBe('setExtensionData');
+            expect(queuedMessage.payload).toBe(extensionData);
         });
 
         it('should process queued setExtensionData calls once the kit is attached', () => {
@@ -997,7 +1002,7 @@ describe('RoktManager', () => {
 
             roktManager.setExtensionData(extensionData);
             expect(roktManager['kit']).toBeNull();
-            expect(roktManager['messageQueue'].length).toBe(1);
+            expect(roktManager['messageQueue'].size).toBe(1);
 
             const kit: Partial<IRoktKit> = {
                 launcher: {
@@ -1010,7 +1015,7 @@ describe('RoktManager', () => {
             roktManager.attachKit(kit as IRoktKit);
 
             expect(roktManager['kit']).not.toBeNull();
-            expect(roktManager['messageQueue'].length).toBe(0);
+            expect(roktManager['messageQueue'].size).toBe(0);
             expect(kit.setExtensionData).toHaveBeenCalledWith(extensionData);
         });
 
@@ -1056,15 +1061,17 @@ describe('RoktManager', () => {
             expect(promise).toBeInstanceOf(Promise);
             
             // Verify message was queued with unique messageId
-            expect(roktManager['messageQueue'].length).toBe(1);
-            const queuedMessage = roktManager['messageQueue'][0];
+            expect(roktManager['messageQueue'].size).toBe(1);
+            const queuedMessages = Array.from(roktManager['messageQueue'].values());
+            const queuedMessage = queuedMessages[0];
             expect(queuedMessage.methodName).toBe('testMethod');
             expect(queuedMessage.payload).toBe(testPayload);
             expect(queuedMessage.messageId).toBeDefined();
             expect(typeof queuedMessage.messageId).toBe('string');
+            expect(queuedMessage.messageId).toMatch(/^testMethod_[a-f0-9-]{36}$/i);
             
-            // Verify pending promise is tracked with that messageId
-            expect(roktManager['pendingPromises'].has(queuedMessage.messageId!)).toBe(true);
+            // Verify message is tracked in messageQueue with that messageId
+            expect(roktManager['messageQueue'].has(queuedMessage.messageId!)).toBe(true);
         });
 
         it('should generate unique messageIds for multiple calls', () => {
@@ -1079,12 +1086,13 @@ describe('RoktManager', () => {
             expect(promise3).toBeInstanceOf(Promise);
             
             // Verify all messages are queued
-            expect(roktManager['messageQueue'].length).toBe(3);
+            expect(roktManager['messageQueue'].size).toBe(3);
             
             // Extract messageIds
-            const messageId1 = roktManager['messageQueue'][0].messageId!;
-            const messageId2 = roktManager['messageQueue'][1].messageId!;
-            const messageId3 = roktManager['messageQueue'][2].messageId!;
+            const queuedMessages = Array.from(roktManager['messageQueue'].values());
+            const messageId1 = queuedMessages[0].messageId!;
+            const messageId2 = queuedMessages[1].messageId!;
+            const messageId3 = queuedMessages[2].messageId!;
             
             // Verify all messageIds are unique
             expect(messageId1).toBeDefined();
@@ -1094,17 +1102,18 @@ describe('RoktManager', () => {
             expect(messageId2).not.toBe(messageId3);
             expect(messageId1).not.toBe(messageId3);
             
-            // Verify all are tracked in pendingPromises
-            expect(roktManager['pendingPromises'].has(messageId1)).toBe(true);
-            expect(roktManager['pendingPromises'].has(messageId2)).toBe(true);
-            expect(roktManager['pendingPromises'].has(messageId3)).toBe(true);
+            // Verify all are tracked in messageQueue
+            expect(roktManager['messageQueue'].has(messageId1)).toBe(true);
+            expect(roktManager['messageQueue'].has(messageId2)).toBe(true);
+            expect(roktManager['messageQueue'].has(messageId3)).toBe(true);
         });
     });
 
     describe('#completePendingPromise', () => {
         it('should resolve pending promise with success result', async () => {
             const promise = roktManager['deferredCall']<string>('testMethod', {});
-            const messageId = roktManager['messageQueue'][0].messageId!;
+            const queuedMessage = roktManager['messageQueue'].values().next().value;
+            const messageId = queuedMessage.messageId!;
 
             // Complete the promise with success result
             roktManager['completePendingPromise'](messageId, 'success result');
@@ -1112,13 +1121,14 @@ describe('RoktManager', () => {
             // Promise should resolve with the result
             await expect(promise).resolves.toBe('success result');
 
-            // Should clean up the pending promise
-            expect(roktManager['pendingPromises'].has(messageId)).toBe(false);
+            // Should clean up the message from queue
+            expect(roktManager['messageQueue'].has(messageId)).toBe(false);
         });
 
         it('should reject pending promise with error', async () => {
             const promise = roktManager['deferredCall']<string>('testMethod', {});
-            const messageId = roktManager['messageQueue'][0].messageId!;
+            const queuedMessage = roktManager['messageQueue'].values().next().value;
+            const messageId = queuedMessage.messageId!;
             const error = new Error('test error');
 
             // Complete the promise with error (wrapped in rejected promise)
@@ -1128,12 +1138,13 @@ describe('RoktManager', () => {
             await expect(promise).rejects.toThrow('test error');
 
             // Should clean up the pending promise
-            expect(roktManager['pendingPromises'].has(messageId)).toBe(false);
+            expect(roktManager['messageQueue'].has(messageId)).toBe(false);
         });
 
         it('should handle async results correctly', async () => {
             const promise = roktManager['deferredCall']<any>('testMethod', {});
-            const messageId = roktManager['messageQueue'][0].messageId!;
+            const queuedMessage = roktManager['messageQueue'].values().next().value;
+            const messageId = queuedMessage.messageId!;
             const asyncResult = { data: 'async data' };
 
             // Complete with an async promise
@@ -1145,7 +1156,7 @@ describe('RoktManager', () => {
             expect(result).not.toBeInstanceOf(Promise);
 
             // Should clean up the pending promise
-            expect(roktManager['pendingPromises'].has(messageId)).toBe(false);
+            expect(roktManager['messageQueue'].has(messageId)).toBe(false);
         });
 
         it('should handle missing messageId gracefully', () => {

@@ -34,9 +34,11 @@ export interface IRoktLauncher {
 }
 
 export interface IRoktMessage {
+    messageId: string;
     methodName: string;
-    messageId?: string;
     payload: any;
+    resolve?: Function;
+    reject?: Function;
 }
 
 export interface RoktKitFilterSettings {
@@ -77,8 +79,7 @@ export default class RoktManager {
     public kit: IRoktKit = null;
     public filters: RoktKitFilterSettings = {};
     private currentUser: IMParticleUser | null = null;
-    private messageQueue: IRoktMessage[] = [];
-    private pendingPromises: Map<string, {resolve: Function, reject: Function}> = new Map();
+    private messageQueue: Map<string, IRoktMessage> = new Map();
     private sandbox: boolean | null = null;
     private placementAttributesMapping: Dictionary<string>[] = [];
     private identityService: SDKIdentityApi;
@@ -214,9 +215,9 @@ export default class RoktManager {
         }
     }
 
-    public hashAttributes(attributes: IRoktPartnerAttributes): Promise<Record<string, string>> {
+    public hashAttributes(attributes: IRoktPartnerAttributes): Promise<IRoktPartnerAttributes> {
         if (!this.isReady()) {
-            return this.deferredCall<Record<string, string>>('hashAttributes', attributes);
+            return this.deferredCall<IRoktPartnerAttributes>('hashAttributes', attributes);
         }
 
         try {
@@ -229,6 +230,7 @@ export default class RoktManager {
     public setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void {
         if (!this.isReady()) {
             this.queueMessage({
+                messageId: `setExtensionData_${generateUniqueId()}`,
                 methodName: 'setExtensionData',
                 payload: extensionData,
             });
@@ -282,19 +284,16 @@ export default class RoktManager {
     }
 
     private processMessageQueue(): void {
-        if (!this.isReady() || this.messageQueue.length === 0) {
+        if (!this.isReady() || this.messageQueue.size === 0) {
             return;
         }
 
-        const messagesToProcess = [...this.messageQueue];
-        this.messageQueue = [];
+        this.logger?.verbose(`RoktManager: Processing ${this.messageQueue.size} queued messages`);
 
-        this.logger?.verbose(`RoktManager: Processing ${messagesToProcess.length} queued messages`);
-
-        for (const message of messagesToProcess) {
+        this.messageQueue.forEach((message) => {
             if(!(message.methodName in this.kit) || !isFunction(this.kit[message.methodName])) {
                 this.logger?.error(`RoktManager: Method ${message.methodName} not found in kit`);
-                continue;
+                return;
             }
 
             this.logger?.verbose(`RoktManager: Processing queued message: ${message.methodName} with payload: ${JSON.stringify(message.payload)}`);
@@ -307,43 +306,40 @@ export default class RoktManager {
                 this.logger?.error(`RoktManager: Error processing message '${message.methodName}': ${errorMessage}`);
                 this.completePendingPromise(message.messageId, Promise.reject(error));
             }
-        }
+        });
     }
 
     private queueMessage(message: IRoktMessage): void {
-        this.messageQueue.push(message);
+        this.messageQueue.set(message.messageId, message);
     }
 
     private deferredCall<T>(methodName: string, payload: any): Promise<T> {
         return new Promise<T>((resolve, reject) => {
-            const messageId = generateUniqueId();
+            const messageId = `${methodName}_${generateUniqueId()}`;
             
-            // Store the promise resolvers
-            this.pendingPromises.set(messageId, { resolve, reject });
-            
-            // Queue the message with the ID
             this.queueMessage({
                 messageId,
                 methodName,
                 payload,
+                resolve,
+                reject,
             });
         });
     }
 
     private completePendingPromise(messageId: string | undefined, resultOrError: any): void {
-        // Early exit if no pending promise to handle
-        if (!messageId || !this.pendingPromises.has(messageId)) {
+        if (!messageId || !this.messageQueue.has(messageId)) {
             return;
         }
 
-        const pendingPromise = this.pendingPromises.get(messageId)!;
+        const message = this.messageQueue.get(messageId)!;
         
-        // Always use Promise.resolve to handle both sync and async results uniformly
-        Promise.resolve(resultOrError)
-            .then((result) => pendingPromise.resolve(result))
-            .catch((error) => pendingPromise.reject(error));
+        if (message.resolve) {
+            Promise.resolve(resultOrError)
+                .then((result) => message.resolve!(result))
+                .catch((error) => message.reject!(error));
+        }
         
-        // Clean up the pending promise
-        this.pendingPromises.delete(messageId);
+        this.messageQueue.delete(messageId);
     }
 }
