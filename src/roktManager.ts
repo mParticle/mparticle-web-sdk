@@ -229,11 +229,7 @@ export default class RoktManager {
 
     public setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void {
         if (!this.isReady()) {
-            this.queueMessage({
-                messageId: `setExtensionData_${generateUniqueId()}`,
-                methodName: 'setExtensionData',
-                payload: extensionData,
-            });
+            this.deferredCall<void>('setExtensionData', extensionData);
             return;
         }
 

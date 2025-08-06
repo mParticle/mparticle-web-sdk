@@ -1051,7 +1051,7 @@ describe('RoktManager', () => {
     });
 
     describe('#deferredCall', () => {
-        it.only('should create a deferred promise with unique messageId', () => {
+        it('should create a deferred promise with unique messageId', () => {
             const testPayload = { test: 'data' };
             
             // Call deferredCall
