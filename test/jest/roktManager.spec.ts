@@ -6,7 +6,7 @@ import RoktManager, { IRoktKit, IRoktSelectPlacementsOptions } from "../../src/r
 import { testMPID } from '../src/config/constants';
 
 
-describe.only('RoktManager', () => {
+describe('RoktManager', () => {
     let roktManager: RoktManager;
     let currentUser: IMParticleUser;
 
