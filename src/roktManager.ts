@@ -198,6 +198,32 @@ export default class RoktManager {
                 }
             }
 
+            // Handle emailsha256 mapping to 'other' identity
+            const newEmailSha256 = options.attributes.emailsha256;
+            const currentOther = currentUserIdentities.other;
+            
+            if (newEmailSha256 && (!currentOther || currentOther !== newEmailSha256)) {
+                if (currentOther && currentOther !== newEmailSha256) {
+                    this.logger.warning(`emailsha256 identity mismatch detected. Current mParticle 'other' identity, ${currentOther} differs from emailsha256 passed to selectPlacements call, ${newEmailSha256}. Proceeding to call identify with 'other' set to ${newEmailSha256}. Please verify your implementation.`);
+                }
+
+                // Call identify with the new 'other' identity mapped from emailsha256
+                try {
+                    await new Promise<void>((resolve, reject) => {
+                        this.identityService.identify({
+                            userIdentities: {
+                                ...currentUserIdentities,
+                                other: newEmailSha256 as string
+                            }
+                        }, () => {
+                            resolve();
+                        });
+                    });
+                } catch (error) {
+                    this.logger.error('Failed to identify user with new emailsha256 mapped to other identity: ' + JSON.stringify(error));
+                }
+            }
+
             this.setUserAttributes(mappedAttributes);
 
             const enrichedAttributes = {
