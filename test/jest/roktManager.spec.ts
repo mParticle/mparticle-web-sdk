@@ -7,7 +7,7 @@ import { testMPID } from '../src/config/constants';
 
 const resolvePromise = () => new Promise(resolve => setTimeout(resolve, 0));
 
-describe.only('RoktManager', () => {
+describe('RoktManager', () => {
     let roktManager: RoktManager;
     let currentUser: IMParticleUser;
 
