@@ -171,58 +171,62 @@ export default class RoktManager {
             // Get current user identities
             this.currentUser = this.identityService.getCurrentUser();
             const currentUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
-            const currentEmail = currentUserIdentities.email;
-            const newEmail = mappedAttributes.email as string;
+            // Helper function to handle identity updates
+            const updateIdentityIfChanged = async (
+                identityKey: string, 
+                newValue: string | undefined, 
+                currentValue: string | undefined,
+                identityDisplayName: string,
+                sourceDisplayName: string
+            ) => {
+                if (newValue && (!currentValue || currentValue !== newValue)) {
+                    if (currentValue && currentValue !== newValue) {
+                        // Format warning messages to match original format
+                        let warningMessage: string;
+                        if (identityKey === 'email') {
+                            warningMessage = `Email mismatch detected. Current email, ${currentValue} differs from email passed to selectPlacements call, ${newValue}. Proceeding to call identify with ${newValue}. Please verify your implementation.`;
+                        } else if (identityKey === 'other') {
+                            warningMessage = `emailsha256 identity mismatch detected. Current mParticle 'other' identity, ${currentValue} differs from emailsha256 passed to selectPlacements call, ${newValue}. Proceeding to call identify with 'other' set to ${newValue}. Please verify your implementation.`;
+                        }
+                        this.logger.warning(warningMessage);
+                    }
+
+                    // Call identify with the new user identity
+                    try {
+                        await new Promise<void>((resolve, reject) => {
+                            this.identityService.identify({
+                                userIdentities: {
+                                    ...currentUserIdentities,
+                                    [identityKey]: newValue
+                                }
+                            }, () => {
+                                resolve();
+                            });
+                        });
+                    } catch (error) {
+                        this.logger.error(`Failed to identify user with new ${sourceDisplayName}: ${JSON.stringify(error)}`);
+                    }
+                }
+            };
 
             // https://go.mparticle.com/work/SQDSDKS-7338
-            // Check if email exists and differs
-            if (newEmail && (!currentEmail || currentEmail !== newEmail)) {
-                if (currentEmail && currentEmail !== newEmail) {
-                    this.logger.warning(`Email mismatch detected. Current email, ${currentEmail} differs from email passed to selectPlacements call, ${newEmail}. Proceeding to call identify with ${newEmail}. Please verify your implementation.`);
-                }
-
-                // Call identify with the new user identities
-                try {
-                    await new Promise<void>((resolve, reject) => {
-                        this.identityService.identify({
-                            userIdentities: {
-                                ...currentUserIdentities,
-                                email: newEmail
-                            }
-                        }, () => {
-                            resolve();
-                        });
-                    });
-                } catch (error) {
-                    this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error));
-                }
-            }
+            // Handle email identity updates
+            await updateIdentityIfChanged(
+                'email',
+                mappedAttributes.email as string,
+                currentUserIdentities.email,
+                'Email',
+                'email'
+            );
 
             // Handle emailsha256 mapping to 'other' identity
-            const newEmailSha256 = options.attributes.emailsha256;
-            const currentOther = currentUserIdentities.other;
-            
-            if (newEmailSha256 && (!currentOther || currentOther !== newEmailSha256)) {
-                if (currentOther && currentOther !== newEmailSha256) {
-                    this.logger.warning(`emailsha256 identity mismatch detected. Current mParticle 'other' identity, ${currentOther} differs from emailsha256 passed to selectPlacements call, ${newEmailSha256}. Proceeding to call identify with 'other' set to ${newEmailSha256}. Please verify your implementation.`);
-                }
-
-                // Call identify with the new 'other' identity mapped from emailsha256
-                try {
-                    await new Promise<void>((resolve, reject) => {
-                        this.identityService.identify({
-                            userIdentities: {
-                                ...currentUserIdentities,
-                                other: newEmailSha256 as string
-                            }
-                        }, () => {
-                            resolve();
-                        });
-                    });
-                } catch (error) {
-                    this.logger.error('Failed to identify user with new emailsha256 mapped to other identity: ' + JSON.stringify(error));
-                }
-            }
+            await updateIdentityIfChanged(
+                'other',
+                options.attributes.emailsha256 as string,
+                currentUserIdentities.other,
+                "mParticle 'other' identity",
+                'emailsha256'
+            );
 
             this.setUserAttributes(mappedAttributes);
 

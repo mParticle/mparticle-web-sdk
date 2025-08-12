@@ -381,7 +381,7 @@ describe('RoktManager', () => {
             roktManager['currentUser'] = currentUser;
         });
 
-        it('should call kit.selectPlacements with empty attributes', () => {
+        it('should call kit.selectPlacements with empty attributes', async () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -401,7 +401,7 @@ describe('RoktManager', () => {
                 attributes: {}
             } as IRoktSelectPlacementsOptions;
 
-            roktManager.selectPlacements(options);
+            await roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
@@ -478,7 +478,7 @@ describe('RoktManager', () => {
             expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
-        it('should pass through the correct attributes to kit.selectPlacements', () => {
+        it('should pass through the correct attributes to kit.selectPlacements', async () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -512,12 +512,12 @@ describe('RoktManager', () => {
                 }
             };
 
-            roktManager.selectPlacements(options);
+            await roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith(options);
             expect(kit.launcher.selectPlacements).toHaveBeenCalledWith(options);
         });
 
-        it('should pass sandbox flag as an attribute through to kit.selectPlacements', ()=> {
+        it('should pass sandbox flag as an attribute through to kit.selectPlacements', async ()=> {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -541,11 +541,11 @@ describe('RoktManager', () => {
                 identifier: 'test-identifier'
             };
 
-            roktManager.selectPlacements(options);
+            await roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith(options); 
         });
 
-        it('should NOT override global sandbox in placement attributes when initialized as true', () => {
+        it('should NOT override global sandbox in placement attributes when initialized as true', async () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -569,13 +569,13 @@ describe('RoktManager', () => {
                 }
             };
 
-            roktManager.selectPlacements(options);
+            await roktManager.selectPlacements(options);
 
             expect(roktManager['sandbox']).toBeTruthy();
             expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
-        it('should set sandbox in placement attributes when not initialized globally', () => {
+        it('should set sandbox in placement attributes when not initialized globally', async () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -600,11 +600,11 @@ describe('RoktManager', () => {
                 identifier: 'test-identifier'
             };
 
-            roktManager.selectPlacements(options);
+            await roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
-        it('should pass mapped attributes to kit.launcher.selectPlacements', () => {
+        it('should pass mapped attributes to kit.launcher.selectPlacements', async () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -647,11 +647,11 @@ describe('RoktManager', () => {
                 }
             };
 
-            roktManager.selectPlacements(options);
+            await roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith(expectedOptions);
         });
 
-        it('should pass original attributes to kit.launcher.selectPlacements if no mapping is provided', () => {
+        it('should pass original attributes to kit.launcher.selectPlacements if no mapping is provided', async () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -674,7 +674,7 @@ describe('RoktManager', () => {
                 }
             };
 
-            roktManager.selectPlacements(options);
+            await roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
@@ -727,7 +727,7 @@ describe('RoktManager', () => {
             });
         });
 
-        it('should not set reserved attributes on the current user', () => {
+        it('should not set reserved attributes on the current user', async () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -749,7 +749,7 @@ describe('RoktManager', () => {
                 }
             };
 
-            roktManager.selectPlacements(options);
+            await roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith(options);
             expect(roktManager['currentUser'].setUserAttributes).not.toHaveBeenCalledWith({
                 sandbox: true
@@ -805,7 +805,7 @@ describe('RoktManager', () => {
             );
         });
 
-        it('should not call identify when email matches current user email', () => {
+        it('should not call identify when email matches current user email', async () => {
             // Reset mocks
             jest.clearAllMocks();
             
@@ -842,7 +842,7 @@ describe('RoktManager', () => {
                 }
             };
 
-            roktManager.selectPlacements(options);
+            await roktManager.selectPlacements(options);
 
             expect(mockIdentity.identify).not.toHaveBeenCalled();
             expect(mockMPInstance.Logger.warning).not.toHaveBeenCalled();
@@ -941,7 +941,7 @@ describe('RoktManager', () => {
             );
         });
 
-        it('should not call identify when emailsha256 matches current user other identity', () => {
+        it('should not call identify when emailsha256 matches current user other identity', async () => {
             // Reset mocks
             jest.clearAllMocks();
             
@@ -978,7 +978,7 @@ describe('RoktManager', () => {
                 }
             };
 
-            roktManager.selectPlacements(options);
+            await roktManager.selectPlacements(options);
 
             expect(mockIdentity.identify).not.toHaveBeenCalled();
             expect(mockMPInstance.Logger.warning).not.toHaveBeenCalled();
@@ -1028,7 +1028,7 @@ describe('RoktManager', () => {
             expect(mockMPInstance.Logger.warning).not.toHaveBeenCalled();
         });
 
-        it('should not call identify when current user has other identity but emailsha256 is null', () => {
+        it('should not call identify when current user has other identity but emailsha256 is null', async () => {
             // Reset mocks
             jest.clearAllMocks();
             
@@ -1065,7 +1065,7 @@ describe('RoktManager', () => {
                 }
             };
 
-            roktManager.selectPlacements(options);
+            await roktManager.selectPlacements(options);
 
             expect(mockIdentity.identify).not.toHaveBeenCalled();
             expect(mockMPInstance.Logger.warning).not.toHaveBeenCalled();
