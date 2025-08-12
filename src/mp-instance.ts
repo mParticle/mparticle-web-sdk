@@ -92,7 +92,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
 }
 
     const { Messages, HTTPCodes, FeatureFlags } = Constants;
-    const { ReportBatching, CaptureIntegrationSpecificIds, CollectClickIdV2Enabled, IntegrationCaptureMode } = FeatureFlags;
+    const { ReportBatching, CaptureIntegrationSpecificIds, CaptureIntegrationSpecificIdsV2 } = FeatureFlags;
 const { StartingInitialization } = Messages.InformationMessages;
 
 /**
@@ -1390,17 +1390,17 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
         }
 
-        const isV2Enabled = mpInstance._Helpers.getFeatureFlag(CollectClickIdV2Enabled) === true;
-        const mode = mpInstance._Helpers.getFeatureFlag(IntegrationCaptureMode) as string;
-        if (isV2Enabled) {
-            // v2: modes are lower-case: 'all' | 'onlyrokt' | 'none'
-            const normalized = typeof mode === 'string' ? mode.toLowerCase() : 'none';
-            if (normalized !== 'none') {
-                mpInstance._IntegrationCapture.captureMode = normalized === 'onlyrokt' ? 'RoktOnly' : 'All';
+        const isCaptureIntegrationSpecificIdsV2 = mpInstance._Helpers.getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string;
+        if (typeof isCaptureIntegrationSpecificIdsV2 === 'string' && isCaptureIntegrationSpecificIdsV2.length > 0) {
+            const normalizedValue = isCaptureIntegrationSpecificIdsV2.toLowerCase();
+            if (normalizedValue === 'roktonly') {
+                mpInstance._IntegrationCapture.captureMode = 'RoktOnly';
+                mpInstance._IntegrationCapture.capture();
+            } else if (normalizedValue === 'all') {
+                mpInstance._IntegrationCapture.captureMode = 'All';
                 mpInstance._IntegrationCapture.capture();
             }
         } else if (mpInstance._Helpers.getFeatureFlag(CaptureIntegrationSpecificIds)) {
-            // legacy v1 boolean behavior
             mpInstance._IntegrationCapture.captureMode = 'All';
             mpInstance._IntegrationCapture.capture();
         }

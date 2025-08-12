@@ -719,8 +719,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
         CacheIdentity,
         AudienceAPI,
         CaptureIntegrationSpecificIds,
-        CollectClickIdV2Enabled,
-        IntegrationCaptureMode,
+        CaptureIntegrationSpecificIdsV2,
         AstBackgroundEvents
     } = Constants.FeatureFlags;
 
@@ -740,15 +739,11 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[CacheIdentity] = config.flags[CacheIdentity] === 'True';
     flags[AudienceAPI] = config.flags[AudienceAPI] === 'True';
     flags[CaptureIntegrationSpecificIds] = config.flags[CaptureIntegrationSpecificIds] === 'True';
+    const captureIntegrationSpecificIdsV2Value = (config.flags[CaptureIntegrationSpecificIdsV2] || '').toString().trim().toLowerCase();
+    if (captureIntegrationSpecificIdsV2Value) {
+        flags[CaptureIntegrationSpecificIdsV2] = captureIntegrationSpecificIdsV2Value;
+    }
     flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
-    // default CollectClickIdV2Enabled to false when undefined
-    const collectV2 = config.flags[CollectClickIdV2Enabled] === 'True';
-    flags[CollectClickIdV2Enabled] = collectV2;
-    // Normalize mode to lower-case with default 'none'
-    const rawMode = (config.flags[IntegrationCaptureMode] || 'none').toString().trim().toLowerCase();
-    // Only meaningful when v2 is enabled; otherwise legacy boolean is used elsewhere
-    flags[IntegrationCaptureMode] = rawMode;
-
     return flags;
 }
 

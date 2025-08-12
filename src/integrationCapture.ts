@@ -146,8 +146,7 @@ export default class IntegrationCapture {
     public readonly filteredPartnerIdentityMappings: IntegrationIdMapping;
     public readonly filteredCustomFlagMappings: IntegrationIdMapping;
     public readonly filteredIntegrationAttributeMappings: IntegrationIdMapping;
-    // One of: 'All' | 'RoktOnly' | 'None'
-    public captureMode: string = 'All';
+    public captureMode?: string;
 
     constructor() {
         this.initialTimestamp = Date.now();
@@ -166,7 +165,7 @@ export default class IntegrationCapture {
         let cookies = this.captureCookies() || {};
         let localStorage = this.captureLocalStorage() || {};
 
-        if (this.captureMode === 'None') {
+        if (this.captureMode === 'None' || !this.captureMode) {
             queryParams = {};
             cookies = {};
             localStorage = {};
@@ -349,17 +348,6 @@ export default class IntegrationCapture {
             }
         }
         return filteredMappings;
-    }
-
-    /**
-     * Filters a set of key/value IDs to only include Rokt-related IDs
-     */
-    private filterToRokt(map: Dictionary<string>): Dictionary<string> {
-        if (!map) { return map; }
-        const roktKeys = ['rtid', 'rclid', 'RoktTransactionId'];
-        const filtered: Dictionary<string> = {};
-        roktKeys.forEach(k => { if (map.hasOwnProperty(k)) filtered[k] = map[k]; });
-        return filtered;
     }
 
     /**

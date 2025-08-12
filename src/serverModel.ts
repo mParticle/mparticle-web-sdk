@@ -279,17 +279,14 @@ export default function ServerModel(
             // https://go.mparticle.com/work/SQDSDKS-5053
             if (mpInstance._Helpers.getFeatureFlag) {
                 const { FeatureFlags } = Constants;
-                const isV2Enabled = Boolean(mpInstance._Helpers.getFeatureFlag(FeatureFlags.CollectClickIdV2Enabled));
-                if (isV2Enabled) {
-                    const mode = (mpInstance._Helpers.getFeatureFlag(FeatureFlags.IntegrationCaptureMode) as string) || 'none';
-                    const normalized = mode.toLowerCase();
-                    if (normalized !== 'none') {
-                        mpInstance._IntegrationCapture.capture();
-                        const transformedClickIDs = mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
-                        customFlags = { ...transformedClickIDs, ...customFlags };
-                        const transformedIntegrationAttributes = mpInstance._IntegrationCapture.getClickIdsAsIntegrationAttributes();
-                        integrationAttributes = { ...transformedIntegrationAttributes, ...integrationAttributes };
-                    }
+                const isCaptureIntegrationSpecificIdsV2 = (mpInstance._Helpers.getFeatureFlag(FeatureFlags.CaptureIntegrationSpecificIdsV2) as string) || '';
+                const normalizedValue = isCaptureIntegrationSpecificIdsV2.toLowerCase();
+                if (normalizedValue === 'all' || normalizedValue === 'roktonly') {
+                    mpInstance._IntegrationCapture.capture();
+                    const transformedClickIDs = mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
+                    customFlags = { ...transformedClickIDs, ...customFlags };
+                    const transformedIntegrationAttributes = mpInstance._IntegrationCapture.getClickIdsAsIntegrationAttributes();
+                    integrationAttributes = { ...transformedIntegrationAttributes, ...integrationAttributes };
                 } else if (mpInstance._Helpers.getFeatureFlag(FeatureFlags.CaptureIntegrationSpecificIds)) {
                     mpInstance._IntegrationCapture.capture();
                     const transformedClickIDs = mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();

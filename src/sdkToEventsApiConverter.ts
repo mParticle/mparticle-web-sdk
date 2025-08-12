@@ -130,10 +130,9 @@ export function convertEvents(
 
     let isIntegrationCaptureEnabled = false;
     if (getFeatureFlag) {
-        const isV2 = Boolean(getFeatureFlag(FeatureFlags.CollectClickIdV2Enabled));
-        if (isV2) {
-            const mode = (getFeatureFlag(FeatureFlags.IntegrationCaptureMode) as string || 'none').toLowerCase();
-            isIntegrationCaptureEnabled = mode === 'all' || mode === 'onlyrokt';
+        const isCaptureIntegrationSpecificIdsV2 = (getFeatureFlag(FeatureFlags.CaptureIntegrationSpecificIdsV2) as string || '').toLowerCase();
+        if (isCaptureIntegrationSpecificIdsV2) {
+            isIntegrationCaptureEnabled = isCaptureIntegrationSpecificIdsV2 === 'all' || isCaptureIntegrationSpecificIdsV2 === 'roktonly';
         } else {
             isIntegrationCaptureEnabled = Boolean(getFeatureFlag(CaptureIntegrationSpecificIds));
         }
