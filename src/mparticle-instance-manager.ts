@@ -284,13 +284,24 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
             transactionAttributes,
             eventOptions
         ) {
-            self.getInstance().eCommerce.logProductAction(
+            return self.getInstance().eCommerce.logProductAction(
                 productActionType,
                 product,
                 attrs,
                 customFlags,
                 transactionAttributes,
                 eventOptions
+            );
+        },
+        logProductActionV2: function(
+            productActionType,
+            product,
+            options = {}
+        ) {
+            self.getInstance().eCommerce.logProductActionV2(
+                productActionType,
+                product,
+                options
             );
         },
         logPurchase: function(
