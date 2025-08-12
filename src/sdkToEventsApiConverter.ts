@@ -128,7 +128,16 @@ export function convertEvents(
         };
     }
 
-    const isIntegrationCaptureEnabled: boolean = getFeatureFlag && Boolean(getFeatureFlag(CaptureIntegrationSpecificIds));
+    let isIntegrationCaptureEnabled = false;
+    if (getFeatureFlag) {
+        const isV2 = Boolean(getFeatureFlag(FeatureFlags.CollectClickIdV2Enabled));
+        if (isV2) {
+            const mode = (getFeatureFlag(FeatureFlags.IntegrationCaptureMode) as string || 'none').toLowerCase();
+            isIntegrationCaptureEnabled = mode === 'all' || mode === 'onlyrokt';
+        } else {
+            isIntegrationCaptureEnabled = Boolean(getFeatureFlag(CaptureIntegrationSpecificIds));
+        }
+    }
     if (isIntegrationCaptureEnabled) {
         const capturedPartnerIdentities: PartnerIdentities = _IntegrationCapture?.getClickIdsAsPartnerIdentities();
         if (!isEmpty(capturedPartnerIdentities)) {

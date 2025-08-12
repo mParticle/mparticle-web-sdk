@@ -146,6 +146,8 @@ export default class IntegrationCapture {
     public readonly filteredPartnerIdentityMappings: IntegrationIdMapping;
     public readonly filteredCustomFlagMappings: IntegrationIdMapping;
     public readonly filteredIntegrationAttributeMappings: IntegrationIdMapping;
+    // One of: 'All' | 'RoktOnly' | 'None'
+    public captureMode: string = 'All';
 
     constructor() {
         this.initialTimestamp = Date.now();
@@ -160,9 +162,15 @@ export default class IntegrationCapture {
      * Captures Integration Ids from cookies and query params and stores them in clickIds object
      */
     public capture(): void {
-        const queryParams = this.captureQueryParams() || {};
-        const cookies = this.captureCookies() || {};
-        const localStorage = this.captureLocalStorage() || {};
+        let queryParams = this.captureQueryParams() || {};
+        let cookies = this.captureCookies() || {};
+        let localStorage = this.captureLocalStorage() || {};
+
+        if (this.captureMode === 'None') {
+            queryParams = {};
+            cookies = {};
+            localStorage = {};
+        }
 
         // Facebook Rules
         // Exclude _fbc if fbclid is present
@@ -205,7 +213,8 @@ export default class IntegrationCapture {
      * Captures cookies based on the integration ID mapping.
      */
     public captureCookies(): Dictionary<string> {
-        const cookies = getCookies(Object.keys(integrationMapping));
+        const keys = this.getAllowedKeysForMode();
+        const cookies = getCookies(keys);
         return this.applyProcessors(cookies, getHref(), this.initialTimestamp);
     }
 
@@ -221,8 +230,9 @@ export default class IntegrationCapture {
      * Captures local storage based on the integration ID mapping.
      */
     public captureLocalStorage(): Dictionary<string> {
+        const keys = this.getAllowedKeysForMode();
         let localStorageItems: Dictionary<string> = {};
-        for (const key in integrationMapping) {
+        for (const key of keys) {
             const localStorageItem = localStorage.getItem(key);
             if (localStorageItem) {
                 localStorageItems[key] = localStorageItem;
@@ -237,7 +247,8 @@ export default class IntegrationCapture {
      * @returns {Dictionary<string>} The query parameters.
      */
     public getQueryParams(): Dictionary<string> {
-        return queryStringParser(getHref(), Object.keys(integrationMapping));
+        const keys = this.getAllowedKeysForMode();
+        return queryStringParser(getHref(), keys);
     }
 
     /**
@@ -338,5 +349,27 @@ export default class IntegrationCapture {
             }
         }
         return filteredMappings;
+    }
+
+    /**
+     * Filters a set of key/value IDs to only include Rokt-related IDs
+     */
+    private filterToRokt(map: Dictionary<string>): Dictionary<string> {
+        if (!map) { return map; }
+        const roktKeys = ['rtid', 'rclid', 'RoktTransactionId'];
+        const filtered: Dictionary<string> = {};
+        roktKeys.forEach(k => { if (map.hasOwnProperty(k)) filtered[k] = map[k]; });
+        return filtered;
+    }
+
+    /**
+     * Returns the allowed keys to capture based on the current mode.
+     * For RoktOnly, limit capture to Rokt keys; for All, capture all mapped keys.
+     */
+    private getAllowedKeysForMode(): string[] {
+        if (this.captureMode === 'RoktOnly') {
+            return ['rtid', 'rclid', 'RoktTransactionId'];
+        }
+        return Object.keys(integrationMapping);
     }
 }

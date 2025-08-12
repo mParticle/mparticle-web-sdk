@@ -139,6 +139,9 @@ export interface IFeatureFlags {
     directURLRouting?: boolean;
     cacheIdentity?: boolean;
     captureIntegrationSpecificIds?: boolean;
+    collectClickIdV2Enabled?: boolean;
+    // 'all' | 'none' | 'onlyrokt'
+    integrationCaptureMode?: string;
     astBackgroundEvents?: boolean;
 }
 
@@ -716,6 +719,8 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
         CacheIdentity,
         AudienceAPI,
         CaptureIntegrationSpecificIds,
+        CollectClickIdV2Enabled,
+        IntegrationCaptureMode,
         AstBackgroundEvents
     } = Constants.FeatureFlags;
 
@@ -736,6 +741,13 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[AudienceAPI] = config.flags[AudienceAPI] === 'True';
     flags[CaptureIntegrationSpecificIds] = config.flags[CaptureIntegrationSpecificIds] === 'True';
     flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
+    // default CollectClickIdV2Enabled to false when undefined
+    const collectV2 = config.flags[CollectClickIdV2Enabled] === 'True';
+    flags[CollectClickIdV2Enabled] = collectV2;
+    // Normalize mode to lower-case with default 'none'
+    const rawMode = (config.flags[IntegrationCaptureMode] || 'none').toString().trim().toLowerCase();
+    // Only meaningful when v2 is enabled; otherwise legacy boolean is used elsewhere
+    flags[IntegrationCaptureMode] = rawMode;
 
     return flags;
 }

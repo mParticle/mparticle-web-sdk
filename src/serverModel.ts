@@ -277,16 +277,26 @@ export default function ServerModel(
             let integrationAttributes: IntegrationAttributes = mpInstance._Store.integrationAttributes;
 
             // https://go.mparticle.com/work/SQDSDKS-5053
-            if (mpInstance._Helpers.getFeatureFlag && mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds)) {
-
-                // Attempt to recapture click IDs in case a third party integration
-                // has added or updated  new click IDs since the last event was sent.
-                mpInstance._IntegrationCapture.capture();
-                const transformedClickIDs = mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
-                customFlags = {...transformedClickIDs, ...customFlags};
-
-                const transformedIntegrationAttributes = mpInstance._IntegrationCapture.getClickIdsAsIntegrationAttributes();
-                integrationAttributes = {...transformedIntegrationAttributes, ...integrationAttributes};
+            if (mpInstance._Helpers.getFeatureFlag) {
+                const { FeatureFlags } = Constants;
+                const isV2Enabled = Boolean(mpInstance._Helpers.getFeatureFlag(FeatureFlags.CollectClickIdV2Enabled));
+                if (isV2Enabled) {
+                    const mode = (mpInstance._Helpers.getFeatureFlag(FeatureFlags.IntegrationCaptureMode) as string) || 'none';
+                    const normalized = mode.toLowerCase();
+                    if (normalized !== 'none') {
+                        mpInstance._IntegrationCapture.capture();
+                        const transformedClickIDs = mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
+                        customFlags = { ...transformedClickIDs, ...customFlags };
+                        const transformedIntegrationAttributes = mpInstance._IntegrationCapture.getClickIdsAsIntegrationAttributes();
+                        integrationAttributes = { ...transformedIntegrationAttributes, ...integrationAttributes };
+                    }
+                } else if (mpInstance._Helpers.getFeatureFlag(FeatureFlags.CaptureIntegrationSpecificIds)) {
+                    mpInstance._IntegrationCapture.capture();
+                    const transformedClickIDs = mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
+                    customFlags = { ...transformedClickIDs, ...customFlags };
+                    const transformedIntegrationAttributes = mpInstance._IntegrationCapture.getClickIdsAsIntegrationAttributes();
+                    integrationAttributes = { ...transformedIntegrationAttributes, ...integrationAttributes };
+                }
             }
 
             if (event.hasOwnProperty('toEventAPIObject')) {

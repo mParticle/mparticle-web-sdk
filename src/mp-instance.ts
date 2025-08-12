@@ -91,8 +91,8 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _timeOnSiteTimer: ForegroundTimer; 
 }
 
-const { Messages, HTTPCodes, FeatureFlags } = Constants;
-const { ReportBatching, CaptureIntegrationSpecificIds } = FeatureFlags;
+    const { Messages, HTTPCodes, FeatureFlags } = Constants;
+    const { ReportBatching, CaptureIntegrationSpecificIds, CollectClickIdV2Enabled, IntegrationCaptureMode } = FeatureFlags;
 const { StartingInitialization } = Messages.InformationMessages;
 
 /**
@@ -1390,7 +1390,18 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
         }
 
-        if (mpInstance._Helpers.getFeatureFlag(CaptureIntegrationSpecificIds)) {
+        const isV2Enabled = mpInstance._Helpers.getFeatureFlag(CollectClickIdV2Enabled) === true;
+        const mode = mpInstance._Helpers.getFeatureFlag(IntegrationCaptureMode) as string;
+        if (isV2Enabled) {
+            // v2: modes are lower-case: 'all' | 'onlyrokt' | 'none'
+            const normalized = typeof mode === 'string' ? mode.toLowerCase() : 'none';
+            if (normalized !== 'none') {
+                mpInstance._IntegrationCapture.captureMode = normalized === 'onlyrokt' ? 'RoktOnly' : 'All';
+                mpInstance._IntegrationCapture.capture();
+            }
+        } else if (mpInstance._Helpers.getFeatureFlag(CaptureIntegrationSpecificIds)) {
+            // legacy v1 boolean behavior
+            mpInstance._IntegrationCapture.captureMode = 'All';
             mpInstance._IntegrationCapture.capture();
         }
 

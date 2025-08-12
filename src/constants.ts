@@ -184,6 +184,8 @@ const Constants = {
         CacheIdentity: 'cacheIdentity',
         AudienceAPI: 'audienceAPI',
         CaptureIntegrationSpecificIds: 'captureIntegrationSpecificIds',
+        CollectClickIdV2Enabled: 'collectClickIdV2Enabled',
+        IntegrationCaptureMode: 'integrationCaptureMode',
         AstBackgroundEvents: 'astBackgroundEvents',
     },
     DefaultInstance: 'default_instance',
