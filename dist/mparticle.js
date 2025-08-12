@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.43.1";
+    var version = "2.43.2";
 
     var Constants = {
       sdkVersion: version,
@@ -9721,7 +9721,7 @@ var mParticle = (function () {
         this.kit = null;
         this.filters = {};
         this.currentUser = null;
-        this.messageQueue = [];
+        this.messageQueue = new Map();
         this.sandbox = null;
         this.placementAttributesMapping = [];
       }
@@ -9795,11 +9795,7 @@ var mParticle = (function () {
             switch (_c.label) {
               case 0:
                 if (!this.isReady()) {
-                  this.queueMessage({
-                    methodName: 'selectPlacements',
-                    payload: options
-                  });
-                  return [2 /*return*/, Promise.resolve({})];
+                  return [2 /*return*/, this.deferredCall('selectPlacements', options)];
                 }
                 _c.label = 1;
               case 1:
@@ -9856,11 +9852,7 @@ var mParticle = (function () {
 
       RoktManager.prototype.hashAttributes = function (attributes) {
         if (!this.isReady()) {
-          this.queueMessage({
-            methodName: 'hashAttributes',
-            payload: attributes
-          });
-          return Promise.resolve({});
+          return this.deferredCall('hashAttributes', attributes);
         }
         try {
           return this.kit.hashAttributes(attributes);
@@ -9870,10 +9862,7 @@ var mParticle = (function () {
       };
       RoktManager.prototype.setExtensionData = function (extensionData) {
         if (!this.isReady()) {
-          this.queueMessage({
-            methodName: 'setExtensionData',
-            payload: extensionData
-          });
+          this.deferredCall('setExtensionData', extensionData);
           return;
         }
         try {
@@ -9918,29 +9907,57 @@ var mParticle = (function () {
       };
       RoktManager.prototype.processMessageQueue = function () {
         var _this = this;
-        if (this.messageQueue.length > 0 && this.isReady()) {
-          this.messageQueue.forEach(function (message) {
-            return __awaiter(_this, void 0, void 0, function () {
-              return __generator(this, function (_a) {
-                switch (_a.label) {
-                  case 0:
-                    if (!(this.kit && message.methodName in this.kit)) return [3 /*break*/, 2];
-                    return [4 /*yield*/, this.kit[message.methodName](message.payload)];
-                  case 1:
-                    _a.sent();
-                    _a.label = 2;
-                  case 2:
-                    return [2 /*return*/];
-                }
-              });
-            });
-          });
-
-          this.messageQueue = [];
+        var _a;
+        if (!this.isReady() || this.messageQueue.size === 0) {
+          return;
         }
+        (_a = this.logger) === null || _a === void 0 ? void 0 : _a.verbose("RoktManager: Processing ".concat(this.messageQueue.size, " queued messages"));
+        this.messageQueue.forEach(function (message) {
+          var _a, _b, _c;
+          if (!(message.methodName in _this.kit) || !isFunction(_this.kit[message.methodName])) {
+            (_a = _this.logger) === null || _a === void 0 ? void 0 : _a.error("RoktManager: Method ".concat(message.methodName, " not found in kit"));
+            return;
+          }
+          (_b = _this.logger) === null || _b === void 0 ? void 0 : _b.verbose("RoktManager: Processing queued message: ".concat(message.methodName, " with payload: ").concat(JSON.stringify(message.payload)));
+          try {
+            var result = _this.kit[message.methodName](message.payload);
+            _this.completePendingPromise(message.messageId, result);
+          } catch (error) {
+            var errorMessage = error instanceof Error ? error.message : String(error);
+            (_c = _this.logger) === null || _c === void 0 ? void 0 : _c.error("RoktManager: Error processing message '".concat(message.methodName, "': ").concat(errorMessage));
+            _this.completePendingPromise(message.messageId, Promise.reject(error));
+          }
+        });
       };
       RoktManager.prototype.queueMessage = function (message) {
-        this.messageQueue.push(message);
+        this.messageQueue.set(message.messageId, message);
+      };
+      RoktManager.prototype.deferredCall = function (methodName, payload) {
+        var _this = this;
+        return new Promise(function (resolve, reject) {
+          var messageId = "".concat(methodName, "_").concat(generateUniqueId());
+          _this.queueMessage({
+            messageId: messageId,
+            methodName: methodName,
+            payload: payload,
+            resolve: resolve,
+            reject: reject
+          });
+        });
+      };
+      RoktManager.prototype.completePendingPromise = function (messageId, resultOrError) {
+        if (!messageId || !this.messageQueue.has(messageId)) {
+          return;
+        }
+        var message = this.messageQueue.get(messageId);
+        if (message.resolve) {
+          Promise.resolve(resultOrError).then(function (result) {
+            return message.resolve(result);
+          })["catch"](function (error) {
+            return message.reject(error);
+          });
+        }
+        this.messageQueue["delete"](messageId);
       };
       return RoktManager;
     }();
