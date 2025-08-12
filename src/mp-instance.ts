@@ -91,8 +91,8 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _timeOnSiteTimer: ForegroundTimer; 
 }
 
-    const { Messages, HTTPCodes, FeatureFlags } = Constants;
-    const { ReportBatching, CaptureIntegrationSpecificIds, CaptureIntegrationSpecificIdsV2 } = FeatureFlags;
+const { Messages, HTTPCodes, FeatureFlags, CaptureIntegrationSpecificIdsV2Modes } = Constants;
+const { ReportBatching, CaptureIntegrationSpecificIds, CaptureIntegrationSpecificIdsV2 } = FeatureFlags;
 const { StartingInitialization } = Messages.InformationMessages;
 
 /**
@@ -1389,20 +1389,23 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         if (mpInstance._Helpers.getFeatureFlag(ReportBatching)) {
             mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
         }
+        const integrationSpecificIds = mpInstance._Helpers.getFeatureFlag(CaptureIntegrationSpecificIds) as boolean;
+        const integrationSpecificIdsV2 = mpInstance._Helpers.getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string | null;
+        
+        const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 ? integrationSpecificIdsV2 !== CaptureIntegrationSpecificIdsV2Modes.None : false) || (integrationSpecificIds === true);
 
-        const isCaptureIntegrationSpecificIdsV2 = mpInstance._Helpers.getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string;
-        if (typeof isCaptureIntegrationSpecificIdsV2 === 'string' && isCaptureIntegrationSpecificIdsV2.length > 0) {
-            const normalizedValue = isCaptureIntegrationSpecificIdsV2.toLowerCase();
-            if (normalizedValue === 'roktonly') {
-                mpInstance._IntegrationCapture.captureMode = 'RoktOnly';
-                mpInstance._IntegrationCapture.capture();
-            } else if (normalizedValue === 'all') {
-                mpInstance._IntegrationCapture.captureMode = 'All';
+        if (isIntegrationCaptureEnabled) {
+            let captureMode: 'All' | 'RoktOnly' | undefined;
+            if (integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.RoktOnly) {
+                captureMode = 'RoktOnly';
+            } else if (integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.All || integrationSpecificIds === true) {
+                captureMode = 'All';
+            }
+
+            if (captureMode) {
+                mpInstance._IntegrationCapture.captureMode = captureMode;
                 mpInstance._IntegrationCapture.capture();
             }
-        } else if (mpInstance._Helpers.getFeatureFlag(CaptureIntegrationSpecificIds)) {
-            mpInstance._IntegrationCapture.captureMode = 'All';
-            mpInstance._IntegrationCapture.capture();
         }
 
         // Configure Rokt Manager with user and filtered user

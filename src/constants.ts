@@ -183,7 +183,14 @@ const Constants = {
         DirectUrlRouting: 'directURLRouting',
         CacheIdentity: 'cacheIdentity',
         AudienceAPI: 'audienceAPI',
+        // CaptureIntegrationSpecificIds (legacy): boolean flag from server/UI
+        //   - 'True'  → capture all integration-specific IDs
+        //   - 'False' → capture none
         CaptureIntegrationSpecificIds: 'captureIntegrationSpecificIds',
+        // CaptureIntegrationSpecificIdsV2 (new): string mode from server
+        //   - 'all'      → capture all IDs
+        //   - 'none'     → capture none
+        //   - 'roktonly' → capture only Rokt-related IDs
         CaptureIntegrationSpecificIdsV2: 'captureIntegrationSpecificIds.V2',
         AstBackgroundEvents: 'astBackgroundEvents',
     },
@@ -199,6 +206,11 @@ const Constants = {
     Environment: {
         Development: 'development',
         Production: 'production',
+    },
+    CaptureIntegrationSpecificIdsV2Modes: {
+        All: 'all',
+        None: 'none',
+        RoktOnly: 'roktonly',
     },
 } as const;
 

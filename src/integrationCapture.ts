@@ -165,12 +165,6 @@ export default class IntegrationCapture {
         let cookies = this.captureCookies() || {};
         let localStorage = this.captureLocalStorage() || {};
 
-        if (this.captureMode === 'None' || !this.captureMode) {
-            queryParams = {};
-            cookies = {};
-            localStorage = {};
-        }
-
         // Facebook Rules
         // Exclude _fbc if fbclid is present
         // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc#retrieve-from-fbclid-url-query-parameter
@@ -358,6 +352,9 @@ export default class IntegrationCapture {
         if (this.captureMode === 'RoktOnly') {
             return ['rtid', 'rclid', 'RoktTransactionId'];
         }
-        return Object.keys(integrationMapping);
+        if (this.captureMode === 'All') {
+            return Object.keys(integrationMapping);
+        }
+        return [];
     }
 }

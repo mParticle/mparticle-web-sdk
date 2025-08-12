@@ -139,9 +139,7 @@ export interface IFeatureFlags {
     directURLRouting?: boolean;
     cacheIdentity?: boolean;
     captureIntegrationSpecificIds?: boolean;
-    collectClickIdV2Enabled?: boolean;
-    // 'all' | 'none' | 'onlyrokt'
-    integrationCaptureMode?: string;
+    captureIntegrationSpecificIdsV2?: string;
     astBackgroundEvents?: boolean;
 }
 
@@ -739,10 +737,8 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[CacheIdentity] = config.flags[CacheIdentity] === 'True';
     flags[AudienceAPI] = config.flags[AudienceAPI] === 'True';
     flags[CaptureIntegrationSpecificIds] = config.flags[CaptureIntegrationSpecificIds] === 'True';
-    const captureIntegrationSpecificIdsV2Value = (config.flags[CaptureIntegrationSpecificIdsV2] || '').toString().trim().toLowerCase();
-    if (captureIntegrationSpecificIdsV2Value) {
-        flags[CaptureIntegrationSpecificIdsV2] = captureIntegrationSpecificIdsV2Value;
-    }
+    flags[CaptureIntegrationSpecificIdsV2] = (config.flags[CaptureIntegrationSpecificIdsV2] || '').toString().trim().toLowerCase();
+
     flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
     return flags;
 }

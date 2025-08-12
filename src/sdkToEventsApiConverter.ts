@@ -19,10 +19,12 @@ import Constants from './constants';
 import { IMParticleWebSDKInstance } from './mp-instance';
 
 const { 
-    FeatureFlags
+    FeatureFlags,
+    CaptureIntegrationSpecificIdsV2Modes
 } = Constants;
 const {
-    CaptureIntegrationSpecificIds
+    CaptureIntegrationSpecificIds, 
+    CaptureIntegrationSpecificIdsV2,
 } = FeatureFlags;
 
 type PartnerIdentities = Dictionary<string>;
@@ -128,13 +130,17 @@ export function convertEvents(
         };
     }
 
-    let isIntegrationCaptureEnabled = false;
-    if (getFeatureFlag) {
-        const isCaptureIntegrationSpecificIdsV2 = (getFeatureFlag(FeatureFlags.CaptureIntegrationSpecificIdsV2) as string || '').toLowerCase();
-        if (isCaptureIntegrationSpecificIdsV2) {
-            isIntegrationCaptureEnabled = isCaptureIntegrationSpecificIdsV2 === 'all' || isCaptureIntegrationSpecificIdsV2 === 'roktonly';
-        } else {
-            isIntegrationCaptureEnabled = Boolean(getFeatureFlag(CaptureIntegrationSpecificIds));
+    const integrationSpecificIds = Boolean(getFeatureFlag(CaptureIntegrationSpecificIds));
+    const integrationSpecificIdsV2 = (getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string) || null;
+        
+    const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 ? integrationSpecificIdsV2 !== CaptureIntegrationSpecificIdsV2Modes.None : false) || (integrationSpecificIds === true);
+
+    if (isIntegrationCaptureEnabled) {
+        let captureMode: 'All' | 'RoktOnly' | undefined;
+        if (integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.RoktOnly) {
+            captureMode = 'RoktOnly';
+        } else if (integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.All || integrationSpecificIds === true) {
+            captureMode = 'All';
         }
     }
     if (isIntegrationCaptureEnabled) {
