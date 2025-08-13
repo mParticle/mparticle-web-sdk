@@ -142,8 +142,6 @@ export function convertEvents(
         } else if (integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.All || integrationSpecificIds === true) {
             captureMode = 'All';
         }
-    }
-    if (isIntegrationCaptureEnabled) {
         const capturedPartnerIdentities: PartnerIdentities = _IntegrationCapture?.getClickIdsAsPartnerIdentities();
         if (!isEmpty(capturedPartnerIdentities)) {
             upload.partner_identities = capturedPartnerIdentities;
