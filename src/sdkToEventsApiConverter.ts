@@ -18,11 +18,10 @@ import { SDKIdentityTypeEnum } from './identity.interfaces';
 import Constants from './constants';
 import { IMParticleWebSDKInstance } from './mp-instance';
 
-const { 
-    FeatureFlags
-} = Constants;
+const { FeatureFlags } = Constants;
 const {
-    CaptureIntegrationSpecificIds
+    CaptureIntegrationSpecificIds, 
+    CaptureIntegrationSpecificIdsV2,
 } = FeatureFlags;
 
 type PartnerIdentities = Dictionary<string>;
@@ -128,7 +127,11 @@ export function convertEvents(
         };
     }
 
-    const isIntegrationCaptureEnabled: boolean = getFeatureFlag && Boolean(getFeatureFlag(CaptureIntegrationSpecificIds));
+    const integrationSpecificIds = getFeatureFlag && Boolean(getFeatureFlag(CaptureIntegrationSpecificIds));
+    const integrationSpecificIdsV2 = getFeatureFlag && (getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string);
+        
+    const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 ? integrationSpecificIdsV2 !== 'none' : false) || (integrationSpecificIds === true);
+
     if (isIntegrationCaptureEnabled) {
         const capturedPartnerIdentities: PartnerIdentities = _IntegrationCapture?.getClickIdsAsPartnerIdentities();
         if (!isEmpty(capturedPartnerIdentities)) {

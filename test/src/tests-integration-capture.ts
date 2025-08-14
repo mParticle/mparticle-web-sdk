@@ -33,7 +33,8 @@ describe('Integration Capture', () => {
         });
 
         window.mParticle.config.flags = {
-            captureIntegrationSpecificIds: 'True'
+            captureIntegrationSpecificIds: 'True',
+            'captureIntegrationSpecificIds.V2': 'all'
         };
 
         window.document.cookie = '_cookie1=234';
@@ -65,7 +66,6 @@ describe('Integration Capture', () => {
         deleteAllCookies();
     });
 
-
     it('should add captured integrations to event custom flags', async () => {
         await waitForCondition(hasIdentifyReturned);
         mParticle.logEvent(
@@ -89,7 +89,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
         expect(testEvent.data.custom_flags['SnapchatConversions.ClickId'], 'Snapchat Click ID').to.equal('1234');
     });
-
+    
     it('should add captured integrations to event custom flags, prioritizing passed in custom flags', async () => {
         await waitForCondition(hasIdentifyReturned);
         window.mParticle.logEvent(
