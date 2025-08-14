@@ -74,7 +74,7 @@ interface IntegrationIdMapping {
     [key: string]: IntegrationMappingItem;
 }
 
-const integrationMapping: IntegrationIdMapping = {
+const integrationMappingExternal: IntegrationIdMapping = {
     // Facebook / Meta
     fbclid: {
         mappedKey: 'Facebook.ClickId',
@@ -104,6 +104,25 @@ const integrationMapping: IntegrationIdMapping = {
         output: IntegrationOutputs.CUSTOM_FLAGS,
     },
 
+    // TIKTOK
+    ttclid: {
+        mappedKey: 'TikTok.Callback',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
+    },
+    _ttp: {
+        mappedKey: 'tiktok_cookie_id',
+        output: IntegrationOutputs.PARTNER_IDENTITIES,
+    },
+
+    // Snapchat
+    // https://businesshelp.snapchat.com/s/article/troubleshooting-click-id?language=en_US
+    ScCid: {
+        mappedKey: 'SnapchatConversions.ClickId',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
+    },
+};
+
+const integrationMappingRokt: IntegrationIdMapping = {
     // Rokt
     // https://docs.rokt.com/developers/integration-guides/web/advanced/rokt-id-tag/
     // https://go.mparticle.com/work/SQDSDKS-7167
@@ -121,23 +140,6 @@ const integrationMapping: IntegrationIdMapping = {
         mappedKey: 'passbackconversiontrackingid',
         output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
         moduleId: 1277,
-    },
-
-    // TIKTOK
-    ttclid: {
-        mappedKey: 'TikTok.Callback',
-        output: IntegrationOutputs.CUSTOM_FLAGS,
-    },
-    _ttp: {
-        mappedKey: 'tiktok_cookie_id',
-        output: IntegrationOutputs.PARTNER_IDENTITIES,
-    },
-
-    // Snapchat
-    // https://businesshelp.snapchat.com/s/article/troubleshooting-click-id?language=en_US
-    ScCid: {
-        mappedKey: 'SnapchatConversions.ClickId',
-        output: IntegrationOutputs.CUSTOM_FLAGS,
     },
 };
 
@@ -322,15 +324,16 @@ export default class IntegrationCapture {
         timestamp?: number
     ): Dictionary<string> {
         const processedClickIds: Dictionary<string> = {};
-
+        const activeMapping = this.getActiveIntegrationMapping();
+    
         for (const key in clickIds) {
             if (clickIds.hasOwnProperty(key)) {
                 const value = clickIds[key];
-                const processor = integrationMapping[key]?.processor;
+                const processor = activeMapping[key]?.processor;
                 processedClickIds[key] = processor ? processor(value, url, timestamp) : value;
             }
         }
-
+    
         return processedClickIds;
     }
 
@@ -338,9 +341,10 @@ export default class IntegrationCapture {
         outputType: valueof<typeof IntegrationOutputs>
     ): IntegrationIdMapping {
         const filteredMappings: IntegrationIdMapping = {};
-        for (const key in integrationMapping) {
-            if (integrationMapping[key].output === outputType) {
-                filteredMappings[key] = integrationMapping[key];
+        const activeMapping = this.getActiveIntegrationMapping();
+        for (const key in activeMapping) {
+            if (activeMapping[key].output === outputType) {
+                filteredMappings[key] = activeMapping[key];
             }
         }
         return filteredMappings;
@@ -351,12 +355,23 @@ export default class IntegrationCapture {
      * For RoktOnly, limit capture to Rokt keys; for All, capture all mapped keys.
      */
     private getAllowedKeysForMode(): string[] {
+        const mapping = this.getActiveIntegrationMapping();
+        return Object.keys(mapping);
+    }
+    
+    /**
+    * Selects the active integration mapping for the current captureMode.
+    * - 'roktonly': only Rokt IDs are considered
+    * - 'all': both External and Rokt IDs are considered
+    * - else: returns an empty mapping and nothing will be captured
+    */
+    private getActiveIntegrationMapping(): IntegrationIdMapping {
         if (this.captureMode === 'roktonly') {
-            return ['rtid', 'rclid', 'RoktTransactionId'];
+            return integrationMappingRokt;
         }
         if (this.captureMode === 'all') {
-            return Object.keys(integrationMapping);
+            return { ...integrationMappingExternal, ...integrationMappingRokt };
         }
-        return [];
+        return {};
     }
 }
