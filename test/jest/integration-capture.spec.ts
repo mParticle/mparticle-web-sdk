@@ -2,6 +2,7 @@ import IntegrationCapture, {
     facebookClickIdProcessor,
 } from '../../src/integrationCapture';
 import { deleteAllCookies } from './utils';
+import { describe, it, expect } from '@jest/globals';
 
 describe('Integration Capture', () => {
     describe('constructor', () => {
@@ -39,6 +40,26 @@ describe('Integration Capture', () => {
                 'rclid', 
                 'RoktTransactionId'
             ]);
+        });
+
+        it('should initialize with a filtered list of integration attribute mappings for roktonly', () => {
+            const integrationCapture = new IntegrationCapture('roktonly');
+            const mappings = integrationCapture.filteredIntegrationAttributeMappings;
+            const expectedKeys = ['rtid', 'rclid', 'RoktTransactionId'];
+            expect(Object.keys(mappings).sort()).toEqual([...expectedKeys].sort());
+            const excludedKeys = [
+            'fbclid',
+            '_fbp',
+            '_fbc',
+            'gclid',
+            'gbraid',
+            'wbraid',
+            'ttclid',
+            'ScCid',
+            ];
+            for (const key of excludedKeys) {
+                expect(mappings).not.toHaveProperty(key);
+            }
         });
     });
 
