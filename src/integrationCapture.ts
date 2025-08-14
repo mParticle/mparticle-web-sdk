@@ -1,4 +1,5 @@
 import { SDKEventCustomFlags } from './sdkRuntimeModels';
+import Constants from './constants';
 import { IntegrationAttributes } from './store';
 import {
     Dictionary,
@@ -146,10 +147,11 @@ export default class IntegrationCapture {
     public readonly filteredPartnerIdentityMappings: IntegrationIdMapping;
     public readonly filteredCustomFlagMappings: IntegrationIdMapping;
     public readonly filteredIntegrationAttributeMappings: IntegrationIdMapping;
-    public captureMode?: string;
+    public captureMode?: (typeof Constants.CaptureIntegrationSpecificIdsV2Modes)[number];
 
-    constructor() {
+    constructor(captureMode: (typeof Constants.CaptureIntegrationSpecificIdsV2Modes)[number]) {
         this.initialTimestamp = Date.now();
+        this.captureMode = captureMode;
 
         // Cache filtered mappings for faster access
         this.filteredPartnerIdentityMappings = this.filterMappings(IntegrationOutputs.PARTNER_IDENTITIES);
@@ -349,10 +351,10 @@ export default class IntegrationCapture {
      * For RoktOnly, limit capture to Rokt keys; for All, capture all mapped keys.
      */
     private getAllowedKeysForMode(): string[] {
-        if (this.captureMode === 'RoktOnly') {
+        if (this.captureMode === 'roktonly') {
             return ['rtid', 'rclid', 'RoktTransactionId'];
         }
-        if (this.captureMode === 'All') {
+        if (this.captureMode === 'all') {
             return Object.keys(integrationMapping);
         }
         return [];

@@ -207,11 +207,7 @@ const Constants = {
         Development: 'development',
         Production: 'production',
     },
-    CaptureIntegrationSpecificIdsV2Modes: {
-        All: 'all',
-        None: 'none',
-        RoktOnly: 'roktonly',
-    },
+    CaptureIntegrationSpecificIdsV2Modes: ['all', 'roktonly', 'none'], 
 } as const;
 
 export default Constants;

@@ -128,7 +128,6 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         integrationDelays: {},
         forwarderConstructors: [],
     };
-    this._IntegrationCapture = new IntegrationCapture();
     this._RoktManager = new RoktManager();
 
     // required for forwarders once they reference the mparticle instance
@@ -1354,6 +1353,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
 // Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment
 function completeSDKInitialization(apiKey, config, mpInstance) {
     const kitBlocker = createKitBlocker(config, mpInstance);
+    const { getFeatureFlag } = mpInstance._Helpers;
 
     mpInstance._APIClient = new APIClient(mpInstance, kitBlocker);
     mpInstance._Forwarders = new Forwarders(mpInstance, kitBlocker);
@@ -1386,27 +1386,27 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             ? { userIdentities: currentUserIdentities }
             : mpInstance._Store.SDKConfig.identifyRequest;
 
-        if (mpInstance._Helpers.getFeatureFlag(ReportBatching)) {
+        if (getFeatureFlag(ReportBatching)) {
             mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
         }
-        const integrationSpecificIds = mpInstance._Helpers.getFeatureFlag(CaptureIntegrationSpecificIds) as boolean;
-        const integrationSpecificIdsV2 = mpInstance._Helpers.getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string | null;
+        const integrationSpecificIds = getFeatureFlag(CaptureIntegrationSpecificIds) as boolean;
+        const integrationSpecificIdsV2 = getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string | null;
         
-        const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 ? integrationSpecificIdsV2 !== CaptureIntegrationSpecificIdsV2Modes.None : false) || (integrationSpecificIds === true);
+        const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 ? integrationSpecificIdsV2 !== 'none' : false) || (integrationSpecificIds === true);
 
-        if (isIntegrationCaptureEnabled) {
-            let captureMode: 'All' | 'RoktOnly' | undefined;
-            if (integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.RoktOnly) {
-                captureMode = 'RoktOnly';
-            } else if (integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.All || integrationSpecificIds === true) {
-                captureMode = 'All';
-            }
+            if (isIntegrationCaptureEnabled) {
+                let captureMode: (typeof Constants.CaptureIntegrationSpecificIdsV2Modes)[number] | undefined;
+                if (integrationSpecificIds === true || integrationSpecificIdsV2 === 'all') {
+                    captureMode = 'all';
+                } else if (integrationSpecificIdsV2 === 'roktonly') {
+                    captureMode = 'roktonly';
+                }
 
-            if (captureMode) {
-                mpInstance._IntegrationCapture.captureMode = captureMode;
-                mpInstance._IntegrationCapture.capture();
+                if (captureMode === 'all' || captureMode === 'roktonly') {
+                    mpInstance._IntegrationCapture = new IntegrationCapture(captureMode);
+                    mpInstance._IntegrationCapture.capture();
+                }
             }
-        }
 
         // Configure Rokt Manager with user and filtered user
         const roktConfig: IKitConfigs = parseConfig(config, 'Rokt', 181);

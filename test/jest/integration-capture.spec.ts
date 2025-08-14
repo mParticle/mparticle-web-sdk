@@ -6,18 +6,18 @@ import { deleteAllCookies } from './utils';
 describe('Integration Capture', () => {
     describe('constructor', () => {
         it('should initialize with clickIds as undefined', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             expect(integrationCapture.clickIds).toBeUndefined();
         });
 
         it('should initialize with a filtered list of partner identity mappings', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             const mappings = integrationCapture.filteredPartnerIdentityMappings;
             expect(Object.keys(mappings)).toEqual(['_ttp']);
         });
 
         it('should initialize with a filtered list of custom flag mappings', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             const mappings = integrationCapture.filteredCustomFlagMappings;
             expect(Object.keys(mappings)).toEqual([
                 'fbclid',
@@ -32,7 +32,7 @@ describe('Integration Capture', () => {
         });
 
         it('should initialize with a filtered list of integration attribute mappings', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             const mappings = integrationCapture.filteredIntegrationAttributeMappings;
             expect(Object.keys(mappings)).toEqual([
                 'rtid',
@@ -72,8 +72,7 @@ describe('capture V2 modes gating in helpers', () => {
     // Local storage
     window.localStorage.setItem('RoktTransactionId', 'ls-rok');
 
-    const ic = new IntegrationCapture();
-    ic.captureMode = 'RoktOnly' as any;
+    const ic = new IntegrationCapture('roktonly');
 
     const q = ic.captureQueryParams();
     const c = ic.captureCookies();
@@ -99,8 +98,7 @@ describe('capture V2 modes gating in helpers', () => {
     // Local storage
     window.localStorage.setItem('RoktTransactionId', 'ls-rok');
 
-    const ic = new IntegrationCapture();
-    ic.captureMode = 'All' as any; // lower-case V2 value
+    const ic = new IntegrationCapture('all');
 
     const q = ic.captureQueryParams();
     const c = ic.captureCookies();
@@ -136,10 +134,9 @@ describe('capture V2 modes gating in helpers', () => {
         });
 
         it('should call captureCookies and captureQueryParams', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             integrationCapture.captureCookies = jest.fn();
             integrationCapture.captureQueryParams = jest.fn();
-            integrationCapture.captureMode = 'All';
             integrationCapture.capture();
 
             expect(integrationCapture.captureCookies).toHaveBeenCalled();
@@ -169,8 +166,7 @@ describe('capture V2 modes gating in helpers', () => {
             window.location.href = url.href;
             window.location.search = url.search;
 
-            const integrationCapture = new IntegrationCapture();
-            integrationCapture.captureMode = 'All';
+            const integrationCapture = new IntegrationCapture('all');
             integrationCapture.capture();
 
             expect(integrationCapture.clickIds).toEqual({
@@ -192,8 +188,7 @@ describe('capture V2 modes gating in helpers', () => {
                 window.location.href = url.href;
                 window.location.search = url.search;
 
-                const integrationCapture = new IntegrationCapture();
-                integrationCapture.captureMode = 'All';
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -211,8 +206,7 @@ describe('capture V2 modes gating in helpers', () => {
                 window.location.href = url.href;
                 window.location.search = url.search;
 
-                const integrationCapture = new IntegrationCapture();
-                integrationCapture.captureMode = 'All';
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -226,8 +220,7 @@ describe('capture V2 modes gating in helpers', () => {
                 window.location.href = url.href;
                 window.location.search = url.search;
 
-                const integrationCapture = new IntegrationCapture();
-                integrationCapture.captureMode = 'All';
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -251,8 +244,7 @@ describe('capture V2 modes gating in helpers', () => {
             window.location.href = url.href;
             window.location.search = url.search;
 
-            const integrationCapture = new IntegrationCapture();
-            integrationCapture.captureMode = 'All';
+            const integrationCapture = new IntegrationCapture('all');
             integrationCapture.capture();
 
             expect(integrationCapture.clickIds).toEqual({
@@ -273,8 +265,7 @@ describe('capture V2 modes gating in helpers', () => {
             window.location.href = url.href;
             window.location.search = url.search;
 
-            const integrationCapture = new IntegrationCapture();
-            integrationCapture.captureMode = 'All';
+            const integrationCapture = new IntegrationCapture('all');
             integrationCapture.capture();
 
             expect(integrationCapture.clickIds).toEqual({
@@ -293,8 +284,7 @@ describe('capture V2 modes gating in helpers', () => {
             window.location.href = url.href;
             window.location.search = url.search;
 
-            const integrationCapture = new IntegrationCapture();
-            integrationCapture.captureMode = 'All';
+            const integrationCapture = new IntegrationCapture('all');
             integrationCapture.capture();
 
             expect(integrationCapture.clickIds).toEqual({
@@ -315,8 +305,7 @@ describe('capture V2 modes gating in helpers', () => {
             window.location.href = url.href;
             window.location.search = url.search;
 
-            const integrationCapture = new IntegrationCapture();
-            integrationCapture.captureMode = 'All';
+            const integrationCapture = new IntegrationCapture('all');
             integrationCapture.capture();
 
             expect(integrationCapture.clickIds).toEqual({
@@ -332,8 +321,7 @@ describe('capture V2 modes gating in helpers', () => {
                 window.location.href = url.href;
                 window.location.search = url.search;
 
-                const integrationCapture = new IntegrationCapture();
-                integrationCapture.captureMode = 'All';
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -347,8 +335,7 @@ describe('capture V2 modes gating in helpers', () => {
                 window.location.href = url.href;
                 window.location.search = url.search;
 
-                const integrationCapture = new IntegrationCapture();
-                integrationCapture.captureMode = 'All';
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -364,8 +351,7 @@ describe('capture V2 modes gating in helpers', () => {
                 window.location.href = url.href;
                 window.location.search = url.search;
 
-                const integrationCapture = new IntegrationCapture();
-                integrationCapture.captureMode = 'All';
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -383,8 +369,7 @@ describe('capture V2 modes gating in helpers', () => {
 
                 localStorage.setItem('RoktTransactionId', '54321');
 
-                const integrationCapture = new IntegrationCapture();
-                integrationCapture.captureMode = 'All';
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -402,8 +387,7 @@ describe('capture V2 modes gating in helpers', () => {
                 window.location.href = url.href;
                 window.location.search = url.search;
 
-                const integrationCapture = new IntegrationCapture();
-                integrationCapture.captureMode = 'All';
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -421,8 +405,7 @@ describe('capture V2 modes gating in helpers', () => {
                 window.location.href = url.href;
                 window.location.search = url.search;
 
-                const integrationCapture = new IntegrationCapture();
-                integrationCapture.captureMode = 'All';
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -440,8 +423,7 @@ describe('capture V2 modes gating in helpers', () => {
 
                 localStorage.setItem('RoktTransactionId', '12345');
 
-                const integrationCapture = new IntegrationCapture();
-                integrationCapture.captureMode = 'All';
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -459,8 +441,7 @@ describe('capture V2 modes gating in helpers', () => {
 
                 localStorage.setItem('RoktTransactionId', '12345');
 
-                const integrationCapture = new IntegrationCapture();
-                integrationCapture.captureMode = 'All';
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -479,8 +460,7 @@ describe('capture V2 modes gating in helpers', () => {
                 localStorage.setItem('RoktTransactionId', '12345');
                 window.document.cookie = 'RoktTransactionId=67890';
 
-                const integrationCapture = new IntegrationCapture();
-                integrationCapture.captureMode = 'All';
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -520,8 +500,7 @@ describe('capture V2 modes gating in helpers', () => {
             window.location.href = url.href;
             window.location.search = url.search;
 
-            const integrationCapture = new IntegrationCapture();
-            integrationCapture.captureMode = 'All';
+            const integrationCapture = new IntegrationCapture('all');
             const clickIds = integrationCapture.captureQueryParams();
 
             expect(clickIds).toEqual({
@@ -541,8 +520,7 @@ describe('capture V2 modes gating in helpers', () => {
             window.location.href = url.href;
             window.location.search = url.search;
 
-            const integrationCapture = new IntegrationCapture();
-            integrationCapture.captureMode = 'All';
+            const integrationCapture = new IntegrationCapture('all');
             const clickIds = integrationCapture.captureQueryParams();
             expect(clickIds).toEqual({});
         });
@@ -555,8 +533,7 @@ describe('capture V2 modes gating in helpers', () => {
             window.location.href = url.href;
             window.location.search = url.search;
 
-            const integrationCapture = new IntegrationCapture();
-            integrationCapture.captureMode = 'All';
+            const integrationCapture = new IntegrationCapture('all');
             integrationCapture.capture();   
 
             const firstCapture = integrationCapture.captureQueryParams();
@@ -580,8 +557,7 @@ describe('capture V2 modes gating in helpers', () => {
             window.document.cookie = '_fbp=54321';
             window.document.cookie = 'baz=qux';
 
-            const integrationCapture = new IntegrationCapture();
-            integrationCapture.captureMode = 'All';
+            const integrationCapture = new IntegrationCapture('all');
             const clickIds = integrationCapture.captureCookies();
 
             expect(clickIds).toEqual({
@@ -594,8 +570,7 @@ describe('capture V2 modes gating in helpers', () => {
             window.document.cookie = '_cookie2=39895811.9165333198';
             window.document.cookie = 'baz=qux';
 
-            const integrationCapture = new IntegrationCapture();
-            integrationCapture.captureMode = 'None';
+            const integrationCapture = new IntegrationCapture('none');
             const clickIds = integrationCapture.captureCookies();
 
             expect(clickIds).toEqual({});
@@ -610,8 +585,7 @@ describe('capture V2 modes gating in helpers', () => {
         it('should capture specific local storage items into clickIds object', () => {
             localStorage.setItem('RoktTransactionId', '12345');
 
-            const integrationCapture = new IntegrationCapture();
-            integrationCapture.captureMode = 'All';
+            const integrationCapture = new IntegrationCapture('all');
             const clickIds = integrationCapture.captureLocalStorage();
 
             expect(clickIds).toEqual({
@@ -622,7 +596,7 @@ describe('capture V2 modes gating in helpers', () => {
         it('should NOT capture local storage items if they are not mapped', () => {
             localStorage.setItem('baz', 'qux');
 
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('none');
             const clickIds = integrationCapture.captureLocalStorage();
 
             expect(clickIds).toEqual({});
@@ -631,14 +605,14 @@ describe('capture V2 modes gating in helpers', () => {
 
     describe('#getClickIdsAsCustomFlags', () => {
         it('should return empty object if clickIds is empty or undefined', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('none');
             const customFlags = integrationCapture.getClickIdsAsCustomFlags();
 
             expect(customFlags).toEqual({});
         });
 
         it('should only return mapped clickIds as custom flags', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             integrationCapture.clickIds = {
                 fbclid: '67890',
                 _fbp: '54321',
@@ -661,14 +635,14 @@ describe('capture V2 modes gating in helpers', () => {
 
     describe('#getClickIdsAsPartnerIdentites', () => {
         it('should return empty object if clickIds is empty or undefined', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('none');
             const partnerIdentities = integrationCapture.getClickIdsAsPartnerIdentities();
 
             expect(partnerIdentities).toEqual({});
         });
 
         it('should only return mapped clickIds as partner identities', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             integrationCapture.clickIds = {
                 fbclid: '67890',
                 _fbp: '54321',
@@ -688,14 +662,14 @@ describe('capture V2 modes gating in helpers', () => {
 
     describe('#getClickIdsAsIntegrationAttributes', () => {
         it('should return empty object if clickIds is empty or undefined', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('none');
             const integrationAttributes = integrationCapture.getClickIdsAsIntegrationAttributes();
 
             expect(integrationAttributes).toEqual({});
         });
 
         it('should only return mapped clickIds as integration attributes', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             integrationCapture.clickIds = {
                 rtid: '12345',
                 RoktTransactionId: '54321',

@@ -18,10 +18,7 @@ import { SDKIdentityTypeEnum } from './identity.interfaces';
 import Constants from './constants';
 import { IMParticleWebSDKInstance } from './mp-instance';
 
-const { 
-    FeatureFlags,
-    CaptureIntegrationSpecificIdsV2Modes
-} = Constants;
+const { FeatureFlags } = Constants;
 const {
     CaptureIntegrationSpecificIds, 
     CaptureIntegrationSpecificIdsV2,
@@ -133,15 +130,9 @@ export function convertEvents(
     const integrationSpecificIds = Boolean(getFeatureFlag(CaptureIntegrationSpecificIds));
     const integrationSpecificIdsV2 = (getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string) || null;
         
-    const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 ? integrationSpecificIdsV2 !== CaptureIntegrationSpecificIdsV2Modes.None : false) || (integrationSpecificIds === true);
+    const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 ? integrationSpecificIdsV2 !== 'none' : false) || (integrationSpecificIds === true);
 
     if (isIntegrationCaptureEnabled) {
-        let captureMode: 'All' | 'RoktOnly' | undefined;
-        if (integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.RoktOnly) {
-            captureMode = 'RoktOnly';
-        } else if (integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.All || integrationSpecificIds === true) {
-            captureMode = 'All';
-        }
         const capturedPartnerIdentities: PartnerIdentities = _IntegrationCapture?.getClickIdsAsPartnerIdentities();
         if (!isEmpty(capturedPartnerIdentities)) {
             upload.partner_identities = capturedPartnerIdentities;
