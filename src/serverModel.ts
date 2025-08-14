@@ -278,11 +278,12 @@ export default function ServerModel(
 
             // https://go.mparticle.com/work/SQDSDKS-5053
             if (mpInstance._Helpers.getFeatureFlag) {
-                const { FeatureFlags } = Constants;
-                const integrationSpecificIds = mpInstance._Helpers.getFeatureFlag(FeatureFlags.CaptureIntegrationSpecificIds) as boolean;
-                const integrationSpecificIdsV2 = ((mpInstance._Helpers.getFeatureFlag(FeatureFlags.CaptureIntegrationSpecificIdsV2) as string) || '');
+                const integrationSpecificIds = mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds) as boolean;
+                const integrationSpecificIdsV2 = ((mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2) as string) || '');
                 const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 ? integrationSpecificIdsV2 !== 'none' : false) || (integrationSpecificIds === true);
-                if (isIntegrationCaptureEnabled && mpInstance._IntegrationCapture) {
+                if (isIntegrationCaptureEnabled) {
+                    // Attempt to recapture click IDs in case a third party integration
+                    // has added or updated  new click IDs since the last event was sent.
                     mpInstance._IntegrationCapture.capture();
                     const transformedClickIDs = mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
                     customFlags = { ...transformedClickIDs, ...customFlags };

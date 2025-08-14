@@ -139,7 +139,8 @@ export interface IFeatureFlags {
     directURLRouting?: boolean;
     cacheIdentity?: boolean;
     captureIntegrationSpecificIds?: boolean;
-    captureIntegrationSpecificIdsV2?: string;
+    
+    'captureIntegrationSpecificIds.V2'?: string;
     astBackgroundEvents?: boolean;
 }
 

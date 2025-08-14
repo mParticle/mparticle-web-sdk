@@ -127,8 +127,8 @@ export function convertEvents(
         };
     }
 
-    const integrationSpecificIds = Boolean(getFeatureFlag(CaptureIntegrationSpecificIds));
-    const integrationSpecificIdsV2 = (getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string) || null;
+    const integrationSpecificIds = getFeatureFlag && Boolean(getFeatureFlag(CaptureIntegrationSpecificIds));
+    const integrationSpecificIdsV2 = getFeatureFlag && (getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string);
         
     const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 ? integrationSpecificIdsV2 !== 'none' : false) || (integrationSpecificIds === true);
 

@@ -1389,8 +1389,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         if (getFeatureFlag(ReportBatching)) {
             mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
         }
-        const integrationSpecificIds = getFeatureFlag(CaptureIntegrationSpecificIds) as boolean;
-        const integrationSpecificIdsV2 = getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string | null;
+        const integrationSpecificIds = getFeatureFlag && getFeatureFlag(CaptureIntegrationSpecificIds) as boolean;
+        const integrationSpecificIdsV2 = getFeatureFlag && getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string;
         
         const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 ? integrationSpecificIdsV2 !== 'none' : false) || (integrationSpecificIds === true);
 
