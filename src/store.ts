@@ -738,8 +738,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[CacheIdentity] = config.flags[CacheIdentity] === 'True';
     flags[AudienceAPI] = config.flags[AudienceAPI] === 'True';
     flags[CaptureIntegrationSpecificIds] = config.flags[CaptureIntegrationSpecificIds] === 'True';
-    flags[CaptureIntegrationSpecificIdsV2] = (config.flags[CaptureIntegrationSpecificIdsV2] || '').toString().trim().toLowerCase();
-
+    flags[CaptureIntegrationSpecificIdsV2] = (config.flags[CaptureIntegrationSpecificIdsV2].toLowerCase() || 'none');
     flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
     return flags;
 }

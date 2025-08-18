@@ -149,9 +149,9 @@ export default class IntegrationCapture {
     public readonly filteredPartnerIdentityMappings: IntegrationIdMapping;
     public readonly filteredCustomFlagMappings: IntegrationIdMapping;
     public readonly filteredIntegrationAttributeMappings: IntegrationIdMapping;
-    public captureMode?: (typeof Constants.CaptureIntegrationSpecificIdsV2Modes)[number];
+    public captureMode?: valueof<typeof Constants.CaptureIntegrationSpecificIdsV2Modes>;
 
-    constructor(captureMode: (typeof Constants.CaptureIntegrationSpecificIdsV2Modes)[number]) {
+    constructor(captureMode: valueof<typeof Constants.CaptureIntegrationSpecificIdsV2Modes>) {
         this.initialTimestamp = Date.now();
         this.captureMode = captureMode;
 
@@ -355,8 +355,7 @@ export default class IntegrationCapture {
      * For RoktOnly, limit capture to Rokt keys; for All, capture all mapped keys.
      */
     private getAllowedKeysForMode(): string[] {
-        const mapping = this.getActiveIntegrationMapping();
-        return Object.keys(mapping);
+        return Object.keys(this.getActiveIntegrationMapping());
     }
     
     /**
@@ -366,10 +365,10 @@ export default class IntegrationCapture {
     * - else: returns an empty mapping and nothing will be captured
     */
     private getActiveIntegrationMapping(): IntegrationIdMapping {
-        if (this.captureMode === 'roktonly') {
+        if (this.captureMode === Constants.CaptureIntegrationSpecificIdsV2Modes.RoktOnly) {
             return integrationMappingRokt;
         }
-        if (this.captureMode === 'all') {
+        if (this.captureMode === Constants.CaptureIntegrationSpecificIdsV2Modes.All) {
             return { ...integrationMappingExternal, ...integrationMappingRokt };
         }
         return {};

@@ -36,7 +36,7 @@ import Consent, { IConsent } from './consent';
 import KitBlocker from './kitBlocking';
 import ConfigAPIClient, { IKitConfigs } from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
-import { isFunction, parseConfig } from './utils';
+import { isFunction, parseConfig, valueof } from './utils';
 import { LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
@@ -1389,24 +1389,25 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         if (getFeatureFlag(ReportBatching)) {
             mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
         }
-        const integrationSpecificIds = getFeatureFlag && getFeatureFlag(CaptureIntegrationSpecificIds) as boolean;
-        const integrationSpecificIdsV2 = getFeatureFlag && getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string;
+        // TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-7639
+        const integrationSpecificIds = getFeatureFlag(CaptureIntegrationSpecificIds) as boolean;
+        const integrationSpecificIdsV2 = getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string;
         
-        const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 ? integrationSpecificIdsV2 !== 'none' : false) || (integrationSpecificIds === true);
+        const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 ? integrationSpecificIdsV2 !== CaptureIntegrationSpecificIdsV2Modes.None : false) || (integrationSpecificIds === true);
 
-            if (isIntegrationCaptureEnabled) {
-                let captureMode: (typeof Constants.CaptureIntegrationSpecificIdsV2Modes)[number] | undefined;
-                if (integrationSpecificIds === true || integrationSpecificIdsV2 === 'all') {
-                    captureMode = 'all';
-                } else if (integrationSpecificIdsV2 === 'roktonly') {
-                    captureMode = 'roktonly';
-                }
+        if (!isIntegrationCaptureEnabled) {
+            return;
+        }
 
-                if (captureMode === 'all' || captureMode === 'roktonly') {
-                    mpInstance._IntegrationCapture = new IntegrationCapture(captureMode);
-                    mpInstance._IntegrationCapture.capture();
-                }
-            }
+        let captureMode: valueof<typeof CaptureIntegrationSpecificIdsV2Modes> | undefined;
+        if (integrationSpecificIds || integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.All) {
+            captureMode = 'all';
+        } else if (integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.RoktOnly) {
+            captureMode = 'roktonly';
+        }
+
+        mpInstance._IntegrationCapture = new IntegrationCapture(captureMode);
+        mpInstance._IntegrationCapture.capture();            
 
         // Configure Rokt Manager with user and filtered user
         const roktConfig: IKitConfigs = parseConfig(config, 'Rokt', 181);
