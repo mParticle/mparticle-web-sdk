@@ -4,7 +4,7 @@ import { IMParticleUser } from "./identity-user-interfaces";
 import KitFilterHelper from "./kitFilterHelper";
 import { Dictionary, parseSettingsString, generateUniqueId, isFunction } from "./utils";
 import { SDKIdentityApi } from "./identity.interfaces";
-import { SDKLoggerApi } from "./sdkRuntimeModels";
+import Logger from "./logger";
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export interface IRoktPartnerAttributes {
@@ -84,7 +84,7 @@ export default class RoktManager {
     private placementAttributesMapping: Dictionary<string>[] = [];
     private identityService: SDKIdentityApi;
     private launcherOptions?: IRoktLauncherOptions;
-    private logger: SDKLoggerApi;
+    private logger: Logger;
     private domain?: string;
     /**
      * Initializes the RoktManager with configuration settings and user data.
@@ -92,7 +92,7 @@ export default class RoktManager {
      * @param {IKitConfigs} roktConfig - Configuration object containing user attribute filters and settings
      * @param {IMParticleUser} filteredUser - User object with filtered attributes
      * @param {SDKIdentityApi} identityService - The mParticle Identity instance
-     * @param {SDKLoggerApi} logger - The mParticle Logger instance
+     * @param {Logger} logger - The mParticle Logger instance
      * @param {IRoktOptions} options - Options for the RoktManager
      * 
      * @throws Logs error to console if placementAttributesMapping parsing fails
@@ -101,7 +101,7 @@ export default class RoktManager {
         roktConfig: IKitConfigs, 
         filteredUser: IMParticleUser, 
         identityService: SDKIdentityApi,
-        logger?: SDKLoggerApi,
+        logger?: Logger,
         options?: IRoktOptions
     ): void {
         const { userAttributeFilters, settings } = roktConfig || {};

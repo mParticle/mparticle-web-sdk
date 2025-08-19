@@ -1,6 +1,6 @@
 import { Batch } from '@mparticle/event-models';
 import Constants from './constants';
-import { SDKEvent, SDKLoggerApi } from './sdkRuntimeModels';
+import { SDKEvent } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import { MessageType, EventType } from './types';
 import { getRampNumber, isEmpty } from './utils';
@@ -14,6 +14,7 @@ import {
 import { IMParticleUser } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { appendUserInfo } from './user-utils';
+import Logger from './logger';
 /**
  * BatchUploader contains all the logic to store/retrieve events and batches
  * to/from persistence, and upload batches to mParticle.
@@ -418,7 +419,7 @@ export class BatchUploader {
     // TODO: Refactor to use logger as a class method
     // https://go.mparticle.com/work/SQDSDKS-5167
     private async uploadBatches(
-        logger: SDKLoggerApi,
+        logger: Logger,
         batches: Batch[],
         useBeacon: boolean
     ): Promise<Batch[] | null> {

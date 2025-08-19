@@ -3,11 +3,11 @@ import fetchMock from 'fetch-mock/esm/client';
 import { expect } from 'chai';
 import { urls, apiKey, testMPID } from './config/constants';
 import Constants from '../../src/constants';
-import { IMParticleInstanceManager, SDKLoggerApi } from '../../src/sdkRuntimeModels';
+import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 import AudienceManager, {
     IAudienceMemberships, IAudienceMembershipsServerResponse
 } from '../../src/audienceManager';
-import Logger from '../../src/logger.js';
+import Logger from '../../src/logger';
 import Utils from './config/utils';
 const { fetchMockSuccess } = Utils;
 
@@ -45,7 +45,7 @@ describe('AudienceManager', () => {
 
     describe('initialization', () => {
         it('should have proper properties on AudienceManager', () => {
-            const newLogger: SDKLoggerApi = new Logger(window.mParticle.config);
+            const newLogger: Logger = new Logger(window.mParticle.config);
             const audienceManager = new AudienceManager(
                 Constants.DefaultBaseUrls.userAudienceUrl,
                 apiKey,
