@@ -13,6 +13,7 @@ import { Dictionary, valueof } from './utils';
 import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
 import MPSideloadedKit from './sideloadedKit';
+import Logger  from './logger'
 import { ISessionManager } from './sessionManager';
 import { ConfiguredKit, MPForwarder, UnregisteredKit } from './forwarders.interfaces';
 import {
@@ -172,7 +173,7 @@ export interface MParticleWebSDK {
     PromotionType: typeof PromotionActionType;
     ProductActionType: typeof ProductActionType;
     Identity: SDKIdentityApi;
-    Logger: SDKLoggerApi;
+    Logger: Logger;
     Consent: SDKConsentApi;
     _resetForTests(
         MPConfig?: SDKInitConfig,
@@ -350,13 +351,6 @@ export interface SDKHelpersApi {
         name: string
     ): Dictionary<string> | null;
     Validators: typeof Validators;
-}
-
-export interface SDKLoggerApi {
-    error(arg0: string): void;
-    verbose(arg0: string): void;
-    warning(arg0: string): void;
-    setLogLevel(logLevel: LogLevelType): void;
 }
 
 // TODO: Merge this with IStore in store.ts

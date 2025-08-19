@@ -1,4 +1,4 @@
-import { SDKLoggerApi } from './sdkRuntimeModels';
+import Logger from './logger';
 import {
     FetchUploader,
     XHRUploader,
@@ -21,12 +21,12 @@ export interface IAudienceMemberships {
 export default class AudienceManager {
     public url: string = '';
     public userAudienceAPI: AsyncUploader;
-    public logger: SDKLoggerApi;
+    public logger: Logger;
 
     constructor(
         userAudienceUrl: string,
         apiKey: string,
-        logger: SDKLoggerApi,
+        logger: Logger,
     ) {
         this.logger = logger;
         this.url = `https://${userAudienceUrl}${apiKey}/audience`;

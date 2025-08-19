@@ -1,13 +1,24 @@
-function Logger(config) {
+import { SDKInitConfig } from "./sdkRuntimeModels";
+
+interface Logger {
+    verbose: (msg: string) => void;
+    warning: (msg: string) => void;
+    error: (msg: string) => void;
+    setLogLevel: (msg: string) => void;
+    logLevel: string;
+    logger: this;
+}
+
+function Logger(this: Logger, config: SDKInitConfig): void {
     var self = this;
-    var logLevel = config.logLevel || 'warning';
+    var logLevel: string = config.logLevel || 'warning';
     if (config.hasOwnProperty('logger')) {
-        this.logger = config.logger;
+        this.logger = config.logger as Logger;
     } else {
         this.logger = new ConsoleLogger();
     }
 
-    this.verbose = function(msg) {
+    this.verbose = function(msg: string) {
         if (logLevel !== 'none') {
             if (self.logger.verbose && logLevel === 'verbose') {
                 self.logger.verbose(msg);
@@ -15,7 +26,7 @@ function Logger(config) {
         }
     };
 
-    this.warning = function(msg) {
+    this.warning = function(msg: string) {
         if (logLevel !== 'none') {
             if (
                 self.logger.warning &&
@@ -26,7 +37,7 @@ function Logger(config) {
         }
     };
 
-    this.error = function(msg) {
+    this.error = function(msg: string) {
         if (logLevel !== 'none') {
             if (self.logger.error) {
                 self.logger.error(msg);
@@ -34,24 +45,25 @@ function Logger(config) {
         }
     };
 
-    this.setLogLevel = function(newLogLevel) {
+    this.setLogLevel = function(newLogLevel: string) {
         logLevel = newLogLevel;
+        this.logLevel = logLevel;
     };
 }
 
-function ConsoleLogger() {
-    this.verbose = function(msg) {
+function ConsoleLogger(this: Logger): void {
+    this.verbose = function(msg: string) {
         if (console && console.info) {
             console.info(msg);
         }
     };
 
-    this.error = function(msg) {
+    this.error = function(msg: string) {
         if (console && console.error) {
             console.error(msg);
         }
     };
-    this.warning = function(msg) {
+    this.warning = function(msg: string) {
         if (console && console.warn) {
             console.warn(msg);
         }
