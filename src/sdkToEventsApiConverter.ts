@@ -126,7 +126,7 @@ export function convertEvents(
             },
         };
     }
-    // TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-7639
+    // https://go.mparticle.com/work/SQDSDKS-7639
     const integrationSpecificIds = getFeatureFlag && Boolean(getFeatureFlag(CaptureIntegrationSpecificIds));
     const integrationSpecificIdsV2 = getFeatureFlag && (getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string);
         

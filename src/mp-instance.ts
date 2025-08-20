@@ -1389,7 +1389,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         if (getFeatureFlag(ReportBatching)) {
             mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
         }
-        // TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-7639
+        // https://go.mparticle.com/work/SQDSDKS-7639
         const integrationSpecificIds = getFeatureFlag(CaptureIntegrationSpecificIds) as boolean;
         const integrationSpecificIdsV2 = getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string;
         

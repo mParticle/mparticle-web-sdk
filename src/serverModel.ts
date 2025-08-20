@@ -278,7 +278,7 @@ export default function ServerModel(
 
             // https://go.mparticle.com/work/SQDSDKS-5053
             if (mpInstance._Helpers.getFeatureFlag) {
-                // TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-7639
+                // https://go.mparticle.com/work/SQDSDKS-7639
                 const integrationSpecificIds = mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds) as boolean;
                 const integrationSpecificIdsV2 = ((mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2) as string) || '');
                 const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 ? integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None : false) || (integrationSpecificIds === true);
