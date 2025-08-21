@@ -191,7 +191,7 @@ const Constants = {
         //   - 'all'      → capture all IDs
         //   - 'none'     → capture none
         //   - 'roktonly' → capture only Rokt-related IDs
-        CaptureIntegrationSpecificIdsV2: 'captureIntegrationSpecificIds.V2',
+        CaptureIntegrationSpecificIdsV2: 'captureIntegrationSpecificIdsV2',
         AstBackgroundEvents: 'astBackgroundEvents',
     },
     DefaultInstance: 'default_instance',
