@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.43.2";
+    var version = "2.43.3";
 
     var Constants = {
       sdkVersion: version,
@@ -2391,7 +2391,8 @@ var mParticle = (function () {
           deviceId = _Store.deviceId,
           sessionStartDate = _Store.sessionStartDate,
           SDKConfig = _Store.SDKConfig;
-        var generateUniqueId = _Helpers.generateUniqueId;
+        var generateUniqueId = _Helpers.generateUniqueId,
+          getFeatureFlag = _Helpers.getFeatureFlag;
         var getCurrentUser = Identity.getCurrentUser;
         var event = {
           AppName: SDKConfig.appName,
@@ -2411,6 +2412,20 @@ var mParticle = (function () {
           ActiveTimeOnSite: (_timeOnSiteTimer === null || _timeOnSiteTimer === void 0 ? void 0 : _timeOnSiteTimer.getTimeInForeground()) || 0,
           IsBackgroundAST: true
         };
+        var customFlags = __assign({}, event.CustomFlags);
+        var integrationAttributes = _Store.integrationAttributes;
+        // https://go.mparticle.com/work/SQDSDKS-5053
+        if (getFeatureFlag && getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds)) {
+          // Attempt to recapture click IDs in case a third party integration
+          // has added or updated  new click IDs since the last event was sent.
+          this.mpInstance._IntegrationCapture.capture();
+          var transformedClickIDs = this.mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
+          customFlags = __assign(__assign({}, transformedClickIDs), customFlags);
+          var transformedIntegrationAttributes = this.mpInstance._IntegrationCapture.getClickIdsAsIntegrationAttributes();
+          integrationAttributes = __assign(__assign({}, transformedIntegrationAttributes), integrationAttributes);
+        }
+        event.CustomFlags = customFlags;
+        event.IntegrationAttributes = integrationAttributes;
         appendUserInfo(getCurrentUser(), event);
         return event;
       };
