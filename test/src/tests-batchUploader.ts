@@ -374,6 +374,129 @@ describe('batch uploader', () => {
             delete window.mParticle.config.appVersion;
             delete window.mParticle.config.package;
         });
+
+        it('should add integration attributes to AST event', async () => {
+            window.mParticle.config.appName = 'Test App';
+            window.mParticle.config.appVersion = '1.0.0';
+            window.mParticle.config.package = 'com.test.app';
+
+            window.mParticle.config.identifyRequest = {
+                userIdentities: {
+                    email: 'test@test.com'
+                }
+            };
+
+            window.mParticle.config.flags.captureIntegrationSpecificIds = "True";
+
+            const consentState = window.mParticle.Consent.createConsentState();
+            const timestamp = new Date().getTime();
+            const ccpaConsent = window.mParticle.Consent.createCCPAConsent(
+                true,
+                timestamp,
+                'consentDoc',
+                'location',
+                'hardware'
+            );
+            const gdprConsent = window.mParticle.Consent.createGDPRConsent(
+                false,
+                timestamp,
+                'consentDoc',
+                'location',
+                'hardware'
+            );
+            consentState.setCCPAConsentState(ccpaConsent);
+            consentState.addGDPRConsentState('test purpose', gdprConsent);
+
+            // Mock the query params capture function because we cannot mock window.location.href
+            sinon.stub(window.mParticle.getInstance()._IntegrationCapture, 'getQueryParams').returns({
+                rtid: 'test-click-id',
+            });
+
+            window.mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+            window.mParticle.Identity.getCurrentUser().setUserAttribute('foo', 'value');
+            const user = window.mParticle.Identity.getCurrentUser();
+            user.setConsentState(consentState);
+
+            const now = Date.now();
+            clock = sinon.useFakeTimers({
+                now: now,
+                shouldAdvanceTime: true
+            });
+
+            // Mock navigator.sendBeacon
+            beaconSpy = sinon.spy(navigator, 'sendBeacon');
+
+            // Trigger visibility change
+            Object.defineProperty(document, 'visibilityState', {
+                configurable: true,
+                get: () => 'hidden'
+            });
+            document.dispatchEvent(new Event('visibilitychange'));
+
+            // Run all pending promises
+            await Promise.resolve();
+            clock.runAll();
+
+            // Verify that beacon was called
+            expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
+
+            // Get the beacon call data
+            const beaconCall = beaconSpy.getCall(0);
+            expect(beaconCall, 'Expected beacon call to exist').to.exist;
+
+            // Get the Blob from the beacon call
+            const blob = beaconCall.args[1];
+            expect(blob).to.be.instanceof(Blob);
+
+            // Read the Blob content
+            const reader = new FileReader();
+            const blobContent = await new Promise((resolve) => {
+                reader.onload = () => resolve(reader.result);
+                reader.readAsText(blob);
+            });
+
+            // Parse the beacon data which is a batch
+            const batch = JSON.parse(blobContent as string);
+            expect(batch.user_identities.email).to.equal('test@test.com');
+            expect(batch.user_attributes.foo).to.equal('value');
+            expect(batch.application_info.application_name).to.equal('Test App');
+            expect(batch.application_info.application_version).to.equal('1.0.0');
+            expect(batch.application_info.package).to.equal('com.test.app');
+            expect(batch.consent_state).to.have.property('ccpa');
+            expect(batch.consent_state.ccpa).to.have.property('data_sale_opt_out');
+            expect(batch.consent_state.ccpa.data_sale_opt_out).to.have.property('consented');
+            expect(batch.consent_state.ccpa.data_sale_opt_out.consented).to.equal(true);
+            expect(batch.consent_state.ccpa.data_sale_opt_out).to.have.property('timestamp_unixtime_ms');
+            expect(batch.consent_state.ccpa.data_sale_opt_out).to.have.property('document');
+            expect(batch.consent_state.gdpr).to.have.property('test purpose');
+            expect(batch.consent_state.gdpr['test purpose']).to.have.property('consented');
+            expect(batch.consent_state.gdpr['test purpose'].consented).to.equal(false);
+            expect(batch.consent_state.gdpr['test purpose']).to.have.property('timestamp_unixtime_ms');
+            expect(batch.consent_state.gdpr['test purpose']).to.have.property('document');
+            expect(batch.integration_attributes).to.exist;
+            expect(batch.integration_attributes['1277']).to.exist;
+            expect(batch.integration_attributes['1277'].passbackconversiontrackingid).to.equal('test-click-id');
+
+            const astEvent = batch.events[batch.events.length - 1];
+
+            expect(astEvent.event_type).to.equal('application_state_transition');
+            expect(astEvent.data.active_time_on_site_ms).to.be.a('number');
+            expect(astEvent.data.application_transition_type).to.equal('application_background');
+            expect(astEvent.data.custom_attributes).to.exist;
+            expect(astEvent.data.is_first_run).to.be.a('boolean');
+            expect(astEvent.data.is_upgrade).to.be.a('boolean');
+            expect(astEvent.data.location).to.equal(null);
+            expect(astEvent.data.session_start_unixtime_ms).to.be.a('number');
+            expect(astEvent.data.session_uuid).to.exist;
+            expect(astEvent.data.source_message_id).to.be.a('string');
+            expect(astEvent.data.timestamp_unixtime_ms).to.be.a('number');
+
+            // reset to prevent other tests from potentially failing
+            delete window.mParticle.config.appName;
+            delete window.mParticle.config.appVersion;
+            delete window.mParticle.config.package;
+        });
         });
     });
 
