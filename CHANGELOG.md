@@ -1,3 +1,17 @@
+## [2.43.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.43.2...v2.43.3) (2025-08-22)
+
+
+### Bug Fixes
+
+* Update BatchUploader to include integration attributes and custom flags in AST events ([#1058](https://github.com/mParticle/mparticle-web-sdk/issues/1058)) ([46c91e6](https://github.com/mParticle/mparticle-web-sdk/commit/46c91e6cb7e885c434b6344636c34f175fa36ece))
+
+## [2.43.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.43.1...v2.43.2) (2025-08-12)
+
+
+### Bug Fixes
+
+* Refactor RoktManager with deferred call handling and message queue processing ([#1051](https://github.com/mParticle/mparticle-web-sdk/issues/1051)) ([a8b8cbc](https://github.com/mParticle/mparticle-web-sdk/commit/a8b8cbc7075ba89214775eda704e79296ffbe16e))
+
 ## [2.43.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.43.0...v2.43.1) (2025-07-21)
 
 

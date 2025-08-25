@@ -1,6 +1,6 @@
 import { Batch } from '@mparticle/event-models';
 import Constants from './constants';
-import { SDKEvent, SDKLoggerApi } from './sdkRuntimeModels';
+import { SDKEvent, SDKEventCustomFlags, SDKLoggerApi } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import { MessageType, EventType } from './types';
 import { getRampNumber, isEmpty } from './utils';
@@ -14,6 +14,7 @@ import {
 import { IMParticleUser } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { appendUserInfo } from './user-utils';
+import { IntegrationAttributes } from './store';
 /**
  * BatchUploader contains all the logic to store/retrieve events and batches
  * to/from persistence, and upload batches to mParticle.
@@ -147,7 +148,7 @@ export class BatchUploader {
         const now = Date.now();
         const { _Store, Identity, _timeOnSiteTimer, _Helpers  } = this.mpInstance;
         const { sessionId, deviceId, sessionStartDate, SDKConfig } = _Store;
-        const { generateUniqueId } = _Helpers;
+        const { generateUniqueId, getFeatureFlag } = _Helpers;
         const { getCurrentUser } = Identity;
 
         const event = {
@@ -169,7 +170,28 @@ export class BatchUploader {
             IsBackgroundAST: true
         } as SDKEvent;
 
+
+        let customFlags: SDKEventCustomFlags = {...event.CustomFlags};
+        let integrationAttributes: IntegrationAttributes = _Store.integrationAttributes;
+
+        // https://go.mparticle.com/work/SQDSDKS-5053
+        if (getFeatureFlag && getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds)) {
+
+            // Attempt to recapture click IDs in case a third party integration
+            // has added or updated  new click IDs since the last event was sent.
+            this.mpInstance._IntegrationCapture.capture();
+            const transformedClickIDs = this.mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
+            customFlags = {...transformedClickIDs, ...customFlags};
+
+            const transformedIntegrationAttributes = this.mpInstance._IntegrationCapture.getClickIdsAsIntegrationAttributes();
+            integrationAttributes = {...transformedIntegrationAttributes, ...integrationAttributes};
+        }
+
+        event.CustomFlags = customFlags;
+        event.IntegrationAttributes = integrationAttributes;
+
         appendUserInfo(getCurrentUser(), event);
+
         return event;
     }
 
