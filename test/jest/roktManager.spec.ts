@@ -447,25 +447,13 @@ describe('RoktManager', () => {
     });
 
     describe('#processEvent', () => {
+        const settingsString = "[{&quot;jsmap&quot;:&quot;-1484452948&quot;,&quot;map&quot;:&quot;-5208850776883573773&quot;,&quot;maptype&quot;:&quot;EventClass.Id&quot;,&quot;value&quot;:&quot;foo-mapped-flag&quot;},{&quot;jsmap&quot;:&quot;1838502119&quot;,&quot;map&quot;:&quot;1324617889422969328&quot;,&quot;maptype&quot;:&quot;EventClass.Id&quot;,&quot;value&quot;:&quot;bcd&quot;},{&quot;jsmap&quot;:&quot;-355458063&quot;,&quot;map&quot;:&quot;5878452521714063084&quot;,&quot;maptype&quot;:&quot;EventClass.Id&quot;,&quot;value&quot;:&quot;card_viewed_test&quot;}]";
+
         it('should set a session selection attribute if the event is a mapped placement event', () => {
-            const placementEventMapping = [
-                {
-                    jsmap: '-1484452948',
-                    map: '-5208850776883573773',
-                    maptype: 'EventClass.Id',
-                    value: 'foo-mapped-flag',
-                },
-                {
-                    jsmap: '1838502119',
-                    map: '1324617889422969328',
-                    maptype: 'EventClass.Id',
-                    value: 'ad_viewed_test',
-                },
-            ];
 
             const kitConfig: Partial<IKitConfigs> = {
                 settings: {
-                    placementEventMapping: JSON.stringify(placementEventMapping),
+                    placementEventMapping: settingsString,
                 },
             };
 
@@ -491,24 +479,9 @@ describe('RoktManager', () => {
         });
 
         it('should not set a session selection attribute if the event is not a mapped placement event', () => {
-            const placementEventMapping = [
-                {
-                    jsmap: '-1484452948',
-                    map: '-5208850776883573773',
-                    maptype: 'EventClass.Id',
-                    value: 'foo-mapped-flag',
-                },
-                {
-                    jsmap: '1838502119',
-                    map: '1324617889422969328',
-                    maptype: 'EventClass.Id',
-                    value: 'ad_viewed_test',
-                },
-            ];
-
             const kitConfig: Partial<IKitConfigs> = {
                 settings: {
-                    placementEventMapping: JSON.stringify(placementEventMapping),
+                    placementEventMapping: settingsString,
                 },
             };
 
