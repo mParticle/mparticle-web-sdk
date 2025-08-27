@@ -89,7 +89,6 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
         expect(testEvent.data.custom_flags['SnapchatConversions.ClickId'], 'Snapchat Click ID').to.equal('1234');
     });
-    
     it('should add captured integrations to event custom flags, prioritizing passed in custom flags', async () => {
         await waitForCondition(hasIdentifyReturned);
         window.mParticle.logEvent(
