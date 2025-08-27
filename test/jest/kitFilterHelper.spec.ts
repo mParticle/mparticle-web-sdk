@@ -1,5 +1,5 @@
 import KitFilterHelper from "../../src/kitFilterHelper";
-import { EventType, IdentityType } from "../../src/types";
+import { EventType, IdentityType, MessageType } from "../../src/types";
 import Constants from '../../src/constants';
 const { CCPAPurpose } = Constants;
 
@@ -166,6 +166,105 @@ describe('FilterHashingUtilities', () => {
             expect(eventTypeMediaHash).toBe(expectedMediaHash);
 
         });
+    });
+
+    describe('#hashEventMessage', () => {
+        it('should hash event message for SessionStart', () => {
+            const eventName = 'Session Start';
+            const eventType = EventType.Other;
+            const messageType = MessageType.SessionStart;
+            const resultHash = KitFilterHelper.hashEventMessage(eventName, eventType, messageType);
+            expect(resultHash).toBe(1006044049);
+        });
+
+        it('should hash event message for SessionEnd', () => {
+            const eventName = 'Session End';
+            const eventType = EventType.Other;
+            const messageType = MessageType.SessionEnd;
+            const resultHash = KitFilterHelper.hashEventMessage(eventName, eventType, messageType);
+            expect(resultHash).toBe(1124388427);
+        });
+
+        it('should hash event message for PageView', () => {
+            const eventName = 'Page View';
+            const eventType = EventType.Navigation;
+            const messageType = MessageType.PageView;
+            const resultHash = KitFilterHelper.hashEventMessage(eventName, eventType, messageType);
+            expect(resultHash).toBe(-1663677192);
+        });
+
+        it('should hash event message for PageEvent', () => {
+            const eventName = 'Page Event';
+            const eventType = EventType.Other;
+            const messageType = MessageType.PageEvent;
+            const resultHash = KitFilterHelper.hashEventMessage(eventName, eventType, messageType);
+            expect(resultHash).toBe(385626957);
+        });
+
+        it('should hash event message for CrashReport', () => {
+            const eventName = 'Crash Report';
+            const eventType = EventType.Other;
+            const messageType = MessageType.CrashReport;
+            const resultHash = KitFilterHelper.hashEventMessage(eventName, eventType, messageType);
+            expect(resultHash).toBe(-96572944);
+        });
+
+        it('should hash event message for OptOut', () => {
+            const eventName = 'Opt Out';
+            const eventType = EventType.Other;
+            const messageType = MessageType.OptOut;
+            const resultHash = KitFilterHelper.hashEventMessage(eventName, eventType, messageType);
+            expect(resultHash).toBe(-1256811681);
+        });
+
+        it('should hash event message for AppStateTransition', () => {
+            const eventName = 'App State Transition';
+            const eventType = EventType.Other;
+            const messageType = MessageType.AppStateTransition;
+            const resultHash = KitFilterHelper.hashEventMessage(eventName, eventType, messageType);
+            expect(resultHash).toBe(-181018660);
+        });
+
+        it('should hash event message for Profile', () => {
+            const eventName = 'Profile';
+            const eventType = EventType.Other;
+            const messageType = MessageType.Profile;
+            const resultHash = KitFilterHelper.hashEventMessage(eventName, eventType, messageType);
+            expect(resultHash).toBe(-2033873516);
+        });
+
+        it('should hash event message for Commerce', () => {
+            const eventName = 'Commerce';
+            const eventType = EventType.Other;
+            const messageType = MessageType.Commerce;
+            const resultHash = KitFilterHelper.hashEventMessage(eventName, eventType, messageType);
+            expect(resultHash).toBe(1381254798);
+        });
+
+        it('should hash event message for Media', () => {
+            const eventName = 'Media';
+            const eventType = EventType.Media;
+            const messageType = MessageType.Media;
+            const resultHash = KitFilterHelper.hashEventMessage(eventName, eventType, messageType);
+            expect(resultHash).toBe(-1667658999);
+        });
+
+        it('should hash event message for UserAttributeChange', () => {
+            const eventName = 'User Attribute Change';
+            const eventType = EventType.Other;
+            const messageType = MessageType.UserAttributeChange;
+            const resultHash = KitFilterHelper.hashEventMessage(eventName, eventType, messageType);
+            expect(resultHash).toBe(775325143);
+        });
+
+        it('should hash event message for UserIdentityChange', () => {
+            const eventName = 'User Identity Change';
+            const eventType = EventType.Other;
+            const messageType = MessageType.UserIdentityChange;
+            const resultHash = KitFilterHelper.hashEventMessage(eventName, eventType, messageType);
+            expect(resultHash).toBe(161212270);
+        });
+
     });
 
     describe('#hashEventAttributeKey', () => {

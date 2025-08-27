@@ -122,6 +122,7 @@ function createSDKConfig(config: SDKInitConfig): SDKConfig {
 //       to TypeScript
 export type ServerSettings = Dictionary;
 export type SessionAttributes = Dictionary;
+export type SessionSelectionAttributes = Dictionary;
 export type IntegrationAttribute = Dictionary<string>;
 export type IntegrationAttributes = Dictionary<IntegrationAttribute>;
 export type WrapperSDKTypes = 'flutter' | 'none';
@@ -147,6 +148,7 @@ export interface IStore {
     isEnabled: boolean;
     isInitialized: boolean;
     sessionAttributes: SessionAttributes;
+    sessionSelectionAttributes: SessionSelectionAttributes;
     currentSessionMPIDs: MPID[];
     consentState: SDKConsentState | null;
     sessionId: string | null;
@@ -201,6 +203,8 @@ export interface IStore {
     setFirstSeenTime?(mpid: MPID, time?: number): void;
     getLastSeenTime?(mpid: MPID): number;
     setLastSeenTime?(mpid: MPID, time?: number): void;
+    getSessionSelectionAttributes?(): SessionSelectionAttributes;
+    setSessionSelectionAttributes?(attributes: SessionSelectionAttributes): void;
     getUserAttributes?(mpid: MPID): UserAttributes;
     setUserAttributes?(mpid: MPID, attributes: UserAttributes): void;
     getUserIdentities?(mpid: MPID): UserIdentities;
@@ -230,6 +234,7 @@ export default function Store(
     const defaultStore: Partial<IStore> = {
         isEnabled: true,
         sessionAttributes: {},
+        sessionSelectionAttributes: {},
         currentSessionMPIDs: [],
         consentState: null,
         sessionId: null,
@@ -615,6 +620,17 @@ export default function Store(
         this._setPersistence(mpid, 'lst', time);
     };
 
+    this.getSessionSelectionAttributes = (): SessionSelectionAttributes =>
+        this.sessionSelectionAttributes || {};
+
+    this.setSessionSelectionAttributes = (attributes: SessionSelectionAttributes) => {
+        this.sessionSelectionAttributes = attributes;
+        this.persistenceData.gs.ssa = attributes;
+        console.warn('Setting session selection attributes', this.persistenceData);
+        // mpInstance._Persistence.update();
+        mpInstance._Persistence.savePersistence(this.persistenceData);
+    }
+
     this.syncPersistenceData = () => {
         const persistenceData = mpInstance._Persistence.getPersistence();
 
@@ -660,6 +676,7 @@ export default function Store(
         this.sessionId = null;
         this.dateLastEventSent = null;
         this.sessionAttributes = {};
+        this.sessionSelectionAttributes = {};
         mpInstance._Persistence.update();
     };
 

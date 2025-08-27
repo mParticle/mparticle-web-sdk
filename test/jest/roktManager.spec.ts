@@ -3,6 +3,9 @@ import { IMParticleUser } from "../../src/identity-user-interfaces";
 import { SDKIdentityApi } from "../../src/identity.interfaces";
 import { IMParticleWebSDKInstance } from "../../src/mp-instance";
 import RoktManager, { IRoktKit, IRoktSelectPlacementsOptions } from "../../src/roktManager";
+import { SDKEvent } from "../../src/sdkRuntimeModels";
+import { EventType, MessageType } from "../../src/types";
+import { SettingMappingElement } from "../../src/utils";
 import { testMPID } from '../src/config/constants';
 
 const resolvePromise = () => new Promise(resolve => setTimeout(resolve, 0));
@@ -30,6 +33,10 @@ describe('RoktManager', () => {
                 is_logged_in: false,
             }),
         },
+        _Store: {
+            setSessionSelectionAttributes: jest.fn(),
+            getSessionSelectionAttributes: jest.fn().mockReturnValue({}),
+        },
         Logger: {
             verbose: jest.fn(),
             error: jest.fn(),
@@ -51,8 +58,14 @@ describe('RoktManager', () => {
             {} as IKitConfigs,
             {} as IMParticleUser,
             mockMPInstance.Identity,
-            mockMPInstance.Logger
+            mockMPInstance._Store,
+            mockMPInstance.Logger,
+            undefined,
         );
+    });
+
+    afterEach(() => {
+        jest.clearAllMocks();
     });
 
     describe('constructor', () => {
@@ -195,7 +208,13 @@ describe('RoktManager', () => {
 
     describe('#init', () => {
         it('should initialize the manager with defaults when no config is provided', () => {
-            roktManager.init({} as IKitConfigs, {} as IMParticleUser, mockMPInstance.Identity);
+            roktManager.init(
+                {} as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+            );
             expect(roktManager['kit']).toBeNull();
             expect(roktManager['filters']).toEqual({
                 userAttributeFilters: undefined,
@@ -212,7 +231,13 @@ describe('RoktManager', () => {
                 userAttributeFilters: [816506310, 1463937872, 36300687],
             };
 
-            roktManager.init(kitConfig as IKitConfigs, {} as IMParticleUser, mockMPInstance.Identity);
+            roktManager.init(
+                kitConfig as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+            );
             expect(roktManager['filters']).toEqual({
                 userAttributeFilters: [816506310, 1463937872, 36300687],
                 filterUserAttributes: expect.any(Function),
@@ -225,6 +250,7 @@ describe('RoktManager', () => {
                 {} as IKitConfigs,
                 undefined,
                 mockMPInstance.Identity,
+                mockMPInstance._Store,
                 undefined,
                 {
                     sandbox: true,
@@ -254,7 +280,12 @@ describe('RoktManager', () => {
                     ])
                 },
             };
-            roktManager.init(kitConfig as IKitConfigs, {} as IMParticleUser, mockMPInstance.Identity);
+            roktManager.init(
+                kitConfig as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store
+            );
             expect(roktManager['placementAttributesMapping']).toEqual([
                 { 
                     jsmap: null,
@@ -271,6 +302,51 @@ describe('RoktManager', () => {
             ]);
         });
 
+        it('should initialize the manager with placement event mapping from a config', () => {
+            const kitConfig: Partial<IKitConfigs> = {
+                name: 'Rokt',
+                moduleId: 181,
+                settings: {
+                    placementEventMapping: JSON.stringify([
+                        {
+                            jsmap: -1484452948,
+                            map: -5208850776883573773,
+                            maptype: 'EventClass.Id',
+                            value: 'card_viewed_test',
+                        },
+                        {
+                            jsmap: 1838502119,
+                            map: 1324617889422969328,
+                            maptype: 'EventClass.Id',
+                            value: 'ad_viewed_test',
+                        },
+                    ])
+                },
+            };
+
+            roktManager.init(
+                kitConfig as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store
+            );
+
+            expect(roktManager['placementEventMapping']).toEqual([
+                {
+                    jsmap: -1484452948,
+                    map: -5208850776883573773,
+                    maptype: 'EventClass.Id',
+                    value: 'card_viewed_test',
+                },
+                {
+                    jsmap: 1838502119,
+                    map: 1324617889422969328,
+                    maptype: 'EventClass.Id',
+                    value: 'ad_viewed_test',
+                },
+            ]);
+        });
+
         it('should initialize the manager with launcher options from options', () => {
             const launcherOptions = {
                 integrationName: 'customName',
@@ -282,6 +358,7 @@ describe('RoktManager', () => {
                 {} as IKitConfigs,
                 undefined,
                 mockMPInstance.Identity,
+                mockMPInstance._Store,
                 mockMPInstance.Logger,
                 {
                     launcherOptions
@@ -301,6 +378,7 @@ describe('RoktManager', () => {
                 {} as IKitConfigs,
                 undefined,
                 mockMPInstance.Identity,
+                mockMPInstance._Store,
                 mockMPInstance.Logger,
                 undefined,
             );
@@ -318,6 +396,7 @@ describe('RoktManager', () => {
                 {} as IKitConfigs,
                 undefined,
                 mockMPInstance.Identity,
+                mockMPInstance._Store,
                 mockMPInstance.Logger,
                 {
                     domain,
@@ -344,6 +423,122 @@ describe('RoktManager', () => {
 
             roktManager.attachKit(kit);
             expect(roktManager['kit']).not.toBeNull();
+        });
+    });
+
+    describe('#generateMappedEventLookup', () => {
+        it('should generate a lookup table from a placement event mapping', () => {
+            const placementEventMapping: SettingMappingElement[] = [
+                {
+                    jsmap: '-1484452948',
+                    map: '-5208850776883573773',
+                    maptype: 'EventClass.Id',
+                    value: 'foo-mapped-flag',
+                },
+                {
+                    jsmap: '1838502119',
+                    map: '1324617889422969328',
+                    maptype: 'EventClass.Id',
+                    value: 'ad_viewed_test',
+                },
+            ];
+
+            const lookup = roktManager['generateMappedEventLookup'](placementEventMapping);
+            expect(lookup).toEqual({
+                '-1484452948': 'foo-mapped-flag',
+                '1838502119': 'ad_viewed_test'
+            });
+        });
+        
+        it('should return an empty object if the placement event mapping is empty', () => {
+            const lookup = roktManager['generateMappedEventLookup']([]);
+            expect(lookup).toEqual({});
+        });
+    });
+
+    describe('#processEvent', () => {
+        it.only('should set a session selection attribute if the event is a mapped placement event', () => {
+            const placementEventMapping = [
+                {
+                    jsmap: '-1484452948',
+                    map: '-5208850776883573773',
+                    maptype: 'EventClass.Id',
+                    value: 'foo-mapped-flag',
+                },
+                {
+                    jsmap: '1838502119',
+                    map: '1324617889422969328',
+                    maptype: 'EventClass.Id',
+                    value: 'ad_viewed_test',
+                },
+            ];
+
+            const kitConfig: Partial<IKitConfigs> = {
+                settings: {
+                    placementEventMapping: JSON.stringify(placementEventMapping),
+                },
+            };
+
+            roktManager.init(
+                kitConfig as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+            );
+
+            const event: SDKEvent = { 
+                EventName: 'Video Watched',
+                EventCategory: EventType.Navigation,
+                EventDataType: MessageType.PageEvent,
+            } as SDKEvent;
+
+            roktManager.processEvent(event);
+
+            expect(mockMPInstance._Store.setSessionSelectionAttributes).toHaveBeenCalledWith({
+                'foo-mapped-flag': true
+            });
+        });
+
+        it.only('should not set a session selection attribute if the event is not a mapped placement event', () => {
+            const placementEventMapping = [
+                {
+                    jsmap: '-1484452948',
+                    map: '-5208850776883573773',
+                    maptype: 'EventClass.Id',
+                    value: 'foo-mapped-flag',
+                },
+                {
+                    jsmap: '1838502119',
+                    map: '1324617889422969328',
+                    maptype: 'EventClass.Id',
+                    value: 'ad_viewed_test',
+                },
+            ];
+
+            const kitConfig: Partial<IKitConfigs> = {
+                settings: {
+                    placementEventMapping: JSON.stringify(placementEventMapping),
+                },
+            };
+
+            roktManager.init(
+                kitConfig as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+            );
+
+            const event: SDKEvent = { 
+                EventName: 'Unmapped Event',
+                EventCategory: EventType.Social,
+                EventDataType: MessageType.PageEvent,
+            } as SDKEvent;
+
+            roktManager.processEvent(event);
+
+            expect(mockMPInstance._Store.setSessionSelectionAttributes).not.toHaveBeenCalled();
         });
     });
 

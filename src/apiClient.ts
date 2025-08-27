@@ -148,6 +148,9 @@ export default function APIClient(
             // We need to check event again, because kitblocking
             // can nullify the event
             if (event) {
+                if (mpInstance._RoktManager.isReady()) {
+                    mpInstance._RoktManager.processEvent(event);
+                }
                 mpInstance._Forwarders.sendEventToForwarders(event);
             }
         }

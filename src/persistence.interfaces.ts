@@ -10,6 +10,7 @@ import {
     IntegrationAttributes,
     ServerSettings,
     SessionAttributes,
+    SessionSelectionAttributes,
 } from './store';
 import { Dictionary } from './utils';
 import { IMinifiedConsentJSONObject } from './consent';
@@ -26,6 +27,7 @@ export interface IGlobalStoreV2MinifiedKeys {
     sid: string; // Session ID
     ie: boolean; // Is Enabled
     sa: SessionAttributes;
+    ssa?: SessionSelectionAttributes;
     ss: ServerSettings;
     dt: string; // Dev Token
     av: string; // App Version

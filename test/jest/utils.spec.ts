@@ -337,6 +337,14 @@ describe('Utils', () => {
             ]);
         });
 
+        it('should parse a settings string with a number value', () => {
+            const settingsString = "[{&quot;jsmap&quot;:1234567890,&quot;map&quot;:&quot;f.name&quot;,&quot;maptype&quot;:&quot;UserAttributeClass.Name&quot;,&quot;value&quot;:&quot;firstname&quot;},{&quot;jsmap&quot;:&quot;-0978723456&quot;,&quot;map&quot;:&quot;last_name&quot;,&quot;maptype&quot;:&quot;UserAttributeClass.Name&quot;,&quot;value&quot;:&quot;lastname&quot;}]";
+            expect(parseSettingsString(settingsString)).toEqual([
+                { jsmap: '1234567890', map: 'f.name', maptype: 'UserAttributeClass.Name', value: 'firstname' },
+                { jsmap: '-0978723456', map: 'last_name', maptype: 'UserAttributeClass.Name', value: 'lastname' },
+            ]);
+        });
+
         it('returns an empty array if the settings string is empty', () => {
             const settingsString = "";
             expect(parseSettingsString(settingsString)).toEqual([]);
