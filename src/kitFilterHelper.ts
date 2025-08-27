@@ -12,7 +12,7 @@ export default class KitFilterHelper {
     };
 
     static hashEventMessage(eventName: string, eventType: valueof<typeof EventType>, messageType: valueof<typeof MessageType>): number {
-        return generateHash(String(messageType) + String(eventType) + eventName);
+        return generateHash([messageType, eventType, eventName].join(''));
     }
 
     static hashEventAttributeKey(eventType: valueof<typeof EventType>, eventName: string, customAttributeName: string): number {

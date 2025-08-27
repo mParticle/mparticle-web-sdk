@@ -141,6 +141,10 @@ export default function APIClient(
         // While Event Name is 'usually' a string, there are some cases where it is a number
         // in that it could be a type of MessageType Enum
         if (event.EventName as unknown as number !== Types.MessageType.AppStateTransition) {
+            if (mpInstance._RoktManager.isReady()) {
+                mpInstance._RoktManager.processEvent(event);
+            }
+
             if (kitBlocker && kitBlocker.kitBlockingEnabled) {
                 event = kitBlocker.createBlockedEvent(event);
             }
@@ -148,9 +152,6 @@ export default function APIClient(
             // We need to check event again, because kitblocking
             // can nullify the event
             if (event) {
-                if (mpInstance._RoktManager.isReady()) {
-                    mpInstance._RoktManager.processEvent(event);
-                }
                 mpInstance._Forwarders.sendEventToForwarders(event);
             }
         }

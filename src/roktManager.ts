@@ -117,8 +117,6 @@ export default class RoktManager {
         logger?: SDKLoggerApi,
         options?: IRoktOptions
     ): void {
-        console.warn('Rokt Config', roktConfig);
-
         const { userAttributeFilters, settings } = roktConfig || {};
         const { placementAttributesMapping, placementEventMapping } = settings || {};
 
@@ -200,8 +198,6 @@ export default class RoktManager {
             return this.deferredCall<IRoktSelection>('selectPlacements', options);
         }
 
-        console.warn('Select Placements', options);
-
         try {
             const { attributes } = options;
             const sandboxValue = attributes?.sandbox || null;
@@ -240,15 +236,12 @@ export default class RoktManager {
             this.setUserAttributes(mappedAttributes);
 
             const sessionSelectionAttributes = this.store.getSessionSelectionAttributes();
-            console.warn('Session Selection Attributes', sessionSelectionAttributes);
 
             const enrichedAttributes = {
                 ...mappedAttributes,
                 ...sessionSelectionAttributes,
                 ...(sandboxValue !== null ? { sandbox: sandboxValue } : {}),
             };
-
-            console.warn('Enriched Attributes', enrichedAttributes);
 
             const enrichedOptions = {
                 ...options,
