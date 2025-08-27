@@ -34,7 +34,7 @@ describe('Integration Capture', () => {
 
         window.mParticle.config.flags = {
             captureIntegrationSpecificIds: 'True',
-            'captureIntegrationSpecificIdsV2': 'all'
+            captureIntegrationSpecificIdsV2: 'all'
         };
 
         window.document.cookie = '_cookie1=234';

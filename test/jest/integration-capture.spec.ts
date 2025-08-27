@@ -2,7 +2,6 @@ import IntegrationCapture, {
     facebookClickIdProcessor,
 } from '../../src/integrationCapture';
 import { deleteAllCookies } from './utils';
-import { describe, it, expect } from '@jest/globals';
 
 describe('Integration Capture', () => {
     describe('constructor', () => {
@@ -48,14 +47,14 @@ describe('Integration Capture', () => {
             const expectedKeys = ['rtid', 'rclid', 'RoktTransactionId'];
             expect(Object.keys(mappings).sort()).toEqual([...expectedKeys].sort());
             const excludedKeys = [
-            'fbclid',
-            '_fbp',
-            '_fbc',
-            'gclid',
-            'gbraid',
-            'wbraid',
-            'ttclid',
-            'ScCid',
+                'fbclid',
+                '_fbp',
+                '_fbc',
+                'gclid',
+                'gbraid',
+                'wbraid',
+                'ttclid',
+                'ScCid',
             ];
             for (const key of excludedKeys) {
                 expect(mappings).not.toHaveProperty(key);
@@ -63,74 +62,74 @@ describe('Integration Capture', () => {
         });
     });
 
-describe('capture V2 modes gating in helpers', () => {
-  const originalLocation = window.location as any;
+    describe('capture V2 modes gating in helpers', () => {
+        const originalLocation = window.location as any;
 
-  beforeEach(() => {
-    delete (window as any).location;
-    (window as any).location = { href: 'https://www.example.com/', search: '' } as any;
-    deleteAllCookies();
-    window.localStorage.clear();
-    jest.restoreAllMocks();
-  });
+        beforeEach(() => {
+            delete (window as any).location;
+            (window as any).location = { href: 'https://www.example.com/', search: '' } as any;
+            deleteAllCookies();
+            window.localStorage.clear();
+            jest.restoreAllMocks();
+        });
 
-  afterEach(() => {
-    window.location = originalLocation;
-    deleteAllCookies();
-    window.localStorage.clear();
-  });
+        afterEach(() => {
+            window.location = originalLocation;
+            deleteAllCookies();
+            window.localStorage.clear();
+        });
 
-  it('should return only Rokt keys from helpers when captureMode is roktonly (lowercase)', () => {
-    // Query params
-    const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1');
-    window.location.href = url.href;
-    window.location.search = url.search;
+        it('should return only Rokt keys from helpers when captureMode is roktonly (lowercase)', () => {
+            // Query params
+            const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1');
+            window.location.href = url.href;
+            window.location.search = url.search;
 
-    // Cookies
-    document.cookie = '_fbp=54321';
-    document.cookie = 'RoktTransactionId=xyz';
+            // Cookies
+            document.cookie = '_fbp=54321';
+            document.cookie = 'RoktTransactionId=xyz';
 
-    // Local storage
-    window.localStorage.setItem('RoktTransactionId', 'ls-rok');
+            // Local storage
+            window.localStorage.setItem('RoktTransactionId', 'ls-rok');
 
-    const ic = new IntegrationCapture('roktonly');
+            const integrationCapture = new IntegrationCapture('roktonly');
 
-    const q = ic.captureQueryParams();
-    const c = ic.captureCookies();
-    const ls = ic.captureLocalStorage();
+            const clickIds = integrationCapture.captureQueryParams();
+            const clickIdCookies = integrationCapture.captureCookies();
+            const clickIdLocalStorage = integrationCapture.captureLocalStorage();
 
-    expect(q).toEqual({ rtid: 'rt1', rclid: 'rc1' });
-    expect(c).toEqual({ RoktTransactionId: 'xyz' });
-    expect(ls).toEqual({ RoktTransactionId: 'ls-rok' });
-  });
+            expect(clickIds).toEqual({ rtid: 'rt1', rclid: 'rc1' });
+            expect(clickIdCookies).toEqual({ RoktTransactionId: 'xyz' });
+            expect(clickIdLocalStorage).toEqual({ RoktTransactionId: 'ls-rok' });
+        });
 
-  it('should return all mapped keys from helpers when captureMode is all (lowercase)', () => {
-    jest.spyOn(Date, 'now').mockImplementation(() => 42);
-    // Query params
-    const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1&ScCid=snap1');
-    window.location.href = url.href;
-    window.location.search = url.search;
+        it('should return all mapped keys from helpers when captureMode is all (lowercase)', () => {
+            jest.spyOn(Date, 'now').mockImplementation(() => 42);
+            // Query params
+            const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1&ScCid=snap1');
+            window.location.href = url.href;
+            window.location.search = url.search;
 
-    // Cookies
-    document.cookie = '_fbp=54321';
-    document.cookie = '_fbc=fb.1.1554763741205.abcdef';
-    document.cookie = 'RoktTransactionId=xyz';
+            // Cookies
+            document.cookie = '_fbp=54321';
+            document.cookie = '_fbc=fb.1.1554763741205.abcdef';
+            document.cookie = 'RoktTransactionId=xyz';
 
-    // Local storage
-    window.localStorage.setItem('RoktTransactionId', 'ls-rok');
+            // Local storage
+            window.localStorage.setItem('RoktTransactionId', 'ls-rok');
 
-    const ic = new IntegrationCapture('all');
+            const integrationCapture = new IntegrationCapture('all');
 
-    const q = ic.captureQueryParams();
-    const c = ic.captureCookies();
-    const ls = ic.captureLocalStorage();
+            const clickIds = integrationCapture.captureQueryParams();
+            const clickIdCookies = integrationCapture.captureCookies();
+            const clickIdLocalStorage = integrationCapture.captureLocalStorage();
 
-    // fbclid is formatted with timestamp/domain index
-    expect(q).toMatchObject({ fbclid: 'fb.2.42.abc', gclid: 'g1', rtid: 'rt1', rclid: 'rc1', ScCid: 'snap1' });
-    expect(c).toMatchObject({ _fbp: '54321', _fbc: 'fb.1.1554763741205.abcdef', RoktTransactionId: 'xyz' });
-    expect(ls).toEqual({ RoktTransactionId: 'ls-rok' });
-  });
-});
+            // fbclid is formatted with timestamp/domain index
+            expect(clickIds).toMatchObject({ fbclid: 'fb.2.42.abc', gclid: 'g1', rtid: 'rt1', rclid: 'rc1', ScCid: 'snap1' });
+            expect(clickIdCookies).toMatchObject({ _fbp: '54321', _fbc: 'fb.1.1554763741205.abcdef', RoktTransactionId: 'xyz' });
+            expect(clickIdLocalStorage).toEqual({ RoktTransactionId: 'ls-rok' });
+        });
+    });
 
     describe('#capture', () => {
         const originalLocation = window.location;

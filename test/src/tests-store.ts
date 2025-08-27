@@ -1239,7 +1239,7 @@ describe('Store', () => {
                     cacheIdentity: 'False',
                     audienceAPI: 'False',
                     captureIntegrationSpecificIds: 'False',
-                    'captureIntegrationSpecificIdsV2': 'none',
+                    captureIntegrationSpecificIdsV2: 'none',
                     astBackgroundEvents: 'True',
                 },
             };
@@ -1259,7 +1259,7 @@ describe('Store', () => {
                 cacheIdentity: false,
                 audienceAPI: false,
                 captureIntegrationSpecificIds: false,
-                'captureIntegrationSpecificIdsV2': 'none',
+                captureIntegrationSpecificIdsV2: 'none',
                 astBackgroundEvents: true,
             };
 
@@ -1462,7 +1462,7 @@ describe('Store', () => {
                 cacheIdentity: false,
                 audienceAPI: false,
                 captureIntegrationSpecificIds: false,
-                'captureIntegrationSpecificIdsV2': '',
+                captureIntegrationSpecificIdsV2: '',
                 astBackgroundEvents: false,
             };
 
@@ -1478,7 +1478,7 @@ describe('Store', () => {
                 cacheIdentity: 'True',
                 audienceAPI: 'True',
                 captureIntegrationSpecificIds: 'True',
-                'captureIntegrationSpecificIdsV2': 'all',
+                captureIntegrationSpecificIdsV2: 'all',
                 astBackgroundEvents: 'True',
             };
 
@@ -1494,7 +1494,7 @@ describe('Store', () => {
                 cacheIdentity: true,
                 audienceAPI: true,
                 captureIntegrationSpecificIds: true,
-                'captureIntegrationSpecificIdsV2': 'all',
+                captureIntegrationSpecificIdsV2: 'all',
                 astBackgroundEvents: true,
             };
 
