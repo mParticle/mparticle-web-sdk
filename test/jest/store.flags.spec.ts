@@ -37,8 +37,7 @@ describe('Store privacy flags', () => {
         (Store as any).call(store, {} as SDKInitConfig, mockMPInstance, 'apikey');
     });
 
-    // Default case
-    it('defaults to false when not provided', () => {
+    it('defaults noFunctional and noTargeting to false when not provided', () => {
         const cfg: SDKInitConfig = { flags: {} } as any;
         store.processConfig(cfg);
         expect(store.getNoFunctional()).toBe(false);
