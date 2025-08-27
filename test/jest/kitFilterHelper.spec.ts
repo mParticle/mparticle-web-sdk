@@ -170,19 +170,19 @@ describe('FilterHashingUtilities', () => {
 
     describe('#hashEventMessage', () => {
         it('should hash event message for SessionStart', () => {
-            const eventName = 'Session Start';
+            const eventName = '1';
             const eventType = EventType.Other;
             const messageType = MessageType.SessionStart;
             const resultHash = KitFilterHelper.hashEventMessage(eventName, eventType, messageType);
-            expect(resultHash).toBe(1006044049);
+            expect(resultHash).toBe(48874);
         });
 
         it('should hash event message for SessionEnd', () => {
-            const eventName = 'Session End';
+            const eventName = '2';
             const eventType = EventType.Other;
             const messageType = MessageType.SessionEnd;
             const resultHash = KitFilterHelper.hashEventMessage(eventName, eventType, messageType);
-            expect(resultHash).toBe(1124388427);
+            expect(resultHash).toBe(49836);
         });
 
         it('should hash event message for PageView', () => {
