@@ -626,8 +626,6 @@ export default function Store(
     this.setSessionSelectionAttributes = (attributes: SessionSelectionAttributes) => {
         this.sessionSelectionAttributes = attributes;
         this.persistenceData.gs.ssa = attributes;
-        console.warn('Setting session selection attributes', this.persistenceData);
-        // mpInstance._Persistence.update();
         mpInstance._Persistence.savePersistence(this.persistenceData);
     }
 

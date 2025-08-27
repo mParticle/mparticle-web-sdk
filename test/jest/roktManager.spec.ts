@@ -302,21 +302,21 @@ describe('RoktManager', () => {
             ]);
         });
 
-        it('should initialize the manager with placement event mapping from a config', () => {
+        it('should initialize the manager with placement event mapping lookup from a config', () => {
             const kitConfig: Partial<IKitConfigs> = {
                 name: 'Rokt',
                 moduleId: 181,
                 settings: {
                     placementEventMapping: JSON.stringify([
                         {
-                            jsmap: -1484452948,
-                            map: -5208850776883573773,
+                            jsmap: '-1484452948',
+                            map: '-5208850776883573773',
                             maptype: 'EventClass.Id',
                             value: 'card_viewed_test',
                         },
                         {
-                            jsmap: 1838502119,
-                            map: 1324617889422969328,
+                            jsmap: '1838502119',
+                            map: '1324617889422969328',
                             maptype: 'EventClass.Id',
                             value: 'ad_viewed_test',
                         },
@@ -331,20 +331,10 @@ describe('RoktManager', () => {
                 mockMPInstance._Store
             );
 
-            expect(roktManager['placementEventMapping']).toEqual([
-                {
-                    jsmap: -1484452948,
-                    map: -5208850776883573773,
-                    maptype: 'EventClass.Id',
-                    value: 'card_viewed_test',
-                },
-                {
-                    jsmap: 1838502119,
-                    map: 1324617889422969328,
-                    maptype: 'EventClass.Id',
-                    value: 'ad_viewed_test',
-                },
-            ]);
+            expect(roktManager['placementEventMappingLookup']).toEqual({
+                '-1484452948': 'card_viewed_test',
+                '1838502119': 'ad_viewed_test',
+            });
         });
 
         it('should initialize the manager with launcher options from options', () => {
@@ -457,7 +447,7 @@ describe('RoktManager', () => {
     });
 
     describe('#processEvent', () => {
-        it.only('should set a session selection attribute if the event is a mapped placement event', () => {
+        it('should set a session selection attribute if the event is a mapped placement event', () => {
             const placementEventMapping = [
                 {
                     jsmap: '-1484452948',
@@ -500,7 +490,7 @@ describe('RoktManager', () => {
             });
         });
 
-        it.only('should not set a session selection attribute if the event is not a mapped placement event', () => {
+        it('should not set a session selection attribute if the event is not a mapped placement event', () => {
             const placementEventMapping = [
                 {
                     jsmap: '-1484452948',

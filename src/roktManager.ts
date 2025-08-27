@@ -113,7 +113,7 @@ export default class RoktManager {
         roktConfig: IKitConfigs, 
         filteredUser: IMParticleUser, 
         identityService: SDKIdentityApi,
-        storeService: IStore,
+        store: IStore,
         logger?: SDKLoggerApi,
         options?: IRoktOptions
     ): void {
@@ -127,14 +127,14 @@ export default class RoktManager {
         }
 
         try {
-            const placementEventMappingArray: SettingMappingElement[] = parseSettingsString(placementEventMapping);
-            this.placementEventMappingLookup = this.generateMappedEventLookup(placementEventMappingArray);
+            const parsedEventMapping: SettingMappingElement[] = parseSettingsString(placementEventMapping);
+            this.placementEventMappingLookup = this.generateMappedEventLookup(parsedEventMapping);
         } catch (error) {
             console.error('Error parsing placement event mapping from config', error);
         }
 
         this.identityService = identityService;
-        this.store = storeService;
+        this.store = store;
         this.logger = logger;
 
         this.filters = {
@@ -298,7 +298,7 @@ export default class RoktManager {
         try {
             this.currentUser.setUserAttributes(filteredAttributes);
         } catch (error) {
-            console.error('Error setting user attributes', error);
+            this.logger.error('Error setting user attributes: ' + error);
         }
     }
 
