@@ -161,7 +161,7 @@ const parseNumber = (value: string | number): number => {
 };
 
 interface SettingMappingElement {
-    jsmap: string;
+    jsmap: string | null;
     map: string;
     maptype: string;
     value: string;
