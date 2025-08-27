@@ -120,19 +120,6 @@ export default class RoktManager {
         const { userAttributeFilters, settings } = roktConfig || {};
         const { placementAttributesMapping, placementEventMapping } = settings || {};
 
-        try {
-            this.placementAttributesMapping = parseSettingsString(placementAttributesMapping);
-        } catch (error) {
-            console.error('Error parsing placement attributes mapping from config', error);
-        }
-
-        try {
-            const parsedEventMapping: SettingMappingElement[] = parseSettingsString(placementEventMapping);
-            this.placementEventMappingLookup = this.generateMappedEventLookup(parsedEventMapping);
-        } catch (error) {
-            console.error('Error parsing placement event mapping from config', error);
-        }
-
         this.identityService = identityService;
         this.store = store;
         this.logger = logger;
@@ -142,6 +129,19 @@ export default class RoktManager {
             filterUserAttributes: KitFilterHelper.filterUserAttributes,
             filteredUser: filteredUser,
         };
+
+        try {
+            this.placementAttributesMapping = parseSettingsString(placementAttributesMapping);
+        } catch (error) {
+            this.logger.error('Error parsing placement attributes mapping from config: ' + error);
+        }
+
+        try {
+            const parsedEventMapping: SettingMappingElement[] = parseSettingsString(placementEventMapping);
+            this.placementEventMappingLookup = this.generateMappedEventLookup(parsedEventMapping);
+        } catch (error) {
+            this.logger.error('Error parsing placement event mapping from config: ' + error);
+        }
 
         // This is the global setting for sandbox mode
         // It is set here and passed in to the createLauncher method in the Rokt Kit
@@ -170,7 +170,7 @@ export default class RoktManager {
             event.EventDataType as valueof<typeof MessageType>
         ).toString();
 
-        if (Object.keys(this.placementEventMappingLookup).includes(hashedEvent)) {
+        if (this.placementEventMappingLookup[hashedEvent]) {
             const mappedValue = this.placementEventMappingLookup[hashedEvent];
             this.store.setSessionSelectionAttributes({
                 [mappedValue]: true
