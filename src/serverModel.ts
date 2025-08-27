@@ -277,16 +277,20 @@ export default function ServerModel(
             let integrationAttributes: IntegrationAttributes = mpInstance._Store.integrationAttributes;
 
             // https://go.mparticle.com/work/SQDSDKS-5053
-            if (mpInstance._Helpers.getFeatureFlag && mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds)) {
-
-                // Attempt to recapture click IDs in case a third party integration
-                // has added or updated  new click IDs since the last event was sent.
-                mpInstance._IntegrationCapture.capture();
-                const transformedClickIDs = mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
-                customFlags = {...transformedClickIDs, ...customFlags};
-
-                const transformedIntegrationAttributes = mpInstance._IntegrationCapture.getClickIdsAsIntegrationAttributes();
-                integrationAttributes = {...transformedIntegrationAttributes, ...integrationAttributes};
+            if (mpInstance._Helpers.getFeatureFlag) {
+                // https://go.mparticle.com/work/SQDSDKS-7639
+                const integrationSpecificIds = mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds) as boolean;
+                const integrationSpecificIdsV2 = ((mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2) as string) || '');
+                const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 ? integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None : false) || (integrationSpecificIds === true);
+                if (isIntegrationCaptureEnabled) {
+                    // Attempt to recapture click IDs in case a third party integration
+                    // has added or updated  new click IDs since the last event was sent.
+                    mpInstance._IntegrationCapture.capture();
+                    const transformedClickIDs = mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
+                    customFlags = { ...transformedClickIDs, ...customFlags };
+                    const transformedIntegrationAttributes = mpInstance._IntegrationCapture.getClickIdsAsIntegrationAttributes();
+                    integrationAttributes = { ...transformedIntegrationAttributes, ...integrationAttributes };
+                }
             }
 
             if (event.hasOwnProperty('toEventAPIObject')) {
