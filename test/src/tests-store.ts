@@ -1187,8 +1187,6 @@ describe('Store', () => {
                 .getInstance()
                 ._Persistence.getPersistence();
             
-                console.warn("persistence data", fromPersistence);
-
             expect(fromPersistence.gs).to.be.ok;
             expect(fromPersistence.gs.lsa).to.be.ok;
             expect(fromPersistence.gs.lsa).to.deep.equal({
