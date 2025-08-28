@@ -1,6 +1,6 @@
 import { Dictionary, generateHash, inArray, valueof, filterDictionaryWithHash } from "./utils";
 // TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-5381
-import { EventType, IdentityType, MessageType } from "./types";
+import { EventType, IdentityType } from "./types";
 
 export default class KitFilterHelper {
     static hashEventType(eventType: valueof<typeof EventType>): number {
@@ -10,10 +10,6 @@ export default class KitFilterHelper {
     static hashEventName(eventName: string, eventType: valueof<typeof EventType>): number {
         return generateHash(eventType + eventName);
     };
-
-    static hashEventMessage(eventName: string, eventType: valueof<typeof EventType>, messageType: valueof<typeof MessageType>): number {
-        return generateHash([messageType, eventType, eventName].join(''));
-    }
 
     static hashEventAttributeKey(eventType: valueof<typeof EventType>, eventName: string, customAttributeName: string): number {
         return generateHash(eventType + eventName + customAttributeName);
@@ -62,5 +58,4 @@ export default class KitFilterHelper {
         const hashedUserAttribute = this.hashUserAttribute(userAttributeKey);
         return filterList && inArray(filterList, hashedUserAttribute);
     }
-        
 }

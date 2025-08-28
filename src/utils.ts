@@ -160,14 +160,7 @@ const parseNumber = (value: string | number): number => {
     return isNaN(floatValue) ? 0 : floatValue;
 };
 
-interface SettingMappingElement {
-    jsmap: string | null;
-    map: string;
-    maptype: string;
-    value: string;
-}
-
-const parseSettingsString = (settingsString: string): SettingMappingElement[] => {
+const parseSettingsString = (settingsString: string): Dictionary<string>[] => {
     try {
         return settingsString ? JSON.parse(settingsString.replace(/&quot;/g, '"')) : [];
     } catch (error) {
@@ -456,5 +449,4 @@ export {
     getHref,
     replaceMPID,
     replaceAmpWithAmpersand,
-    SettingMappingElement,
 };

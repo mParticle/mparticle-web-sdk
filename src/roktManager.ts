@@ -2,19 +2,10 @@ import { IKitConfigs } from "./configAPIClient";
 import { UserAttributeFilters  } from "./forwarders.interfaces";
 import { IMParticleUser } from "./identity-user-interfaces";
 import KitFilterHelper from "./kitFilterHelper";
-import {
-    Dictionary,
-    parseSettingsString,
-    generateUniqueId,
-    isFunction,
-    valueof,
-    SettingMappingElement,
-} from "./utils";
+import { Dictionary, parseSettingsString, generateUniqueId, isFunction } from "./utils";
 import { SDKIdentityApi } from "./identity.interfaces";
-import { SDKEvent, SDKLoggerApi } from "./sdkRuntimeModels";
+import { SDKLoggerApi } from "./sdkRuntimeModels";
 import { IStore } from "./store";
-import { EventType, MessageType } from "./types";
-
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export interface IRoktPartnerAttributes {
@@ -91,8 +82,7 @@ export default class RoktManager {
     private currentUser: IMParticleUser | null = null;
     private messageQueue: Map<string, IRoktMessage> = new Map();
     private sandbox: boolean | null = null;
-    private placementAttributesMapping: SettingMappingElement[] = [];
-    private placementEventMappingLookup: Dictionary<string> = {};
+    private placementAttributesMapping: Dictionary<string>[] = [];
     private identityService: SDKIdentityApi;
     private store: IStore;
     private launcherOptions?: IRoktLauncherOptions;
@@ -118,7 +108,7 @@ export default class RoktManager {
         options?: IRoktOptions
     ): void {
         const { userAttributeFilters, settings } = roktConfig || {};
-        const { placementAttributesMapping, placementEventMapping } = settings || {};
+        const { placementAttributesMapping } = settings || {};
 
         this.identityService = identityService;
         this.store = store;
@@ -134,13 +124,6 @@ export default class RoktManager {
             this.placementAttributesMapping = parseSettingsString(placementAttributesMapping);
         } catch (error) {
             this.logger.error('Error parsing placement attributes mapping from config: ' + error);
-        }
-
-        try {
-            const parsedEventMapping: SettingMappingElement[] = parseSettingsString(placementEventMapping);
-            this.placementEventMappingLookup = this.generateMappedEventLookup(parsedEventMapping);
-        } catch (error) {
-            this.logger.error('Error parsing placement event mapping from config: ' + error);
         }
 
         // This is the global setting for sandbox mode
@@ -161,21 +144,6 @@ export default class RoktManager {
     public attachKit(kit: IRoktKit): void {
         this.kit = kit;
         this.processMessageQueue();
-    }
-
-    public processEvent(event: SDKEvent): void {
-        const hashedEvent = KitFilterHelper.hashEventMessage(
-            event.EventName,
-            event.EventCategory as valueof<typeof EventType>,
-            event.EventDataType as valueof<typeof MessageType>
-        ).toString();
-
-        if (this.placementEventMappingLookup[hashedEvent]) {
-            const mappedValue = this.placementEventMappingLookup[hashedEvent];
-            this.store.setLocalSessionAttributes({
-                [mappedValue]: true
-            });
-        }
     }
 
     /**
@@ -235,11 +203,8 @@ export default class RoktManager {
 
             this.setUserAttributes(mappedAttributes);
 
-            const localSessionAttributes = this.store.getLocalSessionAttributes();
-
             const enrichedAttributes = {
                 ...mappedAttributes,
-                ...localSessionAttributes,
                 ...(sandboxValue !== null ? { sandbox: sandboxValue } : {}),
             };
 
@@ -280,7 +245,7 @@ export default class RoktManager {
         }
     }
 
-    public isReady(): boolean {
+    private isReady(): boolean {
         // The Rokt Manager is ready when a kit is attached and has a launcher
         return Boolean(this.kit && this.kit.launcher);
     }
@@ -302,7 +267,7 @@ export default class RoktManager {
         }
     }
 
-    private mapPlacementAttributes(attributes: IRoktPartnerAttributes, placementAttributesMapping: SettingMappingElement[]): IRoktPartnerAttributes {
+    private mapPlacementAttributes(attributes: IRoktPartnerAttributes, placementAttributesMapping: Dictionary<string>[]): IRoktPartnerAttributes {
         const mappingLookup: { [key: string]: string } = {};
         for (const mapping of placementAttributesMapping) {
             mappingLookup[mapping.map] = mapping.value;
@@ -316,17 +281,6 @@ export default class RoktManager {
             }
         }
         return mappedAttributes;
-    }
-
-    private generateMappedEventLookup(placementEventMapping: SettingMappingElement[]): Dictionary<string> {
-        if (!placementEventMapping) {
-            return {};
-        }
-
-        return placementEventMapping.reduce((acc, mapping) => {
-            acc[mapping.jsmap] = mapping.value;
-            return acc;
-        }, {});
     }
 
     private processMessageQueue(): void {
