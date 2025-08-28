@@ -1665,15 +1665,15 @@ describe('Store', () => {
         });
     });
 
-    describe('privacy flags', () => {
-        it('defaults to false when not provided', () => {
+    describe('#privacy flags', () => {
+        it('should set noFunctional and noTargeting to false when not provided', () => {
             const inst = window.mParticle.getInstance();
             const store = (inst as any)._Store;
             expect(store.getNoFunctional()).to.equal(false);
             expect(store.getNoTargeting()).to.equal(false);
         });
 
-        it('sets noFunctional and noTargeting from init config', () => {
+        it('should set noFunctional and noTargeting from init config', () => {
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.config = window.mParticle.config || {};
             window.mParticle.config.noFunctional = true;

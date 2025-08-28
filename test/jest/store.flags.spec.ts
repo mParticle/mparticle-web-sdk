@@ -37,14 +37,14 @@ describe('Store privacy flags', () => {
         (Store as any).call(store, {} as SDKInitConfig, mockMPInstance, 'apikey');
     });
 
-    it('defaults noFunctional and noTargeting to false when not provided', () => {
+    it('should default noFunctional and noTargeting to false when not provided', () => {
         const cfg: SDKInitConfig = { flags: {} } as any;
         store.processConfig(cfg);
         expect(store.getNoFunctional()).toBe(false);
         expect(store.getNoTargeting()).toBe(false);
     });
 
-    it('sets noFunctional as true and noTargeting as true from config', () => {
+    it('should set noFunctional as true and noTargeting as true from config', () => {
         const cfg: SDKInitConfig = {
             noFunctional: true,
             noTargeting: true,
@@ -57,7 +57,7 @@ describe('Store privacy flags', () => {
         expect(store.getNoTargeting()).toBe(true);
     });
 
-    it('sets noFunctional as true and noTargeting as false from config', () => {
+    it('should set noFunctional as true and noTargeting as false from config', () => {
         const cfg: SDKInitConfig = {
             noFunctional: true,
             noTargeting: false,
@@ -70,7 +70,7 @@ describe('Store privacy flags', () => {
         expect(store.getNoTargeting()).toBe(false);
     });
 
-    it('sets noFunctional as false and noTargeting as true from config', () => {
+    it('should set noFunctional as false and noTargeting as true from config', () => {
         const cfg: SDKInitConfig = {
             noFunctional: false,
             noTargeting: true,
