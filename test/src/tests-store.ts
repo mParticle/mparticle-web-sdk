@@ -1160,14 +1160,20 @@ describe('Store', () => {
         });
     });
 
-    describe('#setLocalSessionAttributes', () => {
+    describe('#setLocalSessionAttribute', () => {
         it('should set localSessionAttributes in the store', () => {
             const store: IStore = new Store(
                 sampleConfig,
                 window.mParticle.getInstance()
             );
 
-            store.setLocalSessionAttributes({ cclick: true, segment: 'premium' });
+            store.setLocalSessionAttribute('cclick', true);
+
+            expect(store.localSessionAttributes).to.deep.equal({
+                cclick: true,
+            });
+
+            store.setLocalSessionAttribute('segment', 'premium');
             
             expect(store.localSessionAttributes).to.deep.equal({
                 cclick: true,
@@ -1181,7 +1187,8 @@ describe('Store', () => {
                 window.mParticle.getInstance()
             );
 
-            store.setLocalSessionAttributes({ cclick: true, segment: 'premium' });
+            store.setLocalSessionAttribute('cclick', true);
+            store.setLocalSessionAttribute('segment', 'premium');
             
             const fromPersistence = window.mParticle
                 .getInstance()
@@ -1201,11 +1208,13 @@ describe('Store', () => {
                 window.mParticle.getInstance()
             );
 
-            store.setLocalSessionAttributes({ cclick: true });
+            store.setLocalSessionAttribute('cclick', true);
             expect(store.localSessionAttributes).to.deep.equal({ cclick: true });
 
-            store.setLocalSessionAttributes({ segment: 'premium', feature: 'enabled' });
+            store.setLocalSessionAttribute('segment', 'premium');
+            store.setLocalSessionAttribute('feature', 'enabled');
             expect(store.localSessionAttributes).to.deep.equal({
+                cclick: true,
                 segment: 'premium',
                 feature: 'enabled'
             });
@@ -1227,7 +1236,8 @@ describe('Store', () => {
                 window.mParticle.getInstance()
             );
 
-            store.setLocalSessionAttributes({ cclick: true, newAttribute: 'newValue' });
+            store.setLocalSessionAttribute('cclick', true);
+            store.setLocalSessionAttribute('newAttribute', 'newValue');
             
             const fromPersistence = window.mParticle
                 .getInstance()
@@ -1241,22 +1251,24 @@ describe('Store', () => {
             });
         });
 
-        it('should handle empty object attributes', () => {
+        it('should handle empty object attribute values', () => {
             const store: IStore = new Store(
                 sampleConfig,
                 window.mParticle.getInstance()
             );
 
-            store.setLocalSessionAttributes({});
-            expect(store.localSessionAttributes).to.deep.equal({});
+            store.setLocalSessionAttribute('cclick', null);
+            expect(store.localSessionAttributes).to.deep.equal({
+                cclick: null,
+            });
             
             const fromPersistence = window.mParticle
                 .getInstance()
                 ._Persistence.getPersistence();
 
-            // Encoding an empty object will actually remove it from the persistence
-            // Decoding it will return undefined
-            expect(fromPersistence.gs.lsa).to.deep.equal(undefined);
+            expect(fromPersistence.gs.lsa).to.deep.equal({
+                cclick: null,
+            });
         });
     });
    

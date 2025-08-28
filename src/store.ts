@@ -28,6 +28,9 @@ import {
     moveElementToEnd,
     parseNumber,
     returnConvertedBoolean,
+    isValidAttributeValue,
+    findKeyInObject,
+    AttributeValue,
 } from './utils';
 import { IMinifiedConsentJSONObject, SDKConsentState } from './consent';
 import { ConfiguredKit, MPForwarder, UnregisteredKit } from './forwarders.interfaces';
@@ -39,6 +42,8 @@ import {
 import { CookieSyncDates, IPixelConfiguration } from './cookieSyncManager';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import ForegroundTimer from './foregroundTimeTracker';
+
+const { Messages } = Constants;
 
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and
@@ -211,7 +216,7 @@ export interface IStore {
     getLastSeenTime?(mpid: MPID): number;
     setLastSeenTime?(mpid: MPID, time?: number): void;
     getLocalSessionAttributes?(): LocalSessionAttributes;
-    setLocalSessionAttributes?(attributes: LocalSessionAttributes): void;
+    setLocalSessionAttribute?(key: string, value: AttributeValue): void;
     getUserAttributes?(mpid: MPID): UserAttributes;
     setUserAttributes?(mpid: MPID, attributes: UserAttributes): void;
     getUserIdentities?(mpid: MPID): UserIdentities;
@@ -630,9 +635,9 @@ export default function Store(
     this.getLocalSessionAttributes = (): LocalSessionAttributes =>
         this.localSessionAttributes || {};
 
-    this.setLocalSessionAttributes = (attributes: LocalSessionAttributes) => {
-        this.localSessionAttributes = attributes;
-        this.persistenceData.gs.lsa = attributes;
+    this.setLocalSessionAttribute = (key: string, value: AttributeValue) => {
+        this.localSessionAttributes[key] = value;
+        this.persistenceData.gs.lsa = { ...(this.persistenceData.gs.lsa || {}), [key]: value };
         mpInstance._Persistence.savePersistence(this.persistenceData);
     }
 

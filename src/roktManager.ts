@@ -2,10 +2,16 @@ import { IKitConfigs } from "./configAPIClient";
 import { UserAttributeFilters  } from "./forwarders.interfaces";
 import { IMParticleUser } from "./identity-user-interfaces";
 import KitFilterHelper from "./kitFilterHelper";
-import { Dictionary, parseSettingsString, generateUniqueId, isFunction } from "./utils";
+import {
+    Dictionary,
+    parseSettingsString,
+    generateUniqueId,
+    isFunction,
+    AttributeValue,
+} from "./utils";
 import { SDKIdentityApi } from "./identity.interfaces";
 import { SDKLoggerApi } from "./sdkRuntimeModels";
-import { IStore } from "./store";
+import { IStore, LocalSessionAttributes } from "./store";
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export interface IRoktPartnerAttributes {
@@ -243,6 +249,14 @@ export default class RoktManager {
             const errorMessage = error instanceof Error ? error.message : String(error);
             throw new Error('Error setting extension data: ' + errorMessage);
         }
+    }
+
+    public getLocalSessionAttributes(): LocalSessionAttributes {
+        return this.store.getLocalSessionAttributes();
+    }
+
+    public setLocalSessionAttribute(key: string, value: AttributeValue): void {
+        this.store.setLocalSessionAttribute(key, value);
     }
 
     private isReady(): boolean {
