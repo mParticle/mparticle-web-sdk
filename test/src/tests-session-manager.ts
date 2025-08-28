@@ -317,7 +317,7 @@ describe('SessionManager', () => {
                 expect(mpInstance._Store.sessionId).to.equal(null);
                 expect(mpInstance._Store.dateLastEventSent).to.equal(null);
                 expect(mpInstance._Store.sessionAttributes).to.eql({});
-                expect(mpInstance._Store.sessionSelectionAttributes).to.eql({});
+                expect(mpInstance._Store.localSessionAttributes).to.eql({});
 
                 // Persistence isn't necessary for this feature, but we should test
                 // to see that it is called in case this ever needs to be refactored
@@ -338,7 +338,7 @@ describe('SessionManager', () => {
                 expect(mpInstance._Store.sessionId).to.equal(null);
                 expect(mpInstance._Store.dateLastEventSent).to.equal(null);
                 expect(mpInstance._Store.sessionAttributes).to.eql({});
-                expect(mpInstance._Store.sessionSelectionAttributes).to.eql({});
+                expect(mpInstance._Store.localSessionAttributes).to.eql({});
 
                 // Persistence isn't necessary for this feature, but we should test
                 // to see that it is called in case this ever needs to be refactored
@@ -547,7 +547,7 @@ describe('SessionManager', () => {
                 // Init will set dateLastEventSent to now, but endSession relies on the persistence layer
                 expect(mpInstance._Store.dateLastEventSent).to.eql(now);
                 expect(mpInstance._Store.sessionAttributes).to.eql({});
-                expect(mpInstance._Store.sessionSelectionAttributes).to.eql({});
+                expect(mpInstance._Store.localSessionAttributes).to.eql({});
 
                 const persistenceUpdateSpy = sinon.spy(
                     mpInstance._Persistence,
@@ -572,7 +572,7 @@ describe('SessionManager', () => {
                 // Init will set dateLastEventSent to now, but endSession relies on the persistence layer
                 expect(mpInstance._Store.dateLastEventSent).to.eql(now);
                 expect(mpInstance._Store.sessionAttributes).to.eql({});
-                expect(mpInstance._Store.sessionSelectionAttributes).to.eql({});
+                expect(mpInstance._Store.localSessionAttributes).to.eql({});
 
                 // Session Manager relies on persistence to determine last time seen (LES)
                 // Also requires sid to verify session exists
@@ -588,7 +588,7 @@ describe('SessionManager', () => {
                 expect(mpInstance._Store.sessionId).to.equal(null);
                 expect(mpInstance._Store.dateLastEventSent).to.equal(null);
                 expect(mpInstance._Store.sessionAttributes).to.eql({});
-                expect(mpInstance._Store.sessionSelectionAttributes).to.eql({});
+                expect(mpInstance._Store.localSessionAttributes).to.eql({});
 
                 // Persistence isn't necessary for this feature, but we should test
                 // to see that it is called in case this ever needs to be refactored
@@ -881,7 +881,7 @@ describe('SessionManager', () => {
             // Init will set dateLastEventSent to now, but endSession relies on the persistence layer
             expect(mpInstance._Store.dateLastEventSent).to.eql(now);
             expect(mpInstance._Store.sessionAttributes).to.eql({});
-            expect(mpInstance._Store.sessionSelectionAttributes).to.eql({});
+            expect(mpInstance._Store.localSessionAttributes).to.eql({});
 
             const persistenceSpy = sinon.spy(mpInstance._Persistence, 'update');
 
@@ -900,7 +900,7 @@ describe('SessionManager', () => {
             expect(mpInstance._Store.sessionId).to.equal(null);
             expect(mpInstance._Store.dateLastEventSent).to.equal(null);
             expect(mpInstance._Store.sessionAttributes).to.eql({});
-            expect(mpInstance._Store.sessionSelectionAttributes).to.eql({});
+            expect(mpInstance._Store.localSessionAttributes).to.eql({});
 
             // Persistence isn't necessary for this feature, but we should test
             // to see that it is called in case this ever needs to be refactored

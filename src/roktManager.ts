@@ -172,7 +172,7 @@ export default class RoktManager {
 
         if (this.placementEventMappingLookup[hashedEvent]) {
             const mappedValue = this.placementEventMappingLookup[hashedEvent];
-            this.store.setSessionSelectionAttributes({
+            this.store.setLocalSessionAttributes({
                 [mappedValue]: true
             });
         }
@@ -235,11 +235,11 @@ export default class RoktManager {
 
             this.setUserAttributes(mappedAttributes);
 
-            const sessionSelectionAttributes = this.store.getSessionSelectionAttributes();
+            const localSessionAttributes = this.store.getLocalSessionAttributes();
 
             const enrichedAttributes = {
                 ...mappedAttributes,
-                ...sessionSelectionAttributes,
+                ...localSessionAttributes,
                 ...(sandboxValue !== null ? { sandbox: sandboxValue } : {}),
             };
 

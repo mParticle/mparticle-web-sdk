@@ -1135,53 +1135,53 @@ describe('Store', () => {
         });
     });
 
-    describe('#getSessionSelectionAttributes', () => {
-        it('should return the sessionSelectionAttributes from the store', () => {
+    describe('#getLocalSessionAttributes', () => {
+        it('should return the localSessionAttributes from the store', () => {
             const store: IStore = new Store(
                 sampleConfig,
                 window.mParticle.getInstance()
             );
 
-            store.sessionSelectionAttributes = { cclick: true, segment: 'premium' };
+            store.localSessionAttributes = { cclick: true, segment: 'premium' };
 
-            expect(store.getSessionSelectionAttributes()).to.deep.equal({
+            expect(store.getLocalSessionAttributes()).to.deep.equal({
                 cclick: true,
                 segment: 'premium'
             });
         });
 
-        it('should return an empty object if no sessionSelectionAttributes are set', () => {
+        it('should return an empty object if no localSessionAttributes are set', () => {
             const store: IStore = new Store(
                 sampleConfig,
                 window.mParticle.getInstance()
             );
 
-            expect(store.getSessionSelectionAttributes()).to.deep.equal({});
+            expect(store.getLocalSessionAttributes()).to.deep.equal({});
         });
     });
 
-    describe('#setSessionSelectionAttributes', () => {
-        it('should set sessionSelectionAttributes in the store', () => {
+    describe('#setLocalSessionAttributes', () => {
+        it('should set localSessionAttributes in the store', () => {
             const store: IStore = new Store(
                 sampleConfig,
                 window.mParticle.getInstance()
             );
 
-            store.setSessionSelectionAttributes({ cclick: true, segment: 'premium' });
+            store.setLocalSessionAttributes({ cclick: true, segment: 'premium' });
             
-            expect(store.sessionSelectionAttributes).to.deep.equal({
+            expect(store.localSessionAttributes).to.deep.equal({
                 cclick: true,
                 segment: 'premium'
             });
         });
 
-        it('should set sessionSelectionAttributes in persistence', () => {
+        it('should set localSessionAttributes in persistence', () => {
             const store: IStore = new Store(
                 sampleConfig,
                 window.mParticle.getInstance()
             );
 
-            store.setSessionSelectionAttributes({ cclick: true, segment: 'premium' });
+            store.setLocalSessionAttributes({ cclick: true, segment: 'premium' });
             
             const fromPersistence = window.mParticle
                 .getInstance()
@@ -1190,24 +1190,24 @@ describe('Store', () => {
                 console.warn("persistence data", fromPersistence);
 
             expect(fromPersistence.gs).to.be.ok;
-            expect(fromPersistence.gs.ssa).to.be.ok;
-            expect(fromPersistence.gs.ssa).to.deep.equal({
+            expect(fromPersistence.gs.lsa).to.be.ok;
+            expect(fromPersistence.gs.lsa).to.deep.equal({
                 cclick: true,
                 segment: 'premium'
             });
         });
 
-        it('should update sessionSelectionAttributes when called multiple times', () => {
+        it('should update localSessionAttributes when called multiple times', () => {
             const store: IStore = new Store(
                 sampleConfig,
                 window.mParticle.getInstance()
             );
 
-            store.setSessionSelectionAttributes({ cclick: true });
-            expect(store.sessionSelectionAttributes).to.deep.equal({ cclick: true });
+            store.setLocalSessionAttributes({ cclick: true });
+            expect(store.localSessionAttributes).to.deep.equal({ cclick: true });
 
-            store.setSessionSelectionAttributes({ segment: 'premium', feature: 'enabled' });
-            expect(store.sessionSelectionAttributes).to.deep.equal({
+            store.setLocalSessionAttributes({ segment: 'premium', feature: 'enabled' });
+            expect(store.localSessionAttributes).to.deep.equal({
                 segment: 'premium',
                 feature: 'enabled'
             });
@@ -1217,7 +1217,7 @@ describe('Store', () => {
             const persistenceValue = JSON.stringify({
                 gs: {
                     sid: 'test-session',
-                    ssa: { oldAttribute: 'oldValue' }
+                    lsa: { oldAttribute: 'oldValue' }
                 },
                 cu: testMPID,
             });
@@ -1229,15 +1229,15 @@ describe('Store', () => {
                 window.mParticle.getInstance()
             );
 
-            store.setSessionSelectionAttributes({ cclick: true, newAttribute: 'newValue' });
+            store.setLocalSessionAttributes({ cclick: true, newAttribute: 'newValue' });
             
             const fromPersistence = window.mParticle
                 .getInstance()
                 ._Persistence.getPersistence();
 
             expect(fromPersistence.gs).to.be.ok;
-            expect(fromPersistence.gs.ssa).to.be.ok;
-            expect(fromPersistence.gs.ssa).to.deep.equal({
+            expect(fromPersistence.gs.lsa).to.be.ok;
+            expect(fromPersistence.gs.lsa).to.deep.equal({
                 cclick: true,
                 newAttribute: 'newValue'
             });
@@ -1249,8 +1249,8 @@ describe('Store', () => {
                 window.mParticle.getInstance()
             );
 
-            store.setSessionSelectionAttributes({});
-            expect(store.sessionSelectionAttributes).to.deep.equal({});
+            store.setLocalSessionAttributes({});
+            expect(store.localSessionAttributes).to.deep.equal({});
             
             const fromPersistence = window.mParticle
                 .getInstance()
@@ -1258,7 +1258,7 @@ describe('Store', () => {
 
             // Encoding an empty object will actually remove it from the persistence
             // Decoding it will return undefined
-            expect(fromPersistence.gs.ssa).to.deep.equal(undefined);
+            expect(fromPersistence.gs.lsa).to.deep.equal(undefined);
         });
     });
    

@@ -122,7 +122,7 @@ function createSDKConfig(config: SDKInitConfig): SDKConfig {
 //       to TypeScript
 export type ServerSettings = Dictionary;
 export type SessionAttributes = Dictionary;
-export type SessionSelectionAttributes = Dictionary;
+export type LocalSessionAttributes = Dictionary;
 export type IntegrationAttribute = Dictionary<string>;
 export type IntegrationAttributes = Dictionary<IntegrationAttribute>;
 export type WrapperSDKTypes = 'flutter' | 'none';
@@ -147,8 +147,15 @@ export interface IFeatureFlags {
 export interface IStore {
     isEnabled: boolean;
     isInitialized: boolean;
+
+    // Session Attributes are presistant attributes that are tied to the current session and
+    // are uploaded then cleared when the session ends.
     sessionAttributes: SessionAttributes;
-    sessionSelectionAttributes: SessionSelectionAttributes;
+
+    // Local Session Attributes are persistent session attributes that are cleared when the
+    // session ends, but are NOT uploaded to the server when the session ends.
+    localSessionAttributes: LocalSessionAttributes;
+
     currentSessionMPIDs: MPID[];
     consentState: SDKConsentState | null;
     sessionId: string | null;
@@ -203,8 +210,8 @@ export interface IStore {
     setFirstSeenTime?(mpid: MPID, time?: number): void;
     getLastSeenTime?(mpid: MPID): number;
     setLastSeenTime?(mpid: MPID, time?: number): void;
-    getSessionSelectionAttributes?(): SessionSelectionAttributes;
-    setSessionSelectionAttributes?(attributes: SessionSelectionAttributes): void;
+    getLocalSessionAttributes?(): LocalSessionAttributes;
+    setLocalSessionAttributes?(attributes: LocalSessionAttributes): void;
     getUserAttributes?(mpid: MPID): UserAttributes;
     setUserAttributes?(mpid: MPID, attributes: UserAttributes): void;
     getUserIdentities?(mpid: MPID): UserIdentities;
@@ -234,7 +241,7 @@ export default function Store(
     const defaultStore: Partial<IStore> = {
         isEnabled: true,
         sessionAttributes: {},
-        sessionSelectionAttributes: {},
+        localSessionAttributes: {},
         currentSessionMPIDs: [],
         consentState: null,
         sessionId: null,
@@ -620,12 +627,12 @@ export default function Store(
         this._setPersistence(mpid, 'lst', time);
     };
 
-    this.getSessionSelectionAttributes = (): SessionSelectionAttributes =>
-        this.sessionSelectionAttributes || {};
+    this.getLocalSessionAttributes = (): LocalSessionAttributes =>
+        this.localSessionAttributes || {};
 
-    this.setSessionSelectionAttributes = (attributes: SessionSelectionAttributes) => {
-        this.sessionSelectionAttributes = attributes;
-        this.persistenceData.gs.ssa = attributes;
+    this.setLocalSessionAttributes = (attributes: LocalSessionAttributes) => {
+        this.localSessionAttributes = attributes;
+        this.persistenceData.gs.lsa = attributes;
         mpInstance._Persistence.savePersistence(this.persistenceData);
     }
 
@@ -674,7 +681,7 @@ export default function Store(
         this.sessionId = null;
         this.dateLastEventSent = null;
         this.sessionAttributes = {};
-        this.sessionSelectionAttributes = {};
+        this.localSessionAttributes = {};
         mpInstance._Persistence.update();
     };
 

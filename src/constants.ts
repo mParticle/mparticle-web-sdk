@@ -152,7 +152,7 @@ const Constants = {
         csm: 1,
         sa: 1,
         ss: 1,
-        ssa: 1,
+        lsa: 1,
         ua: 1,
         ui: 1,
         csd: 1,

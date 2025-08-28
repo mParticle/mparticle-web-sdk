@@ -57,7 +57,7 @@ describe('persistence', () => {
             const store = mParticle.getInstance()._Store;
             store.sessionId = 'test-session-id';
             store.sessionAttributes = { testAttr: 'testValue' };
-            store.sessionSelectionAttributes = { cclick: true, segment: 'premium' };
+            store.localSessionAttributes = { cclick: true, segment: 'premium' };
             store.serverSettings = { testSetting: 'settingValue' };
             store.devToken = 'test-dev-token';
             store.clientId = 'test-client-id';
@@ -77,7 +77,7 @@ describe('persistence', () => {
             expect(cookieData.gs).to.be.ok;
             expect(cookieData.gs.sid, 'sid').to.equal('test-session-id');
             expect(cookieData.gs.sa, 'sa').to.deep.equal({ testAttr: 'testValue' });
-            expect(cookieData.gs.ssa, 'ssa').to.deep.equal({ cclick: true, segment: 'premium' });
+            expect(cookieData.gs.lsa, 'lsa').to.deep.equal({ cclick: true, segment: 'premium' });
             expect(cookieData.gs.ss, 'ss').to.deep.equal({ testSetting: 'settingValue' });
             expect(cookieData.gs.dt, 'dt').to.equal('test-dev-token');
             expect(cookieData.gs.cgid, 'cgid').to.equal('test-client-id');
@@ -101,7 +101,7 @@ describe('persistence', () => {
             const store = mParticle.getInstance()._Store;
             store.sessionId = 'test-session-id-ls';
             store.sessionAttributes = { testAttr: 'testValueLS' };
-            store.sessionSelectionAttributes = { cclick: false, segment: 'basic' };
+            store.localSessionAttributes = { cclick: false, segment: 'basic' };
             store.serverSettings = { testSetting: 'settingValueLS' };
             store.devToken = 'test-dev-token-ls';
             store.clientId = 'test-client-id-ls';
@@ -121,7 +121,7 @@ describe('persistence', () => {
             expect(localStorageData.gs).to.be.ok;
             expect(localStorageData.gs.sid, 'sid').to.equal('test-session-id-ls');
             expect(localStorageData.gs.sa, 'sa').to.deep.equal({ testAttr: 'testValueLS' });
-            expect(localStorageData.gs.ssa, 'ssa').to.deep.equal({ cclick: false, segment: 'basic' });
+            expect(localStorageData.gs.lsa, 'lsa').to.deep.equal({ cclick: false, segment: 'basic' });
             expect(localStorageData.gs.ss, 'ss').to.deep.equal({ testSetting: 'settingValueLS' });
             expect(localStorageData.gs.dt, 'dt').to.equal('test-dev-token-ls');
             expect(localStorageData.gs.cgid, 'cgid').to.equal('test-client-id-ls');
@@ -235,7 +235,7 @@ describe('persistence', () => {
         const props1 = [
             'ie',
             'sa',
-            'ssa',
+            'lsa',
             'ua',
             'ui',
             'ss',
@@ -259,7 +259,7 @@ describe('persistence', () => {
         const props2 = [
             'ie',
             'sa',
-            'ssa',
+            'lsa',
             'ss',
             'dt',
             'les',
@@ -365,7 +365,7 @@ describe('persistence', () => {
         const props = [
             'ie',
             'sa',
-            'ssa',
+            'lsa',
             'ss',
             'dt',
             'les',
@@ -400,7 +400,7 @@ describe('persistence', () => {
         const props = [
             'ie',
             'sa',
-            'ssa',
+            'lsa',
             'ss',
             'dt',
             'les',
@@ -437,7 +437,7 @@ describe('persistence', () => {
         const props = [
             'ie',
             'sa',
-            'ssa',
+            'lsa',
             'ss',
             'dt',
             'les',
@@ -473,7 +473,7 @@ describe('persistence', () => {
         const props = [
             'ie',
             'sa',
-            'ssa',
+            'lsa',
             'ss',
             'dt',
             'les',

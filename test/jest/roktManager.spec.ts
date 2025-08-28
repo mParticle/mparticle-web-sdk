@@ -34,8 +34,8 @@ describe('RoktManager', () => {
             }),
         },
         _Store: {
-            setSessionSelectionAttributes: jest.fn(),
-            getSessionSelectionAttributes: jest.fn().mockReturnValue({}),
+            setLocalSessionAttributes: jest.fn(),
+            getLocalSessionAttributes: jest.fn().mockReturnValue({}),
         },
         Logger: {
             verbose: jest.fn(),
@@ -473,7 +473,7 @@ describe('RoktManager', () => {
 
             roktManager.processEvent(event);
 
-            expect(mockMPInstance._Store.setSessionSelectionAttributes).toHaveBeenCalledWith({
+            expect(mockMPInstance._Store.setLocalSessionAttributes).toHaveBeenCalledWith({
                 'foo-mapped-flag': true
             });
         });
@@ -501,7 +501,7 @@ describe('RoktManager', () => {
 
             roktManager.processEvent(event);
 
-            expect(mockMPInstance._Store.setSessionSelectionAttributes).not.toHaveBeenCalled();
+            expect(mockMPInstance._Store.setLocalSessionAttributes).not.toHaveBeenCalled();
         });
     });
 
