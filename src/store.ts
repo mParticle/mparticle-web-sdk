@@ -146,6 +146,8 @@ export interface IFeatureFlags {
 export interface IStore {
     isEnabled: boolean;
     isInitialized: boolean;
+    noFunctional: boolean;
+    noTargeting: boolean;
     sessionAttributes: SessionAttributes;
     currentSessionMPIDs: MPID[];
     consentState: SDKConsentState | null;
@@ -195,6 +197,11 @@ export interface IStore {
     _getFromPersistence?<T>(mpid: MPID, key: string): T;
     _setPersistence?<T>(mpid: MPID, key: string, value: T): void;
 
+    getNoFunctional?(): boolean;
+    setNoFunctional?(noFunctional: boolean): void;
+    getNoTargeting?(): boolean;
+    setNoTargeting?(noTargeting: boolean): void;
+
     getDeviceId?(): string;
     setDeviceId?(deviceId: string): void;
     getFirstSeenTime?(mpid: MPID): number;
@@ -229,6 +236,8 @@ export default function Store(
 
     const defaultStore: Partial<IStore> = {
         isEnabled: true,
+        noFunctional: false,
+        noTargeting: false,
         sessionAttributes: {},
         currentSessionMPIDs: [],
         consentState: null,
@@ -571,6 +580,16 @@ export default function Store(
         }
     };
 
+    this.getNoFunctional = (): boolean => this.noFunctional;
+    this.setNoFunctional = (noFunctional: boolean): void => {
+        this.noFunctional = noFunctional;
+    };
+
+    this.getNoTargeting = (): boolean => this.noTargeting;
+    this.setNoTargeting = (noTargeting: boolean): void => {
+        this.noTargeting = noTargeting;
+    };
+
     this.getDeviceId = () => this.deviceId;
     this.setDeviceId = (deviceId: string) => {
         this.deviceId = deviceId;
@@ -692,6 +711,15 @@ export default function Store(
         // add a new function to apply items to the store that require config to be returned
         this.storageName = createMainStorageName(workspaceToken);
         this.prodStorageName = createProductStorageName(workspaceToken);
+
+        // Extract privacy flags directly from config into Store
+        if (config.hasOwnProperty('noFunctional')) {
+            this.setNoFunctional(config.noFunctional);
+        }
+
+        if (config.hasOwnProperty('noTargeting')) {
+            this.setNoTargeting(config.noTargeting);
+        }
 
         this.SDKConfig.requiredWebviewBridgeName =
             requiredWebviewBridgeName || workspaceToken;

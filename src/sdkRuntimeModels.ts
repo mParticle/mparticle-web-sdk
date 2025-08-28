@@ -270,6 +270,9 @@ export interface SDKInitConfig
     extends Omit<MPConfiguration, 'dataPlan' | 'logLevel'> {
     dataPlan?: DataPlanConfig | KitBlockerDataPlan; // TODO: These should be eventually split into two different attributes
     logLevel?: LogLevelType;
+    
+    noFunctional?: boolean;
+    noTargeting?: boolean;
 
     kitConfigs?: IKitConfigs[];
     kits?: Dictionary<UnregisteredKit>;
