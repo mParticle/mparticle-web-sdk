@@ -386,7 +386,8 @@ describe('batch uploader', () => {
                 }
             };
 
-            window.mParticle.config.flags.captureIntegrationSpecificIds = "True";
+            window.mParticle.config.flags.captureIntegrationSpecificIds = "False";
+            window.mParticle.config.flags.captureIntegrationSpecificIdsV2 = "roktonly";
 
             const consentState = window.mParticle.Consent.createConsentState();
             const timestamp = new Date().getTime();

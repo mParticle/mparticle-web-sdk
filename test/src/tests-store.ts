@@ -1599,7 +1599,7 @@ describe('Store', () => {
                 cacheIdentity: false,
                 audienceAPI: false,
                 captureIntegrationSpecificIds: false,
-                captureIntegrationSpecificIdsV2: '',
+                captureIntegrationSpecificIdsV2: 'none',
                 astBackgroundEvents: false,
             };
 

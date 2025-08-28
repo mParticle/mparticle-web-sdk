@@ -1394,20 +1394,16 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         const integrationSpecificIdsV2 = getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string;
         
         const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 ? integrationSpecificIdsV2 !== CaptureIntegrationSpecificIdsV2Modes.None : false) || (integrationSpecificIds === true);
-
-        if (!isIntegrationCaptureEnabled) {
-            return;
+        if (isIntegrationCaptureEnabled) {
+            let captureMode: valueof<typeof CaptureIntegrationSpecificIdsV2Modes> | undefined;
+            if (integrationSpecificIds || integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.All) {
+                captureMode = 'all';
+            } else if (integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.RoktOnly) {
+                captureMode = 'roktonly';
+            }
+            mpInstance._IntegrationCapture = new IntegrationCapture(captureMode);
+            mpInstance._IntegrationCapture.capture();
         }
-
-        let captureMode: valueof<typeof CaptureIntegrationSpecificIdsV2Modes> | undefined;
-        if (integrationSpecificIds || integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.All) {
-            captureMode = 'all';
-        } else if (integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.RoktOnly) {
-            captureMode = 'roktonly';
-        }
-
-        mpInstance._IntegrationCapture = new IntegrationCapture(captureMode);
-        mpInstance._IntegrationCapture.capture();            
 
         // Configure Rokt Manager with user and filtered user
         const roktConfig: IKitConfigs = parseConfig(config, 'Rokt', 181);
