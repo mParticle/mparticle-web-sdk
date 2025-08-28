@@ -69,21 +69,13 @@ describe('helpers', function() {
 
     it('should return event name in warning when sanitizing invalid attributes', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
-        
-        const originalWarning = mParticle.getInstance().Logger.warning;
-        let capturedMessages = [];
-        
-        mParticle.getInstance().Logger.warning = function(message) {
-            capturedMessages.push(message);
-            originalWarning.call(this, message);
-        };
-        
+        const bond = sandbox.spy(mParticle.getInstance().Logger, 'warning');
         mParticle.logEvent('eventName', mParticle.EventType.Location, {invalidValue: {}});
 
-        mParticle.getInstance().Logger.warning = originalWarning;
+        bond.called.should.eql(true);
+        bond.callCount.should.equal(1);
 
-        capturedMessages.length.should.equal(1);
-        capturedMessages[0].should.eql(
+        bond.getCalls()[0].args[0].should.eql(
             "For 'eventName', the corresponding attribute value of 'invalidValue' must be a string, number, boolean, or null."
         );
     });
@@ -115,13 +107,7 @@ describe('helpers', function() {
     it('should return commerce event name in warning when sanitizing invalid attributes', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
 
-        const originalWarning = mParticle.getInstance().Logger.warning;
-        let capturedMessages = [];
-        
-        mParticle.getInstance().Logger.warning = function(message) {
-            capturedMessages.push(message);
-            originalWarning.call(this, message);
-        };
+        const bond = sandbox.spy(mParticle.getInstance().Logger, 'warning');
 
         const product1 = mParticle.eCommerce.createProduct('prod1', 'prod1sku', 999);
         const product2 = mParticle.eCommerce.createProduct('prod2', 'prod2sku', 799);
@@ -129,10 +115,10 @@ describe('helpers', function() {
         const customAttributes = {invalidValue: {}};
         mParticle.eCommerce.logProductAction(mParticle.ProductActionType.AddToCart, [product1, product2], customAttributes);
 
-        mParticle.getInstance().Logger.warning = originalWarning;
+        bond.called.should.eql(true);
+        bond.callCount.should.equal(1);
 
-        capturedMessages.length.should.equal(1);
-        capturedMessages[0].should.eql(
+        bond.getCalls()[0].args[0].should.eql(
             "For 'eCommerce - AddToCart', the corresponding attribute value of 'invalidValue' must be a string, number, boolean, or null."
         );
     });

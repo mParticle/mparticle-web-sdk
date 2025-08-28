@@ -1,6 +1,6 @@
 import Utils from './config/utils';
 import sinon from 'sinon';
-import fetchMock, { done } from 'fetch-mock/esm/client';
+import fetchMock from 'fetch-mock/esm/client';
 
 import {
     urls,
