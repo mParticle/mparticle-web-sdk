@@ -210,8 +210,8 @@ export default class IntegrationCapture {
      * Captures cookies based on the integration ID mapping.
      */
     public captureCookies(): Dictionary<string> {
-        const keys = this.getAllowedKeysForMode();
-        const cookies = getCookies(keys);
+        const integrationKeys = this.getAllowedKeysForMode();
+        const cookies = getCookies(integrationKeys);
         return this.applyProcessors(cookies, getHref(), this.initialTimestamp);
     }
 
@@ -227,9 +227,9 @@ export default class IntegrationCapture {
      * Captures local storage based on the integration ID mapping.
      */
     public captureLocalStorage(): Dictionary<string> {
-        const keys = this.getAllowedKeysForMode();
+        const integrationKeys = this.getAllowedKeysForMode();
         let localStorageItems: Dictionary<string> = {};
-        for (const key of keys) {
+        for (const key of integrationKeys) {
             const localStorageItem = localStorage.getItem(key);
             if (localStorageItem) {
                 localStorageItems[key] = localStorageItem;
@@ -244,8 +244,8 @@ export default class IntegrationCapture {
      * @returns {Dictionary<string>} The query parameters.
      */
     public getQueryParams(): Dictionary<string> {
-        const keys = this.getAllowedKeysForMode();
-        return queryStringParser(getHref(), keys);
+        const integrationKeys = this.getAllowedKeysForMode();
+        return queryStringParser(getHref(), integrationKeys);
     }
 
     /**
@@ -324,12 +324,12 @@ export default class IntegrationCapture {
         timestamp?: number
     ): Dictionary<string> {
         const processedClickIds: Dictionary<string> = {};
-        const activeMapping = this.getActiveIntegrationMapping();
+        const integrationKeys = this.getActiveIntegrationMapping();
     
         for (const key in clickIds) {
             if (clickIds.hasOwnProperty(key)) {
                 const value = clickIds[key];
-                const processor = activeMapping[key]?.processor;
+                const processor = integrationKeys[key]?.processor;
                 processedClickIds[key] = processor ? processor(value, url, timestamp) : value;
             }
         }
@@ -341,10 +341,10 @@ export default class IntegrationCapture {
         outputType: valueof<typeof IntegrationOutputs>
     ): IntegrationIdMapping {
         const filteredMappings: IntegrationIdMapping = {};
-        const activeMapping = this.getActiveIntegrationMapping();
-        for (const key in activeMapping) {
-            if (activeMapping[key].output === outputType) {
-                filteredMappings[key] = activeMapping[key];
+        const integrationKeys = this.getActiveIntegrationMapping();
+        for (const key in integrationKeys) {
+            if (integrationKeys[key].output === outputType) {
+                filteredMappings[key] = integrationKeys[key];
             }
         }
         return filteredMappings;
