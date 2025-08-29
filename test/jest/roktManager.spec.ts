@@ -281,7 +281,8 @@ describe('RoktManager', () => {
                 kitConfig as IKitConfigs,
                 {} as IMParticleUser,
                 mockMPInstance.Identity,
-                mockMPInstance._Store
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
             );
             expect(roktManager['placementAttributesMapping']).toEqual([
                 { 

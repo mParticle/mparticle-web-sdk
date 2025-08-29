@@ -153,7 +153,7 @@ export interface IStore {
     isEnabled: boolean;
     isInitialized: boolean;
 
-    // Session Attributes are presistant attributes that are tied to the current session and
+    // Session Attributes are persistent attributes that are tied to the current session and
     // are uploaded then cleared when the session ends.
     sessionAttributes: SessionAttributes;
 
