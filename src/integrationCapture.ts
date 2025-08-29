@@ -165,9 +165,9 @@ export default class IntegrationCapture {
      * Captures Integration Ids from cookies and query params and stores them in clickIds object
      */
     public capture(): void {
-        let queryParams = this.captureQueryParams() || {};
-        let cookies = this.captureCookies() || {};
-        let localStorage = this.captureLocalStorage() || {};
+        const queryParams = this.captureQueryParams() || {};
+        const cookies = this.captureCookies() || {};
+        const localStorage = this.captureLocalStorage() || {};
 
         // Facebook Rules
         // Exclude _fbc if fbclid is present
