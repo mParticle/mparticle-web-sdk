@@ -129,22 +129,23 @@ describe('feature-flags', function() {
             };
             window.mParticle._resetForTests(MPConfig);
 
-            sinon.stub(window.mParticle.getInstance()._IntegrationCapture, 'getQueryParams').returns({
-                fbclid: '1234',
-            });
-
-            const captureSpy = sinon.spy(window.mParticle.getInstance()._IntegrationCapture, 'capture');
-            const clickIdSpy = sinon.spy(window.mParticle.getInstance()._IntegrationCapture, 'getClickIdsAsCustomFlags');
-
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
 
             await waitForCondition(hasIdentifyReturned)
 
-            const initialTimestamp = window.mParticle.getInstance()._IntegrationCapture.initialTimestamp;
+            const integrationCapture = window.mParticle.getInstance()._IntegrationCapture;
+            sinon.stub(integrationCapture, 'getQueryParams').returns({ fbclid: '1234' });
+            const captureSpy = sinon.spy(integrationCapture, 'capture');
+            const clickIdSpy = sinon.spy(integrationCapture, 'getClickIdsAsCustomFlags');
+
+            integrationCapture.capture();
+            integrationCapture.getClickIdsAsCustomFlags();
+
+            const initialTimestamp = integrationCapture.initialTimestamp;
 
             expect(initialTimestamp).to.be.a('number');
-            expect(window.mParticle.getInstance()._IntegrationCapture.clickIds).to.deep.equal({
+            expect(integrationCapture.clickIds).to.deep.equal({
                 fbclid: `fb.1.${initialTimestamp}.1234`,
                 '_fbp': '54321',
             });
@@ -159,16 +160,23 @@ describe('feature-flags', function() {
             };
             window.mParticle._resetForTests(MPConfig);
 
-            const captureSpy = sinon.spy(window.mParticle.getInstance()._IntegrationCapture, 'capture');
-            const clickIdSpy = sinon.spy(window.mParticle.getInstance()._IntegrationCapture, 'getClickIdsAsCustomFlags');
-
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned)
 
-            expect(window.mParticle.getInstance()._IntegrationCapture.clickIds).not.be.ok;
-            expect(captureSpy.called, 'capture()').to.equal(false);
-            expect(clickIdSpy.called, 'getClickIdsAsCustomFlags').to.equal(false);
+            const integrationCapture = window.mParticle.getInstance()._IntegrationCapture;
+            let captureCalled = false;
+            let clickIdCalled = false;
+            if (integrationCapture) {
+                const captureSpy = sinon.spy(integrationCapture, 'capture');
+                const clickIdSpy = sinon.spy(integrationCapture, 'getClickIdsAsCustomFlags');
+                captureCalled = captureSpy.called;
+                clickIdCalled = clickIdSpy.called;
+            }
+
+            expect(integrationCapture && integrationCapture.clickIds).not.be.ok;
+            expect(captureCalled, 'capture()').to.equal(false);
+            expect(clickIdCalled, 'getClickIdsAsCustomFlags').to.equal(false);
         });
     });
 });

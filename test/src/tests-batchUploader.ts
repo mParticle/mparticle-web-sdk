@@ -408,13 +408,12 @@ describe('batch uploader', () => {
             consentState.setCCPAConsentState(ccpaConsent);
             consentState.addGDPRConsentState('test purpose', gdprConsent);
 
-            // Mock the query params capture function because we cannot mock window.location.href
-            sinon.stub(window.mParticle.getInstance()._IntegrationCapture, 'getQueryParams').returns({
-                rtid: 'test-click-id',
-            });
-
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
+            const integrationCapture = window.mParticle.getInstance()._IntegrationCapture;
+            // Mock the query params capture function because we cannot mock window.location.href
+            sinon.stub(integrationCapture, 'getQueryParams').returns({ rtid: 'test-click-id' });
+            integrationCapture.capture();
             window.mParticle.Identity.getCurrentUser().setUserAttribute('foo', 'value');
             const user = window.mParticle.Identity.getCurrentUser();
             user.setConsentState(consentState);

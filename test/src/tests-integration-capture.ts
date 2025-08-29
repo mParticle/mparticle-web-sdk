@@ -24,7 +24,7 @@ declare global {
 const mParticle = window.mParticle as IMParticleInstanceManager;
 
 describe('Integration Capture', () => {
-    beforeEach(() => {
+    beforeEach(function() {
         mParticle._resetForTests(MPConfig);
         fetchMock.post(urls.events, 200);
         delete mParticle._instances['default_instance'];
@@ -43,20 +43,21 @@ describe('Integration Capture', () => {
         window.document.cookie = '_fbp=54321';
         window.document.cookie = 'baz=qux';
         window.document.cookie = '_ttp=45670808';
-
-
-        // Mock the query params capture function because we cannot mock window.location.href
-        sinon.stub(window.mParticle.getInstance()._IntegrationCapture, 'getQueryParams').returns({
-            fbclid: '1234',
-            gclid: '234',
-            gbraid: '6574',
-            rtid: '45670808',
-            rclid: '7183717',
-            wbraid: '1234111',
-            ScCid: '1234',
-        });
-
         mParticle.init(apiKey, window.mParticle.config);
+        return waitForCondition(hasIdentifyReturned).then(function() {
+            const integrationCapture = window.mParticle.getInstance()._IntegrationCapture;
+            // Mock the query params capture function because we cannot mock window.location.href
+            sinon.stub(integrationCapture, 'getQueryParams').returns({
+                fbclid: '1234',
+                gclid: '234',
+                gbraid: '6574',
+                rtid: '45670808',
+                rclid: '7183717',
+                wbraid: '1234111',
+                ScCid: '1234',
+            });
+            integrationCapture.capture();
+        });
     });
 
     afterEach(function() {
