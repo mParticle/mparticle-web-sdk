@@ -129,6 +129,32 @@ describe('Integration Capture', () => {
             expect(clickIdCookies).toMatchObject({ _fbp: '54321', _fbc: 'fb.1.1554763741205.abcdef', RoktTransactionId: 'xyz' });
             expect(clickIdLocalStorage).toEqual({ RoktTransactionId: 'ls-rok' });
         });
+
+        it('should NOT return mapped keys from helpers when captureMode is none (lowercase)', () => {
+            jest.spyOn(Date, 'now').mockImplementation(() => 42);
+            // Query params
+            const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1&ScCid=snap1');
+            window.location.href = url.href;
+            window.location.search = url.search;
+
+            // Cookies
+            document.cookie = '_fbp=54321';
+            document.cookie = '_fbc=fb.1.1554763741205.abcdef';
+            document.cookie = 'RoktTransactionId=xyz';
+
+            // Local storage
+            window.localStorage.setItem('RoktTransactionId', 'ls-rok');
+
+            const integrationCapture = new IntegrationCapture('none');
+
+            const clickIds = integrationCapture.captureQueryParams();
+            const clickIdCookies = integrationCapture.captureCookies();
+            const clickIdLocalStorage = integrationCapture.captureLocalStorage();
+
+            expect(clickIds).toMatchObject({});
+            expect(clickIdCookies).toMatchObject({});
+            expect(clickIdLocalStorage).toEqual({});
+        });
     });
 
     describe('#capture', () => {
@@ -590,7 +616,7 @@ describe('Integration Capture', () => {
             window.document.cookie = '_cookie2=39895811.9165333198';
             window.document.cookie = 'baz=qux';
 
-            const integrationCapture = new IntegrationCapture('none');
+            const integrationCapture = new IntegrationCapture('all');
             const clickIds = integrationCapture.captureCookies();
 
             expect(clickIds).toEqual({});
@@ -616,7 +642,7 @@ describe('Integration Capture', () => {
         it('should NOT capture local storage items if they are not mapped', () => {
             localStorage.setItem('baz', 'qux');
 
-            const integrationCapture = new IntegrationCapture('none');
+            const integrationCapture = new IntegrationCapture('all');
             const clickIds = integrationCapture.captureLocalStorage();
 
             expect(clickIds).toEqual({});
@@ -625,7 +651,7 @@ describe('Integration Capture', () => {
 
     describe('#getClickIdsAsCustomFlags', () => {
         it('should return empty object if clickIds is empty or undefined', () => {
-            const integrationCapture = new IntegrationCapture('none');
+            const integrationCapture = new IntegrationCapture('all');
             const customFlags = integrationCapture.getClickIdsAsCustomFlags();
 
             expect(customFlags).toEqual({});
@@ -655,7 +681,7 @@ describe('Integration Capture', () => {
 
     describe('#getClickIdsAsPartnerIdentites', () => {
         it('should return empty object if clickIds is empty or undefined', () => {
-            const integrationCapture = new IntegrationCapture('none');
+            const integrationCapture = new IntegrationCapture('all');
             const partnerIdentities = integrationCapture.getClickIdsAsPartnerIdentities();
 
             expect(partnerIdentities).toEqual({});
@@ -682,7 +708,7 @@ describe('Integration Capture', () => {
 
     describe('#getClickIdsAsIntegrationAttributes', () => {
         it('should return empty object if clickIds is empty or undefined', () => {
-            const integrationCapture = new IntegrationCapture('none');
+            const integrationCapture = new IntegrationCapture('all');
             const integrationAttributes = integrationCapture.getClickIdsAsIntegrationAttributes();
 
             expect(integrationAttributes).toEqual({});
