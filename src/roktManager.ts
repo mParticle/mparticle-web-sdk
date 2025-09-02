@@ -2,9 +2,16 @@ import { IKitConfigs } from "./configAPIClient";
 import { UserAttributeFilters  } from "./forwarders.interfaces";
 import { IMParticleUser } from "./identity-user-interfaces";
 import KitFilterHelper from "./kitFilterHelper";
-import { Dictionary, parseSettingsString, generateUniqueId, isFunction } from "./utils";
+import {
+    Dictionary,
+    parseSettingsString,
+    generateUniqueId,
+    isFunction,
+    AttributeValue,
+} from "./utils";
 import { SDKIdentityApi } from "./identity.interfaces";
 import { SDKLoggerApi } from "./sdkRuntimeModels";
+import { IStore, LocalSessionAttributes } from "./store";
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export interface IRoktPartnerAttributes {
@@ -83,6 +90,7 @@ export default class RoktManager {
     private sandbox: boolean | null = null;
     private placementAttributesMapping: Dictionary<string>[] = [];
     private identityService: SDKIdentityApi;
+    private store: IStore;
     private launcherOptions?: IRoktLauncherOptions;
     private logger: SDKLoggerApi;
     private domain?: string;
@@ -101,19 +109,15 @@ export default class RoktManager {
         roktConfig: IKitConfigs, 
         filteredUser: IMParticleUser, 
         identityService: SDKIdentityApi,
+        store: IStore,
         logger?: SDKLoggerApi,
         options?: IRoktOptions
     ): void {
         const { userAttributeFilters, settings } = roktConfig || {};
         const { placementAttributesMapping } = settings || {};
 
-        try {
-            this.placementAttributesMapping = parseSettingsString(placementAttributesMapping);
-        } catch (error) {
-            console.error('Error parsing placement attributes mapping from config', error);
-        }
-
         this.identityService = identityService;
+        this.store = store;
         this.logger = logger;
 
         this.filters = {
@@ -121,6 +125,12 @@ export default class RoktManager {
             filterUserAttributes: KitFilterHelper.filterUserAttributes,
             filteredUser: filteredUser,
         };
+
+        try {
+            this.placementAttributesMapping = parseSettingsString(placementAttributesMapping);
+        } catch (error) {
+            this.logger.error('Error parsing placement attributes mapping from config: ' + error);
+        }
 
         // This is the global setting for sandbox mode
         // It is set here and passed in to the createLauncher method in the Rokt Kit
@@ -241,6 +251,14 @@ export default class RoktManager {
         }
     }
 
+    public getLocalSessionAttributes(): LocalSessionAttributes {
+        return this.store.getLocalSessionAttributes();
+    }
+
+    public setLocalSessionAttribute(key: string, value: AttributeValue): void {
+        this.store.setLocalSessionAttribute(key, value);
+    }
+
     private isReady(): boolean {
         // The Rokt Manager is ready when a kit is attached and has a launcher
         return Boolean(this.kit && this.kit.launcher);
@@ -259,7 +277,7 @@ export default class RoktManager {
         try {
             this.currentUser.setUserAttributes(filteredAttributes);
         } catch (error) {
-            console.error('Error setting user attributes', error);
+            this.logger.error('Error setting user attributes: ' + error);
         }
     }
 

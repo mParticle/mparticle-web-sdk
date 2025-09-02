@@ -337,6 +337,15 @@ describe('Utils', () => {
             ]);
         });
 
+        it('should parse a settings string with a number value', () => {
+            const settingsString = "[{&quot;jsmap&quot;:&quot;-1484452948&quot;,&quot;map&quot;:&quot;-5208850776883573773&quot;,&quot;maptype&quot;:&quot;EventClass.Id&quot;,&quot;value&quot;:&quot;abc&quot;},{&quot;jsmap&quot;:&quot;1838502119&quot;,&quot;map&quot;:&quot;1324617889422969328&quot;,&quot;maptype&quot;:&quot;EventClass.Id&quot;,&quot;value&quot;:&quot;bcd&quot;},{&quot;jsmap&quot;:&quot;-355458063&quot;,&quot;map&quot;:&quot;5878452521714063084&quot;,&quot;maptype&quot;:&quot;EventClass.Id&quot;,&quot;value&quot;:&quot;card_viewed_test&quot;}]";
+            expect(parseSettingsString(settingsString)).toEqual([
+                { jsmap: '-1484452948', map: '-5208850776883573773', maptype: 'EventClass.Id', value: 'abc' },
+                { jsmap: '1838502119', map: '1324617889422969328', maptype: 'EventClass.Id', value: 'bcd' },
+                { jsmap: '-355458063', map: '5878452521714063084', maptype: 'EventClass.Id', value: 'card_viewed_test' },
+            ]);
+        });
+
         it('returns an empty array if the settings string is empty', () => {
             const settingsString = "";
             expect(parseSettingsString(settingsString)).toEqual([]);
