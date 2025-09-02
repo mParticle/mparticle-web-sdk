@@ -1413,6 +1413,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
                 roktConfig,
                 roktFilteredUser,
                 mpInstance.Identity,
+                mpInstance._Store,
                 mpInstance.Logger,
                 roktOptions
             );

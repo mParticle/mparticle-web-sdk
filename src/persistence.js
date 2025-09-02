@@ -197,6 +197,8 @@ export default function _Persistence(mpInstance) {
                         : mpInstance._Store.isEnabled;
                 mpInstance._Store.sessionAttributes =
                     obj.gs.sa || mpInstance._Store.sessionAttributes;
+                mpInstance._Store.localSessionAttributes =
+                    obj.gs.lsa || mpInstance._Store.localSessionAttributes;
                 mpInstance._Store.serverSettings =
                     obj.gs.ss || mpInstance._Store.serverSettings;
                 mpInstance._Store.devToken =
@@ -399,6 +401,7 @@ export default function _Persistence(mpInstance) {
         data.gs.sid = store.sessionId;
         data.gs.ie = store.isEnabled;
         data.gs.sa = store.sessionAttributes;
+        data.gs.lsa = store.localSessionAttributes;
         data.gs.ss = store.serverSettings;
         data.gs.dt = store.devToken;
         data.gs.les = store.dateLastEventSent
@@ -427,6 +430,7 @@ export default function _Persistence(mpInstance) {
             ),
             obj = {},
             j;
+
         if (localStorageData) {
             localStorageData = JSON.parse(localStorageData);
             for (j in localStorageData) {

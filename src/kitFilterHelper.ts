@@ -58,5 +58,4 @@ export default class KitFilterHelper {
         const hashedUserAttribute = this.hashUserAttribute(userAttributeKey);
         return filterList && inArray(filterList, hashedUserAttribute);
     }
-        
 }
