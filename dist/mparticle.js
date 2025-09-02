@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.43.3";
+    var version = "2.44.0";
 
     var Constants = {
       sdkVersion: version,
@@ -342,6 +342,7 @@ var mParticle = (function () {
         csm: 1,
         sa: 1,
         ss: 1,
+        lsa: 1,
         ua: 1,
         ui: 1,
         csd: 1,
@@ -679,6 +680,9 @@ var mParticle = (function () {
     };
     var isFunction = function isFunction(fn) {
       return typeof fn === 'function';
+    };
+    var isValidAttributeValue = function isValidAttributeValue(value) {
+      return value !== undefined && !isObject(value) && !Array.isArray(value);
     };
     var isValidCustomFlagProperty = function isValidCustomFlagProperty(value) {
       return isNumber(value) || isString(value) || isBoolean(value);
@@ -2851,9 +2855,7 @@ var mParticle = (function () {
       isFunction: isFunction,
       isStringOrNumber: isStringOrNumber,
       // Validator Functions
-      isValidAttributeValue: function isValidAttributeValue(value) {
-        return value !== undefined && !isObject(value) && !Array.isArray(value);
-      },
+      isValidAttributeValue: isValidAttributeValue,
       // Validator Functions
       // Neither null nor undefined can be a valid Key
       isValidKeyValue: function isValidKeyValue(key) {
@@ -4353,6 +4355,7 @@ var mParticle = (function () {
       var defaultStore = {
         isEnabled: true,
         sessionAttributes: {},
+        localSessionAttributes: {},
         currentSessionMPIDs: [],
         consentState: null,
         sessionId: null,
@@ -4626,6 +4629,15 @@ var mParticle = (function () {
         var time = _time || new Date().getTime();
         _this._setPersistence(mpid, 'lst', time);
       };
+      this.getLocalSessionAttributes = function () {
+        return _this.localSessionAttributes || {};
+      };
+      this.setLocalSessionAttribute = function (key, value) {
+        var _a;
+        _this.localSessionAttributes[key] = value;
+        _this.persistenceData.gs.lsa = __assign(__assign({}, _this.persistenceData.gs.lsa || {}), (_a = {}, _a[key] = value, _a));
+        mpInstance._Persistence.savePersistence(_this.persistenceData);
+      };
       this.syncPersistenceData = function () {
         var persistenceData = mpInstance._Persistence.getPersistence();
         _this.persistenceData = mpInstance._Helpers.extend({}, _this.persistenceData, persistenceData);
@@ -4656,6 +4668,7 @@ var mParticle = (function () {
         _this.sessionId = null;
         _this.dateLastEventSent = null;
         _this.sessionAttributes = {};
+        _this.localSessionAttributes = {};
         mpInstance._Persistence.update();
       };
       this.processConfig = function (config) {
@@ -4975,6 +4988,7 @@ var mParticle = (function () {
             mpInstance._Store.sessionId = obj.gs.sid || mpInstance._Store.sessionId;
             mpInstance._Store.isEnabled = typeof obj.gs.ie !== 'undefined' ? obj.gs.ie : mpInstance._Store.isEnabled;
             mpInstance._Store.sessionAttributes = obj.gs.sa || mpInstance._Store.sessionAttributes;
+            mpInstance._Store.localSessionAttributes = obj.gs.lsa || mpInstance._Store.localSessionAttributes;
             mpInstance._Store.serverSettings = obj.gs.ss || mpInstance._Store.serverSettings;
             mpInstance._Store.devToken = mpInstance._Store.devToken || obj.gs.dt;
             mpInstance._Store.SDKConfig.appVersion = mpInstance._Store.SDKConfig.appVersion || obj.gs.av;
@@ -5120,6 +5134,7 @@ var mParticle = (function () {
         data.gs.sid = store.sessionId;
         data.gs.ie = store.isEnabled;
         data.gs.sa = store.sessionAttributes;
+        data.gs.lsa = store.localSessionAttributes;
         data.gs.ss = store.serverSettings;
         data.gs.dt = store.devToken;
         data.gs.les = store.dateLastEventSent ? store.dateLastEventSent.getTime() : null;
@@ -9751,23 +9766,24 @@ var mParticle = (function () {
        *
        * @throws Logs error to console if placementAttributesMapping parsing fails
        */
-      RoktManager.prototype.init = function (roktConfig, filteredUser, identityService, logger, options) {
+      RoktManager.prototype.init = function (roktConfig, filteredUser, identityService, store, logger, options) {
         var _a = roktConfig || {},
           userAttributeFilters = _a.userAttributeFilters,
           settings = _a.settings;
         var placementAttributesMapping = (settings || {}).placementAttributesMapping;
-        try {
-          this.placementAttributesMapping = parseSettingsString(placementAttributesMapping);
-        } catch (error) {
-          console.error('Error parsing placement attributes mapping from config', error);
-        }
         this.identityService = identityService;
+        this.store = store;
         this.logger = logger;
         this.filters = {
           userAttributeFilters: userAttributeFilters,
           filterUserAttributes: KitFilterHelper.filterUserAttributes,
           filteredUser: filteredUser
         };
+        try {
+          this.placementAttributesMapping = parseSettingsString(placementAttributesMapping);
+        } catch (error) {
+          this.logger.error('Error parsing placement attributes mapping from config: ' + error);
+        }
         // This is the global setting for sandbox mode
         // It is set here and passed in to the createLauncher method in the Rokt Kit
         // This is not to be confused for the `sandbox` flag in the selectPlacements attributes
@@ -9887,6 +9903,12 @@ var mParticle = (function () {
           throw new Error('Error setting extension data: ' + errorMessage);
         }
       };
+      RoktManager.prototype.getLocalSessionAttributes = function () {
+        return this.store.getLocalSessionAttributes();
+      };
+      RoktManager.prototype.setLocalSessionAttribute = function (key, value) {
+        this.store.setLocalSessionAttribute(key, value);
+      };
       RoktManager.prototype.isReady = function () {
         // The Rokt Manager is ready when a kit is attached and has a launcher
         return Boolean(this.kit && this.kit.launcher);
@@ -9902,7 +9924,7 @@ var mParticle = (function () {
         try {
           this.currentUser.setUserAttributes(filteredAttributes);
         } catch (error) {
-          console.error('Error setting user attributes', error);
+          this.logger.error('Error setting user attributes: ' + error);
         }
       };
       RoktManager.prototype.mapPlacementAttributes = function (attributes, placementAttributesMapping) {
@@ -10960,7 +10982,7 @@ var mParticle = (function () {
             domain: config === null || config === void 0 ? void 0 : config.domain
           };
           // https://go.mparticle.com/work/SQDSDKS-7339
-          mpInstance._RoktManager.init(roktConfig, roktFilteredUser, mpInstance.Identity, mpInstance.Logger, roktOptions);
+          mpInstance._RoktManager.init(roktConfig, roktFilteredUser, mpInstance.Identity, mpInstance._Store, mpInstance.Logger, roktOptions);
         }
         mpInstance._Forwarders.processForwarders(config, mpInstance._APIClient.prepareForwardingStats);
         mpInstance._Forwarders.processPixelConfigs(config);
