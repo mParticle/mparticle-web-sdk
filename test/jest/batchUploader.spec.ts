@@ -124,8 +124,7 @@ describe('BatchUploader', () => {
             mockMPInstance._Store.noFunctional = true;
 
             const uploader = new BatchUploader(mockMPInstance, 1000);
-            // @ts-expect-error private
-            expect(uploader.offlineStorageEnabled).toBe(false);
+            expect(uploader['offlineStorageEnabled']).toBe(false);
 
             uploader.queueEvent({ EventDataType: 4 } as any);
             expect(sessionStorage.getItem('mprtcl-v4_abcdef-events')).toBeNull();
@@ -136,8 +135,7 @@ describe('BatchUploader', () => {
             // mockMPInstance._Store.noFunctional = false;
             const uploader = new BatchUploader(mockMPInstance, 1000);
 
-            // @ts-expect-error private
-            expect(uploader.offlineStorageEnabled).toBe(true);
+            expect(uploader['offlineStorageEnabled']).toBe(true);
 
             uploader.queueEvent({ EventDataType: 4 } as any);
             expect(sessionStorage.getItem('mprtcl-v4_abcdef-events')).not.toBeNull();
