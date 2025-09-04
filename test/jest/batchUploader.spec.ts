@@ -1,5 +1,6 @@
 import { BatchUploader } from '../../src/batchUploader';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
+import { StoragePrivacyMap, StorageTypes } from '../../src/constants';
 
 describe('BatchUploader', () => {
     let batchUploader: BatchUploader;
@@ -17,7 +18,17 @@ describe('BatchUploader', () => {
             _Store: {
                 storageName: 'mprtcl-v4_abcdef',
                 noFunctional: false,
-                getNoFunctional: function(this: any) { return this.noFunctional; },
+                noTargeting: false,
+                getPrivacyFlagForStorage: function(this: any, storageType: typeof StorageTypes[number]) {
+                    const privacyControl = StoragePrivacyMap[storageType];
+                    if (privacyControl === 'functional') {
+                        return !!this.noFunctional;
+                    }
+                    if (privacyControl === 'targeting') {
+                        return !!this.noTargeting;
+                    }
+                    return false;
+                },
                 deviceId: 'device-1',
                 SDKConfig: {
                     flags: {}
