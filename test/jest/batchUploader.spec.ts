@@ -17,15 +17,15 @@ describe('BatchUploader', () => {
         mockMPInstance = {
             _Store: {
                 storageName: 'mprtcl-v4_abcdef',
-                noFunctional: false,
-                noTargeting: false,
+                getNoFunctional: function(this: any) { return this.noFunctional; },
+                getNoTargeting: function(this: any) { return this.noTargeting; },
                 getPrivacyFlagForStorage: function(this: any, storageType: typeof StorageTypes[number]) {
                     const privacyControl = StoragePrivacyMap[storageType];
                     if (privacyControl === 'functional') {
-                        return !!this.noFunctional;
+                        return !!this.getNoFunctional();
                     }
                     if (privacyControl === 'targeting') {
-                        return !!this.noTargeting;
+                        return !!this.getNoTargeting();
                     }
                     return false;
                 },
