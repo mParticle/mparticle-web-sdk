@@ -175,7 +175,7 @@ export class BatchUploader {
         let integrationAttributes: IntegrationAttributes = _Store.integrationAttributes;
         const integrationSpecificIds = getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds) as boolean;
         const integrationSpecificIdsV2 = getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2) as string || '';
-        const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 ? integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None : false) || (integrationSpecificIds === true);
+        const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None) || integrationSpecificIds === true;
 
         // https://go.mparticle.com/work/SQDSDKS-5053
         if (isIntegrationCaptureEnabled) {

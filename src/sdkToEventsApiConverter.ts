@@ -130,7 +130,7 @@ export function convertEvents(
     const integrationSpecificIds = getFeatureFlag && Boolean(getFeatureFlag(CaptureIntegrationSpecificIds));
     const integrationSpecificIdsV2 = getFeatureFlag && (getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string);
         
-    const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 ? integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None : false) || (integrationSpecificIds === true);
+    const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None) || integrationSpecificIds === true;
 
     if (isIntegrationCaptureEnabled) {
         const capturedPartnerIdentities: PartnerIdentities = _IntegrationCapture?.getClickIdsAsPartnerIdentities();

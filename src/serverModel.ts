@@ -281,7 +281,7 @@ export default function ServerModel(
             // https://go.mparticle.com/work/SQDSDKS-7639
             const integrationSpecificIds = getFeatureFlag && (getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds) as boolean);
             const integrationSpecificIdsV2 = getFeatureFlag && ((getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2) as string) || '');
-            const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 ? integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None : false) || (integrationSpecificIds === true);
+            const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None) || integrationSpecificIds === true;     
             if (isIntegrationCaptureEnabled) {
                 // Attempt to recapture click IDs in case a third party integration
                 // has added or updated  new click IDs since the last event was sent.

@@ -413,7 +413,6 @@ describe('batch uploader', () => {
             const integrationCapture = window.mParticle.getInstance()._IntegrationCapture;
             // Mock the query params capture function because we cannot mock window.location.href
             sinon.stub(integrationCapture, 'getQueryParams').returns({ rtid: 'test-click-id' });
-            integrationCapture.capture();
             window.mParticle.Identity.getCurrentUser().setUserAttribute('foo', 'value');
             const user = window.mParticle.Identity.getCurrentUser();
             user.setConsentState(consentState);

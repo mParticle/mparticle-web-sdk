@@ -1393,7 +1393,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         const integrationSpecificIds = getFeatureFlag(CaptureIntegrationSpecificIds) as boolean;
         const integrationSpecificIdsV2 = getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string;
         
-        const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 ? integrationSpecificIdsV2 !== CaptureIntegrationSpecificIdsV2Modes.None : false) || (integrationSpecificIds === true);
+        const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 && integrationSpecificIdsV2 !== CaptureIntegrationSpecificIdsV2Modes.None) || integrationSpecificIds === true;
         if (isIntegrationCaptureEnabled) {
             let captureMode: valueof<typeof CaptureIntegrationSpecificIdsV2Modes> | undefined;
             if (integrationSpecificIds || integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.All) {
