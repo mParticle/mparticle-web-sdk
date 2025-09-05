@@ -1,4 +1,5 @@
 import { SDKEventCustomFlags } from './sdkRuntimeModels';
+import Constants from './constants';
 import { IntegrationAttributes } from './store';
 import {
     Dictionary,
@@ -73,7 +74,7 @@ interface IntegrationIdMapping {
     [key: string]: IntegrationMappingItem;
 }
 
-const integrationMapping: IntegrationIdMapping = {
+const integrationMappingExternal: IntegrationIdMapping = {
     // Facebook / Meta
     fbclid: {
         mappedKey: 'Facebook.ClickId',
@@ -103,25 +104,6 @@ const integrationMapping: IntegrationIdMapping = {
         output: IntegrationOutputs.CUSTOM_FLAGS,
     },
 
-    // Rokt
-    // https://docs.rokt.com/developers/integration-guides/web/advanced/rokt-id-tag/
-    // https://go.mparticle.com/work/SQDSDKS-7167
-    rtid: {
-        mappedKey: 'passbackconversiontrackingid',
-        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
-        moduleId: 1277,
-    },
-    rclid: {
-        mappedKey: 'passbackconversiontrackingid',
-        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
-        moduleId: 1277,
-    },
-    RoktTransactionId: {
-        mappedKey: 'passbackconversiontrackingid',
-        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
-        moduleId: 1277,
-    },
-
     // TIKTOK
     ttclid: {
         mappedKey: 'TikTok.Callback',
@@ -140,15 +122,38 @@ const integrationMapping: IntegrationIdMapping = {
     },
 };
 
+const integrationMappingRokt: IntegrationIdMapping = {
+    // Rokt
+    // https://docs.rokt.com/developers/integration-guides/web/advanced/rokt-id-tag/
+    // https://go.mparticle.com/work/SQDSDKS-7167
+    rtid: {
+        mappedKey: 'passbackconversiontrackingid',
+        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
+        moduleId: 1277,
+    },
+    rclid: {
+        mappedKey: 'passbackconversiontrackingid',
+        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
+        moduleId: 1277,
+    },
+    RoktTransactionId: {
+        mappedKey: 'passbackconversiontrackingid',
+        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
+        moduleId: 1277,
+    },
+};
+
 export default class IntegrationCapture {
     public clickIds: Dictionary<string>;
     public readonly initialTimestamp: number;
     public readonly filteredPartnerIdentityMappings: IntegrationIdMapping;
     public readonly filteredCustomFlagMappings: IntegrationIdMapping;
     public readonly filteredIntegrationAttributeMappings: IntegrationIdMapping;
+    public captureMode?: valueof<typeof Constants.CaptureIntegrationSpecificIdsV2Modes>;
 
-    constructor() {
+    constructor(captureMode: valueof<typeof Constants.CaptureIntegrationSpecificIdsV2Modes>) {
         this.initialTimestamp = Date.now();
+        this.captureMode = captureMode;
 
         // Cache filtered mappings for faster access
         this.filteredPartnerIdentityMappings = this.filterMappings(IntegrationOutputs.PARTNER_IDENTITIES);
@@ -205,7 +210,8 @@ export default class IntegrationCapture {
      * Captures cookies based on the integration ID mapping.
      */
     public captureCookies(): Dictionary<string> {
-        const cookies = getCookies(Object.keys(integrationMapping));
+        const integrationKeys = this.getAllowedKeysForMode();
+        const cookies = getCookies(integrationKeys);
         return this.applyProcessors(cookies, getHref(), this.initialTimestamp);
     }
 
@@ -221,8 +227,9 @@ export default class IntegrationCapture {
      * Captures local storage based on the integration ID mapping.
      */
     public captureLocalStorage(): Dictionary<string> {
+        const integrationKeys = this.getAllowedKeysForMode();
         let localStorageItems: Dictionary<string> = {};
-        for (const key in integrationMapping) {
+        for (const key of integrationKeys) {
             const localStorageItem = localStorage.getItem(key);
             if (localStorageItem) {
                 localStorageItems[key] = localStorageItem;
@@ -237,7 +244,8 @@ export default class IntegrationCapture {
      * @returns {Dictionary<string>} The query parameters.
      */
     public getQueryParams(): Dictionary<string> {
-        return queryStringParser(getHref(), Object.keys(integrationMapping));
+        const integrationKeys = this.getAllowedKeysForMode();
+        return queryStringParser(getHref(), integrationKeys);
     }
 
     /**
@@ -316,15 +324,15 @@ export default class IntegrationCapture {
         timestamp?: number
     ): Dictionary<string> {
         const processedClickIds: Dictionary<string> = {};
-
+        const integrationKeys = this.getActiveIntegrationMapping();
+    
         for (const key in clickIds) {
             if (clickIds.hasOwnProperty(key)) {
                 const value = clickIds[key];
-                const processor = integrationMapping[key]?.processor;
+                const processor = integrationKeys[key]?.processor;
                 processedClickIds[key] = processor ? processor(value, url, timestamp) : value;
             }
         }
-
         return processedClickIds;
     }
 
@@ -332,11 +340,36 @@ export default class IntegrationCapture {
         outputType: valueof<typeof IntegrationOutputs>
     ): IntegrationIdMapping {
         const filteredMappings: IntegrationIdMapping = {};
-        for (const key in integrationMapping) {
-            if (integrationMapping[key].output === outputType) {
-                filteredMappings[key] = integrationMapping[key];
+        const integrationKeys = this.getActiveIntegrationMapping();
+        for (const key in integrationKeys) {
+            if (integrationKeys[key].output === outputType) {
+                filteredMappings[key] = integrationKeys[key];
             }
         }
         return filteredMappings;
+    }
+
+    /**
+     * Returns the allowed keys to capture based on the current mode.
+     * For RoktOnly, limit capture to Rokt keys; for All, capture all mapped keys.
+     */
+    private getAllowedKeysForMode(): string[] {
+        return Object.keys(this.getActiveIntegrationMapping());
+    }
+    
+    /**
+    * Selects the active integration mapping for the current captureMode.
+    * - 'roktonly': only Rokt IDs are considered
+    * - 'all': both External and Rokt IDs are considered
+    * - else: returns an empty mapping and nothing will be captured
+    */
+    private getActiveIntegrationMapping(): IntegrationIdMapping {
+        if (this.captureMode === Constants.CaptureIntegrationSpecificIdsV2Modes.RoktOnly) {
+            return integrationMappingRokt;
+        }
+        if (this.captureMode === Constants.CaptureIntegrationSpecificIdsV2Modes.All) {
+            return { ...integrationMappingExternal, ...integrationMappingRokt };
+        }
+        return {};
     }
 }

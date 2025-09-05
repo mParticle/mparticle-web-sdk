@@ -6,18 +6,18 @@ import { deleteAllCookies } from './utils';
 describe('Integration Capture', () => {
     describe('constructor', () => {
         it('should initialize with clickIds as undefined', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             expect(integrationCapture.clickIds).toBeUndefined();
         });
 
         it('should initialize with a filtered list of partner identity mappings', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             const mappings = integrationCapture.filteredPartnerIdentityMappings;
             expect(Object.keys(mappings)).toEqual(['_ttp']);
         });
 
         it('should initialize with a filtered list of custom flag mappings', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             const mappings = integrationCapture.filteredCustomFlagMappings;
             expect(Object.keys(mappings)).toEqual([
                 'fbclid',
@@ -32,13 +32,128 @@ describe('Integration Capture', () => {
         });
 
         it('should initialize with a filtered list of integration attribute mappings', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             const mappings = integrationCapture.filteredIntegrationAttributeMappings;
             expect(Object.keys(mappings)).toEqual([
                 'rtid',
                 'rclid', 
                 'RoktTransactionId'
             ]);
+        });
+
+        it('should initialize with a filtered list of integration attribute mappings for roktonly', () => {
+            const integrationCapture = new IntegrationCapture('roktonly');
+            const mappings = integrationCapture.filteredIntegrationAttributeMappings;
+            const expectedKeys = ['rtid', 'rclid', 'RoktTransactionId'];
+            expect(Object.keys(mappings).sort()).toEqual([...expectedKeys].sort());
+            const excludedKeys = [
+                'fbclid',
+                '_fbp',
+                '_fbc',
+                'gclid',
+                'gbraid',
+                'wbraid',
+                'ttclid',
+                'ScCid',
+            ];
+            for (const key of excludedKeys) {
+                expect(mappings).not.toHaveProperty(key);
+            }
+        });
+    });
+
+    describe('capture V2 modes gating in helpers', () => {
+        const originalLocation = window.location as any;
+
+        beforeEach(() => {
+            delete (window as any).location;
+            (window as any).location = { href: 'https://www.example.com/', search: '' } as any;
+            deleteAllCookies();
+            window.localStorage.clear();
+            jest.restoreAllMocks();
+        });
+
+        afterEach(() => {
+            window.location = originalLocation;
+            deleteAllCookies();
+            window.localStorage.clear();
+        });
+
+        it('should return only Rokt keys from helpers when captureMode is roktonly (lowercase)', () => {
+            // Query params
+            const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1');
+            window.location.href = url.href;
+            window.location.search = url.search;
+
+            // Cookies
+            document.cookie = '_fbp=54321';
+            document.cookie = 'RoktTransactionId=xyz';
+
+            // Local storage
+            window.localStorage.setItem('RoktTransactionId', 'ls-rok');
+
+            const integrationCapture = new IntegrationCapture('roktonly');
+
+            const clickIds = integrationCapture.captureQueryParams();
+            const clickIdCookies = integrationCapture.captureCookies();
+            const clickIdLocalStorage = integrationCapture.captureLocalStorage();
+
+            expect(clickIds).toEqual({ rtid: 'rt1', rclid: 'rc1' });
+            expect(clickIdCookies).toEqual({ RoktTransactionId: 'xyz' });
+            expect(clickIdLocalStorage).toEqual({ RoktTransactionId: 'ls-rok' });
+        });
+
+        it('should return all mapped keys from helpers when captureMode is all (lowercase)', () => {
+            jest.spyOn(Date, 'now').mockImplementation(() => 42);
+            // Query params
+            const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1&ScCid=snap1');
+            window.location.href = url.href;
+            window.location.search = url.search;
+
+            // Cookies
+            document.cookie = '_fbp=54321';
+            document.cookie = '_fbc=fb.1.1554763741205.abcdef';
+            document.cookie = 'RoktTransactionId=xyz';
+
+            // Local storage
+            window.localStorage.setItem('RoktTransactionId', 'ls-rok');
+
+            const integrationCapture = new IntegrationCapture('all');
+
+            const clickIds = integrationCapture.captureQueryParams();
+            const clickIdCookies = integrationCapture.captureCookies();
+            const clickIdLocalStorage = integrationCapture.captureLocalStorage();
+
+            // fbclid is formatted with timestamp/domain index
+            expect(clickIds).toMatchObject({ fbclid: 'fb.2.42.abc', gclid: 'g1', rtid: 'rt1', rclid: 'rc1', ScCid: 'snap1' });
+            expect(clickIdCookies).toMatchObject({ _fbp: '54321', _fbc: 'fb.1.1554763741205.abcdef', RoktTransactionId: 'xyz' });
+            expect(clickIdLocalStorage).toEqual({ RoktTransactionId: 'ls-rok' });
+        });
+
+        it('should NOT return mapped keys from helpers when captureMode is none (lowercase)', () => {
+            jest.spyOn(Date, 'now').mockImplementation(() => 42);
+            // Query params
+            const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1&ScCid=snap1');
+            window.location.href = url.href;
+            window.location.search = url.search;
+
+            // Cookies
+            document.cookie = '_fbp=54321';
+            document.cookie = '_fbc=fb.1.1554763741205.abcdef';
+            document.cookie = 'RoktTransactionId=xyz';
+
+            // Local storage
+            window.localStorage.setItem('RoktTransactionId', 'ls-rok');
+
+            const integrationCapture = new IntegrationCapture('none');
+
+            const clickIds = integrationCapture.captureQueryParams();
+            const clickIdCookies = integrationCapture.captureCookies();
+            const clickIdLocalStorage = integrationCapture.captureLocalStorage();
+
+            expect(clickIds).toMatchObject({});
+            expect(clickIdCookies).toMatchObject({});
+            expect(clickIdLocalStorage).toEqual({});
         });
     });
 
@@ -65,10 +180,9 @@ describe('Integration Capture', () => {
         });
 
         it('should call captureCookies and captureQueryParams', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             integrationCapture.captureCookies = jest.fn();
             integrationCapture.captureQueryParams = jest.fn();
-
             integrationCapture.capture();
 
             expect(integrationCapture.captureCookies).toHaveBeenCalled();
@@ -98,7 +212,7 @@ describe('Integration Capture', () => {
             window.location.href = url.href;
             window.location.search = url.search;
 
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             integrationCapture.capture();
 
             expect(integrationCapture.clickIds).toEqual({
@@ -120,7 +234,7 @@ describe('Integration Capture', () => {
                 window.location.href = url.href;
                 window.location.search = url.search;
 
-                const integrationCapture = new IntegrationCapture();
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -138,7 +252,7 @@ describe('Integration Capture', () => {
                 window.location.href = url.href;
                 window.location.search = url.search;
 
-                const integrationCapture = new IntegrationCapture();
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -152,7 +266,7 @@ describe('Integration Capture', () => {
                 window.location.href = url.href;
                 window.location.search = url.search;
 
-                const integrationCapture = new IntegrationCapture();
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -176,7 +290,7 @@ describe('Integration Capture', () => {
             window.location.href = url.href;
             window.location.search = url.search;
 
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             integrationCapture.capture();
 
             expect(integrationCapture.clickIds).toEqual({
@@ -197,7 +311,7 @@ describe('Integration Capture', () => {
             window.location.href = url.href;
             window.location.search = url.search;
 
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             integrationCapture.capture();
 
             expect(integrationCapture.clickIds).toEqual({
@@ -216,7 +330,7 @@ describe('Integration Capture', () => {
             window.location.href = url.href;
             window.location.search = url.search;
 
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             integrationCapture.capture();
 
             expect(integrationCapture.clickIds).toEqual({
@@ -237,7 +351,7 @@ describe('Integration Capture', () => {
             window.location.href = url.href;
             window.location.search = url.search;
 
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             integrationCapture.capture();
 
             expect(integrationCapture.clickIds).toEqual({
@@ -253,7 +367,7 @@ describe('Integration Capture', () => {
                 window.location.href = url.href;
                 window.location.search = url.search;
 
-                const integrationCapture = new IntegrationCapture();
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -267,7 +381,7 @@ describe('Integration Capture', () => {
                 window.location.href = url.href;
                 window.location.search = url.search;
 
-                const integrationCapture = new IntegrationCapture();
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -283,7 +397,7 @@ describe('Integration Capture', () => {
                 window.location.href = url.href;
                 window.location.search = url.search;
 
-                const integrationCapture = new IntegrationCapture();
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -301,7 +415,7 @@ describe('Integration Capture', () => {
 
                 localStorage.setItem('RoktTransactionId', '54321');
 
-                const integrationCapture = new IntegrationCapture();
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -319,7 +433,7 @@ describe('Integration Capture', () => {
                 window.location.href = url.href;
                 window.location.search = url.search;
 
-                const integrationCapture = new IntegrationCapture();
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -337,7 +451,7 @@ describe('Integration Capture', () => {
                 window.location.href = url.href;
                 window.location.search = url.search;
 
-                const integrationCapture = new IntegrationCapture();
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -355,7 +469,7 @@ describe('Integration Capture', () => {
 
                 localStorage.setItem('RoktTransactionId', '12345');
 
-                const integrationCapture = new IntegrationCapture();
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -373,7 +487,7 @@ describe('Integration Capture', () => {
 
                 localStorage.setItem('RoktTransactionId', '12345');
 
-                const integrationCapture = new IntegrationCapture();
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -392,7 +506,7 @@ describe('Integration Capture', () => {
                 localStorage.setItem('RoktTransactionId', '12345');
                 window.document.cookie = 'RoktTransactionId=67890';
 
-                const integrationCapture = new IntegrationCapture();
+                const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
@@ -432,7 +546,7 @@ describe('Integration Capture', () => {
             window.location.href = url.href;
             window.location.search = url.search;
 
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             const clickIds = integrationCapture.captureQueryParams();
 
             expect(clickIds).toEqual({
@@ -452,9 +566,8 @@ describe('Integration Capture', () => {
             window.location.href = url.href;
             window.location.search = url.search;
 
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             const clickIds = integrationCapture.captureQueryParams();
-
             expect(clickIds).toEqual({});
         });
 
@@ -466,8 +579,8 @@ describe('Integration Capture', () => {
             window.location.href = url.href;
             window.location.search = url.search;
 
-            const integrationCapture = new IntegrationCapture();
-            integrationCapture.capture();
+            const integrationCapture = new IntegrationCapture('all');
+            integrationCapture.capture();   
 
             const firstCapture = integrationCapture.captureQueryParams();
 
@@ -490,7 +603,7 @@ describe('Integration Capture', () => {
             window.document.cookie = '_fbp=54321';
             window.document.cookie = 'baz=qux';
 
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             const clickIds = integrationCapture.captureCookies();
 
             expect(clickIds).toEqual({
@@ -503,7 +616,7 @@ describe('Integration Capture', () => {
             window.document.cookie = '_cookie2=39895811.9165333198';
             window.document.cookie = 'baz=qux';
 
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             const clickIds = integrationCapture.captureCookies();
 
             expect(clickIds).toEqual({});
@@ -518,7 +631,7 @@ describe('Integration Capture', () => {
         it('should capture specific local storage items into clickIds object', () => {
             localStorage.setItem('RoktTransactionId', '12345');
 
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             const clickIds = integrationCapture.captureLocalStorage();
 
             expect(clickIds).toEqual({
@@ -529,7 +642,7 @@ describe('Integration Capture', () => {
         it('should NOT capture local storage items if they are not mapped', () => {
             localStorage.setItem('baz', 'qux');
 
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             const clickIds = integrationCapture.captureLocalStorage();
 
             expect(clickIds).toEqual({});
@@ -538,14 +651,14 @@ describe('Integration Capture', () => {
 
     describe('#getClickIdsAsCustomFlags', () => {
         it('should return empty object if clickIds is empty or undefined', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             const customFlags = integrationCapture.getClickIdsAsCustomFlags();
 
             expect(customFlags).toEqual({});
         });
 
         it('should only return mapped clickIds as custom flags', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             integrationCapture.clickIds = {
                 fbclid: '67890',
                 _fbp: '54321',
@@ -568,14 +681,14 @@ describe('Integration Capture', () => {
 
     describe('#getClickIdsAsPartnerIdentites', () => {
         it('should return empty object if clickIds is empty or undefined', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             const partnerIdentities = integrationCapture.getClickIdsAsPartnerIdentities();
 
             expect(partnerIdentities).toEqual({});
         });
 
         it('should only return mapped clickIds as partner identities', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             integrationCapture.clickIds = {
                 fbclid: '67890',
                 _fbp: '54321',
@@ -595,14 +708,14 @@ describe('Integration Capture', () => {
 
     describe('#getClickIdsAsIntegrationAttributes', () => {
         it('should return empty object if clickIds is empty or undefined', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             const integrationAttributes = integrationCapture.getClickIdsAsIntegrationAttributes();
 
             expect(integrationAttributes).toEqual({});
         });
 
         it('should only return mapped clickIds as integration attributes', () => {
-            const integrationCapture = new IntegrationCapture();
+            const integrationCapture = new IntegrationCapture('all');
             integrationCapture.clickIds = {
                 rtid: '12345',
                 RoktTransactionId: '54321',
@@ -688,3 +801,4 @@ describe('Integration Capture', () => {
         });
     });
 });
+
