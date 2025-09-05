@@ -1,5 +1,6 @@
 import { BatchUploader } from '../../src/batchUploader';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
+import { StoragePrivacyMap, StorageTypes } from '../../src/constants';
 
 describe('BatchUploader', () => {
     let batchUploader: BatchUploader;
@@ -15,18 +16,37 @@ describe('BatchUploader', () => {
         // Create a mock mParticle instance with mocked methods for instantiating a BatchUploader
         mockMPInstance = {
             _Store: {
+                storageName: 'mprtcl-v4_abcdef',
+                getNoFunctional: function(this: any) { return this.noFunctional; },
+                getNoTargeting: function(this: any) { return this.noTargeting; },
+                getPrivacyFlagForStorage: function(this: any, storageType: typeof StorageTypes[number]) {
+                    const privacyControl = StoragePrivacyMap[storageType];
+                    if (privacyControl === 'functional') {
+                        return this.getNoFunctional();
+                    }
+                    if (privacyControl === 'targeting') {
+                        return this.getNoTargeting();
+                    }
+                    return false;
+                },
+                deviceId: 'device-1',
                 SDKConfig: {
                     flags: {}
                 }
             },
             _Helpers: {
-                getFeatureFlag: jest.fn().mockReturnValue(false),
+                getFeatureFlag: jest.fn().mockReturnValue('100'),
                 createServiceUrl: jest.fn().mockReturnValue('https://mock-url.com')
             },
             Identity: {
                 getCurrentUser: jest.fn().mockReturnValue({
                     getMPID: () => 'test-mpid'
                 })
+            },
+            Logger: {
+                verbose: jest.fn(),
+                error: jest.fn(),
+                warning: jest.fn(),
             }
         } as unknown as IMParticleWebSDKInstance;
 
@@ -102,6 +122,42 @@ describe('BatchUploader', () => {
             const secondCallTime = batchUploader['lastASTEventTime'];
             
             expect(secondCallTime).toBe(firstCallTime);
+        });
+    });
+
+    describe('noFunctional', () => {
+        beforeEach(() => {
+            localStorage.clear();
+            sessionStorage.clear();
+        });
+
+        it('should disable offline storage when noFunctional is true', () => {
+            mockMPInstance._Store.noFunctional = true;
+
+            const uploader = new BatchUploader(mockMPInstance, 1000);
+            expect(uploader['offlineStorageEnabled']).toBe(false);
+
+            uploader.queueEvent({ EventDataType: 4 } as any);
+            expect(sessionStorage.getItem('mprtcl-v4_abcdef-events')).toBeNull();
+            expect(localStorage.getItem('mprtcl-v4_abcdef-batches')).toBeNull();
+        });
+
+        it('should enable offline storage when noFunctional is default (false)', () => {
+            const uploader = new BatchUploader(mockMPInstance, 1000);
+
+            expect(uploader['offlineStorageEnabled']).toBe(true);
+
+            uploader.queueEvent({ EventDataType: 4 } as any);
+            expect(sessionStorage.getItem('mprtcl-v4_abcdef-events')).not.toBeNull();
+        });
+
+        it('should enable offline storage when noFunctional is false', () => {
+            mockMPInstance._Store.noFunctional = false;
+
+            const uploader = new BatchUploader(mockMPInstance, 1000);
+
+            uploader.queueEvent({ EventDataType: 4 } as any);
+            expect(sessionStorage.getItem('mprtcl-v4_abcdef-events')).not.toBeNull();
         });
     });
 }); 
