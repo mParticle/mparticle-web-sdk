@@ -333,7 +333,6 @@ export default class IntegrationCapture {
                 processedClickIds[key] = processor ? processor(value, url, timestamp) : value;
             }
         }
-    
         return processedClickIds;
     }
 
