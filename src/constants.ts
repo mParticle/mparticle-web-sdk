@@ -236,10 +236,10 @@ export type PrivacyControl = 'functional' | 'targeting';
 export const StorageTypes = ['UserData', 'Products', 'Events', 'Batches', 'IdCache', 'TimeOnSite'];
 
 export const StoragePrivacyMap: Record<typeof StorageTypes[number], PrivacyControl> = {
-    'UserData' : 'functional',
-    'Products': 'targeting',
-    'Events': 'functional',
-    'Batches': 'functional',
-    'IdCache': 'functional',
-    'TimeOnSite': 'targeting',
+    UserData : 'functional',
+    Products: 'targeting',
+    Events: 'functional',
+    Batches: 'functional',
+    IdCache: 'functional',
+    TimeOnSite: 'targeting',
 };
