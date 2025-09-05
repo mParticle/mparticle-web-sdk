@@ -143,7 +143,6 @@ describe('BatchUploader', () => {
         });
 
         it('should enable offline storage when noFunctional is default (false)', () => {
-            // mockMPInstance._Store.noFunctional = false;
             const uploader = new BatchUploader(mockMPInstance, 1000);
 
             expect(uploader['offlineStorageEnabled']).toBe(true);
