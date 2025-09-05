@@ -22,10 +22,10 @@ describe('BatchUploader', () => {
                 getPrivacyFlagForStorage: function(this: any, storageType: typeof StorageTypes[number]) {
                     const privacyControl = StoragePrivacyMap[storageType];
                     if (privacyControl === 'functional') {
-                        return !!this.getNoFunctional();
+                        return this.getNoFunctional();
                     }
                     if (privacyControl === 'targeting') {
-                        return !!this.getNoTargeting();
+                        return this.getNoTargeting();
                     }
                     return false;
                 },
