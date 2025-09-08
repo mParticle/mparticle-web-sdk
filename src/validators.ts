@@ -4,6 +4,7 @@ import {
     isNumber,
     isObject,
     isStringOrNumber,
+    isValidAttributeValue,
     valueof,
 } from './utils';
 import Constants from './constants';
@@ -25,9 +26,7 @@ const Validators = {
     isStringOrNumber,
 
     // Validator Functions
-    isValidAttributeValue: function(value: any): boolean {
-        return value !== undefined && !isObject(value) && !Array.isArray(value);
-    },
+    isValidAttributeValue: isValidAttributeValue,
 
     // Validator Functions
     // Neither null nor undefined can be a valid Key

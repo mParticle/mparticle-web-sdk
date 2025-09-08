@@ -7,6 +7,8 @@ const { Messages } = Constants;
 
 type valueof<T> = T[keyof T];
 
+type AttributeValue = string | number | boolean | null | undefined;
+
 // Placeholder for Dictionary-like Types
 export type Dictionary<V = any> = Record<string, V>;
 
@@ -241,6 +243,9 @@ const isString = (value: any): boolean => typeof value === 'string';
 const isNumber = (value: any): boolean => typeof value === 'number';
 const isBoolean = (value: any): boolean => typeof value === 'boolean';
 const isFunction = (fn: any): boolean => typeof fn === 'function';
+const isValidAttributeValue = (value: any): boolean => {
+    return value !== undefined && !isObject(value) && !Array.isArray(value);
+}
 const isValidCustomFlagProperty = (value: any): boolean =>
     isNumber(value) || isString(value) || isBoolean(value);
 
@@ -415,6 +420,7 @@ export {
     revertCookieString,
     createCookieSyncUrl,
     valueof,
+    AttributeValue,
     converted,
     decoded,
     filterDictionaryWithHash,
@@ -441,6 +447,7 @@ export {
     isFunction,
     isDataPlanSlug,
     isEmpty,
+    isValidAttributeValue,
     isValidCustomFlagProperty,
     mergeObjects,
     moveElementToEnd,

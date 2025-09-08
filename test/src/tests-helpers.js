@@ -7,10 +7,15 @@ import {
 import sinon from 'sinon';
 import Utils from './config/utils';
 
-const { waitForCondition, fetchMockSuccess, hasIdentityCallInflightReturned} = Utils;
+const { waitForCondition, fetchMockSuccess, hasIdentityCallInflightReturned } = Utils;
 
 describe('helpers', function() {
+    let sandbox;
+
     beforeEach(function() {
+        // Create a fresh sandbox for each test to avoid spy conflicts
+        sandbox = sinon.createSandbox();
+
         fetchMockSuccess(urls.events);
         fetchMockSuccess(urls.identify, {
             context: null,
@@ -23,7 +28,13 @@ describe('helpers', function() {
         });
 
         mParticle.init(apiKey, window.mParticle.config);
+    });
 
+    afterEach(function() {
+        // Restore all spies/stubs created by this test's sandbox
+        if (sandbox) {
+            sandbox.restore();
+        }
     });
 
     it('should correctly validate an attribute value', function(done) {
@@ -58,7 +69,7 @@ describe('helpers', function() {
 
     it('should return event name in warning when sanitizing invalid attributes', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
-        const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
+        const bond = sandbox.spy(mParticle.getInstance().Logger, 'warning');
         mParticle.logEvent('eventName', mParticle.EventType.Location, {invalidValue: {}});
 
         bond.called.should.eql(true);
@@ -70,7 +81,7 @@ describe('helpers', function() {
     });
 
     it('should return product name in warning when sanitizing invalid attributes', function(done) {
-        const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
+        const bond = sandbox.spy(mParticle.getInstance().Logger, 'warning');
         mParticle.eCommerce.createProduct(
             'productName',
             'sku',
@@ -96,7 +107,7 @@ describe('helpers', function() {
     it('should return commerce event name in warning when sanitizing invalid attributes', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
 
-        const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
+        const bond = sandbox.spy(mParticle.getInstance().Logger, 'warning');
 
         const product1 = mParticle.eCommerce.createProduct('prod1', 'prod1sku', 999);
         const product2 = mParticle.eCommerce.createProduct('prod2', 'prod2sku', 799);
@@ -106,7 +117,7 @@ describe('helpers', function() {
 
         bond.called.should.eql(true);
         bond.callCount.should.equal(1);
-        
+
         bond.getCalls()[0].args[0].should.eql(
             "For 'eCommerce - AddToCart', the corresponding attribute value of 'invalidValue' must be a string, number, boolean, or null."
         );

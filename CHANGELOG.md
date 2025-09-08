@@ -1,3 +1,10 @@
+# [2.44.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.43.3...v2.44.0) (2025-09-02)
+
+
+### Features
+
+* Map events to an attribute flag for selectPlacements ([#1060](https://github.com/mParticle/mparticle-web-sdk/issues/1060)) ([35ede2e](https://github.com/mParticle/mparticle-web-sdk/commit/35ede2e45d38f71b82f5498c0a22240daee609ed))
+
 ## [2.43.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.43.2...v2.43.3) (2025-08-22)
 
 

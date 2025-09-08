@@ -30,6 +30,10 @@ describe('RoktManager', () => {
                 is_logged_in: false,
             }),
         },
+        _Store: {
+            setLocalSessionAttributes: jest.fn(),
+            getLocalSessionAttributes: jest.fn().mockReturnValue({}),
+        },
         Logger: {
             verbose: jest.fn(),
             error: jest.fn(),
@@ -51,8 +55,14 @@ describe('RoktManager', () => {
             {} as IKitConfigs,
             {} as IMParticleUser,
             mockMPInstance.Identity,
-            mockMPInstance.Logger
+            mockMPInstance._Store,
+            mockMPInstance.Logger,
+            undefined,
         );
+    });
+
+    afterEach(() => {
+        jest.clearAllMocks();
     });
 
     describe('constructor', () => {
@@ -195,7 +205,13 @@ describe('RoktManager', () => {
 
     describe('#init', () => {
         it('should initialize the manager with defaults when no config is provided', () => {
-            roktManager.init({} as IKitConfigs, {} as IMParticleUser, mockMPInstance.Identity);
+            roktManager.init(
+                {} as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+            );
             expect(roktManager['kit']).toBeNull();
             expect(roktManager['filters']).toEqual({
                 userAttributeFilters: undefined,
@@ -212,7 +228,13 @@ describe('RoktManager', () => {
                 userAttributeFilters: [816506310, 1463937872, 36300687],
             };
 
-            roktManager.init(kitConfig as IKitConfigs, {} as IMParticleUser, mockMPInstance.Identity);
+            roktManager.init(
+                kitConfig as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+            );
             expect(roktManager['filters']).toEqual({
                 userAttributeFilters: [816506310, 1463937872, 36300687],
                 filterUserAttributes: expect.any(Function),
@@ -225,6 +247,7 @@ describe('RoktManager', () => {
                 {} as IKitConfigs,
                 undefined,
                 mockMPInstance.Identity,
+                mockMPInstance._Store,
                 undefined,
                 {
                     sandbox: true,
@@ -254,7 +277,13 @@ describe('RoktManager', () => {
                     ])
                 },
             };
-            roktManager.init(kitConfig as IKitConfigs, {} as IMParticleUser, mockMPInstance.Identity);
+            roktManager.init(
+                kitConfig as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+            );
             expect(roktManager['placementAttributesMapping']).toEqual([
                 { 
                     jsmap: null,
@@ -282,6 +311,7 @@ describe('RoktManager', () => {
                 {} as IKitConfigs,
                 undefined,
                 mockMPInstance.Identity,
+                mockMPInstance._Store,
                 mockMPInstance.Logger,
                 {
                     launcherOptions
@@ -301,6 +331,7 @@ describe('RoktManager', () => {
                 {} as IKitConfigs,
                 undefined,
                 mockMPInstance.Identity,
+                mockMPInstance._Store,
                 mockMPInstance.Logger,
                 undefined,
             );
@@ -318,6 +349,7 @@ describe('RoktManager', () => {
                 {} as IKitConfigs,
                 undefined,
                 mockMPInstance.Identity,
+                mockMPInstance._Store,
                 mockMPInstance.Logger,
                 {
                     domain,

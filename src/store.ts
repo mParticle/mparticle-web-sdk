@@ -28,6 +28,9 @@ import {
     moveElementToEnd,
     parseNumber,
     returnConvertedBoolean,
+    isValidAttributeValue,
+    findKeyInObject,
+    AttributeValue,
 } from './utils';
 import { IMinifiedConsentJSONObject, SDKConsentState } from './consent';
 import { ConfiguredKit, MPForwarder, UnregisteredKit } from './forwarders.interfaces';
@@ -39,6 +42,8 @@ import {
 import { CookieSyncDates, IPixelConfiguration } from './cookieSyncManager';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import ForegroundTimer from './foregroundTimeTracker';
+
+const { Messages } = Constants;
 
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and
@@ -122,6 +127,7 @@ function createSDKConfig(config: SDKInitConfig): SDKConfig {
 //       to TypeScript
 export type ServerSettings = Dictionary;
 export type SessionAttributes = Dictionary;
+export type LocalSessionAttributes = Dictionary;
 export type IntegrationAttribute = Dictionary<string>;
 export type IntegrationAttributes = Dictionary<IntegrationAttribute>;
 export type WrapperSDKTypes = 'flutter' | 'none';
@@ -148,7 +154,15 @@ export interface IStore {
     isInitialized: boolean;
     noFunctional: boolean;
     noTargeting: boolean;
+
+    // Session Attributes are persistent attributes that are tied to the current session and
+    // are uploaded then cleared when the session ends.
     sessionAttributes: SessionAttributes;
+
+    // Local Session Attributes are persistent session attributes that are cleared when the
+    // session ends, but are NOT uploaded to the server when the session ends.
+    localSessionAttributes: LocalSessionAttributes;
+
     currentSessionMPIDs: MPID[];
     consentState: SDKConsentState | null;
     sessionId: string | null;
@@ -208,6 +222,8 @@ export interface IStore {
     setFirstSeenTime?(mpid: MPID, time?: number): void;
     getLastSeenTime?(mpid: MPID): number;
     setLastSeenTime?(mpid: MPID, time?: number): void;
+    getLocalSessionAttributes?(): LocalSessionAttributes;
+    setLocalSessionAttribute?(key: string, value: AttributeValue): void;
     getUserAttributes?(mpid: MPID): UserAttributes;
     setUserAttributes?(mpid: MPID, attributes: UserAttributes): void;
     getUserIdentities?(mpid: MPID): UserIdentities;
@@ -239,6 +255,7 @@ export default function Store(
         noFunctional: false,
         noTargeting: false,
         sessionAttributes: {},
+        localSessionAttributes: {},
         currentSessionMPIDs: [],
         consentState: null,
         sessionId: null,
@@ -634,6 +651,15 @@ export default function Store(
         this._setPersistence(mpid, 'lst', time);
     };
 
+    this.getLocalSessionAttributes = (): LocalSessionAttributes =>
+        this.localSessionAttributes || {};
+
+    this.setLocalSessionAttribute = (key: string, value: AttributeValue) => {
+        this.localSessionAttributes[key] = value;
+        this.persistenceData.gs.lsa = { ...(this.persistenceData.gs.lsa || {}), [key]: value };
+        mpInstance._Persistence.savePersistence(this.persistenceData);
+    }
+
     this.syncPersistenceData = () => {
         const persistenceData = mpInstance._Persistence.getPersistence();
 
@@ -679,6 +705,7 @@ export default function Store(
         this.sessionId = null;
         this.dateLastEventSent = null;
         this.sessionAttributes = {};
+        this.localSessionAttributes = {};
         mpInstance._Persistence.update();
     };
 
