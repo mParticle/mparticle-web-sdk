@@ -12,7 +12,8 @@ describe('BatchUploader', () => {
             now: now,
             advanceTimers: true // This improves the performance of nested timers, equivalent to Sinon's shouldAdvanceTime
         });
-        
+        global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200 });
+
         // Create a mock mParticle instance with mocked methods for instantiating a BatchUploader
         mockMPInstance = {
             _Store: {
@@ -36,11 +37,13 @@ describe('BatchUploader', () => {
             },
             _Helpers: {
                 getFeatureFlag: jest.fn().mockReturnValue('100'),
-                createServiceUrl: jest.fn().mockReturnValue('https://mock-url.com')
+                createServiceUrl: jest.fn().mockReturnValue('https://mock-url.com'),
+                generateUniqueId: jest.fn().mockReturnValue('req-1'),
             },
             Identity: {
                 getCurrentUser: jest.fn().mockReturnValue({
-                    getMPID: () => 'test-mpid'
+                    getMPID: () => 'test-mpid',
+                    getConsentState: jest.fn().mockReturnValue(null),
                 })
             },
             Logger: {
@@ -55,6 +58,7 @@ describe('BatchUploader', () => {
 
     afterEach(() => {
         jest.useRealTimers();
+        delete global.fetch;
     });
 
     describe('shouldDebounceAST', () => {
@@ -135,29 +139,39 @@ describe('BatchUploader', () => {
             mockMPInstance._Store.noFunctional = true;
 
             const uploader = new BatchUploader(mockMPInstance, 1000);
-            expect(uploader['offlineStorageEnabled']).toBe(false);
+            expect(uploader['OfflineStorage']).toBe(false);
 
             uploader.queueEvent({ EventDataType: 4 } as any);
             expect(sessionStorage.getItem('mprtcl-v4_abcdef-events')).toBeNull();
             expect(localStorage.getItem('mprtcl-v4_abcdef-batches')).toBeNull();
         });
 
-        it('should enable offline storage when noFunctional is default (false)', () => {
+        it('should enable offline storage when noFunctional is default (false)', async () => {
             const uploader = new BatchUploader(mockMPInstance, 1000);
 
-            expect(uploader['offlineStorageEnabled']).toBe(true);
+            expect(uploader['OfflineStorage']).toBe(true);
 
-            uploader.queueEvent({ EventDataType: 4 } as any);
+            uploader.queueEvent({ EventDataType: 4, SessionId: 's1' } as any);
             expect(sessionStorage.getItem('mprtcl-v4_abcdef-events')).not.toBeNull();
+
+            jest.advanceTimersByTime(1000);
+            await Promise.resolve();
+
+            expect(localStorage.getItem('mprtcl-v4_abcdef-batches')).not.toBeNull();
         });
 
-        it('should enable offline storage when noFunctional is false', () => {
+        it('should enable offline storage when noFunctional is false', async () => {
             mockMPInstance._Store.noFunctional = false;
 
             const uploader = new BatchUploader(mockMPInstance, 1000);
 
-            uploader.queueEvent({ EventDataType: 4 } as any);
+            uploader.queueEvent({ EventDataType: 4, SessionId: 's1' } as any);
             expect(sessionStorage.getItem('mprtcl-v4_abcdef-events')).not.toBeNull();
+
+            jest.advanceTimersByTime(1000);
+            await Promise.resolve();
+
+            expect(localStorage.getItem('mprtcl-v4_abcdef-batches')).not.toBeNull();
         });
     });
 }); 

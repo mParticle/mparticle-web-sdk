@@ -43,7 +43,7 @@ export class BatchUploader {
     batchingEnabled: boolean;
     private eventVault: SessionStorageVault<SDKEvent[]>;
     private batchVault: LocalStorageVault<Batch[]>;
-    private offlineStorageEnabled: boolean = false;
+    private OfflineStorage: boolean = false;
     private uploader: AsyncUploader;
     private lastASTEventTime: number = 0;
     private readonly AST_DEBOUNCE_MS: number = 1000; // 1 second debounce
@@ -72,11 +72,11 @@ export class BatchUploader {
 
         // Cache Offline Storage Availability boolean
         // so that we don't have to check it every time
-        this.offlineStorageEnabled =
+        this.OfflineStorage =
             this.isOfflineStorageAvailable() &&
             !mpInstance._Store.getPrivacyFlagForStorage('Events');
 
-        if (this.offlineStorageEnabled) {
+        if (this.OfflineStorage) {
             this.eventVault = new SessionStorageVault<SDKEvent[]>(
                 `${mpInstance._Store.storageName}-events`,
                 {
@@ -262,7 +262,7 @@ export class BatchUploader {
         const { verbose } = this.mpInstance.Logger;
 
         this.eventsQueuedForProcessing.push(event);
-        if (this.offlineStorageEnabled && this.eventVault) {
+        if (this.OfflineStorage && this.eventVault) {
             this.eventVault.store(this.eventsQueuedForProcessing);
         }
 
@@ -378,7 +378,7 @@ export class BatchUploader {
         const currentEvents: SDKEvent[] = this.eventsQueuedForProcessing;
 
         this.eventsQueuedForProcessing = [];
-        if (this.offlineStorageEnabled && this.eventVault) {
+        if (this.OfflineStorage && this.eventVault) {
             this.eventVault.store([]);
         }
 
@@ -392,7 +392,7 @@ export class BatchUploader {
         }
 
         // Top Load any older Batches from Offline Storage so they go out first
-        if (this.offlineStorageEnabled && this.batchVault) {
+        if (this.OfflineStorage && this.batchVault) {
             this.batchesQueuedForProcessing.unshift(
                 ...this.batchVault.retrieve()
             );
@@ -425,7 +425,7 @@ export class BatchUploader {
         }
 
         // Update Offline Storage with current state of batch queue
-        if (!useBeacon && this.offlineStorageEnabled && this.batchVault) {
+        if (!useBeacon && this.OfflineStorage && this.batchVault) {
             // Note: since beacon is "Fire and forget" it will empty `batchesThatDidNotUplod`
             // regardless of whether the batches were successfully uploaded or not. We should
             // therefore NOT overwrite Offline Storage when beacon returns, so that we can retry
