@@ -49,6 +49,7 @@
         'selectPlacements',
         'hashAttributes',
         'setExtensionData',
+        'use',
     ];
 
     // iterates through methods above to create stubs
