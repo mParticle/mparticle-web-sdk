@@ -84,13 +84,15 @@ describe('RoktManager', () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 filters: undefined,
                 filteredUser: undefined,
                 hashAttributes: jest.fn(),
                 selectPlacements: jest.fn(),
                 setExtensionData: jest.fn(),
+                use: jest.fn(),
                 userAttributes: undefined,
             };
 
@@ -106,13 +108,15 @@ describe('RoktManager', () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 filters: undefined,
                 filteredUser: undefined,
                 hashAttributes: jest.fn(),
                 selectPlacements: jest.fn(),
                 setExtensionData: jest.fn(),
+                use: jest.fn(),
                 userAttributes: undefined,
             };
 
@@ -145,13 +149,15 @@ describe('RoktManager', () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),  
+                    use: jest.fn(),
                 },
                 filters: undefined,
                 filteredUser: undefined,
                 hashAttributes: jest.fn(),
                 selectPlacements: jest.fn(),
                 setExtensionData: jest.fn(),
+                use: jest.fn(),
                 userAttributes: undefined,
             };
 
@@ -177,7 +183,8 @@ describe('RoktManager', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
 
                 // We are mocking the hashAttributes method to return the
@@ -364,14 +371,16 @@ describe('RoktManager', () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 filters: undefined,
                 filteredUser: undefined,
                 userAttributes: undefined,
                 selectPlacements: jest.fn(),
                 hashAttributes: jest.fn(),
-                setExtensionData: jest.fn()
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -384,14 +393,16 @@ describe('RoktManager', () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 filters: undefined,
                 selectPlacements: jest.fn(),
                 hashAttributes: jest.fn(),
                 filteredUser: undefined,
                 userAttributes: undefined,
-                setExtensionData: jest.fn()
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
             };
 
 
@@ -420,7 +431,8 @@ describe('RoktManager', () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 filters: undefined,
                 filteredUser: undefined,
@@ -428,6 +440,7 @@ describe('RoktManager', () => {
                 selectPlacements: jest.fn(),
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
+                use: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -444,14 +457,16 @@ describe('RoktManager', () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 filters: undefined,
                 filteredUser: undefined,
                 userAttributes: undefined,
-                selectPlacements: jest.fn(),
+                selectPlacements: jest.fn(),    
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
+                use: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -489,7 +504,8 @@ describe('RoktManager', () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 filters: undefined,
                 filteredUser: undefined,
@@ -497,6 +513,7 @@ describe('RoktManager', () => {
                 selectPlacements: jest.fn().mockResolvedValue(expectedResult),
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
+                use: jest.fn(),
             };
 
             const options = {
@@ -535,7 +552,8 @@ describe('RoktManager', () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 filters: undefined,
                 filteredUser: undefined,
@@ -551,6 +569,7 @@ describe('RoktManager', () => {
                 }),
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
+                use: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -574,7 +593,8 @@ describe('RoktManager', () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 filters: undefined,
                 filteredUser: undefined,
@@ -582,6 +602,7 @@ describe('RoktManager', () => {
                 setExtensionData: jest.fn(),
                 hashAttributes: jest.fn(),
                 userAttributes: undefined,
+                use: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -602,7 +623,8 @@ describe('RoktManager', () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 filters: undefined,
                 filteredUser: undefined,
@@ -610,6 +632,7 @@ describe('RoktManager', () => {
                 selectPlacements: jest.fn(),
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
+                use: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -632,7 +655,8 @@ describe('RoktManager', () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 filters: undefined,
                 filteredUser: undefined,
@@ -640,6 +664,7 @@ describe('RoktManager', () => {
                 setExtensionData: jest.fn(),
                 hashAttributes: jest.fn(),
                 userAttributes: undefined,
+                use: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -661,11 +686,13 @@ describe('RoktManager', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 hashAttributes: jest.fn(),
                 selectPlacements: jest.fn(),
-                setExtensionData: jest.fn()
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -708,11 +735,13 @@ describe('RoktManager', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 hashAttributes: jest.fn(),
                 selectPlacements: jest.fn(),
                 setExtensionData: jest.fn(),
+                use: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -735,11 +764,13 @@ describe('RoktManager', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 selectPlacements: jest.fn(),
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
+                use: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -784,11 +815,13 @@ describe('RoktManager', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 selectPlacements: jest.fn(),
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
+                use: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -813,11 +846,13 @@ describe('RoktManager', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 selectPlacements: jest.fn().mockResolvedValue({}),
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
+                use: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -865,11 +900,13 @@ describe('RoktManager', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 selectPlacements: jest.fn(),
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
+                use: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -905,11 +942,13 @@ describe('RoktManager', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 selectPlacements: jest.fn(),
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
+                use: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -949,11 +988,13 @@ describe('RoktManager', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 selectPlacements: jest.fn().mockResolvedValue({}),
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
+                use: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -1000,6 +1041,7 @@ describe('RoktManager', () => {
                 launcher: {
                     hashAttributes: jest.fn(),
                     selectPlacements: jest.fn(),
+                    use: jest.fn(),
                 },
                 setExtensionData: jest.fn()
             };
@@ -1039,7 +1081,8 @@ describe('RoktManager', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     hashAttributes: jest.fn(),
-                    selectPlacements: jest.fn()
+                    selectPlacements: jest.fn(),
+                    use: jest.fn(),
                 },
                 setExtensionData: jest.fn()
             };
@@ -1055,7 +1098,8 @@ describe('RoktManager', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     hashAttributes: jest.fn(),
-                    selectPlacements: jest.fn()
+                    selectPlacements: jest.fn(),
+                    use: jest.fn(),
                 },
                 setExtensionData: jest.fn()
             };
