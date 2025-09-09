@@ -10,7 +10,8 @@ import {
     ICachedIdentityCall,
     hasIdentityRequestChanged,
 } from "../../src/identity-utils";
-import { LocalStorageVault } from "../../src/vault";
+import { createVault } from "../../src/vault";
+import { VaultKind } from "../../src/constants";
 import { Dictionary, generateHash } from "../../src/utils";
 import { expect } from 'chai';
 import { 
@@ -37,7 +38,7 @@ const knownIdentities: IKnownIdentities = createKnownIdentities({
     DEVICE_ID
 );
 
-const cacheVault = new LocalStorageVault<Dictionary>(localStorageIDKey);
+const cacheVault = createVault<Dictionary<ICachedIdentityCall>>(localStorageIDKey, VaultKind.LocalStorage);
 
 const identifyResponse: IdentityResultBody = {
     context: null,
@@ -292,7 +293,7 @@ describe('identity-utils', () => {
             const mpIdCache = window.localStorage.getItem(localStorageIDKey);
             expect(mpIdCache).to.equal(null);
             
-            const cacheVault = new LocalStorageVault<Dictionary>(localStorageIDKey);
+            const cacheVault = createVault<Dictionary<ICachedIdentityCall>>(localStorageIDKey, VaultKind.LocalStorage);
 
             const result = hasValidCachedIdentity('identify', userIdentities, cacheVault);
             expect(result).to.equal(false);
@@ -302,7 +303,7 @@ describe('identity-utils', () => {
             const mpIdCache = window.localStorage.getItem(localStorageIDKey);
             expect(mpIdCache).to.equal(null);
 
-            const cacheVault = new LocalStorageVault<Dictionary>(localStorageIDKey);
+            const cacheVault = createVault<Dictionary<ICachedIdentityCall>>(localStorageIDKey, VaultKind.LocalStorage);
 
             // check to ensure there is nothing on the cache first
             const result1 = hasValidCachedIdentity('identify', userIdentities, cacheVault);
@@ -394,7 +395,7 @@ describe('identity-utils', () => {
             // set up clock in order to force some time stamps to expire later in the test
             const clock = sinon.useFakeTimers();
 
-            const cacheVault = new LocalStorageVault<Dictionary>(localStorageIDKey);
+            const cacheVault = createVault<Dictionary<ICachedIdentityCall>>(localStorageIDKey, VaultKind.LocalStorage);
             const knownIdentities1: IKnownIdentities = createKnownIdentities({
                 userIdentities: {customerid: 'id1'}},
                 DEVICE_ID
@@ -464,7 +465,7 @@ describe('identity-utils', () => {
 
             const mpInstance = window.mParticle.getInstance();
 
-            const cacheVault = new LocalStorageVault<Dictionary>(localStorageIDKey);
+            const cacheVault = createVault<Dictionary<ICachedIdentityCall>>(localStorageIDKey, VaultKind.LocalStorage);
 
             const customerId = {customerid: 'id1'}
             const knownIdentities1: IKnownIdentities = createKnownIdentities({
@@ -512,7 +513,7 @@ describe('identity-utils', () => {
             window.mParticle.init(apiKey, window.mParticle.config);
 
             const mpInstance = window.mParticle.getInstance();
-            const cacheVault = new LocalStorageVault<Dictionary>(localStorageIDKey);
+            const cacheVault = createVault<Dictionary<ICachedIdentityCall>>(localStorageIDKey, VaultKind.LocalStorage);
 
             const customerId = {customerid: 'id1'}
             const knownIdentities1: IKnownIdentities = createKnownIdentities({

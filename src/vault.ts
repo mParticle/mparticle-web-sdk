@@ -1,5 +1,6 @@
 import { Logger } from '@mparticle/web-sdk';
 import { isEmpty, isNumber } from './utils';
+import { VaultKind } from './constants';
 
 export interface IVaultOptions {
     logger?: Logger;
@@ -101,5 +102,19 @@ export class LocalStorageVault<StorableItem> extends BaseVault<StorableItem> {
 export class SessionStorageVault<StorableItem> extends BaseVault<StorableItem> {
     constructor(storageKey: string, options?: IVaultOptions) {
         super(storageKey, window.sessionStorage, options);
+    }
+}
+
+export function createVault<StorableItem>(
+    storageKey: string,
+    kind: VaultKind,
+    options?: IVaultOptions
+): BaseVault<StorableItem> {
+    switch (kind) {
+        case VaultKind.SessionStorage:
+            return new SessionStorageVault<StorableItem>(storageKey, options);
+        case VaultKind.LocalStorage:
+        default:
+            return new LocalStorageVault<StorableItem>(storageKey, options);
     }
 }

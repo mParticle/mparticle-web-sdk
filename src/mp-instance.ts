@@ -17,7 +17,7 @@
 //  jQuery v1.10.2 | (c) 2005, 2013 jQuery Foundation, Inc. | jquery.org/license
 
 import { EventType, IdentityType, CommerceEventType, PromotionActionType, ProductActionType, MessageType } from './types';
-import Constants from './constants';
+import Constants, { VaultKind } from './constants';
 import APIClient, { IAPIClient } from './apiClient';
 import Helpers from './helpers';
 import NativeSdkHelpers from './nativeSdkHelpers';
@@ -37,7 +37,7 @@ import KitBlocker from './kitBlocking';
 import ConfigAPIClient, { IKitConfigs } from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
 import { isFunction, parseConfig } from './utils';
-import { LocalStorageVault } from './vault';
+import { createVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
 import { IPreInit, processReadyQueue } from './pre-init-utils';
@@ -1523,7 +1523,7 @@ function createKitBlocker(config, mpInstance) {
 }
 
 function createIdentityCache(mpInstance) {
-    return new LocalStorageVault(`${mpInstance._Store.storageName}-id-cache`, {
+    return createVault(`${mpInstance._Store.storageName}-id-cache`, VaultKind.LocalStorage, {
         logger: mpInstance.Logger,
     });
 }
