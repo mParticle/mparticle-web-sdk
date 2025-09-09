@@ -1,16 +1,17 @@
 import { isNumber } from './utils';
-import { LocalStorageVault } from './vault';
+import { createVault, BaseVault } from './vault';
+import { VaultKind } from './constants';
 
 export default class ForegroundTimeTracker {
     private isTrackerActive: boolean = false;
     private localStorageName: string = '';
-    private timerVault: LocalStorageVault<number>;
+    private timerVault: BaseVault<number>;
     public startTime: number = 0;
     public totalTime: number = 0;
 
     constructor(timerKey: string) {
         this.localStorageName = `mprtcl-tos-${timerKey}`;
-        this.timerVault = new LocalStorageVault<number>(this.localStorageName);
+        this.timerVault = createVault<number>(this.localStorageName, VaultKind.LocalStorage);
         this.loadTimeFromStorage();
         this.addHandlers();
         if (document.hidden === false) {

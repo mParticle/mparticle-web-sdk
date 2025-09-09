@@ -1,7 +1,8 @@
 import { Batch } from '@mparticle/event-models';
 import { expect } from 'chai';
 import { Dictionary } from '../../src/utils';
-import { SessionStorageVault, LocalStorageVault } from '../../src/vault';
+import { createVault, LocalStorageVault } from '../../src/vault';
+import { VaultKind } from '../../src/constants';
 
 const testObject: Dictionary<Dictionary<string>> = {
     foo: { foo: 'bar', buzz: 'bazz' },
@@ -26,9 +27,10 @@ describe('Vault', () => {
             it('should store an object', () => {
                 const storageKey = 'test-key-store-object';
 
-                const vault = new SessionStorageVault<
-                    Dictionary<Dictionary<string>>
-                >(storageKey);
+                const vault = createVault<Dictionary<Dictionary<string>>>(
+                    storageKey,
+                    VaultKind.SessionStorage
+                );
 
                 vault.store(testObject);
 
@@ -41,8 +43,9 @@ describe('Vault', () => {
             it('should store an array', () => {
                 const storageKey = 'test-key-store-array';
 
-                const vault = new SessionStorageVault<Dictionary<string>[]>(
+                const vault = createVault<Dictionary<string>[]>(
                     storageKey,
+                    VaultKind.SessionStorage
                 );
 
                 vault.store(testArray);
@@ -56,7 +59,7 @@ describe('Vault', () => {
             it('should store a string', () => {
                 const storageKey = 'test-key-store-string';
 
-                const vault = new SessionStorageVault<string>(storageKey);
+                const vault = createVault<string>(storageKey, VaultKind.SessionStorage);
 
                 vault.store(testString);
 
@@ -69,7 +72,7 @@ describe('Vault', () => {
             it('should store a number', () => {
                 const storageKey = 'test-key-store-number';
 
-                const vault = new SessionStorageVault<number>(storageKey);
+                const vault = createVault<number>(storageKey, VaultKind.SessionStorage);
 
                 vault.store(testNumber);
 
@@ -89,9 +92,10 @@ describe('Vault', () => {
                     JSON.stringify(testObject),
                 );
 
-                const vault = new SessionStorageVault<
-                    Dictionary<Dictionary<string>>
-                >(storageKey);
+                const vault = createVault<Dictionary<Dictionary<string>>>(
+                    storageKey,
+                    VaultKind.SessionStorage
+                );
 
                 const retrievedItem = vault.retrieve();
 
@@ -109,8 +113,9 @@ describe('Vault', () => {
                     JSON.stringify(testArray),
                 );
 
-                const vault = new SessionStorageVault<Dictionary<string>[]>(
+                const vault = createVault<Dictionary<string>[]>(
                     storageKey,
+                    VaultKind.SessionStorage
                 );
 
                 const retrievedItem = vault.retrieve();
@@ -126,7 +131,7 @@ describe('Vault', () => {
                     JSON.stringify(testString),
                 );
 
-                const vault = new SessionStorageVault<string>(storageKey);
+                const vault = createVault<string>(storageKey, VaultKind.SessionStorage);
 
                 const retrievedItem = vault.retrieve();
 
@@ -141,7 +146,7 @@ describe('Vault', () => {
                     JSON.stringify(testNumber),
                 );
 
-                const vault = new SessionStorageVault<number>(storageKey);
+                const vault = createVault<number>(storageKey, VaultKind.SessionStorage);
 
                 const retrievedItem = vault.retrieve();
 
@@ -158,9 +163,10 @@ describe('Vault', () => {
                     JSON.stringify(testObject),
                 );
 
-                const vault = new SessionStorageVault<
-                    Dictionary<Dictionary<string>>
-                >(storageKey);
+                const vault = createVault<Dictionary<Dictionary<string>>>(
+                    storageKey,
+                    VaultKind.SessionStorage
+                );
 
                 vault.purge();
 
@@ -178,8 +184,9 @@ describe('Vault', () => {
                     JSON.stringify(testArray),
                 );
 
-                const vault = new SessionStorageVault<Dictionary<string>[]>(
+                const vault = createVault<Dictionary<string>[]>(
                     storageKey,
+                    VaultKind.SessionStorage
                 );
 
                 vault.purge();
@@ -201,9 +208,10 @@ describe('Vault', () => {
             it('should store an object', () => {
                 const storageKey = 'test-key-store-object';
 
-                const vault = new LocalStorageVault<
-                    Dictionary<Dictionary<string>>
-                >(storageKey);
+                const vault = createVault<Dictionary<Dictionary<string>>>(
+                    storageKey,
+                    VaultKind.LocalStorage
+                );
 
                 vault.store(testObject);
 
@@ -216,8 +224,9 @@ describe('Vault', () => {
             it('should store an array', () => {
                 const storageKey = 'test-key-store-array';
 
-                const vault = new LocalStorageVault<Dictionary<string>[]>(
+                const vault = createVault<Dictionary<string>[]>(
                     storageKey,
+                    VaultKind.LocalStorage
                 );
 
                 vault.store(testArray);
@@ -231,7 +240,7 @@ describe('Vault', () => {
             it('should store a string', () => {
                 const storageKey = 'test-key-store-array';
 
-                const vault = new LocalStorageVault<string>(storageKey);
+                const vault = createVault<string>(storageKey, VaultKind.LocalStorage);
 
                 vault.store(testString);
 
@@ -244,7 +253,7 @@ describe('Vault', () => {
             it('should store a number', () => {
                 const storageKey = 'test-key-store-array';
 
-                const vault = new LocalStorageVault<number>(storageKey);
+                const vault = createVault<number>(storageKey, VaultKind.LocalStorage);
 
                 vault.store(testNumber);
 
@@ -264,9 +273,10 @@ describe('Vault', () => {
                     JSON.stringify(testObject),
                 );
 
-                const vault = new LocalStorageVault<
-                    Dictionary<Dictionary<string>>
-                >(storageKey);
+                const vault = createVault<Dictionary<Dictionary<string>>>(
+                    storageKey,
+                    VaultKind.LocalStorage
+                );
 
                 const retrievedItem = vault.retrieve();
 
@@ -284,8 +294,9 @@ describe('Vault', () => {
                     JSON.stringify(testArray),
                 );
 
-                const vault = new LocalStorageVault<Dictionary<string>[]>(
+                const vault = createVault<Dictionary<string>[]>(
                     storageKey,
+                    VaultKind.LocalStorage
                 );
 
                 const retrievedItem = vault.retrieve();
@@ -398,7 +409,10 @@ describe('Vault', () => {
                 source_request_id: 'source-request-id-5',
             };
 
-            const vault = new LocalStorageVault<Partial<Batch>[]>(storageKey);
+            const vault = createVault<Partial<Batch>[]>(
+                storageKey,
+                VaultKind.LocalStorage
+            );
 
             vault.store([batch1, batch2, batch3, batch4, batch5]);
 

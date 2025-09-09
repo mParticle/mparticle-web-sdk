@@ -204,6 +204,11 @@ const Constants = {
 
 export default Constants;
 
+export enum VaultKind {
+    LocalStorage = 'local',
+    SessionStorage = 'session',
+}
+
 // https://go.mparticle.com/work/SQDSDKS-6080
 export const ONE_DAY_IN_SECONDS = 60 * 60 * 24;
 export const MILLIS_IN_ONE_SEC = 1000;

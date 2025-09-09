@@ -4,7 +4,8 @@ import { SDKEvent, SDKEventCustomFlags, SDKLoggerApi } from './sdkRuntimeModels'
 import { convertEvents } from './sdkToEventsApiConverter';
 import { MessageType, EventType } from './types';
 import { getRampNumber, isEmpty } from './utils';
-import { SessionStorageVault, LocalStorageVault } from './vault';
+import { createVault, BaseVault } from './vault';
+import { VaultKind } from './constants';
 import {
     AsyncUploader,
     FetchUploader,
@@ -41,8 +42,8 @@ export class BatchUploader {
     mpInstance: IMParticleWebSDKInstance;
     uploadUrl: string;
     batchingEnabled: boolean;
-    private eventVault: SessionStorageVault<SDKEvent[]>;
-    private batchVault: LocalStorageVault<Batch[]>;
+    private eventVault: BaseVault<SDKEvent[]>;
+    private batchVault: BaseVault<Batch[]>;
     private offlineStorageEnabled: boolean = false;
     private uploader: AsyncUploader;
     private lastASTEventTime: number = 0;
@@ -75,18 +76,16 @@ export class BatchUploader {
         this.offlineStorageEnabled = this.isOfflineStorageAvailable();
 
         if (this.offlineStorageEnabled) {
-            this.eventVault = new SessionStorageVault<SDKEvent[]>(
+            this.eventVault = createVault<SDKEvent[]>(
                 `${mpInstance._Store.storageName}-events`,
-                {
-                    logger: mpInstance.Logger,
-                }
+                VaultKind.SessionStorage,
+                { logger: mpInstance.Logger }
             );
 
-            this.batchVault = new LocalStorageVault<Batch[]>(
+            this.batchVault = createVault<Batch[]>(
                 `${mpInstance._Store.storageName}-batches`,
-                {
-                    logger: mpInstance.Logger,
-                }
+                VaultKind.LocalStorage,
+                { logger: mpInstance.Logger }
             );
 
             // Load Events from Session Storage in case we have any in storage
