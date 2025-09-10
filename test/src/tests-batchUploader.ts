@@ -1743,7 +1743,6 @@ describe('batch uploader', () => {
                     ...enableBatchingConfigFlags,
                 };
                 window.mParticle.config.launcherOptions = {
-                    ...(window.mParticle.config.launcherOptions || {}),
                     noFunctional: true,
                 };
                 window.mParticle.init(apiKey, window.mParticle.config);
@@ -1761,7 +1760,6 @@ describe('batch uploader', () => {
                     ...enableBatchingConfigFlags,
                 };
                 window.mParticle.config.launcherOptions = {
-                    ...(window.mParticle.config.launcherOptions || {}),
                     noFunctional: false,
                 };
                 window.mParticle.init(apiKey, window.mParticle.config);
@@ -1789,7 +1787,6 @@ describe('batch uploader', () => {
                     ...enableBatchingConfigFlags,
                 };
                 window.mParticle.config.launcherOptions = {
-                    ...(window.mParticle.config.launcherOptions || {}),
                     noFunctional: true,
                 };
                 window.mParticle.init(apiKey, window.mParticle.config);
@@ -1807,7 +1804,6 @@ describe('batch uploader', () => {
                     ...enableBatchingConfigFlags,
                 };
                 window.mParticle.config.launcherOptions = {
-                    ...(window.mParticle.config.launcherOptions || {}),
                     noFunctional: false,
                 };
                 window.mParticle.init(apiKey, window.mParticle.config);

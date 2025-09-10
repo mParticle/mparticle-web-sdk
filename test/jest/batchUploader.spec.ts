@@ -5,6 +5,7 @@ import { StoragePrivacyMap, StorageTypes } from '../../src/constants';
 describe('BatchUploader', () => {
     let batchUploader: BatchUploader;
     let mockMPInstance: IMParticleWebSDKInstance;
+    let originalFetch: typeof global.fetch;
 
     beforeEach(() => {
         const now = Date.now();
@@ -12,6 +13,7 @@ describe('BatchUploader', () => {
             now: now,
             advanceTimers: true // This improves the performance of nested timers, equivalent to Sinon's shouldAdvanceTime
         });
+        originalFetch = global.fetch;
         global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200 });
 
         // Create a mock mParticle instance with mocked methods for instantiating a BatchUploader
@@ -58,7 +60,7 @@ describe('BatchUploader', () => {
 
     afterEach(() => {
         jest.useRealTimers();
-        delete global.fetch;
+        global.fetch = originalFetch;
     });
 
     describe('shouldDebounceAST', () => {
@@ -151,7 +153,7 @@ describe('BatchUploader', () => {
 
             expect(uploader['OfflineStorage']).toBe(true);
 
-            uploader.queueEvent({ EventDataType: 4, SessionId: 's1' } as any);
+            uploader.queueEvent({ EventDataType: 4 } as any);
             expect(sessionStorage.getItem('mprtcl-v4_abcdef-events')).not.toBeNull();
 
             jest.advanceTimersByTime(1000);
@@ -165,7 +167,7 @@ describe('BatchUploader', () => {
 
             const uploader = new BatchUploader(mockMPInstance, 1000);
 
-            uploader.queueEvent({ EventDataType: 4, SessionId: 's1' } as any);
+            uploader.queueEvent({ EventDataType: 4 } as any);
             expect(sessionStorage.getItem('mprtcl-v4_abcdef-events')).not.toBeNull();
 
             jest.advanceTimersByTime(1000);
