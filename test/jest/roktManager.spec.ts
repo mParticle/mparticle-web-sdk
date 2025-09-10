@@ -463,7 +463,7 @@ describe('RoktManager', () => {
                 filters: undefined,
                 filteredUser: undefined,
                 userAttributes: undefined,
-                selectPlacements: jest.fn(),    
+                selectPlacements: jest.fn(),
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
