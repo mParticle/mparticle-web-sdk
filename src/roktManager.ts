@@ -261,7 +261,7 @@ export default class RoktManager {
         try {
             return this.kit.use<T>(name);
         } catch (error) {
-            return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
+            return Promise.reject(error instanceof Error ? error : new Error('Error using extension: ' + name));
         }
     }
 
