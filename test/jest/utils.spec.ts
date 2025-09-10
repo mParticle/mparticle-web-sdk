@@ -345,6 +345,11 @@ describe('Utils', () => {
                 { jsmap: '-355458063', map: '5878452521714063084', maptype: 'EventClass.Id', value: 'card_viewed_test' },
             ]);
         });
+        
+        it('returns an empty array if the settings string is null', () => {
+            const settingsString = null;
+            expect(parseSettingsString(settingsString)).toEqual([]);
+        });
 
         it('returns an empty array if the settings string is empty', () => {
             const settingsString = "";
