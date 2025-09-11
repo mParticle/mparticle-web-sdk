@@ -50,6 +50,8 @@
         'hashAttributes',
         'setExtensionData',
         'use',
+        'getVersion',
+        'terminate',
     ];
 
     // iterates through methods above to create stubs
