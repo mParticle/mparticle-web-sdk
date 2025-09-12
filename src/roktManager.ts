@@ -287,7 +287,7 @@ export default class RoktManager {
         }
 
         try {
-            return this.kit.launcher.getVersion();
+            return this.kit.getVersion();
         } catch (error) {
             return Promise.reject(error instanceof Error ? error : new Error('Error getting the version'));
         }

@@ -1214,6 +1214,289 @@ describe('RoktManager', () => {
         });
     });
 
+    describe('#terminate', () => {
+        it('should call kit.terminate when already attached', async () => {
+            const kit: IRoktKit = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                    getVersion: jest.fn(),
+                    terminate: jest.fn(),
+                },
+                filters: undefined,
+                filteredUser: undefined,
+                userAttributes: undefined,
+                selectPlacements: jest.fn(),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+                getVersion: jest.fn(),
+                terminate: jest.fn(),
+            };
+
+            roktManager.attachKit(kit);
+
+            roktManager.terminate();
+            expect(kit.terminate).toHaveBeenCalled();
+        });
+
+        it('should queue the terminate method if no launcher or kit is attached', () => {
+            roktManager.terminate();
+
+            expect(roktManager['kit']).toBeNull();
+            expect(roktManager['messageQueue'].size).toBe(1);
+            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
+            expect(queuedMessage.methodName).toBe('terminate');
+            expect(queuedMessage.payload).toEqual({});
+        });
+
+        it('should process queued terminate once the launcher and kit are attached', async () => {
+            const kit: IRoktKit = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                    getVersion: jest.fn(),
+                    terminate: jest.fn(),
+                },
+                filters: undefined,
+                filteredUser: undefined,
+                userAttributes: undefined,
+                selectPlacements: jest.fn(),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+                getVersion: jest.fn(),
+                terminate: jest.fn(),
+            };
+
+            roktManager.terminate();
+
+            expect(roktManager['kit']).toBeNull();
+            expect(roktManager['messageQueue'].size).toBe(1);
+            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
+            expect(queuedMessage.methodName).toBe('terminate');
+            expect(queuedMessage.payload).toEqual({});
+
+            roktManager.attachKit(kit);
+            expect(roktManager['kit']).not.toBeNull();
+            expect(roktManager['messageQueue'].size).toBe(0);
+            expect(kit.terminate).toHaveBeenCalled();
+        });
+
+        it('should pass through to kit.launcher.terminate', async () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                    getVersion: jest.fn(),
+                    terminate: jest.fn(),
+                },
+                terminate: jest.fn().mockImplementation(() => (kit.launcher).terminate()),
+            };
+
+            roktManager.attachKit(kit as IRoktKit);
+
+            roktManager.terminate();
+            expect(kit.terminate).toHaveBeenCalled();
+            expect(kit.launcher.terminate).toHaveBeenCalled();
+        });
+    });
+
+    describe('#getVersion', () => {
+        it('should call kit.getVersion', async () => {
+            const kit: IRoktKit = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                    getVersion: jest.fn().mockResolvedValue('1.1'),
+                    terminate: jest.fn(),
+                },
+                getVersion: jest.fn().mockImplementation(() => kit.launcher.getVersion()),
+                filters: undefined,
+                filteredUser: undefined,
+                userAttributes: undefined,
+                hashAttributes: jest.fn(),
+                selectPlacements: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+                terminate: jest.fn(),
+            };
+
+            roktManager.attachKit(kit);
+
+            const version = await roktManager.getVersion();
+            expect(kit.getVersion).toHaveBeenCalled();
+            expect(version).toBe('1.1');
+        });
+
+        it('should queue the getVersion method if no launcher or kit is attached', () => {
+            roktManager.getVersion();
+
+            expect(roktManager['kit']).toBeNull();
+            expect(roktManager['messageQueue'].size).toBe(1);
+            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
+            expect(queuedMessage.methodName).toBe('getVersion');
+            expect(queuedMessage.payload).toEqual({});
+        });
+
+        it('should process queued getVersion calls once the launcher and kit are attached', () => {
+            const kit: IRoktKit = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                    getVersion: jest.fn(),
+                    terminate: jest.fn(),
+                },
+                selectPlacements: jest.fn(),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+                terminate: jest.fn(),
+                getVersion: jest.fn(),
+                filters: undefined,
+                filteredUser: undefined,
+                userAttributes: undefined,
+            };
+
+            roktManager.getVersion();
+
+            expect(roktManager['kit']).toBeNull();
+            expect(roktManager['messageQueue'].size).toBe(1);
+            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
+            expect(queuedMessage.methodName).toBe('getVersion');
+            expect(queuedMessage.payload).toEqual({});
+
+            roktManager.attachKit(kit);
+            expect(roktManager['kit']).not.toBeNull();
+            expect(roktManager['messageQueue'].size).toBe(0);
+            expect(kit.getVersion).toHaveBeenCalled();
+        });
+
+        it('should pass through to kit.launcher.getVersion and return the version', async () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                    getVersion: jest.fn().mockResolvedValue('1.1'),
+                    terminate: jest.fn(),
+                },
+                getVersion: jest.fn().mockImplementation(() => (kit.launcher).getVersion()),
+            };
+
+            roktManager.attachKit(kit as IRoktKit);
+
+            const version = await roktManager.getVersion();
+            expect(kit.getVersion).toHaveBeenCalled();
+            expect(kit.launcher.getVersion).toHaveBeenCalled();
+            expect(version).toBe('1.1');
+        });
+    });
+
+    describe('#use', () => {
+        it('should call kit.use with provided name', async () => {
+            const kit: IRoktKit = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                    getVersion: jest.fn(),
+                    terminate: jest.fn(),
+                },
+                filters: undefined,
+                filteredUser: undefined,
+                userAttributes: undefined,
+                selectPlacements: jest.fn(),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+                getVersion: jest.fn(),
+                terminate: jest.fn(),
+            };
+
+            roktManager.attachKit(kit);
+
+            roktManager.use('ThankYouPageJourney');
+            expect(kit.use).toHaveBeenCalledWith('ThankYouPageJourney');
+        });
+
+        it('should queue the use method if no launcher or kit is attached', () => {
+            roktManager.use('ThankYouPageJourney');
+
+            expect(roktManager['kit']).toBeNull();
+            expect(roktManager['messageQueue'].size).toBe(1);
+            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
+            expect(queuedMessage.methodName).toBe('use');
+            expect(queuedMessage.payload).toBe('ThankYouPageJourney');
+        });
+
+        it('should process queued use calls once the launcher and kit are attached', async () => {
+            const kit: IRoktKit = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                    getVersion: jest.fn(),
+                    terminate: jest.fn(),
+                },
+                filters: undefined,
+                filteredUser: undefined,
+                userAttributes: undefined,
+                selectPlacements: jest.fn(),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+                getVersion: jest.fn(),
+                terminate: jest.fn(),
+            };
+
+            roktManager.use('ThankYouPageJourney');
+
+            expect(roktManager['kit']).toBeNull();
+            expect(roktManager['messageQueue'].size).toBe(1);
+            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
+            expect(queuedMessage.methodName).toBe('use');
+            expect(queuedMessage.payload).toBe('ThankYouPageJourney');
+            expect(kit.use).not.toHaveBeenCalled();
+
+            roktManager.attachKit(kit);
+
+            expect(roktManager['messageQueue'].size).toBe(0);
+            expect(roktManager['kit']).not.toBeNull();
+            expect(kit.use).toHaveBeenCalledWith('ThankYouPageJourney');
+        });
+
+        it('should pass through to kit.launcher.use and return the value', async () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn().mockResolvedValue('test-use'),
+                    getVersion: jest.fn(),
+                    terminate: jest.fn(),
+                },
+                selectPlacements: jest.fn(),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn().mockImplementation((name: string) => (kit.launcher).use(name)),
+                getVersion: jest.fn(),
+                terminate: jest.fn(),
+            };
+
+            roktManager.attachKit(kit as IRoktKit);
+
+            const result = await roktManager.use<string>('ThankYouPageJourney');
+            expect(kit.use).toHaveBeenCalledWith('ThankYouPageJourney');
+            expect(kit.launcher.use).toHaveBeenCalledWith('ThankYouPageJourney');
+            expect(result).toBe('test-use');
+        });
+    });
+
     describe('#deferredCall', () => {
         it('should create a deferred promise with unique messageId', () => {
             const testPayload = { test: 'data' };
