@@ -74,7 +74,7 @@ export class BatchUploader {
         // so that we don't have to check it every time
         this.OfflineStorage =
             this.isOfflineStorageAvailable() &&
-            !mpInstance._Store.getPrivacyFlagForStorage('Events');
+            !mpInstance._Store.getPrivacyFlag('Events');
 
         if (this.OfflineStorage) {
             this.eventVault = new SessionStorageVault<SDKEvent[]>(

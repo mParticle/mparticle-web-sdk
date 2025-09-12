@@ -216,7 +216,7 @@ export interface IStore {
     setNoFunctional?(noFunctional: boolean): void;
     getNoTargeting?(): boolean;
     setNoTargeting?(noTargeting: boolean): void;
-    getPrivacyFlagForStorage?(storageType: typeof StorageTypes[number]): boolean;
+    getPrivacyFlag?(storageType: typeof StorageTypes[number]): boolean;
 
     getDeviceId?(): string;
     setDeviceId?(deviceId: string): void;
@@ -609,7 +609,7 @@ export default function Store(
         this.noTargeting = noTargeting;
     };
 
-    this.getPrivacyFlagForStorage = (storageType: typeof StorageTypes[number]): boolean => {
+    this.getPrivacyFlag = (storageType: typeof StorageTypes[number]): boolean => {
         const privacyControl = StoragePrivacyMap[storageType];
         if (privacyControl === 'functional') {
             return this.getNoFunctional();
