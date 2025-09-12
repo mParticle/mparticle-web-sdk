@@ -38,7 +38,7 @@ export interface IRoktSelection {
 export interface IRoktLauncher {
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
     hashAttributes: (attributes: IRoktPartnerAttributes) => Promise<Record<string, string>>;
-    use: <T = any>(name: string) => Promise<T>;
+    use: <T>(name: string) => Promise<T>;
     getVersion: () => Promise<string>;
     terminate: () => Promise<void>;
 }
@@ -67,7 +67,7 @@ export interface IRoktKit {
     setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void;
     terminate: () => Promise<void>;
     getVersion: () => Promise<string>;
-    use: <T = any>(name: string) => Promise<T>;
+    use: <T>(name: string) => Promise<T>;
     launcherOptions?: Dictionary<any>;
 }
 
@@ -257,7 +257,7 @@ export default class RoktManager {
         }
     }
 
-    public use<T = any>(name: string): Promise<T> {
+    public use<T>(name: string): Promise<T> {
         if (!this.isReady()) {
             return this.deferredCall<T>('use', name);
         }
