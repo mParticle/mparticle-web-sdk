@@ -554,6 +554,7 @@ describe('RoktManager', () => {
     describe('#selectPlacements', () => {
         beforeEach(() => {
             roktManager['currentUser'] = currentUser;
+            jest.clearAllMocks();
         });
 
         it('should call kit.selectPlacements with empty attributes', () => {
@@ -1110,10 +1111,55 @@ describe('RoktManager', () => {
                     email: 'new@example.com'
                 }
             }, expect.any(Function));
+            expect(mockMPInstance.Logger.warning).toHaveBeenCalled();
+        });
+
+        it('should not call identify when user has current email but no email is passed to selectPlacements', async () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn()
+                },
+                selectPlacements: jest.fn(),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+            
+            roktManager['placementAttributesMapping'] = [];
+            roktManager['configSettings'] = {};
+            roktManager.kit = kit as IRoktKit;
+
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getUserIdentities: () => ({
+                        userIdentities: {
+                            email: 'existing@example.com'
+                        }
+                    }),
+                    setUserAttributes: jest.fn()
+                }),
+                identify: jest.fn().mockImplementation((data, callback) => {
+                    // Call callback with no error to simulate success
+                    callback();
+                })
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    // No email attribute passed
+                    // customAttribute: 'some-value'
+                }
+            };
+
+            await roktManager.selectPlacements(options);
+
+            expect(mockIdentity.identify).not.toHaveBeenCalled();
             expect(mockMPInstance.Logger.warning).not.toHaveBeenCalled();
         });
 
-        it('should call identify with emailsha256 mapped to other when it differs from current user other identity', async () => {
+        it('should call identify with emailsha256 mapped to other5 when it differs from current user other5 identity', async () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -1125,13 +1171,16 @@ describe('RoktManager', () => {
             };
 
             roktManager.kit = kit as IRoktKit;
+            roktManager['configSettings'] = {
+                hashedEmailUserIdentityType: 'Other5'
+            };
 
             // Set up fresh mocks for this test
             const mockIdentity = {
                 getCurrentUser: jest.fn().mockReturnValue({
                     getUserIdentities: () => ({
                         userIdentities: {
-                            other: 'old-other-value'
+                            other5: 'old-other-value'
                         }
                     }),
                     setUserAttributes: jest.fn()
@@ -1154,15 +1203,15 @@ describe('RoktManager', () => {
 
             expect(mockIdentity.identify).toHaveBeenCalledWith({
                 userIdentities: {
-                    other: 'new-emailsha256-value'
+                    other5: 'new-emailsha256-value'
                 }
             }, expect.any(Function));
             expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(
-                'emailsha256 identity mismatch detected. Current mParticle \'other\' identity, old-other-value differs from emailsha256 passed to selectPlacements call, new-emailsha256-value. Proceeding to call identify with \'other\' set to new-emailsha256-value. Please verify your implementation.'
+                "emailsha256 mismatch detected. Current mParticle other5 identity, old-other-value, differs from from 'emailsha256' passed to selectPlacements call, new-emailsha256-value. Proceeding to call identify with other5 set to new-emailsha256-value. Please verify your implementation"
             );
         });
 
-        it('should not call identify when emailsha256 matches current user other identity', () => {
+        it('should not call identify when emailsha256 matches current user other5 identity', () => {
             // Reset mocks
             jest.clearAllMocks();
             
@@ -1177,13 +1226,16 @@ describe('RoktManager', () => {
             };
 
             roktManager.kit = kit as IRoktKit;
+            roktManager['configSettings'] = {
+                hashedEmailUserIdentityType: 'Other5'
+            };
 
             // Set up fresh mocks for this test
             const mockIdentity = {
                 getCurrentUser: jest.fn().mockReturnValue({
                     getUserIdentities: () => ({
                         userIdentities: {
-                            other: 'same-emailsha256-value'
+                            other5: 'same-emailsha256-value'
                         }
                     }),
                     setUserAttributes: jest.fn()
@@ -1217,6 +1269,9 @@ describe('RoktManager', () => {
             };
 
             roktManager.kit = kit as IRoktKit;
+            roktManager['configSettings'] = {
+                hashedEmailUserIdentityType: 'Other'
+            };
 
             const mockIdentity = {
                 getCurrentUser: jest.fn().mockReturnValue({
@@ -1246,7 +1301,9 @@ describe('RoktManager', () => {
                     other: 'new-emailsha256-value'
                 }
             }, expect.any(Function));
-            expect(mockMPInstance.Logger.warning).not.toHaveBeenCalled();
+            expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(
+                "emailsha256 mismatch detected. Current mParticle other identity, undefined, differs from from 'emailsha256' passed to selectPlacements call, new-emailsha256-value. Proceeding to call identify with other set to new-emailsha256-value. Please verify your implementation"
+            );
         });
 
         it('should not call identify when current user has other identity but emailsha256 is null', () => {
@@ -1264,6 +1321,9 @@ describe('RoktManager', () => {
             };
 
             roktManager.kit = kit as IRoktKit;
+            roktManager['configSettings'] = {
+                hashedEmailUserIdentityType: 'Other'
+            };
 
             // Set up fresh mocks for this test
             const mockIdentity = {

@@ -8,10 +8,13 @@ import {
     generateUniqueId,
     isFunction,
     AttributeValue,
+    isEmpty,
 } from "./utils";
 import { SDKIdentityApi } from "./identity.interfaces";
 import { SDKLoggerApi } from "./sdkRuntimeModels";
 import { IStore, LocalSessionAttributes } from "./store";
+import { UserIdentities } from "@mparticle/web-sdk";
+import { IdentityType } from "./types";
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export interface IRoktPartnerAttributes {
@@ -96,6 +99,7 @@ export default class RoktManager {
     private launcherOptions?: IRoktLauncherOptions;
     private logger: SDKLoggerApi;
     private domain?: string;
+    private configSettings: Dictionary<string> = {};
     /**
      * Initializes the RoktManager with configuration settings and user data.
      * 
@@ -117,6 +121,7 @@ export default class RoktManager {
     ): void {
         const { userAttributeFilters, settings } = roktConfig || {};
         const { placementAttributesMapping } = settings || {};
+        this.configSettings = settings;
 
         this.identityService = identityService;
         this.store = store;
@@ -178,27 +183,49 @@ export default class RoktManager {
             const { attributes } = options;
             const sandboxValue = attributes?.sandbox || null;
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
+            const { hashedEmailUserIdentityType = null } = this.configSettings || {};
+
+            const normalizedHashedEmailUserIdentityType = hashedEmailUserIdentityType?.toLowerCase() || null;
 
             // Get current user identities
             this.currentUser = this.identityService.getCurrentUser();
             const currentUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
+
             const currentEmail = currentUserIdentities.email;
             const newEmail = mappedAttributes.email as string;
 
+            let currentHashedEmail: string | undefined;
+            let newHashedEmail: string | undefined;
+            
+            // Hashed email identity is valid if it is set to Other-Other10
+            if(normalizedHashedEmailUserIdentityType && IdentityType.getIdentityType(normalizedHashedEmailUserIdentityType) !== false) {
+                currentHashedEmail = currentUserIdentities[normalizedHashedEmailUserIdentityType];
+                newHashedEmail = mappedAttributes['emailsha256'] as string || undefined;
+            }
+
+            const emailChanged = !!(newEmail && (!currentEmail || currentEmail !== newEmail));
+            const hashedEmailChanged = !!(newHashedEmail && (!currentHashedEmail || currentHashedEmail !== newHashedEmail));
             // https://go.mparticle.com/work/SQDSDKS-7338
-            // Check if email exists and differs
-            if (newEmail && (!currentEmail || currentEmail !== newEmail)) {
-                if (currentEmail && currentEmail !== newEmail) {
+            const newIdentities: UserIdentities = {};
+            if (emailChanged) {
+                newIdentities.email = newEmail;
+                if (newEmail) {
                     this.logger.warning(`Email mismatch detected. Current email, ${currentEmail} differs from email passed to selectPlacements call, ${newEmail}. Proceeding to call identify with ${newEmail}. Please verify your implementation.`);
                 }
+            }
 
+            if (hashedEmailChanged) {
+                newIdentities[normalizedHashedEmailUserIdentityType] = newHashedEmail;
+                this.logger.warning(`emailsha256 mismatch detected. Current mParticle ${normalizedHashedEmailUserIdentityType} identity, ${currentHashedEmail}, differs from from 'emailsha256' passed to selectPlacements call, ${newHashedEmail}. Proceeding to call identify with ${normalizedHashedEmailUserIdentityType} set to ${newHashedEmail}. Please verify your implementation`);
+            }
+            if (!isEmpty(newIdentities)) {
                 // Call identify with the new user identities
                 try {
                     await new Promise<void>((resolve, reject) => {
                         this.identityService.identify({
                             userIdentities: {
                                 ...currentUserIdentities,
-                                email: newEmail
+                                ...newIdentities
                             }
                         }, () => {
                             resolve();
@@ -206,32 +233,6 @@ export default class RoktManager {
                     });
                 } catch (error) {
                     this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error));
-                }
-            }
-
-            // Handle emailsha256 mapping to 'other' identity
-            const newEmailSha256 = options.attributes.emailsha256;
-            const currentOther = currentUserIdentities.other;
-            
-            if (newEmailSha256 && (!currentOther || currentOther !== newEmailSha256)) {
-                if (currentOther && currentOther !== newEmailSha256) {
-                    this.logger.warning(`emailsha256 identity mismatch detected. Current mParticle 'other' identity, ${currentOther} differs from emailsha256 passed to selectPlacements call, ${newEmailSha256}. Proceeding to call identify with 'other' set to ${newEmailSha256}. Please verify your implementation.`);
-                }
-
-                // Call identify with the new 'other' identity mapped from emailsha256
-                try {
-                    await new Promise<void>((resolve, reject) => {
-                        this.identityService.identify({
-                            userIdentities: {
-                                ...currentUserIdentities,
-                                other: newEmailSha256 as string
-                            }
-                        }, () => {
-                            resolve();
-                        });
-                    });
-                } catch (error) {
-                    this.logger.error('Failed to identify user with new emailsha256 mapped to other identity: ' + JSON.stringify(error));
                 }
             }
 
