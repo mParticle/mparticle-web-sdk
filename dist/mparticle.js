@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.44.0";
+    var version = "2.45.0";
 
     var Constants = {
       sdkVersion: version,
@@ -4354,6 +4354,8 @@ var mParticle = (function () {
       var isWebviewEnabled = mpInstance._NativeSdkHelpers.isWebviewEnabled;
       var defaultStore = {
         isEnabled: true,
+        noFunctional: false,
+        noTargeting: false,
         sessionAttributes: {},
         localSessionAttributes: {},
         currentSessionMPIDs: [],
@@ -4592,6 +4594,18 @@ var mParticle = (function () {
           _this._setPersistence(mpid, 'con', toMinifiedJsonObject(consentState));
         }
       };
+      this.getNoFunctional = function () {
+        return _this.noFunctional;
+      };
+      this.setNoFunctional = function (noFunctional) {
+        _this.noFunctional = noFunctional;
+      };
+      this.getNoTargeting = function () {
+        return _this.noTargeting;
+      };
+      this.setNoTargeting = function (noTargeting) {
+        _this.noTargeting = noTargeting;
+      };
       this.getDeviceId = function () {
         return _this.deviceId;
       };
@@ -4691,6 +4705,13 @@ var mParticle = (function () {
         // add a new function to apply items to the store that require config to be returned
         _this.storageName = createMainStorageName(workspaceToken);
         _this.prodStorageName = createProductStorageName(workspaceToken);
+        // Extract privacy flags directly from config into Store
+        if (config.hasOwnProperty('noFunctional')) {
+          _this.setNoFunctional(config.noFunctional);
+        }
+        if (config.hasOwnProperty('noTargeting')) {
+          _this.setNoTargeting(config.noTargeting);
+        }
         _this.SDKConfig.requiredWebviewBridgeName = requiredWebviewBridgeName || workspaceToken;
         _this.webviewBridgeEnabled = isWebviewEnabled(_this.SDKConfig.requiredWebviewBridgeName, _this.SDKConfig.minWebviewBridgeVersion);
         _this.configurationLoaded = true;
@@ -9901,6 +9922,16 @@ var mParticle = (function () {
         } catch (error) {
           var errorMessage = error instanceof Error ? error.message : String(error);
           throw new Error('Error setting extension data: ' + errorMessage);
+        }
+      };
+      RoktManager.prototype.use = function (name) {
+        if (!this.isReady()) {
+          return this.deferredCall('use', name);
+        }
+        try {
+          return this.kit.use(name);
+        } catch (error) {
+          return Promise.reject(error instanceof Error ? error : new Error('Error using extension: ' + name));
         }
       };
       RoktManager.prototype.getLocalSessionAttributes = function () {
