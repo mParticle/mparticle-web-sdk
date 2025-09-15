@@ -140,9 +140,11 @@ describe('snippet', function() {
         mParticle.Rokt.hashAttributes();
         mParticle.Rokt.selectPlacements();
         mParticle.Rokt.setExtensionData();
+        mParticle.Rokt.use();
         mParticle.config.rq[0][0].should.equal('Rokt.hashAttributes');
         mParticle.config.rq[1][0].should.equal('Rokt.selectPlacements');
         mParticle.config.rq[2][0].should.equal('Rokt.setExtensionData');
+        mParticle.config.rq[3][0].should.equal('Rokt.use');
         done();
     });
 });
