@@ -39,8 +39,6 @@ export interface IRoktLauncher {
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
     hashAttributes: (attributes: IRoktPartnerAttributes) => Promise<Record<string, string>>;
     use: <T>(name: string) => Promise<T>;
-    getVersion: () => Promise<string>;
-    terminate: () => Promise<void>;
 }
 
 export interface IRoktMessage {
@@ -65,8 +63,6 @@ export interface IRoktKit {
     hashAttributes: (attributes: IRoktPartnerAttributes) => Promise<Record<string, string>>;
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
     setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void;
-    terminate: () => Promise<void>;
-    getVersion: () => Promise<string>;
     use: <T>(name: string) => Promise<T>;
     launcherOptions?: Dictionary<any>;
 }
