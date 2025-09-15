@@ -22,7 +22,7 @@ describe('BatchUploader', () => {
                 storageName: 'mprtcl-v4_abcdef',
                 getNoFunctional: function(this: any) { return this.noFunctional; },
                 getNoTargeting: function(this: any) { return this.noTargeting; },
-                getPrivacyFlag: function(this: any, storageType: typeof StorageTypes[number]) {
+                getPrivacyFlag: function(this: any, storageType: StorageTypes) {
                     const privacyControl = StoragePrivacyMap[storageType];
                     if (privacyControl === 'functional') {
                         return this.getNoFunctional();

@@ -233,10 +233,10 @@ export const HTTP_SERVER_ERROR = 500 as const;
 // Privacy dependency map for storage keys
 export type PrivacyControl = 'functional' | 'targeting';
 
-export const StorageTypes = ['SDKState', 'Products', 'Events', 'Batches', 'IdCache', 'TimeOnSite'];
+export type StorageTypes = 'SDKState' | 'Products' | 'Events' | 'Batches' | 'IdCache' | 'TimeOnSite';
 
-export const StoragePrivacyMap: Record<typeof StorageTypes[number], PrivacyControl> = {
-    SDKState : 'functional',
+export const StoragePrivacyMap: Record<StorageTypes, PrivacyControl> = {
+    SDKState: 'functional',
     Products: 'targeting',
     Events: 'functional',
     Batches: 'functional',

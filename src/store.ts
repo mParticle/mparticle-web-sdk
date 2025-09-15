@@ -8,7 +8,7 @@ import {
     UserIdentities,
 } from '@mparticle/web-sdk';
 import { IKitConfigs } from './configAPIClient';
-import Constants, { StoragePrivacyMap, StorageTypes } from './constants';
+import Constants, { PrivacyControl, StoragePrivacyMap, StorageTypes } from './constants';
 import {
     DataPlanResult,
     KitBlockerOptions,
@@ -216,7 +216,7 @@ export interface IStore {
     setNoFunctional?(noFunctional: boolean): void;
     getNoTargeting?(): boolean;
     setNoTargeting?(noTargeting: boolean): void;
-    getPrivacyFlag?(storageType: typeof StorageTypes[number]): boolean;
+    getPrivacyFlag?(storageType: StorageTypes): boolean;
 
     getDeviceId?(): string;
     setDeviceId?(deviceId: string): void;
@@ -609,8 +609,8 @@ export default function Store(
         this.noTargeting = noTargeting;
     };
 
-    this.getPrivacyFlag = (storageType: typeof StorageTypes[number]): boolean => {
-        const privacyControl = StoragePrivacyMap[storageType];
+    this.getPrivacyFlag = (storageType: StorageTypes): boolean => {
+        const privacyControl: PrivacyControl = StoragePrivacyMap[storageType];
         if (privacyControl === 'functional') {
             return this.getNoFunctional();
         }
