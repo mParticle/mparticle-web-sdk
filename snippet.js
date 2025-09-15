@@ -19,7 +19,7 @@
     window.mParticle.Rokt = {};
     window.mParticle.config = window.mParticle.config || {};
     window.mParticle.config.rq = [];
-    window.mParticle.config.snippetVersion = 2.5;
+    window.mParticle.config.snippetVersion = 2.6;
     window.mParticle.ready = function(f) {
         window.mParticle.config.rq.push(f);
     };
