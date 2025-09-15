@@ -1,3 +1,11 @@
+# [2.45.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.44.0...v2.45.0) (2025-09-15)
+
+
+### Features
+
+* add use method for rokt kit ([#1067](https://github.com/mParticle/mparticle-web-sdk/issues/1067)) ([bdcd4c5](https://github.com/mParticle/mparticle-web-sdk/commit/bdcd4c52cf74ce9688725a588c811aafe4aee19a))
+* added noFunctional and noTargeting flags ([#1059](https://github.com/mParticle/mparticle-web-sdk/issues/1059)) ([9235483](https://github.com/mParticle/mparticle-web-sdk/commit/9235483a77b92000c820809cc77a6d16c4389ff5))
+
 # [2.44.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.43.3...v2.44.0) (2025-09-02)
 
 
