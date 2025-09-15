@@ -39,51 +39,52 @@ export default function _Persistence(mpInstance) {
             if (!mpInstance._Store.isLocalStorageAvailable) {
                 mpInstance._Store.SDKConfig.useCookieStorage = true;
             }
-
-            // https://go.mparticle.com/work/SQDSDKS-6046
-            if (mpInstance._Store.isLocalStorageAvailable) {
-                storage = window.localStorage;
-                if (mpInstance._Store.SDKConfig.useCookieStorage) {
-                    // For migrating from localStorage to cookies -- If an instance switches from localStorage to cookies, then
-                    // no mParticle cookie exists yet and there is localStorage. Get the localStorage, set them to cookies, then delete the localStorage item.
-                    if (localStorageData) {
-                        if (cookies) {
-                            // https://go.mparticle.com/work/SQDSDKS-6047
-                            allData = mpInstance._Helpers.extend(
-                                false,
-                                localStorageData,
-                                cookies
-                            );
-                        } else {
-                            allData = localStorageData;
-                        }
-                        storage.removeItem(mpInstance._Store.storageName);
-                    } else if (cookies) {
-                        allData = cookies;
-                    }
-                    self.storeDataInMemory(allData);
-                } else {
-                    // For migrating from cookie to localStorage -- If an instance is newly switching from cookies to localStorage, then
-                    // no mParticle localStorage exists yet and there are cookies. Get the cookies, set them to localStorage, then delete the cookies.
-                    if (cookies) {
+            if (!mpInstance._Store.getNoFunctional()) {
+                // https://go.mparticle.com/work/SQDSDKS-6046
+                if (mpInstance._Store.isLocalStorageAvailable) {
+                    storage = window.localStorage;
+                    if (mpInstance._Store.SDKConfig.useCookieStorage) {
+                        // For migrating from localStorage to cookies -- If an instance switches from localStorage to cookies, then
+                        // no mParticle cookie exists yet and there is localStorage. Get the localStorage, set them to cookies, then delete the localStorage item.
                         if (localStorageData) {
-                            // https://go.mparticle.com/work/SQDSDKS-6047
-                            allData = mpInstance._Helpers.extend(
-                                false,
-                                localStorageData,
-                                cookies
-                            );
-                        } else {
+                            if (cookies) {
+                                // https://go.mparticle.com/work/SQDSDKS-6047
+                                allData = mpInstance._Helpers.extend(
+                                    false,
+                                    localStorageData,
+                                    cookies
+                                );
+                            } else {
+                                allData = localStorageData;
+                            }
+                            storage.removeItem(mpInstance._Store.storageName);
+                        } else if (cookies) {
                             allData = cookies;
                         }
                         self.storeDataInMemory(allData);
-                        self.expireCookies(mpInstance._Store.storageName);
                     } else {
-                        self.storeDataInMemory(localStorageData);
+                        // For migrating from cookie to localStorage -- If an instance is newly switching from cookies to localStorage, then
+                        // no mParticle localStorage exists yet and there are cookies. Get the cookies, set them to localStorage, then delete the cookies.
+                        if (cookies) {
+                            if (localStorageData) {
+                                // https://go.mparticle.com/work/SQDSDKS-6047
+                                allData = mpInstance._Helpers.extend(
+                                    false,
+                                    localStorageData,
+                                    cookies
+                                );
+                            } else {
+                                allData = cookies;
+                            }
+                            self.storeDataInMemory(allData);
+                            self.expireCookies(mpInstance._Store.storageName);
+                        } else {
+                            self.storeDataInMemory(localStorageData);
+                        }
                     }
+                } else {
+                    self.storeDataInMemory(cookies);
                 }
-            } else {
-                self.storeDataInMemory(cookies);
             }
 
             // https://go.mparticle.com/work/SQDSDKS-6048
@@ -114,14 +115,15 @@ export default function _Persistence(mpInstance) {
                     'Error loading products in initialization: ' + e
                 );
             }
-
-            // https://go.mparticle.com/work/SQDSDKS-6046
-            // Stores all non-current user MPID information into the store
-            for (var key in allData) {
-                if (allData.hasOwnProperty(key)) {
-                    if (!SDKv2NonMPIDCookieKeys[key]) {
-                        mpInstance._Store.nonCurrentUserMPIDs[key] =
-                            allData[key];
+            if (!mpInstance._Store.getNoFunctional()) {
+                // https://go.mparticle.com/work/SQDSDKS-6046
+                // Stores all non-current user MPID information into the store
+                for (var key in allData) {
+                    if (allData.hasOwnProperty(key)) {
+                        if (!SDKv2NonMPIDCookieKeys[key]) {
+                            mpInstance._Store.nonCurrentUserMPIDs[key] =
+                                allData[key];
+                        }
                     }
                 }
             }
@@ -143,6 +145,10 @@ export default function _Persistence(mpInstance) {
 
     this.update = function() {
         if (!mpInstance._Store.webviewBridgeEnabled) {
+            if (mpInstance._Store.getNoFunctional()) {
+                self.setProductStorage();
+                return;
+            }
             if (mpInstance._Store.SDKConfig.useCookieStorage) {
                 self.setCookie();
             }
@@ -326,15 +332,13 @@ export default function _Persistence(mpInstance) {
         return parsedDecodedProducts;
     };
 
-    // https://go.mparticle.com/work/SQDSDKS-6021
-    this.setLocalStorage = function() {
+    // Update only the product storage, independent from main persistence writes
+    this.setProductStorage = function() {
         if (!mpInstance._Store.isLocalStorageAvailable) {
             return;
         }
 
-        var key = mpInstance._Store.storageName,
-            allLocalStorageProducts = self.getAllUserProductsFromLS(),
-            localStorageData = self.getLocalStorage() || {},
+        var allLocalStorageProducts = self.getAllUserProductsFromLS(),
             currentUser = mpInstance.Identity.getCurrentUser(),
             mpid = currentUser ? currentUser.getMPID() : null,
             currentUserProducts = {
@@ -356,6 +360,21 @@ export default function _Persistence(mpInstance) {
                 );
             }
         }
+    };
+
+    // https://go.mparticle.com/work/SQDSDKS-6021
+    this.setLocalStorage = function() {
+        if (!mpInstance._Store.isLocalStorageAvailable) {
+            return;
+        }
+
+        var key = mpInstance._Store.storageName,
+            localStorageData = self.getLocalStorage() || {},
+            currentUser = mpInstance.Identity.getCurrentUser(),
+            mpid = currentUser ? currentUser.getMPID() : null;
+
+        // Always update product storage when setLocalStorage is invoked
+        self.setProductStorage();
 
         if (!mpInstance._Store.SDKConfig.useCookieStorage) {
             localStorageData.gs = localStorageData.gs || {};
@@ -962,6 +981,9 @@ export default function _Persistence(mpInstance) {
 
     // https://go.mparticle.com/work/SQDSDKS-6021
     this.savePersistence = function(persistence) {
+        if (mpInstance._Store.getNoFunctional()) {
+            return;
+        }
         var encodedPersistence = self.encodePersistence(
                 JSON.stringify(persistence)
             ),
@@ -1006,6 +1028,9 @@ export default function _Persistence(mpInstance) {
     };
 
     this.getPersistence = function() {
+        if (mpInstance._Store.getNoFunctional()) {
+            return null;
+        }
         var persistence = this.useLocalStorage()
             ? this.getLocalStorage()
             : this.getCookie();

@@ -1948,4 +1948,112 @@ describe('persistence', () => {
         user2.getAllUserAttributes()['ua-list'][1].should.equal('<b>');
         user2.getAllUserAttributes()['ua-1'].should.equal('a');
     });
+
+    describe('#noFunctional', () => {
+        beforeEach(() => {
+            mParticle._resetForTests(MPConfig);
+        });
+
+        describe('true', () => {
+            beforeEach(() => {
+                mParticle.config.noFunctional = true;
+            });
+            it('should NOT store cookie when useCookieStorage = true', async () => {
+                mParticle.config.useCookieStorage = true;
+
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                mParticle.getInstance()._Persistence.update();
+
+                expect(findCookie()).to.not.be.ok;
+
+                const products = getLocalStorageProducts();
+                expect(products).to.be.ok;
+                expect(products).to.have.property(testMPID);
+            });
+
+            it('should NOT write localStorage when useCookieStorage = false', async () => {
+                mParticle.config.useCookieStorage = false;
+
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                mParticle.getInstance()._Persistence.update();
+
+                expect(getLocalStorage()).to.not.be.ok;
+
+                const products = getLocalStorageProducts();
+                expect(products).to.be.ok;
+                expect(products).to.have.property(testMPID);
+            });
+        });
+
+        describe('false', () => {
+            beforeEach(() => {
+                mParticle.config.noFunctional = false;
+            });
+            it('should store cookie when useCookieStorage = true', async () => {
+                mParticle.config.useCookieStorage = true;
+
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                mParticle.getInstance()._Persistence.update();
+
+                expect(findCookie()).to.be.ok;
+
+                const products = getLocalStorageProducts();
+                expect(products).to.be.ok;
+                expect(products).to.have.property(testMPID);
+            });
+
+            it('should store localStorage when useCookieStorage = false', async () => {
+                mParticle.config.useCookieStorage = false;
+
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                mParticle.getInstance()._Persistence.update();
+
+                expect(getLocalStorage()).to.be.ok;
+
+                const products = getLocalStorageProducts();
+                expect(products).to.be.ok;
+                expect(products).to.have.property(testMPID);
+            });
+        });
+
+        describe('default (false)', () => {
+            it('should store cookie when useCookieStorage = true', async () => {
+                mParticle.config.useCookieStorage = true;
+
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                mParticle.getInstance()._Persistence.update();
+
+                expect(findCookie()).to.be.ok;
+
+                const products = getLocalStorageProducts();
+                expect(products).to.be.ok;
+                expect(products).to.have.property(testMPID);
+            });
+
+            it('should store localStorage when useCookieStorage = false', async () => {
+                mParticle.config.useCookieStorage = false;
+
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                mParticle.getInstance()._Persistence.update();
+
+                expect(getLocalStorage()).to.be.ok;
+
+                const products = getLocalStorageProducts();
+                expect(products).to.be.ok;
+                expect(products).to.have.property(testMPID);
+            });
+        });
+    });
 });
