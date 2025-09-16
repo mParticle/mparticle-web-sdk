@@ -148,7 +148,7 @@ describe('BatchUploader', () => {
             expect(localStorage.getItem('mprtcl-v4_abcdef-batches')).toBeNull();
         });
 
-        it('should enable offline storage when noFunctional is default (false)', async () => {
+        it('should enable offline storage when noFunctional is false by default', async () => {
             const uploader = new BatchUploader(mockMPInstance, 1000);
 
             expect(uploader['offlineStorageEnabled']).toBe(true);

@@ -1724,7 +1724,7 @@ describe('batch uploader', () => {
                 window.mParticle._resetForTests(MPConfig);
             });
 
-            it('should store events in session storage when noFunctional is default (false)', async () => {
+            it('should store batches in local storage when noFunctional is false by default', async () => {
                 window.mParticle.config.flags = {
                     offlineStorage: '100',
                     ...enableBatchingConfigFlags,
@@ -1770,7 +1770,7 @@ describe('batch uploader', () => {
                 expect(!!window.sessionStorage.getItem(eventStorageKey)).to.equal(true);
             });
 
-            it('should store batches in local storage when noFunctional is default false by default', async () => {
+            it('should store batches in local storage when noFunctional is false by default', async () => {
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
                 const mpInstance = window.mParticle.getInstance();
