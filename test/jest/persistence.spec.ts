@@ -2,7 +2,7 @@ import Store, { IStore } from '../../src/store';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 import { SDKInitConfig } from '../../src/sdkRuntimeModels';
 
-describe('Persistence writers', () => {
+describe('Persistence store', () => {
     let store: IStore;
     let mockMPInstance: IMParticleWebSDKInstance;
 
@@ -49,14 +49,14 @@ describe('Persistence writers', () => {
         Store.call(store, {} as SDKInitConfig, mockMPInstance, 'apikey');
     });
 
-    describe('#noFunctional', () => {
+    describe('#noFunctional privacy flag', () => {
         describe('true', () => {
             beforeEach(() => {
                 store.setNoFunctional(true);
                 store.webviewBridgeEnabled = false;
             });
 
-            it('should NOT write to cookie when useCookieStorage = true', () => {
+            it('should NOT write to cookie when useCookieStorage is true', () => {
                 store.SDKConfig.useCookieStorage = true;
                 jest.clearAllMocks();
 
@@ -67,7 +67,7 @@ describe('Persistence writers', () => {
                 expect(mockMPInstance._Persistence.setProductStorage).toHaveBeenCalled();
             });
 
-            it('should NOT write to localStorage when useCookieStorage = false', () => {
+            it('should NOT write to localStorage when useCookieStorage is false', () => {
                 store.SDKConfig.useCookieStorage = false;
                 jest.clearAllMocks();
 
@@ -85,7 +85,7 @@ describe('Persistence writers', () => {
                 store.webviewBridgeEnabled = false;
             });
 
-            it('should write to cookie when useCookieStorage = true', () => {
+            it('should write to cookie when useCookieStorage is true', () => {
                 store.SDKConfig.useCookieStorage = true;
                 jest.clearAllMocks();
 
@@ -96,7 +96,7 @@ describe('Persistence writers', () => {
                 expect(mockMPInstance._Persistence.setProductStorage).not.toHaveBeenCalled();
             });
 
-            it('should write to localStorage when useCookieStorage = false', () => {
+            it('should write to localStorage when useCookieStorage is false', () => {
                 store.SDKConfig.useCookieStorage = false;
                 jest.clearAllMocks();
 
@@ -108,13 +108,13 @@ describe('Persistence writers', () => {
             });
         });
 
-        describe('default (false)', () => {
+        describe('is false by default', () => {
             beforeEach(() => {
                 // default is false
                 store.webviewBridgeEnabled = false;
             });
 
-            it('should write to cookie by default when useCookieStorage = true', () => {
+            it('should write to cookie by default when useCookieStorage is true', () => {
                 store.SDKConfig.useCookieStorage = true;
                 jest.clearAllMocks();
 
@@ -126,7 +126,7 @@ describe('Persistence writers', () => {
                 expect(mockMPInstance._Persistence.setProductStorage).not.toHaveBeenCalled();
             });
 
-            it('should write to localStorage by default when useCookieStorage = false', () => {
+            it('should write to localStorage by default when useCookieStorage is false', () => {
                 store.SDKConfig.useCookieStorage = false;
                 jest.clearAllMocks();
 
@@ -139,7 +139,7 @@ describe('Persistence writers', () => {
             });
         });
 
-        it('should NOT write to storage when webviewBridgeEnabled = true', () => {
+        it('should NOT write to storage when webviewBridgeEnabled is true', () => {
             store.setNoFunctional(false);
             store.webviewBridgeEnabled = true;
             store.SDKConfig.useCookieStorage = true;

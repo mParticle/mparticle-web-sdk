@@ -332,7 +332,6 @@ export default function _Persistence(mpInstance) {
         return parsedDecodedProducts;
     };
 
-    // Update only the product storage, independent from main persistence writes
     this.setProductStorage = function() {
         if (!mpInstance._Store.isLocalStorageAvailable) {
             return;

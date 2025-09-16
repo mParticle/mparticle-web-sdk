@@ -2024,7 +2024,7 @@ describe('persistence', () => {
             });
         });
 
-        describe('default (false)', () => {
+        describe('is false by default', () => {
             it('should store cookie when useCookieStorage = true', async () => {
                 mParticle.config.useCookieStorage = true;
 
