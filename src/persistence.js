@@ -88,14 +88,10 @@ export default function _Persistence(mpInstance) {
 
             // https://go.mparticle.com/work/SQDSDKS-6048
             try {
-                if (mpInstance._Store.isLocalStorageAvailable) {
-                    if (mpInstance._Store.getNoTargeting()) {
-                        localStorage.removeItem(
-                            mpInstance._Store.prodStorageName
-                        );
-                        mpInstance._Store.cartProducts = [];
-                        return;
-                    }
+                if (
+                    mpInstance._Store.isLocalStorageAvailable &&
+                    !mpInstance._Store.getNoTargeting()
+                ) {
                     var encodedProducts = localStorage.getItem(
                         mpInstance._Store.prodStorageName
                     );
@@ -363,11 +359,7 @@ export default function _Persistence(mpInstance) {
             };
 
         if (mpInstance._Store.getNoTargeting()) {
-            try {
-                window.localStorage.removeItem(
-                    mpInstance._Store.prodStorageName
-                );
-            } catch (e) {}
+            return;
         }
         if (mpid) {
             allLocalStorageProducts = allLocalStorageProducts || {};
@@ -945,13 +937,10 @@ export default function _Persistence(mpInstance) {
     };
 
     this.setCartProducts = function(allProducts) {
-        if (!mpInstance._Store.isLocalStorageAvailable) {
-            return;
-        }
-        if (mpInstance._Store.getNoTargeting()) {
-            try {
-                localStorage.removeItem(mpInstance._Store.prodStorageName);
-            } catch (e) {}
+        if (
+            !mpInstance._Store.isLocalStorageAvailable &&
+            mpInstance._Store.getNoTargeting()
+        ) {
             return;
         }
 

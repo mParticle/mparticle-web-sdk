@@ -1674,18 +1674,6 @@ describe('persistence', () => {
             const localStorageProducts = localStorage.getItem(LocalStorageProductsV4WithWorkSpaceName);
             expect(localStorageProducts).to.not.be.ok;
         });
-
-        it('should clear existing products LS when noTargeting is true', async () => {
-            localStorage.setItem(
-                LocalStorageProductsV4WithWorkSpaceName,
-                btoa(JSON.stringify({ testMPID: { cp: [{ Name: 'x' }] } }))
-            );
-            mParticle.config.noTargeting = true;
-            mParticle.init(apiKey, mParticle.config);
-            await waitForCondition(hasIdentifyReturned);
-            const localStorageProducts = localStorage.getItem(LocalStorageProductsV4WithWorkSpaceName);
-            expect(localStorageProducts).to.not.be.ok;
-        });
         
         it('should save products LS when noTargeting is false', async () => {
             mParticle.config.noTargeting = false;
@@ -1704,7 +1692,7 @@ describe('persistence', () => {
             expect(localStorageProducts).to.be.ok;
         });
 
-        it('should save products LS when noTargeting is default (false)', async () => {
+        it('should save products LS when noTargeting is false by default', async () => {
             mParticle.init(apiKey, mParticle.config);
             await waitForCondition(hasIdentifyReturned);
             const iphone = mParticle.eCommerce.createProduct(
