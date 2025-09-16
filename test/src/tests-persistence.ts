@@ -1661,6 +1661,65 @@ describe('persistence', () => {
         parsedProductsAfter['testMPID'].cp.length.should.equal(0);
     });
 
+    describe('products persistence with noTargeting privacy flag', () => {
+        beforeEach(() => {
+            mParticle._resetForTests(MPConfig);
+        }); 
+
+        it('should not save products LS when noTargeting is true', async () => {
+            mParticle.config.noTargeting = true;
+
+            mParticle.init(apiKey, mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+            const localStorageProducts = localStorage.getItem(LocalStorageProductsV4WithWorkSpaceName);
+            expect(localStorageProducts).to.not.be.ok;
+        });
+
+        it('should clear existing products LS when noTargeting is true', async () => {
+            localStorage.setItem(
+                LocalStorageProductsV4WithWorkSpaceName,
+                btoa(JSON.stringify({ testMPID: { cp: [{ Name: 'x' }] } }))
+            );
+            mParticle.config.noTargeting = true;
+            mParticle.init(apiKey, mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+            const localStorageProducts = localStorage.getItem(LocalStorageProductsV4WithWorkSpaceName);
+            expect(localStorageProducts).to.not.be.ok;
+        });
+        
+        it('should save products LS when noTargeting is false', async () => {
+            mParticle.config.noTargeting = false;
+
+            mParticle.init(apiKey, mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+            const iphone = mParticle.eCommerce.createProduct(
+                'iphone',
+                'iphonesku',
+                599,
+                1
+            );
+            mParticle.eCommerce.Cart.add(iphone, true);
+
+            const localStorageProducts = localStorage.getItem(LocalStorageProductsV4WithWorkSpaceName);
+            expect(localStorageProducts).to.be.ok;
+        });
+
+        it('should save products LS when noTargeting is default (false)', async () => {
+            mParticle.init(apiKey, mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+            const iphone = mParticle.eCommerce.createProduct(
+                'iphone',
+                'iphonesku',
+                599,
+                1
+            );
+            mParticle.eCommerce.Cart.add(iphone, true);
+
+            const localStorageProducts = localStorage.getItem(LocalStorageProductsV4WithWorkSpaceName);
+            expect(localStorageProducts).to.be.ok;
+        });
+    });
+
     it('should only set setFirstSeenTime() once', async () => {
         const cookies = JSON.stringify({
             gs: {
