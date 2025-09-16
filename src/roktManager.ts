@@ -38,6 +38,9 @@ export interface IRoktSelection {
 export interface IRoktLauncher {
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
     hashAttributes: (attributes: IRoktPartnerAttributes) => Promise<Record<string, string>>;
+    use: <T>(name: string) => Promise<T>;
+    getVersion: () => Promise<string>;
+    terminate: () => Promise<void>;
 }
 
 export interface IRoktMessage {
@@ -62,6 +65,9 @@ export interface IRoktKit {
     hashAttributes: (attributes: IRoktPartnerAttributes) => Promise<Record<string, string>>;
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
     setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void;
+    terminate: () => Promise<void>;
+    getVersion: () => Promise<string>;
+    use: <T>(name: string) => Promise<T>;
     launcherOptions?: Dictionary<any>;
 }
 
@@ -248,6 +254,42 @@ export default class RoktManager {
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             throw new Error('Error setting extension data: ' + errorMessage);
+        }
+    }
+
+    public use<T>(name: string): Promise<T> {
+        if (!this.isReady()) {
+            return this.deferredCall<T>('use', name);
+        }
+
+        try {
+            return this.kit.use<T>(name);
+        } catch (error) {
+            return Promise.reject(error instanceof Error ? error : new Error('Error using extension: ' + name));
+        }
+    }
+
+    public terminate(): Promise<void> {
+        if (!this.isReady()) {
+            return this.deferredCall<void>('terminate', {});
+        }
+
+        try {
+            return this.kit.terminate();
+        } catch (error) {
+            return Promise.reject(error instanceof Error ? error : new Error('Error terminating'));
+        }
+    }
+
+    public getVersion(): Promise<string> {
+        if (!this.isReady()) {
+            return this.deferredCall<string>('getVersion', {});
+        }
+
+        try {
+            return this.kit.getVersion();
+        } catch (error) {
+            return Promise.reject(error instanceof Error ? error : new Error('Error getting the version'));
         }
     }
 

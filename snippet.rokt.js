@@ -19,7 +19,7 @@
     window.mParticle.Rokt = {};
     window.mParticle.config = window.mParticle.config || {};
     window.mParticle.config.rq = [];
-    window.mParticle.config.snippetVersion = 2.6;
+    window.mParticle.config.snippetVersion = 2.7;
     window.mParticle.ready = function(f) {
         window.mParticle.config.rq.push(f);
     };
@@ -49,6 +49,9 @@
         'selectPlacements',
         'hashAttributes',
         'setExtensionData',
+        'use',
+        'getVersion',
+        'terminate',
     ];
 
     // iterates through methods above to create stubs
