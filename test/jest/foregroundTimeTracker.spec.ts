@@ -494,7 +494,7 @@ describe('ForegroundTimeTracker', () => {
         });
     });
 
-    describe('#noTargeting', () => {
+    describe('#privacy flags', () => {
         const workspaceToken = 'abcdef';
         const tosKey = `mprtcl-tos-${workspaceToken}`;
         let mockMPInstance: IMParticleWebSDKInstance;
@@ -532,29 +532,25 @@ describe('ForegroundTimeTracker', () => {
             localStorage.clear();
         });
 
-        it('should initialize timer when noTargeting is default (false)', () => {
+        it('should track time on site when noTargeting is default (false)', () => {
             store.processConfig({ workspaceToken } as SDKInitConfig);
             expect(mockMPInstance._timeOnSiteTimer).toBeDefined();
-            if (mockMPInstance._timeOnSiteTimer) {
-                jest.advanceTimersByTime(1000);
-                mockMPInstance._timeOnSiteTimer.getTimeInForeground();
-            }
+            jest.advanceTimersByTime(1000);
+            mockMPInstance._timeOnSiteTimer.getTimeInForeground();
             expect(localStorage.getItem(tosKey)).not.toBeNull();
         });
 
-        it('should NOT initialize timer when noTargeting is true', () => {
+        it('should NOT track time on site when noTargeting is true', () => {
             store.processConfig({ workspaceToken, noTargeting: true } as SDKInitConfig);
             expect(mockMPInstance._timeOnSiteTimer).toBeUndefined();
             expect(localStorage.getItem(tosKey)).toBeNull();
         });
 
-        it('should initialize timer when noTargeting is false', () => {
+        it('should track time on site when noTargeting is false', () => {
             store.processConfig({ workspaceToken, noTargeting: false } as SDKInitConfig);
             expect(mockMPInstance._timeOnSiteTimer).toBeDefined();
-            if (mockMPInstance._timeOnSiteTimer) {
-                jest.advanceTimersByTime(1000);
-                mockMPInstance._timeOnSiteTimer.getTimeInForeground();
-            }
+            jest.advanceTimersByTime(1000);
+            mockMPInstance._timeOnSiteTimer.getTimeInForeground();
             expect(localStorage.getItem(tosKey)).not.toBeNull();
         });
     });
