@@ -1770,7 +1770,7 @@ describe('batch uploader', () => {
                 expect(!!window.sessionStorage.getItem(eventStorageKey)).to.equal(true);
             });
 
-            it('should store batches in local storage when noFunctional is default (false)', async () => {
+            it('should store batches in local storage when noFunctional is default false by default', async () => {
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
                 const mpInstance = window.mParticle.getInstance();

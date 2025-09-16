@@ -230,7 +230,6 @@ export const HTTP_FORBIDDEN = 403 as const;
 export const HTTP_NOT_FOUND = 404 as const;
 export const HTTP_SERVER_ERROR = 500 as const;
 
-// Privacy dependency map for storage keys
 export type PrivacyControl = 'functional' | 'targeting';
 
 export type StorageTypes = 'SDKState' | 'Products' | 'OfflineEvents' | 'IdentityCache' | 'TimeOnSite';
