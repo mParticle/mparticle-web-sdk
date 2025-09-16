@@ -532,7 +532,7 @@ describe('ForegroundTimeTracker', () => {
             localStorage.clear();
         });
 
-        it('should track time on site when noTargeting is default (false)', () => {
+        it('should track time on site when noTargeting is false by default', () => {
             store.processConfig({ workspaceToken } as SDKInitConfig);
             expect(mockMPInstance._timeOnSiteTimer).toBeDefined();
             jest.advanceTimersByTime(1000);
