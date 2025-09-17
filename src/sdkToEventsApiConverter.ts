@@ -18,11 +18,10 @@ import { SDKIdentityTypeEnum } from './identity.interfaces';
 import Constants from './constants';
 import { IMParticleWebSDKInstance } from './mp-instance';
 
-const { 
-    FeatureFlags
-} = Constants;
+const { FeatureFlags } = Constants;
 const {
-    CaptureIntegrationSpecificIds
+    CaptureIntegrationSpecificIds, 
+    CaptureIntegrationSpecificIdsV2,
 } = FeatureFlags;
 
 type PartnerIdentities = Dictionary<string>;
@@ -127,8 +126,12 @@ export function convertEvents(
             },
         };
     }
+    // https://go.mparticle.com/work/SQDSDKS-7639
+    const integrationSpecificIds = getFeatureFlag && Boolean(getFeatureFlag(CaptureIntegrationSpecificIds));
+    const integrationSpecificIdsV2 = getFeatureFlag && (getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string);
+        
+    const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None) || integrationSpecificIds === true;
 
-    const isIntegrationCaptureEnabled: boolean = getFeatureFlag && Boolean(getFeatureFlag(CaptureIntegrationSpecificIds));
     if (isIntegrationCaptureEnabled) {
         const capturedPartnerIdentities: PartnerIdentities = _IntegrationCapture?.getClickIdsAsPartnerIdentities();
         if (!isEmpty(capturedPartnerIdentities)) {
