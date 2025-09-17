@@ -37,7 +37,7 @@ import KitBlocker from './kitBlocking';
 import ConfigAPIClient, { IKitConfigs } from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
 import { isFunction, parseConfig } from './utils';
-import { LocalStorageVault } from './vault';
+import { DisabledVault, LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
 import { IPreInit, processReadyQueue } from './pre-init-utils';
@@ -1523,9 +1523,12 @@ function createKitBlocker(config, mpInstance) {
 }
 
 function createIdentityCache(mpInstance) {
-    return new LocalStorageVault(`${mpInstance._Store.storageName}-id-cache`, {
-        logger: mpInstance.Logger,
-    });
+    const cacheKey = `${mpInstance._Store.storageName}-id-cache`;
+    if (mpInstance._Store.getNoFunctional()) {
+        console.log('createIdentityCache: noFunctional is true');
+        return new DisabledVault(cacheKey, { logger: mpInstance.Logger });
+    }
+    return new LocalStorageVault(cacheKey, { logger: mpInstance.Logger });
 }
 
 function runPreConfigFetchInitialization(mpInstance, apiKey, config) {

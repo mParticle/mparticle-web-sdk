@@ -1,7 +1,7 @@
 import { Batch } from '@mparticle/event-models';
 import { expect } from 'chai';
 import { Dictionary } from '../../src/utils';
-import { SessionStorageVault, LocalStorageVault } from '../../src/vault';
+import { SessionStorageVault, LocalStorageVault, DisabledVault } from '../../src/vault';
 
 const testObject: Dictionary<Dictionary<string>> = {
     foo: { foo: 'bar', buzz: 'bazz' },
@@ -417,6 +417,104 @@ describe('Vault', () => {
             expect(window.localStorage.getItem(storageKey)).to.equal(
                 JSON.stringify([batch1, batch2, batch3, batch4, batch5]),
             );
+        });
+    });
+
+    describe('DisabledVault', () => {
+        afterEach(() => {
+            window.localStorage.clear();
+        });
+
+        describe('#store', () => {
+            it('should NOT write to localStorage', () => {
+                const storageKey = 'test-disabled-store-empty';
+                const vault = new DisabledVault<Dictionary<Dictionary<string>>>(
+                    storageKey,
+                );
+
+                vault.store(testObject);
+
+                expect(vault.contents).to.equal(null);
+                expect(window.localStorage.getItem(storageKey)).to.equal(null);
+            });
+
+            it('should NOT overwrite existing localStorage value and keep contents null', () => {
+                const storageKey = 'test-disabled-store-existing';
+                window.localStorage.setItem(
+                    storageKey,
+                    JSON.stringify(testObject),
+                );
+
+                const vault = new DisabledVault<Dictionary<Dictionary<string>>>(
+                    storageKey,
+                );
+
+                vault.store({ pinky: { narf: 'poit' } });
+
+                expect(vault.contents).to.equal(null);
+                expect(window.localStorage.getItem(storageKey)).to.equal(
+                    JSON.stringify(testObject),
+                );
+            });
+        });
+
+        describe('#retrieve', () => {
+            it('should return null when nothing is stored', () => {
+                const storageKey = 'test-disabled-retrieve-empty';
+                const vault = new DisabledVault<Dictionary<Dictionary<string>>>(
+                    storageKey,
+                );
+                const retrievedItem = vault.retrieve();
+                expect(retrievedItem).to.equal(null);
+            });
+
+            it('should return null even if localStorage has a value', () => {
+                const storageKey = 'test-disabled-retrieve-existing';
+                window.localStorage.setItem(
+                    storageKey,
+                    JSON.stringify(testObject),
+                );
+
+                const vault = new DisabledVault<Dictionary<Dictionary<string>>>(
+                    storageKey,
+                );
+                const retrievedItem = vault.retrieve();
+                expect(retrievedItem).to.equal(null);
+                expect(window.localStorage.getItem(storageKey)).to.equal(
+                    JSON.stringify(testObject),
+                );
+            });
+        });
+
+        describe('#purge', () => {
+            it('should keep contents null when purging', () => {
+                const storageKey = 'test-disabled-purge-existing';
+                window.localStorage.setItem(
+                    storageKey,
+                    JSON.stringify(testObject),
+                );
+
+                const vault = new DisabledVault<Dictionary<Dictionary<string>>>(
+                    storageKey,
+                );
+
+                vault.purge();
+
+                expect(vault.contents).to.equal(null);
+                expect(window.localStorage.getItem(storageKey)).to.equal(null);
+            });
+
+            it('should keep contents null when purging an empty key', () => {
+                const storageKey = 'test-disabled-purge-empty';
+                const vault = new DisabledVault<Dictionary<Dictionary<string>>>(
+                    storageKey,
+                );
+
+                vault.purge();
+                console.log(window.localStorage.getItem(storageKey));
+                expect(vault.contents).to.equal(null);
+                expect(window.localStorage.getItem(storageKey)).to.equal(null);
+            });
         });
     });
 });

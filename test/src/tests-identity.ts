@@ -642,6 +642,36 @@ describe('identity', function() {
         });
     });
 
+    describe('privacy flags', function() {
+        beforeEach(function() {
+            mParticle._resetForTests(MPConfig);
+            mParticle.config.flags.cacheIdentity = 'True';
+            localStorage.clear();
+        });
+
+        describe('#createIdentityCache', function() {
+            it('should use LocalStorageVault when noFunctional is false by default', async () => {
+                mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                expect(localStorage.getItem('mprtcl-v4_abcdef-id-cache')).to.be.ok;
+            });
+
+            it('should use DisabledVault when noFunctional is true', async () => {
+                mParticle.config.noFunctional = true;
+                mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                expect(localStorage.getItem('mprtcl-v4_abcdef-id-cache')).not.to.be.ok;
+            });
+
+            it('should use LocalStorageVault when noFunctional is false', async () => {
+                mParticle.config.noFunctional = false;
+                mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                expect(localStorage.getItem('mprtcl-v4_abcdef-id-cache')).to.be.ok;
+            });
+        });
+    });
+
     // https://go.mparticle.com/work/SQDSDKS-6849
     // This test passes with no issue when it is run on its own, but fails when tests-forwarders.js are also ran.
     it('should respect consent rules on consent-change', async () => {
