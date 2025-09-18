@@ -1,6 +1,8 @@
 import { BatchUploader } from '../../src/batchUploader';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
+import { IStore } from '../../src/store';
 import { StoragePrivacyMap, StorageTypes } from '../../src/constants';
+import { SDKEvent } from '../../src/sdkRuntimeModels';
 
 describe('BatchUploader', () => {
     let batchUploader: BatchUploader;
@@ -20,9 +22,9 @@ describe('BatchUploader', () => {
         mockMPInstance = {
             _Store: {
                 storageName: 'mprtcl-v4_abcdef',
-                getNoFunctional: function(this: any) { return this.noFunctional; },
-                getNoTargeting: function(this: any) { return this.noTargeting; },
-                getPrivacyFlag: function(this: any, storageType: StorageTypes) {
+                getNoFunctional: function(this: IStore) { return this.noFunctional; },
+                getNoTargeting: function(this: IStore) { return this.noTargeting; },
+                getPrivacyFlag: function(this: IStore, storageType: StorageTypes) {
                     const privacyControl = StoragePrivacyMap[storageType];
                     if (privacyControl === 'functional') {
                         return this.getNoFunctional();
@@ -143,7 +145,7 @@ describe('BatchUploader', () => {
             const uploader = new BatchUploader(mockMPInstance, 1000);
             expect(uploader['offlineStorageEnabled']).toBe(false);
 
-            uploader.queueEvent({ EventDataType: 4 } as any);
+            uploader.queueEvent({ EventDataType: 4 } as SDKEvent);
             expect(sessionStorage.getItem('mprtcl-v4_abcdef-events')).toBeNull();
             expect(localStorage.getItem('mprtcl-v4_abcdef-batches')).toBeNull();
         });
@@ -153,7 +155,7 @@ describe('BatchUploader', () => {
 
             expect(uploader['offlineStorageEnabled']).toBe(true);
 
-            uploader.queueEvent({ EventDataType: 4 } as any);
+            uploader.queueEvent({ EventDataType: 4 } as SDKEvent);
             expect(sessionStorage.getItem('mprtcl-v4_abcdef-events')).not.toBeNull();
 
             jest.advanceTimersByTime(1000);
@@ -167,7 +169,7 @@ describe('BatchUploader', () => {
 
             const uploader = new BatchUploader(mockMPInstance, 1000);
 
-            uploader.queueEvent({ EventDataType: 4 } as any);
+            uploader.queueEvent({ EventDataType: 4 } as SDKEvent);
             expect(sessionStorage.getItem('mprtcl-v4_abcdef-events')).not.toBeNull();
 
             jest.advanceTimersByTime(1000);

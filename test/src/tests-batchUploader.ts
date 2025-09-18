@@ -1750,7 +1750,6 @@ describe('batch uploader', () => {
                 const mpInstance = window.mParticle.getInstance();
                 const uploader = mpInstance._APIClient.uploader;
                 uploader.queueEvent(event0);
-                await window.mParticle.getInstance()._APIClient.uploader.prepareAndUpload();
                 expect(window.sessionStorage.getItem(eventStorageKey) === '').to.equal(true);
             });
 
@@ -1775,9 +1774,7 @@ describe('batch uploader', () => {
                 await waitForCondition(hasIdentifyReturned);
                 const mpInstance = window.mParticle.getInstance();
                 const uploader = mpInstance._APIClient.uploader;
-                fetchMock.post(urls.events, 500, { overwriteRoutes: true });
                 uploader.queueEvent(event0);
-                await window.mParticle.getInstance()._APIClient.uploader.prepareAndUpload();
                 expect(!!window.localStorage.getItem(batchStorageKey)).to.equal(true);
             });
 
@@ -1794,7 +1791,6 @@ describe('batch uploader', () => {
                 const mpInstance = window.mParticle.getInstance();
                 const uploader = mpInstance._APIClient.uploader;
                 uploader.queueEvent(event0);
-                await window.mParticle.getInstance()._APIClient.uploader.prepareAndUpload();
                 expect(window.localStorage.getItem(batchStorageKey) === '').to.equal(true);
             });
 
@@ -1810,9 +1806,7 @@ describe('batch uploader', () => {
                 await waitForCondition(hasIdentifyReturned);
                 const mpInstance = window.mParticle.getInstance();
                 const uploader = mpInstance._APIClient.uploader;
-                fetchMock.post(urls.events, 500, { overwriteRoutes: true });
                 uploader.queueEvent(event0);
-                await window.mParticle.getInstance()._APIClient.uploader.prepareAndUpload();
                 expect(!!window.localStorage.getItem(batchStorageKey)).to.equal(true);
             });
             
