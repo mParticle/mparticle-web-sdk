@@ -1,9 +1,13 @@
 import { BatchUploader } from '../../src/batchUploader';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
+import { IStore } from '../../src/store';
+import { StoragePrivacyMap, StorageTypes } from '../../src/constants';
+import { SDKEvent } from '../../src/sdkRuntimeModels';
 
 describe('BatchUploader', () => {
     let batchUploader: BatchUploader;
     let mockMPInstance: IMParticleWebSDKInstance;
+    let originalFetch: typeof global.fetch;
 
     beforeEach(() => {
         const now = Date.now();
@@ -11,22 +15,45 @@ describe('BatchUploader', () => {
             now: now,
             advanceTimers: true // This improves the performance of nested timers, equivalent to Sinon's shouldAdvanceTime
         });
-        
+        originalFetch = global.fetch;
+        global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200 });
+
         // Create a mock mParticle instance with mocked methods for instantiating a BatchUploader
         mockMPInstance = {
             _Store: {
+                storageName: 'mprtcl-v4_abcdef',
+                getNoFunctional: function(this: IStore) { return this.noFunctional; },
+                getNoTargeting: function(this: IStore) { return this.noTargeting; },
+                getPrivacyFlag: function(this: IStore, storageType: StorageTypes) {
+                    const privacyControl = StoragePrivacyMap[storageType];
+                    if (privacyControl === 'functional') {
+                        return this.getNoFunctional();
+                    }
+                    if (privacyControl === 'targeting') {
+                        return this.getNoTargeting();
+                    }
+                    return false;
+                },
+                deviceId: 'device-1',
                 SDKConfig: {
                     flags: {}
                 }
             },
             _Helpers: {
-                getFeatureFlag: jest.fn().mockReturnValue(false),
-                createServiceUrl: jest.fn().mockReturnValue('https://mock-url.com')
+                getFeatureFlag: jest.fn().mockReturnValue('100'),
+                createServiceUrl: jest.fn().mockReturnValue('https://mock-url.com'),
+                generateUniqueId: jest.fn().mockReturnValue('req-1'),
             },
             Identity: {
                 getCurrentUser: jest.fn().mockReturnValue({
-                    getMPID: () => 'test-mpid'
+                    getMPID: () => 'test-mpid',
+                    getConsentState: jest.fn().mockReturnValue(null),
                 })
+            },
+            Logger: {
+                verbose: jest.fn(),
+                error: jest.fn(),
+                warning: jest.fn(),
             }
         } as unknown as IMParticleWebSDKInstance;
 
@@ -35,6 +62,7 @@ describe('BatchUploader', () => {
 
     afterEach(() => {
         jest.useRealTimers();
+        global.fetch = originalFetch;
     });
 
     describe('shouldDebounceAST', () => {
@@ -102,6 +130,52 @@ describe('BatchUploader', () => {
             const secondCallTime = batchUploader['lastASTEventTime'];
             
             expect(secondCallTime).toBe(firstCallTime);
+        });
+    });
+
+    describe('noFunctional', () => {
+        beforeEach(() => {
+            localStorage.clear();
+            sessionStorage.clear();
+        });
+
+        it('should disable offline storage when noFunctional is true', () => {
+            mockMPInstance._Store.noFunctional = true;
+
+            const uploader = new BatchUploader(mockMPInstance, 1000);
+            expect(uploader['offlineStorageEnabled']).toBe(false);
+
+            uploader.queueEvent({ EventDataType: 4 } as SDKEvent);
+            expect(sessionStorage.getItem('mprtcl-v4_abcdef-events')).toBeNull();
+            expect(localStorage.getItem('mprtcl-v4_abcdef-batches')).toBeNull();
+        });
+
+        it('should enable offline storage when noFunctional is false by default', async () => {
+            const uploader = new BatchUploader(mockMPInstance, 1000);
+
+            expect(uploader['offlineStorageEnabled']).toBe(true);
+
+            uploader.queueEvent({ EventDataType: 4 } as SDKEvent);
+            expect(sessionStorage.getItem('mprtcl-v4_abcdef-events')).not.toBeNull();
+
+            jest.advanceTimersByTime(1000);
+            await Promise.resolve();
+
+            expect(localStorage.getItem('mprtcl-v4_abcdef-batches')).not.toBeNull();
+        });
+
+        it('should enable offline storage when noFunctional is false', async () => {
+            mockMPInstance._Store.noFunctional = false;
+
+            const uploader = new BatchUploader(mockMPInstance, 1000);
+
+            uploader.queueEvent({ EventDataType: 4 } as SDKEvent);
+            expect(sessionStorage.getItem('mprtcl-v4_abcdef-events')).not.toBeNull();
+
+            jest.advanceTimersByTime(1000);
+            await Promise.resolve();
+
+            expect(localStorage.getItem('mprtcl-v4_abcdef-batches')).not.toBeNull();
         });
     });
 }); 
