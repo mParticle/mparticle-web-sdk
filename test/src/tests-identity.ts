@@ -650,20 +650,20 @@ describe('identity', function() {
         });
 
         describe('#createIdentityCache', function() {
-            it('should use LocalStorageVault when noFunctional is false by default', async () => {
+            it('should save id cache to local storage when noFunctional is false by default', async () => {
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
                 expect(localStorage.getItem('mprtcl-v4_abcdef-id-cache')).to.be.ok;
             });
 
-            it('should use DisabledVault when noFunctional is true', async () => {
+            it('should NOT save id cache to local storage when noFunctional is true', async () => {
                 mParticle.config.noFunctional = true;
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
                 expect(localStorage.getItem('mprtcl-v4_abcdef-id-cache')).not.to.be.ok;
             });
 
-            it('should use LocalStorageVault when noFunctional is false', async () => {
+            it('should save id cache to local storage when noFunctional is false', async () => {
                 mParticle.config.noFunctional = false;
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);

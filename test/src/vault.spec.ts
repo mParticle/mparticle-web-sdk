@@ -428,11 +428,9 @@ describe('Vault', () => {
         describe('#store', () => {
             it('should NOT write to localStorage', () => {
                 const storageKey = 'test-disabled-store-empty';
-                const vault = new DisabledVault<Dictionary<Dictionary<string>>>(
-                    storageKey,
-                );
+                const vault = new DisabledVault<string>(storageKey);
 
-                vault.store(testObject);
+                vault.store('testString');
 
                 expect(vault.contents).to.equal(null);
                 expect(window.localStorage.getItem(storageKey)).to.equal(null);
@@ -440,63 +438,42 @@ describe('Vault', () => {
 
             it('should NOT overwrite existing localStorage value and keep contents null', () => {
                 const storageKey = 'test-disabled-store-existing';
-                window.localStorage.setItem(
-                    storageKey,
-                    JSON.stringify(testObject),
-                );
+                window.localStorage.setItem(storageKey, 'existingItem');
 
-                const vault = new DisabledVault<Dictionary<Dictionary<string>>>(
-                    storageKey,
-                );
+                const vault = new DisabledVault<string>(storageKey);
 
-                vault.store({ pinky: { narf: 'poit' } });
+                vault.store('newValue');
 
                 expect(vault.contents).to.equal(null);
-                expect(window.localStorage.getItem(storageKey)).to.equal(
-                    JSON.stringify(testObject),
-                );
+                expect(window.localStorage.getItem(storageKey)).to.equal('existingItem');
             });
         });
 
         describe('#retrieve', () => {
             it('should return null when nothing is stored', () => {
                 const storageKey = 'test-disabled-retrieve-empty';
-                const vault = new DisabledVault<Dictionary<Dictionary<string>>>(
-                    storageKey,
-                );
+                const vault = new DisabledVault<string>(storageKey);
                 const retrievedItem = vault.retrieve();
                 expect(retrievedItem).to.equal(null);
             });
 
             it('should return null even if localStorage has a value', () => {
                 const storageKey = 'test-disabled-retrieve-existing';
-                window.localStorage.setItem(
-                    storageKey,
-                    JSON.stringify(testObject),
-                );
+                window.localStorage.setItem(storageKey, 'existingItem');
 
-                const vault = new DisabledVault<Dictionary<Dictionary<string>>>(
-                    storageKey,
-                );
+                const vault = new DisabledVault<string>(storageKey);
                 const retrievedItem = vault.retrieve();
                 expect(retrievedItem).to.equal(null);
-                expect(window.localStorage.getItem(storageKey)).to.equal(
-                    JSON.stringify(testObject),
-                );
+                expect(window.localStorage.getItem(storageKey)).to.equal('existingItem');
             });
         });
 
         describe('#purge', () => {
             it('should keep contents null when purging', () => {
                 const storageKey = 'test-disabled-purge-existing';
-                window.localStorage.setItem(
-                    storageKey,
-                    JSON.stringify(testObject),
-                );
+                window.localStorage.setItem(storageKey, 'existing');
 
-                const vault = new DisabledVault<Dictionary<Dictionary<string>>>(
-                    storageKey,
-                );
+                const vault = new DisabledVault<string>(storageKey);
 
                 vault.purge();
 
@@ -506,12 +483,9 @@ describe('Vault', () => {
 
             it('should keep contents null when purging an empty key', () => {
                 const storageKey = 'test-disabled-purge-empty';
-                const vault = new DisabledVault<Dictionary<Dictionary<string>>>(
-                    storageKey,
-                );
+                const vault = new DisabledVault<string>(storageKey);
 
                 vault.purge();
-                console.log(window.localStorage.getItem(storageKey));
                 expect(vault.contents).to.equal(null);
                 expect(window.localStorage.getItem(storageKey)).to.equal(null);
             });
