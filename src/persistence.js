@@ -88,7 +88,10 @@ export default function _Persistence(mpInstance) {
 
             // https://go.mparticle.com/work/SQDSDKS-6048
             try {
-                if (mpInstance._Store.isLocalStorageAvailable) {
+                if (
+                    mpInstance._Store.isLocalStorageAvailable &&
+                    !mpInstance._Store.getPrivacyFlag('Products')
+                ) {
                     var encodedProducts = localStorage.getItem(
                         mpInstance._Store.prodStorageName
                     );
@@ -269,7 +272,10 @@ export default function _Persistence(mpInstance) {
     };
 
     this.getUserProductsFromLS = function(mpid) {
-        if (!mpInstance._Store.isLocalStorageAvailable) {
+        if (
+            mpInstance._Store.getPrivacyFlag('Products') ||
+            !mpInstance._Store.isLocalStorageAvailable
+        ) {
             return [];
         }
 
@@ -308,6 +314,15 @@ export default function _Persistence(mpInstance) {
     };
 
     this.getAllUserProductsFromLS = function() {
+        if (mpInstance._Store.getPrivacyFlag('Products')) {
+            var currentUser = mpInstance.Identity.getCurrentUser();
+            var mpid = currentUser ? currentUser.getMPID() : null;
+            var result = {};
+            if (mpid) {
+                result[mpid] = { cp: [] };
+            }
+            return result;
+        }
         var decodedProducts,
             encodedProducts = localStorage.getItem(
                 mpInstance._Store.prodStorageName
@@ -342,14 +357,20 @@ export default function _Persistence(mpInstance) {
                     ? allLocalStorageProducts[mpid].cp
                     : [],
             };
+
+        if (mpInstance._Store.getPrivacyFlag('Products')) {
+            return;
+        }
         if (mpid) {
             allLocalStorageProducts = allLocalStorageProducts || {};
             allLocalStorageProducts[mpid] = currentUserProducts;
             try {
-                window.localStorage.setItem(
-                    encodeURIComponent(mpInstance._Store.prodStorageName),
-                    Base64.encode(JSON.stringify(allLocalStorageProducts))
-                );
+                if (!mpInstance._Store.getPrivacyFlag('Products')) {
+                    window.localStorage.setItem(
+                        encodeURIComponent(mpInstance._Store.prodStorageName),
+                        Base64.encode(JSON.stringify(allLocalStorageProducts))
+                    );
+                }
             } catch (e) {
                 mpInstance.Logger.error(
                     'Error with setting products on localStorage.'
@@ -894,6 +915,9 @@ export default function _Persistence(mpInstance) {
     };
 
     this.getCartProducts = function(mpid) {
+        if (mpInstance._Store.getPrivacyFlag('Products')) {
+            return [];
+        }
         var allCartProducts,
             cartProductsString = localStorage.getItem(
                 mpInstance._Store.prodStorageName
@@ -913,7 +937,10 @@ export default function _Persistence(mpInstance) {
     };
 
     this.setCartProducts = function(allProducts) {
-        if (!mpInstance._Store.isLocalStorageAvailable) {
+        if (
+            !mpInstance._Store.isLocalStorageAvailable ||
+            mpInstance._Store.getPrivacyFlag('Products')
+        ) {
             return;
         }
 
