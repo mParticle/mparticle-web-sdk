@@ -1536,7 +1536,6 @@ function createKitBlocker(config, mpInstance) {
 function createIdentityCache(mpInstance) {
     const cacheKey = `${mpInstance._Store.storageName}-id-cache`;
     if (mpInstance._Store.getNoFunctional()) {
-        console.log('createIdentityCache: noFunctional is true');
         return new DisabledVault(cacheKey, { logger: mpInstance.Logger });
     }
     return new LocalStorageVault(cacheKey, { logger: mpInstance.Logger });
