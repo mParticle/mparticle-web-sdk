@@ -751,7 +751,7 @@ export default function Store(
 
         if (workspaceToken) {
             this.SDKConfig.workspaceToken = workspaceToken;
-            if (!this.getNoTargeting()) {
+            if (!this.getPrivacyFlag('TimeOnSite')) {
                 mpInstance._timeOnSiteTimer = new ForegroundTimer(workspaceToken);
             }
         } else {
