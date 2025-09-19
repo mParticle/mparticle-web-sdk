@@ -9,6 +9,7 @@ describe('Products Persistence', () => {
     let mpInstance = mParticle.getInstance();
     beforeEach(() => {
         mParticle._resetForTests(MPConfig);
+        localStorage.removeItem(mpInstance._Store?.prodStorageName as string);
     });
 
     it('should save products to localStorage when noTargeting is false by default', () => {
