@@ -276,18 +276,22 @@ export default function ServerModel(
             let customFlags: SDKEventCustomFlags = {...event.customFlags};
             let integrationAttributes: IntegrationAttributes = mpInstance._Store.integrationAttributes;
 
+            const { getFeatureFlag } = mpInstance._Helpers;
             // https://go.mparticle.com/work/SQDSDKS-5053
-            if (mpInstance._Helpers.getFeatureFlag && mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds)) {
-
+            // https://go.mparticle.com/work/SQDSDKS-7639
+            const integrationSpecificIds = getFeatureFlag && (getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds) as boolean);
+            const integrationSpecificIdsV2 = getFeatureFlag && ((getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2) as string) || '');
+            const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None) || integrationSpecificIds === true;     
+            if (isIntegrationCaptureEnabled) {
                 // Attempt to recapture click IDs in case a third party integration
                 // has added or updated  new click IDs since the last event was sent.
                 mpInstance._IntegrationCapture.capture();
                 const transformedClickIDs = mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
-                customFlags = {...transformedClickIDs, ...customFlags};
-
+                customFlags = { ...transformedClickIDs, ...customFlags };
                 const transformedIntegrationAttributes = mpInstance._IntegrationCapture.getClickIdsAsIntegrationAttributes();
-                integrationAttributes = {...transformedIntegrationAttributes, ...integrationAttributes};
+                integrationAttributes = { ...transformedIntegrationAttributes, ...integrationAttributes };
             }
+            
 
             if (event.hasOwnProperty('toEventAPIObject')) {
                 eventObject = event.toEventAPIObject();

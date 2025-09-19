@@ -72,7 +72,9 @@ export class BatchUploader {
 
         // Cache Offline Storage Availability boolean
         // so that we don't have to check it every time
-        this.offlineStorageEnabled = this.isOfflineStorageAvailable();
+        this.offlineStorageEnabled =
+            this.isOfflineStorageAvailable() &&
+            !mpInstance._Store.getPrivacyFlag('OfflineEvents');
 
         if (this.offlineStorageEnabled) {
             this.eventVault = new SessionStorageVault<SDKEvent[]>(
@@ -173,9 +175,12 @@ export class BatchUploader {
 
         let customFlags: SDKEventCustomFlags = {...event.CustomFlags};
         let integrationAttributes: IntegrationAttributes = _Store.integrationAttributes;
+        const integrationSpecificIds = getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds) as boolean;
+        const integrationSpecificIdsV2 = getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2) as string || '';
+        const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None) || integrationSpecificIds === true;
 
         // https://go.mparticle.com/work/SQDSDKS-5053
-        if (getFeatureFlag && getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds)) {
+        if (isIntegrationCaptureEnabled) {
 
             // Attempt to recapture click IDs in case a third party integration
             // has added or updated  new click IDs since the last event was sent.

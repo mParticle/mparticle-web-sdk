@@ -8,7 +8,7 @@ import {
     UserIdentities,
 } from '@mparticle/web-sdk';
 import { IKitConfigs } from './configAPIClient';
-import Constants from './constants';
+import Constants, { PrivacyControl, StoragePrivacyMap, StorageTypes } from './constants';
 import {
     DataPlanResult,
     KitBlockerOptions,
@@ -145,6 +145,7 @@ export interface IFeatureFlags {
     directURLRouting?: boolean;
     cacheIdentity?: boolean;
     captureIntegrationSpecificIds?: boolean;
+    captureIntegrationSpecificIdsV2?: string;
     astBackgroundEvents?: boolean;
 }
 
@@ -215,6 +216,7 @@ export interface IStore {
     setNoFunctional?(noFunctional: boolean): void;
     getNoTargeting?(): boolean;
     setNoTargeting?(noTargeting: boolean): void;
+    getPrivacyFlag?(storageType: StorageTypes): boolean;
 
     getDeviceId?(): string;
     setDeviceId?(deviceId: string): void;
@@ -607,6 +609,17 @@ export default function Store(
         this.noTargeting = noTargeting;
     };
 
+    this.getPrivacyFlag = (storageType: StorageTypes): boolean => {
+        const privacyControl: PrivacyControl = StoragePrivacyMap[storageType];
+        if (privacyControl === 'functional') {
+            return this.getNoFunctional();
+        }
+        if (privacyControl === 'targeting') {
+            return this.getNoTargeting();
+        }
+        return false;
+    };
+
     this.getDeviceId = () => this.deviceId;
     this.setDeviceId = (deviceId: string) => {
         this.deviceId = deviceId;
@@ -771,6 +784,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
         CacheIdentity,
         AudienceAPI,
         CaptureIntegrationSpecificIds,
+        CaptureIntegrationSpecificIdsV2,
         AstBackgroundEvents
     } = Constants.FeatureFlags;
 
@@ -790,8 +804,8 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[CacheIdentity] = config.flags[CacheIdentity] === 'True';
     flags[AudienceAPI] = config.flags[AudienceAPI] === 'True';
     flags[CaptureIntegrationSpecificIds] = config.flags[CaptureIntegrationSpecificIds] === 'True';
+    flags[CaptureIntegrationSpecificIdsV2] = (config.flags[CaptureIntegrationSpecificIdsV2] || 'none');
     flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
-
     return flags;
 }
 

@@ -1,3 +1,10 @@
+# [2.46.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.45.0...v2.46.0) (2025-09-17)
+
+
+### Features
+
+* added only rokt, all, none click ids when collectClickIdV2Enabl… ([#1062](https://github.com/mParticle/mparticle-web-sdk/issues/1062)) ([99982ac](https://github.com/mParticle/mparticle-web-sdk/commit/99982ac8d648a138d161caf507e0be256b55e488))
+
 # [2.45.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.44.0...v2.45.0) (2025-09-15)
 
 
