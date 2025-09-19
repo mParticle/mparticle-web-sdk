@@ -1202,6 +1202,7 @@ describe('batch uploader', () => {
             });
 
             window.sessionStorage.clear();
+            window.localStorage.clear();
         });
 
         afterEach(() => {
@@ -1714,6 +1715,100 @@ describe('batch uploader', () => {
         })
         .catch((e) => {
         })
+        });
+
+        describe('noFunctional', () => {
+            const eventStorageKey = 'mprtcl-v4_abcdef-events';
+            const batchStorageKey = 'mprtcl-v4_abcdef-batches';
+            beforeEach(() => {
+                window.mParticle._resetForTests(MPConfig);
+                window.localStorage.clear();
+                window.sessionStorage.clear();
+            });
+
+            it('should store batches in session storage when noFunctional is false by default', async () => {
+                window.mParticle.config.flags = {
+                    offlineStorage: '100',
+                    ...enableBatchingConfigFlags,
+                };
+                window.mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                const mpInstance = window.mParticle.getInstance();
+                const uploader = mpInstance._APIClient.uploader;
+                uploader.queueEvent(event0);
+                expect(window.sessionStorage.getItem(eventStorageKey)).to.not.equal(null);
+            });
+
+            it('should NOT store events in session storage when noFunctional is true', async () => {
+                window.mParticle.config.flags = {
+                    offlineStorage: '100',
+                    ...enableBatchingConfigFlags,
+                };
+                window.mParticle.config.noFunctional = true;
+                window.mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                const mpInstance = window.mParticle.getInstance();
+                const uploader = mpInstance._APIClient.uploader;
+                uploader.queueEvent(event0);
+                expect(window.sessionStorage.getItem(eventStorageKey)).to.equal(null);
+            });
+
+            it('should store events in session storage when noFunctional is false', async () => {
+                window.mParticle.config.flags = {
+                    offlineStorage: '100',
+                    ...enableBatchingConfigFlags,
+                };
+                window.mParticle.config.noFunctional = false;
+                window.mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                const mpInstance = window.mParticle.getInstance();
+                const uploader = mpInstance._APIClient.uploader;
+                uploader.queueEvent(event0);
+                expect(window.sessionStorage.getItem(eventStorageKey)).to.not.equal(null);
+            });
+
+            it('should store batches in local storage when noFunctional is false by default', async () => {
+                window.mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                const mpInstance = window.mParticle.getInstance();
+                const uploader = mpInstance._APIClient.uploader;
+                fetchMock.post(urls.events, 500, { overwriteRoutes: true });
+                uploader.queueEvent(event0);
+                await window.mParticle.getInstance()._APIClient.uploader.prepareAndUpload();
+                expect(window.localStorage.getItem(batchStorageKey)).to.not.equal(null);
+            });
+
+            it('should NOT store batches in local storage when noFunctional is true', async () => {
+                window.mParticle.config.flags = {
+                    offlineStorage: '100',
+                    ...enableBatchingConfigFlags,
+                };
+                window.mParticle.config.noFunctional = true;
+                window.mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                const mpInstance = window.mParticle.getInstance();
+                const uploader = mpInstance._APIClient.uploader;
+                uploader.queueEvent(event0);
+                await window.mParticle.getInstance()._APIClient.uploader.prepareAndUpload();
+                expect(window.localStorage.getItem(batchStorageKey)).to.equal(null);
+            });
+
+            it('should store batches in local storage when noFunctional is false', async () => {
+                window.mParticle.config.flags = {
+                    offlineStorage: '100',
+                    ...enableBatchingConfigFlags,
+                };
+                window.mParticle.config.noFunctional = false;
+                window.mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                const mpInstance = window.mParticle.getInstance();
+                const uploader = mpInstance._APIClient.uploader;
+                fetchMock.post(urls.events, 500, { overwriteRoutes: true });
+                uploader.queueEvent(event0);
+                await window.mParticle.getInstance()._APIClient.uploader.prepareAndUpload();
+                expect(window.localStorage.getItem(batchStorageKey)).to.not.equal(null);
+            });
+            
         });
     });
 });
