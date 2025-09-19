@@ -1666,7 +1666,7 @@ describe('persistence', () => {
             mParticle._resetForTests(MPConfig);
         }); 
 
-        it('should not save products LS when noTargeting is true', async () => {
+        it('should NOT save products to LS when noTargeting is true', async () => {
             mParticle.config.noTargeting = true;
 
             mParticle.init(apiKey, mParticle.config);
@@ -1675,7 +1675,7 @@ describe('persistence', () => {
             expect(localStorageProducts).to.not.be.ok;
         });
         
-        it('should save products LS when noTargeting is false', async () => {
+        it('should save products to LS when noTargeting is false', async () => {
             mParticle.config.noTargeting = false;
 
             mParticle.init(apiKey, mParticle.config);
@@ -1692,7 +1692,7 @@ describe('persistence', () => {
             expect(localStorageProducts).to.be.ok;
         });
 
-        it('should save products LS when noTargeting is false by default', async () => {
+        it('should save products to LS when noTargeting is false by default', async () => {
             mParticle.init(apiKey, mParticle.config);
             await waitForCondition(hasIdentifyReturned);
             const iphone = mParticle.eCommerce.createProduct(

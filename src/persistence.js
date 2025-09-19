@@ -90,7 +90,7 @@ export default function _Persistence(mpInstance) {
             try {
                 if (
                     mpInstance._Store.isLocalStorageAvailable &&
-                    !mpInstance._Store.getNoTargeting()
+                    !mpInstance._Store.getPrivacyFlag('Products')
                 ) {
                     var encodedProducts = localStorage.getItem(
                         mpInstance._Store.prodStorageName
@@ -273,7 +273,7 @@ export default function _Persistence(mpInstance) {
 
     this.getUserProductsFromLS = function(mpid) {
         if (
-            mpInstance._Store.getNoTargeting() ||
+            mpInstance._Store.getPrivacyFlag('Products') ||
             !mpInstance._Store.isLocalStorageAvailable
         ) {
             return [];
@@ -314,7 +314,7 @@ export default function _Persistence(mpInstance) {
     };
 
     this.getAllUserProductsFromLS = function() {
-        if (mpInstance._Store.getNoTargeting()) {
+        if (mpInstance._Store.getPrivacyFlag('Products')) {
             var currentUser = mpInstance.Identity.getCurrentUser();
             var mpid = currentUser ? currentUser.getMPID() : null;
             var result = {};
@@ -358,14 +358,14 @@ export default function _Persistence(mpInstance) {
                     : [],
             };
 
-        if (mpInstance._Store.getNoTargeting()) {
+        if (mpInstance._Store.getPrivacyFlag('Products')) {
             return;
         }
         if (mpid) {
             allLocalStorageProducts = allLocalStorageProducts || {};
             allLocalStorageProducts[mpid] = currentUserProducts;
             try {
-                if (!mpInstance._Store.getNoTargeting()) {
+                if (!mpInstance._Store.getPrivacyFlag('Products')) {
                     window.localStorage.setItem(
                         encodeURIComponent(mpInstance._Store.prodStorageName),
                         Base64.encode(JSON.stringify(allLocalStorageProducts))
@@ -915,7 +915,7 @@ export default function _Persistence(mpInstance) {
     };
 
     this.getCartProducts = function(mpid) {
-        if (mpInstance._Store.getNoTargeting()) {
+        if (mpInstance._Store.getPrivacyFlag('Products')) {
             return [];
         }
         var allCartProducts,
@@ -938,8 +938,8 @@ export default function _Persistence(mpInstance) {
 
     this.setCartProducts = function(allProducts) {
         if (
-            !mpInstance._Store.isLocalStorageAvailable &&
-            mpInstance._Store.getNoTargeting()
+            !mpInstance._Store.isLocalStorageAvailable ||
+            mpInstance._Store.getPrivacyFlag('Products')
         ) {
             return;
         }
