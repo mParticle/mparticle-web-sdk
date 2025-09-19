@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.44.0";
+    var version = "2.46.0";
 
     var Constants = {
       sdkVersion: version,
@@ -373,7 +373,15 @@ var mParticle = (function () {
         DirectUrlRouting: 'directURLRouting',
         CacheIdentity: 'cacheIdentity',
         AudienceAPI: 'audienceAPI',
+        // CaptureIntegrationSpecificIds (legacy): boolean flag from server/UI
+        //   - 'True'  → capture all integration-specific IDs
+        //   - 'False' → capture none
         CaptureIntegrationSpecificIds: 'captureIntegrationSpecificIds',
+        // CaptureIntegrationSpecificIdsV2 (new): string mode from server
+        //   - 'all'      → capture all IDs
+        //   - 'none'     → capture none
+        //   - 'roktonly' → capture only Rokt-related IDs
+        CaptureIntegrationSpecificIdsV2: 'captureIntegrationSpecificIdsV2',
         AstBackgroundEvents: 'astBackgroundEvents'
       },
       DefaultInstance: 'default_instance',
@@ -387,6 +395,11 @@ var mParticle = (function () {
       Environment: {
         Development: 'development',
         Production: 'production'
+      },
+      CaptureIntegrationSpecificIdsV2Modes: {
+        All: 'all',
+        None: 'none',
+        RoktOnly: 'roktonly'
       }
     };
     // https://go.mparticle.com/work/SQDSDKS-6080
@@ -1480,7 +1493,8 @@ var mParticle = (function () {
     })(SDKIdentityTypeEnum || (SDKIdentityTypeEnum = {}));
 
     var FeatureFlags$2 = Constants.FeatureFlags;
-    var CaptureIntegrationSpecificIds$1 = FeatureFlags$2.CaptureIntegrationSpecificIds;
+    var CaptureIntegrationSpecificIds$1 = FeatureFlags$2.CaptureIntegrationSpecificIds,
+      CaptureIntegrationSpecificIdsV2$1 = FeatureFlags$2.CaptureIntegrationSpecificIdsV2;
     function convertEvents(mpid, sdkEvents, mpInstance) {
       if (!mpid) {
         return null;
@@ -1547,7 +1561,10 @@ var mParticle = (function () {
           }
         };
       }
-      var isIntegrationCaptureEnabled = getFeatureFlag && Boolean(getFeatureFlag(CaptureIntegrationSpecificIds$1));
+      // https://go.mparticle.com/work/SQDSDKS-7639
+      var integrationSpecificIds = getFeatureFlag && Boolean(getFeatureFlag(CaptureIntegrationSpecificIds$1));
+      var integrationSpecificIdsV2 = getFeatureFlag && getFeatureFlag(CaptureIntegrationSpecificIdsV2$1);
+      var isIntegrationCaptureEnabled = integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None || integrationSpecificIds === true;
       if (isIntegrationCaptureEnabled) {
         var capturedPartnerIdentities = _IntegrationCapture === null || _IntegrationCapture === void 0 ? void 0 : _IntegrationCapture.getClickIdsAsPartnerIdentities();
         if (!isEmpty(capturedPartnerIdentities)) {
@@ -2418,8 +2435,11 @@ var mParticle = (function () {
         };
         var customFlags = __assign({}, event.CustomFlags);
         var integrationAttributes = _Store.integrationAttributes;
+        var integrationSpecificIds = getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds);
+        var integrationSpecificIdsV2 = getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2) || '';
+        var isIntegrationCaptureEnabled = integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None || integrationSpecificIds === true;
         // https://go.mparticle.com/work/SQDSDKS-5053
-        if (getFeatureFlag && getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds)) {
+        if (isIntegrationCaptureEnabled) {
           // Attempt to recapture click IDs in case a third party integration
           // has added or updated  new click IDs since the last event was sent.
           this.mpInstance._IntegrationCapture.capture();
@@ -4354,6 +4374,8 @@ var mParticle = (function () {
       var isWebviewEnabled = mpInstance._NativeSdkHelpers.isWebviewEnabled;
       var defaultStore = {
         isEnabled: true,
+        noFunctional: false,
+        noTargeting: false,
         sessionAttributes: {},
         localSessionAttributes: {},
         currentSessionMPIDs: [],
@@ -4592,6 +4614,18 @@ var mParticle = (function () {
           _this._setPersistence(mpid, 'con', toMinifiedJsonObject(consentState));
         }
       };
+      this.getNoFunctional = function () {
+        return _this.noFunctional;
+      };
+      this.setNoFunctional = function (noFunctional) {
+        _this.noFunctional = noFunctional;
+      };
+      this.getNoTargeting = function () {
+        return _this.noTargeting;
+      };
+      this.setNoTargeting = function (noTargeting) {
+        _this.noTargeting = noTargeting;
+      };
       this.getDeviceId = function () {
         return _this.deviceId;
       };
@@ -4691,6 +4725,13 @@ var mParticle = (function () {
         // add a new function to apply items to the store that require config to be returned
         _this.storageName = createMainStorageName(workspaceToken);
         _this.prodStorageName = createProductStorageName(workspaceToken);
+        // Extract privacy flags directly from config into Store
+        if (config.hasOwnProperty('noFunctional')) {
+          _this.setNoFunctional(config.noFunctional);
+        }
+        if (config.hasOwnProperty('noTargeting')) {
+          _this.setNoTargeting(config.noTargeting);
+        }
         _this.SDKConfig.requiredWebviewBridgeName = requiredWebviewBridgeName || workspaceToken;
         _this.webviewBridgeEnabled = isWebviewEnabled(_this.SDKConfig.requiredWebviewBridgeName, _this.SDKConfig.minWebviewBridgeVersion);
         _this.configurationLoaded = true;
@@ -4707,6 +4748,7 @@ var mParticle = (function () {
         CacheIdentity = _a.CacheIdentity,
         AudienceAPI = _a.AudienceAPI,
         CaptureIntegrationSpecificIds = _a.CaptureIntegrationSpecificIds,
+        CaptureIntegrationSpecificIdsV2 = _a.CaptureIntegrationSpecificIdsV2,
         AstBackgroundEvents = _a.AstBackgroundEvents;
       if (!config.flags) {
         return {};
@@ -4721,6 +4763,7 @@ var mParticle = (function () {
       flags[CacheIdentity] = config.flags[CacheIdentity] === 'True';
       flags[AudienceAPI] = config.flags[AudienceAPI] === 'True';
       flags[CaptureIntegrationSpecificIds] = config.flags[CaptureIntegrationSpecificIds] === 'True';
+      flags[CaptureIntegrationSpecificIdsV2] = config.flags[CaptureIntegrationSpecificIdsV2] || 'none';
       flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
       return flags;
     }
@@ -6990,8 +7033,13 @@ var mParticle = (function () {
         if (mpInstance._Store.sessionId || event.messageType === Types.MessageType.OptOut || mpInstance._Store.webviewBridgeEnabled) {
           var customFlags = __assign({}, event.customFlags);
           var integrationAttributes = mpInstance._Store.integrationAttributes;
+          var getFeatureFlag = mpInstance._Helpers.getFeatureFlag;
           // https://go.mparticle.com/work/SQDSDKS-5053
-          if (mpInstance._Helpers.getFeatureFlag && mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds)) {
+          // https://go.mparticle.com/work/SQDSDKS-7639
+          var integrationSpecificIds = getFeatureFlag && getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds);
+          var integrationSpecificIdsV2 = getFeatureFlag && (getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2) || '');
+          var isIntegrationCaptureEnabled = integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None || integrationSpecificIds === true;
+          if (isIntegrationCaptureEnabled) {
             // Attempt to recapture click IDs in case a third party integration
             // has added or updated  new click IDs since the last event was sent.
             mpInstance._IntegrationCapture.capture();
@@ -9513,7 +9561,7 @@ var mParticle = (function () {
       PARTNER_IDENTITIES: 'partner_identities',
       INTEGRATION_ATTRIBUTES: 'integration_attributes'
     };
-    var integrationMapping = {
+    var integrationMappingExternal = {
       // Facebook / Meta
       fbclid: {
         mappedKey: 'Facebook.ClickId',
@@ -9541,6 +9589,23 @@ var mParticle = (function () {
         mappedKey: 'GoogleEnhancedConversions.Wbraid',
         output: IntegrationOutputs.CUSTOM_FLAGS
       },
+      // TIKTOK
+      ttclid: {
+        mappedKey: 'TikTok.Callback',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      _ttp: {
+        mappedKey: 'tiktok_cookie_id',
+        output: IntegrationOutputs.PARTNER_IDENTITIES
+      },
+      // Snapchat
+      // https://businesshelp.snapchat.com/s/article/troubleshooting-click-id?language=en_US
+      ScCid: {
+        mappedKey: 'SnapchatConversions.ClickId',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      }
+    };
+    var integrationMappingRokt = {
       // Rokt
       // https://docs.rokt.com/developers/integration-guides/web/advanced/rokt-id-tag/
       // https://go.mparticle.com/work/SQDSDKS-7167
@@ -9558,26 +9623,12 @@ var mParticle = (function () {
         mappedKey: 'passbackconversiontrackingid',
         output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
         moduleId: 1277
-      },
-      // TIKTOK
-      ttclid: {
-        mappedKey: 'TikTok.Callback',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      _ttp: {
-        mappedKey: 'tiktok_cookie_id',
-        output: IntegrationOutputs.PARTNER_IDENTITIES
-      },
-      // Snapchat
-      // https://businesshelp.snapchat.com/s/article/troubleshooting-click-id?language=en_US
-      ScCid: {
-        mappedKey: 'SnapchatConversions.ClickId',
-        output: IntegrationOutputs.CUSTOM_FLAGS
       }
     };
     var IntegrationCapture = /** @class */function () {
-      function IntegrationCapture() {
+      function IntegrationCapture(captureMode) {
         this.initialTimestamp = Date.now();
+        this.captureMode = captureMode;
         // Cache filtered mappings for faster access
         this.filteredPartnerIdentityMappings = this.filterMappings(IntegrationOutputs.PARTNER_IDENTITIES);
         this.filteredCustomFlagMappings = this.filterMappings(IntegrationOutputs.CUSTOM_FLAGS);
@@ -9622,7 +9673,8 @@ var mParticle = (function () {
        * Captures cookies based on the integration ID mapping.
        */
       IntegrationCapture.prototype.captureCookies = function () {
-        var cookies = getCookies(Object.keys(integrationMapping));
+        var integrationKeys = this.getAllowedKeysForMode();
+        var cookies = getCookies(integrationKeys);
         return this.applyProcessors(cookies, getHref(), this.initialTimestamp);
       };
       /**
@@ -9636,8 +9688,10 @@ var mParticle = (function () {
        * Captures local storage based on the integration ID mapping.
        */
       IntegrationCapture.prototype.captureLocalStorage = function () {
+        var integrationKeys = this.getAllowedKeysForMode();
         var localStorageItems = {};
-        for (var key in integrationMapping) {
+        for (var _i = 0, integrationKeys_1 = integrationKeys; _i < integrationKeys_1.length; _i++) {
+          var key = integrationKeys_1[_i];
           var localStorageItem = localStorage.getItem(key);
           if (localStorageItem) {
             localStorageItems[key] = localStorageItem;
@@ -9650,7 +9704,8 @@ var mParticle = (function () {
        * @returns {Dictionary<string>} The query parameters.
        */
       IntegrationCapture.prototype.getQueryParams = function () {
-        return queryStringParser(getHref(), Object.keys(integrationMapping));
+        var integrationKeys = this.getAllowedKeysForMode();
+        return queryStringParser(getHref(), integrationKeys);
       };
       /**
        * Converts captured click IDs to custom flags for SDK events.
@@ -9716,10 +9771,11 @@ var mParticle = (function () {
       IntegrationCapture.prototype.applyProcessors = function (clickIds, url, timestamp) {
         var _a;
         var processedClickIds = {};
+        var integrationKeys = this.getActiveIntegrationMapping();
         for (var key in clickIds) {
           if (clickIds.hasOwnProperty(key)) {
             var value = clickIds[key];
-            var processor = (_a = integrationMapping[key]) === null || _a === void 0 ? void 0 : _a.processor;
+            var processor = (_a = integrationKeys[key]) === null || _a === void 0 ? void 0 : _a.processor;
             processedClickIds[key] = processor ? processor(value, url, timestamp) : value;
           }
         }
@@ -9727,12 +9783,35 @@ var mParticle = (function () {
       };
       IntegrationCapture.prototype.filterMappings = function (outputType) {
         var filteredMappings = {};
-        for (var key in integrationMapping) {
-          if (integrationMapping[key].output === outputType) {
-            filteredMappings[key] = integrationMapping[key];
+        var integrationKeys = this.getActiveIntegrationMapping();
+        for (var key in integrationKeys) {
+          if (integrationKeys[key].output === outputType) {
+            filteredMappings[key] = integrationKeys[key];
           }
         }
         return filteredMappings;
+      };
+      /**
+       * Returns the allowed keys to capture based on the current mode.
+       * For RoktOnly, limit capture to Rokt keys; for All, capture all mapped keys.
+       */
+      IntegrationCapture.prototype.getAllowedKeysForMode = function () {
+        return Object.keys(this.getActiveIntegrationMapping());
+      };
+      /**
+      * Selects the active integration mapping for the current captureMode.
+      * - 'roktonly': only Rokt IDs are considered
+      * - 'all': both External and Rokt IDs are considered
+      * - else: returns an empty mapping and nothing will be captured
+      */
+      IntegrationCapture.prototype.getActiveIntegrationMapping = function () {
+        if (this.captureMode === Constants.CaptureIntegrationSpecificIdsV2Modes.RoktOnly) {
+          return integrationMappingRokt;
+        }
+        if (this.captureMode === Constants.CaptureIntegrationSpecificIdsV2Modes.All) {
+          return __assign(__assign({}, integrationMappingExternal), integrationMappingRokt);
+        }
+        return {};
       };
       return IntegrationCapture;
     }();
@@ -9903,6 +9982,16 @@ var mParticle = (function () {
           throw new Error('Error setting extension data: ' + errorMessage);
         }
       };
+      RoktManager.prototype.use = function (name) {
+        if (!this.isReady()) {
+          return this.deferredCall('use', name);
+        }
+        try {
+          return this.kit.use(name);
+        } catch (error) {
+          return Promise.reject(error instanceof Error ? error : new Error('Error using extension: ' + name));
+        }
+      };
       RoktManager.prototype.getLocalSessionAttributes = function () {
         return this.store.getLocalSessionAttributes();
       };
@@ -10001,9 +10090,11 @@ var mParticle = (function () {
 
     var Messages = Constants.Messages,
       HTTPCodes = Constants.HTTPCodes,
-      FeatureFlags = Constants.FeatureFlags;
+      FeatureFlags = Constants.FeatureFlags,
+      CaptureIntegrationSpecificIdsV2Modes = Constants.CaptureIntegrationSpecificIdsV2Modes;
     var ReportBatching = FeatureFlags.ReportBatching,
-      CaptureIntegrationSpecificIds = FeatureFlags.CaptureIntegrationSpecificIds;
+      CaptureIntegrationSpecificIds = FeatureFlags.CaptureIntegrationSpecificIds,
+      CaptureIntegrationSpecificIdsV2 = FeatureFlags.CaptureIntegrationSpecificIdsV2;
     var StartingInitialization = Messages.InformationMessages.StartingInitialization;
     /**
      * <p>All of the following methods can be called on the primary mParticle class. In version 2.10.0, we introduced <a href="https://docs.mparticle.com/developers/sdk/web/multiple-instances/">multiple instances</a>. If you are using multiple instances (self hosted environments only), you should call these methods on each instance.</p>
@@ -10037,7 +10128,6 @@ var mParticle = (function () {
         integrationDelays: {},
         forwarderConstructors: []
       };
-      this._IntegrationCapture = new IntegrationCapture();
       this._RoktManager = new RoktManager();
       // required for forwarders once they reference the mparticle instance
       this.IdentityType = IdentityType;
@@ -10940,6 +11030,7 @@ var mParticle = (function () {
     // Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment
     function completeSDKInitialization(apiKey, config, mpInstance) {
       var kitBlocker = createKitBlocker(config, mpInstance);
+      var getFeatureFlag = mpInstance._Helpers.getFeatureFlag;
       mpInstance._APIClient = new APIClient(mpInstance, kitBlocker);
       mpInstance._Forwarders = new Forwarders(mpInstance, kitBlocker);
       mpInstance._Store.processConfig(config);
@@ -10963,10 +11054,21 @@ var mParticle = (function () {
         mpInstance._Store.SDKConfig.identifyRequest = mpInstance._Store.hasInvalidIdentifyRequest() ? {
           userIdentities: currentUserIdentities
         } : mpInstance._Store.SDKConfig.identifyRequest;
-        if (mpInstance._Helpers.getFeatureFlag(ReportBatching)) {
+        if (getFeatureFlag(ReportBatching)) {
           mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
         }
-        if (mpInstance._Helpers.getFeatureFlag(CaptureIntegrationSpecificIds)) {
+        // https://go.mparticle.com/work/SQDSDKS-7639
+        var integrationSpecificIds = getFeatureFlag(CaptureIntegrationSpecificIds);
+        var integrationSpecificIdsV2 = getFeatureFlag(CaptureIntegrationSpecificIdsV2);
+        var isIntegrationCaptureEnabled = integrationSpecificIdsV2 && integrationSpecificIdsV2 !== CaptureIntegrationSpecificIdsV2Modes.None || integrationSpecificIds === true;
+        if (isIntegrationCaptureEnabled) {
+          var captureMode = void 0;
+          if (integrationSpecificIds || integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.All) {
+            captureMode = 'all';
+          } else if (integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.RoktOnly) {
+            captureMode = 'roktonly';
+          }
+          mpInstance._IntegrationCapture = new IntegrationCapture(captureMode);
           mpInstance._IntegrationCapture.capture();
         }
         // Configure Rokt Manager with user and filtered user
