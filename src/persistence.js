@@ -39,7 +39,7 @@ export default function _Persistence(mpInstance) {
             if (!mpInstance._Store.isLocalStorageAvailable) {
                 mpInstance._Store.SDKConfig.useCookieStorage = true;
             }
-            if (!mpInstance._Store.getNoFunctional()) {
+            if (!mpInstance._Store.getPrivacyFlag('SDKState')) {
                 // https://go.mparticle.com/work/SQDSDKS-6046
                 if (mpInstance._Store.isLocalStorageAvailable) {
                     storage = window.localStorage;
@@ -115,7 +115,7 @@ export default function _Persistence(mpInstance) {
                     'Error loading products in initialization: ' + e
                 );
             }
-            if (!mpInstance._Store.getNoFunctional()) {
+            if (!mpInstance._Store.getPrivacyFlag('SDKState')) {
                 // https://go.mparticle.com/work/SQDSDKS-6046
                 // Stores all non-current user MPID information into the store
                 for (var key in allData) {
@@ -145,7 +145,7 @@ export default function _Persistence(mpInstance) {
 
     this.update = function() {
         if (!mpInstance._Store.webviewBridgeEnabled) {
-            if (mpInstance._Store.getNoFunctional()) {
+            if (mpInstance._Store.getPrivacyFlag('SDKState')) {
                 self.setProductStorage();
                 return;
             }
@@ -980,7 +980,7 @@ export default function _Persistence(mpInstance) {
 
     // https://go.mparticle.com/work/SQDSDKS-6021
     this.savePersistence = function(persistence) {
-        if (mpInstance._Store.getNoFunctional()) {
+        if (mpInstance._Store.getPrivacyFlag('SDKState')) {
             return;
         }
         var encodedPersistence = self.encodePersistence(
@@ -1027,7 +1027,7 @@ export default function _Persistence(mpInstance) {
     };
 
     this.getPersistence = function() {
-        if (mpInstance._Store.getNoFunctional()) {
+        if (mpInstance._Store.getPrivacyFlag('SDKState')) {
             return null;
         }
         var persistence = this.useLocalStorage()

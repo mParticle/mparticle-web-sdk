@@ -1958,6 +1958,7 @@ describe('persistence', () => {
             beforeEach(() => {
                 mParticle.config.noFunctional = true;
             });
+
             it('should NOT store cookie when useCookieStorage = true', async () => {
                 mParticle.config.useCookieStorage = true;
 
@@ -1993,6 +1994,7 @@ describe('persistence', () => {
             beforeEach(() => {
                 mParticle.config.noFunctional = false;
             });
+            
             it('should store cookie when useCookieStorage = true', async () => {
                 mParticle.config.useCookieStorage = true;
 
