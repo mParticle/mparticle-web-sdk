@@ -745,6 +745,7 @@ export default function Store(
         if (launcherOptions && launcherOptions.hasOwnProperty('noFunctional')) {
             this.setNoFunctional(launcherOptions.noFunctional);
         }
+        
         if (launcherOptions && launcherOptions.hasOwnProperty('noTargeting')) {
             this.setNoTargeting(launcherOptions.noTargeting);
         }

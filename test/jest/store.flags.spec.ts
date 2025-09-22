@@ -49,7 +49,9 @@ describe('Store privacy flags', () => {
             launcherOptions: { noFunctional: true, noTargeting: true },
             flags: {},
         } as any;
+
         store.processConfig(cfg);
+
         expect(store.getNoFunctional()).toBe(true);
         expect(store.getNoTargeting()).toBe(true);
     });
@@ -59,7 +61,9 @@ describe('Store privacy flags', () => {
             launcherOptions: { noFunctional: true, noTargeting: false },
             flags: {},
         } as any;
+
         store.processConfig(cfg);
+
         expect(store.getNoFunctional()).toBe(true);
         expect(store.getNoTargeting()).toBe(false);
     });
@@ -69,7 +73,9 @@ describe('Store privacy flags', () => {
             launcherOptions: { noFunctional: false, noTargeting: true },
             flags: {},
         } as any;
+
         store.processConfig(cfg);
+        
         expect(store.getNoFunctional()).toBe(false);
         expect(store.getNoTargeting()).toBe(true);
     });
