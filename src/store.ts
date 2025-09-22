@@ -740,14 +740,15 @@ export default function Store(
             this.SDKConfig[baseUrlKeys] = baseUrls[baseUrlKeys];
         }
 
-        // Extract privacy flags exclusively from launcherOptions
-        const launcherOptions = config.launcherOptions;
-        if (launcherOptions && launcherOptions.hasOwnProperty('noFunctional')) {
-            this.setNoFunctional(launcherOptions.noFunctional);
+        // Apply privacy flags from launcherOptions early (methods not yet defined → set fields directly)
+        const { noFunctional, noTargeting } = config?.launcherOptions ?? {};
+
+        if (noFunctional != null) {
+            this.setNoFunctional(noFunctional);
         }
         
-        if (launcherOptions && launcherOptions.hasOwnProperty('noTargeting')) {
-            this.setNoTargeting(launcherOptions.noTargeting);
+        if (noTargeting != null) {
+            this.setNoTargeting(noTargeting);
         }
 
         if (workspaceToken) {
