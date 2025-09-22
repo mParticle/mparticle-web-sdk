@@ -541,13 +541,13 @@ describe('ForegroundTimeTracker', () => {
         });
 
         it('should NOT track time on site when noTargeting is true', () => {
-            store.processConfig({ workspaceToken, noTargeting: true } as SDKInitConfig);
+            store.processConfig({ workspaceToken, launcherOptions: { noTargeting: true } } as SDKInitConfig);
             expect(mockMPInstance._timeOnSiteTimer).toBeUndefined();
             expect(localStorage.getItem(tosKey)).toBeNull();
         });
 
         it('should track time on site when noTargeting is false', () => {
-            store.processConfig({ workspaceToken, noTargeting: false } as SDKInitConfig);
+            store.processConfig({ workspaceToken, launcherOptions: { noTargeting: false } } as SDKInitConfig);
             expect(mockMPInstance._timeOnSiteTimer).toBeDefined();
             jest.advanceTimersByTime(1000);
             mockMPInstance._timeOnSiteTimer.getTimeInForeground();

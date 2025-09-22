@@ -740,13 +740,13 @@ export default function Store(
             this.SDKConfig[baseUrlKeys] = baseUrls[baseUrlKeys];
         }
 
-        // Extract privacy flags directly from config into Store BEFORE initializing timers
-        if (config.hasOwnProperty('noFunctional')) {
-            this.setNoFunctional(config.noFunctional);
+        // Extract privacy flags exclusively from launcherOptions
+        const launcherOptions = config.launcherOptions;
+        if (launcherOptions && launcherOptions.hasOwnProperty('noFunctional')) {
+            this.setNoFunctional(launcherOptions.noFunctional);
         }
-
-        if (config.hasOwnProperty('noTargeting')) {
-            this.setNoTargeting(config.noTargeting);
+        if (launcherOptions && launcherOptions.hasOwnProperty('noTargeting')) {
+            this.setNoTargeting(launcherOptions.noTargeting);
         }
 
         if (workspaceToken) {

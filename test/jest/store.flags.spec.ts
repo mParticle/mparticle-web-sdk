@@ -46,39 +46,30 @@ describe('Store privacy flags', () => {
 
     it('should set noFunctional as true and noTargeting as true from config', () => {
         const cfg: SDKInitConfig = {
-            noFunctional: true,
-            noTargeting: true,
+            launcherOptions: { noFunctional: true, noTargeting: true },
             flags: {},
         } as any;
-
         store.processConfig(cfg);
-
         expect(store.getNoFunctional()).toBe(true);
         expect(store.getNoTargeting()).toBe(true);
     });
 
     it('should set noFunctional as true and noTargeting as false from config', () => {
         const cfg: SDKInitConfig = {
-            noFunctional: true,
-            noTargeting: false,
+            launcherOptions: { noFunctional: true, noTargeting: false },
             flags: {},
         } as any;
-
         store.processConfig(cfg);
-
         expect(store.getNoFunctional()).toBe(true);
         expect(store.getNoTargeting()).toBe(false);
     });
 
     it('should set noFunctional as false and noTargeting as true from config', () => {
         const cfg: SDKInitConfig = {
-            noFunctional: false,
-            noTargeting: true,
+            launcherOptions: { noFunctional: false, noTargeting: true },
             flags: {},
         } as any;
-
         store.processConfig(cfg);
-
         expect(store.getNoFunctional()).toBe(false);
         expect(store.getNoTargeting()).toBe(true);
     });
