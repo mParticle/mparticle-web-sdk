@@ -1744,7 +1744,7 @@ describe('batch uploader', () => {
                     offlineStorage: '100',
                     ...enableBatchingConfigFlags,
                 };
-                window.mParticle.config.noFunctional = true;
+                window.mParticle.config.launcherOptions = { noFunctional: true };
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
                 const mpInstance = window.mParticle.getInstance();
@@ -1758,7 +1758,7 @@ describe('batch uploader', () => {
                     offlineStorage: '100',
                     ...enableBatchingConfigFlags,
                 };
-                window.mParticle.config.noFunctional = false;
+                window.mParticle.config.launcherOptions = { noFunctional: false };
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
                 const mpInstance = window.mParticle.getInstance();
@@ -1783,7 +1783,7 @@ describe('batch uploader', () => {
                     offlineStorage: '100',
                     ...enableBatchingConfigFlags,
                 };
-                window.mParticle.config.noFunctional = true;
+                window.mParticle.config.launcherOptions = { noFunctional: true };
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
                 const mpInstance = window.mParticle.getInstance();
@@ -1798,7 +1798,7 @@ describe('batch uploader', () => {
                     offlineStorage: '100',
                     ...enableBatchingConfigFlags,
                 };
-                window.mParticle.config.noFunctional = false;
+                window.mParticle.config.launcherOptions = { noFunctional: false };
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
                 const mpInstance = window.mParticle.getInstance();
