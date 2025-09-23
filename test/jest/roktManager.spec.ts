@@ -1127,7 +1127,6 @@ describe('RoktManager', () => {
             };
             
             roktManager['placementAttributesMapping'] = [];
-            roktManager['configSettings'] = {};
             roktManager.kit = kit as IRoktKit;
 
             const mockIdentity = {
@@ -1173,9 +1172,7 @@ describe('RoktManager', () => {
             };
 
             roktManager.kit = kit as IRoktKit;
-            roktManager['configSettings'] = {
-                hashedEmailUserIdentityType: 'Other5'
-            };
+            roktManager['hashedEmailUserIdentityType'] ='Other5';
 
             // Set up fresh mocks for this test
             const mockIdentity = {
@@ -1229,9 +1226,7 @@ describe('RoktManager', () => {
             };
 
             roktManager.kit = kit as IRoktKit;
-            roktManager['configSettings'] = {
-                hashedEmailUserIdentityType: 'Other5'
-            };
+            roktManager['hashedEmailUserIdentityType'] = 'Other5';
 
             // Set up fresh mocks for this test
             const mockIdentity = {
@@ -1273,9 +1268,7 @@ describe('RoktManager', () => {
             };
 
             roktManager.kit = kit as IRoktKit;
-            roktManager['configSettings'] = {
-                hashedEmailUserIdentityType: 'Other'
-            };
+            roktManager['hashedEmailUserIdentityType'] = 'Other';
 
             const mockIdentity = {
                 getCurrentUser: jest.fn().mockReturnValue({
@@ -1326,9 +1319,7 @@ describe('RoktManager', () => {
             };
 
             roktManager.kit = kit as IRoktKit;
-            roktManager['configSettings'] = {
-                hashedEmailUserIdentityType: 'Other'
-            };
+            roktManager['hashedEmailUserIdentityType'] = 'Other';
 
             // Set up fresh mocks for this test
             const mockIdentity = {

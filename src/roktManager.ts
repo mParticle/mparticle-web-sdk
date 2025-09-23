@@ -99,7 +99,7 @@ export default class RoktManager {
     private launcherOptions?: IRoktLauncherOptions;
     private logger: SDKLoggerApi;
     private domain?: string;
-    private configSettings: Dictionary<string> = {};
+    private hashedEmailUserIdentityType?: string  | null;
     /**
      * Initializes the RoktManager with configuration settings and user data.
      * 
@@ -120,8 +120,8 @@ export default class RoktManager {
         options?: IRoktOptions
     ): void {
         const { userAttributeFilters, settings } = roktConfig || {};
-        const { placementAttributesMapping } = settings || {};
-        this.configSettings = settings;
+        const { placementAttributesMapping, configSettings } = settings || {};
+        this.hashedEmailUserIdentityType = configSettings?.hashedEmailUserIdentityType;
 
         this.identityService = identityService;
         this.store = store;
@@ -183,9 +183,8 @@ export default class RoktManager {
             const { attributes } = options;
             const sandboxValue = attributes?.sandbox || null;
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
-            const { hashedEmailUserIdentityType = null } = this.configSettings || {};
 
-            const normalizedHashedEmailUserIdentityType = hashedEmailUserIdentityType?.toLowerCase() || null;
+            const normalizedHashedEmailUserIdentityType = this.hashedEmailUserIdentityType?.toLowerCase() || null;
 
             // Get current user identities
             this.currentUser = this.identityService.getCurrentUser();
