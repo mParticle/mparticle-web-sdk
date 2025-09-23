@@ -657,14 +657,14 @@ describe('identity', function() {
             });
 
             it('should NOT save id cache to local storage when noFunctional is true', async () => {
-                mParticle.config.noFunctional = true;
+                mParticle.config.launcherOptions = { noFunctional: true };
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
                 expect(localStorage.getItem('mprtcl-v4_abcdef-id-cache')).not.to.be.ok;
             });
 
             it('should save id cache to local storage when noFunctional is false', async () => {
-                mParticle.config.noFunctional = false;
+                mParticle.config.launcherOptions = { noFunctional: false };
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
                 expect(localStorage.getItem('mprtcl-v4_abcdef-id-cache')).to.be.ok;
