@@ -1093,9 +1093,6 @@ describe('RoktManager', () => {
         });
 
         it('should not call identify when emailsha256 matches current user other5 identity', () => {
-            // Reset mocks
-            jest.clearAllMocks();
-            
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -1186,9 +1183,6 @@ describe('RoktManager', () => {
         });
 
         it('should not call identify when current user has other identity but emailsha256 is null', () => {
-            // Reset mocks
-            jest.clearAllMocks();
-            
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
