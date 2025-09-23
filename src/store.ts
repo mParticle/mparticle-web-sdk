@@ -740,7 +740,6 @@ export default function Store(
             this.SDKConfig[baseUrlKeys] = baseUrls[baseUrlKeys];
         }
 
-        // Apply privacy flags from launcherOptions early (methods not yet defined → set fields directly)
         const { noFunctional, noTargeting } = config?.launcherOptions ?? {};
 
         if (noFunctional != null) {
