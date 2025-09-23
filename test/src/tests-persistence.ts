@@ -1667,7 +1667,7 @@ describe('persistence', () => {
         }); 
 
         it('should NOT save products to LS when noTargeting is true', async () => {
-            mParticle.config.noTargeting = true;
+            mParticle.config.launcherOptions = { noTargeting: true };
 
             mParticle.init(apiKey, mParticle.config);
             await waitForCondition(hasIdentifyReturned);
@@ -1676,7 +1676,7 @@ describe('persistence', () => {
         });
         
         it('should save products to LS when noTargeting is false', async () => {
-            mParticle.config.noTargeting = false;
+            mParticle.config.launcherOptions = { noTargeting: false };
 
             mParticle.init(apiKey, mParticle.config);
             await waitForCondition(hasIdentifyReturned);
