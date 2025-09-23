@@ -365,7 +365,7 @@ describe('RoktManager', () => {
             expect(roktManager['domain']).toBe(domain);
         });
         
-        it('should set normalizedHashedEmailUserIdentityType as a lowercase hashedEmailUserIdentityType when passed as a setting', () => {
+        it('should set mappedEmailShaIdentityType as a lowercase hashedEmailUserIdentityType when passed as a setting', () => {
             roktManager.init(
                 {settings: {hashedEmailUserIdentityType: 'Other5'}} as unknown as IKitConfigs,
                 undefined,
@@ -373,7 +373,7 @@ describe('RoktManager', () => {
                 mockMPInstance._Store,
                 mockMPInstance.Logger,
             );
-            expect(roktManager['normalizedHashedEmailUserIdentityType']).toBe('other5');
+            expect(roktManager['mappedEmailShaIdentityType']).toBe('other5');
         });
     });
 
@@ -1183,7 +1183,7 @@ describe('RoktManager', () => {
             };
 
             roktManager.kit = kit as IRoktKit;
-            roktManager['normalizedHashedEmailUserIdentityType'] ='other5';
+            roktManager['mappedEmailShaIdentityType'] ='other5';
 
             // Set up fresh mocks for this test
             const mockIdentity = {
@@ -1237,7 +1237,7 @@ describe('RoktManager', () => {
             };
 
             roktManager.kit = kit as IRoktKit;
-            roktManager['normalizedHashedEmailUserIdentityType'] = 'other5';
+            roktManager['mappedEmailShaIdentityType'] = 'other5';
 
             // Set up fresh mocks for this test
             const mockIdentity = {
@@ -1279,7 +1279,7 @@ describe('RoktManager', () => {
             };
 
             roktManager.kit = kit as IRoktKit;
-            roktManager['normalizedHashedEmailUserIdentityType'] = 'other';
+            roktManager['mappedEmailShaIdentityType'] = 'other';
 
             const mockIdentity = {
                 getCurrentUser: jest.fn().mockReturnValue({
