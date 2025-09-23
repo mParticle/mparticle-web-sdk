@@ -1817,8 +1817,7 @@ describe('Store', () => {
         it('should set noFunctional and noTargeting from init config', () => {
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.config = window.mParticle.config || {};
-            window.mParticle.config.noFunctional = true;
-            window.mParticle.config.noTargeting = true;
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: true };
 
             window.mParticle.init(apiKey, window.mParticle.config);
 
