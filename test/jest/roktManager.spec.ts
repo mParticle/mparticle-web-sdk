@@ -1702,4 +1702,70 @@ describe('RoktManager', () => {
         });
     });
 
+    describe('#hasIdentityChanged', () => {
+        it('should return false when newValue is null', () => {
+            const result = roktManager['hasIdentityChanged']('current@example.com', null);
+            expect(result).toBe(false);
+        });
+
+        it('should return false when newValue is undefined', () => {
+            const result = roktManager['hasIdentityChanged']('current@example.com', undefined);
+            expect(result).toBe(false);
+        });
+
+        it('should return false when newValue is empty string', () => {
+            const result = roktManager['hasIdentityChanged']('current@example.com', '');
+            expect(result).toBe(false);
+        });
+
+        it('should return true when currentValue is null and newValue exists', () => {
+            const result = roktManager['hasIdentityChanged'](null, 'new@example.com');
+            expect(result).toBe(true);
+        });
+
+        it('should return true when currentValue is undefined and newValue exists', () => {
+            const result = roktManager['hasIdentityChanged'](undefined, 'new@example.com');
+            expect(result).toBe(true);
+        });
+
+        it('should return true when currentValue is empty string and newValue exists', () => {
+            const result = roktManager['hasIdentityChanged']('', 'new@example.com');
+            expect(result).toBe(true);
+        });
+
+        it('should return true when currentValue and newValue are different', () => {
+            const result = roktManager['hasIdentityChanged']('old@example.com', 'new@example.com');
+            expect(result).toBe(true);
+        });
+
+        it('should return false when currentValue and newValue are the same', () => {
+            const result = roktManager['hasIdentityChanged']('same@example.com', 'same@example.com');
+            expect(result).toBe(false);
+        });
+
+        it('should return false when both currentValue and newValue are null', () => {
+            const result = roktManager['hasIdentityChanged'](null, null);
+            expect(result).toBe(false);
+        });
+
+        it('should return false when both currentValue and newValue are undefined', () => {
+            const result = roktManager['hasIdentityChanged'](undefined, undefined);
+            expect(result).toBe(false);
+        });
+
+        it('should return false when both currentValue and newValue are empty strings', () => {
+            const result = roktManager['hasIdentityChanged']('', '');
+            expect(result).toBe(false);
+        });
+
+        it('should handle whitespace-only strings as valid values', () => {
+            const result = roktManager['hasIdentityChanged']('old@example.com', '   ');
+            expect(result).toBe(true);
+        });
+
+        it('should be case sensitive', () => {
+            const result = roktManager['hasIdentityChanged']('test@example.com', 'TEST@EXAMPLE.COM');
+            expect(result).toBe(true);
+        });
+    });
 });

@@ -203,9 +203,9 @@ export default class RoktManager {
                 newHashedEmail = mappedAttributes['emailsha256'] as string || undefined;
             }
 
-            const emailChanged = !!(newEmail && (!currentEmail || currentEmail !== newEmail));
-            const hashedEmailChanged = !!(newHashedEmail && (!currentHashedEmail || currentHashedEmail !== newHashedEmail));
-            // https://go.mparticle.com/work/SQDSDKS-7338
+            const emailChanged = this.hasIdentityChanged(currentEmail, newEmail);
+            const hashedEmailChanged = this.hasIdentityChanged(currentHashedEmail, newHashedEmail);
+
             const newIdentities: UserIdentities = {};
             if (emailChanged) {
                 newIdentities.email = newEmail;
@@ -218,6 +218,7 @@ export default class RoktManager {
                 newIdentities[normalizedHashedEmailUserIdentityType] = newHashedEmail;
                 this.logger.warning(`emailsha256 mismatch detected. Current mParticle ${normalizedHashedEmailUserIdentityType} identity, ${currentHashedEmail}, differs from from 'emailsha256' passed to selectPlacements call, ${newHashedEmail}. Proceeding to call identify with ${normalizedHashedEmailUserIdentityType} set to ${newHashedEmail}. Please verify your implementation`);
             }
+
             if (!isEmpty(newIdentities)) {
                 // Call identify with the new user identities
                 try {
@@ -399,5 +400,28 @@ export default class RoktManager {
         }
         
         this.messageQueue.delete(messageId);
+    }
+
+    /**
+     * Checks if an identity value has changed by comparing current and new values
+     * 
+     * @param {string | undefined} currentValue - The current identity value
+     * @param {string | undefined} newValue - The new identity value to compare against
+     * @returns {boolean} True if the identity has changed (new value exists and differs from current), false otherwise
+     */
+    private hasIdentityChanged(currentValue: string | undefined, newValue: string | undefined): boolean {
+        if (!newValue) {
+            return false;
+        }
+        
+        if (!currentValue) {
+            return true; // New value exists but no current value
+        }
+        
+        if (currentValue !== newValue) {
+            return true; // Values are different
+        }
+        
+        return false; // Values are the same
     }
 }
