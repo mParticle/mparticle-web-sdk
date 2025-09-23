@@ -364,6 +364,17 @@ describe('RoktManager', () => {
             );
             expect(roktManager['domain']).toBe(domain);
         });
+        
+        it('should set normalizedHashedEmailUserIdentityType as a lowercase hashedEmailUserIdentityType when passed as a setting', () => {
+            roktManager.init(
+                {settings: {hashedEmailUserIdentityType: 'Other5'}} as unknown as IKitConfigs,
+                undefined,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+            );
+            expect(roktManager['normalizedHashedEmailUserIdentityType']).toBe('other5');
+        });
     });
 
     describe('#attachKit', () => {
@@ -1172,7 +1183,7 @@ describe('RoktManager', () => {
             };
 
             roktManager.kit = kit as IRoktKit;
-            roktManager['hashedEmailUserIdentityType'] ='Other5';
+            roktManager['normalizedHashedEmailUserIdentityType'] ='other5';
 
             // Set up fresh mocks for this test
             const mockIdentity = {
@@ -1206,7 +1217,7 @@ describe('RoktManager', () => {
                 }
             }, expect.any(Function));
             expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(
-                "emailsha256 mismatch detected. Current mParticle other5 identity, old-other-value, differs from from 'emailsha256' passed to selectPlacements call, new-emailsha256-value. Proceeding to call identify with other5 set to new-emailsha256-value. Please verify your implementation"
+                "emailsha256 mismatch detected. Current mParticle other5 identity, old-other-value, differs from 'emailsha256' passed to selectPlacements call, new-emailsha256-value. Proceeding to call identify with other5 set to new-emailsha256-value. Please verify your implementation"
             );
         });
 
@@ -1226,7 +1237,7 @@ describe('RoktManager', () => {
             };
 
             roktManager.kit = kit as IRoktKit;
-            roktManager['hashedEmailUserIdentityType'] = 'Other5';
+            roktManager['normalizedHashedEmailUserIdentityType'] = 'other5';
 
             // Set up fresh mocks for this test
             const mockIdentity = {
@@ -1268,7 +1279,7 @@ describe('RoktManager', () => {
             };
 
             roktManager.kit = kit as IRoktKit;
-            roktManager['hashedEmailUserIdentityType'] = 'Other';
+            roktManager['normalizedHashedEmailUserIdentityType'] = 'other';
 
             const mockIdentity = {
                 getCurrentUser: jest.fn().mockReturnValue({
@@ -1299,7 +1310,7 @@ describe('RoktManager', () => {
                 }
             }, expect.any(Function));
             expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(
-                "emailsha256 mismatch detected. Current mParticle other identity, undefined, differs from from 'emailsha256' passed to selectPlacements call, new-emailsha256-value. Proceeding to call identify with other set to new-emailsha256-value. Please verify your implementation"
+                "emailsha256 mismatch detected. Current mParticle other identity, undefined, differs from 'emailsha256' passed to selectPlacements call, new-emailsha256-value. Proceeding to call identify with other set to new-emailsha256-value. Please verify your implementation"
             );
         });
 
