@@ -99,7 +99,7 @@ export default class RoktManager {
     private launcherOptions?: IRoktLauncherOptions;
     private logger: SDKLoggerApi;
     private domain?: string;
-    private hashedEmailUserIdentityType?: string  | null;
+    private normalizedHashedEmailUserIdentityType?: string  | null;
     /**
      * Initializes the RoktManager with configuration settings and user data.
      * 
@@ -120,8 +120,8 @@ export default class RoktManager {
         options?: IRoktOptions
     ): void {
         const { userAttributeFilters, settings } = roktConfig || {};
-        const { placementAttributesMapping, configSettings } = settings || {};
-        this.hashedEmailUserIdentityType = configSettings?.hashedEmailUserIdentityType;
+        const { placementAttributesMapping, hashedEmailUserIdentityType } = settings || {};
+        this.normalizedHashedEmailUserIdentityType = hashedEmailUserIdentityType?.toLowerCase() ?? null;
 
         this.identityService = identityService;
         this.store = store;
@@ -184,21 +184,21 @@ export default class RoktManager {
             const sandboxValue = attributes?.sandbox || null;
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
 
-            const normalizedHashedEmailUserIdentityType = this.hashedEmailUserIdentityType?.toLowerCase() || null;
-
             // Get current user identities
             this.currentUser = this.identityService.getCurrentUser();
             const currentUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
 
             const currentEmail = currentUserIdentities.email;
             const newEmail = mappedAttributes.email as string;
+            const mappedEmailShaIdentityType = this.normalizedHashedEmailUserIdentityType;
 
             let currentHashedEmail: string | undefined;
             let newHashedEmail: string | undefined;
             
             // Hashed email identity is valid if it is set to Other-Other10
-            if(normalizedHashedEmailUserIdentityType && IdentityType.getIdentityType(normalizedHashedEmailUserIdentityType) !== false) {
-                currentHashedEmail = currentUserIdentities[normalizedHashedEmailUserIdentityType];
+
+            if(mappedEmailShaIdentityType && IdentityType.getIdentityType(mappedEmailShaIdentityType) !== false) {
+                currentHashedEmail = currentUserIdentities[mappedEmailShaIdentityType];
                 newHashedEmail = mappedAttributes['emailsha256'] as string || undefined;
             }
 
@@ -214,8 +214,8 @@ export default class RoktManager {
             }
 
             if (hashedEmailChanged) {
-                newIdentities[normalizedHashedEmailUserIdentityType] = newHashedEmail;
-                this.logger.warning(`emailsha256 mismatch detected. Current mParticle ${normalizedHashedEmailUserIdentityType} identity, ${currentHashedEmail}, differs from from 'emailsha256' passed to selectPlacements call, ${newHashedEmail}. Proceeding to call identify with ${normalizedHashedEmailUserIdentityType} set to ${newHashedEmail}. Please verify your implementation`);
+                newIdentities[mappedEmailShaIdentityType] = newHashedEmail;
+                this.logger.warning(`emailsha256 mismatch detected. Current mParticle ${mappedEmailShaIdentityType} identity, ${currentHashedEmail}, differs from 'emailsha256' passed to selectPlacements call, ${newHashedEmail}. Proceeding to call identify with ${mappedEmailShaIdentityType} set to ${newHashedEmail}. Please verify your implementation`);
             }
 
             if (!isEmpty(newIdentities)) {
