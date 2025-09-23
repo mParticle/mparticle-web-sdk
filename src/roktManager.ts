@@ -195,7 +195,6 @@ export default class RoktManager {
             let newHashedEmail: string | undefined;
             
             // Hashed email identity is valid if it is set to Other-Other10
-
             if(this.mappedEmailShaIdentityType && IdentityType.getIdentityType(this.mappedEmailShaIdentityType) !== false) {
                 currentHashedEmail = currentUserIdentities[this.mappedEmailShaIdentityType];
                 newHashedEmail = mappedAttributes['emailsha256'] as string || undefined;
