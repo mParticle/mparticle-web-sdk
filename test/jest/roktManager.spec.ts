@@ -1118,7 +1118,8 @@ describe('RoktManager', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 selectPlacements: jest.fn(),
                 hashAttributes: jest.fn(),
@@ -1163,7 +1164,8 @@ describe('RoktManager', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 selectPlacements: jest.fn().mockResolvedValue({}),
                 hashAttributes: jest.fn(),
@@ -1218,7 +1220,8 @@ describe('RoktManager', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 selectPlacements: jest.fn(),
                 hashAttributes: jest.fn(),
@@ -1261,7 +1264,8 @@ describe('RoktManager', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 selectPlacements: jest.fn(),
                 hashAttributes: jest.fn(),
@@ -1313,7 +1317,8 @@ describe('RoktManager', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn()
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
                 },
                 selectPlacements: jest.fn(),
                 hashAttributes: jest.fn(),
