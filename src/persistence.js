@@ -85,6 +85,17 @@ export default function _Persistence(mpInstance) {
                 } else {
                     self.storeDataInMemory(cookies);
                 }
+
+                // https://go.mparticle.com/work/SQDSDKS-6046
+                // Stores all non-current user MPID information into the store
+                for (var key in allData) {
+                    if (allData.hasOwnProperty(key)) {
+                        if (!SDKv2NonMPIDCookieKeys[key]) {
+                            mpInstance._Store.nonCurrentUserMPIDs[key] =
+                                allData[key];
+                        }
+                    }
+                }
             }
 
             // https://go.mparticle.com/work/SQDSDKS-6048
@@ -114,18 +125,6 @@ export default function _Persistence(mpInstance) {
                 mpInstance.Logger.error(
                     'Error loading products in initialization: ' + e
                 );
-            }
-            if (!mpInstance._Store.getPrivacyFlag('SDKState')) {
-                // https://go.mparticle.com/work/SQDSDKS-6046
-                // Stores all non-current user MPID information into the store
-                for (var key in allData) {
-                    if (allData.hasOwnProperty(key)) {
-                        if (!SDKv2NonMPIDCookieKeys[key]) {
-                            mpInstance._Store.nonCurrentUserMPIDs[key] =
-                                allData[key];
-                        }
-                    }
-                }
             }
             self.update();
         } catch (e) {
