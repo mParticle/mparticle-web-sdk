@@ -1968,10 +1968,6 @@ describe('persistence', () => {
                 mParticle.getInstance()._Persistence.update();
 
                 expect(findCookie()).to.not.be.ok;
-
-                const products = getLocalStorageProducts();
-                expect(products).to.be.ok;
-                expect(products).to.have.property(testMPID);
             });
 
             it('should NOT write localStorage when useCookieStorage = false', async () => {
@@ -1983,10 +1979,6 @@ describe('persistence', () => {
                 mParticle.getInstance()._Persistence.update();
 
                 expect(getLocalStorage()).to.not.be.ok;
-
-                const products = getLocalStorageProducts();
-                expect(products).to.be.ok;
-                expect(products).to.have.property(testMPID);
             });
         });
 
@@ -2004,10 +1996,6 @@ describe('persistence', () => {
                 mParticle.getInstance()._Persistence.update();
 
                 expect(findCookie()).to.be.ok;
-
-                const products = getLocalStorageProducts();
-                expect(products).to.be.ok;
-                expect(products).to.have.property(testMPID);
             });
 
             it('should store localStorage when useCookieStorage = false', async () => {
@@ -2019,10 +2007,6 @@ describe('persistence', () => {
                 mParticle.getInstance()._Persistence.update();
 
                 expect(getLocalStorage()).to.be.ok;
-
-                const products = getLocalStorageProducts();
-                expect(products).to.be.ok;
-                expect(products).to.have.property(testMPID);
             });
         });
 
@@ -2036,10 +2020,6 @@ describe('persistence', () => {
                 mParticle.getInstance()._Persistence.update();
 
                 expect(findCookie()).to.be.ok;
-
-                const products = getLocalStorageProducts();
-                expect(products).to.be.ok;
-                expect(products).to.have.property(testMPID);
             });
 
             it('should store localStorage when useCookieStorage = false', async () => {
@@ -2051,10 +2031,6 @@ describe('persistence', () => {
                 mParticle.getInstance()._Persistence.update();
 
                 expect(getLocalStorage()).to.be.ok;
-
-                const products = getLocalStorageProducts();
-                expect(products).to.be.ok;
-                expect(products).to.have.property(testMPID);
             });
         });
     });

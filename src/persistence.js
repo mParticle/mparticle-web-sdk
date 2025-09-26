@@ -143,15 +143,13 @@ export default function _Persistence(mpInstance) {
     };
 
     this.update = function() {
-        if (!mpInstance._Store.webviewBridgeEnabled) {
-            if (mpInstance._Store.getPrivacyFlag('SDKState')) {
-                self.setProductStorage();
-                return;
-            }
+        if (
+            !mpInstance._Store.webviewBridgeEnabled &&
+            !mpInstance._Store.getPrivacyFlag('SDKState')
+        ) {
             if (mpInstance._Store.SDKConfig.useCookieStorage) {
                 self.setCookie();
             }
-
             self.setLocalStorage();
         }
     };
@@ -331,12 +329,15 @@ export default function _Persistence(mpInstance) {
         return parsedDecodedProducts;
     };
 
-    this.setProductStorage = function() {
+    // https://go.mparticle.com/work/SQDSDKS-6021
+    this.setLocalStorage = function() {
         if (!mpInstance._Store.isLocalStorageAvailable) {
             return;
         }
 
-        var allLocalStorageProducts = self.getAllUserProductsFromLS(),
+        var key = mpInstance._Store.storageName,
+            allLocalStorageProducts = self.getAllUserProductsFromLS(),
+            localStorageData = self.getLocalStorage() || {},
             currentUser = mpInstance.Identity.getCurrentUser(),
             mpid = currentUser ? currentUser.getMPID() : null,
             currentUserProducts = {
@@ -358,21 +359,6 @@ export default function _Persistence(mpInstance) {
                 );
             }
         }
-    };
-
-    // https://go.mparticle.com/work/SQDSDKS-6021
-    this.setLocalStorage = function() {
-        if (!mpInstance._Store.isLocalStorageAvailable) {
-            return;
-        }
-
-        var key = mpInstance._Store.storageName,
-            localStorageData = self.getLocalStorage() || {},
-            currentUser = mpInstance.Identity.getCurrentUser(),
-            mpid = currentUser ? currentUser.getMPID() : null;
-
-        // Always update product storage when setLocalStorage is invoked
-        self.setProductStorage();
 
         if (!mpInstance._Store.SDKConfig.useCookieStorage) {
             localStorageData.gs = localStorageData.gs || {};

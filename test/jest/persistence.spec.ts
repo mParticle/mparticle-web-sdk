@@ -10,7 +10,6 @@ describe('Persistence store', () => {
         mockMPInstance = {
             _Helpers: {
                 createMainStorageName: () => 'mprtcl-v4',
-                createProductStorageName: () => 'mprtcl-prodv4',
                 Validators: { isFunction: () => true },
                 extend: Object.assign,
             },
@@ -20,18 +19,10 @@ describe('Persistence store', () => {
             _Persistence: {
                 setCookie: jest.fn(),
                 setLocalStorage: jest.fn(() => {
-                    mockMPInstance._Persistence.setProductStorage();
                     window.localStorage.setItem('mprtcl-v4', 'local-storage');
                 }),
-                setProductStorage: jest.fn(() => {
-                    window.localStorage.setItem(encodeURIComponent('mprtcl-prodv4'), 'product-storage');
-                }),
                 update: function () {
-                    if (store.webviewBridgeEnabled) {
-                        return;
-                    }
-                    if (store.getNoFunctional()) {
-                        mockMPInstance._Persistence.setProductStorage();
+                    if (store.webviewBridgeEnabled || store.getNoFunctional()) {
                         return;
                     }
                     if (store.SDKConfig.useCookieStorage) {
@@ -53,7 +44,6 @@ describe('Persistence store', () => {
         store = {} as IStore;
         Store.call(store, {} as SDKInitConfig, mockMPInstance, 'apikey');
         window.localStorage.removeItem('mprtcl-v4');
-        window.localStorage.removeItem(encodeURIComponent('mprtcl-prodv4'));
     });
 
     describe('#noFunctional privacy flag', () => {
@@ -70,9 +60,7 @@ describe('Persistence store', () => {
 
                 expect(mockMPInstance._Persistence.setCookie).not.toHaveBeenCalled();
                 expect(mockMPInstance._Persistence.setLocalStorage).not.toHaveBeenCalled();
-                expect(mockMPInstance._Persistence.setProductStorage).toHaveBeenCalled();
                 expect(window.localStorage.getItem('mprtcl-v4')).toBeNull();
-                expect(window.localStorage.getItem(encodeURIComponent('mprtcl-prodv4'))).not.toBeNull();
             });
 
             it('should NOT write to localStorage when useCookieStorage is false', () => {
@@ -82,9 +70,7 @@ describe('Persistence store', () => {
 
                 expect(mockMPInstance._Persistence.setCookie).not.toHaveBeenCalled();
                 expect(mockMPInstance._Persistence.setLocalStorage).not.toHaveBeenCalled();
-                expect(mockMPInstance._Persistence.setProductStorage).toHaveBeenCalled();
                 expect(window.localStorage.getItem('mprtcl-v4')).toBeNull();
-                expect(window.localStorage.getItem(encodeURIComponent('mprtcl-prodv4'))).not.toBeNull();
             });
         });
 
@@ -101,9 +87,7 @@ describe('Persistence store', () => {
 
                 expect(mockMPInstance._Persistence.setCookie).toHaveBeenCalled();
                 expect(mockMPInstance._Persistence.setLocalStorage).toHaveBeenCalled();
-                expect(mockMPInstance._Persistence.setProductStorage).toHaveBeenCalled();
                 expect(window.localStorage.getItem('mprtcl-v4')).not.toBeNull();
-                expect(window.localStorage.getItem(encodeURIComponent('mprtcl-prodv4'))).not.toBeNull();
             });
 
             it('should write to localStorage when useCookieStorage is false', () => {
@@ -113,9 +97,7 @@ describe('Persistence store', () => {
 
                 expect(mockMPInstance._Persistence.setCookie).not.toHaveBeenCalled();
                 expect(mockMPInstance._Persistence.setLocalStorage).toHaveBeenCalled();
-                expect(mockMPInstance._Persistence.setProductStorage).toHaveBeenCalled();
                 expect(window.localStorage.getItem('mprtcl-v4')).not.toBeNull();
-                expect(window.localStorage.getItem(encodeURIComponent('mprtcl-prodv4'))).not.toBeNull();
             });
         });
 
@@ -133,9 +115,7 @@ describe('Persistence store', () => {
                 expect(store.getNoFunctional()).toBe(false);
                 expect(mockMPInstance._Persistence.setCookie).toHaveBeenCalled();
                 expect(mockMPInstance._Persistence.setLocalStorage).toHaveBeenCalled();
-                expect(mockMPInstance._Persistence.setProductStorage).toHaveBeenCalled();
                 expect(window.localStorage.getItem('mprtcl-v4')).not.toBeNull();
-                expect(window.localStorage.getItem(encodeURIComponent('mprtcl-prodv4'))).not.toBeNull();
             });
 
             it('should write to localStorage by default when useCookieStorage is false', () => {
@@ -146,9 +126,7 @@ describe('Persistence store', () => {
                 expect(store.getNoFunctional()).toBe(false);
                 expect(mockMPInstance._Persistence.setCookie).not.toHaveBeenCalled();
                 expect(mockMPInstance._Persistence.setLocalStorage).toHaveBeenCalled();
-                expect(mockMPInstance._Persistence.setProductStorage).toHaveBeenCalled();
                 expect(window.localStorage.getItem('mprtcl-v4')).not.toBeNull();
-                expect(window.localStorage.getItem(encodeURIComponent('mprtcl-prodv4'))).not.toBeNull();
             });
         });
 
@@ -161,9 +139,7 @@ describe('Persistence store', () => {
 
             expect(mockMPInstance._Persistence.setCookie).not.toHaveBeenCalled();
             expect(mockMPInstance._Persistence.setLocalStorage).not.toHaveBeenCalled();
-            expect(mockMPInstance._Persistence.setProductStorage).not.toHaveBeenCalled();
             expect(window.localStorage.getItem('mprtcl-v4')).toBeNull();
-            expect(window.localStorage.getItem(encodeURIComponent('mprtcl-prodv4'))).toBeNull();
         });
     });
 });
