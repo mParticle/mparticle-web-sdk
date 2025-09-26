@@ -365,12 +365,10 @@ export default function _Persistence(mpInstance) {
             allLocalStorageProducts = allLocalStorageProducts || {};
             allLocalStorageProducts[mpid] = currentUserProducts;
             try {
-                if (!mpInstance._Store.getPrivacyFlag('Products')) {
-                    window.localStorage.setItem(
-                        encodeURIComponent(mpInstance._Store.prodStorageName),
-                        Base64.encode(JSON.stringify(allLocalStorageProducts))
-                    );
-                }
+                window.localStorage.setItem(
+                    encodeURIComponent(mpInstance._Store.prodStorageName),
+                    Base64.encode(JSON.stringify(allLocalStorageProducts))
+                );
             } catch (e) {
                 mpInstance.Logger.error(
                     'Error with setting products on localStorage.'
