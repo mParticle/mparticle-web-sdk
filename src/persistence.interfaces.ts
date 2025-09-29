@@ -105,7 +105,6 @@ export interface IPersistence {
     getUserProductsFromLS(mpid: MPID): Product[];
     getAllUserProductsFromLS(): Product[];
     setLocalStorage(): void;
-    setProductStorage(): void;
     getLocalStorage(): IPersistenceMinified | null;
     expireCookies(cookieName: string): void;
     getCookie(): IPersistenceMinified | null;
