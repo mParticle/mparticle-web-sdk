@@ -152,6 +152,7 @@ export default function _Persistence(mpInstance) {
             if (mpInstance._Store.SDKConfig.useCookieStorage) {
                 self.setCookie();
             }
+
             self.setLocalStorage();
         }
     };
