@@ -39,61 +39,63 @@ export default function _Persistence(mpInstance) {
             if (!mpInstance._Store.isLocalStorageAvailable) {
                 mpInstance._Store.SDKConfig.useCookieStorage = true;
             }
-            if (!mpInstance._Store.getPrivacyFlag('SDKState')) {
-                // https://go.mparticle.com/work/SQDSDKS-6046
-                if (mpInstance._Store.isLocalStorageAvailable) {
-                    storage = window.localStorage;
-                    if (mpInstance._Store.SDKConfig.useCookieStorage) {
-                        // For migrating from localStorage to cookies -- If an instance switches from localStorage to cookies, then
-                        // no mParticle cookie exists yet and there is localStorage. Get the localStorage, set them to cookies, then delete the localStorage item.
+            if (mpInstance._Store.getPrivacyFlag('SDKState')) {
+                return;
+            }
+
+            // https://go.mparticle.com/work/SQDSDKS-6046
+            if (mpInstance._Store.isLocalStorageAvailable) {
+                storage = window.localStorage;
+                if (mpInstance._Store.SDKConfig.useCookieStorage) {
+                    // For migrating from localStorage to cookies -- If an instance switches from localStorage to cookies, then
+                    // no mParticle cookie exists yet and there is localStorage. Get the localStorage, set them to cookies, then delete the localStorage item.
+                    if (localStorageData) {
+                        if (cookies) {
+                            // https://go.mparticle.com/work/SQDSDKS-6047
+                            allData = mpInstance._Helpers.extend(
+                                false,
+                                localStorageData,
+                                cookies
+                            );
+                        } else {
+                            allData = localStorageData;
+                        }
+                        storage.removeItem(mpInstance._Store.storageName);
+                    } else if (cookies) {
+                        allData = cookies;
+                    }
+                    self.storeDataInMemory(allData);
+                } else {
+                    // For migrating from cookie to localStorage -- If an instance is newly switching from cookies to localStorage, then
+                    // no mParticle localStorage exists yet and there are cookies. Get the cookies, set them to localStorage, then delete the cookies.
+                    if (cookies) {
                         if (localStorageData) {
-                            if (cookies) {
-                                // https://go.mparticle.com/work/SQDSDKS-6047
-                                allData = mpInstance._Helpers.extend(
-                                    false,
-                                    localStorageData,
-                                    cookies
-                                );
-                            } else {
-                                allData = localStorageData;
-                            }
-                            storage.removeItem(mpInstance._Store.storageName);
-                        } else if (cookies) {
+                            // https://go.mparticle.com/work/SQDSDKS-6047
+                            allData = mpInstance._Helpers.extend(
+                                false,
+                                localStorageData,
+                                cookies
+                            );
+                        } else {
                             allData = cookies;
                         }
                         self.storeDataInMemory(allData);
+                        self.expireCookies(mpInstance._Store.storageName);
                     } else {
-                        // For migrating from cookie to localStorage -- If an instance is newly switching from cookies to localStorage, then
-                        // no mParticle localStorage exists yet and there are cookies. Get the cookies, set them to localStorage, then delete the cookies.
-                        if (cookies) {
-                            if (localStorageData) {
-                                // https://go.mparticle.com/work/SQDSDKS-6047
-                                allData = mpInstance._Helpers.extend(
-                                    false,
-                                    localStorageData,
-                                    cookies
-                                );
-                            } else {
-                                allData = cookies;
-                            }
-                            self.storeDataInMemory(allData);
-                            self.expireCookies(mpInstance._Store.storageName);
-                        } else {
-                            self.storeDataInMemory(localStorageData);
-                        }
+                        self.storeDataInMemory(localStorageData);
                     }
-                } else {
-                    self.storeDataInMemory(cookies);
                 }
+            } else {
+                self.storeDataInMemory(cookies);
+            }
 
-                // https://go.mparticle.com/work/SQDSDKS-6046
-                // Stores all non-current user MPID information into the store
-                for (var key in allData) {
-                    if (allData.hasOwnProperty(key)) {
-                        if (!SDKv2NonMPIDCookieKeys[key]) {
-                            mpInstance._Store.nonCurrentUserMPIDs[key] =
-                                allData[key];
-                        }
+            // https://go.mparticle.com/work/SQDSDKS-6046
+            // Stores all non-current user MPID information into the store
+            for (var key in allData) {
+                if (allData.hasOwnProperty(key)) {
+                    if (!SDKv2NonMPIDCookieKeys[key]) {
+                        mpInstance._Store.nonCurrentUserMPIDs[key] =
+                            allData[key];
                     }
                 }
             }
