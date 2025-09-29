@@ -89,17 +89,6 @@ export default function _Persistence(mpInstance) {
                 self.storeDataInMemory(cookies);
             }
 
-            // https://go.mparticle.com/work/SQDSDKS-6046
-            // Stores all non-current user MPID information into the store
-            for (var key in allData) {
-                if (allData.hasOwnProperty(key)) {
-                    if (!SDKv2NonMPIDCookieKeys[key]) {
-                        mpInstance._Store.nonCurrentUserMPIDs[key] =
-                            allData[key];
-                    }
-                }
-            }
-
             // https://go.mparticle.com/work/SQDSDKS-6048
             try {
                 if (mpInstance._Store.isLocalStorageAvailable) {
@@ -127,6 +116,17 @@ export default function _Persistence(mpInstance) {
                 mpInstance.Logger.error(
                     'Error loading products in initialization: ' + e
                 );
+            }
+
+            // https://go.mparticle.com/work/SQDSDKS-6046
+            // Stores all non-current user MPID information into the store
+            for (var key in allData) {
+                if (allData.hasOwnProperty(key)) {
+                    if (!SDKv2NonMPIDCookieKeys[key]) {
+                        mpInstance._Store.nonCurrentUserMPIDs[key] =
+                            allData[key];
+                    }
+                }
             }
             self.update();
         } catch (e) {
