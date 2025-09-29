@@ -20,6 +20,9 @@ export default function _Persistence(mpInstance) {
     };
 
     this.initializeStorage = function() {
+        if (mpInstance._Store.getPrivacyFlag('SDKState')) {
+            return;
+        }
         try {
             var storage,
                 localStorageData = self.getLocalStorage(),
@@ -38,9 +41,6 @@ export default function _Persistence(mpInstance) {
             // https://go.mparticle.com/work/SQDSDKS-6045
             if (!mpInstance._Store.isLocalStorageAvailable) {
                 mpInstance._Store.SDKConfig.useCookieStorage = true;
-            }
-            if (mpInstance._Store.getPrivacyFlag('SDKState')) {
-                return;
             }
 
             // https://go.mparticle.com/work/SQDSDKS-6046

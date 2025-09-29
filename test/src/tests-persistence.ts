@@ -1949,12 +1949,12 @@ describe('persistence', () => {
         user2.getAllUserAttributes()['ua-1'].should.equal('a');
     });
 
-    describe('#noFunctional', () => {
+    describe('noFunctional privacy flag', () => {
         beforeEach(() => {
             mParticle._resetForTests(MPConfig);
         });
 
-        describe('true', () => {
+        describe('set to true', () => {
             beforeEach(() => {
                 mParticle.config.launcherOptions = { noFunctional: true };
             });
@@ -1982,7 +1982,7 @@ describe('persistence', () => {
             });
         });
 
-        describe('false', () => {
+        describe('set to false', () => {
             beforeEach(() => {
                 mParticle.config.launcherOptions = { noFunctional: false };
             });

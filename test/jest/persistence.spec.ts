@@ -2,7 +2,7 @@ import Store, { IStore } from '../../src/store';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 import { SDKInitConfig } from '../../src/sdkRuntimeModels';
 
-describe('Persistence store', () => {
+describe('Persistence', () => {
     let store: IStore;
     let mockMPInstance: IMParticleWebSDKInstance;
 
@@ -10,8 +10,6 @@ describe('Persistence store', () => {
         mockMPInstance = {
             _Helpers: {
                 createMainStorageName: () => 'mprtcl-v4',
-                Validators: { isFunction: () => true },
-                extend: Object.assign,
             },
             _NativeSdkHelpers: {
                 isWebviewEnabled: () => false,
@@ -31,14 +29,6 @@ describe('Persistence store', () => {
                     mockMPInstance._Persistence.setLocalStorage();
                 },
             },
-            Logger: {
-                verbose: () => {},
-                warning: () => {},
-                error: () => {},
-            },
-            Identity: {
-                getCurrentUser: () => ({ getMPID: () => 'mpid' }),
-            },
         } as unknown as IMParticleWebSDKInstance;
 
         store = {} as IStore;
@@ -46,8 +36,8 @@ describe('Persistence store', () => {
         window.localStorage.removeItem('mprtcl-v4');
     });
 
-    describe('#noFunctional privacy flag', () => {
-        describe('true', () => {
+    describe('#update', () => {
+        describe('noFunctional privacy flag set to true', () => {
             beforeEach(() => {
                 store.setNoFunctional(true);
                 store.webviewBridgeEnabled = false;
@@ -74,7 +64,7 @@ describe('Persistence store', () => {
             });
         });
 
-        describe('false', () => {
+        describe('noFunctional privacy flag set to false', () => {
             beforeEach(() => {
                 store.setNoFunctional(false);
                 store.webviewBridgeEnabled = false;
@@ -101,7 +91,7 @@ describe('Persistence store', () => {
             });
         });
 
-        describe('is false by default', () => {
+        describe('noFunctional privacy flag set to false by default', () => {
             beforeEach(() => {
                 // default is false
                 store.webviewBridgeEnabled = false;
