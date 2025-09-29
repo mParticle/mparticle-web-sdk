@@ -34,7 +34,6 @@ const {
     setLocalStorage,
     findCookie,
     forwarderDefaultConfiguration,
-    getLocalStorageProducts,
     findEventFromRequest,
     findBatch,
     setCookie,
@@ -2059,159 +2058,6 @@ describe('identity', function() {
         done();
     });
 
-    it("should find the related MPID's cookies when given a UI with fewer IDs when passed to login, logout, and identify, and then log events with updated cookies", async () => {
-        mParticle._resetForTests(MPConfig);
-        fetchMock.restore();
-        const user1: IdentityApiData = {
-            userIdentities: {
-                customerid: 'customerid1',
-            },
-        };
-
-        const user1modified: IdentityApiData = {
-            userIdentities: {
-                email: 'email2@test.com',
-            },
-        };
-
-        fetchMockSuccess(urls.events, {});
-        fetchMockSuccess(urls.identify, {
-            context: null,
-            matched_identities: {
-                device_application_stamp: 'my-das',
-            },
-            is_ephemeral: true,
-            mpid: testMPID,
-            is_logged_in: false,
-        });
-
-        mParticle.config.identifyRequest = user1;
-
-        mParticle.init(apiKey, window.mParticle.config);
-
-        fetchMockSuccess(urls.modify, {
-                change_results: [
-                    {
-                        identity_type: 'email',
-                        modified_mpid: testMPID,
-                    },
-                ],
-        });
-
-        await waitForCondition(hasIdentifyReturned)
-        mParticle.Identity.modify(user1modified);
-        // Should contain the following calls:
-        // 1 for the initial identify
-        // 3 for the events (Session Start, UAT and UIC)
-        // 1 for the modify
-        // 1 for the UIC event
-        await waitForCondition(hasIdentityCallInflightReturned)
-        expect(fetchMock.calls().length).to.equal(6);
-
-        // This will add a new UAC Event to the call
-        mParticle.Identity.getCurrentUser().setUserAttribute('foo1', 'bar1');
-        expect(fetchMock.calls().length).to.equal(7);
-
-        const product1: SDKProduct = mParticle.eCommerce.createProduct(
-            'iPhone',
-            '12345',
-            '1000',
-            2
-        );
-        mParticle.eCommerce.Cart.add(product1);
-
-        // This will add a new custom event to the call
-        mParticle.logEvent('Test Event 1');
-        expect(fetchMock.calls().length).to.equal(8);
-
-        const testEvent1Batch = JSON.parse(fetchMock.calls()[7][1].body as string);
-
-        expect(testEvent1Batch.user_attributes).to.deep.equal({ 'foo1': 'bar1' });
-        expect(testEvent1Batch.user_identities).to.deep.equal({
-            'customer_id': 'customerid1',
-            'email': 'email2@test.com'
-        });
-
-        const products = getLocalStorageProducts();
-
-        products.testMPID.cp[0].should.have.property(
-            'Name',
-            'iPhone',
-            'sku',
-            'quantity'
-        );
-        products.testMPID.cp[0].should.have.property('Sku', '12345');
-        products.testMPID.cp[0].should.have.property('Price', 1000);
-        products.testMPID.cp[0].should.have.property('Quantity', 2);
-
-        const user2 = {
-            userIdentities: {
-                customerid: 'customerid2',
-            },
-        };
-
-        fetchMockSuccess(urls.logout, {
-            mpid: 'logged-out-user',
-            is_logged_in: true,
-        }); 
-
-        mParticle.Identity.logout(user2);
-
-        await waitForCondition(hasLogOutReturned)
-
-        // This will add the following new calls:
-        // 1 for the logout
-        // 1 for the UIC event
-        // 1 for Test Event 2
-        mParticle.logEvent('Test Event 2');
-
-        expect(fetchMock.calls().length).to.equal(11);
-
-        const testEvent2Batch = JSON.parse(fetchMock.calls()[10][1].body as string);
-
-        Object.keys(testEvent2Batch.user_attributes).length.should.equal(0);
-        testEvent2Batch.user_identities.should.have.property(
-            'customer_id',
-            'customerid2'
-        );
-
-        fetchMockSuccess(urls.login, {
-            mpid: 'testMPID',
-            is_logged_in: true,
-        }); 
-
-        mParticle.Identity.login(user1);
-        await waitForCondition(() => {
-            return mParticle.Identity.getCurrentUser().getMPID() === 'testMPID';
-        })
-
-        // This will add the following new calls:
-        // 1 for the login
-        // 1 for Test Event 3
-        mParticle.logEvent('Test Event 3');
-        expect(fetchMock.calls().length).to.equal(13);
-
-        const testEvent3Batch = JSON.parse(fetchMock.calls()[12][1].body as string);
-
-        expect(testEvent3Batch.user_attributes).to.deep.equal({'foo1': 'bar1'});
-        expect(testEvent3Batch.user_identities).to.deep.equal({
-            'customer_id': 'customerid1',
-            'email': 'email2@test.com'
-        });
-
-        const products2 = getLocalStorageProducts();
-
-        products2.testMPID.cp[0].should.have.property(
-            'Name',
-            'iPhone',
-            'sku',
-            'quantity'
-        );
-        products2.testMPID.cp[0].should.have.property('Sku', '12345');
-        products2.testMPID.cp[0].should.have.property('Price', 1000);
-        products2.testMPID.cp[0].should.have.property('Quantity', 2);
-    });
-
     it('should add new MPIDs to cookie structure when initializing new identity requests, returning an existing mpid when reinitializing with a previous identity', async () => {
         mParticle._resetForTests(MPConfig);
 
@@ -2494,92 +2340,6 @@ describe('identity', function() {
         const userIdentities2 = mParticle.Identity.getCurrentUser().getUserIdentities();
 
         expect(userIdentities2.userIdentities).to.deep.equal({});
-    });
-
-    it("saves proper cookies for each user's products, and purchases record cartProducts correctly", async () => {
-        mParticle._resetForTests(MPConfig);
-
-        const identityAPIRequest1 = {
-            userIdentities: {
-                customerid: '123',
-            },
-        };
-        mParticle.init(apiKey, window.mParticle.config);
-
-        await waitForCondition(hasIdentifyReturned)
-
-        const product1 = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1),
-            product2 = mParticle.eCommerce.createProduct('Android', 'SKU2', 2),
-            product3 = mParticle.eCommerce.createProduct('Windows', 'SKU3', 3),
-            product4 = mParticle.eCommerce.createProduct('HTC', 'SKU4', 4);
-
-        mParticle.eCommerce.Cart.add([product1, product2]);
-
-        const identityAPIRequest2 = {
-            userIdentities: {
-                customerid: '234',
-            },
-        };
-
-        const products = getLocalStorageProducts();
-        const cartProducts = products[testMPID].cp;
-
-        cartProducts[0].Name.should.equal('iPhone');
-        cartProducts[1].Name.should.equal('Android');
-
-        fetchMockSuccess(urls.login, {
-            mpid: 'otherMPID',
-            is_logged_in: true,
-        });
-
-        mParticle.Identity.login(identityAPIRequest2);
-
-        await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'otherMPID')
-
-        mParticle.eCommerce.Cart.add([product3, product4]);
-
-        const products2 = getLocalStorageProducts();
-        const cartProducts2 = products2['otherMPID'].cp;
-
-        cartProducts2[0].Name.should.equal('Windows');
-        cartProducts2[1].Name.should.equal('HTC');
-
-        // https://go.mparticle.com/work/SQDSDKS-6846
-        mParticle.eCommerce.logCheckout(1);
-
-        const checkoutEvent = findEventFromRequest(
-            fetchMock.calls(),
-            'checkout'
-        );
-
-        checkoutEvent.data.product_action.should.have.property(
-            'products',
-            null
-        );
-
-        fetchMockSuccess(urls.login, {
-            mpid: testMPID,
-            is_logged_in: true,
-        });
-
-        mParticle.Identity.login(identityAPIRequest1);
-
-        await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'otherMPID')
-
-        fetchMock.resetHistory();
-
-        // https://go.mparticle.com/work/SQDSDKS-6846
-        mParticle.eCommerce.logCheckout(1);
-
-        const checkoutEvent2 = findEventFromRequest(
-            fetchMock.calls(),
-            'checkout'
-        );
-
-        checkoutEvent2.data.product_action.should.have.property(
-            'products',
-            null
-        );
     });
 
     it('should update cookies after modifying identities', async () => {
@@ -4806,7 +4566,7 @@ describe('identity', function() {
             // deprecates on both .getCart, then .add
             bond.callCount.should.equal(4);
             bond.getCalls()[1].args[0].should.eql(
-                'Deprecated function Identity.getCurrentUser().getCart().add() will be removed in future releases'
+                'Deprecated function Identity.getCurrentUser().getCart().add()'
             );
         });
 
@@ -4835,7 +4595,7 @@ describe('identity', function() {
             // deprecates on both .getCart, then .add
             bond.callCount.should.equal(4);
             bond.getCalls()[1].args[0].should.eql(
-                'Deprecated function Identity.getCurrentUser().getCart().remove() will be removed in future releases'
+                'Deprecated function Identity.getCurrentUser().getCart().remove()'
             );
         });
 
@@ -4857,7 +4617,7 @@ describe('identity', function() {
             // deprecates on both .getCart, then .add
             bond.callCount.should.equal(4);
             bond.getCalls()[1].args[0].should.eql(
-                'Deprecated function Identity.getCurrentUser().getCart().clear() will be removed in future releases'
+                'Deprecated function Identity.getCurrentUser().getCart().clear()'
             );
         });
         
@@ -4880,7 +4640,7 @@ describe('identity', function() {
                     // deprecates on both .getCart, then .add
                     bond.callCount.should.equal(4);
                     bond.getCalls()[1].args[0].should.eql(
-                        'Deprecated function Identity.getCurrentUser().getCart().getCartProducts() will be removed in future releases'
+                        'Deprecated function Identity.getCurrentUser().getCart().getCartProducts()'
                     );
         });
     });
