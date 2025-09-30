@@ -1,0 +1,40 @@
+name: 'BrowserStack Beta Test'
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  browserstack-beta-test:
+    name: 'BrowserStack Beta Test'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'BrowserStack Env Setup'
+        uses: browserstack/github-actions/setup-env@master
+        with:
+          username:  ${{ secrets.BROWSERSTACK_USERNAME }}
+          access-key: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+
+      - name: 'BrowserStack Local Tunnel Setup'
+        uses: browserstack/github-actions/setup-local@master
+        with:
+          local-testing: start
+          local-identifier: random
+
+      - name: 'Checkout the repository'
+        uses: actions/checkout@v3
+
+      - name: 'Run NPM CI'
+        run: npm ci
+
+      - name: Run Build IIFE
+        run: npm run build:iife
+
+      - name: 'Run Build test bundle'
+        run: npm run build:test-bundle
+
+      - name: 'Run Browserstack Beta Tests'
+        run: npm run test:browserstack-beta
+
+      - name: 'BrowserStackLocal Stop'
+        uses: browserstack/github-actions/setup-local@master
+        with:
+          local-testing: stop
+
