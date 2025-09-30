@@ -389,8 +389,10 @@ describe('RoktManager', () => {
     });
 
     describe('#processMessageQueue', () => {
-        it('should process the message queue if a launcher and kit are attached', () => {
-            const kit: IRoktKit = {
+        let kit: IRoktKit;
+
+        beforeEach(() => {
+            kit = {
                 launcher: {
                     selectPlacements: jest.fn(),
                     hashAttributes: jest.fn(),
@@ -404,6 +406,9 @@ describe('RoktManager', () => {
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
             };
+        });
+
+        it('should process the message queue if a launcher and kit are attached', () => {
 
 
             roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
@@ -422,21 +427,6 @@ describe('RoktManager', () => {
         });
 
         it('should call RoktManager methods (not kit methods directly) when processing queue', () => {
-            const kit: IRoktKit = {
-                launcher: {
-                    selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn(),
-                    use: jest.fn(),
-                },
-                filters: undefined,
-                selectPlacements: jest.fn(),
-                hashAttributes: jest.fn(),
-                filteredUser: undefined,
-                userAttributes: undefined,
-                setExtensionData: jest.fn(),
-                use: jest.fn(),
-            };
-
             // Queue some calls before kit is ready (these will be deferred)
             const selectOptions = { attributes: { test: 'value' } } as IRoktSelectPlacementsOptions;
             const hashAttrs = { email: 'test@example.com' };
@@ -488,21 +478,6 @@ describe('RoktManager', () => {
         });
 
         it('should preserve RoktManager preprocessing logic when processing deferred selectPlacements calls', () => {
-            const kit: IRoktKit = {
-                launcher: {
-                    selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn(),
-                    use: jest.fn(),
-                },
-                filters: undefined,
-                selectPlacements: jest.fn(),
-                hashAttributes: jest.fn(),
-                filteredUser: undefined,
-                userAttributes: undefined,
-                setExtensionData: jest.fn(),
-                use: jest.fn(),
-            };
-
             // Set up placement attributes mapping to test preprocessing
             roktManager['placementAttributesMapping'] = [
                 {
@@ -552,21 +527,6 @@ describe('RoktManager', () => {
 
 
         it('should skip processing if method does not exist on RoktManager', () => {
-            const kit: IRoktKit = {
-                launcher: {
-                    selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn(),
-                    use: jest.fn(),
-                },
-                filters: undefined,
-                selectPlacements: jest.fn(),
-                hashAttributes: jest.fn(),
-                filteredUser: undefined,
-                userAttributes: undefined,
-                setExtensionData: jest.fn(),
-                use: jest.fn(),
-            };
-
             // Manually add a message with a non-existent method name
             roktManager['queueMessage']({
                 messageId: 'test_123',
