@@ -26,7 +26,7 @@ const customLaunchers = {
   bs_chrome_mac_beta: {
     base: 'BrowserStack',
     browser: 'chrome',
-    browser_version: 'beta',
+    browser_version: 'latest-beta',
     os: 'OS X',
     os_version: 'Ventura'
   },
@@ -34,6 +34,27 @@ const customLaunchers = {
     base: 'BrowserStack',
     browser: 'chrome',
     browser_version: 'latest',
+    os: 'Windows',
+    os_version: '11'
+  },
+  bs_firefox_mac_beta: {
+    base: 'BrowserStack',
+    browser: 'firefox',
+    browser_version: 'latest-beta',
+    os: 'OS X',
+    os_version: 'Ventura'
+  },
+  bs_firefox_win_latest: {
+    base: 'BrowserStack',
+    browser: 'firefox',
+    browser_version: 'latest',
+    os: 'Windows',
+    os_version: '11',
+  },
+   bs_edge_win_beta: {
+    base: 'BrowserStack',
+    browser: 'edge',
+    browser_version: 'latest-beta',
     os: 'Windows',
     os_version: '11'
   },
