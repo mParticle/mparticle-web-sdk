@@ -1,39 +1,45 @@
 import Store, { IStore } from '../../src/store';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 import { SDKInitConfig } from '../../src/sdkRuntimeModels';
+import Persistence from '../../src/persistence';
+import { isObject } from '../../src/utils';
 
 describe('Persistence', () => {
     let store: IStore;
     let mockMPInstance: IMParticleWebSDKInstance;
+    let persistence: Persistence;
 
     beforeEach(() => {
+        store = {} as IStore;
         mockMPInstance = {
             _Helpers: {
                 createMainStorageName: () => 'mprtcl-v4',
+                isObject,
             },
             _NativeSdkHelpers: {
                 isWebviewEnabled: () => false,
             },
-            _Persistence: {
-                setCookie: jest.fn(),
-                setLocalStorage: jest.fn(() => {
-                    window.localStorage.setItem('mprtcl-v4', 'local-storage');
+            _Store: store,
+            Identity: {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getMPID: () => 'test-mpid',
                 }),
-                update: function () {
-                    if (store.webviewBridgeEnabled || store.getNoFunctional()) {
-                        return;
-                    }
-                    if (store.SDKConfig.useCookieStorage) {
-                        mockMPInstance._Persistence.setCookie();
-                    }
-                    mockMPInstance._Persistence.setLocalStorage();
-                },
+            },
+            Logger: {
+                verbose: jest.fn(),
+                error: jest.fn(),
+                warning: jest.fn(),
             },
         } as unknown as IMParticleWebSDKInstance;
 
-        store = {} as IStore;
         Store.call(store, {} as SDKInitConfig, mockMPInstance, 'apikey');
-        window.localStorage.removeItem('mprtcl-v4');
+        
+        store.isLocalStorageAvailable = true;
+        store.SDKConfig.useCookieStorage = true;
+        store.webviewBridgeEnabled = false;
+
+        persistence = new Persistence(mockMPInstance);
+        window.localStorage.removeItem(encodeURIComponent(store.storageName));
     });
 
     describe('#update', () => {
@@ -46,21 +52,27 @@ describe('Persistence', () => {
             it('should NOT write to cookie and localStorage when useCookieStorage is true', () => {
                 store.SDKConfig.useCookieStorage = true;
 
-                mockMPInstance._Persistence.update();
+                const setCookieSpy = jest.spyOn(persistence, 'setCookie');
+                const setLocalStorageSpy = jest.spyOn(persistence, 'setLocalStorage');
 
-                expect(mockMPInstance._Persistence.setCookie).not.toHaveBeenCalled();
-                expect(mockMPInstance._Persistence.setLocalStorage).not.toHaveBeenCalled();
-                expect(window.localStorage.getItem('mprtcl-v4')).toBeNull();
+                persistence.update();
+
+                expect(setCookieSpy).not.toHaveBeenCalled();
+                expect(setLocalStorageSpy).not.toHaveBeenCalled();
+                expect(window.localStorage.getItem(encodeURIComponent(store.storageName))).toBeNull();
             });
 
             it('should NOT write to localStorage when useCookieStorage is false', () => {
                 store.SDKConfig.useCookieStorage = false;
 
-                mockMPInstance._Persistence.update();
+                const setCookieSpy = jest.spyOn(persistence, 'setCookie');
+                const setLocalStorageSpy = jest.spyOn(persistence, 'setLocalStorage');
 
-                expect(mockMPInstance._Persistence.setCookie).not.toHaveBeenCalled();
-                expect(mockMPInstance._Persistence.setLocalStorage).not.toHaveBeenCalled();
-                expect(window.localStorage.getItem('mprtcl-v4')).toBeNull();
+                persistence.update();
+
+                expect(setCookieSpy).not.toHaveBeenCalled();
+                expect(setLocalStorageSpy).not.toHaveBeenCalled();
+                expect(window.localStorage.getItem(encodeURIComponent(store.storageName))).toBeNull();
             });
         });
 
@@ -73,21 +85,29 @@ describe('Persistence', () => {
             it('should write to cookie and localStorage when useCookieStorage is true', () => {
                 store.SDKConfig.useCookieStorage = true;
 
-                mockMPInstance._Persistence.update();
+                jest.spyOn(persistence, 'getCookie').mockReturnValue(null);
 
-                expect(mockMPInstance._Persistence.setCookie).toHaveBeenCalled();
-                expect(mockMPInstance._Persistence.setLocalStorage).toHaveBeenCalled();
-                expect(window.localStorage.getItem('mprtcl-v4')).not.toBeNull();
+                const setCookieSpy = jest.spyOn(persistence, 'setCookie');
+                const setLocalStorageSpy = jest.spyOn(persistence, 'setLocalStorage');
+
+                persistence.update();
+
+                expect(setCookieSpy).toHaveBeenCalled();
+                expect(setLocalStorageSpy).toHaveBeenCalled();
+                expect(window.localStorage.getItem(encodeURIComponent(store.storageName))).not.toBeNull();
             });
 
             it('should write to localStorage when useCookieStorage is false', () => {
                 store.SDKConfig.useCookieStorage = false;
 
-                mockMPInstance._Persistence.update();
+                const setCookieSpy = jest.spyOn(persistence, 'setCookie');
+                const setLocalStorageSpy = jest.spyOn(persistence, 'setLocalStorage');
 
-                expect(mockMPInstance._Persistence.setCookie).not.toHaveBeenCalled();
-                expect(mockMPInstance._Persistence.setLocalStorage).toHaveBeenCalled();
-                expect(window.localStorage.getItem('mprtcl-v4')).not.toBeNull();
+                persistence.update();
+
+                expect(setCookieSpy).not.toHaveBeenCalled();
+                expect(setLocalStorageSpy).toHaveBeenCalled();
+                expect(window.localStorage.getItem(encodeURIComponent(store.storageName))).not.toBeNull();
             });
         });
 
@@ -100,23 +120,29 @@ describe('Persistence', () => {
             it('should write to cookie and localStorage by default when useCookieStorage is true', () => {
                 store.SDKConfig.useCookieStorage = true;
 
-                mockMPInstance._Persistence.update();
+                jest.spyOn(persistence, 'getCookie').mockReturnValue(null);
 
-                expect(store.getNoFunctional()).toBe(false);
-                expect(mockMPInstance._Persistence.setCookie).toHaveBeenCalled();
-                expect(mockMPInstance._Persistence.setLocalStorage).toHaveBeenCalled();
-                expect(window.localStorage.getItem('mprtcl-v4')).not.toBeNull();
+                const setCookieSpy = jest.spyOn(persistence, 'setCookie');
+                const setLocalStorageSpy = jest.spyOn(persistence, 'setLocalStorage');
+
+                persistence.update();
+
+                expect(setCookieSpy).toHaveBeenCalled();
+                expect(setLocalStorageSpy).toHaveBeenCalled();
+                expect(window.localStorage.getItem(encodeURIComponent(store.storageName))).not.toBeNull();
             });
 
             it('should write to localStorage by default when useCookieStorage is false', () => {
                 store.SDKConfig.useCookieStorage = false;
 
-                mockMPInstance._Persistence.update();
+                const setCookieSpy = jest.spyOn(persistence, 'setCookie');
+                const setLocalStorageSpy = jest.spyOn(persistence, 'setLocalStorage');
 
-                expect(store.getNoFunctional()).toBe(false);
-                expect(mockMPInstance._Persistence.setCookie).not.toHaveBeenCalled();
-                expect(mockMPInstance._Persistence.setLocalStorage).toHaveBeenCalled();
-                expect(window.localStorage.getItem('mprtcl-v4')).not.toBeNull();
+                persistence.update();
+
+                expect(setCookieSpy).not.toHaveBeenCalled();
+                expect(setLocalStorageSpy).toHaveBeenCalled();
+                expect(window.localStorage.getItem(encodeURIComponent(store.storageName))).not.toBeNull();
             });
         });
 
@@ -125,11 +151,14 @@ describe('Persistence', () => {
             store.webviewBridgeEnabled = true;
             store.SDKConfig.useCookieStorage = true;
 
-            mockMPInstance._Persistence.update();
+            const setCookieSpy = jest.spyOn(persistence, 'setCookie');
+            const setLocalStorageSpy = jest.spyOn(persistence, 'setLocalStorage');
 
-            expect(mockMPInstance._Persistence.setCookie).not.toHaveBeenCalled();
-            expect(mockMPInstance._Persistence.setLocalStorage).not.toHaveBeenCalled();
-            expect(window.localStorage.getItem('mprtcl-v4')).toBeNull();
+            persistence.update();
+
+            expect(setCookieSpy).not.toHaveBeenCalled();
+            expect(setLocalStorageSpy).not.toHaveBeenCalled();
+            expect(window.localStorage.getItem(encodeURIComponent(store.storageName))).toBeNull();
         });
     });
 });
