@@ -1,0 +1,39 @@
+name: 'BrowserStack Mobile Test'
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  browserstack-mobile-test:
+    name: 'BrowserStack Mobile Test'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'BrowserStack Env Setup'
+        uses: browserstack/github-actions/setup-env@master
+        with:
+          username:  ${{ secrets.BROWSERSTACK_USERNAME }}
+          access-key: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+
+      - name: 'BrowserStack Local Tunnel Setup'
+        uses: browserstack/github-actions/setup-local@master
+        with:
+          local-testing: start
+          local-identifier: random
+
+      - name: 'Checkout the repository'
+        uses: actions/checkout@v3
+
+      - name: 'Run NPM CI'
+        run: npm ci
+
+      - name: Run Build IIFE
+        run: npm run build:iife
+
+      - name: 'Run NPM build test bundle'
+        run: npm run build:test-bundle
+
+      - name: 'Run Browserstack Mobile Tests'
+        run: npm run test:browserstack-mobile
+
+      - name: 'BrowserStackLocal Stop'
+        uses: browserstack/github-actions/setup-local@master
+        with:
+          local-testing: stop
