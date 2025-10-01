@@ -20,9 +20,6 @@ export default function _Persistence(mpInstance) {
     };
 
     this.initializeStorage = function() {
-        if (mpInstance._Store.getPrivacyFlag('SDKState')) {
-            return;
-        }
         try {
             var storage,
                 localStorageData = self.getLocalStorage(),
@@ -36,6 +33,10 @@ export default function _Persistence(mpInstance) {
                 mpInstance._Store.mpid = 0;
             } else {
                 mpInstance._Store.isFirstRun = false;
+            }
+
+            if (mpInstance._Store.getPrivacyFlag('SDKState')) {
+                return;
             }
 
             // https://go.mparticle.com/work/SQDSDKS-6045
