@@ -4566,7 +4566,7 @@ describe('identity', function() {
             // deprecates on both .getCart, then .add
             bond.callCount.should.equal(4);
             bond.getCalls()[1].args[0].should.eql(
-                'Deprecated function Identity.getCurrentUser().getCart().add()'
+                'Identity.getCurrentUser().getCart().add() has been deprecated. Please use the alternate method: eCommerce.logProductAction(). See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
             );
         });
 
@@ -4595,7 +4595,7 @@ describe('identity', function() {
             // deprecates on both .getCart, then .add
             bond.callCount.should.equal(4);
             bond.getCalls()[1].args[0].should.eql(
-                'Deprecated function Identity.getCurrentUser().getCart().remove()'
+                'Identity.getCurrentUser().getCart().remove() has been deprecated. Please use the alternate method: eCommerce.logProductAction(). See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
             );
         });
 
@@ -4617,7 +4617,7 @@ describe('identity', function() {
             // deprecates on both .getCart, then .add
             bond.callCount.should.equal(4);
             bond.getCalls()[1].args[0].should.eql(
-                'Deprecated function Identity.getCurrentUser().getCart().clear()'
+                'Identity.getCurrentUser().getCart().clear() has been deprecated. See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
             );
         });
         
@@ -4640,7 +4640,7 @@ describe('identity', function() {
                     // deprecates on both .getCart, then .add
                     bond.callCount.should.equal(4);
                     bond.getCalls()[1].args[0].should.eql(
-                        'Deprecated function Identity.getCurrentUser().getCart().getCartProducts()'
+                        'Identity.getCurrentUser().getCart().getCartProducts() has been deprecated. Please use the alternate method: eCommerce.logProductAction(). See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
                     );
         });
     });

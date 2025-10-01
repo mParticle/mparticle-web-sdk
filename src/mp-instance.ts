@@ -36,7 +36,7 @@ import Consent, { IConsent } from './consent';
 import KitBlocker from './kitBlocking';
 import ConfigAPIClient, { IKitConfigs } from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
-import { isFunction, parseConfig, valueof } from './utils';
+import { isFunction, parseConfig, valueof, generateDeprecationMessage } from './utils';
 import { DisabledVault, LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
@@ -706,7 +706,12 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              */
             add: function(product, logEventBoolean) {
                 self.Logger.warning(
-                    'Deprecated function eCommerce.Cart.add()'
+                    generateDeprecationMessage(
+                        'eCommerce.Cart.add()',
+                        true,
+                        'eCommerce.logProductAction()',
+                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
+                    )
                 );
             },
             /**
@@ -718,7 +723,12 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              */
             remove: function(product, logEventBoolean) {
                 self.Logger.warning(
-                    'Deprecated function eCommerce.Cart.remove()'
+                    generateDeprecationMessage(
+                        'eCommerce.Cart.remove()',
+                        true,
+                        'eCommerce.logProductAction()',
+                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
+                    )
                 );
             },
             /**
@@ -728,7 +738,12 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              */
             clear: function() {
                 self.Logger.warning(
-                    'Deprecated function eCommerce.Cart.clear()'
+                    generateDeprecationMessage(
+                        'eCommerce.Cart.clear()',
+                        true,
+                        '',
+                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
+                    )
                 );
             },
         },

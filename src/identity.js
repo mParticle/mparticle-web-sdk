@@ -1299,7 +1299,12 @@ export default function Identity(mpInstance) {
             // eslint-disable-next-line no-unused-vars
             add: function(product, logEvent) {
                 mpInstance.Logger.warning(
-                    'Deprecated function Identity.getCurrentUser().getCart().add()'
+                    generateDeprecationMessage(
+                        'Identity.getCurrentUser().getCart().add()',
+                        true,
+                        'eCommerce.logProductAction()',
+                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
+                    )
                 );
             },
             /**
@@ -1312,7 +1317,12 @@ export default function Identity(mpInstance) {
             // eslint-disable-next-line no-unused-vars
             remove: function(product, logEvent) {
                 mpInstance.Logger.warning(
-                    'Deprecated function Identity.getCurrentUser().getCart().remove()'
+                    generateDeprecationMessage(
+                        'Identity.getCurrentUser().getCart().remove()',
+                        true,
+                        'eCommerce.logProductAction()',
+                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
+                    )
                 );
             },
             /**
@@ -1322,7 +1332,12 @@ export default function Identity(mpInstance) {
              */
             clear: function() {
                 mpInstance.Logger.warning(
-                    'Deprecated function Identity.getCurrentUser().getCart().clear()'
+                    generateDeprecationMessage(
+                        'Identity.getCurrentUser().getCart().clear()',
+                        true,
+                        '',
+                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
+                    )
                 );
             },
             /**
@@ -1333,7 +1348,12 @@ export default function Identity(mpInstance) {
              */
             getCartProducts: function() {
                 mpInstance.Logger.warning(
-                    'Deprecated function Identity.getCurrentUser().getCart().getCartProducts()'
+                    generateDeprecationMessage(
+                        'Identity.getCurrentUser().getCart().getCartProducts()',
+                        true,
+                        'eCommerce.logProductAction()',
+                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
+                    )
                 );
                 return [];
             },
