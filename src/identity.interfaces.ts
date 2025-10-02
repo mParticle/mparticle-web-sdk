@@ -206,5 +206,5 @@ export interface IIdentity {
     /**
      * @deprecated
      */
-    mParticleUserCart(mpid: MPID): mParticleUserCart;
+    mParticleUserCart(): mParticleUserCart;
 }

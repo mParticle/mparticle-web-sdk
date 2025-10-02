@@ -1215,7 +1215,7 @@ export default function Identity(mpInstance) {
                 mpInstance.Logger.warning(
                     'Deprecated function Identity.getCurrentUser().getCart() will be removed in future releases'
                 );
-                return self.mParticleUserCart(mpid);
+                return self.mParticleUserCart();
             },
 
             /**
@@ -1286,18 +1286,14 @@ export default function Identity(mpInstance) {
      * @class mParticle.Identity.getCurrentUser().getCart()
      * @deprecated
      */
-    // eslint-disable-next-line no-unused-vars
-    this.mParticleUserCart = function(mpid) {
+    this.mParticleUserCart = function() {
         return {
             /**
              * Adds a cart product to the user cart
              * @method add
-             * @param {Object} product the product
-             * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
              * @deprecated
              */
-            // eslint-disable-next-line no-unused-vars
-            add: function(product, logEvent) {
+            add: function() {
                 mpInstance.Logger.warning(
                     generateDeprecationMessage(
                         'Identity.getCurrentUser().getCart().add()',
@@ -1310,12 +1306,9 @@ export default function Identity(mpInstance) {
             /**
              * Removes a cart product from the current user cart
              * @method remove
-             * @param {Object} product the product
-             * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
              * @deprecated
              */
-            // eslint-disable-next-line no-unused-vars
-            remove: function(product, logEvent) {
+            remove: function() {
                 mpInstance.Logger.warning(
                     generateDeprecationMessage(
                         'Identity.getCurrentUser().getCart().remove()',

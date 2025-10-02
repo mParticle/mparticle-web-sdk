@@ -1521,10 +1521,11 @@ describe('eCommerce', function() {
 
             bond.called.should.eql(true);
             bond.getCalls()[0].args[0].should.eql(
-                'Deprecated function eCommerce.Cart.add()'
+                'eCommerce.Cart.add() has been deprecated. Please use the alternate method: eCommerce.logProductAction(). See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
             );
         })
         });
+        
         it('should deprecate remove', function() {
             waitForCondition(hasIdentifyReturned)
             .then(() =>  {
@@ -1540,7 +1541,7 @@ describe('eCommerce', function() {
 
             bond.called.should.eql(true);
             bond.getCalls()[0].args[0].should.eql(
-                'Deprecated function eCommerce.Cart.remove()'
+                'eCommerce.Cart.remove() has been deprecated. Please use the alternate method: eCommerce.logProductAction(). See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
             );
         })
         });
@@ -1554,7 +1555,7 @@ describe('eCommerce', function() {
 
             bond.called.should.eql(true);
             bond.getCalls()[0].args[0].should.eql(
-                'Deprecated function eCommerce.Cart.clear()'
+                'eCommerce.Cart.clear() has been deprecated. See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
             );
         })
         });

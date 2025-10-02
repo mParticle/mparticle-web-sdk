@@ -2058,6 +2058,127 @@ describe('identity', function() {
         done();
     });
 
+    it("should find the related MPID's cookies when given a UI with fewer IDs when passed to login, logout, and identify, and then log events with updated cookies", async () => {
+        mParticle._resetForTests(MPConfig);
+        fetchMock.restore();
+        const user1: IdentityApiData = {
+            userIdentities: {
+                customerid: 'customerid1',
+            },
+        };
+
+        const user1modified: IdentityApiData = {
+            userIdentities: {
+                email: 'email2@test.com',
+            },
+        };
+
+        fetchMockSuccess(urls.events, {});
+        fetchMockSuccess(urls.identify, {
+            context: null,
+            matched_identities: {
+                device_application_stamp: 'my-das',
+            },
+            is_ephemeral: true,
+            mpid: testMPID,
+            is_logged_in: false,
+        });
+
+        mParticle.config.identifyRequest = user1;
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        fetchMockSuccess(urls.modify, {
+                change_results: [
+                    {
+                        identity_type: 'email',
+                        modified_mpid: testMPID,
+                    },
+                ],
+        });
+
+        await waitForCondition(hasIdentifyReturned)
+        mParticle.Identity.modify(user1modified);
+        // Should contain the following calls:
+        // 1 for the initial identify
+        // 3 for the events (Session Start, UAT and UIC)
+        // 1 for the modify
+        // 1 for the UIC event
+        await waitForCondition(hasIdentityCallInflightReturned)
+        expect(fetchMock.calls().length).to.equal(6);
+
+        // This will add a new UAC Event to the call
+        mParticle.Identity.getCurrentUser().setUserAttribute('foo1', 'bar1');
+        expect(fetchMock.calls().length).to.equal(7);
+
+        // This will add a new custom event to the call
+        mParticle.logEvent('Test Event 1');
+        expect(fetchMock.calls().length).to.equal(8);
+
+        const testEvent1Batch = JSON.parse(fetchMock.calls()[7][1].body as string);
+
+        expect(testEvent1Batch.user_attributes).to.deep.equal({ 'foo1': 'bar1' });
+        expect(testEvent1Batch.user_identities).to.deep.equal({
+            'customer_id': 'customerid1',
+            'email': 'email2@test.com'
+        });
+
+        const user2 = {
+            userIdentities: {
+                customerid: 'customerid2',
+            },
+        };
+
+        fetchMockSuccess(urls.logout, {
+            mpid: 'logged-out-user',
+            is_logged_in: true,
+        }); 
+
+        mParticle.Identity.logout(user2);
+
+        await waitForCondition(hasLogOutReturned)
+
+        // This will add the following new calls:
+        // 1 for the logout
+        // 1 for the UIC event
+        // 1 for Test Event 2
+        mParticle.logEvent('Test Event 2');
+
+        expect(fetchMock.calls().length).to.equal(11);
+
+        const testEvent2Batch = JSON.parse(fetchMock.calls()[10][1].body as string);
+
+        Object.keys(testEvent2Batch.user_attributes).length.should.equal(0);
+        testEvent2Batch.user_identities.should.have.property(
+            'customer_id',
+            'customerid2'
+        );
+
+        fetchMockSuccess(urls.login, {
+            mpid: 'testMPID',
+            is_logged_in: true,
+        }); 
+
+        mParticle.Identity.login(user1);
+        await waitForCondition(() => {
+            return mParticle.Identity.getCurrentUser().getMPID() === 'testMPID';
+        })
+
+        // This will add the following new calls:
+        // 1 for the login
+        // 1 for Test Event 3
+        mParticle.logEvent('Test Event 3');
+        expect(fetchMock.calls().length).to.equal(13);
+
+        const testEvent3Batch = JSON.parse(fetchMock.calls()[12][1].body as string);
+
+        expect(testEvent3Batch.user_attributes).to.deep.equal({'foo1': 'bar1'});
+        expect(testEvent3Batch.user_identities).to.deep.equal({
+            'customer_id': 'customerid1',
+            'email': 'email2@test.com'
+        });
+    });
+
     it('should add new MPIDs to cookie structure when initializing new identity requests, returning an existing mpid when reinitializing with a previous identity', async () => {
         mParticle._resetForTests(MPConfig);
 
