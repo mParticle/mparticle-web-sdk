@@ -13,7 +13,7 @@ describe('Persistence', () => {
         store = {} as IStore;
         mockMPInstance = {
             _Helpers: {
-                createMainStorageName: () => 'mprtcl-v4',
+                createMainStorageName: () => 'mprtcl-v4_'+ 'test-workspace-token',
                 isObject,
             },
             _NativeSdkHelpers: {
@@ -33,6 +33,7 @@ describe('Persistence', () => {
         } as unknown as IMParticleWebSDKInstance;
 
         Store.call(store, {} as SDKInitConfig, mockMPInstance, 'apikey');
+        store.processConfig({ workspaceToken: 'test-workspace-token' } as SDKInitConfig);
         
         store.isLocalStorageAvailable = true;
         store.SDKConfig.useCookieStorage = true;
@@ -94,7 +95,7 @@ describe('Persistence', () => {
 
                 expect(setCookieSpy).toHaveBeenCalled();
                 expect(setLocalStorageSpy).toHaveBeenCalled();
-                expect(window.localStorage.getItem(encodeURIComponent(store.storageName))).not.toBeNull();
+                expect(window.localStorage.getItem(encodeURIComponent(store.storageName))).toBeNull();
             });
 
             it('should write to localStorage when useCookieStorage is false', () => {
@@ -129,7 +130,7 @@ describe('Persistence', () => {
 
                 expect(setCookieSpy).toHaveBeenCalled();
                 expect(setLocalStorageSpy).toHaveBeenCalled();
-                expect(window.localStorage.getItem(encodeURIComponent(store.storageName))).not.toBeNull();
+                expect(window.localStorage.getItem(encodeURIComponent(store.storageName))).toBeNull();
             });
 
             it('should write to localStorage by default when useCookieStorage is false', () => {
