@@ -1897,4 +1897,90 @@ describe('persistence', () => {
         user2.getAllUserAttributes()['ua-list'][1].should.equal('<b>');
         user2.getAllUserAttributes()['ua-1'].should.equal('a');
     });
+
+    describe('noFunctional privacy flag', () => {
+        beforeEach(() => {
+            mParticle._resetForTests(MPConfig);
+        });
+
+        describe('set to true', () => {
+            beforeEach(() => {
+                mParticle.config.launcherOptions = { noFunctional: true };
+            });
+
+            it('should NOT store cookie when useCookieStorage = true', async () => {
+                mParticle.config.useCookieStorage = true;
+
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                mParticle.getInstance()._Persistence.update();
+
+                expect(findCookie()).to.not.be.ok;
+            });
+
+            it('should NOT write localStorage when useCookieStorage = false', async () => {
+                mParticle.config.useCookieStorage = false;
+
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                mParticle.getInstance()._Persistence.update();
+
+                expect(getLocalStorage()).to.not.be.ok;
+            });
+        });
+
+        describe('set to false', () => {
+            beforeEach(() => {
+                mParticle.config.launcherOptions = { noFunctional: false };
+            });
+            
+            it('should store cookie when useCookieStorage = true', async () => {
+                mParticle.config.useCookieStorage = true;
+
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                mParticle.getInstance()._Persistence.update();
+
+                expect(findCookie()).to.be.ok;
+            });
+
+            it('should store localStorage when useCookieStorage = false', async () => {
+                mParticle.config.useCookieStorage = false;
+
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                mParticle.getInstance()._Persistence.update();
+
+                expect(getLocalStorage()).to.be.ok;
+            });
+        });
+
+        describe('is false by default', () => {
+            it('should store cookie when useCookieStorage = true', async () => {
+                mParticle.config.useCookieStorage = true;
+
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                mParticle.getInstance()._Persistence.update();
+
+                expect(findCookie()).to.be.ok;
+            });
+
+            it('should store localStorage when useCookieStorage = false', async () => {
+                mParticle.config.useCookieStorage = false;
+
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                mParticle.getInstance()._Persistence.update();
+
+                expect(getLocalStorage()).to.be.ok;
+            });
+        });
+    });
 });
