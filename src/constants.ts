@@ -129,6 +129,7 @@ const Constants = {
         maxCookieSize: 3000, // Number of bytes for cookie size to not exceed
         aliasMaxWindow: 90, // Max age of Alias request startTime, in days
         uploadInterval: 0, // Maximum milliseconds in between batch uploads, below 500 will mean immediate upload.  The server returns this as a string, but we are using it as a number internally
+        quickBatchIntervalMillis: 2000, // Maximum milliseconds in between quick batch uploads
     },
     DefaultBaseUrls: {
         v1SecureServiceUrl: 'jssdks.mparticle.com/v1/JS/',
@@ -194,6 +195,7 @@ const Constants = {
         //   - 'roktonly' → capture only Rokt-related IDs
         CaptureIntegrationSpecificIdsV2: 'captureIntegrationSpecificIdsV2',
         AstBackgroundEvents: 'astBackgroundEvents',
+        QuickBatchIntervalMillis: 'quickBatchIntervalMillis',
     },
     DefaultInstance: 'default_instance',
     CCPAPurpose: 'data_sale_opt_out',

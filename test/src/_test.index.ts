@@ -39,4 +39,5 @@ import './tests-identityApiClient';
 import './tests-integration-capture';
 import './tests-batchUploader_4';
 import './tests-identity';
+import './tests-quick-batch';
 

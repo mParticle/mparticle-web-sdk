@@ -30,7 +30,7 @@ describe('BatchUploader', () => {
             }
         } as unknown as IMParticleWebSDKInstance;
 
-        batchUploader = new BatchUploader(mockMPInstance, 1000);
+        batchUploader = new BatchUploader(mockMPInstance, 1000, 2000);
     });
 
     afterEach(() => {
