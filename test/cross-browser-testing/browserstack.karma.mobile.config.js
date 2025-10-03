@@ -23,56 +23,164 @@ if (DEBUG === 'true') {
 }
 
 const customLaunchers = {
-  // Android Mobile Browsers
-  bs_android_chrome: {
+  // Android 16 - all browsers
+  bs_android_16_chrome: {
     base: 'BrowserStack',
-    device: 'Google Pixel 8',
+    device: 'Google Pixel 10 Pro',
     os: 'android',
-    os_version: '14.0',
+    os_version: '16.0',
     real_mobile: true,
     browser: 'chrome'
   },
-  bs_android_firefox: {
+  bs_android_16_firefox: {
     base: 'BrowserStack',
-    device: 'Google Pixel 8',
+    device: 'Google Pixel 10',
     os: 'android',
-    os_version: '14.0',
+    os_version: '16.0',
     real_mobile: true,
     browser: 'firefox'
   },
-  bs_android_samsung: {
+  bs_android_16_opera: {
     base: 'BrowserStack',
-    device: 'Samsung Galaxy S23',
+    device: 'Google Pixel 9',
     os: 'android',
-    os_version: '13.0',
+    os_version: '16.0',
+    real_mobile: true,
+    browser: 'opera'
+  },
+  bs_android_16_samsung: {
+    base: 'BrowserStack',
+    device: 'Google Pixel 10 Pro XL',
+    os: 'android',
+    os_version: '16.0',
     real_mobile: true,
     browser: 'samsung'
   },
-  
-  // iOS Mobile Browsers
-  bs_ios_safari: {
+
+  // Android 15 - all browsers
+  bs_android_15_chrome: {
     base: 'BrowserStack',
-    device: 'iPhone 15 Pro',
+    device: 'Samsung Galaxy S25',
+    os: 'android',
+    os_version: '15.0',
+    real_mobile: true,
+    browser: 'chrome'
+  },
+  bs_android_15_firefox: {
+    base: 'BrowserStack',
+    device: 'Samsung Galaxy Tab S10 Plus',
+    os: 'android',
+    os_version: '15.0',
+    real_mobile: true,
+    browser: 'firefox'
+  },
+  bs_android_15_opera: {
+    base: 'BrowserStack',
+    device: 'Google Pixel 9 Pro',
+    os: 'android',
+    os_version: '15.0',
+    real_mobile: true,
+    browser: 'opera'
+  },
+  bs_android_15_samsung: {
+    base: 'BrowserStack',
+    device: 'Samsung Galaxy S25 Ultra',
+    os: 'android',
+    os_version: '15.0',
+    real_mobile: true,
+    browser: 'samsung'
+  },
+
+  // Android 14 - chrome
+  bs_android_14_chrome: {
+    base: 'BrowserStack',
+    device: 'Samsung Galaxy S24',
+    os: 'android',
+    os_version: '14.0',
+    real_mobile: true,
+    browser: 'chrome'
+  },
+
+  // Android 13 - chrome
+  bs_android_13_chrome: {
+    base: 'BrowserStack',
+    device: 'Samsung Galaxy S23 Ultra',
+    os: 'android',
+    os_version: '13.0',
+    real_mobile: true,
+    browser: 'chrome'
+  },
+
+  // iOS 26 - chrome, firefox, safari
+  bs_ios_26_safari: {
+    base: 'BrowserStack',
+    device: 'iPhone 17 Pro',
     os: 'ios',
-    os_version: '17',
+    os_version: '26',
     real_mobile: true,
     browser: 'safari'
   },
-  bs_ios_chrome: {
+  bs_ios_26_chrome: {
     base: 'BrowserStack',
-    device: 'iPhone 15 Pro',
+    device: 'iPad Air 5',
+    os: 'ios',
+    os_version: '26',
+    real_mobile: true,
+    browser: 'chrome'
+  },
+  bs_ios_26_firefox: {
+    base: 'BrowserStack',
+    device: 'iPhone Air',
+    os: 'ios',
+    os_version: '26',
+    real_mobile: true,
+    browser: 'firefox'
+  },
+
+  // iOS 18 - chrome, firefox, safari
+  bs_ios_18_safari: {
+    base: 'BrowserStack',
+    device: 'iPhone 16e',
+    os: 'ios',
+    os_version: '18',
+    real_mobile: true,
+    browser: 'safari'
+  },
+  bs_ios_18_chrome: {
+    base: 'BrowserStack',
+    device: 'iPad Pro 11 2021',
+    os: 'ios',
+    os_version: '18',
+    real_mobile: true,
+    browser: 'chrome'
+  },
+  bs_ios_18_firefox: {
+    base: 'BrowserStack',
+    device: 'iPhone 14',
+    os: 'ios',
+    os_version: '18',
+    real_mobile: true,
+    browser: 'firefox'
+  },
+
+  // iOS 17 - chrome
+  bs_ios_17_safari: {
+    base: 'BrowserStack',
+    device: 'iPhone 12',
     os: 'ios',
     os_version: '17',
     real_mobile: true,
     browser: 'chrome'
   },
-  bs_ios_firefox: {
+
+  // iOS 16 - safari
+  bs_ios_16_safari: {
     base: 'BrowserStack',
-    device: 'iPhone 15 Pro',
+    device: 'iPad 10th',
     os: 'ios',
-    os_version: '17',
+    os_version: '16',
     real_mobile: true,
-    browser: 'firefox'
+    browser: 'safari'
   },
 };
 
