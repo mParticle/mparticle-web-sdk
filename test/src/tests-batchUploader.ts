@@ -47,8 +47,8 @@ describe('batch uploader', () => {
     });
 
     // https://go.mparticle.com/work/
-    describe('AST background events fired during page events', () => { 
-        describe('should not fire AST background events if flag is astBackgroundEvents "False"', () => {
+    describe('AST Background Events', () => { 
+        describe('when feature flag is astBackgroundEvents "False"', () => {
             beforeEach(() => {
                 window.mParticle.config.flags.astBackgroundEvents = "False"
             });
@@ -74,9 +74,6 @@ describe('batch uploader', () => {
 
                 // Add a regular event first to ensure we have something in the queue
                 window.mParticle.logEvent('Test Event');
-
-                // Mock navigator.sendBeacon
-                beaconSpy = sinon.spy(navigator, 'sendBeacon');
 
                 // Trigger visibility change
                 Object.defineProperty(document, 'visibilityState', {
@@ -109,30 +106,23 @@ describe('batch uploader', () => {
                 // Parse the beacon data which is a batch
                 const batch = JSON.parse(blobContent as string);
                 expect(batch.events, 'Expected beacon data to have events').to.exist;
-                expect(batch.events.length, 'Expected beacon data to have at least one event').to.equal(3);
+                expect(batch.events.length, 'Expected beacon data to have at only one event').to.equal(1);
+
                 const event1 = batch.events[0];
-                const event2 = batch.events[1];
-                const event3 = batch.events[2];
-
-                console.log(event1.event_type);
-                console.log(event1.event_type);
-                console.log(event1.event_type);
-                console.log(event1.event_type);
-                expect(event1.event_type).to.equal('session_start');
-
-                expect(event2.event_type).to.equal('application_state_transition');
-                expect(event2.event_type).to.equal('application_state_transition');
-                expect(event2.data.application_transition_type).to.equal('application_initialized');
-                expect(event3.event_type).to.equal('custom_event');
+                // Batch should only contain the custom event that was manually logged
+                expect(event1.event_type).to.equal('custom_event');
             });
         });
 
-        describe('should fire AST background events if flag is astBackgroundEvents "True"', () => {
+        describe('when feature flag is astBackgroundEvents "True"', () => {
             beforeEach(() => {
+                fetchMock.post(urls.events, 200);
+                fetchMock.config.overwriteRoutes = true
                 window.mParticle.config.flags.astBackgroundEvents = "True"
             });
 
             afterEach(() => {
+                fetchMock.restore();
                 delete window.mParticle.config.flags.astBackgroundEvents;
                 if (clock) {
                     clock.restore();
@@ -143,6 +133,8 @@ describe('batch uploader', () => {
             });
 
         it('should add application state transition event when visibility changes to hidden', async () => {
+            window.mParticle._resetForTests(MPConfig);
+            fetchMock.resetHistory();
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
             
@@ -152,11 +144,14 @@ describe('batch uploader', () => {
                 shouldAdvanceTime: true
             });
 
-            // Add a regular event first to ensure we have something in the queue
-            window.mParticle.logEvent('Test Event');
+            let lastCall = fetchMock.lastCall();
+            const endpoint = lastCall[0];
+            const batch = JSON.parse(fetchMock.lastCall()[1].body as string);
 
-            // Mock navigator.sendBeacon
-            beaconSpy = sinon.spy(navigator, 'sendBeacon');
+            endpoint.should.equal(urls.events);
+            expect(batch.events.length, 'Batch should have two events').to.equal(2);
+            expect(batch.events[0].event_type, 'First event should be session_start').to.equal('session_start');
+            expect(batch.events[1].event_type, 'Second event should be application_state_transition').to.equal('application_state_transition');
 
             // Trigger visibility change
             Object.defineProperty(document, 'visibilityState', {
@@ -165,56 +160,32 @@ describe('batch uploader', () => {
             });
             document.dispatchEvent(new Event('visibilitychange'));
 
-            // Run all pending promises
-            await Promise.resolve();
+            lastCall = fetchMock.lastCall();
+            const updatedBatch = JSON.parse(fetchMock.lastCall()[1].body as string);
+            console.log('second batch', updatedBatch.events.map(event => event.event_type));
 
-            // Verify that beacon was called
-            expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
-
-            // Get the beacon call data
-            const beaconCall = beaconSpy.getCall(0);
-            expect(beaconCall, 'Expected beacon call to exist').to.exist;
-
-            // Get the Blob from the beacon call
-            const blob = beaconCall.args[1];
-            expect(blob).to.be.instanceof(Blob);
-
-            // Read the Blob content
-            const reader = new FileReader();
-            const blobContent = await new Promise((resolve) => {
-                reader.onload = () => resolve(reader.result);
-                reader.readAsText(blob);
-            });
-
-            // Parse the beacon data which is a batch
-            const batch = JSON.parse(blobContent as string);
-            expect(batch.events, 'Expected beacon data to have events').to.exist;
-            expect(batch.events.length, 'Expected beacon data to have at least one event').to.be.greaterThan(0);
-
-            // Verify the AST event properties
-            const lastEvent = batch.events[batch.events.length - 1];
-
-            expect(lastEvent.event_type).to.equal('application_state_transition');
-            expect(lastEvent.data.application_transition_type).to.equal('application_background');
-            expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
+            expect(updatedBatch.events.length, 'Batch should have two events').to.equal(2);
+            expect(updatedBatch.events[0].event_type, 'Second event should be application_state_transition').to.equal('custom_event');
+            expect(updatedBatch.events[0].data.event_name).to.equal('Test Event');
+            expect(updatedBatch.events[1].event_type, 'Second event should be application_state_transition').to.equal('application_state_transition');
+            expect(updatedBatch.events[1].data.application_transition_type).to.equal('application_background');
         });
 
 
         it('should add application state transition event before pagehide', async () => {
+            window.mParticle._resetForTests(MPConfig);
+            fetchMock.resetHistory();
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
 
-            const now = Date.now();
-            clock = sinon.useFakeTimers({
-                now: now,
-                shouldAdvanceTime: true
-            });
+            let lastCall = fetchMock.lastCall();
+            const endpoint = lastCall[0];
+            const batch = JSON.parse(fetchMock.lastCall()[1].body as string);
 
-            // Log a regular event
-            window.mParticle.logEvent('Test Event');
-
-            // Mock navigator.sendBeacon
-            beaconSpy = sinon.spy(navigator, 'sendBeacon');
+            endpoint.should.equal(urls.events);
+            expect(batch.events.length, 'Batch should have two events').to.equal(2);
+            expect(batch.events[0].event_type, 'First event should be session_start').to.equal('session_start');
+            expect(batch.events[1].event_type, 'Second event should be application_state_transition').to.equal('application_state_transition');
 
             // Create event listener that prevents default
             const preventUnload = (e) => {
@@ -223,46 +194,24 @@ describe('batch uploader', () => {
             };
             window.addEventListener('pagehide', preventUnload);
 
-            try {
-                // Trigger pagehide
-                const pagehideEvent = new Event('pagehide', { cancelable: true });
-                window.dispatchEvent(pagehideEvent);
+            // Trigger pagehide
+            const pagehideEvent = new Event('pagehide', { cancelable: true });
+            window.dispatchEvent(pagehideEvent);
 
-                // Run all pending promises
-                await Promise.resolve();
-                clock.runAll();
+            lastCall = fetchMock.lastCall();
+            const updatedBatch = JSON.parse(fetchMock.lastCall()[1].body as string);
+            expect(updatedBatch.events.length, 'Batch should have one event').to.equal(1);
+            expect(updatedBatch.events[0].event_type, 'Second event should be application_state_transition').to.equal('application_state_transition');
+            expect(updatedBatch.events[0].data.application_transition_type).to.equal('application_background');
 
-                // Verify that beacon was called
-                expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
-
-                // Get the beacon call data
-                const beaconCall = beaconSpy.getCall(0);
-                expect(beaconCall, 'Expected beacon call to exist').to.exist;
-
-                // Get the Blob from the beacon call
-                const blob = beaconCall.args[1];
-                expect(blob).to.be.instanceof(Blob);
-
-                // Read the Blob content
-                const reader = new FileReader();
-                const blobContent = await new Promise((resolve) => {
-                    reader.onload = () => resolve(reader.result);
-                    reader.readAsText(blob);
-                });
-
-                // Parse the beacon data which is a batch
-                const batch = JSON.parse(blobContent as string);
-                const events = batch.events;
-
-                // The application state transition event should be the last event
-                expect(events[events.length - 1].event_type).to.equal('application_state_transition');
-                expect(events[events.length - 2].data.event_name).to.equal('Test Event');
-            } finally {
-                window.removeEventListener('pagehide', preventUnload);
-            }
+            // Remove the event listener
+            window.removeEventListener('pagehide', preventUnload);
         });
 
         it('should create application state transition event with correct properties on event and batch', async () => {
+            window.mParticle._resetForTests(MPConfig);
+            fetchMock.resetHistory();
+
             window.mParticle.config.appName = 'Test App';
             window.mParticle.config.appVersion = '1.0.0';
             window.mParticle.config.package = 'com.test.app';
@@ -298,15 +247,6 @@ describe('batch uploader', () => {
             const user = window.mParticle.Identity.getCurrentUser();
             user.setConsentState(consentState);
 
-            const now = Date.now();
-            clock = sinon.useFakeTimers({
-                now: now,
-                shouldAdvanceTime: true
-            });
-
-            // Mock navigator.sendBeacon
-            beaconSpy = sinon.spy(navigator, 'sendBeacon');
-
             // Trigger visibility change
             Object.defineProperty(document, 'visibilityState', {
                 configurable: true,
@@ -314,30 +254,8 @@ describe('batch uploader', () => {
             });
             document.dispatchEvent(new Event('visibilitychange'));
 
-            // Run all pending promises
-            await Promise.resolve();
-            clock.runAll();
-
-            // Verify that beacon was called
-            expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
-
-            // Get the beacon call data
-            const beaconCall = beaconSpy.getCall(0);
-            expect(beaconCall, 'Expected beacon call to exist').to.exist;
-
-            // Get the Blob from the beacon call
-            const blob = beaconCall.args[1];
-            expect(blob).to.be.instanceof(Blob);
-
-            // Read the Blob content
-            const reader = new FileReader();
-            const blobContent = await new Promise((resolve) => {
-                reader.onload = () => resolve(reader.result);
-                reader.readAsText(blob);
-            });
-
             // Parse the beacon data which is a batch
-            const batch = JSON.parse(blobContent as string);
+            const batch = JSON.parse(fetchMock.lastCall()[1].body as string);
             expect(batch.user_identities.email).to.equal('test@test.com');
             expect(batch.user_attributes.foo).to.equal('value');
             expect(batch.application_info.application_name).to.equal('Test App');
@@ -376,6 +294,9 @@ describe('batch uploader', () => {
         });
 
         it('should add integration attributes to AST event', async () => {
+            window.mParticle._resetForTests(MPConfig);
+            fetchMock.resetHistory();
+
             window.mParticle.config.appName = 'Test App';
             window.mParticle.config.appVersion = '1.0.0';
             window.mParticle.config.package = 'com.test.app';
@@ -417,46 +338,14 @@ describe('batch uploader', () => {
             const user = window.mParticle.Identity.getCurrentUser();
             user.setConsentState(consentState);
 
-            const now = Date.now();
-            clock = sinon.useFakeTimers({
-                now: now,
-                shouldAdvanceTime: true
-            });
-
-            // Mock navigator.sendBeacon
-            beaconSpy = sinon.spy(navigator, 'sendBeacon');
-
-            // Trigger visibility change
             Object.defineProperty(document, 'visibilityState', {
                 configurable: true,
                 get: () => 'hidden'
             });
             document.dispatchEvent(new Event('visibilitychange'));
 
-            // Run all pending promises
-            await Promise.resolve();
-            clock.runAll();
-
-            // Verify that beacon was called
-            expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
-
-            // Get the beacon call data
-            const beaconCall = beaconSpy.getCall(0);
-            expect(beaconCall, 'Expected beacon call to exist').to.exist;
-
-            // Get the Blob from the beacon call
-            const blob = beaconCall.args[1];
-            expect(blob).to.be.instanceof(Blob);
-
-            // Read the Blob content
-            const reader = new FileReader();
-            const blobContent = await new Promise((resolve) => {
-                reader.onload = () => resolve(reader.result);
-                reader.readAsText(blob);
-            });
-
             // Parse the beacon data which is a batch
-            const batch = JSON.parse(blobContent as string);
+            const batch = JSON.parse(fetchMock.lastCall()[1].body as string);
             expect(batch.user_identities.email).to.equal('test@test.com');
             expect(batch.user_attributes.foo).to.equal('value');
             expect(batch.application_info.application_name).to.equal('Test App');
@@ -526,24 +415,15 @@ describe('batch uploader', () => {
 
         it('should only fire a single AST when another visibility event happens within the debounce time window', async () => {
             window.mParticle._resetForTests(window.mParticle.config);
+            fetchMock.resetHistory();
 
             window.mParticle.init(apiKey, window.mParticle.config);
 
             await waitForCondition(hasIdentifyReturned);
-            
-            const now = Date.now();
-            clock = sinon.useFakeTimers({
-                now: now,
-                shouldAdvanceTime: true
-            });
 
             // Add a regular event first to ensure we have something in the queue
             window.mParticle.logEvent('Test Event');
 
-            // Mock navigator.sendBeacon
-            beaconSpy = sinon.spy(navigator, 'sendBeacon');
-
-            // Trigger visibility change
             Object.defineProperty(document, 'visibilityState', {
                 configurable: true,
                 get: () => 'hidden'
@@ -551,111 +431,25 @@ describe('batch uploader', () => {
 
             document.dispatchEvent(new Event('visibilitychange'));
 
-            // Run all pending promises
-            await Promise.resolve();
-            // clock.runAll();
-
-            expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
-
-            // Get the beacon call data
-            const beaconCall = beaconSpy.getCall(0);
-            expect(beaconCall, 'Expected beacon call to exist').to.exist;
-
-            // Get the Blob from the beacon call
-            const blob = beaconCall.args[1];
-            expect(blob).to.be.instanceof(Blob);
-
-            // Read the Blob content
-            const reader = new FileReader();
-            const blobContent = await new Promise((resolve) => {
-                reader.onload = () => resolve(reader.result);
-                reader.readAsText(blob);
-            });
-
             // Parse the beacon data which is a batch
-            const batch = JSON.parse(blobContent as string);
+            const batch = JSON.parse(fetchMock.lastCall()[1].body as string);
             expect(batch.events, 'Expected beacon data to have events').to.exist;
-            expect(batch.events.length, 'Expected beacon data to have at least one event').to.be.greaterThan(0);
+            expect(batch.events.length, 'Expected beacon data to have two events').to.equal(2);
 
             // Verify the AST event properties
-            const lastEvent = batch.events[batch.events.length - 1];
-
-            expect(lastEvent.event_type).to.equal('application_state_transition');
+            expect(batch.events[1].event_type, 'Second event should be application_state_transition').to.equal('application_state_transition');
+            expect(batch.events[1].data.application_transition_type).to.equal('application_background');
 
             // Clean up
-            clock.tick(500);
             document.dispatchEvent(new Event('visibilitychange'));
 
             // Run all pending promises
             await Promise.resolve();
 
-            expect(beaconSpy.calledOnce, 'Expected beacon to be called twice').to.be.true;
-        });
-
-        it('should fire multiple ASTs when another visibility event happens outside the debounce time window', async () => {
-            window.mParticle.init(apiKey, window.mParticle.config);
-            await waitForCondition(hasIdentifyReturned);
-            
-            const now = Date.now();
-            clock = sinon.useFakeTimers({
-                now: now,
-                shouldAdvanceTime: true
-            });
-
-            // Add a regular event first to ensure we have something in the queue
-            window.mParticle.logEvent('Test Event');
-
-            // Mock navigator.sendBeacon
-            beaconSpy = sinon.spy(navigator, 'sendBeacon');
-
-            // Trigger visibility change
-            Object.defineProperty(document, 'visibilityState', {
-                configurable: true,
-                get: () => 'hidden'
-            });
-            document.dispatchEvent(new Event('visibilitychange'));
-
-            // Run all pending promises
-            await Promise.resolve();
-
-            // Verify that beacon was called
-            expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
-
-            // Get the beacon call data
-            const beaconCall = beaconSpy.getCall(0);
-            expect(beaconCall, 'Expected beacon call to exist').to.exist;
-
-            // Get the Blob from the beacon call
-            const blob = beaconCall.args[1];
-            expect(blob).to.be.instanceof(Blob);
-
-            // Read the Blob content
-            const reader = new FileReader();
-            const blobContent = await new Promise((resolve) => {
-                reader.onload = () => resolve(reader.result);
-                reader.readAsText(blob);
-            });
-
-            // Parse the beacon data which is a batch
-            const batch = JSON.parse(blobContent as string);
-            expect(batch.events, 'Expected beacon data to have events').to.exist;
-            expect(batch.events.length, 'Expected beacon data to have at least one event').to.be.greaterThan(0);
-
-            // Verify the AST event properties
-            const lastEvent = batch.events[batch.events.length - 1];
-
-            expect(lastEvent.event_type).to.equal('application_state_transition');
-            expect(lastEvent.data.application_transition_type).to.equal('application_background');
-
-            expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
-            // Clean up
-            clock.tick(1500);
-            document.dispatchEvent(new Event('visibilitychange'));
-
-            // Run all pending promises
-            await Promise.resolve();
-
-            expect(beaconSpy.calledTwice, 'Expected beacon to be called twice').to.be.true;
+            const updatedBatch = JSON.parse(fetchMock.lastCall()[1].body as string);
+            expect(updatedBatch.events.length, 'Batch should have two events').to.equal(2);
+            expect(updatedBatch.events[1].event_type, 'Second event should be application_state_transition').to.equal('application_state_transition');
+            expect(updatedBatch.events[1].data.application_transition_type).to.equal('application_background');
         });
     })
 

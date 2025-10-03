@@ -275,6 +275,7 @@ export class BatchUploader {
     // https://go.mparticle.com/work/SQDSDKS-3720
     private shouldTriggerImmediateUpload (eventDataType: number): boolean {
         const priorityEvents = [
+            MessageType.AppStateTransition,
             MessageType.Commerce,
             MessageType.UserIdentityChange,
         ] as const;
