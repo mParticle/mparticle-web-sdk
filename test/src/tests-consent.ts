@@ -627,7 +627,7 @@ describe('Consent', function() {
         done();
     });
 
-    it('should have CCPA in payload', done => {
+    it('should have CCPA in payload', async () => {
         const consentState = mParticle.Consent.createConsentState();
         const timestamp = new Date().getTime();
         const ccpaConsent = mParticle.Consent.createCCPAConsent(
@@ -639,8 +639,7 @@ describe('Consent', function() {
         );
         consentState.setCCPAConsentState(ccpaConsent);
 
-        waitForCondition(hasIdentifyReturned)
-        .then(() =>  {
+        await waitForCondition(hasIdentifyReturned);
         const user = mParticle.Identity.getCurrentUser();
         user.setConsentState(consentState);
 
@@ -655,12 +654,9 @@ describe('Consent', function() {
         testEvent.consent_state.ccpa.data_sale_opt_out.should.have.property('document', 'consentDoc');
         testEvent.consent_state.ccpa.data_sale_opt_out.should.have.property('location', 'location');
         testEvent.consent_state.ccpa.data_sale_opt_out.should.have.property('hardware_id', 'hardware');
-
-        done();
-        })
     });
 
-    it('should have CCPA and GDPR in payload', done => {
+    it('should have CCPA and GDPR in payload', async () => {
         const consentState = mParticle.Consent.createConsentState();
         const timestamp = new Date().getTime();
         const ccpaConsent = mParticle.Consent.createCCPAConsent(
@@ -679,8 +675,7 @@ describe('Consent', function() {
         );
         consentState.setCCPAConsentState(ccpaConsent);
         consentState.addGDPRConsentState('test purpose', gdprConsent);
-        waitForCondition(hasIdentifyReturned)
-        .then(() =>  {
+        await waitForCondition(hasIdentifyReturned);
 
         const user = mParticle.Identity.getCurrentUser();
         user.setConsentState(consentState);
@@ -706,9 +701,6 @@ describe('Consent', function() {
         testEvent.consent_state.gdpr['test purpose'].should.have.property('document', 'consentDoc');
         testEvent.consent_state.gdpr['test purpose'].should.have.property('location', 'location');
         testEvent.consent_state.gdpr['test purpose'].should.have.property('hardware_id', 'hardware');
-        
-        done();
-        })
     });
 
     // TODO: Deprecate in next major version
