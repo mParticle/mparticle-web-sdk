@@ -197,7 +197,7 @@ export default class RoktManager {
             // Hashed email identity is valid if it is set to Other-Other10
             if(this.mappedEmailShaIdentityType && IdentityType.getIdentityType(this.mappedEmailShaIdentityType) !== false) {
                 currentHashedEmail = currentUserIdentities[this.mappedEmailShaIdentityType];
-                newHashedEmail = mappedAttributes['emailsha256'] as string || undefined;
+                newHashedEmail = mappedAttributes['emailsha256'] as string || mappedAttributes[this.mappedEmailShaIdentityType] as string || undefined;
             }
 
             const emailChanged = this.hasIdentityChanged(currentEmail, newEmail);
@@ -344,7 +344,7 @@ export default class RoktManager {
         this.logger?.verbose(`RoktManager: Processing ${this.messageQueue.size} queued messages`);
 
         this.messageQueue.forEach((message) => {
-            if(!(message.methodName in this.kit) || !isFunction(this.kit[message.methodName])) {
+            if(!(message.methodName in this) || !isFunction(this[message.methodName])) {
                 this.logger?.error(`RoktManager: Method ${message.methodName} not found in kit`);
                 return;
             }
@@ -352,7 +352,7 @@ export default class RoktManager {
             this.logger?.verbose(`RoktManager: Processing queued message: ${message.methodName} with payload: ${JSON.stringify(message.payload)}`);
 
             try {
-                const result = (this.kit[message.methodName] as Function)(message.payload);
+                const result = (this[message.methodName] as Function)(message.payload);
                 this.completePendingPromise(message.messageId, result);
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
