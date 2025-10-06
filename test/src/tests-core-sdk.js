@@ -36,18 +36,15 @@ describe('core SDK', function() {
         sinon.restore();
     });
 
-    it('starts new session', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+    it('starts new session', async () => {
+        await waitForCondition(hasIdentifyReturned);
+
         mParticle.startNewSession();
 
         const sessionStartEvent = findEventFromRequest(fetchMock.calls(), 'session_start');
 
         sessionStartEvent.should.be.ok();
         sessionStartEvent.data.should.have.property('session_uuid');
-
-        done();    
-        })
     });
 
     it('sessionIds are all capital letters', function(done) {
@@ -91,9 +88,8 @@ describe('core SDK', function() {
         done();
     });
 
-    it('ends existing session with an event that includes SessionLength', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+    it('ends existing session with an event that includes SessionLength', async () => {
+        await waitForCondition(hasIdentifyReturned);
 
         mParticle.startNewSession();
         mParticle.endSession();
@@ -103,14 +99,11 @@ describe('core SDK', function() {
         sessionEndEvent.should.be.ok();
 
         sessionEndEvent.data.should.have.property('session_duration_ms');
-
-        done();
-        })
     });
 
-    it('creates a new dateLastEventSent when logging an event, and retains the previous one when ending session', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+    it('creates a new dateLastEventSent when logging an event, and retains the previous one when ending session', async () => {
+        await waitForCondition(hasIdentifyReturned);
+
         const clock = sinon.useFakeTimers();
         mParticle.logEvent('Test Event1');
         const testEvent1 = findEventFromRequest(fetchMock.calls(), 'Test Event1');
@@ -123,9 +116,6 @@ describe('core SDK', function() {
         const sessionEndEvent = findEventFromRequest(fetchMock.calls(), 'session_end');
         Should(testEvent1.data.timestamp_unixtime_ms).not.equal(testEvent2.data.timestamp_unixtime_ms);
         Should(testEvent2.data.timestamp_unixtime_ms).equal(sessionEndEvent.data.timestamp_unixtime_ms);
-
-        done();
-        });
     });
 
     it('should process ready queue when initialized', async () => {
@@ -142,18 +132,14 @@ describe('core SDK', function() {
         expect(readyFuncCalled).equal(true);
     });
 
-    it('should set app version on the payload', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+    it('should set app version on the payload', async () => {
+        await waitForCondition(hasIdentifyReturned);
 
         mParticle.setAppVersion('1.0');
 
         window.mParticle.logEvent('Test Event', mParticle.EventType.Navigation);
         const testEventBatch = findBatch(fetchMock.calls(), 'Test Event');
         testEventBatch.application_info.should.have.property('application_version', '1.0');
-
-        done();
-        })
     });
 
     it('should get app version', async () => {
@@ -199,9 +185,9 @@ describe('core SDK', function() {
         done();
     });
 
-    it('should send new appName via event payload', function (done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+    it('should send new appName via event payload', async () => {
+        await waitForCondition(hasIdentifyReturned);
+
         mParticle.config.flags = {
             eventBatchingIntervalMillis: 0,
         }
@@ -210,60 +196,48 @@ describe('core SDK', function() {
 
         mParticle.init(apiKey, mParticle.config);
 
-        waitForCondition(() => {
+        await waitForCondition(() => {
             return (
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
-        })
-        .then(() => {
+        });
+
         window.mParticle.logEvent('Test Event');
 
         const batch = JSON.parse(fetchMock.lastOptions().body);
 
         batch.application_info.should.have.property('application_name', 'newAppName');
-        
-        done();
-        })
-        })
     });
 
-    it('should allow app name to be changed via setAppName', function (done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+    it('should allow app name to be changed via setAppName', async () => {
+        await waitForCondition(hasIdentifyReturned);
+
         mParticle._resetForTests(MPConfig);
 
         const newConfig = { ...window.mParticle.config, appName: 'OverrideTestName'};
                         
         mParticle.init(apiKey, newConfig);
-        waitForCondition(() => {
+        await waitForCondition(() => {
             return (
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
-        })
-        .then(() => {
+        });
 
         const appName = mParticle.getAppName();
         appName.should.equal('OverrideTestName');
-
-
-        done();
-        })
-        })
     })
 
-    it('should set Package Name on Batch Payload', function (done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+    it('should set Package Name on Batch Payload', async () => {
+        await waitForCondition(hasIdentifyReturned);
 
         mParticle.config.package = 'my-web-package';
 
         mParticle.init(apiKey, mParticle.config);
-        waitForCondition(() => {
+        await waitForCondition(() => {
             return (
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
-        })
-        .then(() => {
+        });
 
         window.mParticle.logEvent('Test Event');
         
@@ -271,14 +245,11 @@ describe('core SDK', function() {
         
         batch.should.have.property('application_info');
         batch.application_info.should.have.property('package', 'my-web-package');
-        done();
-        })
-        })
     });
 
-    it('should sanitize event attributes', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+    it('should sanitize event attributes', async () => {
+        await waitForCondition(hasIdentifyReturned);
+
         mParticle.logEvent('sanitized event', 1, {
             key1: 'value1',
             mydate: new Date(),
@@ -296,14 +267,11 @@ describe('core SDK', function() {
         sanitizedEvent.data.custom_attributes.should.not.have.property('ishouldberemoved');
         sanitizedEvent.data.custom_attributes.should.not.have.property('ishouldalsoberemoved');
         sanitizedEvent.data.custom_attributes.should.not.have.property('removeme');
-        })
-
-        done();
     });
 
-    it('sanitizes attributes when attrs are provided', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+    it('sanitizes attributes when attrs are provided', async () => {
+        await waitForCondition(hasIdentifyReturned);
+
         const attrs = {
             valid: '123',
             invalid: ['123', '345'],
@@ -384,15 +352,10 @@ describe('core SDK', function() {
 
         refundEvent.data.custom_attributes.should.not.have.property('invalid');
         refundEvent.data.custom_attributes.should.have.property('valid');
-
-        done();
-        })
-
     });
 
-    it('should not generate a new device ID if a deviceId exists in localStorage', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+    it('should not generate a new device ID if a deviceId exists in localStorage', async () => {
+        await waitForCondition(hasIdentifyReturned);
             
         mParticle._resetForTests(MPConfig);
 
@@ -402,8 +365,6 @@ describe('core SDK', function() {
         const deviceId = mParticle.getDeviceId();
 
         deviceId.should.equal(das);
-        done();
-    })
     });
 
     it('should return the deviceId when requested', function(done) {
@@ -430,18 +391,18 @@ describe('core SDK', function() {
         done();
     });
 
-    it('creates a new session when elapsed time between actions is greater than session timeout', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+    it('creates a new session when elapsed time between actions is greater than session timeout', async () => {
+        await waitForCondition(hasIdentifyReturned);
+
         mParticle._resetForTests(MPConfig);
         mParticle.config.sessionTimeout = 1;
         mParticle.init(apiKey, window.mParticle.config);
-        waitForCondition(() => {
+        await waitForCondition(() => {
             return (
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
-        })
-        .then(() => {
+        });
+
         const clock = sinon.useFakeTimers();
         clock.tick(100);
         mParticle.logEvent('Test Event');
@@ -453,24 +414,20 @@ describe('core SDK', function() {
         const testEvent2 = findEventFromRequest(fetchMock.calls(), 'Test Event2');
         testEvent.data.session_uuid.should.not.equal(testEvent2.data.session_uuid);
         mParticle.getInstance()._SessionManager.clearSessionTimeout(); clock.restore();
-
-        done();
-        })
-        })
     });
 
-    it('should end session when last event sent is outside of sessionTimeout', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+    it('should end session when last event sent is outside of sessionTimeout', async () => {
+        await waitForCondition(hasIdentifyReturned);
+
         mParticle._resetForTests(MPConfig);
         mParticle.config.sessionTimeout = 1;
         mParticle.init(apiKey, window.mParticle.config);
-        waitForCondition(() => {
+        await waitForCondition(() => {
             return (
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
-        })
-        .then(() => {
+        });
+
         const clock = sinon.useFakeTimers();
         clock.tick(100);
         mParticle.logEvent('Test Event');
@@ -490,24 +447,21 @@ describe('core SDK', function() {
         testEvent2.data.session_uuid.should.equal(testEvent.data.session_uuid);
         testEvent3.data.session_uuid.should.not.equal(testEvent.data.session_uuid);
         clock.restore();
-        done();
-        })
-        })
     });
 
-    it('should not end session when end session is called within sessionTimeout timeframe', function(done) {
+    it('should not end session when end session is called within sessionTimeout timeframe', async () => {
         // This test mimics if another tab is open and events are sent, but previous tab's sessionTimeout is still ongoing
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        await waitForCondition(hasIdentifyReturned);
+
         mParticle._resetForTests(MPConfig);
         mParticle.config.sessionTimeout = 1;
         mParticle.init(apiKey, window.mParticle.config);
-        waitForCondition(() => {
+        await waitForCondition(() => {
             return (
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
-        })
-        .then(() => {
+        });
+
         const clock = sinon.useFakeTimers();
 
         fetchMock.resetHistory();
@@ -549,41 +503,32 @@ describe('core SDK', function() {
         testEvent3.data.session_uuid.should.equal(testEvent2.data.session_uuid);
 
         clock.restore();
-        done();
-        })
-        })
     });
 
-    it('should set the sessionId from memory on the payload', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+    it('should set the sessionId from memory on the payload', async () => {
+        await waitForCondition(hasIdentifyReturned);
+
         mParticle.logEvent('Test Event');
         const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
 
         const sessionId = mParticle.getInstance()._SessionManager.getSession();
 
         testEvent.data.session_uuid.should.equal(sessionId);
-
-        done();
-        })
     });
 
-    it('should set session start date in dto', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+    it('should set session start date in dto', async () => {
+        await waitForCondition(hasIdentifyReturned);
+
         mParticle.logEvent('Test Event');
 
         const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
 
         testEvent.data.session_start_unixtime_ms.should.be.above(0);
-
-        done();
-        });
     });
 
-    it('should update session start date when manually ending session then starting a new one', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+    it('should update session start date when manually ending session then starting a new one', async () => {
+        await waitForCondition(hasIdentifyReturned);
+
         mParticle.logEvent('Test Event');
 
         const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
@@ -601,24 +546,21 @@ describe('core SDK', function() {
 
         const testEvent2SessionStartDate = testEvent2.data.session_start_unixtime_ms;
         testEvent2SessionStartDate.should.be.above(sessionEndEventSessionStartDate);
-
-        done();
-        })
     });
 
-    it('should update session start date when session times out, then start a new one', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+    it('should update session start date when session times out, then start a new one', async () => {
+        await waitForCondition(hasIdentifyReturned);
+
         mParticle._resetForTests(MPConfig);
         mParticle.config.sessionTimeout = 1;
 
         mParticle.init(apiKey, mParticle.config);
-        waitForCondition(() => {
+        await waitForCondition(() => {
             return (
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
-        })
-        .then(() => {
+        });
+
         const clock = sinon.useFakeTimers();
         clock.tick(10);
 
@@ -639,15 +581,11 @@ describe('core SDK', function() {
 
         const testEvent2SessionStartDate = testEvent2.data.session_start_unixtime_ms;
         testEvent2SessionStartDate.should.be.above(sessionEndEventSessionStartDate);
-
-        done();
-        })
-        })
     });
 
-    it('should load SDK with the included api on init and not send events to previous apikey in persistence', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+    it('should load SDK with the included api on init and not send events to previous apikey in persistence', async () => {
+        await waitForCondition(hasIdentifyReturned);
+
         mParticle.logEvent('Test Event1');
 
         const testEvent1URL = findRequestURL(fetchMock.calls(), 'Test Event1');
@@ -659,22 +597,18 @@ describe('core SDK', function() {
         );
 
         mParticle.init('new-api-key', window.mParticle.config);
-        waitForCondition(() => {
+        await waitForCondition(() => {
             return (
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
-        })
-        .then(() => {
+        });
+
         mParticle.logEvent('Test Event2');
 
         const testEvent2URL = findRequestURL(fetchMock.calls(), 'Test Event2');
         testEvent2URL.should.equal(
             'https://jssdks.mparticle.com/v3/JS/new-api-key/events'
         );
-
-        done();
-        });
-        });
     });
 
     it('should have default options as well as configured options on configuration object, overwriting when appropriate', function(done) {
@@ -775,9 +709,9 @@ describe('core SDK', function() {
         done();
     });
 
-    it('should use custom loggers when provided', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+    it('should use custom loggers when provided', async () => {
+        await waitForCondition(hasIdentifyReturned);
+
         mParticle.config.logLevel = 'verbose';
         let errorMessage;
         let warnMessage;
@@ -796,12 +730,12 @@ describe('core SDK', function() {
         };
 
         mParticle.init(apiKey, window.mParticle.config);
-        waitForCondition(() => {
+        await waitForCondition(() => {
             return (
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
-        })
-        .then(() => {
+        });
+
         infoMessage.should.equal(
             'Batch count: 1'
         );
@@ -813,13 +747,9 @@ describe('core SDK', function() {
         warnMessage.should.equal(
             'Warning: Location tracking is triggered, but not including a callback into the `startTrackingLocation` may result in events logged too quickly and not being associated with a location.'
         );
-
-        done();
-        })
-        })
     });
 
-    it('should be able to change logLevel on the fly, postuse custom loggers when provided', function(done) {
+    it('should be able to change logLevel on the fly, postuse custom loggers when provided', async () => {
         const infoMessages = [];
 
         mParticle.config.logger = {
@@ -829,8 +759,7 @@ describe('core SDK', function() {
         };
 
         mParticle.init(apiKey, window.mParticle.config);
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        await waitForCondition(hasIdentifyReturned);
 
         infoMessages.length.should.equal(0);
 
@@ -838,14 +767,11 @@ describe('core SDK', function() {
 
         mParticle.logEvent('hi');
         infoMessages[0].should.equal('Starting to log event: hi');
-
-        done();
-        })
     });
 
-    it("should not log anything to console when logLevel = 'none'", function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+    it("should not log anything to console when logLevel = 'none'", async () => {
+        await waitForCondition(hasIdentifyReturned);
+
         const infoMessages = [];
         const warnMessages = [];
         const errorMessages = [];
@@ -863,12 +789,12 @@ describe('core SDK', function() {
         };
 
         mParticle.init(apiKey, window.mParticle.config);
-        waitForCondition(() => {
+        await waitForCondition(() => {
             return (
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
-        })
-        .then(() => {
+        });
+
         infoMessages.length.should.equal(0);
         warnMessages.length.should.equal(0);
         errorMessages.length.should.equal(0);
@@ -883,11 +809,6 @@ describe('core SDK', function() {
 
         const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
         Should(testEvent).be.ok();
-
-        done();
-        })
-        })
-
     });
 
     it('should not error when logger  custom loggers when provided', function(done) {
@@ -929,9 +850,9 @@ describe('core SDK', function() {
         done();
     });
 
-    it('should have default urls if no custom urls are set in config object, but use custom urls when they are set', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+    it('should have default urls if no custom urls are set in config object, but use custom urls when they are set', async () => {
+        await waitForCondition(hasIdentifyReturned);
+
         window.mParticle.config.v3SecureServiceUrl =
             'testtesttest-custom-v3secureserviceurl/v3/JS/';
         window.mParticle.config.configUrl =
@@ -942,12 +863,12 @@ describe('core SDK', function() {
         fetchMock.post('https://testtesttest-custom-v3secureserviceurl/v3/JS/test_key/events', HTTP_OK)
 
         mParticle.init(apiKey, window.mParticle.config);
-        waitForCondition(() => {
+        await waitForCondition(() => {
             return (
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
-        })
-        .then(() => {
+        });
+
         mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(window.mParticle.config.v3SecureServiceUrl)
         mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(window.mParticle.config.configUrl)
         mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(window.mParticle.config.identityUrl)
@@ -970,12 +891,12 @@ describe('core SDK', function() {
         });
         mParticle.Identity.login({ userIdentities: { customerid: 'test1' } });
         
-        waitForCondition(() => {
+        await waitForCondition(() => {
             return (
                 mParticle.Identity.getCurrentUser()?.getMPID() === 'loginMPID'
             );
-        })
-        .then(() => {
+        });
+
         fetchMock.calls()[0][0].should.equal('https://' + window.mParticle.config.identityUrl + 'login');
         // test alias endpoint
         // https://go.mparticle.com/work/SQDSDKS-6751
@@ -993,12 +914,7 @@ describe('core SDK', function() {
             const expectedUrl = `https://${window.mParticle.config.aliasUrl}test_key/Alias`;
 
             lastFetchCallUrl.should.equal(expectedUrl);
-    
-            done();
         }
-        })
-        });
-        });
     });
 
     it('should use configUrl when specified on config object', function (done) {
@@ -1017,7 +933,7 @@ describe('core SDK', function() {
         done();
     });
 
-    it('should use custom v3 endpoint when specified on config object', function(done) {
+    it('should use custom v3 endpoint when specified on config object', async () => {
         mParticle.config.v3SecureServiceUrl = 'def-v3SecureServiceUrl/v3/JS/';
 
         mParticle.config.flags = {
@@ -1031,15 +947,11 @@ describe('core SDK', function() {
 
         mParticle.init(apiKey, mParticle.config);
 
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        await waitForCondition(hasIdentifyReturned);
 
         window.mParticle.logEvent('Test Event');
 
         fetchMock.lastOptions().body.should.be.ok()
-
-        done();
-    })
     });
 
     it('should add onCreateBatch to _Store.SDKConfig if onCreateBatch is provide on mParticle.config object', function(done) {
