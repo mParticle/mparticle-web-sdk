@@ -15,7 +15,7 @@ declare global {
     }
 }
 
-describe.only('batch uploader', () => {
+describe('batch uploader', () => {
     let mockServer;
 
     beforeEach(() => {
