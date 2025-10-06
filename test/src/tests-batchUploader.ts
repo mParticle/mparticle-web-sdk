@@ -1385,6 +1385,7 @@ describe('batch uploader', () => {
             );
         });
 
+        // http://go/j-SDKE-301
         it('should save batches in sequence to Local Storage when upload is interrupted', async () => {
             // Interruption in this context means that the first upload is successful, but
             // the next upload in sequence is not. For example, on a mobile device on the
@@ -1519,6 +1520,7 @@ describe('batch uploader', () => {
             ).to.equal('application_state_transition');
         });
 
+        // http://go/j-SDKE-301
         it('should attempt to upload batches from Offline Storage before new batches', async () => {
             // This test should verify that batches read from Offline Storage are prepended
             // to the upload queue before newly created batches.

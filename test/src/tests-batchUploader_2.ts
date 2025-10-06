@@ -44,7 +44,7 @@ describe('batch uploader', () => {
             fetchMock.restore();
         });
 
-        it('should organize events in the order they are processed and maintain that order when uploading', (done) => {
+        it('should organize events in the order they are processed and maintain that order when uploading', async () => {
             // Batches should be uploaded in the order they were created to prevent
             // any potential corruption.
             fetchMock.post(urls.events, 200);
@@ -56,8 +56,9 @@ describe('batch uploader', () => {
 
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
+            
+            await waitForCondition(hasIdentifyReturned);
+            
             window.mParticle.logEvent('Test Event 0');
 
             // Manually initiate the upload process - turn event into batches and upload the batch
@@ -108,12 +109,6 @@ describe('batch uploader', () => {
             expect(batch3.events.length).to.equal(2);
             expect(batch3.events[0].data.event_name).to.equal('Test Event 4');
             expect(batch3.events[1].data.event_name).to.equal('Test Event 5');
-
-            done();
-
-        })
-        .catch((e) => {
-        })
         });
 
         // TODO: Investigate workflow with unshift vs push
