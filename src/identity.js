@@ -1215,7 +1215,7 @@ export default function Identity(mpInstance) {
                 mpInstance.Logger.warning(
                     'Deprecated function Identity.getCurrentUser().getCart() will be removed in future releases'
                 );
-                return self.mParticleUserCart(mpid);
+                return self.mParticleUserCart();
             },
 
             /**
@@ -1286,133 +1286,37 @@ export default function Identity(mpInstance) {
      * @class mParticle.Identity.getCurrentUser().getCart()
      * @deprecated
      */
-    this.mParticleUserCart = function(mpid) {
+    this.mParticleUserCart = function() {
         return {
             /**
              * Adds a cart product to the user cart
              * @method add
-             * @param {Object} product the product
-             * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
              * @deprecated
              */
-            add: function(product, logEvent) {
+            add: function() {
                 mpInstance.Logger.warning(
-                    'Deprecated function Identity.getCurrentUser().getCart().add() will be removed in future releases'
+                    generateDeprecationMessage(
+                        'Identity.getCurrentUser().getCart().add()',
+                        true,
+                        'eCommerce.logProductAction()',
+                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
+                    )
                 );
-                var allProducts, userProducts, arrayCopy;
-
-                arrayCopy = Array.isArray(product)
-                    ? product.slice()
-                    : [product];
-                arrayCopy.forEach(function(product) {
-                    product.Attributes = mpInstance._Helpers.sanitizeAttributes(
-                        product.Attributes
-                    );
-                });
-
-                if (mpInstance._Store.webviewBridgeEnabled) {
-                    mpInstance._NativeSdkHelpers.sendToNative(
-                        Constants.NativeSdkPaths.AddToCart,
-                        JSON.stringify(arrayCopy)
-                    );
-                } else {
-                    mpInstance._SessionManager.resetSessionTimer();
-
-                    userProducts = mpInstance._Persistence.getUserProductsFromLS(
-                        mpid
-                    );
-
-                    userProducts = userProducts.concat(arrayCopy);
-
-                    if (logEvent === true) {
-                        mpInstance._Events.logProductActionEvent(
-                            Types.ProductActionType.AddToCart,
-                            arrayCopy
-                        );
-                    }
-
-                    var productsForMemory = {};
-                    productsForMemory[mpid] = { cp: userProducts };
-
-                    if (
-                        userProducts.length >
-                        mpInstance._Store.SDKConfig.maxProducts
-                    ) {
-                        mpInstance.Logger.verbose(
-                            'The cart contains ' +
-                                userProducts.length +
-                                ' items. Only ' +
-                                mpInstance._Store.SDKConfig.maxProducts +
-                                ' can currently be saved in cookies.'
-                        );
-                        userProducts = userProducts.slice(
-                            -mpInstance._Store.SDKConfig.maxProducts
-                        );
-                    }
-
-                    allProducts = mpInstance._Persistence.getAllUserProductsFromLS();
-                    allProducts[mpid].cp = userProducts;
-
-                    mpInstance._Persistence.setCartProducts(allProducts);
-                }
             },
             /**
              * Removes a cart product from the current user cart
              * @method remove
-             * @param {Object} product the product
-             * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
              * @deprecated
              */
-            remove: function(product, logEvent) {
+            remove: function() {
                 mpInstance.Logger.warning(
-                    'Deprecated function Identity.getCurrentUser().getCart().remove() will be removed in future releases'
+                    generateDeprecationMessage(
+                        'Identity.getCurrentUser().getCart().remove()',
+                        true,
+                        'eCommerce.logProductAction()',
+                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
+                    )
                 );
-                var allProducts,
-                    userProducts,
-                    cartIndex = -1,
-                    cartItem = null;
-
-                if (mpInstance._Store.webviewBridgeEnabled) {
-                    mpInstance._NativeSdkHelpers.sendToNative(
-                        Constants.NativeSdkPaths.RemoveFromCart,
-                        JSON.stringify(product)
-                    );
-                } else {
-                    mpInstance._SessionManager.resetSessionTimer();
-
-                    userProducts = mpInstance._Persistence.getUserProductsFromLS(
-                        mpid
-                    );
-
-                    if (userProducts) {
-                        userProducts.forEach(function(cartProduct, i) {
-                            if (cartProduct.Sku === product.Sku) {
-                                cartIndex = i;
-                                cartItem = cartProduct;
-                            }
-                        });
-
-                        if (cartIndex > -1) {
-                            userProducts.splice(cartIndex, 1);
-
-                            if (logEvent === true) {
-                                mpInstance._Events.logProductActionEvent(
-                                    Types.ProductActionType.RemoveFromCart,
-                                    cartItem
-                                );
-                            }
-                        }
-                    }
-
-                    var productsForMemory = {};
-                    productsForMemory[mpid] = { cp: userProducts };
-
-                    allProducts = mpInstance._Persistence.getAllUserProductsFromLS();
-
-                    allProducts[mpid].cp = userProducts;
-
-                    mpInstance._Persistence.setCartProducts(allProducts);
-                }
             },
             /**
              * Clears the user's cart
@@ -1421,31 +1325,13 @@ export default function Identity(mpInstance) {
              */
             clear: function() {
                 mpInstance.Logger.warning(
-                    'Deprecated function Identity.getCurrentUser().getCart().clear() will be removed in future releases'
+                    generateDeprecationMessage(
+                        'Identity.getCurrentUser().getCart().clear()',
+                        true,
+                        '',
+                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
+                    )
                 );
-
-                var allProducts;
-
-                if (mpInstance._Store.webviewBridgeEnabled) {
-                    mpInstance._NativeSdkHelpers.sendToNative(
-                        Constants.NativeSdkPaths.ClearCart
-                    );
-                } else {
-                    mpInstance._SessionManager.resetSessionTimer();
-                    allProducts = mpInstance._Persistence.getAllUserProductsFromLS();
-
-                    if (
-                        allProducts &&
-                        allProducts[mpid] &&
-                        allProducts[mpid].cp
-                    ) {
-                        allProducts[mpid].cp = [];
-
-                        allProducts[mpid].cp = [];
-
-                        mpInstance._Persistence.setCartProducts(allProducts);
-                    }
-                }
             },
             /**
              * Returns all cart products
@@ -1455,9 +1341,14 @@ export default function Identity(mpInstance) {
              */
             getCartProducts: function() {
                 mpInstance.Logger.warning(
-                    'Deprecated function Identity.getCurrentUser().getCart().getCartProducts() will be removed in future releases'
+                    generateDeprecationMessage(
+                        'Identity.getCurrentUser().getCart().getCartProducts()',
+                        true,
+                        'eCommerce.logProductAction()',
+                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
+                    )
                 );
-                return mpInstance._Persistence.getCartProducts(mpid);
+                return [];
             },
         };
     };

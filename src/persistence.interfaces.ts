@@ -99,11 +99,8 @@ export interface IPersistence {
     useLocalStorage(): boolean;
     initializeStorage(): void;
     update(): void;
-    storeProductsInMemory(products: Product[], mpid: MPID): void;
     storeDataInMemory(obj: IPersistenceMinified, currentMPID: MPID): void;
     determineLocalStorageAvailability(storage: Storage): boolean;
-    getUserProductsFromLS(mpid: MPID): Product[];
-    getAllUserProductsFromLS(): Product[];
     setLocalStorage(): void;
     getLocalStorage(): IPersistenceMinified | null;
     expireCookies(cookieName: string): void;
@@ -120,8 +117,6 @@ export interface IPersistence {
     decodePersistence(persistenceString: string): string;
     getCookieDomain(): string;
     getDomain(doc: string, locationHostname: string): string;
-    getCartProducts(mpid: MPID): Product[];
-    setCartProducts(allProducts: Product[]): void;
     saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDates): void;
     savePersistence(persistance: IPersistenceMinified): void;
     getPersistence(): IPersistenceMinified;

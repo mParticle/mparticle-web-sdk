@@ -1,11 +1,10 @@
 import Utils from './config/utils';
 import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
-import { urls, apiKey, workspaceToken, MPConfig, testMPID, ProductActionType, PromotionActionType } from './config/constants';
+import { urls, apiKey, MPConfig, testMPID, ProductActionType, PromotionActionType } from './config/constants';
 const { waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
 
-const getLocalStorageProducts = Utils.getLocalStorageProducts,
-    forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
+const forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
     findEventFromRequest = Utils.findEventFromRequest,
     MockForwarder = Utils.MockForwarder;
 
@@ -664,111 +663,6 @@ describe('eCommerce', function() {
         })
     });
 
-    it('should add products to cart', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() =>  {
-        const product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
-
-        mParticle.eCommerce.Cart.add(product, true);
-
-        const addToCartEvent = findEventFromRequest(fetchMock.calls(), 'add_to_cart');
-        
-        addToCartEvent.data.should.have.property('product_action');
-        addToCartEvent.data.product_action.should.have.property('action', 'add_to_cart');
-        addToCartEvent.data.product_action.should.have.property('products').with.lengthOf(1);
-        addToCartEvent.data.product_action.products[0].should.have.property('id', '12345');
-
-        done();
-        })
-    });
-
-    it('should remove products to cart', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() =>  {
-        const product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
-
-        mParticle.eCommerce.Cart.add(product);
-        mParticle.eCommerce.Cart.remove({ Sku: '12345' }, true);
-
-        const removeFromCartEvent = findEventFromRequest(fetchMock.calls(), 'remove_from_cart');
-        
-        removeFromCartEvent.data.should.have.property('product_action');
-        removeFromCartEvent.data.product_action.should.have.property('action', 'remove_from_cart');
-        removeFromCartEvent.data.product_action.should.have.property('products').with.lengthOf(1);
-        removeFromCartEvent.data.product_action.products[0].should.have.property('id', '12345');
-
-        done();
-        })
-    });
-
-    it('should update cart products in cookies after adding/removing product to/from a cart and clearing cart', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() =>  {
-        const product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
-
-        mParticle.eCommerce.Cart.add(product);
-        const products1 = getLocalStorageProducts();
-
-        products1[testMPID].cp[0].should.have.properties([
-            'Name',
-            'Sku',
-            'Price',
-        ]);
-
-        mParticle.eCommerce.Cart.remove(product);
-        const products2 = getLocalStorageProducts();
-        products2[testMPID].cp.length.should.equal(0);
-
-        mParticle.eCommerce.Cart.add(product);
-        const products3 = getLocalStorageProducts();
-        products3[testMPID].cp[0].should.have.properties([
-            'Name',
-            'Sku',
-            'Price',
-        ]);
-
-        mParticle.eCommerce.Cart.clear();
-        const products4 = getLocalStorageProducts();
-        products4[testMPID].cp.length.should.equal(0);
-
-        done();
-        })
-    });
-
-    it('should not add the (config.maxProducts + 1st) item to cookie cartItems and only send cookie cartProducts when logging', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() =>  {
-        mParticle.config.maxProducts = 10;
-        mParticle.config.workspaceToken = workspaceToken;
-        mParticle.init(apiKey, window.mParticle.config);
-
-        const product = mParticle.eCommerce.createProduct(
-            'Product',
-            '12345',
-            400
-        );
-        for (let i = 0; i < mParticle.config.maxProducts; i++) {
-            mParticle.eCommerce.Cart.add(product);
-        }
-
-        mParticle.eCommerce.Cart.add(
-            mParticle.eCommerce.createProduct('Product11', '12345', 400)
-        );
-        const products1 = getLocalStorageProducts();
-
-        const foundProductInCookies = products1[testMPID].cp.filter(function(
-            product
-        ) {
-            return product.Name === 'Product11';
-        })[0];
-
-        products1[testMPID].cp.length.should.equal(10);
-        Should(foundProductInCookies).be.ok();
-
-        done();
-        })
-    });
-
     it('should log checkout via deprecated logCheckout method', function(done) {
         waitForCondition(hasIdentifyReturned)
         .then(() =>  {
@@ -960,69 +854,6 @@ describe('eCommerce', function() {
 
         purchaseEvent.data.product_action.products[0].should.not.have.property('position');
 
-
-        done();
-        })
-    });
-
-    it('should support array of products when adding to cart', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() =>  {
-        const product1 = mParticle.eCommerce.createProduct(
-                'iPhone',
-                '12345',
-                400,
-                2
-            ),
-            product2 = mParticle.eCommerce.createProduct(
-                'Nexus',
-                '67890',
-                300,
-                1
-            );
-
-        mParticle.eCommerce.Cart.add([product1, product2], true);
-
-        const addToCartEvent = findEventFromRequest(fetchMock.calls(), 'add_to_cart');
-
-        Should(addToCartEvent).be.ok();
-
-        addToCartEvent.data.should.have.property('product_action');
-        addToCartEvent.data.product_action.should.have.property('action', 'add_to_cart');
-        addToCartEvent.data.product_action.should.have.property('products').with.lengthOf(2);
-
-        addToCartEvent.data.product_action.products[0].should.have.property('id', '12345');
-        addToCartEvent.data.product_action.products[0].should.have.property('name', 'iPhone');
-
-        addToCartEvent.data.product_action.products[1].should.have.property('id', '67890');
-        addToCartEvent.data.product_action.products[1].should.have.property('name', 'Nexus');
-
-        done();
-        })
-    });
-
-    it('should support a single product when adding to cart', function(done) {
-        waitForCondition(hasIdentifyReturned)
-        .then(() =>  {
-        const product1 = mParticle.eCommerce.createProduct(
-            'iPhone',
-            '12345',
-            400,
-            2
-        );
-
-        mParticle.eCommerce.Cart.add(product1, true);
-
-        const addToCartEvent = findEventFromRequest(fetchMock.calls(), 'add_to_cart');
-
-        Should(addToCartEvent).be.ok();
-
-        addToCartEvent.data.should.have.property('product_action');
-        addToCartEvent.data.product_action.should.have.property('action', 'add_to_cart');
-        addToCartEvent.data.product_action.should.have.property('products').with.lengthOf(1);
-
-        addToCartEvent.data.product_action.products[0].should.have.property('id', '12345');
-        addToCartEvent.data.product_action.products[0].should.have.property('name', 'iPhone');
 
         done();
         })
@@ -1690,10 +1521,11 @@ describe('eCommerce', function() {
 
             bond.called.should.eql(true);
             bond.getCalls()[0].args[0].should.eql(
-                'Deprecated function eCommerce.Cart.add() will be removed in future releases'
+                'eCommerce.Cart.add() has been deprecated. Please use the alternate method: eCommerce.logProductAction(). See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
             );
         })
         });
+        
         it('should deprecate remove', function() {
             waitForCondition(hasIdentifyReturned)
             .then(() =>  {
@@ -1709,7 +1541,7 @@ describe('eCommerce', function() {
 
             bond.called.should.eql(true);
             bond.getCalls()[0].args[0].should.eql(
-                'Deprecated function eCommerce.Cart.remove() will be removed in future releases'
+                'eCommerce.Cart.remove() has been deprecated. Please use the alternate method: eCommerce.logProductAction(). See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
             );
         })
         });
@@ -1723,7 +1555,7 @@ describe('eCommerce', function() {
 
             bond.called.should.eql(true);
             bond.getCalls()[0].args[0].should.eql(
-                'Deprecated function eCommerce.Cart.clear() will be removed in future releases'
+                'eCommerce.Cart.clear() has been deprecated. See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
             );
         })
         });

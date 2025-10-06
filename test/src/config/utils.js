@@ -12,17 +12,6 @@ import {
 import fetchMock from 'fetch-mock/esm/client';
 
 var pluses = /\+/g,
-    getLocalStorageProducts = function getLocalStorageProducts() {
-        return JSON.parse(
-            atob(
-                localStorage.getItem(
-                    mParticle
-                        .getInstance()
-                        ._Helpers.createProductStorageName(workspaceToken)
-                )
-            )
-        );
-    },
     decoded = function decoded(s) {
         return decodeURIComponent(s.replace(pluses, ' '));
     },
@@ -638,7 +627,6 @@ var pluses = /\+/g,
     hasConfigurationReturned = () => !!mParticle.getInstance()?._Store?.configurationLoaded;
 
 var TestsCore = {
-    getLocalStorageProducts: getLocalStorageProducts,
     findCookie: findCookie,
     setCookie: setCookie,
     setLocalStorage: setLocalStorage,

@@ -35,6 +35,10 @@ export default function _Persistence(mpInstance) {
                 mpInstance._Store.isFirstRun = false;
             }
 
+            if (mpInstance._Store.getPrivacyFlag('SDKState')) {
+                return;
+            }
+
             // https://go.mparticle.com/work/SQDSDKS-6045
             if (!mpInstance._Store.isLocalStorageAvailable) {
                 mpInstance._Store.SDKConfig.useCookieStorage = true;
@@ -86,35 +90,6 @@ export default function _Persistence(mpInstance) {
                 self.storeDataInMemory(cookies);
             }
 
-            // https://go.mparticle.com/work/SQDSDKS-6048
-            try {
-                if (mpInstance._Store.isLocalStorageAvailable) {
-                    var encodedProducts = localStorage.getItem(
-                        mpInstance._Store.prodStorageName
-                    );
-
-                    if (encodedProducts) {
-                        var decodedProducts = JSON.parse(
-                            Base64.decode(encodedProducts)
-                        );
-                    }
-                    if (mpInstance._Store.mpid) {
-                        self.storeProductsInMemory(
-                            decodedProducts,
-                            mpInstance._Store.mpid
-                        );
-                    }
-                }
-            } catch (e) {
-                if (mpInstance._Store.isLocalStorageAvailable) {
-                    localStorage.removeItem(mpInstance._Store.prodStorageName);
-                }
-                mpInstance._Store.cartProducts = [];
-                mpInstance.Logger.error(
-                    'Error loading products in initialization: ' + e
-                );
-            }
-
             // https://go.mparticle.com/work/SQDSDKS-6046
             // Stores all non-current user MPID information into the store
             for (var key in allData) {
@@ -142,27 +117,15 @@ export default function _Persistence(mpInstance) {
     };
 
     this.update = function() {
-        if (!mpInstance._Store.webviewBridgeEnabled) {
+        if (
+            !mpInstance._Store.webviewBridgeEnabled &&
+            !mpInstance._Store.getPrivacyFlag('SDKState')
+        ) {
             if (mpInstance._Store.SDKConfig.useCookieStorage) {
                 self.setCookie();
             }
 
             self.setLocalStorage();
-        }
-    };
-
-    this.storeProductsInMemory = function(products, mpid) {
-        if (products) {
-            try {
-                mpInstance._Store.cartProducts =
-                    products[mpid] && products[mpid].cp
-                        ? products[mpid].cp
-                        : [];
-            } catch (e) {
-                mpInstance.Logger.error(
-                    Messages.ErrorMessages.CookieParseError
-                );
-            }
         }
     };
 
@@ -268,64 +231,6 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.getUserProductsFromLS = function(mpid) {
-        if (!mpInstance._Store.isLocalStorageAvailable) {
-            return [];
-        }
-
-        var decodedProducts,
-            userProducts,
-            parsedProducts,
-            encodedProducts = localStorage.getItem(
-                mpInstance._Store.prodStorageName
-            );
-        if (encodedProducts) {
-            decodedProducts = Base64.decode(encodedProducts);
-        }
-        // if there is an MPID, we are retrieving the user's products, which is an array
-        if (mpid) {
-            try {
-                if (decodedProducts) {
-                    parsedProducts = JSON.parse(decodedProducts);
-                }
-                if (
-                    decodedProducts &&
-                    parsedProducts[mpid] &&
-                    parsedProducts[mpid].cp &&
-                    Array.isArray(parsedProducts[mpid].cp)
-                ) {
-                    userProducts = parsedProducts[mpid].cp;
-                } else {
-                    userProducts = [];
-                }
-                return userProducts;
-            } catch (e) {
-                return [];
-            }
-        } else {
-            return [];
-        }
-    };
-
-    this.getAllUserProductsFromLS = function() {
-        var decodedProducts,
-            encodedProducts = localStorage.getItem(
-                mpInstance._Store.prodStorageName
-            ),
-            parsedDecodedProducts;
-        if (encodedProducts) {
-            decodedProducts = Base64.decode(encodedProducts);
-        }
-        // returns an object with keys of MPID and values of array of products
-        try {
-            parsedDecodedProducts = JSON.parse(decodedProducts);
-        } catch (e) {
-            parsedDecodedProducts = {};
-        }
-
-        return parsedDecodedProducts;
-    };
-
     // https://go.mparticle.com/work/SQDSDKS-6021
     this.setLocalStorage = function() {
         if (!mpInstance._Store.isLocalStorageAvailable) {
@@ -333,30 +238,9 @@ export default function _Persistence(mpInstance) {
         }
 
         var key = mpInstance._Store.storageName,
-            allLocalStorageProducts = self.getAllUserProductsFromLS(),
             localStorageData = self.getLocalStorage() || {},
             currentUser = mpInstance.Identity.getCurrentUser(),
-            mpid = currentUser ? currentUser.getMPID() : null,
-            currentUserProducts = {
-                cp: allLocalStorageProducts[mpid]
-                    ? allLocalStorageProducts[mpid].cp
-                    : [],
-            };
-        if (mpid) {
-            allLocalStorageProducts = allLocalStorageProducts || {};
-            allLocalStorageProducts[mpid] = currentUserProducts;
-            try {
-                window.localStorage.setItem(
-                    encodeURIComponent(mpInstance._Store.prodStorageName),
-                    Base64.encode(JSON.stringify(allLocalStorageProducts))
-                );
-            } catch (e) {
-                mpInstance.Logger.error(
-                    'Error with setting products on localStorage.'
-                );
-            }
-        }
-
+            mpid = currentUser ? currentUser.getMPID() : null;
         if (!mpInstance._Store.SDKConfig.useCookieStorage) {
             localStorageData.gs = localStorageData.gs || {};
 
@@ -893,42 +777,6 @@ export default function _Persistence(mpInstance) {
         return '';
     };
 
-    this.getCartProducts = function(mpid) {
-        var allCartProducts,
-            cartProductsString = localStorage.getItem(
-                mpInstance._Store.prodStorageName
-            );
-        if (cartProductsString) {
-            allCartProducts = JSON.parse(Base64.decode(cartProductsString));
-            if (
-                allCartProducts &&
-                allCartProducts[mpid] &&
-                allCartProducts[mpid].cp
-            ) {
-                return allCartProducts[mpid].cp;
-            }
-        }
-
-        return [];
-    };
-
-    this.setCartProducts = function(allProducts) {
-        if (!mpInstance._Store.isLocalStorageAvailable) {
-            return;
-        }
-
-        try {
-            window.localStorage.setItem(
-                encodeURIComponent(mpInstance._Store.prodStorageName),
-                Base64.encode(JSON.stringify(allProducts))
-            );
-        } catch (e) {
-            mpInstance.Logger.error(
-                'Error with setting products on localStorage.'
-            );
-        }
-    };
-
     this.saveUserCookieSyncDatesToPersistence = function(mpid, csd) {
         if (csd) {
             var persistence = self.getPersistence();
@@ -962,6 +810,9 @@ export default function _Persistence(mpInstance) {
 
     // https://go.mparticle.com/work/SQDSDKS-6021
     this.savePersistence = function(persistence) {
+        if (mpInstance._Store.getPrivacyFlag('SDKState')) {
+            return;
+        }
         var encodedPersistence = self.encodePersistence(
                 JSON.stringify(persistence)
             ),
@@ -1006,6 +857,9 @@ export default function _Persistence(mpInstance) {
     };
 
     this.getPersistence = function() {
+        if (mpInstance._Store.getPrivacyFlag('SDKState')) {
+            return null;
+        }
         var persistence = this.useLocalStorage()
             ? this.getLocalStorage()
             : this.getCookie();
@@ -1098,7 +952,6 @@ export default function _Persistence(mpInstance) {
         removeLocalStorage(StorageNames.localStorageName);
         removeLocalStorage(StorageNames.localStorageNameV3);
         removeLocalStorage(StorageNames.localStorageNameV4);
-        removeLocalStorage(mpInstance._Store.prodStorageName);
         removeLocalStorage(mpInstance._Store.storageName);
         removeLocalStorage(StorageNames.localStorageProductsV4);
 
@@ -1106,7 +959,6 @@ export default function _Persistence(mpInstance) {
         self.expireCookies(StorageNames.cookieNameV2);
         self.expireCookies(StorageNames.cookieNameV3);
         self.expireCookies(StorageNames.cookieNameV4);
-        self.expireCookies(mpInstance._Store.prodStorageName);
         self.expireCookies(mpInstance._Store.storageName);
 
         if (mParticle._isTestEnv) {
@@ -1116,9 +968,6 @@ export default function _Persistence(mpInstance) {
             );
             self.expireCookies(
                 mpInstance._Helpers.createMainStorageName(testWorkspaceToken)
-            );
-            removeLocalStorage(
-                mpInstance._Helpers.createProductStorageName(testWorkspaceToken)
             );
         }
     };

@@ -194,7 +194,6 @@ export interface IStore {
     requireDelay: boolean;
     isLocalStorageAvailable: boolean | null;
     storageName: string | null;
-    prodStorageName: string | null;
     activeForwarders: ConfiguredKit[];
     kits: Dictionary<MPForwarder>;
     sideloadedKits: MPForwarder[];
@@ -247,7 +246,6 @@ export default function Store(
 ) {
     const {
         createMainStorageName,
-        createProductStorageName,
     } = mpInstance._Helpers;
 
     const { isWebviewEnabled } = mpInstance._NativeSdkHelpers;
@@ -287,7 +285,6 @@ export default function Store(
         requireDelay: true,
         isLocalStorageAvailable: null,
         storageName: null,
-        prodStorageName: null,
         activeForwarders: [],
         kits: {},
         sideloadedKits: [],
@@ -740,9 +737,21 @@ export default function Store(
             this.SDKConfig[baseUrlKeys] = baseUrls[baseUrlKeys];
         }
 
+        const { noFunctional, noTargeting } = config?.launcherOptions ?? {};
+
+        if (noFunctional != null) {
+            this.setNoFunctional(noFunctional);
+        }
+        
+        if (noTargeting != null) {
+            this.setNoTargeting(noTargeting);
+        }
+
         if (workspaceToken) {
             this.SDKConfig.workspaceToken = workspaceToken;
-            mpInstance._timeOnSiteTimer = new ForegroundTimer(workspaceToken);
+            if (!this.getPrivacyFlag('TimeOnSite')) {
+                mpInstance._timeOnSiteTimer = new ForegroundTimer(workspaceToken);
+            }
         } else {
             mpInstance.Logger.warning(
                 'You should have a workspaceToken on your config object for security purposes.'
@@ -750,16 +759,6 @@ export default function Store(
         }
         // add a new function to apply items to the store that require config to be returned
         this.storageName = createMainStorageName(workspaceToken);
-        this.prodStorageName = createProductStorageName(workspaceToken);
-
-        // Extract privacy flags directly from config into Store
-        if (config.hasOwnProperty('noFunctional')) {
-            this.setNoFunctional(config.noFunctional);
-        }
-
-        if (config.hasOwnProperty('noTargeting')) {
-            this.setNoTargeting(config.noTargeting);
-        }
 
         this.SDKConfig.requiredWebviewBridgeName =
             requiredWebviewBridgeName || workspaceToken;

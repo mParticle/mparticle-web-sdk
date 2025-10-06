@@ -72,7 +72,7 @@ export default function SessionManager(
         mpInstance.Logger.warning(
             generateDeprecationMessage(
                 'SessionManager.getSession()',
-
+                false,
                 'SessionManager.getSessionId()'
             )
         );

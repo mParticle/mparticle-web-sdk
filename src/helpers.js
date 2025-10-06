@@ -376,16 +376,6 @@ export default function Helpers(mpInstance) {
         }
     };
 
-    this.createProductStorageName = function(workspaceToken) {
-        if (workspaceToken) {
-            return (
-                StorageNames.currentStorageProductsName + '_' + workspaceToken
-            );
-        } else {
-            return StorageNames.currentStorageProductsName;
-        }
-    };
-
     // TODO: Refactor SDK to directly use these methods
     // https://go.mparticle.com/work/SQDSDKS-5239
     // Utility Functions

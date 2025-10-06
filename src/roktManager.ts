@@ -345,7 +345,7 @@ export default class RoktManager {
 
         this.messageQueue.forEach((message) => {
             if(!(message.methodName in this) || !isFunction(this[message.methodName])) {
-                this.logger?.error(`RoktManager: Method ${message.methodName} not found in kit`);
+                this.logger?.error(`RoktManager: Method ${message.methodName} not found`);
                 return;
             }
 
@@ -360,6 +360,9 @@ export default class RoktManager {
                 this.completePendingPromise(message.messageId, Promise.reject(error));
             }
         });
+
+        // Clear the queue after processing all messages
+        this.messageQueue.clear();
     }
 
     private queueMessage(message: IRoktMessage): void {

@@ -6,8 +6,9 @@ const Constants = {
     platform: 'web',
     Messages: {
         DeprecationMessages: {
-            MethodIsDeprecatedPostfix:
-                'is a deprecated method and will be removed in future releases',
+            MethodHasBeenDeprecated: 'has been deprecated.',
+            MethodMarkedForDeprecationPostfix:
+                'is a deprecated method and will be removed in future releases.',
             AlternativeMethodPrefix: 'Please use the alternate method:',
         },
         ErrorMessages: {
@@ -232,11 +233,10 @@ export const HTTP_SERVER_ERROR = 500 as const;
 
 export type PrivacyControl = 'functional' | 'targeting';
 
-export type StorageTypes = 'SDKState' | 'Products' | 'OfflineEvents' | 'IdentityCache' | 'TimeOnSite';
+export type StorageTypes = 'SDKState' | 'OfflineEvents' | 'IdentityCache' | 'TimeOnSite';
 
 export const StoragePrivacyMap: Record<StorageTypes, PrivacyControl> = {
     SDKState: 'functional',
-    Products: 'targeting',
     OfflineEvents: 'functional',
     IdentityCache: 'functional',
     TimeOnSite: 'targeting',

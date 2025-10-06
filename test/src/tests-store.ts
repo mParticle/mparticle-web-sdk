@@ -162,7 +162,6 @@ describe('Store', () => {
                 'isLocalStorageAvailable'
             ).to.eq(null);
             expect(store.storageName, 'storageName').to.eq(null);
-            expect(store.prodStorageName, 'prodStorageName').to.eq(null);
             expect(store.activeForwarders.length, 'activeForwarders').to.eq(0);
             expect(store.kits, 'kits').to.be.ok;
             expect(store.sideloadedKits, 'sideloaded kits').to.be.ok;
@@ -1417,9 +1416,6 @@ describe('Store', () => {
             store.processConfig(config);
 
             expect(store.storageName, 'storageName').to.equal('mprtcl-v4_foo');
-            expect(store.prodStorageName, 'prodStorageName').to.equal(
-                'mprtcl-prodv4_foo'
-            );
             expect(store.SDKConfig.workspaceToken, 'workspace token').to.equal(
                 'foo'
             );
@@ -1817,8 +1813,7 @@ describe('Store', () => {
         it('should set noFunctional and noTargeting from init config', () => {
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.config = window.mParticle.config || {};
-            window.mParticle.config.noFunctional = true;
-            window.mParticle.config.noTargeting = true;
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: true };
 
             window.mParticle.init(apiKey, window.mParticle.config);
 

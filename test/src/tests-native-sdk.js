@@ -467,74 +467,6 @@ describe('native-sdk methods', function() {
             done();
         });
 
-        // TBD _ ask will/peter about add to cart array vs product?
-        it('should invoke native sdk method addToCart', function(done) {
-            const product = mParticle.eCommerce.createProduct(
-                'name',
-                'sku',
-                10,
-                1
-            );
-            const product2 = mParticle.eCommerce.createProduct(
-                'name',
-                'sku',
-                10,
-                1
-            );
-
-            mParticle.eCommerce.Cart.add(product);
-
-            window.mParticleAndroid.should.have.property(
-                'addToCartCalled',
-                true
-            );
-            window.mParticleAndroid.addedToCartItem.should.equal(
-                JSON.stringify([product])
-            );
-            window.mParticleAndroid.clearCart();
-
-            mParticle.eCommerce.Cart.add([product, product2]);
-
-            window.mParticleAndroid.addedToCartItem.should.equal(
-                JSON.stringify([product, product2])
-            );
-
-            done();
-        });
-
-        it('should invoke native sdk method removeFromCart', function(done) {
-            const product = mParticle.eCommerce.createProduct(
-                'name',
-                'sku',
-                10,
-                1
-            );
-
-            mParticle.eCommerce.Cart.add(product);
-            mParticle.eCommerce.Cart.remove(product);
-
-            window.mParticleAndroid.should.have.property(
-                'removeFromCartCalled',
-                true
-            );
-            window.mParticleAndroid.removedFromCartItem.should.equal(
-                JSON.stringify(product)
-            );
-
-            done();
-        });
-
-        it('should invoke native sdk method clearCart', function(done) {
-            mParticle.eCommerce.Cart.clear();
-
-            window.mParticleAndroid.should.have.property(
-                'clearCartCalled',
-                true
-            );
-
-            done();
-        });
-
         it('should not sync cookies when in a mobile web view for Android', function(done) {
             const pixelSettings = {
                 name: 'AdobeEventForwarder',
@@ -718,79 +650,6 @@ describe('native-sdk methods', function() {
                 );
                 mParticleAndroidV2Bridge.sessionAttrData[2].should.equal(
                     JSON.stringify({ key: 'key', value: 'value' })
-                );
-
-                done();
-            });
-
-            it('should invoke Android method addToCart', function(done) {
-                const product = mParticle.eCommerce.createProduct(
-                    'name',
-                    'sku',
-                    10,
-                    1
-                );
-                const product2 = mParticle.eCommerce.createProduct(
-                    'name',
-                    'sku',
-                    10,
-                    1
-                );
-
-                mParticle.eCommerce.Cart.add(product);
-
-                mParticleAndroidV2Bridge.should.have.property(
-                    'addToCartCalled',
-                    true
-                );
-                mParticleAndroidV2Bridge.addedToCartItem.should.equal(
-                    JSON.stringify([product])
-                );
-
-                mParticleAndroidV2Bridge.clearCart();
-
-                mParticle.eCommerce.Cart.add([product, product2]);
-
-                mParticleAndroidV2Bridge.addedToCartItem.should.equal(
-                    JSON.stringify([product, product2])
-                );
-
-                done();
-            });
-
-            it('should invoke Android method removeFromCart', function(done) {
-                const product = mParticle.eCommerce.createProduct(
-                    'name',
-                    'sku',
-                    10,
-                    1
-                );
-
-                mParticle.eCommerce.Cart.add(product);
-                mParticle.eCommerce.Cart.remove(product);
-
-                mParticleAndroidV2Bridge.should.have.property(
-                    'removeFromCartCalled',
-                    true
-                );
-                mParticleAndroidV2Bridge.removedFromCartItem.should.equal(
-                    JSON.stringify(product)
-                );
-
-                mParticleAndroidV2Bridge.should.have.property(
-                    'removeFromCartCalled',
-                    true
-                );
-
-                done();
-            });
-
-            it('should invoke Android method clearCart', function(done) {
-                mParticle.eCommerce.Cart.clear();
-
-                mParticleAndroidV2Bridge.should.have.property(
-                    'clearCartCalled',
-                    true
                 );
 
                 done();
@@ -1117,83 +976,6 @@ describe('native-sdk methods', function() {
                 done();
             });
 
-            it('should invoke ios sdk method addToCart', function(done) {
-                const product = mParticle.eCommerce.createProduct(
-                    'name',
-                    'sku',
-                    10,
-                    1
-                );
-                const product2 = mParticle.eCommerce.createProduct(
-                    'name',
-                    'sku',
-                    10,
-                    1
-                );
-
-                mParticle.eCommerce.Cart.add(product);
-
-                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(
-                    ['path', 'value']
-                );
-                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal(
-                    'addToCart'
-                );
-                JSON.stringify(
-                    JSON.parse(mParticleIOSV2Bridge.data[0]).value
-                ).should.equal(JSON.stringify([product]));
-                mParticleIOSV2Bridge.reset();
-
-                mParticle.eCommerce.Cart.add([product, product2]);
-                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(
-                    ['path', 'value']
-                );
-                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal(
-                    'addToCart'
-                );
-                JSON.stringify(
-                    JSON.parse(mParticleIOSV2Bridge.data[0]).value
-                ).should.equal(JSON.stringify([product, product2]));
-
-                done();
-            });
-
-            it('should invoke ios sdk method removeFromCart', function(done) {
-                const product = mParticle.eCommerce.createProduct(
-                    'name',
-                    'sku',
-                    10,
-                    1
-                );
-
-                mParticle.eCommerce.Cart.remove(product);
-
-                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(
-                    ['path', 'value']
-                );
-                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal(
-                    'removeFromCart'
-                );
-                JSON.stringify(
-                    JSON.parse(mParticleIOSV2Bridge.data[0]).value
-                ).should.equal(JSON.stringify(product));
-
-                done();
-            });
-
-            it('should invoke ios sdk method clearCart', function(done) {
-                mParticle.eCommerce.Cart.clear();
-
-                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(
-                    ['path', 'value']
-                );
-                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal(
-                    'clearCart'
-                );
-
-                done();
-            });
-
             it('should not sync cookies when in a mobile web view', function(done) {
                 const pixelSettings = {
                     name: 'AdobeEventForwarder',
@@ -1336,17 +1118,7 @@ describe('native-sdk methods', function() {
                     10,
                     1
                 );
-
-                mParticle.eCommerce.Cart.add([product, product2]);
-                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(
-                    ['path', 'value']
-                );
-                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal(
-                    'addToCart'
-                );
-                JSON.stringify(
-                    JSON.parse(mParticleIOSV2Bridge.data[0]).value
-                ).should.equal(JSON.stringify([product, product2]));
+                mParticle.eCommerce.logProductAction(mParticle.ProductActionType.AddToCart, [product, product2]);
 
                 const transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
                     'TAid1',

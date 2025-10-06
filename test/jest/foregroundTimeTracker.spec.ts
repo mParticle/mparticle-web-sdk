@@ -1,4 +1,7 @@
 import ForegroundTimeTracker from '../../src/foregroundTimeTracker';
+import Store, { IStore } from '../../src/store';
+import { SDKInitConfig } from '../../src/sdkRuntimeModels';
+import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 
 describe('ForegroundTimeTracker', () => {
     let foregroundTimeTracker: ForegroundTimeTracker;
@@ -488,6 +491,67 @@ describe('ForegroundTimeTracker', () => {
 
 
             expect(updatePersistenceSpy).toHaveBeenCalled();
+        });
+    });
+
+    describe('#privacy flags', () => {
+        const workspaceToken = 'abcdef';
+        const tosKey = `mprtcl-tos-${workspaceToken}`;
+        let mockMPInstance: IMParticleWebSDKInstance;
+        let store: IStore;
+
+        beforeEach(() => {
+            jest.useFakeTimers({ now: Date.now(), advanceTimers: true });
+            localStorage.clear();
+
+            mockMPInstance = {
+                _Helpers: {
+                    createMainStorageName: () => `mprtcl-v4_${workspaceToken}`,
+                    createProductStorageName: () => `mprtcl-prodv4_${workspaceToken}`,
+                    Validators: { isFunction: () => true },
+                    extend: Object.assign,
+                },
+                _NativeSdkHelpers: { isWebviewEnabled: () => false },
+                _Persistence: {
+                    update: jest.fn(),
+                    savePersistence: jest.fn(),
+                    getPersistence: () => ({ gs: {} }),
+                },
+                Logger: { verbose: jest.fn(), warning: jest.fn(), error: jest.fn() },
+                Identity: { getCurrentUser: () => ({ getMPID: () => 'mpid' }) },
+                _timeOnSiteTimer: undefined as any,
+            } as unknown as IMParticleWebSDKInstance;
+
+            store = {} as IStore;
+            (Store as any).call(store, {} as SDKInitConfig, mockMPInstance, 'apikey');
+            mockMPInstance._Store = store;
+        });
+
+        afterEach(() => {
+            jest.useRealTimers();
+            localStorage.clear();
+        });
+
+        it('should track time on site when noTargeting is false by default', () => {
+            store.processConfig({ workspaceToken } as SDKInitConfig);
+            expect(mockMPInstance._timeOnSiteTimer).toBeDefined();
+            jest.advanceTimersByTime(1000);
+            mockMPInstance._timeOnSiteTimer.getTimeInForeground();
+            expect(localStorage.getItem(tosKey)).not.toBeNull();
+        });
+
+        it('should NOT track time on site when noTargeting is true', () => {
+            store.processConfig({ workspaceToken, launcherOptions: { noTargeting: true } } as SDKInitConfig);
+            expect(mockMPInstance._timeOnSiteTimer).toBeUndefined();
+            expect(localStorage.getItem(tosKey)).toBeNull();
+        });
+
+        it('should track time on site when noTargeting is false', () => {
+            store.processConfig({ workspaceToken, launcherOptions: { noTargeting: false } } as SDKInitConfig);
+            expect(mockMPInstance._timeOnSiteTimer).toBeDefined();
+            jest.advanceTimersByTime(1000);
+            mockMPInstance._timeOnSiteTimer.getTimeInForeground();
+            expect(localStorage.getItem(tosKey)).not.toBeNull();
         });
     });
 });

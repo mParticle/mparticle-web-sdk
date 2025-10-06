@@ -798,30 +798,6 @@ describe('identities and attributes', function() {
     })
      });
 
-    it('should get cart products', function(done) {
-        const product1: SDKProduct = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1, 1);
-        const product2: SDKProduct = mParticle.eCommerce.createProduct('Android', 'SKU2', 1, 1);
-
-        waitForCondition(hasIdentifyReturned)
-        .then(() =>  {
-        mParticle.eCommerce.Cart.add([product1, product2], null);
-
-        const cartProducts = mParticle.Identity.getCurrentUser()
-            .getCart()
-            .getCartProducts();
-
-        expect(cartProducts.length).to.equal(2);
-        expect(JSON.stringify(cartProducts[0])).to.equal(
-            JSON.stringify(product1)
-        );
-        expect(JSON.stringify(cartProducts[1])).to.equal(
-            JSON.stringify(product2)
-        );
-
-        done();
-        })
-    });
-
     it('should send user attribute change requests when setting new attributes', function(done) {
         mParticle._resetForTests(MPConfig);
 
