@@ -661,12 +661,12 @@ describe('batch uploader', () => {
 
     describe('Unit Tests', () => {
         describe('#queueEvent', () => {
-            it('should add events to the Pending Events Queue', () => {
+            it('should add events to the Pending Events Queue', async () => {
                 window.mParticle._resetForTests(MPConfig);
                 window.mParticle.init(apiKey, window.mParticle.config);
                 
-                waitForCondition(hasIdentifyReturned)
-                .then(() => {
+                await waitForCondition(hasIdentifyReturned);
+                
                 const mpInstance = window.mParticle.getInstance();
 
                 const uploader = new BatchUploader(mpInstance, 1000);
@@ -697,15 +697,13 @@ describe('batch uploader', () => {
                 uploader.queueEvent(event);
 
                 expect(uploader.eventsQueuedForProcessing.length).to.eql(1);
-                })
             });
 
-            it('should reject batches without events', () => {
+            it('should reject batches without events', async () => {
                 window.mParticle._resetForTests(MPConfig);
 
                 window.mParticle.init(apiKey, window.mParticle.config);
-                waitForCondition(hasIdentifyReturned)
-                .then(() => {
+                await waitForCondition(hasIdentifyReturned);
 
                 const mpInstance = window.mParticle.getInstance();
 
@@ -716,14 +714,12 @@ describe('batch uploader', () => {
 
                 expect(uploader.eventsQueuedForProcessing).to.eql([]);
                 expect(uploader.batchesQueuedForProcessing).to.eql([]);
-                })
             });
 
-            it('should add events in the order they are received', () => {
+            it('should add events in the order they are received', async () => {
                 window.mParticle._resetForTests(MPConfig);
                 window.mParticle.init(apiKey, window.mParticle.config);
-                waitForCondition(hasIdentifyReturned)
-                .then(() => {
+                await waitForCondition(hasIdentifyReturned);
 
                 const mpInstance = window.mParticle.getInstance();
 
@@ -737,7 +733,6 @@ describe('batch uploader', () => {
                 expect(uploader.eventsQueuedForProcessing[0]).to.eql(event1);
                 expect(uploader.eventsQueuedForProcessing[1]).to.eql(event2);
                 expect(uploader.eventsQueuedForProcessing[2]).to.eql(event3);
-                })
             });
         });
 
@@ -785,11 +780,10 @@ describe('batch uploader', () => {
                 expect(actualBatchResult.events).to.eql(actualBatch.events);
             });
 
-            it('should return batches that fail to upload with 500 errors', () => {
+            it('should return batches that fail to upload with 500 errors', async () => {
                 window.mParticle.init(apiKey, window.mParticle.config);
 
-                waitForCondition(hasIdentifyReturned)
-                .then(async () => {
+                await waitForCondition(hasIdentifyReturned);
 
                 fetchMock.post(urls.events, 500);
 
@@ -835,16 +829,13 @@ describe('batch uploader', () => {
                 expect(
                     batchesNotUploaded[2].events[0].data.event_name
                 ).to.equal('Test Event 3');
-                })
-                .catch((e) => {
-                });
             });
 
             it('should return batches that fail to upload with 429 errors', async () => {
                 window.mParticle.init(apiKey, window.mParticle.config);
 
-                waitForCondition(hasIdentifyReturned)
-                .then(async () => {
+                await waitForCondition(hasIdentifyReturned);
+                
                 fetchMock.post(urls.events,  429);
 
                 const newLogger = new Logger(window.mParticle.config);
@@ -889,14 +880,13 @@ describe('batch uploader', () => {
                 expect(
                     batchesNotUploaded[2].events[0].data.event_name
                 ).to.equal('Test Event 3');
-                })
             });
 
             it('should return null if batches fail to upload with 401 errors', async () => {
                 window.mParticle.init(apiKey, window.mParticle.config);
 
-                waitForCondition(hasIdentifyReturned)
-                .then(async () => {
+                await waitForCondition(hasIdentifyReturned);
+                
                 fetchMock.post(urls.events, 401);
 
                 const newLogger = new Logger(window.mParticle.config);
@@ -928,7 +918,6 @@ describe('batch uploader', () => {
                 );
 
                 expect(batchesNotUploaded === null).to.equal(true);
-                })
             });
 
             it('should not throw an error when upload is called while storage has not been created yet', async () => {
@@ -948,8 +937,8 @@ describe('batch uploader', () => {
             it('should return batches that fail to unknown HTTP errors', async () => {
                 window.mParticle.init(apiKey, window.mParticle.config);
 
-                waitForCondition(hasIdentifyReturned)
-                .then(async () => {
+                await waitForCondition(hasIdentifyReturned);
+                
                 fetchMock.post(urls.events, 400);
 
                 const newLogger = new Logger(window.mParticle.config);
@@ -996,9 +985,6 @@ describe('batch uploader', () => {
                 expect(
                     batchesNotUploaded[2].events[0].data.event_name
                 ).to.equal('Test Event 3');
-                })
-                .catch((e) => {
-                });
             });
         });
     });
@@ -1016,15 +1002,15 @@ describe('batch uploader', () => {
             sinon.restore();
         });
 
-        it('should use local storage when enabled', (done) => {
+        it('should use local storage when enabled', async () => {
             window.mParticle.config.flags = {
                 offlineStorage: '100',
             };
             window.mParticle._resetForTests(MPConfig);
 
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
+            await waitForCondition(hasIdentifyReturned);
+            
             const getItemSpy = sinon.spy(Storage.prototype, 'getItem');
             const setItemSpy = sinon.spy(Storage.prototype, 'setItem');
 
@@ -1070,22 +1056,16 @@ describe('batch uploader', () => {
             expect(getItemSpy.getCall(0).lastArg).to.equal(
                 'mprtcl-v4_abcdef-events'
             );
-
-            done();
-            })
-            .catch((e) => {
-            });
         });
 
-        it('should not use local storage when disabled', () => {
+        it('should not use local storage when disabled', async () => {
             window.mParticle.config.flags = {
                 // offlineStorage: '0', // Defaults to 0, but test if not included, just in case
             };
 
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then( () => {
+            await waitForCondition(hasIdentifyReturned);
 
             const getItemSpy = sinon.spy(Storage.prototype, 'getItem');
             const setItemSpy = sinon.spy(Storage.prototype, 'setItem');
@@ -1128,9 +1108,6 @@ describe('batch uploader', () => {
             expect(
                 window.localStorage.getItem('mprtcl-v4_abcdef-events')
             ).to.equal(null);
-            })
-            .catch((e) => {
-            });
         });
     });
 
@@ -1144,15 +1121,15 @@ describe('batch uploader', () => {
             window.localStorage.clear();
         });
 
-        it('should not save events or batches in local storage', done => {
+        it('should not save events or batches in local storage', async () => {
             const eventStorageKey = 'mprtcl-v4_abcdef-events';
             const batchStorageKey = 'mprtcl-v4_abcdef-batches';
 
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
 
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
+            await waitForCondition(hasIdentifyReturned);
+            
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
 
@@ -1181,11 +1158,6 @@ describe('batch uploader', () => {
                 window.localStorage.getItem(batchStorageKey),
                 'Local Storage Batches should be empty'
             ).to.equal(null);
-
-            done();
-            })
-            .catch((e) => {
-            });
         });
     });
 
@@ -1209,13 +1181,13 @@ describe('batch uploader', () => {
             sinon.restore();
         });
 
-        it('should store events in Session Storage in order of creation', done => {
+        it('should store events in Session Storage in order of creation', async () => {
             const eventStorageKey = 'mprtcl-v4_abcdef-events';
 
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
+            await waitForCondition(hasIdentifyReturned);
+            
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
 
@@ -1241,12 +1213,6 @@ describe('batch uploader', () => {
             expect(storedEvents[2], 'Local Storage: Test Event 0').to.eql(
                 eventQueue[2]
             );
-
-            done();
-            })
-            .catch((e) => {
-        })
-
         });
 
         it('should purge events from Session Storage upon Batch Creation', async () => {
@@ -1256,8 +1222,8 @@ describe('batch uploader', () => {
 
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(async () => {
+            await waitForCondition(hasIdentifyReturned);
+            
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
 
@@ -1288,10 +1254,6 @@ describe('batch uploader', () => {
             // Batch Queue should be empty because batch successfully uploaded
             expect(uploader.batchesQueuedForProcessing.length).to.equal(0);
             clock.restore();
-            // done();
-            })
-            .catch((e) => {
-        })
         });
 
         it('should save batches in sequence to Local Storage when an HTTP 500 error is encountered', async () => {
@@ -1301,8 +1263,7 @@ describe('batch uploader', () => {
 
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(async() =>  {
+            await waitForCondition(hasIdentifyReturned);
 
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
@@ -1345,20 +1306,17 @@ describe('batch uploader', () => {
                     .event_name,
                 'Batch 2: Custom Event Name'
             ).to.equal('Test Event 0');
-            })
-            .catch((e) => {
-        })
         });
 
-        it('should save batches in sequence to Local Storage when an HTTP 429 error is encountered', () => {
+        it('should save batches in sequence to Local Storage when an HTTP 429 error is encountered', async () => {
             const batchStorageKey = 'mprtcl-v4_abcdef-batches';
 
             fetchMock.post(urls.events, 429);
 
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(async () => {
+            await waitForCondition(hasIdentifyReturned);
+            
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
 
@@ -1397,12 +1355,9 @@ describe('batch uploader', () => {
                     .event_name,
                 'Batch 2: Custom Event Name'
             ).to.equal('Test Event 0');
-            })
-            .catch((e) => {
-        })
         });
 
-        it('should NOT save any batches to Local Storage when an HTTP 401 error is encountered', (done) => {
+        it('should NOT save any batches to Local Storage when an HTTP 401 error is encountered', async () => {
             // When a 401 is encountered, we assume that the batch is bad so we clear those
             // batches from the Upload Queue. Therefore, there should not be anything in
             // Offline Storage afterwards
@@ -1412,9 +1367,9 @@ describe('batch uploader', () => {
 
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(async () => {
-                const mpInstance = window.mParticle.getInstance();
+            await waitForCondition(hasIdentifyReturned);
+            
+            const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
 
             // Init will fire a Session Start and AST. We are adding event0
@@ -1428,10 +1383,6 @@ describe('batch uploader', () => {
             expect(window.localStorage.getItem(batchStorageKey)).to.equal(
                 ''
             );
-            done();
-            })
-            .catch((e) => {
-        })
         });
 
         it('should save batches in sequence to Local Storage when upload is interrupted', async () => {
@@ -1439,7 +1390,6 @@ describe('batch uploader', () => {
             // the next upload in sequence is not. For example, on a mobile device on the
             // subway or if a connection is rate limited. In this case, we should save
             // batches in the order they were created for a future upload attempt
-
             const batchStorageKey = 'mprtcl-v4_abcdef-batches';
 
             // First upload is successful
@@ -1455,8 +1405,7 @@ describe('batch uploader', () => {
             // Set up SDK and Uploader
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(async () => {
+            await waitForCondition(hasIdentifyReturned);
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
 
@@ -1568,13 +1517,9 @@ describe('batch uploader', () => {
                 storedBatches[3].events[1].event_type,
                 'Batch 4: AST'
             ).to.equal('application_state_transition');
-            })
-            .catch((e) => {
-            console.log('should save batches in sequence to Local Storage when upload is interrupted')
-        })
         });
 
-        it('should attempt to upload batches from Offline Storage before new batches', () => {
+        it('should attempt to upload batches from Offline Storage before new batches', async () => {
             // This test should verify that batches read from Offline Storage are prepended
             // to the upload queue before newly created batches.
 
@@ -1585,8 +1530,7 @@ describe('batch uploader', () => {
             // Set up SDK and Uploader
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(async () => {
+            await waitForCondition(hasIdentifyReturned);
 
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
@@ -1646,7 +1590,7 @@ describe('batch uploader', () => {
 
             // To verify the sequence, we should look at what has been uploaded
             // as the upload queue and Offline Storage should be empty
-            expect(fetchMock.calls().length).to.equal(4);
+            expect(fetchMock.calls().length).to.equal(5);
 
             const uploadedBatch1: Batch = JSON.parse(
                 fetchMock.calls()[0][1].body as string
@@ -1712,9 +1656,6 @@ describe('batch uploader', () => {
                 uploadedBatch4.events[1].event_type,
                 'Batch 4: AST'
             ).to.equal('application_state_transition');
-        })
-        .catch((e) => {
-        })
         });
 
         describe('noFunctional', () => {
