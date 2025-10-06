@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.47.0";
+    var version = "2.47.1";
 
     var Constants = {
       sdkVersion: version,
@@ -211,7 +211,8 @@ var mParticle = (function () {
       platform: 'web',
       Messages: {
         DeprecationMessages: {
-          MethodIsDeprecatedPostfix: 'is a deprecated method and will be removed in future releases',
+          MethodHasBeenDeprecated: 'has been deprecated.',
+          MethodMarkedForDeprecationPostfix: 'is a deprecated method and will be removed in future releases.',
           AlternativeMethodPrefix: 'Please use the alternate method:'
         },
         ErrorMessages: {
@@ -411,7 +412,6 @@ var mParticle = (function () {
     var HTTP_BAD_REQUEST = 400;
     var StoragePrivacyMap = {
       SDKState: 'functional',
-      Products: 'targeting',
       OfflineEvents: 'functional',
       IdentityCache: 'functional',
       TimeOnSite: 'targeting'
@@ -545,11 +545,19 @@ var mParticle = (function () {
       }
       return null;
     };
-    var generateDeprecationMessage = function generateDeprecationMessage(methodName, alternateMethod) {
-      var messageArray = [methodName, Messages$9.DeprecationMessages.MethodIsDeprecatedPostfix];
+    var generateDeprecationMessage = function generateDeprecationMessage(methodName, isDeprecated, alternateMethod, docsUrl) {
+      var messageArray = [methodName];
+      if (isDeprecated) {
+        messageArray.push(Messages$9.DeprecationMessages.MethodHasBeenDeprecated);
+      } else {
+        messageArray.push(Messages$9.DeprecationMessages.MethodMarkedForDeprecationPostfix);
+      }
       if (alternateMethod) {
-        messageArray.push(alternateMethod);
-        messageArray.push(Messages$9.DeprecationMessages.MethodIsDeprecatedPostfix);
+        messageArray.push(Messages$9.DeprecationMessages.AlternativeMethodPrefix);
+        messageArray.push(alternateMethod + ".");
+      }
+      if (docsUrl) {
+        messageArray.push("See - " + docsUrl);
       }
       return messageArray.join(' ');
     };
@@ -3323,13 +3331,6 @@ var mParticle = (function () {
           return StorageNames$1.currentStorageName;
         }
       };
-      this.createProductStorageName = function (workspaceToken) {
-        if (workspaceToken) {
-          return StorageNames$1.currentStorageProductsName + '_' + workspaceToken;
-        } else {
-          return StorageNames$1.currentStorageProductsName;
-        }
-      };
 
       // TODO: Refactor SDK to directly use these methods
       // https://go.mparticle.com/work/SQDSDKS-5239
@@ -3735,7 +3736,7 @@ var mParticle = (function () {
         }
       };
       this.getSession = function () {
-        mpInstance.Logger.warning(generateDeprecationMessage('SessionManager.getSession()', 'SessionManager.getSessionId()'));
+        mpInstance.Logger.warning(generateDeprecationMessage('SessionManager.getSession()', false, 'SessionManager.getSessionId()'));
         return this.getSessionId();
       };
       this.getSessionId = function () {
@@ -4391,9 +4392,7 @@ var mParticle = (function () {
     // TODO: Merge this with SDKStoreApi in sdkRuntimeModels
     function Store(config, mpInstance, apiKey) {
       var _this = this;
-      var _a = mpInstance._Helpers,
-        createMainStorageName = _a.createMainStorageName,
-        createProductStorageName = _a.createProductStorageName;
+      var createMainStorageName = mpInstance._Helpers.createMainStorageName;
       var isWebviewEnabled = mpInstance._NativeSdkHelpers.isWebviewEnabled;
       var defaultStore = {
         isEnabled: true,
@@ -4430,7 +4429,6 @@ var mParticle = (function () {
         requireDelay: true,
         isLocalStorageAvailable: null,
         storageName: null,
-        prodStorageName: null,
         activeForwarders: [],
         kits: {},
         sideloadedKits: [],
@@ -4769,7 +4767,6 @@ var mParticle = (function () {
         }
         // add a new function to apply items to the store that require config to be returned
         _this.storageName = createMainStorageName(workspaceToken);
-        _this.prodStorageName = createProductStorageName(workspaceToken);
         _this.SDKConfig.requiredWebviewBridgeName = requiredWebviewBridgeName || workspaceToken;
         _this.webviewBridgeEnabled = isWebviewEnabled(_this.SDKConfig.requiredWebviewBridgeName, _this.SDKConfig.minWebviewBridgeVersion);
         _this.configurationLoaded = true;
@@ -4996,25 +4993,6 @@ var mParticle = (function () {
             self.storeDataInMemory(cookies);
           }
 
-          // https://go.mparticle.com/work/SQDSDKS-6048
-          try {
-            if (mpInstance._Store.isLocalStorageAvailable) {
-              var encodedProducts = localStorage.getItem(mpInstance._Store.prodStorageName);
-              if (encodedProducts) {
-                var decodedProducts = JSON.parse(Base64.decode(encodedProducts));
-              }
-              if (mpInstance._Store.mpid) {
-                self.storeProductsInMemory(decodedProducts, mpInstance._Store.mpid);
-              }
-            }
-          } catch (e) {
-            if (mpInstance._Store.isLocalStorageAvailable) {
-              localStorage.removeItem(mpInstance._Store.prodStorageName);
-            }
-            mpInstance._Store.cartProducts = [];
-            mpInstance.Logger.error('Error loading products in initialization: ' + e);
-          }
-
           // https://go.mparticle.com/work/SQDSDKS-6046
           // Stores all non-current user MPID information into the store
           for (var key in allData) {
@@ -5042,15 +5020,6 @@ var mParticle = (function () {
             self.setCookie();
           }
           self.setLocalStorage();
-        }
-      };
-      this.storeProductsInMemory = function (products, mpid) {
-        if (products) {
-          try {
-            mpInstance._Store.cartProducts = products[mpid] && products[mpid].cp ? products[mpid].cp : [];
-          } catch (e) {
-            mpInstance.Logger.error(Messages$4.ErrorMessages.CookieParseError);
-          }
         }
       };
 
@@ -5123,51 +5092,6 @@ var mParticle = (function () {
           return false;
         }
       };
-      this.getUserProductsFromLS = function (mpid) {
-        if (!mpInstance._Store.isLocalStorageAvailable) {
-          return [];
-        }
-        var decodedProducts,
-          userProducts,
-          parsedProducts,
-          encodedProducts = localStorage.getItem(mpInstance._Store.prodStorageName);
-        if (encodedProducts) {
-          decodedProducts = Base64.decode(encodedProducts);
-        }
-        // if there is an MPID, we are retrieving the user's products, which is an array
-        if (mpid) {
-          try {
-            if (decodedProducts) {
-              parsedProducts = JSON.parse(decodedProducts);
-            }
-            if (decodedProducts && parsedProducts[mpid] && parsedProducts[mpid].cp && Array.isArray(parsedProducts[mpid].cp)) {
-              userProducts = parsedProducts[mpid].cp;
-            } else {
-              userProducts = [];
-            }
-            return userProducts;
-          } catch (e) {
-            return [];
-          }
-        } else {
-          return [];
-        }
-      };
-      this.getAllUserProductsFromLS = function () {
-        var decodedProducts,
-          encodedProducts = localStorage.getItem(mpInstance._Store.prodStorageName),
-          parsedDecodedProducts;
-        if (encodedProducts) {
-          decodedProducts = Base64.decode(encodedProducts);
-        }
-        // returns an object with keys of MPID and values of array of products
-        try {
-          parsedDecodedProducts = JSON.parse(decodedProducts);
-        } catch (e) {
-          parsedDecodedProducts = {};
-        }
-        return parsedDecodedProducts;
-      };
 
       // https://go.mparticle.com/work/SQDSDKS-6021
       this.setLocalStorage = function () {
@@ -5175,22 +5099,9 @@ var mParticle = (function () {
           return;
         }
         var key = mpInstance._Store.storageName,
-          allLocalStorageProducts = self.getAllUserProductsFromLS(),
           localStorageData = self.getLocalStorage() || {},
           currentUser = mpInstance.Identity.getCurrentUser(),
-          mpid = currentUser ? currentUser.getMPID() : null,
-          currentUserProducts = {
-            cp: allLocalStorageProducts[mpid] ? allLocalStorageProducts[mpid].cp : []
-          };
-        if (mpid) {
-          allLocalStorageProducts = allLocalStorageProducts || {};
-          allLocalStorageProducts[mpid] = currentUserProducts;
-          try {
-            window.localStorage.setItem(encodeURIComponent(mpInstance._Store.prodStorageName), Base64.encode(JSON.stringify(allLocalStorageProducts)));
-          } catch (e) {
-            mpInstance.Logger.error('Error with setting products on localStorage.');
-          }
-        }
+          mpid = currentUser ? currentUser.getMPID() : null;
         if (!mpInstance._Store.SDKConfig.useCookieStorage) {
           localStorageData.gs = localStorageData.gs || {};
           localStorageData.l = mpInstance._Store.isLoggedIn ? 1 : 0;
@@ -5559,27 +5470,6 @@ var mParticle = (function () {
         }
         return '';
       };
-      this.getCartProducts = function (mpid) {
-        var allCartProducts,
-          cartProductsString = localStorage.getItem(mpInstance._Store.prodStorageName);
-        if (cartProductsString) {
-          allCartProducts = JSON.parse(Base64.decode(cartProductsString));
-          if (allCartProducts && allCartProducts[mpid] && allCartProducts[mpid].cp) {
-            return allCartProducts[mpid].cp;
-          }
-        }
-        return [];
-      };
-      this.setCartProducts = function (allProducts) {
-        if (!mpInstance._Store.isLocalStorageAvailable) {
-          return;
-        }
-        try {
-          window.localStorage.setItem(encodeURIComponent(mpInstance._Store.prodStorageName), Base64.encode(JSON.stringify(allProducts)));
-        } catch (e) {
-          mpInstance.Logger.error('Error with setting products on localStorage.');
-        }
-      };
       this.saveUserCookieSyncDatesToPersistence = function (mpid, csd) {
         if (csd) {
           var persistence = self.getPersistence();
@@ -5719,20 +5609,17 @@ var mParticle = (function () {
         removeLocalStorage(StorageNames.localStorageName);
         removeLocalStorage(StorageNames.localStorageNameV3);
         removeLocalStorage(StorageNames.localStorageNameV4);
-        removeLocalStorage(mpInstance._Store.prodStorageName);
         removeLocalStorage(mpInstance._Store.storageName);
         removeLocalStorage(StorageNames.localStorageProductsV4);
         self.expireCookies(StorageNames.cookieName);
         self.expireCookies(StorageNames.cookieNameV2);
         self.expireCookies(StorageNames.cookieNameV3);
         self.expireCookies(StorageNames.cookieNameV4);
-        self.expireCookies(mpInstance._Store.prodStorageName);
         self.expireCookies(mpInstance._Store.storageName);
         if (mParticle._isTestEnv) {
           var testWorkspaceToken = 'abcdef';
           removeLocalStorage(mpInstance._Helpers.createMainStorageName(testWorkspaceToken));
           self.expireCookies(mpInstance._Helpers.createMainStorageName(testWorkspaceToken));
-          removeLocalStorage(mpInstance._Helpers.createProductStorageName(testWorkspaceToken));
         }
       };
 
@@ -8151,7 +8038,7 @@ var mParticle = (function () {
            */
           getCart: function getCart() {
             mpInstance.Logger.warning('Deprecated function Identity.getCurrentUser().getCart() will be removed in future releases');
-            return self.mParticleUserCart(mpid);
+            return self.mParticleUserCart();
           },
           /**
            * Returns the Consent State stored locally for this user.
@@ -8206,84 +8093,23 @@ var mParticle = (function () {
        * @class mParticle.Identity.getCurrentUser().getCart()
        * @deprecated
        */
-      this.mParticleUserCart = function (mpid) {
+      this.mParticleUserCart = function () {
         return {
           /**
            * Adds a cart product to the user cart
            * @method add
-           * @param {Object} product the product
-           * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
            * @deprecated
            */
-          add: function add(product, logEvent) {
-            mpInstance.Logger.warning('Deprecated function Identity.getCurrentUser().getCart().add() will be removed in future releases');
-            var allProducts, userProducts, arrayCopy;
-            arrayCopy = Array.isArray(product) ? product.slice() : [product];
-            arrayCopy.forEach(function (product) {
-              product.Attributes = mpInstance._Helpers.sanitizeAttributes(product.Attributes);
-            });
-            if (mpInstance._Store.webviewBridgeEnabled) {
-              mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.AddToCart, JSON.stringify(arrayCopy));
-            } else {
-              mpInstance._SessionManager.resetSessionTimer();
-              userProducts = mpInstance._Persistence.getUserProductsFromLS(mpid);
-              userProducts = userProducts.concat(arrayCopy);
-              if (logEvent === true) {
-                mpInstance._Events.logProductActionEvent(Types.ProductActionType.AddToCart, arrayCopy);
-              }
-              var productsForMemory = {};
-              productsForMemory[mpid] = {
-                cp: userProducts
-              };
-              if (userProducts.length > mpInstance._Store.SDKConfig.maxProducts) {
-                mpInstance.Logger.verbose('The cart contains ' + userProducts.length + ' items. Only ' + mpInstance._Store.SDKConfig.maxProducts + ' can currently be saved in cookies.');
-                userProducts = userProducts.slice(-mpInstance._Store.SDKConfig.maxProducts);
-              }
-              allProducts = mpInstance._Persistence.getAllUserProductsFromLS();
-              allProducts[mpid].cp = userProducts;
-              mpInstance._Persistence.setCartProducts(allProducts);
-            }
+          add: function add() {
+            mpInstance.Logger.warning(generateDeprecationMessage('Identity.getCurrentUser().getCart().add()', true, 'eCommerce.logProductAction()', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'));
           },
           /**
            * Removes a cart product from the current user cart
            * @method remove
-           * @param {Object} product the product
-           * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
            * @deprecated
            */
-          remove: function remove(product, logEvent) {
-            mpInstance.Logger.warning('Deprecated function Identity.getCurrentUser().getCart().remove() will be removed in future releases');
-            var allProducts,
-              userProducts,
-              cartIndex = -1,
-              cartItem = null;
-            if (mpInstance._Store.webviewBridgeEnabled) {
-              mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveFromCart, JSON.stringify(product));
-            } else {
-              mpInstance._SessionManager.resetSessionTimer();
-              userProducts = mpInstance._Persistence.getUserProductsFromLS(mpid);
-              if (userProducts) {
-                userProducts.forEach(function (cartProduct, i) {
-                  if (cartProduct.Sku === product.Sku) {
-                    cartIndex = i;
-                    cartItem = cartProduct;
-                  }
-                });
-                if (cartIndex > -1) {
-                  userProducts.splice(cartIndex, 1);
-                  if (logEvent === true) {
-                    mpInstance._Events.logProductActionEvent(Types.ProductActionType.RemoveFromCart, cartItem);
-                  }
-                }
-              }
-              var productsForMemory = {};
-              productsForMemory[mpid] = {
-                cp: userProducts
-              };
-              allProducts = mpInstance._Persistence.getAllUserProductsFromLS();
-              allProducts[mpid].cp = userProducts;
-              mpInstance._Persistence.setCartProducts(allProducts);
-            }
+          remove: function remove() {
+            mpInstance.Logger.warning(generateDeprecationMessage('Identity.getCurrentUser().getCart().remove()', true, 'eCommerce.logProductAction()', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'));
           },
           /**
            * Clears the user's cart
@@ -8291,19 +8117,7 @@ var mParticle = (function () {
            * @deprecated
            */
           clear: function clear() {
-            mpInstance.Logger.warning('Deprecated function Identity.getCurrentUser().getCart().clear() will be removed in future releases');
-            var allProducts;
-            if (mpInstance._Store.webviewBridgeEnabled) {
-              mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.ClearCart);
-            } else {
-              mpInstance._SessionManager.resetSessionTimer();
-              allProducts = mpInstance._Persistence.getAllUserProductsFromLS();
-              if (allProducts && allProducts[mpid] && allProducts[mpid].cp) {
-                allProducts[mpid].cp = [];
-                allProducts[mpid].cp = [];
-                mpInstance._Persistence.setCartProducts(allProducts);
-              }
-            }
+            mpInstance.Logger.warning(generateDeprecationMessage('Identity.getCurrentUser().getCart().clear()', true, '', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'));
           },
           /**
            * Returns all cart products
@@ -8312,8 +8126,8 @@ var mParticle = (function () {
            * @deprecated
            */
           getCartProducts: function getCartProducts() {
-            mpInstance.Logger.warning('Deprecated function Identity.getCurrentUser().getCart().getCartProducts() will be removed in future releases');
-            return mpInstance._Persistence.getCartProducts(mpid);
+            mpInstance.Logger.warning(generateDeprecationMessage('Identity.getCurrentUser().getCart().getCartProducts()', true, 'eCommerce.logProductAction()', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'));
+            return [];
           }
         };
       };
@@ -10647,13 +10461,7 @@ var mParticle = (function () {
            * @deprecated
            */
           add: function add(product, logEventBoolean) {
-            self.Logger.warning('Deprecated function eCommerce.Cart.add() will be removed in future releases');
-            var mpid;
-            var currentUser = self.Identity.getCurrentUser();
-            if (currentUser) {
-              mpid = currentUser.getMPID();
-            }
-            self._Identity.mParticleUserCart(mpid).add(product, logEventBoolean);
+            self.Logger.warning(generateDeprecationMessage('eCommerce.Cart.add()', true, 'eCommerce.logProductAction()', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'));
           },
           /**
            * Removes a product from the cart
@@ -10663,13 +10471,7 @@ var mParticle = (function () {
            * @deprecated
            */
           remove: function remove(product, logEventBoolean) {
-            self.Logger.warning('Deprecated function eCommerce.Cart.remove() will be removed in future releases');
-            var mpid;
-            var currentUser = self.Identity.getCurrentUser();
-            if (currentUser) {
-              mpid = currentUser.getMPID();
-            }
-            self._Identity.mParticleUserCart(mpid).remove(product, logEventBoolean);
+            self.Logger.warning(generateDeprecationMessage('eCommerce.Cart.remove()', true, 'eCommerce.logProductAction()', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'));
           },
           /**
            * Clears the cart
@@ -10677,13 +10479,7 @@ var mParticle = (function () {
            * @deprecated
            */
           clear: function clear() {
-            self.Logger.warning('Deprecated function eCommerce.Cart.clear() will be removed in future releases');
-            var mpid;
-            var currentUser = self.Identity.getCurrentUser();
-            if (currentUser) {
-              mpid = currentUser.getMPID();
-            }
-            self._Identity.mParticleUserCart(mpid).clear();
+            self.Logger.warning(generateDeprecationMessage('eCommerce.Cart.clear()', true, '', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'));
           }
         },
         /**
