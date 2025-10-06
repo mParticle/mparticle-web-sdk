@@ -144,7 +144,7 @@ describe('SessionManager', () => {
                 mpInstance._SessionManager.getSession();
 
                 expect(consoleSpy.lastCall.firstArg).to.equal(
-                    'SessionManager.getSession() is a deprecated method and will be removed in future releases SessionManager.getSessionId() is a deprecated method and will be removed in future releases'
+                    'SessionManager.getSession() is a deprecated method and will be removed in future releases. Please use the alternate method: SessionManager.getSessionId().'
                 );
                 
                 consoleSpy.restore();

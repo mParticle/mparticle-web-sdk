@@ -115,8 +115,8 @@ export interface IdentityModifyResultBody {
 }
 
 export interface mParticleUserCart {
-    add(product: SDKProduct | SDKProduct[], logEvent: boolean): void;
-    remove(product: SDKProduct | SDKProduct[], logEvent: boolean): void;
+    add(): void;
+    remove(): void;
     clear(): void;
     getCartProducts(): SDKProduct[];
 }

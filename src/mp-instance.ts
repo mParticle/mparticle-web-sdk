@@ -36,7 +36,7 @@ import Consent, { IConsent } from './consent';
 import KitBlocker from './kitBlocking';
 import ConfigAPIClient, { IKitConfigs } from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
-import { isFunction, parseConfig, valueof } from './utils';
+import { isFunction, parseConfig, valueof, generateDeprecationMessage } from './utils';
 import { DisabledVault, LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
@@ -706,16 +706,13 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              */
             add: function(product, logEventBoolean) {
                 self.Logger.warning(
-                    'Deprecated function eCommerce.Cart.add() will be removed in future releases'
+                    generateDeprecationMessage(
+                        'eCommerce.Cart.add()',
+                        true,
+                        'eCommerce.logProductAction()',
+                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
+                    )
                 );
-                let mpid;
-                const currentUser = self.Identity.getCurrentUser();
-                if (currentUser) {
-                    mpid = currentUser.getMPID();
-                }
-                self._Identity
-                    .mParticleUserCart(mpid)
-                    .add(product, logEventBoolean);
             },
             /**
              * Removes a product from the cart
@@ -726,16 +723,13 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              */
             remove: function(product, logEventBoolean) {
                 self.Logger.warning(
-                    'Deprecated function eCommerce.Cart.remove() will be removed in future releases'
+                    generateDeprecationMessage(
+                        'eCommerce.Cart.remove()',
+                        true,
+                        'eCommerce.logProductAction()',
+                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
+                    )
                 );
-                let mpid;
-                const currentUser = self.Identity.getCurrentUser();
-                if (currentUser) {
-                    mpid = currentUser.getMPID();
-                }
-                self._Identity
-                    .mParticleUserCart(mpid)
-                    .remove(product, logEventBoolean);
             },
             /**
              * Clears the cart
@@ -744,14 +738,13 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              */
             clear: function() {
                 self.Logger.warning(
-                    'Deprecated function eCommerce.Cart.clear() will be removed in future releases'
+                    generateDeprecationMessage(
+                        'eCommerce.Cart.clear()',
+                        true,
+                        '',
+                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
+                    )
                 );
-                let mpid;
-                const currentUser = self.Identity.getCurrentUser();
-                if (currentUser) {
-                    mpid = currentUser.getMPID();
-                }
-                self._Identity.mParticleUserCart(mpid).clear();
             },
         },
         /**

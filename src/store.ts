@@ -194,7 +194,6 @@ export interface IStore {
     requireDelay: boolean;
     isLocalStorageAvailable: boolean | null;
     storageName: string | null;
-    prodStorageName: string | null;
     activeForwarders: ConfiguredKit[];
     kits: Dictionary<MPForwarder>;
     sideloadedKits: MPForwarder[];
@@ -247,7 +246,6 @@ export default function Store(
 ) {
     const {
         createMainStorageName,
-        createProductStorageName,
     } = mpInstance._Helpers;
 
     const { isWebviewEnabled } = mpInstance._NativeSdkHelpers;
@@ -287,7 +285,6 @@ export default function Store(
         requireDelay: true,
         isLocalStorageAvailable: null,
         storageName: null,
-        prodStorageName: null,
         activeForwarders: [],
         kits: {},
         sideloadedKits: [],
@@ -762,7 +759,6 @@ export default function Store(
         }
         // add a new function to apply items to the store that require config to be returned
         this.storageName = createMainStorageName(workspaceToken);
-        this.prodStorageName = createProductStorageName(workspaceToken);
 
         this.SDKConfig.requiredWebviewBridgeName =
             requiredWebviewBridgeName || workspaceToken;

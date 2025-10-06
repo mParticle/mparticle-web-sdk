@@ -319,7 +319,6 @@ export interface DataPlanConfig {
 export interface SDKHelpersApi {
     canLog?(): boolean;
     createMainStorageName?(workspaceToken: string): string;
-    createProductStorageName?(workspaceToken: string): string;
     createServiceUrl(url: string, devToken?: string): string;
     createXHR?(cb: () => void): XMLHttpRequest;
     extend?(...args: any[]);

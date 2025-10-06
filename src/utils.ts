@@ -57,18 +57,25 @@ const findKeyInObject = (obj: any, key: string): string => {
 
 const generateDeprecationMessage = (
     methodName: string,
-    alternateMethod: string
+    isDeprecated?: boolean,
+    alternateMethod?: string,
+    docsUrl?: string,
 ): string => {
-    const messageArray: string[] = [
-        methodName,
-        Messages.DeprecationMessages.MethodIsDeprecatedPostfix,
-    ];
+    const messageArray: string[] = [methodName];
+
+    if (isDeprecated) {
+        messageArray.push(Messages.DeprecationMessages.MethodHasBeenDeprecated);
+    } else {
+        messageArray.push(Messages.DeprecationMessages.MethodMarkedForDeprecationPostfix);
+    }
 
     if (alternateMethod) {
-        messageArray.push(alternateMethod);
-        messageArray.push(
-            Messages.DeprecationMessages.MethodIsDeprecatedPostfix
-        );
+        messageArray.push(Messages.DeprecationMessages.AlternativeMethodPrefix);
+        messageArray.push(alternateMethod + ".");
+    }
+
+    if (docsUrl) {
+        messageArray.push("See - " + docsUrl);
     }
 
     return messageArray.join(' ');

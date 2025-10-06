@@ -8,8 +8,6 @@ import {
     testMPID,
     mParticle,
     MPConfig,
-    localStorageProductsV4,
-    LocalStorageProductsV4WithWorkSpaceName,
     workspaceCookieName,
     v4LSKey
 } from './config/constants';
@@ -23,7 +21,6 @@ import {
 const {
     findCookie,
     getLocalStorage,
-    getLocalStorageProducts,
     setCookie,
     setLocalStorage,
     findBatch,
@@ -1611,54 +1608,6 @@ describe('persistence', () => {
         sessionId.should.not.equal('1992BDBB-AD74-49DB-9B20-5EC8037E72DE');
         das.should.not.equal('68c2ba39-c869-416a-a82c-8789caf5f1e7');
         cgid.should.not.equal('4ebad5b4-8ed1-4275-8455-838a2e3aa5c0');
-    });
-
-    it('integration test - clears LS products on reload if LS products are corrupt', async () => {
-        // randomly added gibberish to a Base64 encoded cart product array to force a corrupt product array
-        const products =
-            'eyItOTE4MjY2NTAzNTA1ODg1NjAwMyI6eyasdjfiojasdifojfsdfJjcCI6W3siTmFtZSI6ImFuZHJvaWQiLCJTa3UiOiI1MTg3MDkiLCJQcmljZSI6MjM0LCJRdWFudGl0eSI6MSwiQnJhbmQiOm51bGwsIlZhcmlhbnQiOm51bGwsIkNhdGVnb3J5IjpudWxsLCJQb3NpdGlvbiI6bnVsbCwiQ291cG9uQ29kZSI6bnVsbCwiVG90YWxBbW91bnQiOjIzNCwiQXR0cmlidXRlcyI6eyJwcm9kYXR0cjEiOiJoaSJ9fSx7Ik5hbWUiOiJ3aW5kb3dzIiwiU2t1IjoiODMzODYwIiwiUHJpY2UiOjM0NSwiUXVhbnRpdHkiOjEsIlRvdGFsQW1vdW50IjozNDUsIkF0dHJpYnV0ZXMiOm51bGx9XX19';
-
-        localStorage.setItem(localStorageProductsV4, products);
-        mParticle.init(apiKey, mParticle.config);
-        await waitForCondition(hasIdentifyReturned);
-
-        const productsAfterInit = getLocalStorageProducts().testMPID;
-        expect(productsAfterInit.length).to.not.be.ok;
-    });
-
-    it('should save products to persistence correctly when adding and removing products', async () => {
-        mParticle.init(apiKey, mParticle.config);
-        await waitForCondition(hasIdentifyReturned);
-
-        const iphone = mParticle.eCommerce.createProduct(
-            'iphone',
-            'iphonesku',
-            599,
-            1,
-            'iphone variant',
-            'iphonecategory',
-            'iphonebrand',
-            null,
-            'iphonecoupon',
-            { iphoneattr1: 'value1', iphoneattr2: 'value2' }
-        );
-        mParticle.eCommerce.Cart.add(iphone, true);
-
-        let ls = localStorage.getItem(LocalStorageProductsV4WithWorkSpaceName);
-        const parsedProducts = JSON.parse(atob(ls));
-        // parsedProducts should just have key of testMPID with value of cp with a single product
-        Object.keys(parsedProducts).length.should.equal(1);
-        parsedProducts['testMPID'].should.have.property('cp');
-        parsedProducts['testMPID'].cp.length.should.equal(1);
-
-        mParticle.eCommerce.Cart.remove(iphone, true);
-        ls = localStorage.getItem(LocalStorageProductsV4WithWorkSpaceName);
-        const parsedProductsAfter = JSON.parse(atob(ls));
-        // parsedProducts should just have key of testMPID with value of cp with no products
-
-        Object.keys(parsedProductsAfter).length.should.equal(1);
-        parsedProductsAfter['testMPID'].should.have.property('cp');
-        parsedProductsAfter['testMPID'].cp.length.should.equal(0);
     });
 
     it('should only set setFirstSeenTime() once', async () => {

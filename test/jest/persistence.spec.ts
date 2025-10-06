@@ -13,12 +13,9 @@ describe('Persistence', () => {
         store = {} as IStore;
         mockMPInstance = {
             _Helpers: {
-                createMainStorageName: () => 'mprtcl-v4',
                 isObject,
             },
-            _NativeSdkHelpers: {
-                isWebviewEnabled: () => false,
-            },
+            _NativeSdkHelpers: {},
             _Store: store,
             Identity: {
                 getCurrentUser: jest.fn().mockReturnValue({
@@ -39,7 +36,6 @@ describe('Persistence', () => {
         store.webviewBridgeEnabled = false;
 
         persistence = new Persistence(mockMPInstance);
-        window.localStorage.removeItem(encodeURIComponent(store.storageName));
     });
 
     describe('#update', () => {
@@ -59,7 +55,6 @@ describe('Persistence', () => {
 
                 expect(setCookieSpy).not.toHaveBeenCalled();
                 expect(setLocalStorageSpy).not.toHaveBeenCalled();
-                expect(window.localStorage.getItem(encodeURIComponent(store.storageName))).toBeNull();
             });
 
             it('should NOT write to localStorage when useCookieStorage is false', () => {
@@ -72,7 +67,6 @@ describe('Persistence', () => {
 
                 expect(setCookieSpy).not.toHaveBeenCalled();
                 expect(setLocalStorageSpy).not.toHaveBeenCalled();
-                expect(window.localStorage.getItem(encodeURIComponent(store.storageName))).toBeNull();
             });
         });
 
@@ -94,7 +88,6 @@ describe('Persistence', () => {
 
                 expect(setCookieSpy).toHaveBeenCalled();
                 expect(setLocalStorageSpy).toHaveBeenCalled();
-                expect(window.localStorage.getItem(encodeURIComponent(store.storageName))).not.toBeNull();
             });
 
             it('should write to localStorage when useCookieStorage is false', () => {
@@ -107,7 +100,6 @@ describe('Persistence', () => {
 
                 expect(setCookieSpy).not.toHaveBeenCalled();
                 expect(setLocalStorageSpy).toHaveBeenCalled();
-                expect(window.localStorage.getItem(encodeURIComponent(store.storageName))).not.toBeNull();
             });
         });
 
@@ -129,7 +121,6 @@ describe('Persistence', () => {
 
                 expect(setCookieSpy).toHaveBeenCalled();
                 expect(setLocalStorageSpy).toHaveBeenCalled();
-                expect(window.localStorage.getItem(encodeURIComponent(store.storageName))).not.toBeNull();
             });
 
             it('should write to localStorage by default when useCookieStorage is false', () => {
@@ -142,7 +133,6 @@ describe('Persistence', () => {
 
                 expect(setCookieSpy).not.toHaveBeenCalled();
                 expect(setLocalStorageSpy).toHaveBeenCalled();
-                expect(window.localStorage.getItem(encodeURIComponent(store.storageName))).not.toBeNull();
             });
         });
 
@@ -158,7 +148,6 @@ describe('Persistence', () => {
 
             expect(setCookieSpy).not.toHaveBeenCalled();
             expect(setLocalStorageSpy).not.toHaveBeenCalled();
-            expect(window.localStorage.getItem(encodeURIComponent(store.storageName))).toBeNull();
         });
     });
 });

@@ -308,21 +308,4 @@ describe('helpers', function() {
 
         done();
     });
-
-    it('should create a product storage name based on default mParticle storage version + apiKey if apiKey is passed in', function(done) {
-        const cookieName = mParticle
-            .getInstance()
-            ._Helpers.createProductStorageName(apiKey);
-        cookieName.should.equal('mprtcl-prodv4_test_key');
-
-        done();
-    });
-    it('should create a product storage name based on default mParticle storage version if no apiKey is passed in', function(done) {
-        const cookieName = mParticle
-            .getInstance()
-            ._Helpers.createProductStorageName();
-        cookieName.should.equal('mprtcl-prodv4');
-
-        done();
-    });
 });

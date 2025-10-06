@@ -34,7 +34,6 @@ const {
     setLocalStorage,
     findCookie,
     forwarderDefaultConfiguration,
-    getLocalStorageProducts,
     findEventFromRequest,
     findBatch,
     setCookie,
@@ -2112,14 +2111,6 @@ describe('identity', function() {
         mParticle.Identity.getCurrentUser().setUserAttribute('foo1', 'bar1');
         expect(fetchMock.calls().length).to.equal(7);
 
-        const product1: SDKProduct = mParticle.eCommerce.createProduct(
-            'iPhone',
-            '12345',
-            '1000',
-            2
-        );
-        mParticle.eCommerce.Cart.add(product1);
-
         // This will add a new custom event to the call
         mParticle.logEvent('Test Event 1');
         expect(fetchMock.calls().length).to.equal(8);
@@ -2131,18 +2122,6 @@ describe('identity', function() {
             'customer_id': 'customerid1',
             'email': 'email2@test.com'
         });
-
-        const products = getLocalStorageProducts();
-
-        products.testMPID.cp[0].should.have.property(
-            'Name',
-            'iPhone',
-            'sku',
-            'quantity'
-        );
-        products.testMPID.cp[0].should.have.property('Sku', '12345');
-        products.testMPID.cp[0].should.have.property('Price', 1000);
-        products.testMPID.cp[0].should.have.property('Quantity', 2);
 
         const user2 = {
             userIdentities: {
@@ -2198,18 +2177,6 @@ describe('identity', function() {
             'customer_id': 'customerid1',
             'email': 'email2@test.com'
         });
-
-        const products2 = getLocalStorageProducts();
-
-        products2.testMPID.cp[0].should.have.property(
-            'Name',
-            'iPhone',
-            'sku',
-            'quantity'
-        );
-        products2.testMPID.cp[0].should.have.property('Sku', '12345');
-        products2.testMPID.cp[0].should.have.property('Price', 1000);
-        products2.testMPID.cp[0].should.have.property('Quantity', 2);
     });
 
     it('should add new MPIDs to cookie structure when initializing new identity requests, returning an existing mpid when reinitializing with a previous identity', async () => {
@@ -2494,92 +2461,6 @@ describe('identity', function() {
         const userIdentities2 = mParticle.Identity.getCurrentUser().getUserIdentities();
 
         expect(userIdentities2.userIdentities).to.deep.equal({});
-    });
-
-    it("saves proper cookies for each user's products, and purchases record cartProducts correctly", async () => {
-        mParticle._resetForTests(MPConfig);
-
-        const identityAPIRequest1 = {
-            userIdentities: {
-                customerid: '123',
-            },
-        };
-        mParticle.init(apiKey, window.mParticle.config);
-
-        await waitForCondition(hasIdentifyReturned)
-
-        const product1 = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1),
-            product2 = mParticle.eCommerce.createProduct('Android', 'SKU2', 2),
-            product3 = mParticle.eCommerce.createProduct('Windows', 'SKU3', 3),
-            product4 = mParticle.eCommerce.createProduct('HTC', 'SKU4', 4);
-
-        mParticle.eCommerce.Cart.add([product1, product2]);
-
-        const identityAPIRequest2 = {
-            userIdentities: {
-                customerid: '234',
-            },
-        };
-
-        const products = getLocalStorageProducts();
-        const cartProducts = products[testMPID].cp;
-
-        cartProducts[0].Name.should.equal('iPhone');
-        cartProducts[1].Name.should.equal('Android');
-
-        fetchMockSuccess(urls.login, {
-            mpid: 'otherMPID',
-            is_logged_in: true,
-        });
-
-        mParticle.Identity.login(identityAPIRequest2);
-
-        await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'otherMPID')
-
-        mParticle.eCommerce.Cart.add([product3, product4]);
-
-        const products2 = getLocalStorageProducts();
-        const cartProducts2 = products2['otherMPID'].cp;
-
-        cartProducts2[0].Name.should.equal('Windows');
-        cartProducts2[1].Name.should.equal('HTC');
-
-        // https://go.mparticle.com/work/SQDSDKS-6846
-        mParticle.eCommerce.logCheckout(1);
-
-        const checkoutEvent = findEventFromRequest(
-            fetchMock.calls(),
-            'checkout'
-        );
-
-        checkoutEvent.data.product_action.should.have.property(
-            'products',
-            null
-        );
-
-        fetchMockSuccess(urls.login, {
-            mpid: testMPID,
-            is_logged_in: true,
-        });
-
-        mParticle.Identity.login(identityAPIRequest1);
-
-        await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'otherMPID')
-
-        fetchMock.resetHistory();
-
-        // https://go.mparticle.com/work/SQDSDKS-6846
-        mParticle.eCommerce.logCheckout(1);
-
-        const checkoutEvent2 = findEventFromRequest(
-            fetchMock.calls(),
-            'checkout'
-        );
-
-        checkoutEvent2.data.product_action.should.have.property(
-            'products',
-            null
-        );
     });
 
     it('should update cookies after modifying identities', async () => {
@@ -4806,7 +4687,7 @@ describe('identity', function() {
             // deprecates on both .getCart, then .add
             bond.callCount.should.equal(4);
             bond.getCalls()[1].args[0].should.eql(
-                'Deprecated function Identity.getCurrentUser().getCart().add() will be removed in future releases'
+                'Identity.getCurrentUser().getCart().add() has been deprecated. Please use the alternate method: eCommerce.logProductAction(). See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
             );
         });
 
@@ -4835,7 +4716,7 @@ describe('identity', function() {
             // deprecates on both .getCart, then .add
             bond.callCount.should.equal(4);
             bond.getCalls()[1].args[0].should.eql(
-                'Deprecated function Identity.getCurrentUser().getCart().remove() will be removed in future releases'
+                'Identity.getCurrentUser().getCart().remove() has been deprecated. Please use the alternate method: eCommerce.logProductAction(). See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
             );
         });
 
@@ -4857,7 +4738,7 @@ describe('identity', function() {
             // deprecates on both .getCart, then .add
             bond.callCount.should.equal(4);
             bond.getCalls()[1].args[0].should.eql(
-                'Deprecated function Identity.getCurrentUser().getCart().clear() will be removed in future releases'
+                'Identity.getCurrentUser().getCart().clear() has been deprecated. See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
             );
         });
         
@@ -4880,7 +4761,7 @@ describe('identity', function() {
                     // deprecates on both .getCart, then .add
                     bond.callCount.should.equal(4);
                     bond.getCalls()[1].args[0].should.eql(
-                        'Deprecated function Identity.getCurrentUser().getCart().getCartProducts() will be removed in future releases'
+                        'Identity.getCurrentUser().getCart().getCartProducts() has been deprecated. Please use the alternate method: eCommerce.logProductAction(). See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
                     );
         });
     });
