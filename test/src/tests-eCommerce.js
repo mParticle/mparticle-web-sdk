@@ -1156,11 +1156,9 @@ describe('eCommerce', function() {
         );
     });
 
-    it('expand null commerce event', function(done) {
+    it('expand null commerce event', () => {
         const expandedEvents = mParticle.eCommerce.expandCommerceEvent(null);
         (expandedEvents == null).should.be.true;
-
-        done();
     });
 
     it('expand impression commerce event', async () => {
