@@ -2510,11 +2510,10 @@ describe('identity', function() {
 
     describe.skip('#onUserAlias', function() {
     // https://go.mparticle.com/work/SQDSDKS-6854
-    it('does not run onUserAlias if it is not a function', async (done) => {
+    it('does not run onUserAlias if it is not a function', async () => {
         mParticle.init(apiKey, window.mParticle.config);
 
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        await waitForCondition(hasIdentifyReturned);
 
         const user1 = {
             userIdentities: {
@@ -2541,8 +2540,7 @@ describe('identity', function() {
     
         mParticle.Identity.login(user1);
 
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        await waitForCondition(hasIdentifyReturned);
 
         fetchMockSuccess(urls.login, {
             mpid: 'otherMPID',
@@ -2552,26 +2550,18 @@ describe('identity', function() {
         fetchMock.resetHistory();
         mParticle.Identity.login(user2);
 
-        waitForCondition(hasIdentityCallInflightReturned)
-        .then(() => {
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         // This should have a call for the UIC that will occur because
         // we are logging in as two different users
         fetchMock.calls().length.should.equal(1);
         expect(fetchMock.lastCall()[0]).to.equal(urls.events);
-
-
-        done();
-        }).catch(done);
-        }).catch(done);
-        }).catch(done);
     });
 
-    it('should run onUserAlias if it is a function', async (done) => {
+    it('should run onUserAlias if it is a function', async () => {
         mParticle.init(apiKey, window.mParticle.config);
 
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        await waitForCondition(hasIdentifyReturned);
 
         let hasBeenRun = false;
         const user1 = {
@@ -2596,8 +2586,7 @@ describe('identity', function() {
 
         mParticle.Identity.login(user1);
 
-        waitForCondition(hasIdentityCallInflightReturned)
-        .then(() => {
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         fetchMockSuccess(urls.login, {
             mpid: 'otherMPID',
@@ -2606,22 +2595,15 @@ describe('identity', function() {
 
         mParticle.Identity.login(user2);
 
-        waitForCondition(hasIdentityCallInflightReturned)
-        .then(() => {
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         expect(hasBeenRun).to.be.true;
-
-        done();
-        }).catch(done);
-        }).catch(done);
-        }).catch(done);
     });
 
-    it('should setUserAttributes, setUserAttributeLists, removeUserAttributes, and removeUserAttributeLists properly in onUserAlias', async (done) => {
+    it('should setUserAttributes, setUserAttributeLists, removeUserAttributes, and removeUserAttributeLists properly in onUserAlias', async () => {
         mParticle.init(apiKey, window.mParticle.config);
 
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        await waitForCondition(hasIdentifyReturned);
 
         const user1 = {
             userIdentities: {
@@ -2636,8 +2618,7 @@ describe('identity', function() {
 
         mParticle.Identity.login(user1);
 
-        waitForCondition(hasIdentityCallInflightReturned)
-        .then(() => {
+        await waitForCondition(hasIdentityCallInflightReturned);
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.Identity.getCurrentUser().setUserAttribute('age', 27);
 
@@ -2674,8 +2655,7 @@ describe('identity', function() {
 
         mParticle.Identity.login(user2);
 
-        waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'otherMPID')
-        .then(() => {
+        await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'otherMPID');
 
         const user1ObjectAttrs = user1Object.getAllUserAttributes();
         user1ObjectAttrs.should.not.have.property('age');
@@ -2714,8 +2694,7 @@ describe('identity', function() {
 
         mParticle.Identity.login(user3);
 
-        waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'otherMPID2')
-        .then(() => {
+        await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'otherMPID2');
 
 
         expect(user2AttributeListsBeforeRemoving.list.length).to.equal(5);
@@ -2725,12 +2704,6 @@ describe('identity', function() {
         expect(Object.keys(user2AttributeListsAfterRemoving).length).to.not.be
             .ok;
         expect(user3UserAttributeListsAfterAdding.list.length).to.equal(5);
-
-        done();
-        }).catch(done);
-        }).catch(done);
-        }).catch(done);
-        }).catch(done);
     });
     });
 
