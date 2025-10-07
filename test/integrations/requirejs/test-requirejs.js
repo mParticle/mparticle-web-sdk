@@ -35,7 +35,7 @@ const waitForCondition = function async(
 };
 
 describe('Require.JS Pages', function() {
-    it('loads mParticle properly', function() {
+    it('loads mParticle properly', async () => {
         fetchMockSuccess('https://identity.mparticle.com/v1/identify', {
             mpid: 'testMPID', is_logged_in: false
         });
@@ -54,7 +54,7 @@ describe('Require.JS Pages', function() {
         };
 
         mParticle.init('test_key', window.mParticle.config);
-        waitForCondition(hasIdentifyReturned).then(() => {
+        await waitForCondition(hasIdentifyReturned);
         fetchMock.resetHistory();
 
         mParticle.logEvent('Test Event1');
@@ -63,6 +63,5 @@ describe('Require.JS Pages', function() {
         const testEventName = JSON.parse(testEvent[1].body).events[0].data.event_name;
 
         testEventName.should.equal('Test Event1');
-        })
     });
 });
