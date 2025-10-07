@@ -41,44 +41,42 @@ describe('mParticle User', () => {
 
     describe('Consent State', () => {
         // https://go.mparticle.com/work/SQDSDKS-7393
-        it('get/set consent state for single user', (done) => {
+        it('get/set consent state for single user', async () => {
             mParticle._resetForTests(MPConfig);
 
             mParticle.init(apiKey, mParticle.config);
-            waitForCondition(hasIdentifyReturned).then(() => {
-                let consentState = mParticle
-                    .getInstance()
-                    .Identity.getCurrentUser()
-                    .getConsentState();
+            await waitForCondition(hasIdentifyReturned);
+            let consentState = mParticle
+                .getInstance()
+                .Identity.getCurrentUser()
+                .getConsentState();
 
-                expect(consentState).to.equal(null);
-                consentState = mParticle.Consent.createConsentState();
-                consentState.addGDPRConsentState(
-                    'foo purpose',
-                    mParticle.Consent.createGDPRConsent(true, 10),
-                );
+            expect(consentState).to.equal(null);
+            consentState = mParticle.Consent.createConsentState();
+            consentState.addGDPRConsentState(
+                'foo purpose',
+                mParticle.Consent.createGDPRConsent(true, 10),
+            );
 
-                mParticle
-                    .getInstance()
-                    .Identity.getCurrentUser()
-                    .setConsentState(consentState);
+            mParticle
+                .getInstance()
+                .Identity.getCurrentUser()
+                .setConsentState(consentState);
 
-                const storedConsentState = mParticle
-                    .getInstance()
-                    .Identity.getCurrentUser()
-                    .getConsentState();
-                expect(storedConsentState).to.be.ok;
-                expect(
-                    storedConsentState.getGDPRConsentState(),
-                ).to.have.property('foo purpose');
-                expect(
-                    storedConsentState.getGDPRConsentState()['foo purpose'],
-                ).to.have.property('Consented', true);
-                expect(
-                    storedConsentState.getGDPRConsentState()['foo purpose'],
-                ).to.have.property('Timestamp', 10);
-                done();
-            });
+            const storedConsentState = mParticle
+                .getInstance()
+                .Identity.getCurrentUser()
+                .getConsentState();
+            expect(storedConsentState).to.be.ok;
+            expect(
+                storedConsentState.getGDPRConsentState(),
+            ).to.have.property('foo purpose');
+            expect(
+                storedConsentState.getGDPRConsentState()['foo purpose'],
+            ).to.have.property('Consented', true);
+            expect(
+                storedConsentState.getGDPRConsentState()['foo purpose'],
+            ).to.have.property('Timestamp', 10);
         });
 
         it('get/set consent state for multiple users', async () => {
