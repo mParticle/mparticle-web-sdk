@@ -212,10 +212,8 @@ module.exports = function(config) {
       outputDir: 'reports/',
       outputFile: 'test-karma-mobile.xml',
     },
-    browserDisconnectTimeout: 180000,
+    browserDisconnectTimeout: 50000,
     browserDisconnectTolerance: 5,
-    concurrency: 1,
-    captureTimeout: 180000,
-    browserNoActivityTimeout: 180000,
+    concurrency: 5,
   });
 };
