@@ -1,9 +1,9 @@
-name: 'BrowserStack Beta Test'
+name: 'BrowserStack Beta Browsers Test'
 on: [push, pull_request, workflow_dispatch]
 
 jobs:
   browserstack-beta-test:
-    name: 'BrowserStack Beta Test'
+    name: 'BrowserStack Beta Browsers Test'
     runs-on: ubuntu-latest
     steps:
       - name: 'BrowserStack Env Setup'
@@ -30,7 +30,7 @@ jobs:
       - name: 'Run Build test bundle'
         run: npm run build:test-bundle
 
-      - name: 'Run Browserstack Beta Tests'
+      - name: 'Run BrowserStack Beta Browsers Test'
         run: npm run test:browserstack-beta
 
       - name: 'BrowserStackLocal Stop'
