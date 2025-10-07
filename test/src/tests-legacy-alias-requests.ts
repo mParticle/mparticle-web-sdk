@@ -69,7 +69,7 @@ describe('legacy Alias Requests', function() {
         window.fetch = originalFetch;
     });
 
-    it('Alias request should be received when API is called validly', function(done) {
+    it('Alias request should be received when API is called validly', async () => {
         mockServer.requests = [];
         mockServer.respondWith(urls.alias, [HTTP_OK, {}, JSON.stringify({})]);
 
@@ -100,11 +100,9 @@ describe('legacy Alias Requests', function() {
         expect(dataBody['source_mpid']).to.equal('sourceMpid');
         expect(dataBody['start_unixtime_ms']).to.equal(3);
         expect(dataBody['end_unixtime_ms']).to.equal(4);
-
-        done();
     });
 
-    it('Alias request should include scope if specified', function(done) {
+    it('Alias request should include scope if specified', async () => {
         mockServer.requests = [];
         mockServer.respondWith(urls.alias, [HTTP_OK, {}, JSON.stringify({})]);
 
@@ -125,11 +123,9 @@ describe('legacy Alias Requests', function() {
         const requestBody = JSON.parse(request.requestBody);
         const dataBody = requestBody['data'];
         expect(dataBody['scope']).to.equal('mpid');
-
-        done();
     });
 
-    it('should reject malformed Alias Requests', function(done) {
+    it('should reject malformed Alias Requests', async () => {
         mParticle.config.logLevel = 'verbose';
         let warnMessage = null;
 
@@ -257,12 +253,11 @@ describe('legacy Alias Requests', function() {
             expect(callbackResult.message).to.equal(undefined);
             expect(warnMessage).to.equal(null);
             callbackResult = null;
-            done();
         });
 
     });
 
-    it('should parse error info from Alias Requests', function(done) {
+    it('should parse error info from Alias Requests', async () => {
         clock.restore();
         mParticle.init(apiKey, window.mParticle.config);
         const errorMessage = 'this is a sample error message';
@@ -288,12 +283,10 @@ describe('legacy Alias Requests', function() {
             callbackResult = callback;
             callbackResult.httpCode.should.equal(HTTP_BAD_REQUEST);
             callbackResult.message.should.equal(errorMessage);
-    
-            done();
         });
     });
 
-    it('should properly create AliasRequest', function(done) {
+    it('should properly create AliasRequest', async () => {
         mParticle._resetForTests(MPConfig);
 
         const cookies = JSON.stringify({
@@ -329,11 +322,9 @@ describe('legacy Alias Requests', function() {
         expect(aliasRequest.startTime).to.equal(200);
         expect(aliasRequest.endTime).to.equal(400);
         clock.restore();
-
-        done();
     });
 
-    it('should fill in missing fst and lst in createAliasRequest', function(done) {
+    it('should fill in missing fst and lst in createAliasRequest', async () => {
         mParticle._resetForTests(MPConfig);
 
         const cookies = JSON.stringify({
@@ -373,11 +364,9 @@ describe('legacy Alias Requests', function() {
         expect(aliasRequest.endTime).to.equal(1000);
 
         clock.restore();
-
-        done();
     });
 
-    it('should fix startTime when default is outside max window create AliasRequest', function(done) {
+    it('should fix startTime when default is outside max window create AliasRequest', async () => {
         mParticle._resetForTests(MPConfig);
 
         const millisPerDay = 24 * 60 * 60 * 1000;
@@ -417,11 +406,9 @@ describe('legacy Alias Requests', function() {
         expect(aliasRequest.startTime).to.equal(oldestAllowedStartTime);
         expect(aliasRequest.endTime).to.equal(new Date().getTime());
         clock.restore();
-
-        done();
     });
 
-    it('should warn if legal aliasRequest cannot be created with MParticleUser', function(done) {
+    it('should warn if legal aliasRequest cannot be created with MParticleUser', async () => {
         const millisPerDay = 24 * 60 * 60 * 1000;
 
         mParticle.config.logLevel = 'verbose';
@@ -475,10 +462,9 @@ describe('legacy Alias Requests', function() {
         );
 
         clock.restore();
-        done();
     });
 
-    it("alias request should have environment 'development' when isDevelopmentMode is true", function(done) {
+    it("alias request should have environment 'development' when isDevelopmentMode is true", async () => {
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.isDevelopmentMode = true;
 
@@ -501,10 +487,10 @@ describe('legacy Alias Requests', function() {
         const request = mockServer.requests[0];
         const requestBody = JSON.parse(request.requestBody);
         expect(requestBody['environment']).to.equal('development');expect(requestBody.environment).to.equal('development');
-        done()
     });
 
-    it('should have default urls if no custom urls are set in config object, but use custom urls when they are set', function(done) {
+    // https://go/j-SDKE-301
+    it('should have default urls if no custom urls are set in config object, but use custom urls when they are set', async () => {
         window.mParticle.config.v3SecureServiceUrl =
             'testtesttest-custom-v3secureserviceurl/v3/JS/';
         window.mParticle.config.configUrl =
@@ -515,8 +501,7 @@ describe('legacy Alias Requests', function() {
         mockServer.respondWith('https://testtesttest-custom-v3secureserviceurl/v3/JS/test_key/events', HTTP_OK, JSON.stringify({ mpid: testMPID, Store: {}}));
 
         mParticle.init(apiKey, window.mParticle.config);
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        await waitForCondition(hasIdentifyReturned);
 
         mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(window.mParticle.config.v3SecureServiceUrl)
         mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(window.mParticle.config.configUrl)
@@ -554,9 +539,6 @@ describe('legacy Alias Requests', function() {
         mockServer.requests[0].url.should.equal(
             'https://' + window.mParticle.config.aliasUrl + 'test_key/Alias'
         );
-        })
-        
-        done();
     });
 
 });
