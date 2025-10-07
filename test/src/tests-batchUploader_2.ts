@@ -113,7 +113,7 @@ describe('batch uploader', () => {
 
         // TODO: Investigate workflow with unshift vs push
         // https://go.mparticle.com/work/SQDSDKS-5165
-        it.skip('should keep batches in sequence for future retries when an HTTP 500 error occurs', (done) => {
+        it.skip('should keep batches in sequence for future retries when an HTTP 500 error occurs', () => {
             // If batches cannot upload, they should be added back to the Batch Queue
             // in the order they were created so they can be retransmitted.
 
@@ -202,14 +202,12 @@ describe('batch uploader', () => {
                 expect((batchQueue[2].events[2] as CustomEvent).data.event_name).to.equal(
                     'Test Event 6'
                 );
-
-                done();
             }, 0);
         });
 
         // TODO: Investigate workflow with unshift vs push
         // https://go.mparticle.com/work/SQDSDKS-5165
-        it.skip('should keep and retry batches in sequence if the transmission fails midway', (done) => {
+        it.skip('should keep and retry batches in sequence if the transmission fails midway', () => {
             // First request is successful, subsequent requests fail
             fetchMock.post(urls.events, 200, {
                 overwriteRoutes: false,
@@ -283,8 +281,6 @@ describe('batch uploader', () => {
                 expect((batchQueue[1].events[2] as CustomEvent).data.event_name).to.equal(
                     'Test Event 6'
                 );
-
-                done();
             }, 0);
         });
     });
