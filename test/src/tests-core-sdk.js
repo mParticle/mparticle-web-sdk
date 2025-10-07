@@ -47,7 +47,7 @@ describe('core SDK', function() {
         sessionStartEvent.data.should.have.property('session_uuid');
     });
 
-    it('sessionIds are all capital letters', function(done) {
+    it('sessionIds are all capital letters', () => {
         const lowercaseLetters = [
             'a',
             'b',
@@ -84,8 +84,6 @@ describe('core SDK', function() {
         });
 
         Should(lowercaseLetterExists).not.be.ok();
-
-        done();
     });
 
     it('ends existing session with an event that includes SessionLength', async () => {
@@ -150,7 +148,7 @@ describe('core SDK', function() {
         expect(appVersion).to.equal('2.0');
     });
 
-    it('should get environment setting when set to `production`', function(done) {
+    it('should get environment setting when set to `production`', () => {
         mParticle._resetForTests(MPConfig);
         mParticle.init(apiKey, {
             ...window.mParticle.config,
@@ -158,11 +156,9 @@ describe('core SDK', function() {
         });
 
         mParticle.getEnvironment().should.equal('production');
-
-        done();
     });
 
-    it('should get environment setting when set to `development`', function(done) {
+    it('should get environment setting when set to `development`', () => {
         mParticle._resetForTests(MPConfig);
         mParticle.init(apiKey, {
             ...window.mParticle.config,
@@ -170,19 +166,15 @@ describe('core SDK', function() {
         });
 
         mParticle.getEnvironment().should.equal('development');
-
-        done();
     });
 
-    it('should get app version from config', function(done) {
+    it('should get app version from config', () => {
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.appName = "testAppName";
         mParticle.init(apiKey, window.mParticle.config);
 
         const appName = mParticle.getAppName();
         appName.should.equal('testAppName');
-
-        done();
     });
 
     it('should send new appName via event payload', async () => {
@@ -367,16 +359,14 @@ describe('core SDK', function() {
         deviceId.should.equal(das);
     });
 
-    it('should return the deviceId when requested', function(done) {
+    it('should return the deviceId when requested', () => {
         const deviceId = mParticle.getDeviceId();
 
         Should(deviceId).be.ok();
         deviceId.length.should.equal(36);
-
-        done();
     });
 
-    it('will create a cgid when no previous cgid exists after initializing storage, and no sid', function(done) {
+    it('will create a cgid when no previous cgid exists after initializing storage, and no sid', () => {
         mParticle._resetForTests(MPConfig);
 
         mParticle.getInstance()._Store.storageName = Utils.workspaceCookieName;
@@ -387,8 +377,6 @@ describe('core SDK', function() {
 
         cookieData.gs.should.have.properties(['cgid']);
         cookieData.gs.should.not.have.property('sid');
-
-        done();
     });
 
     it('creates a new session when elapsed time between actions is greater than session timeout', async () => {
@@ -611,7 +599,7 @@ describe('core SDK', function() {
         );
     });
 
-    it('should have default options as well as configured options on configuration object, overwriting when appropriate', function(done) {
+    it('should have default options as well as configured options on configuration object, overwriting when appropriate', () => {
         const defaults = new Store({}, mParticle.getInstance(), apiKey);
         // all items here should be the default values
         for (const key in DefaultConfig) {
@@ -705,8 +693,6 @@ describe('core SDK', function() {
         mp.SDKConfig.aliasMaxWindow.should.equal(config.aliasMaxWindow);
 
         mParticle._resetForTests(MPConfig);
-
-        done();
     });
 
     it('should use custom loggers when provided', async () => {
@@ -811,7 +797,7 @@ describe('core SDK', function() {
         Should(testEvent).be.ok();
     });
 
-    it('should not error when logger  custom loggers when provided', function(done) {
+    it('should not error when logger  custom loggers when provided', () => {
         /* Previously the Store was initialized before Logger, and since Store contains Logger, and it would throw.
         This no longer throws because Store takes the Logger as an argument, which is now initialized first.
         */
@@ -831,11 +817,9 @@ describe('core SDK', function() {
         warnMessage.should.equal(
             'You should have a workspaceToken on your config object for security purposes.'
         );
-
-        done();
     });
 
-    it('should use default urls if no custom urls are set in config object', function(done) {
+    it('should use default urls if no custom urls are set in config object', () => {
         mParticle._resetForTests(MPConfig);
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -846,8 +830,6 @@ describe('core SDK', function() {
         mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(Constants.DefaultBaseUrls.configUrl)
         mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(Constants.DefaultBaseUrls.identityUrl)
         mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(Constants.DefaultBaseUrls.aliasUrl)
-
-        done();
     });
 
     it('should have default urls if no custom urls are set in config object, but use custom urls when they are set', async () => {
@@ -917,7 +899,7 @@ describe('core SDK', function() {
         }
     });
 
-    it('should use configUrl when specified on config object', function (done) {
+    it('should use configUrl when specified on config object', () => {
         // Fetch mock converts the host portion to lowercase
         const expectedConfigUrl = 'https://testconfigurl/test_key/config?env=0';
         mParticle.config.configUrl = 'testConfigUrl/';
@@ -929,8 +911,6 @@ describe('core SDK', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         fetchMock.lastCall()[0].should.equal(expectedConfigUrl);
-
-        done();
     });
 
     it('should use custom v3 endpoint when specified on config object', async () => {
@@ -954,26 +934,22 @@ describe('core SDK', function() {
         fetchMock.lastOptions().body.should.be.ok()
     });
 
-    it('should add onCreateBatch to _Store.SDKConfig if onCreateBatch is provide on mParticle.config object', function(done) {
+    it('should add onCreateBatch to _Store.SDKConfig if onCreateBatch is provide on mParticle.config object', () => {
         window.mParticle._resetForTests();
         mParticle.config.onCreateBatch = function(batch) { return batch};
         mParticle.init(apiKey, mParticle.config);
         (typeof mParticle.getInstance()._Store.SDKConfig.onCreateBatch).should.equal('function');
-
-        done();
     });
 
-    it('should not add onCreateBatch to _Store.SDKConfig if it is not a function', function(done) {
+    it('should not add onCreateBatch to _Store.SDKConfig if it is not a function', () => {
         window.mParticle._resetForTests();
         mParticle.config.onCreateBatch = 'not a function';
         mParticle.init(apiKey, mParticle.config);
 
         (typeof mParticle.getInstance()._Store.SDKConfig.onCreateBatch).should.equal('undefined');
-
-        done();
     });
 
-    it('should hit url with query parameter of env=1 for debug mode for forwarders', function (done) {
+    it('should hit url with query parameter of env=1 for debug mode for forwarders', () => {
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = true;
         mParticle.config.requestConfig = true;
@@ -989,10 +965,9 @@ describe('core SDK', function() {
         (fetchMock.calls()[0][0].indexOf('?env=1') > 0).should.equal(
             true
         );
-        done();
     });
 
-    it('should hit url with query parameter of env=0 for debug mode for forwarders', function (done) {
+    it('should hit url with query parameter of env=0 for debug mode for forwarders', () => {
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         mParticle.config.requestConfig = true;
@@ -1007,8 +982,6 @@ describe('core SDK', function() {
         (fetchMock.calls()[0][0].indexOf('?env=0') > 0).should.equal(
             true
         );
-        
-        done();
     });
 
     // TODO - there are no actual tests here....what's going on?
@@ -1097,18 +1070,16 @@ describe('core SDK', function() {
         mParticle.getInstance()._Store.isInitialized.should.equal(true);
     });
 
-    it('should generate hash both on the mparticle instance and the mparticle instance manager', function(done) {
+    it('should generate hash both on the mparticle instance and the mparticle instance manager', () => {
         const hashValue = -1146196832;
         const hash1 = mParticle.generateHash('TestHash');
         const hash2 = mParticle.getInstance().generateHash('TestHash');
 
         hash1.should.equal(hashValue);
         hash2.should.equal(hashValue);
-
-        done();
     });
 
-    it('should remove localstorage when calling reset', function(done) {
+    it('should remove localstorage when calling reset', () => {
         mParticle._resetForTests(MPConfig);
 
         window.mParticle.config.workspaceToken = 'defghi';
@@ -1120,11 +1091,9 @@ describe('core SDK', function() {
         
         ls = localStorage.getItem('mprtcl-v4_defghi');
         (ls === null).should.equal(true)
-        
-        done();
     });
     
-    it('should remove cookies when calling reset', function(done) {
+    it('should remove cookies when calling reset', () => {
         mParticle._resetForTests(MPConfig);
 
         window.mParticle.config.useCookieStorage = true;
@@ -1140,10 +1109,9 @@ describe('core SDK', function() {
         cookie.includes('mprtcl-v4_defghi').should.equal(false);
         
         window.mParticle.config.useCookieStorage = false;
-        done();
     });
 
-    it('should queue setCurrencyCode successfully when SDK is not yet initialized, and then later initialized', function(done) {
+    it('should queue setCurrencyCode successfully when SDK is not yet initialized, and then later initialized', () => {
         mParticle._resetForTests(MPConfig);
         // mock a non-initialized state
         mParticle.getInstance()._Store.isInitialized = false;
@@ -1153,8 +1121,6 @@ describe('core SDK', function() {
 
         // initializing SDK will flush the ready queue and setCurrencyCode should not throw an error
         mParticle.init(apiKey, window.mParticle.config)
-
-        done();
     });
 
     it('should set a device id when calling setDeviceId', async () => {
@@ -1170,17 +1136,15 @@ describe('core SDK', function() {
         mParticle.getDeviceId().should.equal('foo-guid');
     });
 
-    it('should set a device id when set on mParticle.config', function(done) {
+    it('should set a device id when set on mParticle.config', () => {
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.deviceId = 'foo-guid';
         mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.getDeviceId().should.equal('foo-guid');
-
-        done();
     });
 
-    it('should not set the wrapper sdk info in Store when mParticle._setWrapperSDKInfo() method is called if init not called', function(done) {
+    it('should not set the wrapper sdk info in Store when mParticle._setWrapperSDKInfo() method is called if init not called', () => {
         mParticle._resetForTests(MPConfig);
 
         mParticle._setWrapperSDKInfo('flutter', '1.0.3');
@@ -1188,11 +1152,9 @@ describe('core SDK', function() {
         mParticle.getInstance()._Store.wrapperSDKInfo.name.should.equal('none');
         (mParticle.getInstance()._Store.wrapperSDKInfo.version === null).should.equal(true);
         mParticle.getInstance()._Store.wrapperSDKInfo.isInfoSet.should.equal(false);
-        
-        done();
     });
 
-    it('should have the correct wrapper sdk info default values when init is called', function(done) {
+    it('should have the correct wrapper sdk info default values when init is called', () => {
         mParticle._resetForTests(MPConfig);
         
         mParticle.init(apiKey, window.mParticle.config);
@@ -1200,8 +1162,6 @@ describe('core SDK', function() {
         mParticle.getInstance()._Store.wrapperSDKInfo.name.should.equal('none');
         (mParticle.getInstance()._Store.wrapperSDKInfo.version === null).should.equal(true);
         mParticle.getInstance()._Store.wrapperSDKInfo.isInfoSet.should.equal(false);
-
-        done();
     });
 
     it('should set the wrapper sdk info in Store when mParticle._setWrapperSDKInfo() method is called after init is called', async () => {
@@ -1265,7 +1225,7 @@ describe('core SDK', function() {
             };
         });
 
-        it('should use US1 endpoints for apiKeys that do not start with a prefix', function(done) {
+        it('should use US1 endpoints for apiKeys that do not start with a prefix', () => {
             const silo = 'us1';
             const apiKey = 'noSiloPrefixApiKey';
             const eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
@@ -1279,11 +1239,9 @@ describe('core SDK', function() {
             mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(URLs[silo].v3SecureServiceUrl);
-
-            done();
         });
 
-        it('should use US1 endpoints for apiKeys with prefix `us1`', function(done) {
+        it('should use US1 endpoints for apiKeys with prefix `us1`', () => {
             const silo = 'us1';
             const apiKey = 'us1-apiKey';
             const eventsEndpoint = `https://${URLs.us1.v3SecureServiceUrl}${apiKey}/events`;
@@ -1297,11 +1255,9 @@ describe('core SDK', function() {
             mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(URLs[silo].v3SecureServiceUrl);
-
-            done();
         });
 
-        it('should use US2 endpoints for apiKeys with prefix `us2`', function(done) {
+        it('should use US2 endpoints for apiKeys with prefix `us2`', () => {
             const silo = 'us2';
             const apiKey = 'us2-apiKey';
             const eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
@@ -1315,11 +1271,9 @@ describe('core SDK', function() {
             mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(URLs[silo].v3SecureServiceUrl);
-
-            done();
         });
 
-        it('should use EU1 endpoints for apiKeys with prefix `eu1`', function(done) {
+        it('should use EU1 endpoints for apiKeys with prefix `eu1`', () => {
             const silo = 'eu1';
             const apiKey = 'eu1-apiKey';
             const eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
@@ -1333,11 +1287,9 @@ describe('core SDK', function() {
             mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(URLs[silo].v3SecureServiceUrl);
-
-            done();
         });
 
-        it('should use AU1 endpoints for apiKeys with prefix `au1`', function(done) {
+        it('should use AU1 endpoints for apiKeys with prefix `au1`', () => {
             const silo = 'au1';
             const apiKey = 'au1-apiKey';
             const eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
@@ -1351,11 +1303,9 @@ describe('core SDK', function() {
             mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(URLs[silo].v3SecureServiceUrl);
-
-            done();
         });
 
-        it('should use ST1 endpoints for apiKeys with prefix `st1`', function(done) {
+        it('should use ST1 endpoints for apiKeys with prefix `st1`', () => {
             const silo = 'st1';
             const apiKey = 'st1-apiKey';
             const eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
@@ -1369,11 +1319,9 @@ describe('core SDK', function() {
             mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(URLs[silo].v3SecureServiceUrl);
-
-            done();
         });
 
-        it('should use xy1 endpoints for apiKeys with prefix `xy1`', function(done) {
+        it('should use xy1 endpoints for apiKeys with prefix `xy1`', () => {
             const silo = 'xy1';
             const apiKey = 'xy1-apiKey';
             const eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
@@ -1387,11 +1335,9 @@ describe('core SDK', function() {
             mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(URLs[silo].v3SecureServiceUrl);
-
-            done();
         });
 
-        it('should prioritize configured URLs over direct URL mapping', function(done) {
+        it('should prioritize configured URLs over direct URL mapping', () => {
             window.mParticle.config.v3SecureServiceUrl = 'testtesttest-custom-v3secureserviceurl/v3/JS/';
             window.mParticle.config.configUrl ='foo-custom-configUrl/v2/JS/';
             window.mParticle.config.identityUrl = 'custom-identityUrl/';
@@ -1412,8 +1358,6 @@ describe('core SDK', function() {
             mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(v3SecureServiceUrl);
-
-            done();
         });
     });
 });
