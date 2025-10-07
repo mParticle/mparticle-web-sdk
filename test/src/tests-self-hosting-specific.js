@@ -12,7 +12,7 @@ const {
 } = Utils;
 
 // Calls to /config are specific to only the self hosting environment
-describe.only('/config self-hosting integration tests', function() {
+describe('/config self-hosting integration tests', function() {
     beforeEach(function() {
         fetchMock.post(urls.events, 200);
     });
