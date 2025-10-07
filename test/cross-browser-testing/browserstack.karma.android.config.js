@@ -42,7 +42,7 @@ const customLaunchers = {
   },
   bs_android_16_opera: {
     base: 'BrowserStack',
-    device: 'Google Pixel 9',
+    device: 'Google Pixel 10 Pro',
     os: 'android',
     os_version: '16.0',
     real_mobile: true,
@@ -109,78 +109,6 @@ const customLaunchers = {
     os_version: '13.0',
     real_mobile: true,
     browser: 'chrome'
-  },
-
-  // iOS 26 - chrome, firefox, safari
-  bs_ios_26_safari: {
-    base: 'BrowserStack',
-    device: 'iPhone 17 Pro',
-    os: 'ios',
-    os_version: '26',
-    real_mobile: true,
-    browser: 'safari'
-  },
-  bs_ios_26_chrome: {
-    base: 'BrowserStack',
-    device: 'iPad Air 5',
-    os: 'ios',
-    os_version: '26',
-    real_mobile: true,
-    browser: 'chrome'
-  },
-  bs_ios_26_firefox: {
-    base: 'BrowserStack',
-    device: 'iPhone Air',
-    os: 'ios',
-    os_version: '26',
-    real_mobile: true,
-    browser: 'firefox'
-  },
-
-  // iOS 18 - chrome, firefox, safari
-  bs_ios_18_safari: {
-    base: 'BrowserStack',
-    device: 'iPhone 16e',
-    os: 'ios',
-    os_version: '18',
-    real_mobile: true,
-    browser: 'safari'
-  },
-  bs_ios_18_chrome: {
-    base: 'BrowserStack',
-    device: 'iPad Pro 11 2021',
-    os: 'ios',
-    os_version: '18',
-    real_mobile: true,
-    browser: 'chrome'
-  },
-  bs_ios_18_firefox: {
-    base: 'BrowserStack',
-    device: 'iPhone 14',
-    os: 'ios',
-    os_version: '18',
-    real_mobile: true,
-    browser: 'firefox'
-  },
-
-  // iOS 17 - chrome
-  bs_ios_17_safari: {
-    base: 'BrowserStack',
-    device: 'iPhone 12',
-    os: 'ios',
-    os_version: '17',
-    real_mobile: true,
-    browser: 'chrome'
-  },
-
-  // iOS 16 - safari
-  bs_ios_16_safari: {
-    base: 'BrowserStack',
-    device: 'iPad 10th',
-    os: 'ios',
-    os_version: '16',
-    real_mobile: true,
-    browser: 'safari'
   },
 };
 

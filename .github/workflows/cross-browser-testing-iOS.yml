@@ -1,9 +1,9 @@
-name: 'BrowserStack Mobile Test'
+name: 'BrowserStack iOS Mobile Test'
 on: [push, pull_request, workflow_dispatch]
 
 jobs:
-  browserstack-mobile-test:
-    name: 'BrowserStack Mobile Test'
+  browserstack-iOS-test:
+    name: 'BrowserStack iOS Mobile Test'
     runs-on: ubuntu-latest
     steps:
       - name: 'BrowserStack Env Setup'
@@ -30,8 +30,8 @@ jobs:
       - name: 'Run NPM build test bundle'
         run: npm run build:test-bundle
 
-      - name: 'Run Browserstack Mobile Tests'
-        run: npm run test:browserstack-mobile
+      - name: 'Run Browserstack iOS Mobile Tests'
+        run: npm run test:browserstack-iOS
 
       - name: 'BrowserStackLocal Stop'
         uses: browserstack/github-actions/setup-local@master
