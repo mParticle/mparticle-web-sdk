@@ -394,7 +394,7 @@ var pluses = /\+/g,
             };
 
             this.settings = {
-                PriorityValue: 1,
+                
             };
 
             this.setOptOut = function() {
