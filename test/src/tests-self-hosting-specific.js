@@ -73,7 +73,7 @@ describe('/config self-hosting integration tests', function() {
     });
 
     // https://go.mparticle.com/work/SQDSDKS-6852
-    it.skip('queued events contain login mpid instead of identify mpid when calling login immediately after mParticle initializes', function(done) {
+    it.skip('queued events contain login mpid instead of identify mpid when calling login immediately after mParticle initializes', async () => {
         const messages = [];
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.requestConfig = true;
@@ -130,46 +130,36 @@ describe('/config self-hosting integration tests', function() {
         mParticle.getInstance()._Store.isInitialized = true;
         mParticle.logEvent('Test');
         
-        waitForCondition(() => {
-                return (
-                    mParticle.Identity.getCurrentUser()?.getMPID() === 'loginMPID'
-                );
-            })
-        .then(() => {
-                // call login before mParticle.identify is triggered, which happens after config returns
-                // mParticle.Identity.login({ userIdentities: { customerid: 'abc123' } });
-        waitForCondition(() => {
+        await waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'loginMPID'
+            );
+        });
+        // call login before mParticle.identify is triggered, which happens after config returns
+        // mParticle.Identity.login({ userIdentities: { customerid: 'abc123' } });
+        await waitForCondition(() => {
             return (
                 mParticle.getInstance()._Store.configurationLoaded === true
             );
-        })
-            .then(() => {
-                // config triggers, login triggers immediately before identify
-                const event1 = findBatch(fetchMock.calls(), 'Test');
-                event1.mpid.should.equal('loginMPID');
-                messages
-                    .indexOf('Parsing "login" identity response from server')
-                    .should.be.above(0);
-    
-                // when login is in flight, identify will not run, but callback still will
-                messages
-                    .indexOf('Parsing "identify" identity response from server')
-                    .should.equal(-1);
-
-                // const event2 = findBatch(fetchMock.calls(), 'identify callback event', false, mockServer);
-                // event2.mpid.should.equal('loginMPID');
-
-    
-                localStorage.removeItem('mprtcl-v4_workspaceTokenTest');
-                window.mParticle.config.requestConfig = false;
-    
-                done();
-            })
-            .catch((err) => {
-                console.log(err);
-            })
-
         });
+        // config triggers, login triggers immediately before identify
+        const event1 = findBatch(fetchMock.calls(), 'Test');
+        event1.mpid.should.equal('loginMPID');
+        messages
+            .indexOf('Parsing "login" identity response from server')
+            .should.be.above(0);
+
+        // when login is in flight, identify will not run, but callback still will
+        messages
+            .indexOf('Parsing "identify" identity response from server')
+            .should.equal(-1);
+
+        // const event2 = findBatch(fetchMock.calls(), 'identify callback event', false, mockServer);
+        // event2.mpid.should.equal('loginMPID');
+
+
+        localStorage.removeItem('mprtcl-v4_workspaceTokenTest');
+        window.mParticle.config.requestConfig = false;
     });
 
     it('cookie name has workspace token in it in self hosting mode after config fetch', async () => {
@@ -194,7 +184,7 @@ describe('/config self-hosting integration tests', function() {
         window.mParticle.config.requestConfig = false;
     });
 
-    describe('/config self-hosting with direct url routing', function () {
+    describe('/config self-hosting with direct url routing', async () => {
         it('should return direct urls when no baseUrls are passed and directURLRouting is true', async () => {
             mParticle._resetForTests(MPConfig);
             window.mParticle.config.requestConfig = true;
