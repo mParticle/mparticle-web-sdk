@@ -298,14 +298,15 @@ describe('SessionManager', () => {
         });
 
         describe('#endSession', () => {
-            it('should end a session', () => {
+            // https://go/j-SDKE-301
+            it('should end a session', async () => {
                 mParticle.init(apiKey, window.mParticle.config);
-                waitForCondition(() => {
+                await waitForCondition(() => {
                     return (
                         mParticle.Identity.getCurrentUser()?.getMPID() === testMPID
                     );
-                })
-                .then(() => {
+                });
+
                 const mpInstance = mParticle.getInstance();
                 const persistenceSpy = sinon.spy(
                     mpInstance._Persistence,
@@ -322,7 +323,6 @@ describe('SessionManager', () => {
                 // Persistence isn't necessary for this feature, but we should test
                 // to see that it is called in case this ever needs to be refactored
                 expect(persistenceSpy.called).to.equal(true);
-                });
             });
 
             it('should force a session end when override is used', () => {
