@@ -414,9 +414,8 @@ describe('ServerModel', () => {
             ]);
         });
 
-        it('should set necessary attributes if MessageType is SessionEnd', () => {    
-            waitForCondition(hasIdentifyReturned)
-            .then(() =>  {
+        it('should set necessary attributes if MessageType is SessionEnd', async () => {    
+            await waitForCondition(hasIdentifyReturned);
 
             const mPStore = mParticle.getInstance()._Store;
             
@@ -463,7 +462,6 @@ describe('ServerModel', () => {
             // A SessionEnd event resets currentSessionMPIDs and sessionStartDate.  When a new session starts, these are filled again
             expect(mPStore.currentSessionMPIDs).to.eql([]);
             expect(mPStore.sessionStartDate).to.eql(null);
-            })
         });
 
         it('should set necessary attributes if MessageType is AppStateTransition', () => {
@@ -1134,7 +1132,7 @@ describe('ServerModel', () => {
         afterEach(function() {
         });
 
-        it('Should not convert data plan object to server DTO when no id or version is set', function(done) {
+        it('Should not convert data plan object to server DTO when no id or version is set', () => {
             let sdkEvent = window.mParticle
                 .getInstance()
                 ._ServerModel.createEventObject(event);
@@ -1145,10 +1143,9 @@ describe('ServerModel', () => {
 
             upload.should.not.have.property('dp_id');
             upload.should.not.have.property('dp_v');
-            done();
         });
 
-        it('Should convert data plan id to server DTO', function(done) {
+        it('Should convert data plan id to server DTO', () => {
             mParticle._resetForTests();
             mParticle.config.dataPlan = {
                 planId: 'plan_slug',
@@ -1164,10 +1161,9 @@ describe('ServerModel', () => {
 
             upload.should.have.property('dp_id', 'plan_slug');
             upload.should.not.have.property('dp_v');
-            done();
         });
 
-        it('Should not convert data plan object to server DTO when no id is set', function(done) {
+        it('Should not convert data plan object to server DTO when no id is set', () => {
             mParticle._resetForTests();
             mParticle.config.dataPlan = {
                 planVersion: 5,
@@ -1183,10 +1179,9 @@ describe('ServerModel', () => {
 
             upload.should.not.have.property('dp_id');
             upload.should.not.have.property('dp_v');
-            done();
         });
 
-        it('Should convert entire data plan object to server DTO', function(done) {
+        it('Should convert entire data plan object to server DTO', () => {
             mParticle._resetForTests();
             mParticle.config.dataPlan = {
                 planId: 'plan_slug',
@@ -1203,10 +1198,9 @@ describe('ServerModel', () => {
 
             upload.should.have.property('dp_id', 'plan_slug');
             upload.should.have.property('dp_v', 10);
-            done();
         });
 
-        it('Should convert complete consent object', function(done) {
+        it('Should convert complete consent object', () => {
             const consentState = mParticle
                 .getInstance()
                 ._Consent.createConsentState();
@@ -1241,12 +1235,10 @@ describe('ServerModel', () => {
             consent.gdpr.foo.should.have.property('d', 'foo document');
             consent.gdpr.foo.should.have.property('l', 'foo location');
             consent.gdpr.foo.should.have.property('h', 'foo hardware id');
-            done();
         });
 
-        it('Should not append user info when no user exists', function(done) {
-            waitForCondition(hasIdentifyReturned)
-            .then(() =>  {
+        it('Should not append user info when no user exists', async () => {
+            await waitForCondition(hasIdentifyReturned);
             mParticle.getInstance()._Store.should.be.ok;
 
             let sdkEvent = mParticle
@@ -1257,11 +1249,9 @@ describe('ServerModel', () => {
             expect(sdkEvent.UserIdentities).to.eql([]);
             expect(sdkEvent.UserAttributes).to.eql({});
             expect(sdkEvent.ConsentState === null).to.eql(true);
-            done();
-            })
         });
 
-        it('Should append all user info when user is present', function(done) {
+        it('Should append all user info when user is present', () => {
             mParticle.getInstance()._Store.should.be.ok;
             const consentState = mParticle
                 .getInstance()
@@ -1330,13 +1320,10 @@ describe('ServerModel', () => {
             expect(sdkEvent.MPID).to.equal('98765');
             expect(sdkEvent.UserAttributes).to.eql(expectedUserAttributes);
             expect(sdkEvent.ConsentState).to.be.ok;
-
-            done();
         });
 
-        it('Should append identities when user is present', function(done) {
-            waitForCondition(hasIdentifyReturned)
-            .then(() =>  {
+        it('Should append identities when user is present', async () => {
+            await waitForCondition(hasIdentifyReturned);
             let sdkEvent = mParticle
             .getInstance()
             ._ServerModel.createEventObject(event);
@@ -1386,14 +1373,10 @@ describe('ServerModel', () => {
                 const value = id.Identity;
                 identityMapping[type].should.equal(value);
             });
-
-            done();
-            })
         });
 
-        it('Should append user attributes when user present', function(done) {
-            waitForCondition(hasIdentifyReturned)
-            .then(() =>  {
+        it('Should append user attributes when user present', async () => {
+            await waitForCondition(hasIdentifyReturned);
             let sdkEvent = mParticle
             .getInstance()
             ._ServerModel.createEventObject(event);
@@ -1419,14 +1402,10 @@ describe('ServerModel', () => {
             appendUserInfo(user, sdkEvent);
             expect(sdkEvent.UserAttributes).to.be.ok;
             expect(sdkEvent.UserAttributes).to.eql(attributes);
-
-            done();
-            });
         });
 
-        it('Should update mpid when user info is appended with a new mpid', function(done) {
-            waitForCondition(hasIdentifyReturned)
-            .then(() =>  {
+        it('Should update mpid when user info is appended with a new mpid', async () => {
+            await waitForCondition(hasIdentifyReturned);
             let sdkEvent = mParticle
                 .getInstance()
                 ._ServerModel.createEventObject(event);
@@ -1454,11 +1433,9 @@ describe('ServerModel', () => {
             } as IMParticleUser;
             appendUserInfo(user, sdkEvent);
             expect(sdkEvent.MPID).to.equal('98765');
-            done();
-            })
         });
 
-        it('convertEventToDTO should contain launch referral', function(done) {
+        it('convertEventToDTO should contain launch referral', () => {
             const event = ({
                 EventName: 10,
                 EventAttributes: null,
@@ -1492,8 +1469,6 @@ describe('ServerModel', () => {
                 ._ServerModel.convertEventToV2DTO(event);
 
             expect(upload.lr).to.equal('http://foo.bar/this/is/a/test');
-
-            done();
         });
     });
 });
