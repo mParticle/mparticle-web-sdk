@@ -28,7 +28,7 @@ const customLaunchers = {
     browser: 'chrome',
     browser_version: 'latest-beta',
     os: 'OS X',
-    os_version: 'Sequoia'
+    os_version: 'Sequoia' // macOS 15
   },
   bs_chrome_win_beta: {
     base: 'BrowserStack',
@@ -42,7 +42,7 @@ const customLaunchers = {
     browser: 'firefox',
     browser_version: 'latest-beta',
     os: 'OS X',
-    os_version: 'Sequoia'
+    os_version: 'Sequoia' // macOS 15
   },
   bs_firefox_win_latest: {
     base: 'BrowserStack',
@@ -56,14 +56,14 @@ const customLaunchers = {
     browser: 'firefox',
     browser_version: 'latest-beta',
     os: 'OS X',
-    os_version: 'Catalina'
+    os_version: 'Catalina' // macOS 10.15
   },
   bs_edge_mac_beta: {
     base: 'BrowserStack',
     browser: 'edge',
     browser_version: 'latest-beta',
     os: 'OS X',
-    os_version: 'Sequoia'
+    os_version: 'Sequoia' // macOS 15
   },
   bs_edge_win_beta: {
     base: 'BrowserStack',
