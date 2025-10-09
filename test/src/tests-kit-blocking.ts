@@ -38,7 +38,7 @@ describe('kit blocking', () => {
     });
 
     describe('kitBlocker', () => {
-        it('kitBlocker should parse data plan into dataPlanMatchLookups properly', async () => {
+        it('kitBlocker should parse data plan into dataPlanMatchLookups properly', () => {
             let kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
             let dataPlanMatchLookups = kitBlocker.dataPlanMatchLookups;
             dataPlanMatchLookups.should.have.property('custom_event:search:Search Event', true);
@@ -118,7 +118,7 @@ describe('kit blocking', () => {
             }
         });
 
-        it('should transform an unplanned event to null if blok.ev = true', async () => {
+        it('should transform an unplanned event to null if blok.ev = true', () => {
             event.EventName = 'unplanned event';
             event.EventCategory = Types.EventType.Search;
             event.EventAttributes = { keyword2: 'test' };
@@ -128,7 +128,7 @@ describe('kit blocking', () => {
             (transformedEvent === null).should.equal(true);
         });
 
-        it('should transform EventAttributes if an event attribute is not planned and blok.ea = true', async () => {
+        it('should transform EventAttributes if an event attribute is not planned and blok.ea = true', () => {
             event.EventName = 'locationEvent';
             event.EventCategory = Types.EventType.Location;
             event.EventAttributes = { unplannedAttr: 'test', foo: 'hi' };
@@ -139,7 +139,7 @@ describe('kit blocking', () => {
             transformedEvent.EventAttributes.should.have.property('foo', 'hi');
         });
 
-        it('should transform EventAttributes if there are no custom attributes and additionalProperties === false', async () => {
+        it('should transform EventAttributes if there are no custom attributes and additionalProperties === false', () => {
             event.EventName = 'another new screenview event';
             event.EventCategory = Types.EventType.Location;
             event.EventAttributes = { unplannedAttr: 'test', foo: 'hi' };
@@ -150,7 +150,7 @@ describe('kit blocking', () => {
             transformedEvent.EventAttributes.should.not.have.property('foo');
         });
 
-        it('should include unplanned event attributes if additionalProperties = true and blok.ea = true', async () => {
+        it('should include unplanned event attributes if additionalProperties = true and blok.ea = true', () => {
             event.EventName = 'something something something';
             event.EventCategory = Types.EventType.Navigation;
             event.EventAttributes = { keyword2: 'test', foo: 'hi' };
@@ -161,7 +161,7 @@ describe('kit blocking', () => {
             transformedEvent.EventAttributes.should.have.property('keyword2', 'test');
         });
 
-        it('should block any unplanned event attributes if custom attributes is empty, additionalProperties = false, and block.ea = true.', async () => {
+        it('should block any unplanned event attributes if custom attributes is empty, additionalProperties = false, and block.ea = true.', () => {
             event.EventName = 'SocialEvent';
             event.EventCategory = Types.EventType.Social;
             event.EventAttributes = { keyword2: 'test', foo: 'hi' };
@@ -171,7 +171,7 @@ describe('kit blocking', () => {
             Object.keys(transformedEvent.EventAttributes).length.should.equal(0);
         });
 
-        it('should not block any unplanned event attributes if custom attributes is empty, additionalProperties = true, and block.ea = true.', async () => {
+        it('should not block any unplanned event attributes if custom attributes is empty, additionalProperties = true, and block.ea = true.', () => {
             // modify this test so that the above 
             let socialDataPoint = dataPlan.dtpn.vers.version_document.data_points.find(dataPoint => {
                 return dataPoint?.match?.criteria?.event_name === 'SocialEvent'
@@ -220,7 +220,7 @@ describe('kit blocking', () => {
             };
         });
 
-        it('should block any unplanned user attributes when blok.ua = true and additionalPropertes = false', async () => {
+        it('should block any unplanned user attributes when blok.ua = true and additionalPropertes = false', () => {
             event.EventName = 'something something something';
             event.EventCategory = Types.EventType.Navigation;
             event.EventAttributes = { keyword2: 'test', foo: 'hi' };
@@ -241,7 +241,7 @@ describe('kit blocking', () => {
 
         });
 
-        it('should not block any unplanned user attributes if blok.ua = false', async () => {
+        it('should not block any unplanned user attributes if blok.ua = false', () => {
             //TODO - what if this additional properties is false? shoudl we validate that?
             window.mParticle.config.dataPlan.document.dtpn.blok.ua = false;
 
@@ -268,7 +268,7 @@ describe('kit blocking', () => {
 
         });
 
-        it('isAttributeKeyBlocked should return false for attributes that are blocked and true for properties that are not', async () => {
+        it('isAttributeKeyBlocked should return false for attributes that are blocked and true for properties that are not', () => {
             // this key is blocked because the default data plan has user_attributes>additional_properties = false
             const kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
 
@@ -289,7 +289,7 @@ describe('kit blocking', () => {
 
         });
 
-        it('should not block any unplanned user identities when blok.id = true and additionalProperties = true', async () => {
+        it('should not block any unplanned user identities when blok.id = true and additionalProperties = true', () => {
             event.EventName = 'something something something';
             event.EventCategory = Types.EventType.Navigation;
             event.EventAttributes = { keyword2: 'test', foo: 'hi' };
@@ -309,7 +309,7 @@ describe('kit blocking', () => {
 
         });
 
-        it('should block user identities when additional properties = false and blok.id = true', async () => {
+        it('should block user identities when additional properties = false and blok.id = true', () => {
             let userIdentityDataPoint = dataPlan.dtpn.vers.version_document.data_points.find(dataPoint => {
                 return dataPoint.match.type === 'user_identities'
             });
@@ -338,7 +338,7 @@ describe('kit blocking', () => {
 
         });
 
-        it('isIdentityBlocked should return false for identities that are blocked and true for properties that are not', async () => {
+        it('isIdentityBlocked should return false for identities that are blocked and true for properties that are not', () => {
             // this identity is not blocked because the default data plan has user_identities>additional_properties = false
             const kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
 
@@ -427,7 +427,7 @@ describe('kit blocking', () => {
             };
         });
 
-        it('should transform productAttributes if an product attribute is not planned, additionalProperties = false, and blok.ea = true', async () => {
+        it('should transform productAttributes if an product attribute is not planned, additionalProperties = false, and blok.ea = true', () => {
             event.EventName = 'eCommerce - Purchase';
             event.EventCategory = Types.CommerceEventType.ProductPurchase;
             event.EventDataType = Types.MessageType.Commerce;
@@ -449,7 +449,7 @@ describe('kit blocking', () => {
 
         });
 
-        it('should not transform productAttributes if a product attribute is not planned, additionalProperties = false,  and blok.ea = true', async () => {
+        it('should not transform productAttributes if a product attribute is not planned, additionalProperties = false,  and blok.ea = true', () => {
             event.EventName = 'eCommerce - AddToCart';
             event.EventCategory = Types.CommerceEventType.ProductAddToCart;
             event.EventDataType = Types.MessageType.Commerce;
@@ -471,7 +471,7 @@ describe('kit blocking', () => {
 
         });
 
-        it('should transform productAttributes in product impressions if an product attribute is not planned, additionalProperties = false,  and blok.ea = true', async () => {
+        it('should transform productAttributes in product impressions if an product attribute is not planned, additionalProperties = false,  and blok.ea = true', () => {
             event.EventName = 'eCommerce - Impression';
             event.ProductImpressions = [
                 {
@@ -521,7 +521,7 @@ describe('kit blocking', () => {
             window.mParticle.addForwarder(mockForwarder);
         });
 
-        it('integration test - should log an error if the data plan has an error on it', async () => {
+        it('integration test - should log an error if the data plan has an error on it', () => {
             const errorMessage = 'This is an error';
             window.mParticle.config.dataPlan = {
                 document: {
@@ -549,7 +549,7 @@ describe('kit blocking', () => {
 
         });
 
-        it('integration test - should block a custom event from reaching the forwarder if event is unplanned and block.ev=true', async () => {
+        it('integration test - should block a custom event from reaching the forwarder if event is unplanned and block.ev=true', () => {
             window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
             window.mParticle.init(apiKey, window.mParticle.config);
 
@@ -589,7 +589,7 @@ describe('kit blocking', () => {
             );
         });
 
-        it('integration test - should not throw an error when unplanned user attributes are allowed and block.ua = true', async () => {
+        it('integration test - should not throw an error when unplanned user attributes are allowed and block.ua = true', () => {
             window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
             window.mParticle.init(apiKey, window.mParticle.config);
 
