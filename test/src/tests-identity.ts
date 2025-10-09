@@ -353,7 +353,7 @@ describe('identity', function() {
             ]);
         });
 
-        it('should contain previous mpid in a repeated identify request', async function () {
+        it('should contain previous mpid in a repeated identify request', async () => {
             fetchMockSuccess(urls.identify, {
                 context: null,
                 matched_identities: {
@@ -939,7 +939,7 @@ describe('identity', function() {
 
 
     describe('identity request validation', function () {
-    it('should swap property identityType for identityName', function (done) {
+    it('should swap property identityType for identityName', () => {
         const data: IdentityApiData = { userIdentities: {} };
         data.userIdentities.other = 'id1';
         data.userIdentities.customerid = 'id2';
@@ -964,11 +964,9 @@ describe('identity', function() {
                 count = 9;
             }
         }
-
-        done();
     });
 
-    it('should create a proper identity request', async (done) => {
+    it('should create a proper identity request', async () => {
         const data: IdentityApiData = { userIdentities: {} },
             platform = 'web',
             sdkVendor = 'mparticle',
@@ -1083,11 +1081,9 @@ describe('identity', function() {
         expect(identityRequest.known_identities.phone_number_3).to.equal(
             'id21'
         );
-
-        done();
     });
 
-    it('should create a proper modify identity request', async (done) => {
+    it('should create a proper modify identity request', async () => {
         const platform = 'web';
         const sdkVendor = 'mparticle';
         const sdkVersion = '1.0.0';
@@ -1358,8 +1354,6 @@ describe('identity', function() {
             'phone_number_3'
         );
         expect(identityRequest.identity_changes[20].new_value).to.equal('id34');
-
-        done();
         });
     });
 
@@ -1608,7 +1602,7 @@ describe('identity', function() {
     });
     });
 
-    it('should have old_value === null when there is no previous identity of a certain type and a new identity of that type', function (done) {
+    it('should have old_value === null when there is no previous identity of a certain type and a new identity of that type', () => {
         const oldIdentities: UserIdentities = {};
         oldIdentities['facebook'] = 'old_facebook_id';
 
@@ -1658,11 +1652,9 @@ describe('identity', function() {
         expect(identityRequest.identity_changes[1].new_value).to.equal(
             'new_facebook_id'
         );
-
-        done();
     });
 
-    it('should have new_value === null when there is a previous identity of a certain type and no new identity of that type', async (done) => {
+    it('should have new_value === null when there is a previous identity of a certain type and no new identity of that type', async () => {
         const oldIdentities: UserIdentities = {};
         oldIdentities['other'] = 'old_other_id';
         oldIdentities['facebook'] = 'old_facebook_id';
@@ -1696,8 +1688,6 @@ describe('identity', function() {
         );
 
         expect(identityRequest.identity_changes.length).to.equal(1);
-
-        done();
     });
 
     // https://go.mparticle.com/work/SQDSDKS-6568
@@ -2024,7 +2014,7 @@ describe('identity', function() {
         localStorage.user3.ui.should.have.property('7', 'email3@test.com');
     });
 
-    it('should create a new modified user identity object, removing any invalid identity types', async (done) => {
+    it('should create a new modified user identity object, removing any invalid identity types', async () => {
         const previousUIByName = {
             customerid: 'customerid1',
             email: 'email2@test.com',
@@ -2054,8 +2044,6 @@ describe('identity', function() {
         expect(combinedUIsByType[7]).to.equal('email2@test.com');
 
         expect(Object.keys(combinedUIsByType).length).to.equal(4);
-
-        done();
     });
 
     it("should find the related MPID's cookies when given a UI with fewer IDs when passed to login, logout, and identify, and then log events with updated cookies", async () => {
@@ -2510,11 +2498,10 @@ describe('identity', function() {
 
     describe.skip('#onUserAlias', function() {
     // https://go.mparticle.com/work/SQDSDKS-6854
-    it('does not run onUserAlias if it is not a function', async (done) => {
+    it('does not run onUserAlias if it is not a function', async () => {
         mParticle.init(apiKey, window.mParticle.config);
 
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        await waitForCondition(hasIdentifyReturned);
 
         const user1 = {
             userIdentities: {
@@ -2541,8 +2528,7 @@ describe('identity', function() {
     
         mParticle.Identity.login(user1);
 
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        await waitForCondition(hasIdentifyReturned);
 
         fetchMockSuccess(urls.login, {
             mpid: 'otherMPID',
@@ -2552,26 +2538,18 @@ describe('identity', function() {
         fetchMock.resetHistory();
         mParticle.Identity.login(user2);
 
-        waitForCondition(hasIdentityCallInflightReturned)
-        .then(() => {
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         // This should have a call for the UIC that will occur because
         // we are logging in as two different users
         fetchMock.calls().length.should.equal(1);
         expect(fetchMock.lastCall()[0]).to.equal(urls.events);
-
-
-        done();
-        }).catch(done);
-        }).catch(done);
-        }).catch(done);
     });
 
-    it('should run onUserAlias if it is a function', async (done) => {
+    it('should run onUserAlias if it is a function', async () => {
         mParticle.init(apiKey, window.mParticle.config);
 
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        await waitForCondition(hasIdentifyReturned);
 
         let hasBeenRun = false;
         const user1 = {
@@ -2596,8 +2574,7 @@ describe('identity', function() {
 
         mParticle.Identity.login(user1);
 
-        waitForCondition(hasIdentityCallInflightReturned)
-        .then(() => {
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         fetchMockSuccess(urls.login, {
             mpid: 'otherMPID',
@@ -2606,22 +2583,15 @@ describe('identity', function() {
 
         mParticle.Identity.login(user2);
 
-        waitForCondition(hasIdentityCallInflightReturned)
-        .then(() => {
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         expect(hasBeenRun).to.be.true;
-
-        done();
-        }).catch(done);
-        }).catch(done);
-        }).catch(done);
     });
 
-    it('should setUserAttributes, setUserAttributeLists, removeUserAttributes, and removeUserAttributeLists properly in onUserAlias', async (done) => {
+    it('should setUserAttributes, setUserAttributeLists, removeUserAttributes, and removeUserAttributeLists properly in onUserAlias', async () => {
         mParticle.init(apiKey, window.mParticle.config);
 
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        await waitForCondition(hasIdentifyReturned);
 
         const user1 = {
             userIdentities: {
@@ -2636,8 +2606,7 @@ describe('identity', function() {
 
         mParticle.Identity.login(user1);
 
-        waitForCondition(hasIdentityCallInflightReturned)
-        .then(() => {
+        await waitForCondition(hasIdentityCallInflightReturned);
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.Identity.getCurrentUser().setUserAttribute('age', 27);
 
@@ -2674,8 +2643,7 @@ describe('identity', function() {
 
         mParticle.Identity.login(user2);
 
-        waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'otherMPID')
-        .then(() => {
+        await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'otherMPID');
 
         const user1ObjectAttrs = user1Object.getAllUserAttributes();
         user1ObjectAttrs.should.not.have.property('age');
@@ -2714,8 +2682,7 @@ describe('identity', function() {
 
         mParticle.Identity.login(user3);
 
-        waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'otherMPID2')
-        .then(() => {
+        await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'otherMPID2');
 
 
         expect(user2AttributeListsBeforeRemoving.list.length).to.equal(5);
@@ -2725,12 +2692,6 @@ describe('identity', function() {
         expect(Object.keys(user2AttributeListsAfterRemoving).length).to.not.be
             .ok;
         expect(user3UserAttributeListsAfterAdding.list.length).to.equal(5);
-
-        done();
-        }).catch(done);
-        }).catch(done);
-        }).catch(done);
-        }).catch(done);
     });
     });
 
@@ -3379,7 +3340,7 @@ describe('identity', function() {
         expect(users[4].getLastSeenTime()).to.equal(null);
     });
 
-    it('does not error when simultaneous identity calls are out', async (done) => {
+    it('does not error when simultaneous identity calls are out', async () => {
         const errorMessages = [];
         mParticle._resetForTests(MPConfig);
         mParticle.config.logger = {
@@ -3396,8 +3357,6 @@ describe('identity', function() {
         // Fire a second identity method (without waitForCondition) to confirm that it does not error
         mParticle.Identity.login({ userIdentities: { customerid: 'test' } });
         errorMessages.length.should.equal(0);
-
-        done();
     });
 
     it('Startup identity callback should include getPreviousUser()', async () => {
@@ -3534,7 +3493,7 @@ describe('identity', function() {
             .should.equal('4');
     });
 
-    it('Alias request should be received when API is called validly', async (done) => {
+    it('Alias request should be received when API is called validly', async () => {
         fetchMock.post(urls.alias, HTTP_ACCEPTED);
         fetchMock.resetHistory();
 
@@ -3565,11 +3524,9 @@ describe('identity', function() {
         expect(dataBody['source_mpid']).to.equal('sourceMpid');
         expect(dataBody['start_unixtime_ms']).to.equal(3);
         expect(dataBody['end_unixtime_ms']).to.equal(4);
-
-        done();
     });
 
-    it('Alias request should include scope if specified', async (done) => {
+    it('Alias request should include scope if specified', async () => {
         fetchMock.post(urls.alias, HTTP_ACCEPTED);
         fetchMock.resetHistory();
 
@@ -3591,8 +3548,6 @@ describe('identity', function() {
         const requestBody = JSON.parse(lastCall[1].body as string);
         const dataBody = requestBody['data'];
         expect(dataBody['scope']).to.equal('mpid');
-
-        done();
     });
 
     it('should reject malformed Alias Requests', async () => {
@@ -4063,7 +4018,7 @@ describe('identity', function() {
         expect(data2.known_identities.device_application_stamp).to.equal('foo-guid');
     });
 
-    it('should use the custom device id in known_identities when set via mParticle.config', async (done) => {
+    it('should use the custom device id in known_identities when set via mParticle.config', async () => {
         mParticle._resetForTests(MPConfig);
 
         // Resets fetchMock so we can isolate calls for this tests
@@ -4083,8 +4038,6 @@ describe('identity', function() {
 
         expect(data.known_identities).to.have.keys('device_application_stamp');
         expect(data.known_identities.device_application_stamp).to.equal('foo-guid');
-
-        done();
     });
     });
 
