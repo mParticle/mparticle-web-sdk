@@ -1335,7 +1335,6 @@ describe('identities and attributes', function() {
             'customerid1'
         );
     });
-    
     it('should not send user attribute change requests when user attribute already set with same value with false values', async () => {
         mParticle._resetForTests(MPConfig);
 
