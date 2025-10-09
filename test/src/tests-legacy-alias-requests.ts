@@ -69,7 +69,7 @@ describe('legacy Alias Requests', function() {
         window.fetch = originalFetch;
     });
 
-    it('Alias request should be received when API is called validly', async () => {
+    it('Alias request should be received when API is called validly', () => {
         mockServer.requests = [];
         mockServer.respondWith(urls.alias, [HTTP_OK, {}, JSON.stringify({})]);
 
@@ -102,7 +102,7 @@ describe('legacy Alias Requests', function() {
         expect(dataBody['end_unixtime_ms']).to.equal(4);
     });
 
-    it('Alias request should include scope if specified', async () => {
+    it('Alias request should include scope if specified', () => {
         mockServer.requests = [];
         mockServer.respondWith(urls.alias, [HTTP_OK, {}, JSON.stringify({})]);
 
@@ -125,7 +125,7 @@ describe('legacy Alias Requests', function() {
         expect(dataBody['scope']).to.equal('mpid');
     });
 
-    it('should reject malformed Alias Requests', async () => {
+    it('should reject malformed Alias Requests', () => {
         mParticle.config.logLevel = 'verbose';
         let warnMessage = null;
 
@@ -257,7 +257,7 @@ describe('legacy Alias Requests', function() {
 
     });
 
-    it('should parse error info from Alias Requests', async () => {
+    it('should parse error info from Alias Requests', () => {
         clock.restore();
         mParticle.init(apiKey, window.mParticle.config);
         const errorMessage = 'this is a sample error message';
@@ -286,7 +286,7 @@ describe('legacy Alias Requests', function() {
         });
     });
 
-    it('should properly create AliasRequest', async () => {
+    it('should properly create AliasRequest', () => {
         mParticle._resetForTests(MPConfig);
 
         const cookies = JSON.stringify({
@@ -324,7 +324,7 @@ describe('legacy Alias Requests', function() {
         clock.restore();
     });
 
-    it('should fill in missing fst and lst in createAliasRequest', async () => {
+    it('should fill in missing fst and lst in createAliasRequest', () => {
         mParticle._resetForTests(MPConfig);
 
         const cookies = JSON.stringify({
@@ -366,7 +366,7 @@ describe('legacy Alias Requests', function() {
         clock.restore();
     });
 
-    it('should fix startTime when default is outside max window create AliasRequest', async () => {
+    it('should fix startTime when default is outside max window create AliasRequest', () => {
         mParticle._resetForTests(MPConfig);
 
         const millisPerDay = 24 * 60 * 60 * 1000;
@@ -408,7 +408,7 @@ describe('legacy Alias Requests', function() {
         clock.restore();
     });
 
-    it('should warn if legal aliasRequest cannot be created with MParticleUser', async () => {
+    it('should warn if legal aliasRequest cannot be created with MParticleUser', () => {
         const millisPerDay = 24 * 60 * 60 * 1000;
 
         mParticle.config.logLevel = 'verbose';
@@ -464,7 +464,7 @@ describe('legacy Alias Requests', function() {
         clock.restore();
     });
 
-    it("alias request should have environment 'development' when isDevelopmentMode is true", async () => {
+    it("alias request should have environment 'development' when isDevelopmentMode is true", () => {
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.isDevelopmentMode = true;
 
