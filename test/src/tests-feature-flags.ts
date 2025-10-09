@@ -21,9 +21,9 @@ const hasIdentifyReturned = () => {
     return window.mParticle.Identity.getCurrentUser()?.getMPID() === testMPID;
 };
 
-describe('feature-flags', function() {
-    describe('user audiences', function() {
-        beforeEach(function() {
+describe('feature-flags', () => {
+    describe('user audiences', () => {
+        beforeEach(() => {
             fetchMock.post(urls.events, 200);
 
             fetchMockSuccess(urls.identify, {
@@ -38,7 +38,7 @@ describe('feature-flags', function() {
             fetchMock.restore();
         });
 
-        it('should not be able to access user audience API if feature flag is false', function() {
+        it('should not be able to access user audience API if feature flag is false', async () => {
             window.mParticle.config.flags = {
                 audienceAPI: 'False'
             };
@@ -47,8 +47,8 @@ describe('feature-flags', function() {
 
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
+            await waitForCondition(hasIdentifyReturned);
+
             const bond = sinon.spy(window.mParticle.getInstance().Logger, 'error');
             window.mParticle.Identity.getCurrentUser().getUserAudiences();
 
@@ -56,10 +56,9 @@ describe('feature-flags', function() {
             bond.getCalls()[0].args[0].should.eql(
                 Constants.Messages.ErrorMessages.AudienceAPINotEnabled
             );
-            })
         });
 
-        it('should be able to call user audience API if feature flag is false', function() {
+        it('should be able to call user audience API if feature flag is false', async () => {
             const userAudienceUrl = `https://${Constants.DefaultBaseUrls.userAudienceUrl}${apiKey}/audience`;
             const audienceMembershipServerResponse = {
                 ct: 1710441407915,
@@ -88,15 +87,14 @@ describe('feature-flags', function() {
 
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
+            await waitForCondition(hasIdentifyReturned);
+
             const bond = sinon.spy(window.mParticle.getInstance().Logger, 'error');
 
             window.mParticle.Identity.getCurrentUser().getUserAudiences((result) => {
                     console.log(result);   
             });
             bond.called.should.eql(false);
-            })
         });
     });
 
