@@ -9,7 +9,6 @@ import {
     MessageType,
 } from './config/constants';
 
-let mockServer;
 const { findEventFromRequest, findBatch, getIdentityEvent, waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
 
 describe('event logging', function() {
@@ -621,7 +620,10 @@ describe('event logging', function() {
             );
         });
 
-        const data = getIdentityEvent(mockServer.requests, 'identify');
+        const identityCalls = fetchMock.calls().filter(call => 
+            call[0].includes('/identify')
+        );
+        const data = JSON.parse(identityCalls[identityCalls.length - 1][1].body);
         data.should.have.properties(
             'client_sdk',
             'environment',

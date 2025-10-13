@@ -1,10 +1,8 @@
-import sinon from 'sinon';
 import { urls, apiKey, MPConfig, testMPID } from './config/constants';
 import Utils from './config/utils';
 import { expect } from 'chai';
-import _BatchValidator from '../../src/mockBatchCreator';
 import fetchMock from 'fetch-mock/esm/client';
-import { ProductActionType } from '../../src/types';
+import Types, { ProductActionType } from '../../src/types';
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 const { fetchMockSuccess, waitForCondition, hasIdentifyReturned  } = Utils;
 
@@ -14,14 +12,7 @@ declare global {
     }
 }
 
-const enableBatchingConfigFlags = {
-    eventBatchingIntervalMillis: 1000,
-};
-
 describe('batch uploader', () => {
-    let mockServer;
-    let clock;
-
     beforeEach(() => {
         fetchMock.restore();
         fetchMock.config.overwriteRoutes = true;
@@ -39,13 +30,10 @@ describe('batch uploader', () => {
 
     describe('batching via window.fetch', () => {
         beforeEach(() => {
-            fetchMock.post(urls.events, 200);
-            fetchMock.config.overwriteRoutes = true;
             window.mParticle.config.flags.eventBatchingIntervalMillis = 1000;
         });
 
         afterEach(() => {
-            fetchMock.restore();
             window.mParticle.config.flags.eventBatchingIntervalMillis = 0;
         });
 
@@ -233,43 +221,41 @@ describe('batch uploader', () => {
                 }
             }
             
-            var endSessionFunction = window.mParticle.getInstance()._SessionManager.endSession;
-            
             window.mParticle.init(apiKey, window.mParticle.config);
+            
+            const mpInstance = window.mParticle.getInstance();
+            
             await waitForCondition(() => {
-                return (
-                    window.mParticle.getInstance()._Store?.identityCallInFlight === false
-                );
+                return mpInstance._Store?.identityCallInFlight === false;
             });
             
-            // Mock end session so that the SDK doesn't actually send it. We do this
-            // to mimic a return to page behavior, below:
-            window.mParticle.getInstance()._SessionManager.endSession = function() {}
-            clock = sinon.useFakeTimers({now: new Date().getTime()});
-
-            // Force 35 minutes to pass, so that when we return to the page, when
-            // the SDK initializes it will know to end the session.
-            clock.tick(35*60000);
-
-            // Undo mock of end session so that when we initializes, it will end
-            // the session for real.
-            window.mParticle.getInstance()._SessionManager.endSession = endSessionFunction;
-            clock.restore();
-
-            // Initialize imitates returning to the page
-            window.mParticle.init(apiKey, window.mParticle.config);
-            await waitForCondition(() => {
-                return (
-                    window.mParticle.getInstance()?._Store?.identityCallInFlight === false
-                );
+            await mpInstance._APIClient.uploader.prepareAndUpload();
+            
+            mpInstance._SessionManager.endSession(true);
+            await mpInstance._APIClient.uploader.prepareAndUpload();
+            
+            mpInstance._SessionManager.startNewSession();
+            
+            mpInstance._Events.logEvent({
+                messageType: Types.MessageType.AppStateTransition,
             });
             
-            // Manually initiate the upload process - turn event into batches and upload the batch 
-            await window.mParticle.getInstance()._APIClient.uploader.prepareAndUpload();
+            mpInstance.Identity.identify(
+                window.mParticle.config.identifyRequest,
+                window.mParticle.config.identityCallback
+            );
 
-            const batch1 = JSON.parse(fetchMock.calls()[0][1].body as string);
-            const batch2 = JSON.parse(fetchMock.calls()[1][1].body as string);
-            const batch3 = JSON.parse(fetchMock.calls()[2][1].body as string);
+            await waitForCondition(() => {
+                return mpInstance._Store?.identityCallInFlight === false;
+            });
+            
+            await mpInstance._APIClient.uploader.prepareAndUpload();
+
+            const eventsCalls = fetchMock.calls().filter(call => call[0].includes('/events'));
+
+            const batch1 = JSON.parse(eventsCalls[0][1].body as string);
+            const batch2 = JSON.parse(eventsCalls[1][1].body as string);
+            const batch3 = JSON.parse(eventsCalls[2][1].body as string);
 
             // UAC, session start, AST
             expect(

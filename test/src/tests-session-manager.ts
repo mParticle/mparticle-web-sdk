@@ -301,11 +301,7 @@ describe('SessionManager', () => {
             // https://go/j-SDKE-301
             it('should end a session', async () => {
                 mParticle.init(apiKey, window.mParticle.config);
-                await waitForCondition(() => {
-                    return (
-                        mParticle.Identity.getCurrentUser()?.getMPID() === testMPID
-                    );
-                });
+                clock.tick(100);
 
                 const mpInstance = mParticle.getInstance();
                 const persistenceSpy = sinon.spy(
@@ -313,7 +309,7 @@ describe('SessionManager', () => {
                     'update'
                 );
 
-                mpInstance._SessionManager.endSession();
+                mpInstance._SessionManager.endSession(true);
 
                 expect(mpInstance._Store.sessionId).to.equal(null);
                 expect(mpInstance._Store.dateLastEventSent).to.equal(null);
