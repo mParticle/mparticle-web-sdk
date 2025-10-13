@@ -1,0 +1,30 @@
+---
+description: Codebase Navigation Rules
+globs: 
+alwaysApply: false
+---
+# Cursor Rules Navigation Configuration
+
+## Global base rules (applied to all files unless overridden)
+[/**/*]
+.cursor/rules/base.mdc
+
+## Testing rules
+[/test/**/tests-**.ts, /test/src/tests-**.js, /test/src/jest/**.spec.ts]
+.cursor/rules/test.mdc
+
+### Testing subcategories
+
+#### Unit Testing Rules
+[/test/jest/*.spec.ts]
+.cursor/rules/unit-testing.mdc
+
+#### Integration Testing Rules
+[/test/src/tests-**.ts, /test/src/tests-**.js]
+.cursor/rules/integration-testing.mdc
+
+#### Cross Browser Testing Rules
+
+## Personal rules
+[/**/*]
+.cursor/rules/_personal_.mdc 
