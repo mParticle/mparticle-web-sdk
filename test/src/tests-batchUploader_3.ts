@@ -19,7 +19,6 @@ const enableBatchingConfigFlags = {
 };
 
 describe('batch uploader', () => {
-    let mockServer;
     let clock;
 
     beforeEach(() => {

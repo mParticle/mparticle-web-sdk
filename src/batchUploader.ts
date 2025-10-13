@@ -36,6 +36,7 @@ export class BatchUploader {
     static readonly CONTENT_TYPE: string = 'text/plain;charset=UTF-8';
     static readonly MINIMUM_INTERVAL_MILLIS: number = 500;
     uploadIntervalMillis: number;
+    quickBatchIntervalMillis: number;
     eventsQueuedForProcessing: SDKEvent[];
     batchesQueuedForProcessing: Batch[];
     mpInstance: IMParticleWebSDKInstance;
@@ -53,14 +54,17 @@ export class BatchUploader {
      * @param {IMParticleWebSDKInstance} mpInstance - the mParticle SDK instance
      * @param {number} uploadInterval - the desired upload interval in milliseconds
      */
-    constructor(mpInstance: IMParticleWebSDKInstance, uploadInterval: number) {
+    constructor(mpInstance: IMParticleWebSDKInstance, uploadInterval: number, quickBatchIntervalMillis: number = 2000) {
         this.mpInstance = mpInstance;
         this.uploadIntervalMillis = uploadInterval;
+        this.quickBatchIntervalMillis = quickBatchIntervalMillis;
         this.batchingEnabled =
             uploadInterval >= BatchUploader.MINIMUM_INTERVAL_MILLIS;
         if (this.uploadIntervalMillis < BatchUploader.MINIMUM_INTERVAL_MILLIS) {
             this.uploadIntervalMillis = BatchUploader.MINIMUM_INTERVAL_MILLIS;
         }
+        
+        const { getFeatureFlag } = this.mpInstance._Helpers;
 
         // Events will be queued during `queueEvents` method
         this.eventsQueuedForProcessing = [];
@@ -106,6 +110,18 @@ export class BatchUploader {
             ? new FetchUploader(this.uploadUrl)
             : new XHRUploader(this.uploadUrl);
 
+        // TODO: Create Feature Flag for Quick Batch Interval
+        if (this.quickBatchIntervalMillis < this.uploadIntervalMillis) {
+            setTimeout(() => {
+                if (getFeatureFlag(Constants.FeatureFlags.AstBackgroundEvents)) {
+                    const event = this.createBackgroundASTEvent();
+                    this.queueEvent(event);
+                }
+
+                this.prepareAndUpload(false, false);
+            }, this.quickBatchIntervalMillis);
+        }
+            
         this.triggerUploadInterval(true, false);
         this.addEventListeners();
     }
