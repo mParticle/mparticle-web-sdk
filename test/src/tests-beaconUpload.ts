@@ -7,7 +7,7 @@ import { batch1, batch2, batch3 } from '../fixtures/batches';
 import _BatchValidator from '../../src/mockBatchCreator';
 import Utils from './config/utils';
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
-const { findEventFromRequest, findBatch, waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
+const { waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
 
 declare global {
     interface Window {
@@ -45,63 +45,70 @@ describe('Beacon Upload', () => {
         fetchMock.restore();
     });
 
-    it('should trigger beacon on page visibilitychange events', function(done) {
+    it('should trigger beacon on page visibilitychange events', async () => {
         window.mParticle._resetForTests(MPConfig);
 
         const bond = sinon.spy(navigator, 'sendBeacon');
         window.mParticle.init(apiKey, window.mParticle.config);
 
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        window.mParticle.logEvent('Test Event');
+
+        await waitForCondition(hasIdentifyReturned)
 
         // visibility change is a document property, not window
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            get: () => 'hidden'
+        })
         document.dispatchEvent(new Event('visibilitychange'));
 
-        bond.called.should.eql(true);
-        bond.lastCall.args[0].should.eql(urls.events);
-
-        done();
-        })
+        expect(bond.called).to.be.true;
+        expect(bond.lastCall.args[0]).to.eql(urls.events);
     });
 
-    it('should trigger beacon on page beforeunload events', function(done) {
+    it('should trigger beacon on page beforeunload events', async () => {
         window.mParticle._resetForTests(MPConfig);
 
         const bond = sinon.spy(navigator, 'sendBeacon');
         window.mParticle.init(apiKey, window.mParticle.config);
 
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        window.mParticle.logEvent('Test Event');
+
+        await waitForCondition(hasIdentifyReturned)
 
         // karma fails if onbeforeunload is not set to null
         window.onbeforeunload = null;
         window.dispatchEvent(new Event('beforeunload'));
 
-        bond.called.should.eql(true);
-        bond.getCalls()[0].args[0].should.eql(urls.events);
-
-        done();
-        });
+        expect(bond.called).to.be.true;
+        expect(bond.lastCall.args[0]).to.eql(urls.events);
     });
 
-    it('should trigger beacon on pagehide events', function(done) {
+    it('should trigger beacon on pagehide events', async () => {
         window.mParticle._resetForTests(MPConfig);
 
         const bond = sinon.spy(navigator, 'sendBeacon');
         window.mParticle.init(apiKey, window.mParticle.config);
 
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        window.mParticle.logEvent('Test Event');
 
-        window.dispatchEvent(new Event('pagehide'));
+        await waitForCondition(hasIdentifyReturned)
+
+        // Create event listener that prevents default
+        const preventUnload = (e) => {
+            e.preventDefault();
+            return (e.returnValue = '');
+        };
+        window.addEventListener('pagehide', preventUnload)
+
+        // Trigger pagehide
+        const pagehideEvent = new Event('pagehide', { cancelable: true });
+        window.dispatchEvent(pagehideEvent);
 
         bond.called.should.eql(true);
         bond.getCalls()[0].args[0].should.eql(urls.events);
 
         (typeof bond.getCalls()[0].args[1]).should.eql('object');
-
-        done();
-        });
     });
 
     describe('Offline Storage Enabled', () => {
@@ -124,13 +131,16 @@ describe('Beacon Upload', () => {
             fetchMock.restore();
         });
 
-        it('`visibilitychange` should purge events and batches from Offline Storage after dispatch', function(done) {
+        it('`visibilitychange` should purge events and batches from Offline Storage after dispatch', async () => {
+            fetchMock.resetHistory();
+
             const eventStorageKey = 'mprtcl-v4_abcdef-events';
             const batchStorageKey = 'mprtcl-v4_abcdef-batches';
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
+
+            await waitForCondition(hasIdentifyReturned)
+
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
 
@@ -145,11 +155,14 @@ describe('Beacon Upload', () => {
                 'Stored Events should exist'
             ).to.be.ok;
 
+            const storedEvents = JSON.parse(window.sessionStorage.getItem(eventStorageKey));
+
             expect(
-                JSON.parse(window.sessionStorage.getItem(eventStorageKey))
+                storedEvents
                     .length,
                 'Events should be populated before Before Dispatch'
-            ).to.equal(3);
+            ).to.equal(1);
+            expect(storedEvents[0].EventName).to.equal(event0.EventName);
 
             expect(
                 uploader.batchesQueuedForProcessing.length,
@@ -158,6 +171,10 @@ describe('Beacon Upload', () => {
 
             // Dispatching event will trigger upload process
             // visibility change is a document property, not window
+            Object.defineProperty(document, 'visibilityState', {
+                configurable: true,
+                get: () => 'hidden'
+            })
             document.dispatchEvent(new Event('visibilitychange'));
 
             expect(
@@ -175,18 +192,18 @@ describe('Beacon Upload', () => {
                 'Batch Queue should be empty after dispatch'
             ).to.equal(0);
 
-            done();
-            });
         });
 
-        it('`beforeunload` should purge events and batches from Offline Storage after dispatch', function(done) {
+        it('`beforeunload` should purge events and batches from Offline Storage after dispatch', async () => {
+            fetchMock.resetHistory();
+
             const eventStorageKey = 'mprtcl-v4_abcdef-events';
             const batchStorageKey = 'mprtcl-v4_abcdef-batches';
 
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
+
+            await waitForCondition(hasIdentifyReturned)
             
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
@@ -203,17 +220,21 @@ describe('Beacon Upload', () => {
                 'Stored Events should exist'
             ).to.be.ok;
 
+            const storedEvents = JSON.parse(window.sessionStorage.getItem(eventStorageKey));
             expect(
-                JSON.parse(window.sessionStorage.getItem(eventStorageKey))
+                storedEvents
                     .length,
                 'Events should be populated before Before Dispatch'
-            ).to.equal(3);
+            ).to.equal(1);
+            expect(storedEvents[0].EventName).to.equal(event0.EventName);
 
             expect(
                 uploader.batchesQueuedForProcessing.length,
                 'Batch Queue be populated before dispatch'
             ).to.equal(3);
 
+            // karma fails if onbeforeunload is not set to null
+            window.onbeforeunload = null;
             // Dispatching event will trigger upload process
             window.dispatchEvent(new Event('beforeunload'));
 
@@ -231,19 +252,18 @@ describe('Beacon Upload', () => {
                 uploader.batchesQueuedForProcessing.length,
                 'Batch Queue should be empty after dispatch'
             ).to.equal(0);
-
-            done();
-        });
         });
 
-        it('`pagehide` should purge events and batches from Offline Storage after dispatch', function(done) {
+        it('`pagehide` should purge events and batches from Offline Storage after dispatch', async () => {
+            fetchMock.resetHistory();
+
             const eventStorageKey = 'mprtcl-v4_abcdef-events';
             const batchStorageKey = 'mprtcl-v4_abcdef-batches';
 
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
+
+            await waitForCondition(hasIdentifyReturned)
 
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
@@ -260,11 +280,12 @@ describe('Beacon Upload', () => {
                 'Stored Events should exist'
             ).to.be.ok;
 
+            const storedEvents = JSON.parse(window.sessionStorage.getItem(eventStorageKey));
             expect(
-                JSON.parse(window.sessionStorage.getItem(eventStorageKey))
+                storedEvents
                     .length,
                 'Events should be populated before Before Dispatch'
-            ).to.equal(3);
+            ).to.equal(1);
 
             expect(
                 uploader.batchesQueuedForProcessing.length,
@@ -288,9 +309,6 @@ describe('Beacon Upload', () => {
                 uploader.batchesQueuedForProcessing.length,
                 'Batch Queue should be empty after dispatch'
             ).to.equal(0);
-
-            done();
-            });
         });
     });
 });
