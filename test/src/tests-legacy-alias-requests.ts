@@ -487,7 +487,6 @@ describe('legacy Alias Requests', function() {
         expect(requestBody['environment']).to.equal('development');expect(requestBody.environment).to.equal('development');
     });
 
-    // https://go/j-SDKE-301
     it('should have default urls if no custom urls are set in config object, but use custom urls when they are set', () => {
         mParticle._resetForTests(MPConfig);
         

@@ -199,7 +199,6 @@ describe('batch uploader', () => {
             batch.events[batch.events.length-1].data.should.have.property('source_message_id', 'abcdefg')
         });
         
-        // http://go/j-SDKE-301
         it('should call the identity callback after a session ends if user is returning to the page after a long period of time', async () => {
             // Background of bug that this test fixes:
             // User navigates away from page and returns after some time

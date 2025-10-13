@@ -606,7 +606,6 @@ describe('event logging', function() {
         fetchMock.calls().should.have.lengthOf(0);
     });
 
-    // http://go/j-SDKE-301
     it('should log identify event', async () => {
         fetchMockSuccess(urls.identify, {
                 mpid: testMPID, is_logged_in: false

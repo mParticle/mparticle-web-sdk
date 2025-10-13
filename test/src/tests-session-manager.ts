@@ -298,7 +298,6 @@ describe('SessionManager', () => {
         });
 
         describe('#endSession', () => {
-            // https://go/j-SDKE-301
             it('should end a session', async () => {
                 mParticle.init(apiKey, window.mParticle.config);
                 clock.tick(100);
