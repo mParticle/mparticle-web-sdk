@@ -23,7 +23,14 @@ if (DEBUG === 'true') {
 }
 
 const customLaunchers = {
-  bs_chrome_mac_beta: {
+  bs_chrome_mac_tahoe_beta: {
+    base: 'BrowserStack',
+    browser: 'chrome',
+    browser_version: 'latest-beta',
+    os: 'OS X',
+    os_version: 'Tahoe' // macOS 26
+  },
+  bs_chrome_mac_sequoia_beta: {
     base: 'BrowserStack',
     browser: 'chrome',
     browser_version: 'latest-beta',
@@ -37,19 +44,19 @@ const customLaunchers = {
     os: 'Windows',
     os_version: '11'
   },
-  bs_firefox_mac_beta: {
+  bs_firefox_mac_tahoe_beta: {
+    base: 'BrowserStack',
+    browser: 'firefox',
+    browser_version: 'latest-beta',
+    os: 'OS X',
+    os_version: 'Tahoe' // macOS 26
+  },
+  bs_firefox_mac_sequoia_beta: {
     base: 'BrowserStack',
     browser: 'firefox',
     browser_version: 'latest-beta',
     os: 'OS X',
     os_version: 'Sequoia' // macOS 15
-  },
-  bs_firefox_win_latest: {
-    base: 'BrowserStack',
-    browser: 'firefox',
-    browser_version: 'latest',
-    os: 'Windows',
-    os_version: '11',
   },
   bs_firefox_mac_catalina_beta: {
     base: 'BrowserStack',
@@ -58,7 +65,21 @@ const customLaunchers = {
     os: 'OS X',
     os_version: 'Catalina' // macOS 10.15
   },
-  bs_edge_mac_beta: {
+  bs_firefox_win_latest: {
+    base: 'BrowserStack',
+    browser: 'firefox',
+    browser_version: 'latest',
+    os: 'Windows',
+    os_version: '11',
+  },
+  bs_edge_mac_tahoe_beta: {
+    base: 'BrowserStack',
+    browser: 'edge',
+    browser_version: 'latest-beta',
+    os: 'OS X',
+    os_version: 'Tahoe' // macOS 26
+  },
+  bs_edge_mac_sequoia_beta: {
     base: 'BrowserStack',
     browser: 'edge',
     browser_version: 'latest-beta',
