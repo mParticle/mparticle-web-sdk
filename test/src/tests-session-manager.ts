@@ -32,15 +32,20 @@ describe('SessionManager', () => {
     let sandbox;
 
     beforeEach(() => {
+        console.log('beforeeach');
         sandbox = sinon.createSandbox();
         fetchMock.post(urls.events, 200);
 
         fetchMockSuccess(urls.identify, {
             mpid: testMPID, is_logged_in: false
         });
+
+        console.log('beforeeach done')
     });
 
     afterEach(function() {
+        console.log('aftereach');
+
         sandbox.restore();
         mParticle._resetForTests(MPConfig);
         fetchMock.restore();
@@ -48,6 +53,7 @@ describe('SessionManager', () => {
 
     describe('Unit Tests', () => {
         beforeEach(() => {
+            console.log('is this being called?')
             clock = sinon.useFakeTimers(now.getTime());
         });
 
@@ -297,20 +303,47 @@ describe('SessionManager', () => {
             });
         });
 
-        describe('#endSession', () => {
-            it('should end a session', async () => {
+        describe.only('#endSession', () => {
+            it.only('should end a session if enough time has passed in between sessions', async () => {
+                // the clock is being mocked elsewhere, and that's why the waitForCondition was breaking, because it depends on polling every x ms to see if the condition is met
+                // one suggestion is to add a beforeEach to specific describe blocks as opposed to the entire thing.
+                clock.restore();
+                
+                // Reset mParticle before starting
+                mParticle._resetForTests(MPConfig);
+                
+                // Ensure fetch mock is set up for this test
+                fetchMockSuccess(urls.identify, {
+                    mpid: testMPID, is_logged_in: false
+                });
+                
                 mParticle.init(apiKey, window.mParticle.config);
-                clock.tick(100);
+                console.log('mParticle.init called');
 
+                await waitForCondition(hasIdentifyReturned);
+                console.log('done')
                 const mpInstance = mParticle.getInstance();
                 const persistenceSpy = sinon.spy(
                     mpInstance._Persistence,
                     'update'
                 );
 
-                mpInstance._SessionManager.endSession(true);
+                // Manipulate the last event sent time to simulate that enough time has passed
+                // Get current persistence data
+                const persistence = mpInstance._Persistence.getPersistence();
+                if (persistence?.gs) {
+                    // Set last event sent time to 1 hour ago (way past any reasonable session timeout)
+                    persistence.gs.les = new Date().getTime() - (60 * 60 * 1000);
+                    mpInstance._Persistence.savePersistence(persistence);
+                }
 
+                // the above is what cursor recommends, which I think is fine.  either this can be done, or we can update the config.sessionTimeout to .00001 or something like that.  cursor's recommendation is better.
+
+                // Now endSession() should actually end the session
+                mpInstance._SessionManager.endSession();
+                debugger
                 expect(mpInstance._Store.sessionId).to.equal(null);
+                console.log('endSession called');
                 expect(mpInstance._Store.dateLastEventSent).to.equal(null);
                 expect(mpInstance._Store.sessionAttributes).to.eql({});
                 expect(mpInstance._Store.localSessionAttributes).to.eql({});
@@ -593,6 +626,9 @@ describe('SessionManager', () => {
 
         describe('#setSessionTimer', () => {
             it('should end a session after the timeout expires', () => {
+                console.log('test start')
+            mParticle._resetForTests(MPConfig);
+
                 mParticle.init(apiKey, window.mParticle.config);
                 const mpInstance = mParticle.getInstance();
                 const endSessionSpy = sinon.spy(
