@@ -7,6 +7,7 @@ import MPSideloadedKit from './sideloadedKit';
 import { IMParticleInstanceManager } from './sdkRuntimeModels';
 import { IStore } from './store';
 import { Dictionary } from '@mparticle/web-sdk';
+import { EventTimingNames } from './eventTimingService';
 
 if (!Array.prototype.forEach) {
     Array.prototype.forEach = Polyfill.forEach;
@@ -25,6 +26,8 @@ if (!Array.isArray) {
     // @ts-ignore
     Array.prototype.isArray = Polyfill.isArray;
 }
+
+const startSdkTime = Date.now();
 
 function mParticleInstanceManager(this: IMParticleInstanceManager) {
     const self = this;
@@ -78,6 +81,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
         }
 
         client.init(apiKey, config, instanceName);
+        self.getInstance()._EventTimingService.setEventTiming(EventTimingNames.SdkStart, startSdkTime);
     };
 
     this.getInstance = function getInstance(instanceName) {
@@ -486,6 +490,15 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
     };
     this._setWrapperSDKInfo = function(name, version) {
         self.getInstance()._setWrapperSDKInfo(name, version);
+    };
+    this.setEventTiming = function(eventName, timestamp) {
+        self.getInstance()._EventTimingService.setEventTiming(eventName, timestamp);
+    };
+    this.getAllTimings = function() {
+        return self.getInstance()._EventTimingService.getAllTimings();
+    };
+    this.IsSelfHosted = function() { 
+        return self.getInstance()._IsSelfHosted; 
     };
 }
 

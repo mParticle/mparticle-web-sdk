@@ -228,6 +228,8 @@ export interface MParticleWebSDK {
     generateHash(value: string): string;
     setIntegrationAttribute(integrationModuleId: number, attrs: IntegrationAttribute): void;
     getIntegrationAttributes(integrationModuleId: number): IntegrationAttribute;
+    setEventTiming(eventName: string, timestamp: number): void;
+    getAllTimings(): Dictionary<number>;
 }
 
 // https://go.mparticle.com/work/SQDSDKS-4805
@@ -248,7 +250,7 @@ export interface IMParticleInstanceManager extends MParticleWebSDK {
     // https://go.mparticle.com/work/SQDSDKS-7060
     sessionManager: Pick<ISessionManager, 'getSession'>; 
     Store: IStore;
-
+    IsSelfHosted(): boolean;
     // Public Methods
     getInstance(instanceName?: string): IMParticleWebSDKInstance;
 }
