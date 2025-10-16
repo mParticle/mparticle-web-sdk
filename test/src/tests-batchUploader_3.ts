@@ -223,32 +223,30 @@ describe('batch uploader', () => {
             window.mParticle.init(apiKey, window.mParticle.config);
             
             const mpInstance = window.mParticle.getInstance();
-            
             await waitForCondition(() => {
-                return mpInstance._Store?.identityCallInFlight === false;
+                return (
+window.mParticle.getInstance()._Store?.identityCallInFlight === false
+                );
             });
             
-            await mpInstance._APIClient.uploader.prepareAndUpload();
+            // Upload first batch
+            await window.mParticle.getInstance()._APIClient.uploader.prepareAndUpload();
             
-            mpInstance._SessionManager.endSession(true);
-            await mpInstance._APIClient.uploader.prepareAndUpload();
-            
-            mpInstance._SessionManager.startNewSession();
-            
-            mpInstance._Events.logEvent({
-                messageType: Types.MessageType.AppStateTransition,
-            });
-            
-            mpInstance.Identity.identify(
-                window.mParticle.config.identifyRequest,
-                window.mParticle.config.identityCallback
-            );
+            // Simulate that last event was 35 minutes ago
+            const persistence = mpInstance._Persistence.getPersistence();
+            if (persistence?.gs) {
+                persistence.gs.les = new Date().getTime() - (35 * 60 * 1000);
+                mpInstance._Persistence.savePersistence(persistence);
+            }
 
+            window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(() => {
-                return mpInstance._Store?.identityCallInFlight === false;
+                return (
+                    window.mParticle.getInstance()?._Store?.identityCallInFlight === false
+                );
             });
             
-            await mpInstance._APIClient.uploader.prepareAndUpload();
+            await window.mParticle.getInstance()._APIClient.uploader.prepareAndUpload();
 
             const eventsCalls = fetchMock.calls().filter(call => call[0].includes('/events'));
 
