@@ -297,7 +297,7 @@ describe('SessionManager', () => {
                 clock = sinon.useFakeTimers(now.getTime());
             });
 
-            it('should end a session', async () => {
+            it('should end a session if enough time has passed in between sessions', async () => {
                 clock.restore();
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
@@ -345,7 +345,7 @@ describe('SessionManager', () => {
                 expect(persistenceSpy.called).to.equal(true);
             });
 
-            it('should log  NoSessionToEnd Message  and return if Persistence is null', () => {
+            it('should log NoSessionToEnd Message and return if Persistence is null', () => {
                 mParticle.init(apiKey, window.mParticle.config);
 
                 const mpInstance = mParticle.getInstance();
@@ -493,7 +493,7 @@ describe('SessionManager', () => {
                 );
             });
 
-            it('should NOT end session if session has not timed out', () => {
+            it('should NOT end a session if enough time has passed in between sessions', () => {
                 // The default timeout limit is 30 minutes.
                 const twentyMinutesAgo = new Date();
                 twentyMinutesAgo.setMinutes(now.getMinutes() - 20);
