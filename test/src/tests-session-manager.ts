@@ -29,34 +29,21 @@ const mParticle = window.mParticle;
 describe('SessionManager', () => {
     const now = new Date();
     let clock;
-    let sandbox;
 
     beforeEach(() => {
-        sandbox = sinon.createSandbox();
+        mParticle._resetForTests(MPConfig);
         fetchMock.post(urls.events, 200);
-
         fetchMockSuccess(urls.identify, {
             mpid: testMPID, is_logged_in: false
         });
     });
 
     afterEach(function() {
-        sandbox.restore();
-        mParticle._resetForTests(MPConfig);
+        sinon.restore();
         fetchMock.restore();
     });
 
     describe('Unit Tests', () => {
-        beforeEach(() => {
-            clock = sinon.useFakeTimers(now.getTime());
-        });
-
-        afterEach(function() {
-            sandbox.restore();
-            clock.restore();
-            mParticle._resetForTests(MPConfig);
-        });
-
         describe('#initialize', () => {
             beforeEach(() => {
                 // Change timeout to 10 minutes so we can make sure defaults are not in use
@@ -165,6 +152,14 @@ describe('SessionManager', () => {
         });
 
         describe('#startNewSession', () => {
+            beforeEach(() => {
+                clock = sinon.useFakeTimers(now.getTime());
+            });
+
+            afterEach(() => {
+                clock.restore();
+            });
+
             it('should create a new session', () => {
                 const generateUniqueIdSpy = sinon.stub(
                     mParticle.getInstance()._Helpers,
@@ -298,9 +293,14 @@ describe('SessionManager', () => {
         });
 
         describe('#endSession', () => {
+            beforeEach(() => {
+                clock = sinon.useFakeTimers(now.getTime());
+            });
+
             it('should end a session', async () => {
+                clock.restore();
                 mParticle.init(apiKey, window.mParticle.config);
-                clock.tick(100);
+                await waitForCondition(hasIdentifyReturned);
 
                 const mpInstance = mParticle.getInstance();
                 const persistenceSpy = sinon.spy(
@@ -308,8 +308,13 @@ describe('SessionManager', () => {
                     'update'
                 );
 
-                mpInstance._SessionManager.endSession(true);
+                const persistence = mpInstance._Persistence.getPersistence();
+                if (persistence?.gs) {
+                    persistence.gs.les = new Date().getTime() - (60 * 60 * 1000);
+                    mpInstance._Persistence.savePersistence(persistence);
+                }
 
+                mpInstance._SessionManager.endSession();
                 expect(mpInstance._Store.sessionId).to.equal(null);
                 expect(mpInstance._Store.dateLastEventSent).to.equal(null);
                 expect(mpInstance._Store.sessionAttributes).to.eql({});
@@ -489,7 +494,6 @@ describe('SessionManager', () => {
             });
 
             it('should NOT end session if session has not timed out', () => {
-                const now = new Date();
                 // The default timeout limit is 30 minutes.
                 const twentyMinutesAgo = new Date();
                 twentyMinutesAgo.setMinutes(now.getMinutes() - 20);
@@ -529,11 +533,8 @@ describe('SessionManager', () => {
                 );
                 generateUniqueIdSpy.returns('test-unique-id');
 
-                const now = new Date();
-                const twentyMinutesAgo = new Date();
-                const hourAgo = new Date();
-                twentyMinutesAgo.setMinutes(now.getMinutes() - 20);
-                hourAgo.setMinutes(now.getMinutes() - 60);
+                const twentyMinutesAgo = new Date(now.getTime() - (20 * 60 * 1000));
+                const hourAgo = new Date(now.getTime() - (60 * 60 * 1000));
 
                 mParticle.init(apiKey, window.mParticle.config);
                 const mpInstance = mParticle.getInstance();
@@ -592,6 +593,14 @@ describe('SessionManager', () => {
         });
 
         describe('#setSessionTimer', () => {
+            beforeEach(() => {
+                clock = sinon.useFakeTimers(now.getTime());
+            });
+
+            afterEach(() => {
+                clock.restore();
+            }); 
+
             it('should end a session after the timeout expires', () => {
                 mParticle.init(apiKey, window.mParticle.config);
                 const mpInstance = mParticle.getInstance();
@@ -855,8 +864,12 @@ describe('SessionManager', () => {
     });
 
     describe('Integration Tests', () => {
-        afterEach(function() {
-            fetchMock.restore();
+        beforeEach(function() {
+            clock = sinon.useFakeTimers(now.getTime());
+        });
+
+        afterEach(() => {
+            clock.restore();
         });
 
         it('should end a session if the session timeout expires', () => {
@@ -865,9 +878,6 @@ describe('SessionManager', () => {
                 'generateUniqueId'
             );
             generateUniqueIdSpy.returns('test-unique-id');
-
-            const now = new Date();
-            clock = sinon.useFakeTimers(now.getTime());
 
             mParticle.init(apiKey, window.mParticle.config);
             const mpInstance = mParticle.getInstance();
@@ -900,11 +910,10 @@ describe('SessionManager', () => {
             // Persistence isn't necessary for this feature, but we should test
             // to see that it is called in case this ever needs to be refactored
             expect(persistenceSpy.called).to.equal(true);
-
-            clock.restore();
         });
 
         it('should call identify when SDKConfig.identifyRequest differs from getCurrentUser().userIdentities on page refresh', async () => {
+                clock.restore();
                 // First initialization with initial identity request
                 const initialIdentityApiData: IdentityApiData = {
                     userIdentities: {
@@ -956,6 +965,7 @@ describe('SessionManager', () => {
             });
 
             it('should NOT call identify when SDKConfig.identifyRequest matches getCurrentUser().userIdentities on page refresh', async () => {
+                clock.restore();
                 // First initialization with initial identity request
                 const initialIdentityApiData: IdentityApiData = {
                     userIdentities: {
