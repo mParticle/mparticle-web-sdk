@@ -9,7 +9,7 @@ declare global {
     }
 }
 
-const mParticle = window.mParticle as IMParticleInstanceManager;;
+const mParticle = (globalThis as any).mParticle as IMParticleInstanceManager;
 
 describe('mParticle instance manager', () => {
 
@@ -28,7 +28,7 @@ describe('mParticle instance manager', () => {
 
         console.warn = () => {};
         console.error = () => {};
-        window.mParticle.config = { };
+        (globalThis as any).mParticle.config = { };
     });
 
     afterEach(() => {
