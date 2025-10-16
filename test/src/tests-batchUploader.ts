@@ -49,7 +49,6 @@ describe('batch uploader', () => {
     });
 
     afterEach(() => {
-        clock?.restore();
         beaconSpy?.restore();
         sinon.restore();
         fetchMock.restore();
@@ -61,14 +60,17 @@ describe('batch uploader', () => {
     describe('AST background events fired during page events', () => { 
         describe('should not fire AST background events if flag is astBackgroundEvents "False"', () => {
             beforeEach(() => {
+                clock = setupFakeTimers();
                 window.mParticle.config.flags.astBackgroundEvents = "False"
+            });
+
+            afterEach(() => {
+                clock.restore();
             });
 
             it('should not have an AST of background event when visibility changes', async () => {
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
-                
-                clock = setupFakeTimers();
                 // Add a regular event first to ensure we have something in the queue
                 window.mParticle.logEvent('Test Event');
 
@@ -98,13 +100,16 @@ describe('batch uploader', () => {
         describe('should fire AST background events if flag is astBackgroundEvents "True"', () => {
             beforeEach(() => {
                 window.mParticle.config.flags.astBackgroundEvents = "True"
+                clock = setupFakeTimers();
+            });
+
+            afterEach(() => {
+                clock.restore();
             });
 
         it('should add application state transition event when visibility changes to hidden', async () => {
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
-            
-            clock = setupFakeTimers();
             // Add a regular event first to ensure we have something in the queue
             window.mParticle.logEvent('Test Event');
             // Mock navigator.sendBeacon
@@ -135,7 +140,6 @@ describe('batch uploader', () => {
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
 
-            clock = setupFakeTimers();
             // Log a regular event
             window.mParticle.logEvent('Test Event');
 
@@ -209,7 +213,6 @@ describe('batch uploader', () => {
             const user = window.mParticle.Identity.getCurrentUser();
             user.setConsentState(consentState);
 
-            clock = setupFakeTimers();
             // Mock navigator.sendBeacon
             beaconSpy = sinon.spy(navigator, 'sendBeacon');
 
@@ -304,7 +307,6 @@ describe('batch uploader', () => {
             const user = window.mParticle.Identity.getCurrentUser();
             user.setConsentState(consentState);
 
-            clock = setupFakeTimers();
             // Mock navigator.sendBeacon
             beaconSpy = sinon.spy(navigator, 'sendBeacon');
 
@@ -364,6 +366,11 @@ describe('batch uploader', () => {
     describe('AST Debouncing events', () => {
         beforeEach(() => {
             window.mParticle.config.flags.astBackgroundEvents = "True";
+            clock = setupFakeTimers();
+        });
+
+        afterEach(() => {
+            clock.restore();
         });
 
         it('should only fire a single AST when another visibility event happens within the debounce time window', async () => {
@@ -371,7 +378,6 @@ describe('batch uploader', () => {
 
             await waitForCondition(hasIdentifyReturned);
             
-            clock = setupFakeTimers();
             // Add a regular event first to ensure we have something in the queue
             window.mParticle.logEvent('Test Event');
             // Mock navigator.sendBeacon
@@ -404,6 +410,7 @@ describe('batch uploader', () => {
         });
 
         it('should fire multiple ASTs when another visibility event happens outside the debounce time window', async () => {
+            clock.restore();
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
             
@@ -925,14 +932,6 @@ describe('batch uploader', () => {
                 offlineStorage: '100',
                 ...enableBatchingConfigFlags,
             };
-
-            fetchMockSuccess(urls.identify, {
-                mpid: testMPID,
-                is_logged_in: false,
-            });
-
-            window.sessionStorage.clear();
-            window.localStorage.clear();
         });
 
         it('should store events in Session Storage in order of creation', async () => {
@@ -1005,7 +1004,6 @@ describe('batch uploader', () => {
 
             // Batch Queue should be empty because batch successfully uploaded
             expect(uploader.batchesQueuedForProcessing.length).to.equal(0);
-            clock.restore();
         });
 
         it('should save batches in sequence to Local Storage when an HTTP 500 error is encountered', async () => {
@@ -1077,8 +1075,6 @@ describe('batch uploader', () => {
 
             // Manually initiate the upload process - turn event into batches and upload the batch
             await window.mParticle.getInstance()._APIClient.uploader.prepareAndUpload();
-
-            clock.restore();
 
             expect(window.localStorage.getItem(batchStorageKey)).to.be.ok;
 
@@ -1255,12 +1251,6 @@ describe('batch uploader', () => {
 
             const batchStorageKey = 'mprtcl-v4_abcdef-batches';
 
-            fetchMock.restore();
-            fetchMockSuccess(urls.identify, {
-                mpid: testMPID,
-                is_logged_in: false,
-            });
-            fetchMock.post(urls.events, 200);
 
             // Set up SDK and Uploader
             window.mParticle.init(apiKey, window.mParticle.config);
