@@ -15,7 +15,7 @@ describe('mParticle instance manager', () => {
             mParticle._instances = {};
         }
         
-        (global.fetch as jest.Mock).mockImplementation((url: string) => {
+        (globalThis.fetch as jest.Mock).mockImplementation((url: string) => {
             if (url.includes('config')) {
                 return Promise.resolve({
                     ok: true,
