@@ -2,7 +2,7 @@ import { urls, apiKey, MPConfig, testMPID } from './config/constants';
 import Utils from './config/utils';
 import { expect } from 'chai';
 import fetchMock from 'fetch-mock/esm/client';
-import Types, { ProductActionType } from '../../src/types';
+import { ProductActionType } from '../../src/types';
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 const { fetchMockSuccess, waitForCondition, hasIdentifyReturned  } = Utils;
 
@@ -225,7 +225,7 @@ describe('batch uploader', () => {
             const mpInstance = window.mParticle.getInstance();
             await waitForCondition(() => {
                 return (
-window.mParticle.getInstance()._Store?.identityCallInFlight === false
+                    mpInstance._Store?.identityCallInFlight === false
                 );
             });
             
