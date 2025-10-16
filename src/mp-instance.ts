@@ -174,6 +174,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 !config.hasOwnProperty('requestConfig') ||
                 config.requestConfig
             ) {
+                self._IsSelfHosted = true;
                 const configApiClient = new ConfigAPIClient(
                     apiKey,
                     config,
@@ -189,8 +190,6 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
 
                     completeSDKInitialization(apiKey, mergedConfig, this);
                 });
-
-                self._IsSelfHosted = true;
             } else {
                 completeSDKInitialization(apiKey, config, this);
             }

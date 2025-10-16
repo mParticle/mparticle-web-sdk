@@ -1,7 +1,5 @@
-import fetchMock from 'fetch-mock/esm/client';
-import { expect } from 'chai';
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
-import { EventTimingNames } from '../../src/eventTimingService';
+import { EventTimingName } from '../../src/eventTimingService';
 
 declare global {
     interface Window {
@@ -11,28 +9,38 @@ declare global {
 
 const mParticle = (globalThis as any).mParticle as IMParticleInstanceManager;
 
+global.fetch = jest.fn();
+
 describe('mParticle instance manager', () => {
 
     beforeEach(() => {
+        // Reset mocks
+        jest.clearAllMocks();
+        
         if (mParticle._instances) {
             mParticle._instances = {};
         }
         
-        fetchMock.get(
-            'https://jssdkcdns.mparticle.com/JS/v2/apiKey1/config?env=0',
-            {
-                status: 200,
-                body: JSON.stringify({ workspaceToken: 'wtTest1' }),
+        (global.fetch as jest.Mock).mockImplementation((url: string) => {
+            if (url.includes('config')) {
+                return Promise.resolve({
+                    ok: true,
+                    status: 200,
+                    json: () => Promise.resolve({ workspaceToken: 'wtTest1' }),
+                });
             }
-        );
+            return Promise.reject(new Error('Unmocked fetch call'));
+        });
 
-        console.warn = () => {};
-        console.error = () => {};
+        jest.spyOn(console, 'warn').mockImplementation(() => {});
+        jest.spyOn(console, 'error').mockImplementation(() => {});
+        
+        // Set up config
         (globalThis as any).mParticle.config = { };
     });
 
     afterEach(() => {
-        fetchMock.restore();
+        jest.restoreAllMocks();
     });
 
     it('sets sdkStart event timing', async () => {
@@ -40,19 +48,19 @@ describe('mParticle instance manager', () => {
 
         const timings = mParticle.getAllTimings();
 
-        expect(timings).to.have.keys(EventTimingNames.SdkStart);
-        expect(timings[EventTimingNames.SdkStart]).to.be.a('number');
+        expect(timings).toHaveProperty(EventTimingName.SdkStart);
+        expect(typeof timings[EventTimingName.SdkStart]).toBe('number');
     });
 
     it('should set IsSelfHosted to false when config is picked from window.mParticle.config', () => {
         mParticle.init('testApiKey', { requestConfig: false });
 
-        expect(mParticle.IsSelfHosted()).to.equal(false);
+        expect(mParticle.isSelfHosted()).toBe(false);
     });
 
     it('should set IsSelfHosted to true when config is not passed and window.mParticle.config is not defined', () => {
         mParticle.init('testApiKey', { requestConfig: true });
         
-        expect(mParticle.IsSelfHosted()).to.equal(true);
+        expect(mParticle.isSelfHosted()).toBe(true);
     });
 });

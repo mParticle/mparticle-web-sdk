@@ -217,7 +217,7 @@ describe('mParticle instance manager', () => {
             'Rokt',
             'setEventTiming',
             'getAllTimings',
-            'IsSelfHosted',
+            'isSelfHosted',
         ]);
     });
 

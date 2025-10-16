@@ -40,6 +40,7 @@ import {  SDKECommerceAPI } from './ecommerce.interfaces';
 import { IErrorLogMessage, IMParticleWebSDKInstance, IntegrationDelays } from './mp-instance';
 import Constants from './constants';
 import RoktManager, { IRoktLauncherOptions } from './roktManager';
+import { EventTimingName } from './eventTimingService';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -228,7 +229,7 @@ export interface MParticleWebSDK {
     generateHash(value: string): string;
     setIntegrationAttribute(integrationModuleId: number, attrs: IntegrationAttribute): void;
     getIntegrationAttributes(integrationModuleId: number): IntegrationAttribute;
-    setEventTiming(eventName: string, timestamp: number): void;
+    setEventTiming(eventName: EventTimingName, timestamp: number): void;
     getAllTimings(): Dictionary<number>;
 }
 
@@ -250,7 +251,7 @@ export interface IMParticleInstanceManager extends MParticleWebSDK {
     // https://go.mparticle.com/work/SQDSDKS-7060
     sessionManager: Pick<ISessionManager, 'getSession'>; 
     Store: IStore;
-    IsSelfHosted(): boolean;
+    isSelfHosted(): boolean;
     // Public Methods
     getInstance(instanceName?: string): IMParticleWebSDKInstance;
 }

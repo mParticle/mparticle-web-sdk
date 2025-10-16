@@ -1,14 +1,14 @@
 import { Dictionary } from '@mparticle/web-sdk';
 
 export interface IEventTimingService {
-    setEventTiming: (eventName: string, timestamp: number) => void;
+    setEventTiming: (eventName: EventTimingName, timestamp: number) => void;
     getAllTimings: () => Dictionary<number>;
 }
 
 export function EventTimingService(this: IEventTimingService) {
     const eventTimings = {} as Dictionary<number>;
 
-    this.setEventTiming = function(eventName, timestamp) {
+    this.setEventTiming = function(eventName: EventTimingName, timestamp) {
         eventTimings[eventName] = timestamp;
     };
 
@@ -16,12 +16,10 @@ export function EventTimingService(this: IEventTimingService) {
         return eventTimings;
     };
 }
-
-export const EventTimingNames = {
+export type EventTimingName = (typeof EventTimingName)[keyof typeof EventTimingName];
+export const EventTimingName = {
     SdkStart: 'sdkStart',
     SdkRoktScriptAppended: 'sdkRoktScriptAppended',
     SdkScriptRequestStart: 'sdkScriptRequestStart',
     SdkScriptRequestEnd: 'sdkScriptRequestEnd',
 } as const;
-
-export type EventTimingName = typeof EventTimingNames[keyof typeof EventTimingNames];
