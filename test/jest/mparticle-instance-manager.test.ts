@@ -1,15 +1,9 @@
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 import { EventTimingName } from '../../src/eventTimingService';
 
-declare global {
-    interface Window {
-        mParticle: IMParticleInstanceManager;
-    }
-}
-
 const mParticle = (globalThis as any).mParticle as IMParticleInstanceManager;
 
-global.fetch = jest.fn();
+globalThis.fetch = jest.fn();
 
 describe('mParticle instance manager', () => {
 
