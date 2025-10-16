@@ -6,14 +6,13 @@ export interface IEventTimingService {
 }
 
 export function EventTimingService(this: IEventTimingService) {
-    const self = this;
     const eventTimings = {} as Dictionary<number>;
 
-    self.setEventTiming = function(eventName, timestamp) {
+    this.setEventTiming = function(eventName, timestamp) {
         eventTimings[eventName] = timestamp;
     };
 
-    self.getAllTimings = function() {
+    this.getAllTimings = function() {
         return eventTimings;
     };
 }

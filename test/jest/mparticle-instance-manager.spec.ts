@@ -45,13 +45,13 @@ describe('mParticle instance manager', () => {
     });
 
     it('should set IsSelfHosted to false when config is picked from window.mParticle.config', () => {
-        mParticle.init('dummyApiKey', { requestConfig: false });
+        mParticle.init('testApiKey', { requestConfig: false });
 
         expect(mParticle.IsSelfHosted()).to.equal(false);
     });
 
     it('should set IsSelfHosted to true when config is not passed and window.mParticle.config is not defined', () => {
-        mParticle.init('dummyApiKey', {});
+        mParticle.init('testApiKey', {});
         
         expect(mParticle.IsSelfHosted()).to.equal(true);
     });
