@@ -2,7 +2,6 @@ import sinon from 'sinon';
 import { expect } from 'chai';
 import Utils from './config/utils';
 import Constants, { HTTP_ACCEPTED, HTTP_BAD_REQUEST, HTTP_OK } from '../../src/constants';
-import fetchMock from 'fetch-mock/esm/client';
 import {
     urls,
     apiKey,
@@ -15,6 +14,9 @@ import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 
 const {
     setCookie,
+    findRequestURL,
+    waitForCondition,
+    hasIdentifyReturned
 } = Utils;
 
 const { HTTPCodes } = Constants;
@@ -61,7 +63,7 @@ describe('legacy Alias Requests', function() {
 
     afterEach(function() {
         mockServer.restore();
-        fetchMock.restore();
+        // fetchMock.restore();
         mParticle._resetForTests(MPConfig);
         clock.restore();
         window.fetch = originalFetch;
@@ -487,9 +489,7 @@ describe('legacy Alias Requests', function() {
         expect(requestBody['environment']).to.equal('development');expect(requestBody.environment).to.equal('development');
     });
 
-    it('should have default urls if no custom urls are set in config object, but use custom urls when they are set', () => {
-        mParticle._resetForTests(MPConfig);
-        
+    it('should have default urls if no custom urls are set in config object, but use custom urls when they are set', async () => {
         window.mParticle.config.v3SecureServiceUrl =
             'testtesttest-custom-v3secureserviceurl/v3/JS/';
         window.mParticle.config.configUrl =
@@ -497,19 +497,27 @@ describe('legacy Alias Requests', function() {
         window.mParticle.config.identityUrl = 'custom-identityUrl/';
         window.mParticle.config.aliasUrl = 'custom-aliasUrl/';
 
-        mockServer.respondWith('https://custom-identityUrl/identify', [HTTP_OK, {}, JSON.stringify({ mpid: testMPID, is_logged_in: false })]);
-        mockServer.respondWith('https://custom-identityUrl/login', [HTTP_OK, {}, JSON.stringify({ mpid: 'loginMPID', is_logged_in: true })]);
-        mockServer.respondWith('https://custom-aliasUrl/test_key/Alias', [HTTP_OK, {}, JSON.stringify({})]);
-
+        mockServer.respondWith('https://testtesttest-custom-v3secureserviceurl/v3/JS/test_key/events', HTTP_OK, JSON.stringify({ mpid: testMPID, Store: {}}));
+        clock.restore();
         mParticle.init(apiKey, window.mParticle.config);
-        clock.tick(100);         mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(window.mParticle.config.v3SecureServiceUrl);
-        mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(window.mParticle.config.configUrl);
-        mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(window.mParticle.config.identityUrl);
-        mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(window.mParticle.config.aliasUrl);
+        await waitForCondition(hasIdentifyReturned);
+
+        mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(window.mParticle.config.v3SecureServiceUrl)
+        mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(window.mParticle.config.configUrl)
+        mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(window.mParticle.config.identityUrl)
+        mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(window.mParticle.config.aliasUrl)
+
+        mockServer.requests = [];
+        // test events endpoint
+        mParticle.logEvent('Test Event');
+        mockServer.requests[0].url.should.equal(
+            'https://' +
+                window.mParticle.config.v3SecureServiceUrl +
+                'test_key/events'
+        );
 
         // test Identity endpoint
         mockServer.requests = [];
-        mParticle.getInstance()._Store.identityCallInFlight = false;
         mParticle.Identity.login({ userIdentities: { customerid: 'test1' } });
         mockServer.requests[0].url.should.equal(
             'https://' + window.mParticle.config.identityUrl + 'login'
