@@ -14,12 +14,10 @@ const mParticle = window.mParticle as IMParticleInstanceManager;;
 describe('mParticle instance manager', () => {
 
     beforeEach(() => {
-        // Reset instances before each test
         if (mParticle._instances) {
             mParticle._instances = {};
         }
         
-        fetchMock.restore();
         fetchMock.get(
             'https://jssdkcdns.mparticle.com/JS/v2/apiKey1/config?env=0',
             {

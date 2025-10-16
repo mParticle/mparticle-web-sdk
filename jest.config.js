@@ -7,6 +7,7 @@ module.exports = {
     transform: {
         '^.+\\.(js)$': 'ts-jest',
     },
+    transformIgnorePatterns: ['node_modules/(?!(fetch-mock)/)'],
     globals: {
         'ts-jest': {
             tsconfig: {
