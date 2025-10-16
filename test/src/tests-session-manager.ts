@@ -493,7 +493,7 @@ describe('SessionManager', () => {
                 );
             });
 
-            it('should NOT end a session if enough time has passed in between sessions', () => {
+            it('should NOT end a session if NOT enough time has passed in between sessions', () => {
                 // The default timeout limit is 30 minutes.
                 const twentyMinutesAgo = new Date();
                 twentyMinutesAgo.setMinutes(now.getMinutes() - 20);
