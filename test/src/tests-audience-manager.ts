@@ -1,7 +1,7 @@
 import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import { expect } from 'chai';
-import { urls, apiKey, testMPID } from './config/constants';
+import { urls, apiKey, testMPID, MPConfig } from './config/constants';
 import Constants from '../../src/constants';
 import { IMParticleInstanceManager, SDKLoggerApi } from '../../src/sdkRuntimeModels';
 import AudienceManager, {
@@ -21,21 +21,12 @@ declare global {
 const userAudienceUrl = `https://${Constants.DefaultBaseUrls.userAudienceUrl}${apiKey}/audience`;
 
 describe('AudienceManager', () => {
-    before(function() {
-        fetchMock.restore();
-        sinon.restore();
-    });
-
-    beforeEach(function() {
-        fetchMock.restore();
-
+    beforeEach(() => {    
+        window.mParticle._resetForTests(MPConfig);
+        fetchMock.config.overwriteRoutes = true; 
         fetchMockSuccess(urls.identify, {
             mpid: testMPID, is_logged_in: false
         });
-
-        window.mParticle.config.flags = {
-            eventBatchingIntervalMillis: 1000,
-        };
     });
 
     afterEach(() => {
@@ -59,12 +50,16 @@ describe('AudienceManager', () => {
     });
 
     describe('#sendGetUserAudienceRequest', () => {
-        const newLogger = new Logger(window.mParticle.config);
-        const audienceManager = new AudienceManager(
-            Constants.DefaultBaseUrls.userAudienceUrl,
-            apiKey,
-            newLogger
-        );
+        let newLogger: SDKLoggerApi;
+        let audienceManager: AudienceManager;
+        beforeEach(() => {
+            newLogger = new Logger(window.mParticle.config);
+            audienceManager = new AudienceManager(
+                Constants.DefaultBaseUrls.userAudienceUrl,
+                apiKey,
+                newLogger
+            );
+        });
 
         const audienceMembershipServerResponse: IAudienceMembershipsServerResponse = {
             ct: 1710441407914,
@@ -135,15 +130,15 @@ describe('AudienceManager', () => {
             };
 
             const expectedAudienceMembership2: IAudienceMemberships = {
-            currentAudienceMemberships: [
-                {
-                    audience_id: 9876,
-                },
-                {
-                    audience_id: 5432,
-                },
-            ]
-        };
+                currentAudienceMemberships: [
+                    {
+                        audience_id: 9876,
+                    },
+                    {
+                        audience_id: 5432,
+                    },
+                ]
+            };
 
             fetchMock.get(newMPIDAudienceEndpoint, {
                 status: 200,

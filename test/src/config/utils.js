@@ -10,6 +10,8 @@ import {
     das,
 } from './constants';
 import fetchMock from 'fetch-mock/esm/client';
+import sinon from 'sinon';
+import { expect } from 'chai';
 
 var pluses = /\+/g,
     decoded = function decoded(s) {
@@ -624,7 +626,35 @@ var pluses = /\+/g,
         return window.mParticle.Identity.getCurrentUser()?.getMPID() === _mpid;
     },
     hasIdentityCallInflightReturned = () => !mParticle.getInstance()?._Store?.identityCallInFlight,
-    hasConfigurationReturned = () => !!mParticle.getInstance()?._Store?.configurationLoaded;
+    hasConfigurationReturned = () => !!mParticle.getInstance()?._Store?.configurationLoaded,
+    getBeaconBatch = async function(beaconSpy, callIndex = 0) {
+        const beaconCall = beaconSpy.getCall(callIndex);
+        expect(beaconCall, 'Expected beacon call to exist').to.exist;
+        
+        const blob = beaconCall.args[1];
+        expect(blob).to.be.instanceof(Blob);
+        
+        const reader = new FileReader();
+        const blobContent = await new Promise((resolve) => {
+            reader.onload = () => resolve(reader.result);
+            reader.readAsText(blob);
+        });
+        
+        return JSON.parse(blobContent);
+    },
+    setupFakeTimers = function(now) {
+        return sinon.useFakeTimers({
+            now: now || Date.now(),
+            shouldAdvanceTime: true
+        });
+    },
+    triggerVisibilityHidden = function() {
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            get: () => 'hidden'
+        });
+        document.dispatchEvent(new Event('visibilitychange'));
+    };
 
 var TestsCore = {
     findCookie: findCookie,
@@ -653,6 +683,9 @@ var TestsCore = {
     hasIdentifyReturned: hasIdentifyReturned,
     hasIdentityCallInflightReturned,
     hasConfigurationReturned,
+    getBeaconBatch: getBeaconBatch,
+    setupFakeTimers: setupFakeTimers,
+    triggerVisibilityHidden: triggerVisibilityHidden,
 };
 
 export default TestsCore;

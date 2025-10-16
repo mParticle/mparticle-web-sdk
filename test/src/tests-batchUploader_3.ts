@@ -14,6 +14,7 @@ declare global {
 
 describe('batch uploader', () => {
     beforeEach(() => {
+        window.mParticle._resetForTests(MPConfig);
         fetchMock.restore();
         fetchMock.config.overwriteRoutes = true;
         fetchMockSuccess(urls.identify, {
@@ -38,7 +39,6 @@ describe('batch uploader', () => {
         });
 
         it('should use custom v3 endpoint', async () => {
-            window.mParticle._resetForTests(MPConfig);
             fetchMock.resetHistory();
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
@@ -59,7 +59,6 @@ describe('batch uploader', () => {
         });
 
         it('should have latitude/longitude for location when batching', async () => {
-            window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
             
@@ -75,7 +74,6 @@ describe('batch uploader', () => {
         });
 
         it('should force uploads when using public `upload`', async () => {
-            window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
             
@@ -100,9 +98,7 @@ describe('batch uploader', () => {
         });
 
         it('should force uploads when a commerce event is called', async () => {
-            window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-
             await waitForCondition(hasIdentifyReturned);
             
             window.mParticle.logEvent('Test Event');
@@ -124,8 +120,6 @@ describe('batch uploader', () => {
         });
 
         it('should return pending uploads if a 500 is returned', async function() {
-            window.mParticle._resetForTests(MPConfig);
-
             fetchMock.post(urls.events, 500);
             
             window.mParticle.init(apiKey, window.mParticle.config);
@@ -157,9 +151,7 @@ describe('batch uploader', () => {
         });
 
         it('should send source_message_id with events to v3 endpoint', async () => {
-            window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-
             await waitForCondition(hasIdentifyReturned);
             
             window.mParticle.logEvent('Test Event');
@@ -175,7 +167,6 @@ describe('batch uploader', () => {
         });
 
         it('should send user-defined SourceMessageId events to v3 endpoint', async () => {
-            window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
             
@@ -207,9 +198,6 @@ describe('batch uploader', () => {
             // the previous session ID because the identity call back fired
             // before the session logic that determines if a new session should
             // start.
-
-            window.mParticle._resetForTests(MPConfig);
-            
             window.mParticle.config.identityCallback = function(result) {
                 let currentUser = result.getUser()
                 if (currentUser) {
