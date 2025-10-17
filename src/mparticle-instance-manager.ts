@@ -492,6 +492,9 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
     this._setWrapperSDKInfo = function(name, version) {
         self.getInstance()._setWrapperSDKInfo(name, version);
     };
+    this.getLauncherInstanceGuid = function() {
+        return self.getInstance().getLauncherInstanceGuid();
+    };
 }
 
 const mParticleManager = new mParticleInstanceManager();
