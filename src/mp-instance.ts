@@ -137,6 +137,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this.PromotionType = PromotionActionType;
     this.ProductActionType = ProductActionType;
 
+
     this._Identity = new Identity(this);
     this.Identity = this._Identity.IdentityAPI;
     this.generateHash = this._Helpers.generateHash;

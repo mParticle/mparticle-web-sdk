@@ -248,6 +248,7 @@ export interface IMParticleInstanceManager extends MParticleWebSDK {
     // https://go.mparticle.com/work/SQDSDKS-7060
     sessionManager: Pick<ISessionManager, 'getSession'>; 
     Store: IStore;
+
     // Public Methods
     getInstance(instanceName?: string): IMParticleWebSDKInstance;
 }
