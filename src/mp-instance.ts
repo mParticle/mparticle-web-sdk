@@ -51,7 +51,6 @@ import { IPersistence } from './persistence.interfaces';
 import ForegroundTimer from './foregroundTimeTracker';
 import RoktManager, { IRoktOptions } from './roktManager';
 import filteredMparticleUser from './filteredMparticleUser';
-import { EventTimingService, IEventTimingService } from './eventTimingService';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -90,8 +89,6 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _instanceName: string;
     _preInit: IPreInit;
     _timeOnSiteTimer: ForegroundTimer; 
-    _EventTimingService: IEventTimingService;
-    _IsSelfHosted: boolean;
 }
 
 const { Messages, HTTPCodes, FeatureFlags, CaptureIntegrationSpecificIdsV2Modes } = Constants;
@@ -132,7 +129,6 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         forwarderConstructors: [],
     };
     this._RoktManager = new RoktManager();
-    this._EventTimingService = new EventTimingService();
 
     // required for forwarders once they reference the mparticle instance
     this.IdentityType = IdentityType;
@@ -141,7 +137,6 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this.PromotionType = PromotionActionType;
     this.ProductActionType = ProductActionType;
 
-    this._IsSelfHosted = false;
     this._Identity = new Identity(this);
     this.Identity = this._Identity.IdentityAPI;
     this.generateHash = this._Helpers.generateHash;
@@ -174,7 +169,6 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 !config.hasOwnProperty('requestConfig') ||
                 config.requestConfig
             ) {
-                self._IsSelfHosted = true;
                 const configApiClient = new ConfigAPIClient(
                     apiKey,
                     config,

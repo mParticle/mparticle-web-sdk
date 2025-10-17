@@ -214,6 +214,9 @@ const Constants = {
         None: 'none',
         RoktOnly: 'roktonly',
     },
+    PerformanceMetricsNames: {
+        SdkStart: 'sdkStart',
+    },
 } as const;
 
 export default Constants;
