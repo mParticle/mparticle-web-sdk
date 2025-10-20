@@ -24,18 +24,18 @@ const hasIdentifyReturned = () => {
 describe('feature-flags', () => {
     describe('user audiences', () => {
         beforeEach(() => {
+            window.mParticle._resetForTests(MPConfig);
+            fetchMock.config.overwriteRoutes = true;
             fetchMock.post(urls.events, 200);
-
             fetchMockSuccess(urls.identify, {
                 mpid: testMPID, is_logged_in: false
             });
-
             window.mParticle.init(apiKey, window.mParticle.config);
         });
 
         afterEach(() => {
-            sinon.restore();
             fetchMock.restore();
+            sinon.restore();
         });
 
         it('should not be able to access user audience API if feature flag is false', async () => {
@@ -43,11 +43,10 @@ describe('feature-flags', () => {
                 audienceAPI: 'False'
             };
 
-            window.mParticle._resetForTests(MPConfig);
-
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
+            await Promise.resolve();
 
             const bond = sinon.spy(window.mParticle.getInstance().Logger, 'error');
             window.mParticle.Identity.getCurrentUser().getUserAudiences();
@@ -78,8 +77,6 @@ describe('feature-flags', () => {
                 status: 200,
                 body: JSON.stringify(audienceMembershipServerResponse)
             });
-            
-            window.mParticle._resetForTests(MPConfig);
 
             window.mParticle.config.flags = {
                 audienceAPI: 'True'
@@ -88,6 +85,7 @@ describe('feature-flags', () => {
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
+            await Promise.resolve();
 
             const bond = sinon.spy(window.mParticle.getInstance().Logger, 'error');
 
@@ -125,12 +123,12 @@ describe('feature-flags', () => {
                 captureIntegrationSpecificIds: 'True',
                 captureIntegrationSpecificIdsV2: 'all'
             };
-            window.mParticle._resetForTests(MPConfig);
 
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
 
             await waitForCondition(hasIdentifyReturned)
+            await Promise.resolve();
 
             const integrationCapture = window.mParticle.getInstance()._IntegrationCapture;
             sinon.stub(integrationCapture, 'getQueryParams').returns({ fbclid: '1234' });
@@ -156,11 +154,11 @@ describe('feature-flags', () => {
                 captureIntegrationSpecificIds: 'False',
                 captureIntegrationSpecificIdsV2: 'none'
             };
-            window.mParticle._resetForTests(MPConfig);
 
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned)
+            await Promise.resolve();
 
             const integrationCapture = window.mParticle.getInstance()._IntegrationCapture;
             let captureCalled = false;

@@ -89,6 +89,7 @@ describe('forwarders', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
         delete mParticle._instances['default_instance'];
+        fetchMock.config.overwriteRoutes = true;
         fetchMock.post(urls.events, 200);
         mockServer = sinon.createFakeServer();
 
@@ -126,12 +127,11 @@ describe('forwarders', function() {
 
     afterEach(function() {
         fetchMock.restore();
+        sinon.restore();
         delete window.MockForwarder1;
     });
 
     it('should add forwarders via dynamic script loading via the addForwarder method', () => {
-        mParticle._resetForTests(MPConfig);
-
         const mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
 
@@ -163,6 +163,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
 
         window.MockForwarder1.instance.should.have.property(
@@ -197,7 +198,6 @@ describe('forwarders', function() {
     it('should not permit forwarder if consent configured but there is no user.', () => {
         const enableForwarder = true;
         const consented = false;
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -239,7 +239,6 @@ describe('forwarders', function() {
         const enableForwarder = false; // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
         const consented = false;
         const userConsent = false;
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -284,7 +283,6 @@ describe('forwarders', function() {
         const enableForwarder = false; // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
         const consented = true;
         const userConsent = true;
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -327,7 +325,6 @@ describe('forwarders', function() {
         const enableForwarder = true; // 'Only Forward' chosen in UI, 'includeOnMatch' in config
         const consented = false;
         const userConsent = false;
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -369,7 +366,6 @@ describe('forwarders', function() {
         const enableForwarder = true; // 'Only Forward' chosen in UI, 'includeOnMatch' in config
         const consented = true;
         const userConsent = true;
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -412,7 +408,6 @@ describe('forwarders', function() {
         const enableForwarder = true; // 'Only Forward' chosen in UI, 'includeOnMatch' in config
         const consented = true;
         const userConsent = false;
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -455,7 +450,6 @@ describe('forwarders', function() {
         const enableForwarder = false; // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
         const consented = false;
         const userConsent = true;
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -498,7 +492,6 @@ describe('forwarders', function() {
         const enableForwarder = false; // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
         const consented = true;
         const userConsent = false;
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -541,7 +534,6 @@ describe('forwarders', function() {
         const enableForwarder = false; // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
         const consented = false;
         const userConsent = true;
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -584,7 +576,6 @@ describe('forwarders', function() {
         const enableForwarder = false; // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
         const consentPresent = false;
         const userConsentPresent = false;
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -630,7 +621,6 @@ describe('forwarders', function() {
         const enableForwarder = false; // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
         const consentPresent = true;
         const userConsentPresent = true;
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -676,7 +666,6 @@ describe('forwarders', function() {
         const enableForwarder = true; // 'Only Forward' chosen in UI, 'includeOnMatch' in config
         const consentPresent = false;
         const userConsentPresent = false;
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -723,7 +712,6 @@ describe('forwarders', function() {
         const enableForwarder = true; // 'Only Forward' chosen in UI, 'includeOnMatch' in config
         const consentPresent = true;
         const userConsentPresent = true;
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -769,7 +757,6 @@ describe('forwarders', function() {
         const enableForwarder = true; // 'Only Forward' chosen in UI, 'includeOnMatch' in config
         const consentPresent = true;
         const userConsentPresent = false;
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -815,7 +802,6 @@ describe('forwarders', function() {
         const enableForwarder = false; // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
         const consentPresent = false;
         const userConsentPresent = true;
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -861,7 +847,6 @@ describe('forwarders', function() {
         const enableForwarder = false; // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
         const consentPresent = true;
         const userConsentPresent = false;
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -904,7 +889,6 @@ describe('forwarders', function() {
     });
 
     it("does not initialize a forwarder when forwarder's isDebug != mParticle.isDevelopmentMode", () => {
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -924,7 +908,6 @@ describe('forwarders', function() {
     });
 
     it('initializes a forwarder with isDebug = false && mParticle.config.isDevelopmentMode = false', () => {
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -944,7 +927,6 @@ describe('forwarders', function() {
     });
 
     it('initializes a forwarder with isDebug = true && mParticle.config.isDevelopmentMode = true', () => {
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = true;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -961,7 +943,6 @@ describe('forwarders', function() {
     });
 
     it('initializes forwarders when isDebug = mParticle.config.isDevelopmentMode', () => {
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -985,7 +966,6 @@ describe('forwarders', function() {
     });
 
     it("sends events to forwarder when forwarder's isDebug = mParticle.config.isDevelopmentMode ", async () => {
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = true;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -996,6 +976,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         mParticle.logEvent('send this event to forwarder');
         window.MockForwarder1.instance.should.have.property(
@@ -1005,7 +986,6 @@ describe('forwarders', function() {
     });
 
     it('sends events to forwarder v1 endpoint when mParticle.config.isDevelopmentMode = config.isDebug = false', async () => {
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -1014,6 +994,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         fetchMock.resetHistory();
 
@@ -1031,7 +1012,6 @@ describe('forwarders', function() {
 
     // https://go.mparticle.com/work/SQDSDKS-6850
     it.skip('sends forwarding stats to v2 endpoint when featureFlag setting of batching is true', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -1049,6 +1029,7 @@ describe('forwarders', function() {
         const clock = sinon.useFakeTimers();
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
         fetchMock.resetHistory();
         mockServer.requests = [];
 
@@ -1090,7 +1071,6 @@ describe('forwarders', function() {
     });
 
     it('should not send forwarding stats to invisible forwarders', () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -1115,7 +1095,6 @@ describe('forwarders', function() {
     });
 
     it('should invoke forwarder opt out', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -1124,6 +1103,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
+        await Promise.resolve();
         mParticle.setOptOut(true);
 
         window.MockForwarder1.instance.should.have.property(
@@ -1133,7 +1113,6 @@ describe('forwarders', function() {
     });
 
     it('should invoke forwarder setuserattribute', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -1142,6 +1121,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
 
         window.MockForwarder1.instance.should.have.property(
@@ -1151,7 +1131,6 @@ describe('forwarders', function() {
     });
 
     it('should invoke forwarder setuserattribute when calling setUserAttributeList', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -1159,6 +1138,7 @@ describe('forwarders', function() {
         window.mParticle.config.kitConfigs.push(config1);
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         mParticle.Identity.getCurrentUser().setUserAttributeList('gender', [
             'male',
@@ -1171,7 +1151,6 @@ describe('forwarders', function() {
     });
 
     it('should invoke forwarder removeuserattribute', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -1179,6 +1158,7 @@ describe('forwarders', function() {
         window.mParticle.config.kitConfigs.push(config1);
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.Identity.getCurrentUser().removeUserAttribute('gender');
@@ -1190,7 +1170,6 @@ describe('forwarders', function() {
     });
 
     it('should filter user attributes from forwarder on log event', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -1200,6 +1179,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
 
@@ -1211,13 +1191,13 @@ describe('forwarders', function() {
     });
 
     it('should filter user identities from forwarder on init and bring customerid as first ID', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
 
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         config1.userIdentityFilters = [mParticle.IdentityType.Google];
@@ -1231,10 +1211,12 @@ describe('forwarders', function() {
             },
         });
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.userIdentitiesFilterOnInitTest.length.should.equal(2);
         mParticle.userIdentitiesFilterOnInitTest[0].Type.should.equal(1);
@@ -1249,7 +1231,6 @@ describe('forwarders', function() {
     });
 
     it('should filter user identities from forwarder on log event and bring customerid as first ID', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
 
@@ -1259,6 +1240,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.Identity.modify({
             userIdentities: {
@@ -1269,6 +1251,7 @@ describe('forwarders', function() {
         });
 
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.logEvent('test event');
         const event = window.MockForwarder1.instance.receivedEvent;
@@ -1288,7 +1271,6 @@ describe('forwarders', function() {
     });
 
     it('should filter user attributes from forwarder on init, and on subsequent set attribute calls', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
 
@@ -1300,6 +1282,7 @@ describe('forwarders', function() {
         window.mParticle.config.kitConfigs.push(config1);
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.userAttributesFilterOnInitTest.should.not.have.property(
@@ -1308,6 +1291,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.Identity.getCurrentUser().setUserAttribute('age', 32);
         mParticle.Identity.getCurrentUser().setUserAttribute('weight', 150);
@@ -1322,7 +1306,6 @@ describe('forwarders', function() {
     });
 
     it('should filter user attributes from forwarder on init, and on subsequent remove attribute calls', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
 
@@ -1337,6 +1320,7 @@ describe('forwarders', function() {
         window.mParticle.config.kitConfigs.push(config1);
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         // force filtered UA in mock forwarder (due to filtering affecting setUserAttribute) and test init
         window.MockForwarder1.instance.userAttributes['weight'] = 150;
@@ -1348,6 +1332,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         const dummyUserAttributes = {
             gender: 'male',
@@ -1381,8 +1366,6 @@ describe('forwarders', function() {
     });
 
     it('should filter event names', async () => {
-        mParticle._resetForTests(MPConfig);
-
         const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -1396,6 +1379,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.startNewSession();
         window.MockForwarder1.instance.receivedEvent = null;
@@ -1410,8 +1394,6 @@ describe('forwarders', function() {
     });
 
     it('should filter page event names', async () => {
-        mParticle._resetForTests(MPConfig);
-
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -1422,6 +1404,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => hasIdentityCallInflightReturned);
+        await Promise.resolve();
         mParticle.startNewSession();
         window.MockForwarder1.instance.receivedEvent = null;
 
@@ -1431,8 +1414,6 @@ describe('forwarders', function() {
     });
 
     it('should filter event attributes', async () => {
-        mParticle._resetForTests(MPConfig);
-
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
 
@@ -1450,6 +1431,7 @@ describe('forwarders', function() {
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         });
+        await Promise.resolve();
 
         mParticle.logEvent('test event', mParticle.EventType.Navigation, {
             'test attribute': 'test value',
@@ -1463,8 +1445,6 @@ describe('forwarders', function() {
     });
 
     it('should filter pageview attributes', async () => {
-        mParticle._resetForTests(MPConfig);
-
         const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -1485,6 +1465,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.logPageView('ScreenA', {
             filteredScreenAttribute: 'this will be filtered',
@@ -1503,7 +1484,6 @@ describe('forwarders', function() {
     });
 
     it('should call logout on forwarder', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -1511,9 +1491,11 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.Identity.logout();
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         window.MockForwarder1.instance.should.have.property(
             'logOutCalled',
@@ -1528,7 +1510,6 @@ describe('forwarders', function() {
 
     it('should pass in app name to forwarder on initialize', async () => {
         mParticle.config.appName = 'Unit Tests';
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -1536,6 +1517,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         window.MockForwarder1.instance.should.have.property(
             'appName',
@@ -1605,6 +1587,7 @@ describe('forwarders', function() {
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         });
+        await Promise.resolve();
 
         mParticle.Identity.identify({
             userIdentities: {
@@ -1619,6 +1602,7 @@ describe('forwarders', function() {
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         });
+        await Promise.resolve();
 
         expect(window.MockForwarder1.instance.onIdentifyCompleteCalled).to.eq(
             true
@@ -1637,7 +1621,6 @@ describe('forwarders', function() {
     });
 
     it('should pass filteredUser and filteredUserIdentities to onLoginComplete methods', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
 
@@ -1649,6 +1632,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.Identity.login({
             userIdentities: {
@@ -1659,6 +1643,7 @@ describe('forwarders', function() {
         });
 
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         expect(window.MockForwarder1.instance.onLoginCompleteCalled).to.eq(
             true
@@ -1676,7 +1661,6 @@ describe('forwarders', function() {
     });
 
     it('should pass filteredUser and filteredUserIdentities to onLogoutComplete methods', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
 
@@ -1688,6 +1672,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.Identity.logout({
             userIdentities: {
@@ -1698,6 +1683,7 @@ describe('forwarders', function() {
         });
 
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         expect(window.MockForwarder1.instance.onLogoutCompleteCalled).to.eq(
             true
@@ -1716,7 +1702,6 @@ describe('forwarders', function() {
     });
 
     it('should pass filteredUser and filteredUserIdentities to onModifyComplete methods', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
 
@@ -1728,6 +1713,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.Identity.modify({
             userIdentities: {
@@ -1738,6 +1724,7 @@ describe('forwarders', function() {
         });
 
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         expect(window.MockForwarder1.instance.onModifyCompleteCalled).to.eq(
             true
@@ -1756,7 +1743,6 @@ describe('forwarders', function() {
     });
 
     it('should not forward event if attribute forwarding rule is set', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
 
@@ -1772,6 +1758,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.logEvent(
             'send this event to forwarder',
@@ -1790,7 +1777,6 @@ describe('forwarders', function() {
     });
 
     it('should forward event if event attribute forwarding rule is set and includeOnMatch is true', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
 
@@ -1806,6 +1792,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.logEvent(
             'send this event to forwarder',
@@ -1822,7 +1809,6 @@ describe('forwarders', function() {
     });
 
     it('should not forward event if event attribute forwarding rule is set and includeOnMatch is true but attributes do not match', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
 
@@ -1838,6 +1824,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.logEvent(
             'send this event to forwarder',
@@ -1856,7 +1843,6 @@ describe('forwarders', function() {
     });
 
     it('should not forward event if event attribute forwarding rule is set and includeOnMatch is false', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
 
@@ -1872,6 +1858,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
+        await Promise.resolve();
 
         window.MockForwarder1.instance.receivedEvent.EventName.should.equal(1);
         window.MockForwarder1.instance.receivedEvent = null;
@@ -1891,7 +1878,6 @@ describe('forwarders', function() {
     });
 
     it('should forward event if event attribute forwarding rule is set and includeOnMatch is false but attributes do not match', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
 
@@ -1908,6 +1894,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
+        await Promise.resolve();
 
         window.MockForwarder1.instance.receivedEvent.EventName.should.equal(1);
         window.MockForwarder1.instance.receivedEvent = null;
@@ -1926,7 +1913,6 @@ describe('forwarders', function() {
     });
 
     it('should send event to forwarder if filtering attribute and includingOnMatch is true', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -1941,6 +1927,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'Male');
 
@@ -1953,8 +1940,6 @@ describe('forwarders', function() {
     });
 
     it('should not send event to forwarder if filtering attribute and includingOnMatch is false', async () => {
-        mParticle._resetForTests(MPConfig);
-
         const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -1968,6 +1953,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'Male');
         //reset received event, which will have the initial session start event on it
@@ -1982,6 +1968,7 @@ describe('forwarders', function() {
     it('should permit forwarder if no user attribute value filters configured', async () => {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         let enabled = mParticle
             .getInstance()
@@ -2009,6 +1996,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
         mParticle.logEvent('test event');
 
         const event = window.MockForwarder1.instance.receivedEvent;
@@ -2033,6 +2021,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.logEvent('test event');
 
@@ -2041,7 +2030,6 @@ describe('forwarders', function() {
     });
 
     it('should send event to forwarder if there is no match and includeOnMatch = false', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -2056,6 +2044,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.Identity.getCurrentUser().setUserAttribute(
             'gender',
@@ -2069,7 +2058,6 @@ describe('forwarders', function() {
     });
 
     it('should not send event to forwarder if there is no match and includeOnMatch = true', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -2084,6 +2072,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.Identity.getCurrentUser().setUserAttribute(
             'gender',
@@ -2110,6 +2099,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'Male');
 
@@ -2140,7 +2130,6 @@ describe('forwarders', function() {
     });
 
     it('should send event to forwarder if the filterinUserAttribute object is invalid', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -2151,6 +2140,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
         mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'Male');
 
         mParticle.logEvent('test event');
@@ -2163,7 +2153,6 @@ describe('forwarders', function() {
     });
 
     it('should call forwarder onUserIdentified method when identity is returned', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -2173,6 +2162,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         window.MockForwarder1.instance.should.have.property(
             'onUserIdentifiedCalled',
@@ -2182,7 +2172,6 @@ describe('forwarders', function() {
 
     // https://go.mparticle.com/work/SQDSDKS-6850
     it.skip('should queue forwarder stats reporting and send after 5 seconds if batching feature is true', async () => {
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -2195,6 +2184,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => hasIdentityCallInflightReturned);
+        await Promise.resolve();
         const clock = sinon.useFakeTimers();
 
         mParticle.logEvent('not in forwarder');
@@ -2224,8 +2214,6 @@ describe('forwarders', function() {
     });
 
     it('should initialize forwarders when a user is not logged in and excludeAnonymousUser=false', async () => {
-        mParticle._resetForTests(MPConfig);
-
         const mockForwarder = new MockForwarder();
         const mockForwarder2 = new MockForwarder('MockForwarder2', 2);
 
@@ -2247,6 +2235,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         const activeForwarders = mParticle.getInstance()._getActiveForwarders();
 
@@ -2278,6 +2267,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         const activeForwarders = mParticle.getInstance()._getActiveForwarders();
 
@@ -2305,6 +2295,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.Identity.getCurrentUser()
             .isLoggedIn()
@@ -2323,6 +2314,7 @@ describe('forwarders', function() {
 
         mParticle.Identity.login(user);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         expect(mParticle.Identity.getCurrentUser()
             .isLoggedIn())
@@ -2332,6 +2324,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
         mParticle.Identity.getCurrentUser()
             .isLoggedIn()
             .should.equal(true);
@@ -2349,12 +2342,14 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         const ls = mParticle.getInstance()._Persistence.getLocalStorage();
         ls.l.should.equal(true);
         
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
         const ls2 = mParticle.getInstance()._Persistence.getLocalStorage();
         ls2.hasOwnProperty('l').should.equal(true);
         
@@ -2364,11 +2359,13 @@ describe('forwarders', function() {
         
         mParticle.Identity.logout();
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
         const ls3 = mParticle.getInstance()._Persistence.getLocalStorage();
         ls3.l.should.equal(false);
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         const ls4 = mParticle.getInstance()._Persistence.getLocalStorage();
         ls4.l.should.equal(false);
@@ -2388,6 +2385,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config)
 
         await waitForCondition(hasIdentityCallInflightReturned);
+        await Promise.resolve();
         mParticle.setIntegrationAttribute(128, { MCID: 'abcdefg' });
         const adobeIntegrationAttributes = mParticle.getIntegrationAttributes(
             128
@@ -2399,6 +2397,7 @@ describe('forwarders', function() {
     it('should clear integration attributes when an empty object or a null is passed', async () => {
         mParticle.init(apiKey, window.mParticle.config)
         await waitForCondition(hasIdentityCallInflightReturned);
+        await Promise.resolve();
 
         mParticle.setIntegrationAttribute(128, { MCID: 'abcdefg' });
         let adobeIntegrationAttributes = mParticle.getIntegrationAttributes(
@@ -2422,6 +2421,7 @@ describe('forwarders', function() {
     it('should sanitize any non-strings from integration attributes', async () => {
         mParticle.init(apiKey, window.mParticle.config)
         await waitForCondition(hasIdentityCallInflightReturned);
+        await Promise.resolve();
 
         mParticle.setIntegrationAttribute(128, {
             MCID: 'abcdefg',
@@ -2461,6 +2461,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         fetchMock.resetHistory();
         mParticle.logEvent('Test Event1');
@@ -2515,6 +2516,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.logEvent('Test Event1');
 
@@ -2560,7 +2562,6 @@ describe('forwarders', function() {
     it.skip('integration test - should allow the user to configure the integrationDelayTimeout', async () => {
         // testing user-configured integrationDelayTimeout
         let clock = sinon.useFakeTimers();
-        mParticle._resetForTests(MPConfig);
         mParticle.config.integrationDelayTimeout = 1000;
         mParticle._setIntegrationDelay(128, true);
         mParticle._setIntegrationDelay(24, false);
@@ -2568,11 +2569,11 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(() => {
-            console.log(window.mParticle.getInstance()?._Store?.identityCallInFlight)
             return (
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         }, 200, 10, clock);
+        await Promise.resolve();
         fetchMock.resetHistory();
         mParticle.logEvent('Test Event3');
         fetchMock.calls().length.should.equal(0);
@@ -2607,12 +2608,12 @@ describe('forwarders', function() {
     });
 
     it('integration test - after an integration delay is set to false, should fire an event after the event timeout', async () => {
-        mParticle._resetForTests(MPConfig);
         // this code will be put in each forwarder as each forwarder is initialized
         mParticle._setIntegrationDelay(128, true);
         mParticle._setIntegrationDelay(24, false);
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         const clock = sinon.useFakeTimers();
         fetchMock.resetHistory();
@@ -2701,6 +2702,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(() => window.mParticle.getInstance()._Store.configurationLoaded === true && window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         const activeForwarders = mParticle.getInstance()._getActiveForwarders();
         activeForwarders.length.should.equal(2);
@@ -2713,7 +2715,6 @@ describe('forwarders', function() {
     
     // This will pass when we add mpInstance._Store.isInitialized = true; to mp-instance before `processIdentityCallback`
     it('configures forwarders before events are logged via identify callback', async () => {
-        mParticle._resetForTests(MPConfig);
         window.mParticle.config.identifyRequest = {
             userIdentities: {
                 google: 'google123',
@@ -2732,6 +2733,7 @@ describe('forwarders', function() {
         window.mParticle.config.rq = [];
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
+        await Promise.resolve();
         window.MockForwarder1.instance.should.have.property(
             'processCalled',
             true
@@ -2743,6 +2745,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
+        await Promise.resolve();
 
         window.MockForwarder1.instance.should.have.property(
             'processCalled',
@@ -2752,8 +2755,6 @@ describe('forwarders', function() {
     });
 
     it('should retain preInit.forwarderConstructors, and reinitialize forwarders after calling reset, then init', async () => {
-        mParticle._resetForTests(MPConfig);
-
         const mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
 
@@ -2763,6 +2764,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
         mParticle
             .getInstance()
             ._getActiveForwarders()
@@ -2779,6 +2781,7 @@ describe('forwarders', function() {
         // client reinitializes mParticle after a reset
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
         // forwarderConstructors are still there
         mParticle
             .getInstance()
@@ -2802,6 +2805,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.logEvent('Test Event');
         window.MockForwarder1.instance.receivedEvent.should.have.property(
@@ -2810,8 +2814,6 @@ describe('forwarders', function() {
     });
 
     it('should send user-defined SourceMessageId as part of event sent to forwarders via baseEvent', async () => {
-        mParticle._resetForTests(MPConfig);
-
         const mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
 
@@ -2821,6 +2823,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.logBaseEvent({
             messageType: 4,
@@ -2838,8 +2841,6 @@ describe('forwarders', function() {
     });
 
     it('should add a logger to forwarders', async () => {
-        mParticle._resetForTests(MPConfig);
-
         const mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
 
@@ -2857,6 +2858,7 @@ describe('forwarders', function() {
         };
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.logEvent('Test Event');
 
@@ -2865,8 +2867,6 @@ describe('forwarders', function() {
 
     describe('kits with suffixes', function() {
         it('should add forwarders with suffixes and initialize them accordingly if there is a coresponding kit config with the same suffix', () => {
-            mParticle._resetForTests(MPConfig);
-
             const mockForwarder = new MockForwarder(
                 'ForwarderWithSuffixV3',
                 1,
@@ -2896,8 +2896,6 @@ describe('forwarders', function() {
         });
 
         it('should not add a forwarder with suffix if there is not a corresponding kit config with the same suffix', () => {
-            mParticle._resetForTests(MPConfig);
-
             const mockForwarder = new MockForwarder(
                 'ForwarderWithSuffix',
                 1,
@@ -2920,15 +2918,6 @@ describe('forwarders', function() {
 
     describe('side loaded kits', function() {
         describe('initialization', function() {
-            beforeEach(function() {
-                mParticle._resetForTests(MPConfig);
-                delete mParticle._instances['default_instance'];
-            });
-
-            afterEach(function() {
-                delete window.MockForwarder1;
-                fetchMock.restore();
-            });
 
             it('should add sideloaded kits to the active forwarders', function() {
                 const sideloadedKit1 = new MockSideloadedKit(
@@ -3051,6 +3040,7 @@ describe('forwarders', function() {
 
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                await Promise.resolve();
                 
                 const mpInstance = window.mParticle.getInstance();
 
@@ -3075,6 +3065,7 @@ describe('forwarders', function() {
             it('should NOT add a flag in batches for reporting if sideloaded kits are not used', async () => {
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                await Promise.resolve();
 
                 mParticle.logEvent('foo', mParticle.EventType.Navigation);
 
@@ -3102,13 +3093,6 @@ describe('forwarders', function() {
                     mpSideloadedKit2 = new mParticle.MPSideloadedKit(
                         sideloadedKit2
                     );
-                    mParticle._resetForTests(MPConfig);
-                    delete mParticle._instances['default_instance'];
-                });
-
-                afterEach(function() {
-                    delete window.MockForwarder1;
-                    fetchMock.restore();
                 });
 
                 it('should filter event names out properly when set', async () => {
@@ -3127,6 +3111,7 @@ describe('forwarders', function() {
 
                     mParticle.init(apiKey, window.mParticle.config);
                     await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                    await Promise.resolve();
 
                     mParticle.logEvent('Test Event');
 
@@ -3165,6 +3150,7 @@ describe('forwarders', function() {
 
                     mParticle.init(apiKey, window.mParticle.config);
                     await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                    await Promise.resolve();
 
                     mParticle.logEvent(
                         'Test Event',
@@ -3213,6 +3199,7 @@ describe('forwarders', function() {
 
                     mParticle.init(apiKey, window.mParticle.config);
                     await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                    await Promise.resolve();
 
                     const attrs = {
                         testAttr1: 'foo',
@@ -3252,6 +3239,7 @@ describe('forwarders', function() {
 
                     mParticle.init(apiKey, window.mParticle.config);
                     await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                    await Promise.resolve();
 
                     mParticle.logPageView('Test Screen Name 1');
 
@@ -3292,6 +3280,7 @@ describe('forwarders', function() {
 
                     mParticle.init(apiKey, window.mParticle.config);
                     await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                    await Promise.resolve();
 
                     const attrs = {
                         testAttr1: 'foo',
@@ -3330,6 +3319,7 @@ describe('forwarders', function() {
 
                     mParticle.init(apiKey, window.mParticle.config);
                     await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                    await Promise.resolve();
 
                     mParticle.Identity.login({
                         userIdentities: {
@@ -3341,6 +3331,7 @@ describe('forwarders', function() {
                     mParticle.logPageView('Test Screen Name 1');
 
                     await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                    await Promise.resolve();
 
                     // SideloadedKit11 will receive an event with only an Other identity type
                     window.SideloadedKit11.instance.receivedEvent.UserIdentities.length.should.equal(
@@ -3374,6 +3365,7 @@ describe('forwarders', function() {
 
                     mParticle.init(apiKey, window.mParticle.config);
                     await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                    await Promise.resolve();
 
                     mParticle.Identity.getCurrentUser().setUserAttribute(
                         'testAttr1',
@@ -3406,15 +3398,7 @@ describe('forwarders', function() {
         });
 
         describe('forwarding', function() {
-            beforeEach(function() {
-                mParticle._resetForTests(MPConfig);
-                delete mParticle._instances['default_instance'];
-            });
 
-            afterEach(function() {
-                delete window.MockForwarder1;
-                fetchMock.restore();
-            });
 
             it('should send event to sideloaded kits', async () => {
                 const sideloadedKit1 = new MockSideloadedKit(
@@ -3438,6 +3422,7 @@ describe('forwarders', function() {
                 window.mParticle.config.sideloadedKits = sideloadedKits;
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                await Promise.resolve();
 
                 mParticle.logEvent('foo', mParticle.EventType.Navigation);
                 const sideloadedKit1Event =
@@ -3478,6 +3463,7 @@ describe('forwarders', function() {
 
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                await Promise.resolve();
 
                 window.SideloadedKit11.instance.should.have.property(
                     'setUserIdentityCalled',
@@ -3521,6 +3507,7 @@ describe('forwarders', function() {
 
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                await Promise.resolve();
 
                 mParticle.Identity.getCurrentUser().setUserAttribute(
                     'gender',
@@ -3572,10 +3559,12 @@ describe('forwarders', function() {
 
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                await Promise.resolve();
 
                 mParticle.Identity.logout();
 
                 await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                await Promise.resolve();
 
                 window.SideloadedKit11.instance.should.have.property(
                     'onLogoutCompleteCalled',
@@ -3610,11 +3599,13 @@ describe('forwarders', function() {
 
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                await Promise.resolve();
 
                 mParticle.Identity.login({
                     userIdentities: { customerid: 'abc' },
                 });
                 await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                await Promise.resolve();
 
                 window.SideloadedKit11.instance.should.have.property(
                     'onLoginCompleteCalled',
@@ -3649,11 +3640,13 @@ describe('forwarders', function() {
 
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                await Promise.resolve();
 
                 mParticle.Identity.modify({
                     userIdentities: { customerid: 'abc' },
                 });
                 await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                await Promise.resolve();
 
                 window.SideloadedKit11.instance.should.have.property(
                     'onModifyCompleteCalled',
@@ -3688,6 +3681,7 @@ describe('forwarders', function() {
 
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                await Promise.resolve();
 
                 mParticle.setOptOut(true);
 
