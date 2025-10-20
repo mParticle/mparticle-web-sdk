@@ -26,7 +26,6 @@ if (!Array.isArray) {
     Array.prototype.isArray = Polyfill.isArray;
 }
 
-
 function mParticleInstanceManager(this: IMParticleInstanceManager) {
     const self = this;
     // Only leaving this here in case any clients are trying to access mParticle.Store, to prevent from throwing
