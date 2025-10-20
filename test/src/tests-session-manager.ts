@@ -32,6 +32,8 @@ describe('SessionManager', () => {
     let sandbox;
 
     beforeEach(() => {
+        mParticle._resetForTests(MPConfig);
+        fetchMock.config.overwriteRoutes = true;
         sandbox = sinon.createSandbox();
         fetchMock.post(urls.events, 200);
 
@@ -42,19 +44,13 @@ describe('SessionManager', () => {
 
     afterEach(function() {
         sandbox.restore();
-        mParticle._resetForTests(MPConfig);
         fetchMock.restore();
+        sinon.restore();
     });
 
     describe('Unit Tests', () => {
         beforeEach(() => {
             clock = sinon.useFakeTimers(now.getTime());
-        });
-
-        afterEach(function() {
-            sandbox.restore();
-            clock.restore();
-            mParticle._resetForTests(MPConfig);
         });
 
         describe('#initialize', () => {
@@ -855,10 +851,6 @@ describe('SessionManager', () => {
     });
 
     describe('Integration Tests', () => {
-        afterEach(function() {
-            fetchMock.restore();
-        });
-
         it('should end a session if the session timeout expires', () => {
             const generateUniqueIdSpy = sinon.stub(
                 mParticle.getInstance()._Helpers,
@@ -919,6 +911,7 @@ describe('SessionManager', () => {
                 
                 // Wait for the first identify call to complete
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
 
                 fetchMockSuccess(urls.identify, {
                     mpid: 'testMPID2',
@@ -950,6 +943,7 @@ describe('SessionManager', () => {
                 
                 // Wait for the second identify call to complete
                 await waitForCondition(() => hasIdentifyReturned('testMPID2'));
+                await Promise.resolve();
                 
                 expect(identifySpy.called).to.equal(true);
                 expect(identifySpy.getCall(0).args[0]).to.eql(newIdentityApiData);
@@ -970,6 +964,7 @@ describe('SessionManager', () => {
                 
                 // Wait for the first identify call to complete
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
 
                 // Set the same data again in an initialization request
                 window.mParticle.config.identifyRequest = initialIdentityApiData;
@@ -987,6 +982,7 @@ describe('SessionManager', () => {
                 
                 // Wait for the second identify call to complete
                 await waitForCondition(hasIdentityCallInflightReturned);
+                await Promise.resolve();
                 
                 expect(identifySpy.called).to.equal(false);
             });

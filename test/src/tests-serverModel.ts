@@ -1,5 +1,6 @@
+import fetchMock from 'fetch-mock/esm/client';
 import Types from '../../src/types';
-import { urls, testMPID, apiKey } from './config/constants';
+import { urls, testMPID, apiKey, MPConfig } from './config/constants';
 import { expect } from 'chai';
 import { IUploadObject } from '../../src/serverModel';
 import { IdentityApiData } from '@mparticle/web-sdk';
@@ -22,6 +23,8 @@ const ServerModel = mParticle.getInstance()._ServerModel;
 
 describe('ServerModel', () => {
     beforeEach(() => {
+        mParticle._resetForTests(MPConfig);
+        fetchMock.config.overwriteRoutes = true;
         initialEvent = {
             messageType: Types.MessageType.PageEvent,
             name: 'foo page',
@@ -29,6 +32,10 @@ describe('ServerModel', () => {
             eventType: Types.EventType.Navigation,
             customFlags: { 'foo-flag': 'foo-flag-val' },
         };
+    });
+
+    afterEach(() => {
+        fetchMock.restore();
     });
 
     describe('#convertToConsentStateDTO', () => {
@@ -157,9 +164,6 @@ describe('ServerModel', () => {
             });
 
             mParticle.init(apiKey, mParticle.config);
-        });
-
-        afterEach(function() {
         });
 
         it('should create an event object without a user', () => {
@@ -416,6 +420,7 @@ describe('ServerModel', () => {
 
         it('should set necessary attributes if MessageType is SessionEnd', async () => {    
             await waitForCondition(hasIdentifyReturned);
+            await Promise.resolve();
 
             const mPStore = mParticle.getInstance()._Store;
             
@@ -1129,9 +1134,6 @@ describe('ServerModel', () => {
             mParticle.init(apiKey, mParticle.config);
         });
 
-        afterEach(function() {
-        });
-
         it('Should not convert data plan object to server DTO when no id or version is set', () => {
             let sdkEvent = window.mParticle
                 .getInstance()
@@ -1146,7 +1148,6 @@ describe('ServerModel', () => {
         });
 
         it('Should convert data plan id to server DTO', () => {
-            mParticle._resetForTests();
             mParticle.config.dataPlan = {
                 planId: 'plan_slug',
             };
@@ -1164,7 +1165,6 @@ describe('ServerModel', () => {
         });
 
         it('Should not convert data plan object to server DTO when no id is set', () => {
-            mParticle._resetForTests();
             mParticle.config.dataPlan = {
                 planVersion: 5,
             };
@@ -1182,7 +1182,6 @@ describe('ServerModel', () => {
         });
 
         it('Should convert entire data plan object to server DTO', () => {
-            mParticle._resetForTests();
             mParticle.config.dataPlan = {
                 planId: 'plan_slug',
                 planVersion: 10,
@@ -1239,6 +1238,7 @@ describe('ServerModel', () => {
 
         it('Should not append user info when no user exists', async () => {
             await waitForCondition(hasIdentifyReturned);
+            await Promise.resolve();
             mParticle.getInstance()._Store.should.be.ok;
 
             let sdkEvent = mParticle
@@ -1324,6 +1324,7 @@ describe('ServerModel', () => {
 
         it('Should append identities when user is present', async () => {
             await waitForCondition(hasIdentifyReturned);
+            await Promise.resolve();
             let sdkEvent = mParticle
             .getInstance()
             ._ServerModel.createEventObject(event);
@@ -1377,6 +1378,7 @@ describe('ServerModel', () => {
 
         it('Should append user attributes when user present', async () => {
             await waitForCondition(hasIdentifyReturned);
+            await Promise.resolve();
             let sdkEvent = mParticle
             .getInstance()
             ._ServerModel.createEventObject(event);
@@ -1406,6 +1408,7 @@ describe('ServerModel', () => {
 
         it('Should update mpid when user info is appended with a new mpid', async () => {
             await waitForCondition(hasIdentifyReturned);
+            await Promise.resolve();
             let sdkEvent = mParticle
                 .getInstance()
                 ._ServerModel.createEventObject(event);

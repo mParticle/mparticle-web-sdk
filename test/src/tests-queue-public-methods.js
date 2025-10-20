@@ -1,3 +1,5 @@
+import sinon from 'sinon';
+import fetchMock from 'fetch-mock/esm/client';
 import { apiKey, MPConfig, testMPID, urls } from './config/constants';
 import { SDKProductActionType } from  '../../src/sdkRuntimeModels';
 import Utils from './config/utils';
@@ -7,15 +9,18 @@ const { waitForCondition, fetchMockSuccess, hasIdentityCallInflightReturned } = 
 describe('Queue Public Methods', function () {
 
     beforeEach(function () {
+        fetchMock.config.overwriteRoutes = true;
         fetchMockSuccess(urls.events);
         fetchMockSuccess(urls.identify, {
             mpid: testMPID,
             is_logged_in: false,
         });
     });
-    
+
     afterEach(function () {
         mParticle._resetForTests(MPConfig);
+        fetchMock.restore();
+        sinon.restore();
     });
 
     describe('mParticle Core', function () {
@@ -31,6 +36,7 @@ describe('Queue Public Methods', function () {
                 mParticle.getInstance().isInitialized().should.equal(false);
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentityCallInflightReturned)
+                await Promise.resolve();
                 mParticle.isInitialized().should.equal(true);
                 mParticle.getInstance().isInitialized().should.equal(true);
             });
@@ -49,6 +55,7 @@ describe('Queue Public Methods', function () {
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentityCallInflightReturned)
+                await Promise.resolve();
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
             });
         });	
@@ -66,6 +73,7 @@ describe('Queue Public Methods', function () {
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentityCallInflightReturned)
+                await Promise.resolve();
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
             });
         });	
@@ -73,20 +81,17 @@ describe('Queue Public Methods', function () {
         describe('#ready', function () {
             it('should queue if not initialized', function () {
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
-                mParticle.ready(function () {
-                    console.log('fired ready function');
-                });
+                mParticle.ready(function () {});
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);
             });
 
             it('should process queue after initialization', async function () {
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
-                mParticle.ready(function () {
-                    console.log('fired ready function');
-                });
+                mParticle.ready(function () {});
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentityCallInflightReturned)
+                await Promise.resolve();
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
             });
         });	
@@ -104,6 +109,7 @@ describe('Queue Public Methods', function () {
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentityCallInflightReturned)
+                await Promise.resolve();
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
             });
         });
@@ -129,6 +135,7 @@ describe('Queue Public Methods', function () {
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentityCallInflightReturned)
+                await Promise.resolve();
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
             });
         });	
@@ -146,6 +153,7 @@ describe('Queue Public Methods', function () {
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentityCallInflightReturned)
+                await Promise.resolve();
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
             });
         });	
@@ -163,6 +171,7 @@ describe('Queue Public Methods', function () {
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentityCallInflightReturned)
+                await Promise.resolve();
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
             });
         });	
@@ -180,6 +189,7 @@ describe('Queue Public Methods', function () {
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentityCallInflightReturned)
+                await Promise.resolve();
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
             });
         });	
@@ -197,6 +207,7 @@ describe('Queue Public Methods', function () {
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentityCallInflightReturned)
+                await Promise.resolve();
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
             });
         });	
@@ -214,6 +225,7 @@ describe('Queue Public Methods', function () {
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentityCallInflightReturned)
+                await Promise.resolve();
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
             });
         });	
@@ -231,6 +243,7 @@ describe('Queue Public Methods', function () {
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentityCallInflightReturned)
+                await Promise.resolve();
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
             });
         });	
@@ -240,6 +253,7 @@ describe('Queue Public Methods', function () {
                 mParticle.getInstance().isInitialized().should.be.false();
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentityCallInflightReturned)
+                await Promise.resolve();
                 mParticle.getInstance().isInitialized().should.be.true();
             });
         });
@@ -259,6 +273,7 @@ describe('Queue Public Methods', function () {
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentityCallInflightReturned)
+                await Promise.resolve();
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
             });
         });	
@@ -278,6 +293,7 @@ describe('Queue Public Methods', function () {
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentityCallInflightReturned)
+                await Promise.resolve();
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
             });
         });	
@@ -295,6 +311,7 @@ describe('Queue Public Methods', function () {
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentityCallInflightReturned)
+                await Promise.resolve();
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
             });
         });	
@@ -316,6 +333,7 @@ describe('Queue Public Methods', function () {
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentityCallInflightReturned)
+                await Promise.resolve();
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
             });
         });	
