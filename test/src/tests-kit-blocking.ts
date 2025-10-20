@@ -27,6 +27,7 @@ describe('kit blocking', () => {
     } as KitBlockerDataPlan;
 
     beforeEach(function() {
+        window.mParticle._resetForTests(MPConfig);
         window.mParticle.config.dataPlan = {
             document: dataPlan as DataPlanResult
         };
@@ -35,6 +36,7 @@ describe('kit blocking', () => {
     
     afterEach(function() {
         sinon.restore();
+        fetchMock.restore();
     });
 
     describe('kitBlocker', () => {
@@ -512,6 +514,8 @@ describe('kit blocking', () => {
 
     describe('kit blocking - integration tests', () => {
         beforeEach(() => {
+            fetchMock.restore();
+            fetchMock.config.overwriteRoutes = true;
             fetchMockSuccess(urls.identify, {
                 mpid: testMPID,
                 is_logged_in: false,
@@ -530,8 +534,6 @@ describe('kit blocking', () => {
             };
 
             let errorMessages = [];
-
-            window.mParticle._resetForTests(MPConfig);
 
             let mockForwarder = new MockForwarder();
             window.mParticle.addForwarder(mockForwarder);
@@ -565,6 +567,7 @@ describe('kit blocking', () => {
             window.mParticle.config.dataPlan.document.dtpn.blok.ev = false;
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
+            await Promise.resolve();
             
             window.mParticle.logEvent('Unplanned Event');
             
@@ -581,6 +584,7 @@ describe('kit blocking', () => {
             window.mParticle.init(apiKey, window.mParticle.config);
 
             await waitForCondition(hasIdentifyReturned);
+            await Promise.resolve();
 
             window.mParticle.Identity.getCurrentUser().setUserAttribute('unplannedAttr', true);
             window.MockForwarder1.instance.should.have.property(
@@ -617,6 +621,7 @@ describe('kit blocking', () => {
             window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
+            await Promise.resolve();
 
             window.mParticle.Identity.getCurrentUser().setUserAttribute('unplanned but unblocked', true);
             window.MockForwarder1.instance.should.have.property(
@@ -635,6 +640,7 @@ describe('kit blocking', () => {
             window.mParticle.init(apiKey, window.mParticle.config);
 
             await waitForCondition(hasIdentifyReturned);
+            await Promise.resolve();
             window.mParticle.Identity.getCurrentUser().setUserAttribute('unplanned but not blocked', true);
             window.MockForwarder1.instance.should.have.property(
                 'setUserAttributeCalled',
@@ -648,6 +654,7 @@ describe('kit blocking', () => {
             window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
+            await Promise.resolve();
             window.mParticle.Identity.getCurrentUser().setUserTag('unplannedAttr', true);
             window.MockForwarder1.instance.should.have.property(
                 'setUserAttributeCalled',
@@ -665,6 +672,7 @@ describe('kit blocking', () => {
             window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
+            await Promise.resolve();
 
             window.mParticle.Identity.getCurrentUser().setUserTag('unplanned but unblocked', true);
             window.MockForwarder1.instance.should.have.property(
@@ -680,6 +688,7 @@ describe('kit blocking', () => {
             window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
+            await Promise.resolve();
 
             window.mParticle.Identity.getCurrentUser().setUserTag('unplanned but not blocked', true);
             window.MockForwarder1.instance.should.have.property(
@@ -715,12 +724,14 @@ describe('kit blocking', () => {
                 window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
                 window.mParticle.Identity.login({userIdentities: {customerid: 'customerid1', email: 'email@gmail.com', 'google': 'GoogleId'}});
                 await waitForCondition(() => {
                     return (
                         window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 });
+                await Promise.resolve();
                 window.mParticle.logEvent('something something something', Types.EventType.Navigation);
                 let event = window.MockForwarder1.instance.receivedEvent;
                 event.UserIdentities.find(UI => UI.Type === 1).should.have.property('Identity', 'customerid1');
@@ -739,6 +750,7 @@ describe('kit blocking', () => {
                 window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
 
                 window.mParticle.Identity.login({userIdentities: {customerid: 'customerid1', email: 'email@gmail.com', 'google': 'GoogleId'}});
                 await waitForCondition(() => {
@@ -746,6 +758,7 @@ describe('kit blocking', () => {
                         window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 });
+                await Promise.resolve();
                 window.mParticle.logEvent('something something something', Types.EventType.Navigation);
                 let event = window.MockForwarder1.instance.receivedEvent;
                 event.UserIdentities.find(UI => UI.Type === 1).should.have.property('Identity', 'customerid1');
@@ -764,12 +777,14 @@ describe('kit blocking', () => {
 
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
                 window.mParticle.Identity.logout(userIdentityRequest);
                 await waitForCondition(() => {
                     return (
                         window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 });
+                await Promise.resolve();
                 let onUserIdentifiedUserIdentities = window.MockForwarder1.instance.onUserIdentifiedUser
                     .getUserIdentities()
                     .userIdentities;
@@ -803,12 +818,14 @@ describe('kit blocking', () => {
 
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
                 window.mParticle.Identity.logout(userIdentityRequest);
                 await waitForCondition(() => {
                     return (
                         window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 });
+                await Promise.resolve();
                 let onUserIdentifiedUserIdentities = window.MockForwarder1.instance.onUserIdentifiedUser
                     .getUserIdentities()
                     .userIdentities;
@@ -838,12 +855,14 @@ describe('kit blocking', () => {
 
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
                 window.mParticle.Identity.modify(userIdentityRequest);
                 await waitForCondition(() => {
                     return (
                         window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 });
+                await Promise.resolve();
                 let onUserIdentifiedUserIdentities = window.MockForwarder1.instance.onUserIdentifiedUser
                     .getUserIdentities()
                     .userIdentities;
@@ -877,12 +896,14 @@ describe('kit blocking', () => {
 
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
                 window.mParticle.Identity.modify(userIdentityRequest);
                 await waitForCondition(() => {
                     return (
                         window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 });
+                await Promise.resolve();
                 let onUserIdentifiedUserIdentities = window.MockForwarder1.instance.onUserIdentifiedUser
                     .getUserIdentities()
                     .userIdentities;
@@ -914,6 +935,7 @@ describe('kit blocking', () => {
 
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
                 let onUserIdentifiedUserIdentities = window.MockForwarder1.instance.onUserIdentifiedUser
                     .getUserIdentities()
                     .userIdentities;
@@ -947,6 +969,7 @@ describe('kit blocking', () => {
 
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
 
                 window.mParticle.Identity.identify(userIdentityRequest);
                 await waitForCondition(() => {
@@ -954,6 +977,7 @@ describe('kit blocking', () => {
                         window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 });
+                await Promise.resolve();
                 let onUserIdentifiedUserIdentities = window.MockForwarder1.instance.onUserIdentifiedUser
                     .getUserIdentities()
                     .userIdentities;
@@ -983,6 +1007,7 @@ describe('kit blocking', () => {
 
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
 
                 window.mParticle.Identity.login(userIdentityRequest);
 
@@ -991,6 +1016,7 @@ describe('kit blocking', () => {
                         window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 });
+                await Promise.resolve();
                 let onUserIdentifiedUserIdentities = window.MockForwarder1.instance.onUserIdentifiedUser
                     .getUserIdentities()
                     .userIdentities;
@@ -1027,12 +1053,14 @@ describe('kit blocking', () => {
 
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
                 window.mParticle.Identity.login(userIdentityRequest);
                 await waitForCondition(() => {
                     return (
                         window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
                 });
+                await Promise.resolve();
                 let onUserIdentifiedUserIdentities = window.MockForwarder1.instance.onUserIdentifiedUser
                     .getUserIdentities()
                     .userIdentities;
@@ -1090,6 +1118,7 @@ describe('kit blocking', () => {
 
             it('integration test - should block any unplanned product attributes from reaching the forwarder if additionalProperties = false and block.ea=true', async () => {
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
                 window.mParticle.eCommerce.logProductAction(
                     window.mParticle.ProductActionType['Purchase'],
                     [product1, product2],
@@ -1113,6 +1142,7 @@ describe('kit blocking', () => {
 
             it('integration test - should not block unplanned product attributes from reaching the forwarder if additionalProperties = true and block.ea=true', async () => {
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
                 window.mParticle.eCommerce.logProductAction(
                     window.mParticle.ProductActionType['AddToCart'],
                     [product1, product2],
@@ -1184,7 +1214,6 @@ describe('kit blocking', () => {
 
                 let errorMessages = [];
 
-                window.mParticle._resetForTests(MPConfig);
                 window.mParticle.config.logLevel = 'verbose';
 
                 window.mParticle.config.logger = {
@@ -1195,12 +1224,12 @@ describe('kit blocking', () => {
 
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
                 errorMessages[0].should.equal('Ensure your config.dataPlanOptions object has the following keys: a "dataPlanVersion" object, and "blockUserAttributes", "blockEventAttributes", "blockEvents", "blockUserIdentities" booleans');
 
             });
 
             it('integration test - should prioritize data plan from config.dataPlanOptions over server provided data plan', async () => {
-                window.mParticle._resetForTests(MPConfig);
                 let mockForwarder = new MockForwarder();
                 window.mParticle.addForwarder(mockForwarder);
                 window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
@@ -1225,6 +1254,7 @@ describe('kit blocking', () => {
 
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
                 logs.includes('Customer provided data plan found').should.equal(true);
                 logs.includes('Data plan found from mParticle.js').should.equal(false);
                 logs.includes('Data plan found from /config').should.equal(false);
@@ -1250,7 +1280,6 @@ describe('kit blocking', () => {
             });
 
             it('integration test - should block or unblock planned events', async () => {
-                window.mParticle._resetForTests(MPConfig);
                 let mockForwarder = new MockForwarder();
                 window.mParticle.addForwarder(mockForwarder);
 
@@ -1266,6 +1295,7 @@ describe('kit blocking', () => {
                 window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
 
                 window.mParticle.logEvent('Blocked event');
 
@@ -1287,17 +1317,11 @@ describe('kit blocking', () => {
         });
 
         describe('integration tests - self hosting set up', () => {
-            afterEach(function() {
-                fetchMock.restore();
-            });
-
             it('should create a proper kitblocker on a self hosted set up', async () => {
                 fetchMock.get(`${urls.config}&plan_id=robs_plan&plan_version=1`, {
                     status: 200,
                     body: JSON.stringify({ dataPlanResult: dataPlan }),
                 });
-
-                window.mParticle._resetForTests(MPConfig);
 
                 let mockForwarder = new MockForwarder();
                 window.mParticle.addForwarder(mockForwarder);
@@ -1315,6 +1339,7 @@ describe('kit blocking', () => {
                 window.mParticle.logEvent('Blocked event');
 
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
 
                 let event = window.MockForwarder1.instance.receivedEvent;
                 (event === null).should.equal(true);
@@ -1331,8 +1356,6 @@ describe('kit blocking', () => {
                 });
 
                 let errorMessages = [];
-
-                window.mParticle._resetForTests(MPConfig);
 
                 let mockForwarder = new MockForwarder();
                 window.mParticle.addForwarder(mockForwarder);
@@ -1355,6 +1378,7 @@ describe('kit blocking', () => {
 
                 window.mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned)
+                await Promise.resolve();
 
                 errorMessages[0].should.equal(errorMessage);
                 window.mParticle.config.requestConfig = false;
