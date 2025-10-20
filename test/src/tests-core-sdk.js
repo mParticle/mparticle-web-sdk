@@ -22,6 +22,8 @@ const {
 
 describe('core SDK', function() {
     beforeEach(function() {
+        mParticle._resetForTests(MPConfig);
+        fetchMock.config.overwriteRoutes = true;
         fetchMock.post(urls.events, 200);
         fetchMockSuccess(urls.identify, {
             mpid: testMPID,
@@ -31,13 +33,13 @@ describe('core SDK', function() {
     });
 
     afterEach(function() {
-        mParticle._resetForTests(MPConfig);
         fetchMock.restore();
         sinon.restore();
     });
 
     it('starts new session', async () => {
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         mParticle.startNewSession();
 
@@ -88,6 +90,7 @@ describe('core SDK', function() {
 
     it('ends existing session with an event that includes SessionLength', async () => {
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         mParticle.startNewSession();
         mParticle.endSession();
@@ -101,6 +104,7 @@ describe('core SDK', function() {
 
     it('creates a new dateLastEventSent when logging an event, and retains the previous one when ending session', async () => {
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         const clock = sinon.useFakeTimers();
         mParticle.logEvent('Test Event1');
@@ -119,19 +123,19 @@ describe('core SDK', function() {
     it('should process ready queue when initialized', async () => {
         let readyFuncCalled = false;
 
-        mParticle._resetForTests(MPConfig);
-
         mParticle.ready(function() {
             readyFuncCalled = true;
         });
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
+        await Promise.resolve();
 
         expect(readyFuncCalled).equal(true);
     });
 
     it('should set app version on the payload', async () => {
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         mParticle.setAppVersion('1.0');
 
@@ -142,6 +146,7 @@ describe('core SDK', function() {
 
     it('should get app version', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
+        await Promise.resolve();
         mParticle.setAppVersion('2.0');
 
         const appVersion = mParticle.getAppVersion();
@@ -149,7 +154,6 @@ describe('core SDK', function() {
     });
 
     it('should get environment setting when set to `production`', () => {
-        mParticle._resetForTests(MPConfig);
         mParticle.init(apiKey, {
             ...window.mParticle.config,
             isDevelopmentMode: false,
@@ -159,7 +163,6 @@ describe('core SDK', function() {
     });
 
     it('should get environment setting when set to `development`', () => {
-        mParticle._resetForTests(MPConfig);
         mParticle.init(apiKey, {
             ...window.mParticle.config,
             isDevelopmentMode: true,
@@ -169,7 +172,6 @@ describe('core SDK', function() {
     });
 
     it('should get app version from config', () => {
-        mParticle._resetForTests(MPConfig);
         window.mParticle.config.appName = "testAppName";
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -179,6 +181,7 @@ describe('core SDK', function() {
 
     it('should send new appName via event payload', async () => {
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         mParticle.config.flags = {
             eventBatchingIntervalMillis: 0,
@@ -193,6 +196,7 @@ describe('core SDK', function() {
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         });
+        await Promise.resolve();
 
         window.mParticle.logEvent('Test Event');
 
@@ -203,8 +207,7 @@ describe('core SDK', function() {
 
     it('should allow app name to be changed via setAppName', async () => {
         await waitForCondition(hasIdentifyReturned);
-
-        mParticle._resetForTests(MPConfig);
+        await Promise.resolve();
 
         const newConfig = { ...window.mParticle.config, appName: 'OverrideTestName'};
                         
@@ -214,6 +217,7 @@ describe('core SDK', function() {
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         });
+        await Promise.resolve();
 
         const appName = mParticle.getAppName();
         appName.should.equal('OverrideTestName');
@@ -221,6 +225,7 @@ describe('core SDK', function() {
 
     it('should set Package Name on Batch Payload', async () => {
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         mParticle.config.package = 'my-web-package';
 
@@ -230,6 +235,7 @@ describe('core SDK', function() {
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         });
+        await Promise.resolve();
 
         window.mParticle.logEvent('Test Event');
         
@@ -241,6 +247,7 @@ describe('core SDK', function() {
 
     it('should sanitize event attributes', async () => {
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         mParticle.logEvent('sanitized event', 1, {
             key1: 'value1',
@@ -263,6 +270,7 @@ describe('core SDK', function() {
 
     it('sanitizes attributes when attrs are provided', async () => {
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         const attrs = {
             valid: '123',
@@ -348,9 +356,8 @@ describe('core SDK', function() {
 
     it('should not generate a new device ID if a deviceId exists in localStorage', async () => {
         await waitForCondition(hasIdentifyReturned);
-            
-        mParticle._resetForTests(MPConfig);
-
+        await Promise.resolve();
+        
         setLocalStorage();
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -367,8 +374,9 @@ describe('core SDK', function() {
     });
 
     it('will create a cgid when no previous cgid exists after initializing storage, and no sid', () => {
+        // Reset to clear the sid created by beforeEach's init()
         mParticle._resetForTests(MPConfig);
-
+        
         mParticle.getInstance()._Store.storageName = Utils.workspaceCookieName;
         mParticle.getInstance()._Persistence.initializeStorage();
         mParticle.getInstance()._Persistence.update();
@@ -381,8 +389,8 @@ describe('core SDK', function() {
 
     it('creates a new session when elapsed time between actions is greater than session timeout', async () => {
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
-        mParticle._resetForTests(MPConfig);
         mParticle.config.sessionTimeout = 1;
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => {
@@ -390,6 +398,7 @@ describe('core SDK', function() {
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         });
+        await Promise.resolve();
 
         const clock = sinon.useFakeTimers();
         clock.tick(100);
@@ -406,8 +415,8 @@ describe('core SDK', function() {
 
     it('should end session when last event sent is outside of sessionTimeout', async () => {
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
-        mParticle._resetForTests(MPConfig);
         mParticle.config.sessionTimeout = 1;
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => {
@@ -415,6 +424,7 @@ describe('core SDK', function() {
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         });
+        await Promise.resolve();
 
         const clock = sinon.useFakeTimers();
         clock.tick(100);
@@ -440,8 +450,8 @@ describe('core SDK', function() {
     it('should not end session when end session is called within sessionTimeout timeframe', async () => {
         // This test mimics if another tab is open and events are sent, but previous tab's sessionTimeout is still ongoing
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
-        mParticle._resetForTests(MPConfig);
         mParticle.config.sessionTimeout = 1;
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => {
@@ -449,6 +459,7 @@ describe('core SDK', function() {
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         });
+        await Promise.resolve();
 
         const clock = sinon.useFakeTimers();
 
@@ -495,6 +506,7 @@ describe('core SDK', function() {
 
     it('should set the sessionId from memory on the payload', async () => {
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         mParticle.logEvent('Test Event');
         const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
@@ -506,6 +518,7 @@ describe('core SDK', function() {
 
     it('should set session start date in dto', async () => {
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         mParticle.logEvent('Test Event');
 
@@ -516,6 +529,7 @@ describe('core SDK', function() {
 
     it('should update session start date when manually ending session then starting a new one', async () => {
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         mParticle.logEvent('Test Event');
 
@@ -538,8 +552,8 @@ describe('core SDK', function() {
 
     it('should update session start date when session times out, then start a new one', async () => {
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
-        mParticle._resetForTests(MPConfig);
         mParticle.config.sessionTimeout = 1;
 
         mParticle.init(apiKey, mParticle.config);
@@ -548,6 +562,7 @@ describe('core SDK', function() {
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         });
+        await Promise.resolve();
 
         const clock = sinon.useFakeTimers();
         clock.tick(10);
@@ -573,6 +588,7 @@ describe('core SDK', function() {
 
     it('should load SDK with the included api on init and not send events to previous apikey in persistence', async () => {
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         mParticle.logEvent('Test Event1');
 
@@ -590,6 +606,7 @@ describe('core SDK', function() {
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         });
+        await Promise.resolve();
 
         mParticle.logEvent('Test Event2');
 
@@ -691,12 +708,11 @@ describe('core SDK', function() {
             config.minWebviewBridgeVersion
         );
         mp.SDKConfig.aliasMaxWindow.should.equal(config.aliasMaxWindow);
-
-        mParticle._resetForTests(MPConfig);
     });
 
     it('should use custom loggers when provided', async () => {
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         mParticle.config.logLevel = 'verbose';
         let errorMessage;
@@ -721,6 +737,7 @@ describe('core SDK', function() {
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         });
+        await Promise.resolve();
 
         infoMessage.should.equal(
             'Batch count: 1'
@@ -746,6 +763,7 @@ describe('core SDK', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         infoMessages.length.should.equal(0);
 
@@ -757,6 +775,7 @@ describe('core SDK', function() {
 
     it("should not log anything to console when logLevel = 'none'", async () => {
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         const infoMessages = [];
         const warnMessages = [];
@@ -780,6 +799,7 @@ describe('core SDK', function() {
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         });
+        await Promise.resolve();
 
         infoMessages.length.should.equal(0);
         warnMessages.length.should.equal(0);
@@ -820,8 +840,6 @@ describe('core SDK', function() {
     });
 
     it('should use default urls if no custom urls are set in config object', () => {
-        mParticle._resetForTests(MPConfig);
-
         mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(Constants.DefaultBaseUrls.v1SecureServiceUrl);
@@ -834,6 +852,7 @@ describe('core SDK', function() {
 
     it('should have default urls if no custom urls are set in config object, but use custom urls when they are set', async () => {
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         window.mParticle.config.v3SecureServiceUrl =
             'testtesttest-custom-v3secureserviceurl/v3/JS/';
@@ -850,6 +869,7 @@ describe('core SDK', function() {
                 window.mParticle.getInstance()?._Store?.identityCallInFlight === false
             );
         });
+        await Promise.resolve();
 
         mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(window.mParticle.config.v3SecureServiceUrl)
         mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(window.mParticle.config.configUrl)
@@ -878,6 +898,7 @@ describe('core SDK', function() {
                 mParticle.Identity.getCurrentUser()?.getMPID() === 'loginMPID'
             );
         });
+        await Promise.resolve();
 
         fetchMock.calls()[0][0].should.equal('https://' + window.mParticle.config.identityUrl + 'login');
         // test alias endpoint
@@ -928,6 +949,7 @@ describe('core SDK', function() {
         mParticle.init(apiKey, mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         window.mParticle.logEvent('Test Event');
 
@@ -935,14 +957,12 @@ describe('core SDK', function() {
     });
 
     it('should add onCreateBatch to _Store.SDKConfig if onCreateBatch is provide on mParticle.config object', () => {
-        window.mParticle._resetForTests();
         mParticle.config.onCreateBatch = function(batch) { return batch};
         mParticle.init(apiKey, mParticle.config);
         (typeof mParticle.getInstance()._Store.SDKConfig.onCreateBatch).should.equal('function');
     });
 
     it('should not add onCreateBatch to _Store.SDKConfig if it is not a function', () => {
-        window.mParticle._resetForTests();
         mParticle.config.onCreateBatch = 'not a function';
         mParticle.init(apiKey, mParticle.config);
 
@@ -950,7 +970,6 @@ describe('core SDK', function() {
     });
 
     it('should hit url with query parameter of env=1 for debug mode for forwarders', () => {
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = true;
         mParticle.config.requestConfig = true;
         fetchMock.resetHistory();
@@ -968,7 +987,6 @@ describe('core SDK', function() {
     });
 
     it('should hit url with query parameter of env=0 for debug mode for forwarders', () => {
-        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         mParticle.config.requestConfig = true;
 
@@ -986,7 +1004,6 @@ describe('core SDK', function() {
 
     // TODO - there are no actual tests here....what's going on?
     it('should fetch from /config and keep everything properly on the store', async () => {
-        mParticle._resetForTests(MPConfig);
         const config = {
             appName: 'appNameTest',
             minWebviewBridgeVersion: 1,
@@ -1002,6 +1019,7 @@ describe('core SDK', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasConfigurationReturned);
+        await Promise.resolve();
         mParticle.getInstance()._Store.SDKConfig.appName = config.appName;
         mParticle.getInstance()._Store.SDKConfig.minWebviewBridgeVersion =
             config.minWebviewBridgeVersion;
@@ -1010,9 +1028,6 @@ describe('core SDK', function() {
     });
 
     it('should initialize and log events even with a failed /config fetch and empty config', async () => {
-        // this instance occurs when self hosting and the user only passes an object into init
-        mParticle._resetForTests(MPConfig);
-
         const config = {
             appName: 'appNameTest',
             minWebviewBridgeVersion: 1,
@@ -1036,6 +1051,7 @@ describe('core SDK', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasConfigurationReturned);
+        await Promise.resolve();
         // fetching the config is async and we need to wait for it to finish
         mParticle.getInstance()._Store.isInitialized.should.equal(true);
 
@@ -1050,6 +1066,7 @@ describe('core SDK', function() {
         });
 
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1');
+        await Promise.resolve();
 
         mParticle.logEvent('Test Event');
         const testEvent = findEventFromRequest(
@@ -1061,11 +1078,9 @@ describe('core SDK', function() {
     });
 
     it('should initialize without a config object passed to init', async () => {
-        // this instance occurs when self hosting and the user only passes an object into init
-        mParticle._resetForTests(MPConfig);
-
         mParticle.init(apiKey);
         await waitForCondition(hasIdentityCallInflightReturned);
+        await Promise.resolve();
 
         mParticle.getInstance()._Store.isInitialized.should.equal(true);
     });
@@ -1080,8 +1095,6 @@ describe('core SDK', function() {
     });
 
     it('should remove localstorage when calling reset', () => {
-        mParticle._resetForTests(MPConfig);
-
         window.mParticle.config.workspaceToken = 'defghi';
         mParticle.init(apiKey, window.mParticle.config)
         let ls = localStorage.getItem('mprtcl-v4_defghi');
@@ -1094,8 +1107,6 @@ describe('core SDK', function() {
     });
     
     it('should remove cookies when calling reset', () => {
-        mParticle._resetForTests(MPConfig);
-
         window.mParticle.config.useCookieStorage = true;
         window.mParticle.config.workspaceToken = 'defghi';
         mParticle.init(apiKey, window.mParticle.config)
@@ -1112,7 +1123,6 @@ describe('core SDK', function() {
     });
 
     it('should queue setCurrencyCode successfully when SDK is not yet initialized, and then later initialized', () => {
-        mParticle._resetForTests(MPConfig);
         // mock a non-initialized state
         mParticle.getInstance()._Store.isInitialized = false;
 
@@ -1124,10 +1134,9 @@ describe('core SDK', function() {
     });
 
     it('should set a device id when calling setDeviceId', async () => {
-        mParticle._resetForTests(MPConfig);
-        
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
+        await Promise.resolve();
         // this das should be the SDK auto generated one, which is 36 characters long
         mParticle.getDeviceId().length.should.equal(36);
 
@@ -1137,7 +1146,6 @@ describe('core SDK', function() {
     });
 
     it('should set a device id when set on mParticle.config', () => {
-        mParticle._resetForTests(MPConfig);
         window.mParticle.config.deviceId = 'foo-guid';
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -1145,8 +1153,6 @@ describe('core SDK', function() {
     });
 
     it('should not set the wrapper sdk info in Store when mParticle._setWrapperSDKInfo() method is called if init not called', () => {
-        mParticle._resetForTests(MPConfig);
-
         mParticle._setWrapperSDKInfo('flutter', '1.0.3');
 
         mParticle.getInstance()._Store.wrapperSDKInfo.name.should.equal('none');
@@ -1155,8 +1161,6 @@ describe('core SDK', function() {
     });
 
     it('should have the correct wrapper sdk info default values when init is called', () => {
-        mParticle._resetForTests(MPConfig);
-        
         mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.getInstance()._Store.wrapperSDKInfo.name.should.equal('none');
@@ -1165,12 +1169,11 @@ describe('core SDK', function() {
     });
 
     it('should set the wrapper sdk info in Store when mParticle._setWrapperSDKInfo() method is called after init is called', async () => {
-        mParticle._resetForTests(MPConfig);
-
         mParticle._setWrapperSDKInfo('flutter', '1.0.3');
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
+        await Promise.resolve();
 
         mParticle.getInstance()._Store.wrapperSDKInfo.name.should.equal('flutter');
         mParticle.getInstance()._Store.wrapperSDKInfo.version.should.equal('1.0.3');
@@ -1178,12 +1181,11 @@ describe('core SDK', function() {
     });
 
     it('should not set the wrapper sdk info in Store after it has previously been set', async () => {
-        mParticle._resetForTests(MPConfig);
-
         mParticle._setWrapperSDKInfo('flutter', '1.0.3');
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
+        await Promise.resolve();
 
         mParticle._setWrapperSDKInfo('none', '2.0.5');
 
