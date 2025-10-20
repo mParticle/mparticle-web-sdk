@@ -147,7 +147,6 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     // https://go.mparticle.com/work/SQDSDKS-6289
     // TODO: Replace this with Store once Store is moved earlier in the init process
     this.getDeviceId = this._Persistence.getDeviceId;
-    let launcherInstanceGuid = undefined;
 
     if (typeof window !== 'undefined') {
         if (window.mParticle && window.mParticle.config) {
