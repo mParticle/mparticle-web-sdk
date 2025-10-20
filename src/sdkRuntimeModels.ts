@@ -251,7 +251,7 @@ export interface IMParticleInstanceManager extends MParticleWebSDK {
 
     // Public Methods
     getInstance(instanceName?: string): IMParticleWebSDKInstance;
-    getLauncherInstanceGuid(): string;
+    captureTimings(metricName: string);
 }
 
 

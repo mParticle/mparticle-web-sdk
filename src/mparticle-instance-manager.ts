@@ -27,10 +27,6 @@ if (!Array.isArray) {
 }
 
 
-if (typeof window !== 'undefined' && window.performance?.mark) {
-    window.performance.mark(Constants.PerformanceMetricsNames.SdkStart);
-}
-
 function mParticleInstanceManager(this: IMParticleInstanceManager) {
     const self = this;
     // Only leaving this here in case any clients are trying to access mParticle.Store, to prevent from throwing
@@ -82,8 +78,14 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
             self._instances[instanceName] = client;
         }
 
+        client.captureTimings(Constants.PerformanceMetricsNames.SdkStart);
+        client.setLauncherInstanceGuid();
         client.init(apiKey, config, instanceName);
     };
+
+    this.captureTimings = function(metricsName) {
+        self.getInstance().captureTimings(metricsName);
+    }
 
     this.getInstance = function getInstance(instanceName) {
         let client: IMParticleWebSDKInstance;
@@ -491,9 +493,6 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
     };
     this._setWrapperSDKInfo = function(name, version) {
         self.getInstance()._setWrapperSDKInfo(name, version);
-    };
-    this.getLauncherInstanceGuid = function() {
-        return self.getInstance().getLauncherInstanceGuid();
     };
 }
 
