@@ -229,6 +229,8 @@ describe('mParticle instance manager', () => {
             localStorage.removeItem('mprtcl-prodv4_wtTest3');
 
             mParticle._resetForTests(MPConfig);
+            fetchMock.restore();
+            fetchMock.config.overwriteRoutes = true;
 
             mockServer = sinon.createFakeServer();
             mockServer.respondImmediately = true;
@@ -291,6 +293,7 @@ describe('mParticle instance manager', () => {
         afterEach(function() {
             mockServer.restore();
             fetchMock.restore();
+            sinon.restore();
         });
 
         it('uses the correct instance name to identify an instance', async () => {
@@ -299,6 +302,7 @@ describe('mParticle instance manager', () => {
                 mParticle.getInstance('instance2')._Store.configurationLoaded === true &&
                 mParticle.getInstance('instance3')._Store.configurationLoaded === true
             ));
+            await Promise.resolve();
 
             expect(mParticle.getInstance('default_instance')._instanceName).to.equal('default_instance');
             expect(mParticle.getInstance('instance2')._instanceName).to.equal('instance2');
@@ -307,6 +311,7 @@ describe('mParticle instance manager', () => {
 
         it('creates multiple instances with their own cookies', async () => {
             await waitForCondition(hasConfigurationReturned);
+            await Promise.resolve();
             const cookies1 = window.localStorage.getItem('mprtcl-v4_wtTest1');
             const cookies2 = window.localStorage.getItem('mprtcl-v4_wtTest2');
             const cookies3 = window.localStorage.getItem('mprtcl-v4_wtTest3');
@@ -326,7 +331,10 @@ describe('mParticle instance manager', () => {
                     mParticle.getInstance('instance3')._Store
                         .configurationLoaded === true
                 );
-            })
+            });
+
+            await Promise.resolve();
+
             mParticle.getInstance('default_instance').logEvent('hi1');
             mParticle.getInstance('instance2').logEvent('hi2');
             mParticle.getInstance('instance3').logEvent('hi3');
@@ -445,6 +453,7 @@ describe('mParticle instance manager', () => {
             .eCommerce.logPurchase(ta, [product1, product2]);
 
             await waitForCondition(hasConfigurationReturned);
+            await Promise.resolve();
 
             const instance1Event = returnEventForMPInstance(
                 fetchMock.calls(),

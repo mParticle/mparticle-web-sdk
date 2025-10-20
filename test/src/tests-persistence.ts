@@ -32,6 +32,8 @@ const {
 
 describe('persistence', () => {
     beforeEach(() => {
+        mParticle._resetForTests(MPConfig);
+        fetchMock.config.overwriteRoutes = true;
         fetchMock.post(urls.events, 200);
 
         fetchMockSuccess(urls.identify, {
@@ -42,6 +44,7 @@ describe('persistence', () => {
 
     afterEach(() => {
         fetchMock.restore();
+        sinon.restore();
     });
 
     describe('#setCookie', () => {
@@ -49,6 +52,7 @@ describe('persistence', () => {
             mParticle.config.useCookieStorage = true;
             mParticle.init(apiKey, mParticle.config);
             await waitForCondition(hasIdentifyReturned);
+            await Promise.resolve();
 
             // Set some test values in the store
             const store = mParticle.getInstance()._Store;
@@ -93,6 +97,7 @@ describe('persistence', () => {
             mParticle.config.useCookieStorage = false;
             mParticle.init(apiKey, mParticle.config);
             await waitForCondition(hasIdentifyReturned);
+            await Promise.resolve();
 
             // Set some test values in the store
             const store = mParticle.getInstance()._Store;
@@ -136,6 +141,7 @@ describe('persistence', () => {
         it('should not swap a user if there is no MPID change', async () => {
             mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+            await Promise.resolve();
             const cookiesBefore = getLocalStorage();
             mParticle.getInstance()._Persistence.swapCurrentUser(testMPID, testMPID);
     
@@ -150,6 +156,7 @@ describe('persistence', () => {
         it('should swap a user if there is an MPID change', async () => {
             mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+            await Promise.resolve();
             const cookiesBefore = getLocalStorage();
     
             mParticle.getInstance()._Persistence.swapCurrentUser(testMPID, 'currentMPID');
@@ -164,8 +171,6 @@ describe('persistence', () => {
     });
 
     it('should move new schema from cookies to localStorage with useCookieStorage = false', done => {
-        mParticle._resetForTests(MPConfig);
-
         const cookies = JSON.stringify({
             gs: {
                 sid: 'sid',
@@ -197,9 +202,7 @@ describe('persistence', () => {
         done();
     });
 
-    it('should migrate localStorage to cookies with useCookieStorage = true', done => {
-        mParticle._resetForTests(MPConfig);
-
+    it('should migrate localStorage to cookies with useCookieStorage = true', () => {
         setLocalStorage();
 
         mParticle.config.useCookieStorage = true;
@@ -219,14 +222,13 @@ describe('persistence', () => {
             '1',
             'testuser@mparticle.com'
         );
-
-        done();
     });
 
     it('localStorage - should key cookies on mpid on first run', async () => {
         mParticle.config.useCookieStorage = false;
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         const cookies1 = mParticle.getInstance()._Persistence.getLocalStorage();
         const props1 = [
@@ -275,6 +277,7 @@ describe('persistence', () => {
 
         mParticle.Identity.login();
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'otherMPID');
+        await Promise.resolve();
 
         const cookies2 = mParticle.getInstance()._Persistence.getLocalStorage();
         cookies2.should.have.property('cu', 'otherMPID', 'gs');
@@ -289,6 +292,7 @@ describe('persistence', () => {
         mParticle.config.useCookieStorage = true;
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         const cookies1 = findCookie();
 
@@ -335,6 +339,7 @@ describe('persistence', () => {
 
         mParticle.Identity.login();
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'otherMPID');
+        await Promise.resolve();
 
         const cookies2 = findCookie();
 
@@ -351,6 +356,7 @@ describe('persistence', () => {
         mParticle.config.useCookieStorage = true;
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         const cookieData = findCookie();
         const localStorageData = mParticle
@@ -385,6 +391,7 @@ describe('persistence', () => {
     it('puts data into localStorage when running initializeStorage with useCookieStorage = false', async () => {
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         const cookieData = mParticle.getInstance()._Persistence.getCookie();
 
@@ -424,6 +431,7 @@ describe('persistence', () => {
         mParticle.config.useCookieStorage = true;
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         cookieData = findCookie();
         expect(cookieData).to.include.keys('gs', 'cu', testMPID);
@@ -461,6 +469,7 @@ describe('persistence', () => {
         // mParticle.config.useCookieStorage = false;
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         localStorageData = getLocalStorage();
         cookieData = findCookie();
@@ -490,13 +499,13 @@ describe('persistence', () => {
     });
 
     it('should revert to cookie storage if localStorage is not available and useCookieStorage is set to false', async () => {
-        mParticle._resetForTests(MPConfig);
         mParticle.getInstance()._Persistence.determineLocalStorageAvailability = () => {
             return false;
         };
 
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         mParticle
             .getInstance()
@@ -515,6 +524,7 @@ describe('persistence', () => {
         mParticle.config.useCookieStorage = false;
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
         mParticle
             .getInstance()
             .Identity.getCurrentUser()
@@ -539,6 +549,7 @@ describe('persistence', () => {
         mParticle.setIntegrationAttribute(128, { MCID: 'abcedfg' });
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         mParticle.logEvent('Test Event');
         const testEvent = findBatch(fetchMock.calls(), 'Test Event');
@@ -550,6 +561,7 @@ describe('persistence', () => {
         mParticle.config.useCookieStorage = true;
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
         mParticle
             .getInstance()
             .Identity.getCurrentUser()
@@ -570,10 +582,9 @@ describe('persistence', () => {
     });
 
     it('should add new MPID to cookies when returned MPID does not match anything in cookies, and have empty UI and UA', async () => {
-        mParticle._resetForTests(MPConfig);
-
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         fetchMockSuccess(urls.login, {
             mpid: 'mpid1', is_logged_in: false
@@ -583,6 +594,7 @@ describe('persistence', () => {
 
         mParticle.Identity.login(user1);
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid1');
+        await Promise.resolve();
             
         const user1Result = mParticle
             .getInstance()
@@ -596,6 +608,7 @@ describe('persistence', () => {
 
         mParticle.Identity.logout();
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid2');
+        await Promise.resolve();
 
         const user2Result = mParticle.getInstance().Identity.getCurrentUser();
         Object.keys(
@@ -634,6 +647,7 @@ describe('persistence', () => {
         mParticle.init(apiKey, mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         const data = mParticle.getInstance()._Persistence.getLocalStorage();
         data.cu.should.equal(testMPID);
@@ -644,6 +658,7 @@ describe('persistence', () => {
 
         mParticle.Identity.login(user1);
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid1');
+        await Promise.resolve();
             
         const user1Data = mParticle
             .getInstance()
@@ -658,6 +673,7 @@ describe('persistence', () => {
         mParticle.Identity.login(user2);
 
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid2');
+        await Promise.resolve();
             
         const user2Data = mParticle
             .getInstance()
@@ -671,6 +687,7 @@ describe('persistence', () => {
 
         mParticle.Identity.login(user3);
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid3');
+        await Promise.resolve();
             
         const user3data = mParticle
             .getInstance()
@@ -689,6 +706,7 @@ describe('persistence', () => {
         const user2 = { userIdentities: { customerid: 'customerid2' } };
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         // set user attributes on testMPID
         mParticle
@@ -712,12 +730,14 @@ describe('persistence', () => {
 
         mParticle.Identity.login(user1);
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid1');
+        await Promise.resolve();
                             
         // modify user1's identities
         mParticle.Identity.modify({
             userIdentities: { email: 'email@test.com' },
         });
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         // set user attributes on mpid1
         mParticle
@@ -738,6 +758,7 @@ describe('persistence', () => {
 
         mParticle.Identity.login(user2);
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid2');
+        await Promise.resolve();
 
         // set user attributes on user 2
         mParticle
@@ -758,6 +779,7 @@ describe('persistence', () => {
 
         mParticle.Identity.login(user1);
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid1');
+        await Promise.resolve();
         const user1RelogInData = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
@@ -774,6 +796,7 @@ describe('persistence', () => {
     it('should remove MPID as keys if the cookie size is beyond the setting', async () => {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
         mParticle.config.maxCookieSize = 700;
 
         const cookies: IPersistenceMinified = {
@@ -850,6 +873,7 @@ describe('persistence', () => {
         mParticle.config.maxCookieSize = 1000;
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
         const userIdentities1 = {
             userIdentities: {
                 customerid: 'foo1'
@@ -862,6 +886,7 @@ describe('persistence', () => {
 
         mParticle.Identity.login(userIdentities1);
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1');
+        await Promise.resolve();
 
         let cookieData: Partial<IPersistenceMinified> = findCookie();
         cookieData.gs.csm[0].should.be.equal('testMPID');
@@ -879,6 +904,7 @@ describe('persistence', () => {
 
         mParticle.Identity.login(userIdentities2);
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID2');
+        await Promise.resolve();
 
         cookieData = findCookie();
         cookieData.gs.csm[0].should.be.equal('testMPID');
@@ -897,6 +923,7 @@ describe('persistence', () => {
 
         mParticle.Identity.login(userIdentities3);
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'testMPID');
+        await Promise.resolve();
 
         cookieData = findCookie();
         cookieData.gs.csm[0].should.be.equal('MPID1');
@@ -911,6 +938,7 @@ describe('persistence', () => {
 
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         mParticle
             .getInstance()
@@ -945,6 +973,7 @@ describe('persistence', () => {
 
         mParticle.Identity.login(userIdentities1);
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1');
+        await Promise.resolve();
 
         mParticle
             .getInstance()
@@ -983,6 +1012,7 @@ describe('persistence', () => {
 
         mParticle.Identity.login(userIdentities2);
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID2');
+        await Promise.resolve();
 
         mParticle
             .getInstance()
@@ -1104,6 +1134,7 @@ describe('persistence', () => {
 
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         mParticle
             .getInstance()
@@ -1132,6 +1163,7 @@ describe('persistence', () => {
 
         mParticle.Identity.login();
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1');
+        await Promise.resolve();
 
         mParticle
             .getInstance()
@@ -1166,6 +1198,7 @@ describe('persistence', () => {
         mParticle.endSession();
         mParticle.Identity.login();
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID2');
+        await Promise.resolve();
 
         mParticle
             .getInstance()
@@ -1207,13 +1240,13 @@ describe('persistence', () => {
     });
 
     it('integration test - migrates a large localStorage cookie to cookies and properly remove MPIDs', async () => {
-        mParticle._resetForTests(MPConfig);
         mParticle.config.useCookieStorage = false;
         mParticle.config.maxCookieSize = 700;
 
         mParticle.init(apiKey, mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
         mParticle
             .getInstance()
             .Identity.getCurrentUser()
@@ -1241,6 +1274,7 @@ describe('persistence', () => {
 
         mParticle.Identity.login();
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1');
+        await Promise.resolve();
 
         mParticle
             .getInstance()
@@ -1269,6 +1303,7 @@ describe('persistence', () => {
 
         mParticle.Identity.login();
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID2');
+        await Promise.resolve();
 
         mParticle
             .getInstance()
@@ -1295,6 +1330,7 @@ describe('persistence', () => {
 
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
         
         const cookieData = findCookie();
 
@@ -1308,6 +1344,7 @@ describe('persistence', () => {
 
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
         mParticle
             .getInstance()
             .Identity.getCurrentUser()
@@ -1340,6 +1377,7 @@ describe('persistence', () => {
         };
         mParticle.Identity.login(userIdentities1);
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1');
+        await Promise.resolve();
 
         mParticle
             .getInstance()
@@ -1373,6 +1411,7 @@ describe('persistence', () => {
         };
         mParticle.Identity.login(userIdentities2);
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID2');
+        await Promise.resolve();
 
         mParticle
             .getInstance()
@@ -1399,6 +1438,7 @@ describe('persistence', () => {
 
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
         const lsData = getLocalStorage(v4LSKey);
 
         lsData.should.have.properties([
@@ -1436,6 +1476,7 @@ describe('persistence', () => {
 
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         // testMPID
         mParticle
@@ -1471,6 +1512,7 @@ describe('persistence', () => {
 
         mParticle.Identity.login(userIdentities1);
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1');
+        await Promise.resolve();
 
         // MPID1
         mParticle
@@ -1506,6 +1548,7 @@ describe('persistence', () => {
 
         mParticle.Identity.login(userIdentities2);
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID2');
+        await Promise.resolve();
 
         // MPID2
         mParticle
@@ -1533,6 +1576,7 @@ describe('persistence', () => {
 
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
         const cookieData = findCookie();
 
         cookieData.should.have.properties([
@@ -1577,6 +1621,7 @@ describe('persistence', () => {
 
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         const sessionId = mParticle.sessionManager.getSession();
         const das = mParticle.getDeviceId();
@@ -1601,6 +1646,7 @@ describe('persistence', () => {
         mParticle.init(apiKey, mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
+        await Promise.resolve();
 
         const sessionId = mParticle.sessionManager.getSession();
         const das = mParticle.getDeviceId();
@@ -1630,6 +1676,7 @@ describe('persistence', () => {
 
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         mParticle.getInstance()._Persistence.setFirstSeenTime('current', 10000);
         const currentFirstSeenTime = mParticle
@@ -1666,8 +1713,6 @@ describe('persistence', () => {
     });
 
     it('should properly set setLastSeenTime()', async () => {
-        mParticle._resetForTests(MPConfig);
-
         const cookies = JSON.stringify({
             gs: {
                 sid: 'lst Test',
@@ -1684,6 +1729,7 @@ describe('persistence', () => {
 
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         const clock = sinon.useFakeTimers();
         clock.tick(100);
@@ -1763,12 +1809,14 @@ describe('persistence', () => {
 
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
         expect(
             mParticle.getInstance()._Persistence.getFirstSeenTime('current')
         ).to.equal(null);
 
         mParticle.Identity.identify();
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         expect(
             mParticle.getInstance()._Persistence.getFirstSeenTime('current')
@@ -1790,6 +1838,7 @@ describe('persistence', () => {
 
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
         expect(
             mParticle.getInstance()._Persistence.getFirstSeenTime('previous')
         ).to.equal(null);
@@ -1797,10 +1846,9 @@ describe('persistence', () => {
     });
 
     it('should save to persistence a device id set with setDeviceId', async () => {
-        mParticle._resetForTests(MPConfig);
-
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
+        await Promise.resolve();
         mParticle.setDeviceId('foo-guid');
 
         mParticle
@@ -1809,8 +1857,7 @@ describe('persistence', () => {
             .gs.das.should.equal('foo-guid');
     });
 
-    it('should save to persistence a device id set via mParticle.config', done => {
-        mParticle._resetForTests(MPConfig);
+    it('should save to persistence a device id set via mParticle.config', () => {
         mParticle.config.deviceId = 'foo-guid';
         mParticle.init(apiKey, mParticle.config);
 
@@ -1818,13 +1865,9 @@ describe('persistence', () => {
             .getInstance()
             ._Persistence.getLocalStorage()
             .gs.das.should.equal('foo-guid');
-
-        done();
     });
 
-    it('should prioritize device id set via mParticle.config instead of local storage', done => {
-        mParticle._resetForTests(MPConfig);
-
+    it('should prioritize device id set via mParticle.config instead of local storage', () => {
         mParticle.init(apiKey, mParticle.config);
 
         const initialDeviceId = mParticle.getInstance().getDeviceId();
@@ -1851,8 +1894,6 @@ describe('persistence', () => {
             mParticle.getInstance()._Persistence.getLocalStorage().gs.das,
             'Device ID stored in Local Storage should be the new Device ID'
         ).to.equal(expectedDeviceId);
-
-        done();
     });
 
     // this test confirms a bug has been fixed where setting a user attribute, then user attribute list
@@ -1867,9 +1908,9 @@ describe('persistence', () => {
         // first test local storage
         mParticle.config.useCookieStorage = false;
 
-        mParticle._resetForTests(MPConfig);
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         const user = mParticle.Identity.getCurrentUser();
 
@@ -1880,13 +1921,12 @@ describe('persistence', () => {
         user.getAllUserAttributes()['ua-list'][1].should.equal('<b>');
         user.getAllUserAttributes()['ua-1'].should.equal('a');
 
-        mParticle._resetForTests(MPConfig);
-
         // then test cookie storage
         mParticle.config.useCookieStorage = true;
 
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await Promise.resolve();
 
         const user2 = mParticle.Identity.getCurrentUser();
 
@@ -1899,10 +1939,6 @@ describe('persistence', () => {
     });
 
     describe('noFunctional privacy flag', () => {
-        beforeEach(() => {
-            mParticle._resetForTests(MPConfig);
-        });
-
         describe('set to true', () => {
             beforeEach(() => {
                 mParticle.config.launcherOptions = { noFunctional: true };
@@ -1913,6 +1949,7 @@ describe('persistence', () => {
 
                 mParticle.init(apiKey, mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
 
                 mParticle.getInstance()._Persistence.update();
 
@@ -1924,6 +1961,7 @@ describe('persistence', () => {
 
                 mParticle.init(apiKey, mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
 
                 mParticle.getInstance()._Persistence.update();
 
@@ -1941,6 +1979,7 @@ describe('persistence', () => {
 
                 mParticle.init(apiKey, mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
 
                 mParticle.getInstance()._Persistence.update();
 
@@ -1952,6 +1991,7 @@ describe('persistence', () => {
 
                 mParticle.init(apiKey, mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
 
                 mParticle.getInstance()._Persistence.update();
 
@@ -1965,6 +2005,7 @@ describe('persistence', () => {
 
                 mParticle.init(apiKey, mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
 
                 mParticle.getInstance()._Persistence.update();
 
@@ -1976,6 +2017,7 @@ describe('persistence', () => {
 
                 mParticle.init(apiKey, mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
+                await Promise.resolve();
 
                 mParticle.getInstance()._Persistence.update();
 
