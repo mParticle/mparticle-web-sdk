@@ -325,6 +325,39 @@ describe('SessionManager', () => {
                 expect(persistenceSpy.called).to.equal(true);
             });
 
+            it('should NOT end a session if NOT enough time has passed in between sessions', () => {
+                // The default timeout limit is 30 minutes.
+                const twentyMinutesAgo = new Date();
+                twentyMinutesAgo.setMinutes(now.getMinutes() - 20);
+
+                mParticle.init(apiKey, window.mParticle.config);
+                const mpInstance = mParticle.getInstance();
+                const timerSpy = sinon.spy(
+                    mpInstance._SessionManager,
+                    'setSessionTimer'
+                );
+
+                // Session Manager relies on persistence to determine last event sent (LES) time
+                // Also requires sid to verify session exists
+                sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                    gs: {
+                        les: twentyMinutesAgo,
+                        sid: 'fake-session-id',
+                    },
+                });
+
+                mpInstance._SessionManager.endSession();
+
+                // We are verifying that the session has not ended, and therefore the
+                // session ID should still be the same, as opposed to null, which
+                // is assigned when the session actually ends
+                expect(mpInstance._Store.sessionId).to.equal('fake-session-id');
+
+                // When session is not timed out, setSessionTimer is called to keep track
+                // of current session timeout
+                expect(timerSpy.getCalls().length).to.equal(1);
+            });
+
             it('should force a session end when override is used', () => {
                 mParticle.init(apiKey, window.mParticle.config);
                 const mpInstance = mParticle.getInstance();
@@ -491,39 +524,6 @@ describe('SessionManager', () => {
                 expect(mpInstance._Store.sessionId).to.equal(
                     'cookie-session-id'
                 );
-            });
-
-            it('should NOT end a session if NOT enough time has passed in between sessions', () => {
-                // The default timeout limit is 30 minutes.
-                const twentyMinutesAgo = new Date();
-                twentyMinutesAgo.setMinutes(now.getMinutes() - 20);
-
-                mParticle.init(apiKey, window.mParticle.config);
-                const mpInstance = mParticle.getInstance();
-                const timerSpy = sinon.spy(
-                    mpInstance._SessionManager,
-                    'setSessionTimer'
-                );
-
-                // Session Manager relies on persistence to determine last event sent (LES) time
-                // Also requires sid to verify session exists
-                sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
-                    gs: {
-                        les: twentyMinutesAgo,
-                        sid: 'fake-session-id',
-                    },
-                });
-
-                mpInstance._SessionManager.endSession();
-
-                // We are verifying that the session has not ended, and therefore the
-                // session ID should still be the same, as opposed to null, which
-                // is assigned when the session actually ends
-                expect(mpInstance._Store.sessionId).to.equal('fake-session-id');
-
-                // When session is not timed out, setSessionTimer is called to keep track
-                // of current session timeout
-                expect(timerSpy.getCalls().length).to.equal(1);
             });
 
             it('should end session if the session timeout limit has been reached', () => {
