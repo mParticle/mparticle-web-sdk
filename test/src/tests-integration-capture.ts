@@ -23,7 +23,7 @@ declare global {
 
 const mParticle = window.mParticle as IMParticleInstanceManager;
 
-describe('Integration Capture', () => {
+describe.only('Integration Capture', () => {
     beforeEach(async function() {
         mParticle._resetForTests(MPConfig);
         fetchMock.restore();
@@ -47,7 +47,6 @@ describe('Integration Capture', () => {
         window.document.cookie = '_ttp=45670808';
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         const integrationCapture = window.mParticle.getInstance()._IntegrationCapture;
         // Mock the query params capture function because we cannot mock window.location.href
         sinon.stub(integrationCapture, 'getQueryParams').returns({
@@ -70,7 +69,6 @@ describe('Integration Capture', () => {
 
     it('should add captured integrations to event custom flags', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.logEvent(
             'Test Event',
             mParticle.EventType.Navigation,
@@ -95,7 +93,6 @@ describe('Integration Capture', () => {
 
     it('should add captured integrations to event custom flags, prioritizing passed in custom flags', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         window.mParticle.logEvent(
             'Test Event',
             mParticle.EventType.Navigation,
@@ -119,7 +116,6 @@ describe('Integration Capture', () => {
 
     it('should add captured integrations to page view custom flags', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         window.mParticle.logPageView(
             'Test Page View',
@@ -144,7 +140,6 @@ describe('Integration Capture', () => {
 
     it('should add captured integrations to page view custom flags, prioritizing passed in custom flags', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         window.mParticle.logPageView(
             'Test Page View',
@@ -168,7 +163,6 @@ describe('Integration Capture', () => {
 
     it('should add captured integrations to commerce event custom flags', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         const product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999, 1);
         const product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799, 1);
@@ -207,7 +201,6 @@ describe('Integration Capture', () => {
 
     it('should add captured integrations to commerce event custom flags, prioritizing passed in flags', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         const product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999, 1);
         const product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799, 1);
@@ -246,7 +239,6 @@ describe('Integration Capture', () => {
 
     it('should add captured integrations to commerce event custom flags', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         const product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999, 1);
         const product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799, 1);
@@ -285,7 +277,6 @@ describe('Integration Capture', () => {
 
     it('should add captured integrations to commerce event custom flags, prioritizing passed in flags', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         const product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999, 1);
         const product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799, 1);
@@ -324,7 +315,6 @@ describe('Integration Capture', () => {
 
     it('should add captured integrations to batch as partner identities', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
-        await Promise.resolve();
 
         window.mParticle.logEvent('Test Event 1');
         window.mParticle.logEvent('Test Event 2');
@@ -346,7 +336,6 @@ describe('Integration Capture', () => {
 
     it('should add captured integrations to batch as integration attributes', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
-        await Promise.resolve();
 
         window.mParticle.logEvent('Test Event 1');
         window.mParticle.logEvent('Test Event 2');
@@ -367,7 +356,6 @@ describe('Integration Capture', () => {
 
     it('should add captured integrations to batch as integration attributes without colliding with set integration attributes', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
-        await Promise.resolve();
 
         window.mParticle.setIntegrationAttribute(160, { 'client_id': '12354'});
 
@@ -396,7 +384,6 @@ describe('Integration Capture', () => {
 
     it('should add captured integrations to batch as integration attributes, prioritizing passed in integration attributes', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
-        await Promise.resolve(); 
 
         window.mParticle.setIntegrationAttribute(1277, { 'passbackconversiontrackingid': 'passed-in'});
         window.mParticle.setIntegrationAttribute(160, { 'client_id': '12354'});

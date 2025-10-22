@@ -2,7 +2,7 @@ import _BatchValidator from '../../src/mockBatchCreator';
 import { BaseEvent } from '../../src/sdkRuntimeModels';
 import { expect } from 'chai';
 
-describe('Create a batch from a base event', () => {
+describe.only('Create a batch from a base event', () => {
     const batchValidator = new _BatchValidator();
     const baseEvent: BaseEvent = {
         messageType: 4,

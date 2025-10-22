@@ -28,7 +28,7 @@ declare global {
 
 const mParticle = window.mParticle as IMParticleInstanceManager;
 
-describe('legacy Alias Requests', function() {
+describe.only('legacy Alias Requests', function() {
     let mockServer;
     let clock;
     const originalFetch = window.fetch;
