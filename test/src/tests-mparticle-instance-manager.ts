@@ -27,7 +27,7 @@ function returnEventForMPInstance(calls, apiKey, eventName) {
     return findEventFromRequest(requestsPerApiKey, eventName);
 }
 
-describe('mParticle instance manager', () => {
+describe.only('mParticle instance manager', () => {
     it('has all public apis on it', () => {
         expect(mParticle.ProductActionType, 'Product Action Type').to.have.keys(
             [
@@ -302,7 +302,6 @@ describe('mParticle instance manager', () => {
                 mParticle.getInstance('instance2')._Store.configurationLoaded === true &&
                 mParticle.getInstance('instance3')._Store.configurationLoaded === true
             ));
-            await Promise.resolve();
 
             expect(mParticle.getInstance('default_instance')._instanceName).to.equal('default_instance');
             expect(mParticle.getInstance('instance2')._instanceName).to.equal('instance2');
@@ -311,7 +310,6 @@ describe('mParticle instance manager', () => {
 
         it('creates multiple instances with their own cookies', async () => {
             await waitForCondition(hasConfigurationReturned);
-            await Promise.resolve();
             const cookies1 = window.localStorage.getItem('mprtcl-v4_wtTest1');
             const cookies2 = window.localStorage.getItem('mprtcl-v4_wtTest2');
             const cookies3 = window.localStorage.getItem('mprtcl-v4_wtTest3');
@@ -332,8 +330,6 @@ describe('mParticle instance manager', () => {
                         .configurationLoaded === true
                 );
             });
-
-            await Promise.resolve();
 
             mParticle.getInstance('default_instance').logEvent('hi1');
             mParticle.getInstance('instance2').logEvent('hi2');
@@ -361,8 +357,6 @@ describe('mParticle instance manager', () => {
                        !instance2EventsFail1 && !instance2EventsFail2 &&
                        !instance3EventsFail1 && !instance3EventsFail2;
             });
-
-            await Promise.resolve();
             
             expect(instance1Event).to.be.ok;
             expect(instance2Event).to.be.ok;
@@ -421,7 +415,6 @@ describe('mParticle instance manager', () => {
             );
 
             await waitForCondition(hasConfigurationReturned);
-            await Promise.resolve();
 
             mParticle
                 .getInstance()
@@ -436,7 +429,6 @@ describe('mParticle instance manager', () => {
 
                 return instance1Event && !instance2Event && !instance3Event;
             });
-            await Promise.resolve();
 
             expect(instance1Event).to.be.ok;
             expect(instance2Event).to.not.be.ok;
@@ -451,8 +443,6 @@ describe('mParticle instance manager', () => {
                 instance3Event = returnEventForMPInstance(fetchMock.calls(), 'apiKey3', 'purchase');
                 return instance2Event && !instance3Event;
             });
-            
-            await Promise.resolve();
 
             expect(instance2Event).to.be.ok;
             expect(instance3Event).to.not.be.ok;
@@ -465,7 +455,6 @@ describe('mParticle instance manager', () => {
                 instance3Event = returnEventForMPInstance(fetchMock.calls(), 'apiKey3', 'purchase');
                 return instance3Event;
             });
-            await Promise.resolve();
 
             expect(instance3Event).to.be.ok;
         });

@@ -12,7 +12,7 @@ const forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
     MockForwarder = Utils.MockForwarder;
 
 // https://go.mparticle.com/work/SQDSDKS-6508
-describe('mParticleUser', function() {
+describe.only('mParticleUser', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
         fetchMock.config.overwriteRoutes = true;
@@ -48,7 +48,6 @@ describe('mParticleUser', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         
         const userIdentityRequest = {
             userIdentities: {
@@ -64,7 +63,6 @@ describe('mParticleUser', function() {
                 'loginMPID'
             );
         });
-        await Promise.resolve();
         
         window.MockForwarder1.instance.onUserIdentifiedUser
             .getUserIdentities()
@@ -90,7 +88,6 @@ describe('mParticleUser', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         
         const userIdentityRequest = {
             userIdentities: {
@@ -107,7 +104,6 @@ describe('mParticleUser', function() {
                 'loginMPID'
             );
         });
-        await Promise.resolve();
         
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.Identity.getCurrentUser().setUserAttribute('color', 'blue');
@@ -133,7 +129,6 @@ describe('mParticleUser', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         
         window.MockForwarder1.instance.onIdentifyCompleteCalled.should.equal(true);
     });
@@ -151,7 +146,6 @@ describe('mParticleUser', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         
         const userIdentityRequest = {
             userIdentities: {
@@ -168,7 +162,6 @@ describe('mParticleUser', function() {
                 'loginMPID'
             );
         });
-        await Promise.resolve();
         
         window.MockForwarder1.instance.onLoginCompleteCalled.should.equal(true);
     });
@@ -186,7 +179,6 @@ describe('mParticleUser', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         
         const userIdentityRequest = {
             userIdentities: {
@@ -203,7 +195,6 @@ describe('mParticleUser', function() {
                 'logoutMPID'
             );
         });
-        await Promise.resolve();
         
         window.MockForwarder1.instance.onLogoutCompleteCalled.should.equal(true);
     });
@@ -221,7 +212,6 @@ describe('mParticleUser', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         
         const userIdentityRequest = {
             userIdentities: {
@@ -242,7 +232,6 @@ describe('mParticleUser', function() {
                 'modifyMPID'
             );
         });
-        await Promise.resolve();
         
         window.MockForwarder1.instance.onModifyCompleteCalled.should.equal(true);
     });
