@@ -1345,8 +1345,8 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     };
 
     this.setLauncherInstanceGuid = function() {
-        if (!window[PerformanceMarkType.RoktScriptAppended] 
-            || typeof window[PerformanceMarkType.RoktScriptAppended] !== 'string') {
+        if (!window[Constants.Rokt.LauncherInstanceGuidKey] 
+            || typeof window[Constants.Rokt.LauncherInstanceGuidKey] !== 'string') {
             window[Constants.Rokt.LauncherInstanceGuidKey] = self._Helpers.generateUniqueId();
         }
     };
