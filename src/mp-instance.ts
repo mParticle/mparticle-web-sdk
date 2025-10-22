@@ -16,7 +16,7 @@
 //  Uses portions of code from jQuery
 //  jQuery v1.10.2 | (c) 2005, 2013 jQuery Foundation, Inc. | jquery.org/license
 
-import { EventType, IdentityType, CommerceEventType, PromotionActionType, ProductActionType, MessageType, PerformanceMarkType } from './types';
+import { EventType, IdentityType, CommerceEventType, PromotionActionType, ProductActionType, MessageType } from './types';
 import Constants from './constants';
 import APIClient, { IAPIClient } from './apiClient';
 import Helpers from './helpers';
