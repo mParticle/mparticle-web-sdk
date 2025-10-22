@@ -216,7 +216,6 @@ describe('mParticle instance manager', () => {
             'upload',
             'Rokt',
             'captureTiming',
-            'PerformanceMarkType',
         ]);
     });
 

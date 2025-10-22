@@ -36,7 +36,6 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
     this.CommerceEventType = CommerceEventType;
     this.PromotionType = PromotionActionType;
     this.ProductActionType = ProductActionType;
-    this.PerformanceMarkType = PerformanceMarkType;
 
     this.MPSideloadedKit = MPSideloadedKit;
 

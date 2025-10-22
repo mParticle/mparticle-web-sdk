@@ -31,7 +31,6 @@ import {
     CommerceEventType,
     EventType,
     IdentityType,
-    PerformanceMarkType,
     ProductActionType,
     PromotionActionType,
 } from './types';
@@ -172,7 +171,6 @@ export interface MParticleWebSDK {
     EventType: typeof EventType;
     PromotionType: typeof PromotionActionType;
     ProductActionType: typeof ProductActionType;
-    PerformanceMarkType: typeof PerformanceMarkType;
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
     Consent: SDKConsentApi;

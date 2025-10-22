@@ -393,7 +393,6 @@ export const ApplicationTransitionType = {
 
 export const PerformanceMarkType = {
     SdkStart: 'mp:sdkStart' as const,
-    RoktScriptAppended: 'mp:RoktScriptAppended' as const,
 }
 
 export default {
