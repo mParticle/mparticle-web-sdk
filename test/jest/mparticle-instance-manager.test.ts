@@ -8,7 +8,7 @@ const mParticle = (globalThis as any).mParticle as IMParticleInstanceManager;
 describe('mParticle instance manager', () => {
     beforeEach(() => {
         mockPerformanceMark.mockClear();
-        delete (window as any)[Constants.Rokt.LauncherInstanceGuidKey];
+        delete (globalThis as any)[Constants.Rokt.LauncherInstanceGuidKey];
     });     
 
     it('sets sdkStart event timing', async () => {
@@ -24,15 +24,15 @@ describe('mParticle instance manager', () => {
 
     it('sets rokt launcher instance guid', async () => {
         mParticle.init("testApiKey", {});
-        expect(window).toHaveProperty(Constants.Rokt.LauncherInstanceGuidKey);
-        expect(typeof window[Constants.Rokt.LauncherInstanceGuidKey]).toBe('string');
+        expect(globalThis).toHaveProperty(Constants.Rokt.LauncherInstanceGuidKey);
+        expect(typeof globalThis[Constants.Rokt.LauncherInstanceGuidKey]).toBe('string');
     });
 
     it('does not set rokt launcher instance guid if it already exists', () => {
-        window[Constants.Rokt.LauncherInstanceGuidKey] = 'testGuid';
+        globalThis[Constants.Rokt.LauncherInstanceGuidKey] = 'testGuid';
         mParticle.init("testApiKey", {});
-        expect(window).toHaveProperty(Constants.Rokt.LauncherInstanceGuidKey);
-        expect(typeof window[Constants.Rokt.LauncherInstanceGuidKey]).toBe('string');
-        expect(window[Constants.Rokt.LauncherInstanceGuidKey]).toBe('testGuid');
+        expect(globalThis).toHaveProperty(Constants.Rokt.LauncherInstanceGuidKey);
+        expect(typeof globalThis[Constants.Rokt.LauncherInstanceGuidKey]).toBe('string');
+        expect(globalThis[Constants.Rokt.LauncherInstanceGuidKey]).toBe('testGuid');
     });
 });
