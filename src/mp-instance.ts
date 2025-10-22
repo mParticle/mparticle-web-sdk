@@ -16,7 +16,7 @@
 //  Uses portions of code from jQuery
 //  jQuery v1.10.2 | (c) 2005, 2013 jQuery Foundation, Inc. | jquery.org/license
 
-import { EventType, IdentityType, CommerceEventType, PromotionActionType, ProductActionType, MessageType } from './types';
+import { EventType, IdentityType, CommerceEventType, PromotionActionType, ProductActionType, MessageType, PerformanceMarkType } from './types';
 import Constants from './constants';
 import APIClient, { IAPIClient } from './apiClient';
 import Helpers from './helpers';
@@ -90,7 +90,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _preInit: IPreInit;
     _timeOnSiteTimer: ForegroundTimer; 
     setLauncherInstanceGuid: () => void;
-    captureTimings(metricName: string);
+    captureTiming(metricName: string);
 }
 
 const { Messages, HTTPCodes, FeatureFlags, CaptureIntegrationSpecificIdsV2Modes } = Constants;
@@ -1345,14 +1345,13 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     };
 
     this.setLauncherInstanceGuid = function() {
-        if (!window[Constants.Rokt.LauncherInstanceGuidKey] 
-            || typeof window[Constants.Rokt.LauncherInstanceGuidKey] !== 'string') {
+        if (!window[PerformanceMarkType.RoktScriptAppended] 
+            || typeof window[PerformanceMarkType.RoktScriptAppended] !== 'string') {
             window[Constants.Rokt.LauncherInstanceGuidKey] = self._Helpers.generateUniqueId();
         }
     };
 
-    this.captureTimings = function(metricsName) 
-    {
+    this.captureTiming = function(metricsName) {
         if (typeof window !== 'undefined' && window.performance?.mark) {
             window.performance.mark(metricsName);
         }

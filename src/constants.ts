@@ -214,9 +214,6 @@ const Constants = {
         None: 'none',
         RoktOnly: 'roktonly',
     },
-    PerformanceMetricsNames: {
-        SdkStart: 'mp:sdkStart',
-    },
     Rokt: {
         LauncherInstanceGuidKey: '__rokt_li_guid__',
     },

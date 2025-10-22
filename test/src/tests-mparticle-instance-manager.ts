@@ -215,7 +215,7 @@ describe('mParticle instance manager', () => {
             'getEnvironment',
             'upload',
             'Rokt',
-            'captureTimings',
+            'captureTiming',
         ]);
     });
 

@@ -391,6 +391,11 @@ export const ApplicationTransitionType = {
     AppInit: 1 as const,
 };
 
+export const PerformanceMarkType = {
+    SdkStart: 'mp:sdkStart' as const,
+    RoktScriptAppended: 'mp:RoktScriptAppended' as const,
+}
+
 export default {
     MessageType,
     EventType,
