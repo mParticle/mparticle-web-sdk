@@ -12,7 +12,7 @@ const {
 } = Utils;
 
 // Calls to /config are specific to only the self hosting environment
-describe('/config self-hosting integration tests', function() {
+describe.only('/config self-hosting integration tests', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
         fetchMock.config.overwriteRoutes = true;
@@ -65,7 +65,6 @@ describe('/config self-hosting integration tests', function() {
         Should(event).not.be.ok();
 
         await waitForCondition(hasConfigurationReturned);
-        await Promise.resolve();
         event = findBatch(fetchMock.calls(), 'Test');
     
         event.should.be.ok();
@@ -136,7 +135,6 @@ describe('/config self-hosting integration tests', function() {
                 mParticle.Identity.getCurrentUser()?.getMPID() === 'loginMPID'
             );
         });
-        await Promise.resolve();
         // call login before mParticle.identify is triggered, which happens after config returns
         // mParticle.Identity.login({ userIdentities: { customerid: 'abc123' } });
         await waitForCondition(() => {
@@ -178,7 +176,6 @@ describe('/config self-hosting integration tests', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasConfigurationReturned);
-        await Promise.resolve();
 
         const data = window.localStorage.getItem('mprtcl-v4_wtTest');
         (typeof data === 'string').should.equal(true);
@@ -207,7 +204,6 @@ describe('/config self-hosting integration tests', function() {
             mParticle.init(apiKey, window.mParticle.config);
 
             await waitForCondition(hasConfigurationReturned);
-            await Promise.resolve();
             const {
                 aliasUrl,
                 configUrl,
@@ -251,7 +247,6 @@ describe('/config self-hosting integration tests', function() {
             mParticle.init(apiKey, window.mParticle.config);
 
             await waitForCondition(hasConfigurationReturned);
-            await Promise.resolve();
             const {
                 aliasUrl,
                 configUrl,

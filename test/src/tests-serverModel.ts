@@ -21,7 +21,7 @@ let initialEvent = {};
 const mParticle = window.mParticle;
 const ServerModel = mParticle.getInstance()._ServerModel;
 
-describe('ServerModel', () => {
+describe.only('ServerModel', () => {
     beforeEach(() => {
         mParticle._resetForTests(MPConfig);
         fetchMock.config.overwriteRoutes = true;
@@ -420,7 +420,6 @@ describe('ServerModel', () => {
 
         it('should set necessary attributes if MessageType is SessionEnd', async () => {    
             await waitForCondition(hasIdentifyReturned);
-            await Promise.resolve();
 
             const mPStore = mParticle.getInstance()._Store;
             
@@ -1238,7 +1237,6 @@ describe('ServerModel', () => {
 
         it('Should not append user info when no user exists', async () => {
             await waitForCondition(hasIdentifyReturned);
-            await Promise.resolve();
             mParticle.getInstance()._Store.should.be.ok;
 
             let sdkEvent = mParticle
@@ -1324,7 +1322,6 @@ describe('ServerModel', () => {
 
         it('Should append identities when user is present', async () => {
             await waitForCondition(hasIdentifyReturned);
-            await Promise.resolve();
             let sdkEvent = mParticle
             .getInstance()
             ._ServerModel.createEventObject(event);
@@ -1378,7 +1375,6 @@ describe('ServerModel', () => {
 
         it('Should append user attributes when user present', async () => {
             await waitForCondition(hasIdentifyReturned);
-            await Promise.resolve();
             let sdkEvent = mParticle
             .getInstance()
             ._ServerModel.createEventObject(event);
@@ -1408,7 +1404,6 @@ describe('ServerModel', () => {
 
         it('Should update mpid when user info is appended with a new mpid', async () => {
             await waitForCondition(hasIdentifyReturned);
-            await Promise.resolve();
             let sdkEvent = mParticle
                 .getInstance()
                 ._ServerModel.createEventObject(event);

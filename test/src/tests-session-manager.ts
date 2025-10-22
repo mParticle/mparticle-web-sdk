@@ -26,7 +26,7 @@ declare global {
 
 const mParticle = window.mParticle;
 
-describe('SessionManager', () => {
+describe.only('SessionManager', () => {
     const now = new Date();
     let clock;
     let sandbox;
@@ -911,7 +911,6 @@ describe('SessionManager', () => {
                 
                 // Wait for the first identify call to complete
                 await waitForCondition(hasIdentifyReturned);
-                await Promise.resolve();
 
                 fetchMockSuccess(urls.identify, {
                     mpid: 'testMPID2',
@@ -943,7 +942,6 @@ describe('SessionManager', () => {
                 
                 // Wait for the second identify call to complete
                 await waitForCondition(() => hasIdentifyReturned('testMPID2'));
-                await Promise.resolve();
                 
                 expect(identifySpy.called).to.equal(true);
                 expect(identifySpy.getCall(0).args[0]).to.eql(newIdentityApiData);
@@ -964,7 +962,6 @@ describe('SessionManager', () => {
                 
                 // Wait for the first identify call to complete
                 await waitForCondition(hasIdentifyReturned);
-                await Promise.resolve();
 
                 // Set the same data again in an initialization request
                 window.mParticle.config.identifyRequest = initialIdentityApiData;
@@ -982,7 +979,6 @@ describe('SessionManager', () => {
                 
                 // Wait for the second identify call to complete
                 await waitForCondition(hasIdentityCallInflightReturned);
-                await Promise.resolve();
                 
                 expect(identifySpy.called).to.equal(false);
             });

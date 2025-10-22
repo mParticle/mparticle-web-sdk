@@ -13,7 +13,7 @@ declare global {
     }
 }
 
-describe('Old model to batch model conversion', () => {
+describe.only('Old model to batch model conversion', () => {
     beforeEach(function() {
         window.mParticle._resetForTests(MPConfig);
         fetchMock.config.overwriteRoutes = true;

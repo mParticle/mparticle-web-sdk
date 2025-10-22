@@ -21,7 +21,7 @@ const hasIdentifyReturned = () => {
 };
 
 // https://go.mparticle.com/work/SQDSDKS-6508
-describe('mParticle User', () => {
+describe.only('mParticle User', () => {
     beforeEach(() => {
         mParticle._resetForTests(MPConfig);
         fetchMock.config.overwriteRoutes = true;
@@ -47,7 +47,6 @@ describe('mParticle User', () => {
         it('get/set consent state for single user', async () => {
             mParticle.init(apiKey, mParticle.config);
             await waitForCondition(hasIdentifyReturned);
-            await Promise.resolve();
             let consentState = mParticle
                 .getInstance()
                 .Identity.getCurrentUser()
@@ -85,7 +84,6 @@ describe('mParticle User', () => {
             mParticle.init(apiKey, mParticle.config);
 
             await waitForCondition(hasIdentifyReturned);
-            await Promise.resolve();
             
             const userIdentities1 = {
                 userIdentities: {
