@@ -53,7 +53,7 @@ const BAD_USER_ATTRIBUTE_KEY_AS_ARRAY = ([
 
 const BAD_USER_ATTRIBUTE_LIST_VALUE = (1234 as unknown) as UserAttributesValue[];
 
-describe('identities and attributes', function() {
+describe.only('identities and attributes', function() {
     let beforeEachCallbackCalled = false;
     let hasBeforeEachCallbackReturned;
 
@@ -91,7 +91,6 @@ describe('identities and attributes', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
 
@@ -113,7 +112,6 @@ describe('identities and attributes', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'male');
         mParticle.Identity.getCurrentUser().setUserAttribute(
             'gender',
@@ -148,7 +146,6 @@ describe('identities and attributes', function() {
         mockForwarder.register(window.mParticle.config);
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.Identity.getCurrentUser().setUserAttributes({
             gender: 'male',
             age: 21,
@@ -173,7 +170,6 @@ describe('identities and attributes', function() {
         mockForwarder.register(window.mParticle.config);
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.Identity.getCurrentUser().removeUserAttribute('gender');
 
@@ -191,7 +187,6 @@ describe('identities and attributes', function() {
         mockForwarder.register(window.mParticle.config);
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'male');
         mParticle.Identity.getCurrentUser().removeUserAttribute('gender');
@@ -207,7 +202,6 @@ describe('identities and attributes', function() {
 
     it('should set session attribute', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.setSessionAttribute('name', 'test');
 
@@ -231,7 +225,6 @@ describe('identities and attributes', function() {
 
     it('should set session attribute case insensitive', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.setSessionAttribute('name', 'test');
         mParticle.setSessionAttribute('Name', 'test1');
@@ -254,7 +247,6 @@ describe('identities and attributes', function() {
 
     it("should not set a session attribute's key as an object or array)", async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.setSessionAttribute(
             BAD_SESSION_ATTRIBUTE_KEY_AS_OBJECT,
@@ -288,7 +280,6 @@ describe('identities and attributes', function() {
 
     it('should remove session attributes when session ends', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.startNewSession();
         mParticle.setSessionAttribute('name', 'test');
@@ -310,7 +301,6 @@ describe('identities and attributes', function() {
 
     it('should set and log position', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.setPosition(34.134103, -118.321694);
         mParticle.logEvent('Test Event');
@@ -324,7 +314,6 @@ describe('identities and attributes', function() {
 
     it('should set user tag', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.Identity.getCurrentUser().setUserTag('test');
 
@@ -341,7 +330,6 @@ describe('identities and attributes', function() {
 
     it('should set user tag case insensitive', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.Identity.getCurrentUser().setUserTag('Test');
         mParticle.Identity.getCurrentUser().setUserTag('test');
@@ -360,7 +348,6 @@ describe('identities and attributes', function() {
 
     it('should remove user tag', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.Identity.getCurrentUser().setUserTag('test');
         mParticle.Identity.getCurrentUser().removeUserTag('test');
@@ -378,7 +365,6 @@ describe('identities and attributes', function() {
 
     it('should remove user tag case insensitive', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.Identity.getCurrentUser().setUserTag('Test');
         mParticle.Identity.getCurrentUser().removeUserTag('test');
@@ -397,7 +383,6 @@ describe('identities and attributes', function() {
     it('should set user attribute list', async () => {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [
             1,
             2,
@@ -422,7 +407,6 @@ describe('identities and attributes', function() {
     it('should set user attribute list case insensitive', async () => {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [
             1,
             2,
@@ -476,7 +460,6 @@ describe('identities and attributes', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.Identity.getCurrentUser().setUserAttributeList(
             'numbers',
             list
@@ -500,7 +483,6 @@ describe('identities and attributes', function() {
     it('should remove all user attributes', async () => {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [
             1,
             2,
@@ -525,7 +507,6 @@ describe('identities and attributes', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [
@@ -546,7 +527,6 @@ describe('identities and attributes', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [
             1,
@@ -567,7 +547,6 @@ describe('identities and attributes', function() {
     it('should copy when calling get user attributes', async () => {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [
             1,
@@ -591,7 +570,6 @@ describe('identities and attributes', function() {
     it('should get all user attributes', async () => {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.Identity.getCurrentUser().setUserAttribute('test', '123');
         mParticle.Identity.getCurrentUser().setUserAttribute(
             'another test',
@@ -607,7 +585,6 @@ describe('identities and attributes', function() {
     it('should not set user attribute list if value is not array', async () => {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.Identity.getCurrentUser().setUserAttributeList(
             'mykey',
             BAD_USER_ATTRIBUTE_LIST_VALUE
@@ -620,7 +597,6 @@ describe('identities and attributes', function() {
 
     it('should not set bad session attribute value', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.setSessionAttribute(
             'name',
             BAD_SESSION_ATTRIBUTE_VALUE_AS_OBJECT
@@ -640,7 +616,6 @@ describe('identities and attributes', function() {
 
     it('should not set a bad user attribute key or value', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', {
             bad: 'bad',
         });
@@ -720,7 +695,6 @@ describe('identities and attributes', function() {
     it('should send user attribute change requests when setting new attributes', async () => {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         // set a new attribute, age
         fetchMock.resetHistory();
         mParticle.Identity.getCurrentUser().setUserAttribute('age', '25');
@@ -833,7 +807,6 @@ describe('identities and attributes', function() {
     it('should send user attribute change requests for the MPID it is being set on', async () => {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.Identity.getCurrentUser().setUserAttribute('age', '25');
         const testMPID = mParticle.Identity.getCurrentUser().getMPID();
@@ -867,7 +840,6 @@ describe('identities and attributes', function() {
                 mParticle.Identity.getCurrentUser()?.getMPID() === 'anotherMPID'
             );
         });
-        await Promise.resolve();
         const users = mParticle.Identity.getUsers();
         expect(users.length).to.equal(2);
 
@@ -936,7 +908,6 @@ describe('identities and attributes', function() {
         mParticle.config.flags.eventBatchingIntervalMillis = 5000
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.upload();
         expect(
             JSON.parse(`${fetchMock.lastOptions().body}`).user_identities
@@ -967,7 +938,6 @@ describe('identities and attributes', function() {
                 mParticle.Identity.getCurrentUser()?.getMPID() === 'anotherMPID'
             );
         });
-        await Promise.resolve();
         let body = JSON.parse(`${fetchMock.lastOptions().body}`);
 
         // should be the new MPID
@@ -1017,7 +987,6 @@ describe('identities and attributes', function() {
                     mParticle.getInstance()._Store.identityCallInFlight === false
                 );
         });
-        await Promise.resolve();
         const body2 = JSON.parse(`${fetchMock.lastOptions().body}`);
         expect(body2.mpid).to.equal('anotherMPID');
         expect(body2.user_identities).to.have.property(
@@ -1054,7 +1023,6 @@ describe('identities and attributes', function() {
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
-        await Promise.resolve();
         const body3 = JSON.parse(`${fetchMock.lastOptions().body}`);
         expect(body3.mpid).to.equal('anotherMPID');
 
@@ -1089,7 +1057,6 @@ describe('identities and attributes', function() {
                 mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid2'
             );
         });
-        await Promise.resolve();
         // Calls are for logout and UIC
         expect(fetchMock.calls().length).to.equal(2);
         const body4 = JSON.parse(`${fetchMock.lastOptions().body}`);
@@ -1122,7 +1089,6 @@ describe('identities and attributes', function() {
 
         // Clear out before each init call
         await waitForCondition(hasBeforeEachCallbackReturned);
-        await Promise.resolve();
 
         window.mParticle.config.identifyRequest = {
             userIdentities: {
@@ -1133,7 +1099,6 @@ describe('identities and attributes', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentityCallInflightReturned);
-        await Promise.resolve();
 
         mParticle.logEvent('Test Event 1');
         mParticle.logEvent('Test Event 2');
@@ -1187,7 +1152,6 @@ describe('identities and attributes', function() {
 
         // Clear out before each init call
         await waitForCondition(hasBeforeEachCallbackReturned);
-        await Promise.resolve();
 
         window.mParticle.config.identifyRequest = {
             userIdentities: {
@@ -1204,7 +1168,6 @@ describe('identities and attributes', function() {
         expect(mParticle.getInstance()._preInit.readyQueue.length).to.equal(3);
 
         await waitForCondition(hasIdentityCallInflightReturned);
-        await Promise.resolve();
 
         expect(fetchMock.calls().length).to.equal(7);
 
@@ -1263,7 +1226,6 @@ describe('identities and attributes', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         fetchMockSuccess(urls.login, {
             mpid: 'testMPID', is_logged_in: true
         });
@@ -1281,7 +1243,6 @@ describe('identities and attributes', function() {
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
-        await Promise.resolve();
         let batch = JSON.parse(`${fetchMock.lastOptions().body}`);
         expect(batch.mpid).to.equal(testMPID);
         expect(batch.user_identities).to.have.property(
@@ -1310,7 +1271,6 @@ describe('identities and attributes', function() {
                 mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid2'
             );
         });
-        await Promise.resolve();
         batch = JSON.parse(`${fetchMock.lastOptions().body}`);
         expect(batch.mpid).to.equal('mpid2');
         expect(batch.user_identities).to.have.property('other', 'other1');
@@ -1331,7 +1291,6 @@ describe('identities and attributes', function() {
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
-        await Promise.resolve();
         expect(fetchMock.calls().length).to.equal(1);
 
         const data = getIdentityEvent(fetchMock.calls(), 'login');
@@ -1358,7 +1317,6 @@ describe('identities and attributes', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         // set a new attribute, age
         fetchMock.resetHistory();
         mParticle.Identity.getCurrentUser().setUserAttribute('age', '25');
@@ -1454,7 +1412,6 @@ describe('identities and attributes', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         // set initial test attribute with 'falsey' value to 0
         fetchMock.resetHistory();
         mParticle.Identity.getCurrentUser().setUserAttribute('testFalsey', 0);

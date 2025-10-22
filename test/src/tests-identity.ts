@@ -89,7 +89,7 @@ const fetchMockSuccess = (url: string, body: any = {}, headers: any = {}) => {
     );
 };
 
-describe('identity', function() {
+describe.only('identity', function() {
     let clock;
     let hasIdentifyReturned;
     let hasIdentifyReturnedWithEmail;
@@ -175,8 +175,7 @@ describe('identity', function() {
                 },
             });
 
-            await waitForCondition(hasIdentifyReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentifyReturned);
 
             // Calls should be expected
             // 1. Identify
@@ -218,8 +217,7 @@ describe('identity', function() {
                 is_logged_in: false,
             });
 
-            await waitForCondition(hasIdentifyReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentifyReturned);
 
             mParticle.Identity.logout();
 
@@ -253,8 +251,7 @@ describe('identity', function() {
         });
 
         it('should contain login request', async () => {
-            await waitForCondition(hasIdentifyReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentifyReturned);
 
             fetchMockSuccess(urls.login, {
                     mpid: testMPID,
@@ -272,8 +269,7 @@ describe('identity', function() {
                 },
             });
 
-            await waitForCondition(hasIdentityCallInflightReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentityCallInflightReturned);
 
             // Calls that should be expected:
             // 1. Identify
@@ -321,8 +317,7 @@ describe('identity', function() {
                     ],
             });
 
-            await waitForCondition(hasIdentifyReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentifyReturned);
             mParticle.Identity.modify({
                 userIdentities: {
                     email: 'test@email.com',
@@ -374,8 +369,7 @@ describe('identity', function() {
 
             let data: IIdentityAPIRequestData;
 
-            await waitForCondition(hasIdentifyReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentifyReturned);
 
             mParticle.Identity.identify({
                 userIdentities: {
@@ -383,8 +377,7 @@ describe('identity', function() {
                 },
             });
 
-            await waitForCondition(hasIdentifyReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentifyReturned);
 
             // 4 Calls should be expected
             // 1. Identify
@@ -418,8 +411,7 @@ describe('identity', function() {
         });
 
         it('should strip falsey values from identify request', async () => {
-            await waitForCondition(hasIdentifyReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentifyReturned);
 
             const identityApiData = {
                 userIdentities: {
@@ -436,8 +428,7 @@ describe('identity', function() {
 
             mParticle.Identity.identify(identityApiData as unknown as IdentityApiData);
 
-            await waitForCondition(hasIdentifyReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentifyReturned);
 
             const firstCall = fetchMock.calls()[0];
             expect(firstCall[0].split('/')[4]).to.equal('identify');
@@ -478,8 +469,7 @@ describe('identity', function() {
         });
 
         it('should strip falsey values from login request', async () => {
-            await waitForCondition(hasIdentifyReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentifyReturned);
 
             const identityApiData = {
                     userIdentities: {
@@ -506,8 +496,7 @@ describe('identity', function() {
 
             mParticle.Identity.login(identityApiData as unknown as IdentityApiData);
 
-            await waitForCondition(hasIdentityCallInflightReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentityCallInflightReturned);
 
             const firstCall = fetchMock.calls()[0];
             expect(firstCall[0].split('/')[4]).to.equal('login');
@@ -538,8 +527,7 @@ describe('identity', function() {
         });
 
         it('should strip falsey values from logout request', async () => {
-            await waitForCondition(hasIdentifyReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentifyReturned);
 
             const identityApiData = {
                     userIdentities: {
@@ -566,8 +554,7 @@ describe('identity', function() {
 
             mParticle.Identity.logout(identityApiData as unknown as IdentityApiData);
 
-            await waitForCondition(hasIdentityCallInflightReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentityCallInflightReturned);
 
             const firstCall = fetchMock.calls()[0];
             expect(firstCall[0].split('/')[4]).to.equal('logout');
@@ -598,8 +585,7 @@ describe('identity', function() {
         });
 
         it('should strip falsey values from modify request', async () => {
-            await waitForCondition(hasIdentifyReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentifyReturned);
 
             const identityApiData = {
                     userIdentities: {
@@ -625,8 +611,7 @@ describe('identity', function() {
 
             mParticle.Identity.modify(identityApiData as unknown as IdentityApiData);
 
-            await waitForCondition(hasIdentityCallInflightReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentityCallInflightReturned);
 
             const firstCall = fetchMock.calls()[0];
             expect(firstCall[0].split('/')[5]).to.equal('modify');
@@ -666,7 +651,6 @@ describe('identity', function() {
             it('should save id cache to local storage when noFunctional is false by default', async () => {
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
-                await Promise.resolve();
                 expect(localStorage.getItem('mprtcl-v4_abcdef-id-cache')).to.be.ok;
             });
 
@@ -674,7 +658,6 @@ describe('identity', function() {
                 mParticle.config.launcherOptions = { noFunctional: true };
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
-                await Promise.resolve();
                 expect(localStorage.getItem('mprtcl-v4_abcdef-id-cache')).not.to.be.ok;
             });
 
@@ -682,7 +665,6 @@ describe('identity', function() {
                 mParticle.config.launcherOptions = { noFunctional: false };
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
-                await Promise.resolve();
                 expect(localStorage.getItem('mprtcl-v4_abcdef-id-cache')).to.be.ok;
             });
         });
@@ -734,8 +716,7 @@ describe('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition( () => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1')
-        await Promise.resolve();
+        await waitForCondition( () => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1');
 
         let activeForwarders = mParticle.getInstance()._getActiveForwarders();
         expect(activeForwarders.length).to.equal(0);
@@ -758,8 +739,7 @@ describe('identity', function() {
 
         mParticle.Identity.login();
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         activeForwarders = mParticle.getInstance()._getActiveForwarders();
         expect(activeForwarders.length).to.equal(0);
@@ -778,8 +758,7 @@ describe('identity', function() {
 
     describe('cookies', function () {
     it('should store all MPIDs associated with a sessionId, then clear MPIDs from currentSessionMPIDs when a new session starts', async () => {
-        await waitForCondition(hasIdentifyReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentifyReturned);
 
         fetchMockSuccess(urls.login, {
             mpid: 'logged-in-user',
@@ -793,8 +772,7 @@ describe('identity', function() {
         };
 
         mParticle.Identity.login(userIdentities1);
-        await waitForCondition(hasLoginReturned)
-        await Promise.resolve();
+        await waitForCondition(hasLoginReturned);
 
         const localStorageDataBeforeSessionEnd = mParticle
             .getInstance()
@@ -811,8 +789,7 @@ describe('identity', function() {
         mParticle.logEvent('hi');
         mParticle.Identity.login(userIdentities1);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         const localStorageAfterLoggingEvent = mParticle
             .getInstance()
@@ -843,8 +820,7 @@ describe('identity', function() {
         };
 
         mParticle.Identity.login(userIdentities1);
-        await waitForCondition(hasLoginReturned)
-        await Promise.resolve();
+        await waitForCondition(hasLoginReturned);
         const cookiesAfterMPIDChange = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
@@ -889,8 +865,7 @@ describe('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentifyReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentifyReturned);
 
         const cookiesAfterInit = findCookie();
         cookiesAfterInit.should.have.properties('gs', 'cu', testMPID);
@@ -925,8 +900,7 @@ describe('identity', function() {
 
         mParticle.Identity.login(userIdentities1);
 
-        await waitForCondition(hasLoginReturned)
-        await Promise.resolve();
+        await waitForCondition(hasLoginReturned);        
 
         const cookiesAfterMPIDChange = findCookie();
         cookiesAfterMPIDChange.should.have.properties([
@@ -1390,7 +1364,7 @@ describe('identity', function() {
         mParticle.Identity.login(identityAPIRequest);
 
         await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        
         expect(fetchMock.calls().length).to.equal(0);
     });
 
@@ -1398,8 +1372,7 @@ describe('identity', function() {
         const identityAPIRequest = BAD_USER_IDENTITIES_AS_ARRAY;
         mParticle.Identity.login(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
 
@@ -1407,8 +1380,7 @@ describe('identity', function() {
         const identityAPIRequest = BAD_USER_IDENTITIES_AS_NULL;
         mParticle.Identity.login(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
 
@@ -1416,8 +1388,7 @@ describe('identity', function() {
         const identityAPIRequest = BAD_USER_IDENTITIES_AS_UNDEFINED;
         mParticle.Identity.login(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
 
@@ -1425,8 +1396,7 @@ describe('identity', function() {
         const identityAPIRequest = BAD_USER_IDENTITIES_AS_BOOLEAN;
         mParticle.Identity.login(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
 
@@ -1440,8 +1410,7 @@ describe('identity', function() {
 
         mParticle.Identity.login(identityRequest, badCallback);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
     });
@@ -1456,8 +1425,7 @@ describe('identity', function() {
         const identityAPIRequest = BAD_USER_IDENTITIES_AS_STRING;
         mParticle.Identity.logout(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
 
@@ -1465,8 +1433,7 @@ describe('identity', function() {
         const identityAPIRequest = BAD_USER_IDENTITIES_AS_ARRAY;
         mParticle.Identity.logout(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
 
@@ -1474,8 +1441,7 @@ describe('identity', function() {
         const identityAPIRequest = BAD_USER_IDENTITIES_AS_NULL;
         mParticle.Identity.logout(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
 
@@ -1483,8 +1449,7 @@ describe('identity', function() {
         const identityAPIRequest = BAD_USER_IDENTITIES_AS_UNDEFINED;
         mParticle.Identity.logout(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
 
@@ -1492,8 +1457,7 @@ describe('identity', function() {
         const identityAPIRequest = BAD_USER_IDENTITIES_AS_BOOLEAN;
         mParticle.Identity.logout(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
 
@@ -1507,8 +1471,7 @@ describe('identity', function() {
 
         mParticle.Identity.logout(identityRequest, badCallback);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
     });
@@ -1524,8 +1487,7 @@ describe('identity', function() {
         debugger
         mParticle.Identity.modify(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
 
@@ -1533,8 +1495,7 @@ describe('identity', function() {
         const identityAPIRequest = BAD_USER_IDENTITIES_AS_ARRAY;
         mParticle.Identity.modify(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
 
@@ -1542,8 +1503,7 @@ describe('identity', function() {
         const identityAPIRequest = BAD_USER_IDENTITIES_AS_NULL;
         mParticle.Identity.modify(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
 
@@ -1551,8 +1511,7 @@ describe('identity', function() {
         const identityAPIRequest = BAD_USER_IDENTITIES_AS_UNDEFINED;
         mParticle.Identity.modify(identityAPIRequest);
 
-await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
 
@@ -1560,8 +1519,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
         const identityAPIRequest = BAD_USER_IDENTITIES_AS_BOOLEAN;
         mParticle.Identity.modify(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
         });
 
@@ -1575,8 +1533,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
 
         mParticle.Identity.modify(identityRequest, badCallback);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
     });
@@ -1591,8 +1548,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
         const identityAPIRequest = BAD_USER_IDENTITIES_AS_STRING;
         mParticle.Identity.identify(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
 
@@ -1600,8 +1556,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
         const identityAPIRequest = BAD_USER_IDENTITIES_AS_ARRAY;
         mParticle.Identity.identify(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
 
@@ -1609,8 +1564,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
         const identityAPIRequest = BAD_USER_IDENTITIES_AS_NULL;
         mParticle.Identity.identify(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
 
@@ -1618,8 +1572,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
         const identityAPIRequest = BAD_USER_IDENTITIES_AS_UNDEFINED;
         mParticle.Identity.identify(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
 
@@ -1627,8 +1580,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
         const identityAPIRequest = BAD_USER_IDENTITIES_AS_BOOLEAN;
         mParticle.Identity.identify(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
 
@@ -1642,8 +1594,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
 
         mParticle.Identity.identify(identityRequest, badCallback);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
     });
@@ -1739,7 +1690,6 @@ await waitForCondition(hasIdentityCallInflightReturned)
     // https://go.mparticle.com/work/SQDSDKS-6568
     it('should create a proper send request when passing identities to modify', async () => {
         await waitForCondition(hasIdentifyReturned)
-        await Promise.resolve();
         const identityAPIData: IdentityApiData = {
             userIdentities: {
                 email: 'rob@gmail.com',
@@ -1756,14 +1706,12 @@ await waitForCondition(hasIdentityCallInflightReturned)
                 ],
         });
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         fetchMock.resetHistory();
         mParticle.Identity.modify(identityAPIData);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
             // 1st call is modify, 2nd call is the UIC event
         expect(fetchMock.calls().length).to.equal(2);
 
@@ -1789,8 +1737,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
         mParticle._resetForTests(MPConfig);
         const spy = sinon.spy();
 
-        await waitForCondition(hasIdentifyReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentifyReturned);
         mParticle.config.identityCallback = spy;
 
         fetchMockSuccess(urls.identify, {
@@ -1802,13 +1749,11 @@ await waitForCondition(hasIdentityCallInflightReturned)
 
         await waitForCondition(() => {
             return mParticle.Identity.getCurrentUser()?.getMPID() === 'otherMPID';
-        })
-        await Promise.resolve();
+        });
 
         spy.calledOnce.should.be.ok();
         mParticle.startNewSession();
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         spy.calledOnce.should.be.ok();
     });
 
@@ -1825,8 +1770,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         mParticle.logEvent('Test Event 1');
 
         // There should be 3 calls here:
@@ -1851,8 +1795,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
         mParticle.logEvent('Test Event 2');
         mParticle.Identity.login();
 
-        await waitForCondition(hasLoginReturned)
-        await Promise.resolve();
+        await waitForCondition(hasLoginReturned);
 
         // server requests will now have the following events:
         // 1. Identify (from init)
@@ -1913,8 +1856,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         // get user 1 into cookies
         fetchMockSuccess(urls.login, {
@@ -1924,8 +1866,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
 
         mParticle.Identity.login(userIdentities1);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         // get user 2 into cookies
         fetchMockSuccess(urls.login, {
@@ -1935,8 +1876,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
 
         mParticle.Identity.login(userIdentities2);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         // get user 3 into cookies
         fetchMockSuccess(urls.login, {
@@ -1946,8 +1886,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
 
         mParticle.Identity.login(userIdentities3);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         // init again using user 1
         fetchMockSuccess(urls.login, {
@@ -1957,8 +1896,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(() => mParticle.Identity?.getUsers().length === 4)
-        await Promise.resolve();
+        await waitForCondition(() => mParticle.Identity?.getUsers().length === 4);
         const users = mParticle.Identity.getUsers();
         // This includes the original, starting user, in addition to the 3 added above
         expect(users.length).to.equal(4);
@@ -1997,8 +1935,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         // get user 1 into cookies
         fetchMockSuccess(urls.login, {
@@ -2008,8 +1945,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
 
         mParticle.Identity.login(user1);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('user', 'user1');
 
@@ -2021,8 +1957,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
 
         mParticle.Identity.login(user2);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('user', 'user2');
 
@@ -2034,8 +1969,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
 
         mParticle.Identity.login(user3);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('user', 'user3');
 
@@ -2047,8 +1981,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         const localStorage = mParticle
             .getInstance()
@@ -2142,16 +2075,14 @@ await waitForCondition(hasIdentityCallInflightReturned)
                 ],
         });
 
-        await waitForCondition(hasIdentifyReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentifyReturned);
         mParticle.Identity.modify(user1modified);
         // Should contain the following calls:
         // 1 for the initial identify
         // 3 for the events (Session Start, UAT and UIC)
         // 1 for the modify
         // 1 for the UIC event
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(6);
 
         // This will add a new UAC Event to the call
@@ -2183,8 +2114,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
 
         mParticle.Identity.logout(user2);
 
-        await waitForCondition(hasLogOutReturned)
-        await Promise.resolve();
+        await waitForCondition(hasLogOutReturned);
 
         // This will add the following new calls:
         // 1 for the logout
@@ -2210,8 +2140,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
         mParticle.Identity.login(user1);
         await waitForCondition(() => {
             return mParticle.Identity.getCurrentUser().getMPID() === 'testMPID';
-        })
-        await Promise.resolve();
+        });
 
         // This will add the following new calls:
         // 1 for the login
@@ -2257,8 +2186,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         const user1UIs = mParticle.Identity.getCurrentUser().getUserIdentities();
 
@@ -2271,8 +2199,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
 
         mParticle.Identity.login(user2);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         const user2UIs = mParticle.Identity.getCurrentUser().getUserIdentities();
         user2UIs.userIdentities.customerid.should.equal('2');
@@ -2284,8 +2211,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
 
         mParticle.Identity.login(user3);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         const user3UIs = mParticle.Identity.getCurrentUser().getUserIdentities();
         user3UIs.userIdentities.customerid.should.equal('3');
@@ -2297,8 +2223,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
 
         mParticle.Identity.login(user4);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         const user4UIs = mParticle.Identity.getCurrentUser().getUserIdentities();
         user4UIs.userIdentities.customerid.should.equal('4');
@@ -2310,8 +2235,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         const user5 = mParticle.Identity.getCurrentUser();
         user5.getUserIdentities().userIdentities.customerid.should.equal('1');
@@ -2329,8 +2253,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
     it('should not send requests to the server with invalid userIdentity values', async () => {
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);        
 
         fetchMock.resetHistory();
 
@@ -2431,8 +2354,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
                         callback
                     );
 
-                    await waitForCondition(hasIdentityCallInflightReturned)
-                    await Promise.resolve();
+                    await waitForCondition(hasIdentityCallInflightReturned);
                     expect(result, identityMethod).to.be.ok;
                     expect(
                         result.httpCode,
@@ -2452,8 +2374,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
                 validUserIdentities.forEach(async(goodIdentities) => {
                     mParticle.Identity.modify(goodIdentities, callback);
 
-                    await waitForCondition(hasIdentityCallInflightReturned)
-                    await Promise.resolve();
+                    await waitForCondition(hasIdentityCallInflightReturned);
 
                     expect(result, identityMethod).to.be.ok;
 
@@ -2499,13 +2420,11 @@ await waitForCondition(hasIdentityCallInflightReturned)
             is_logged_in: false,
         });
 
-        await waitForCondition(hasIdentifyReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentifyReturned);
 
         mParticle.Identity.login(user);
 
-        await waitForCondition(hasLoginReturned)
-        await Promise.resolve();
+        await waitForCondition(hasLoginReturned);
 
         const userIdentities1 = mParticle.Identity.getCurrentUser().getUserIdentities();
 
@@ -2513,8 +2432,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
 
         mParticle.Identity.logout();
 
-        await waitForCondition(hasLogOutReturned)
-        await Promise.resolve();
+        await waitForCondition(hasLogOutReturned);
 
         const userIdentities2 = mParticle.Identity.getCurrentUser().getUserIdentities();
 
@@ -2552,18 +2470,15 @@ await waitForCondition(hasIdentityCallInflightReturned)
             }
         );
 
-        await waitForCondition(hasIdentifyReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentifyReturned);
         mParticle.Identity.login(user);
 
-        await waitForCondition(hasLoginReturned)
-        await Promise.resolve();
+        await waitForCondition(hasLoginReturned);
         mParticle.Identity.modify(modifiedUser);
 
         await waitForCondition(() => {
             return mParticle.Identity.getCurrentUser()?.getUserIdentities().userIdentities['customerid'] === 'customerId2';
-        })
-        await Promise.resolve();
+        });
         const cookie = mParticle.getInstance()._Persistence.getLocalStorage();
 
         cookie['logged-in-user'].ui[1].should.equal('customerId2');
@@ -2575,7 +2490,6 @@ await waitForCondition(hasIdentityCallInflightReturned)
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         const user1 = {
             userIdentities: {
@@ -2603,7 +2517,6 @@ await waitForCondition(hasIdentityCallInflightReturned)
         mParticle.Identity.login(user1);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         fetchMockSuccess(urls.login, {
             mpid: 'otherMPID',
@@ -2614,7 +2527,6 @@ await waitForCondition(hasIdentityCallInflightReturned)
         mParticle.Identity.login(user2);
 
         await waitForCondition(hasIdentityCallInflightReturned);
-        await Promise.resolve();
 
         // This should have a call for the UIC that will occur because
         // we are logging in as two different users
@@ -2626,7 +2538,6 @@ await waitForCondition(hasIdentityCallInflightReturned)
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         let hasBeenRun = false;
         const user1 = {
@@ -2652,7 +2563,6 @@ await waitForCondition(hasIdentityCallInflightReturned)
         mParticle.Identity.login(user1);
 
         await waitForCondition(hasIdentityCallInflightReturned);
-        await Promise.resolve();
 
         fetchMockSuccess(urls.login, {
             mpid: 'otherMPID',
@@ -2662,7 +2572,7 @@ await waitForCondition(hasIdentityCallInflightReturned)
         mParticle.Identity.login(user2);
 
         await waitForCondition(hasIdentityCallInflightReturned);
-await Promise.resolve();
+
 
         expect(hasBeenRun).to.be.true;
     });
@@ -2671,7 +2581,6 @@ await Promise.resolve();
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         const user1 = {
             userIdentities: {
@@ -2687,7 +2596,6 @@ await Promise.resolve();
         mParticle.Identity.login(user1);
 
         await waitForCondition(hasIdentityCallInflightReturned);
-        await Promise.resolve();
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.Identity.getCurrentUser().setUserAttribute('age', 27);
 
@@ -2725,7 +2633,6 @@ await Promise.resolve();
         mParticle.Identity.login(user2);
 
         await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'otherMPID');
-        await Promise.resolve();
 
         const user1ObjectAttrs = user1Object.getAllUserAttributes();
         user1ObjectAttrs.should.not.have.property('age');
@@ -2765,7 +2672,6 @@ await Promise.resolve();
         mParticle.Identity.login(user3);
 
         await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'otherMPID2');
-        await Promise.resolve();
 
 
         expect(user2AttributeListsBeforeRemoving.list.length).to.equal(5);
@@ -2780,8 +2686,7 @@ await Promise.resolve();
 
     it('should return an empty array when no cart products exist', async () => {
         mParticle.init(apiKey, window.mParticle.config);
-        await waitForCondition(hasIdentifyReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentifyReturned);
         const user1 = {
             userIdentities: {
                 customerid: 'customerId1',
@@ -2795,8 +2700,7 @@ await Promise.resolve();
 
         mParticle.Identity.login(user1);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         const products = mParticle.Identity.getCurrentUser()
             .getCart()
@@ -2808,8 +2712,7 @@ await Promise.resolve();
     it('should make a request when copyUserAttributes is included on the identity request', async () => {
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentifyReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentifyReturned);
 
         const identityAPIRequest1 = {
             userIdentities: {
@@ -2828,8 +2731,7 @@ await Promise.resolve();
 
         mParticle.Identity.logout(identityAPIRequest1);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         // This should have a call for the logout and UIC
         expect(fetchMock.calls().length).to.equal(2);
@@ -2849,8 +2751,7 @@ await Promise.resolve();
 
         mParticle.Identity.login(identityAPIRequest1);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         expect(fetchMock.calls().length).to.equal(1);
 
@@ -2869,8 +2770,7 @@ await Promise.resolve();
 
         mParticle.Identity.modify(identityAPIRequest1);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         expect(fetchMock.calls().length).to.equal(1);
 
@@ -2895,8 +2795,7 @@ await Promise.resolve();
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         expect(mpid).to.equal('MPID1');
     });
@@ -2904,8 +2803,7 @@ await Promise.resolve();
     it('should trigger the identityCallback before eventQueue is flushed', async () => {
         mParticle._resetForTests(MPConfig);
 
-        await waitForCondition(hasBeforeEachCallbackReturned)
-        await Promise.resolve();
+        await waitForCondition(hasBeforeEachCallbackReturned);
 
         fetchMock.resetHistory();
 
@@ -2932,8 +2830,7 @@ await Promise.resolve();
         const identifyCall = fetchMock.lastCall();
         expect(identifyCall[0].split('/')[4]).to.equal('identify');
 
-        await waitForCondition(() => callbackCalled)
-        await Promise.resolve();
+        await waitForCondition(() => callbackCalled);
 
         // Force an upload so we can verify the correct events have fired
         mParticle.upload();
@@ -2977,8 +2874,7 @@ await Promise.resolve();
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentifyReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentifyReturned);
         // Should contain:
         // 1 for the Identify Request
         // 1 for the AST
@@ -2995,8 +2891,7 @@ await Promise.resolve();
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         // the server request is the AST, there is no request to Identity
         fetchMock.calls().length.should.equal(1);
@@ -3045,8 +2940,7 @@ await Promise.resolve();
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         result.should.have.property('getUser');
 
@@ -3074,8 +2968,7 @@ await Promise.resolve();
 
         await waitForCondition(() => {
             return mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1';
-        })
-        await Promise.resolve();
+        });
 
         result.should.have.properties('body', 'httpCode', 'getUser');
         result.httpCode.should.equal(200);
@@ -3114,8 +3007,7 @@ await Promise.resolve();
 
         await waitForCondition(() => {
             return mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1';
-        })
-        await Promise.resolve();
+        });
 
         const identityRequest = { userIdentities: { customerid: 'test123' } };
         function loginCallback(result) {
@@ -3124,8 +3016,7 @@ await Promise.resolve();
 
         mParticle.Identity.login(identityRequest, loginCallback);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         loginResult
             .getUser()
@@ -3161,8 +3052,7 @@ await Promise.resolve();
 
         await waitForCondition(() => {
             return mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1';
-        })
-        await Promise.resolve();
+        });
 
         const identityRequest = { userIdentities: { customerid: 'test123' } };
         function logoutCallback(result) {
@@ -3171,8 +3061,7 @@ await Promise.resolve();
 
         mParticle.Identity.logout(identityRequest, logoutCallback);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         logoutResult
             .getUser()
@@ -3208,8 +3097,7 @@ await Promise.resolve();
 
         await waitForCondition(() => {
             return mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1';
-        })
-        await Promise.resolve();
+        });
 
         const identityRequest = { userIdentities: { customerid: 'test123' } };
         function modifyCallback(result) {
@@ -3218,8 +3106,7 @@ await Promise.resolve();
 
         mParticle.Identity.modify(identityRequest, modifyCallback);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         modifyResult
             .getUser()
@@ -3238,8 +3125,7 @@ await Promise.resolve();
         // client had no programmatic handling of a failed identify request
         mParticle._resetForTests(MPConfig);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         fetchMockSuccess(urls.identify, {
             mpid: 'MPID1',
@@ -3256,8 +3142,7 @@ await Promise.resolve();
         fetchMock.resetHistory();
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         let cookies = mParticle.getInstance()._Persistence.getPersistence();
         cookies.should.have.property('gs');
@@ -3273,8 +3158,7 @@ await Promise.resolve();
         fetchMock.resetHistory();
 
         mParticle.init(apiKey, window.mParticle.config);
-        await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1')
-        await Promise.resolve();
+        await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1');
             
         cookies = mParticle.getInstance()._Persistence.getPersistence(); 
         cookies.should.have.property('gs');
@@ -3292,8 +3176,7 @@ await Promise.resolve();
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         
         // NOTE: Use sinon to "lock" in the current time for testing purposes
         const now = new Date();
@@ -3329,8 +3212,7 @@ await Promise.resolve();
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         let currentUser = mParticle.Identity.getCurrentUser();
         currentUser.should.not.equal(null);
@@ -3353,8 +3235,7 @@ await Promise.resolve();
 
         mParticle.Identity.login(userIdentities1);
 
-        await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'MPID1')
-        await Promise.resolve();
+        await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'MPID1');
 
         const nowAfterLogin = new Date();
 
@@ -3382,8 +3263,7 @@ await Promise.resolve();
 
         mParticle.Identity.login();
 
-        await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === testMPID)
-        await Promise.resolve();
+        await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === testMPID);
 
         currentUser = mParticle.Identity.getCurrentUser();
         expect(currentUser.getMPID()).to.equal(testMPID);
@@ -3473,8 +3353,7 @@ await Promise.resolve();
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         expect(identityResult.getUser().getMPID()).to.equal('testMPID');
         expect(identityResult.getPreviousUser()).to.not.equal(null);
@@ -3498,8 +3377,7 @@ await Promise.resolve();
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentifyReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentifyReturned);
 
         fetchMockSuccess(urls.login, {
             mpid: testMPID,
@@ -3524,8 +3402,7 @@ await Promise.resolve();
     it('should return the correct user for Previous User', async () => {
         let callbackCalled = false;
 
-        await waitForCondition(hasBeforeEachCallbackReturned)
-        await Promise.resolve();
+        await waitForCondition(hasBeforeEachCallbackReturned);
 
         const cookies = JSON.stringify({
             gs: {
@@ -3561,16 +3438,14 @@ await Promise.resolve();
 
         let identityResult;
 
-        await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === '1')
-        await Promise.resolve();
+        await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === '1');
 
         mParticle.Identity.identify(EmptyUserIdentities, function(result) {
             identityResult = result;
             callbackCalled = true;
         });
 
-        await waitForCondition(() => callbackCalled)
-        await Promise.resolve();
+        await waitForCondition(() => callbackCalled);
         identityResult
             .getUser()
             .getMPID()
@@ -3820,8 +3695,7 @@ await Promise.resolve();
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         // Mock clock so we can use simple integers for time
         clock = sinon.useFakeTimers();
@@ -3858,8 +3732,7 @@ await Promise.resolve();
         setCookie(workspaceCookieName, cookies);
 
         mParticle.init(apiKey, window.mParticle.config);
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         // Mock clock so we can use simple integers for time
         clock = sinon.useFakeTimers();
@@ -3902,8 +3775,7 @@ await Promise.resolve();
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         clock = sinon.useFakeTimers();
         clock.tick(millisPerDay * 2);
@@ -3957,8 +3829,7 @@ await Promise.resolve();
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);        
 
         // Mock clock so we can use simple integers for time
         clock = sinon.useFakeTimers();
@@ -4015,8 +3886,7 @@ await Promise.resolve();
     it('should set isFirtRun to false after an app is initialized', async () => {
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         mParticle.getInstance()._Store.isFirstRun.should.equal(false);
 
@@ -4027,8 +3897,7 @@ await Promise.resolve();
 
         mParticle.Identity.login({ userIdentities: { customerid: 'abc' } });
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         const ls = mParticle.getInstance()._Persistence.getLocalStorage();
         ls['testMPID'].lst.should.not.equal(null);
@@ -4052,8 +3921,7 @@ await Promise.resolve();
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         result.httpCode.should.equal(-1);
 
@@ -4071,8 +3939,7 @@ await Promise.resolve();
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        await Promise.resolve();
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(1);
         const firstCall = fetchMock.calls()[0];
         expect(firstCall[0].split('/')[4]).to.equal('identify');
@@ -4090,8 +3957,7 @@ await Promise.resolve();
 
         mParticle.Identity.login({ userIdentities: { customerid: 'test' } });
 
-        await waitForCondition(hasLoginReturned)
-        await Promise.resolve();
+        await waitForCondition(hasLoginReturned);
 
         // Should include two more calls: Login and UIC
         expect(fetchMock.calls().length).to.equal(2);
@@ -4134,8 +4000,7 @@ await Promise.resolve();
 
             fetchMock.resetHistory();
 
-            await waitForCondition(hasIdentifyReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentifyReturned);
             fetchMockSuccess(
                 urls.identify,
                 {
@@ -4164,8 +4029,7 @@ await Promise.resolve();
                     mParticle.Identity.getCurrentUser()?.getUserIdentities()
                         ?.userIdentities?.email === 'test@gmail.com'
                 );
-            })
-            await Promise.resolve();
+            });
             const now = new Date();
             const idCache: IdentityCache = JSON.parse(
                 localStorage.getItem('mprtcl-v4_abcdef-id-cache')
@@ -4218,8 +4082,7 @@ await Promise.resolve();
             mParticle.init(apiKey, window.mParticle.config);
 
 
-            await waitForCondition(hasIdentityCallInflightReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentityCallInflightReturned);
 
             // Just make sure calls were actually made
             expect(fetchMock.calls().length).to.greaterThanOrEqual(1);
@@ -4231,8 +4094,7 @@ await Promise.resolve();
             const callback = sinon.spy();
             mParticle.Identity.identify(identities, callback);
 
-            await waitForCondition(hasIdentifyReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentifyReturned);
             expect(fetchMock.calls().length).to.equal(0);
 
             // callback still gets called even if the identity call is not made`
@@ -4264,8 +4126,7 @@ await Promise.resolve();
             mParticle.config.flags.cacheIdentity = 'True';
             mParticle.init(apiKey, window.mParticle.config);
 
-            await waitForCondition(hasIdentityCallInflightReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentityCallInflightReturned);            
 
             const initialIdentityCall = fetchMock.calls()[0];
             expect(initialIdentityCall[0].split('/')[4]).to.equal('identify');
@@ -4284,8 +4145,7 @@ await Promise.resolve();
 
             clock.restore();
 
-            await waitForCondition(() => callbackCalled)
-            await Promise.resolve();
+            await waitForCondition(() => callbackCalled);
             expect(fetchMock.calls().length).to.equal(1);
 
             const duplicateIdentityCall = fetchMock.calls()[0];
@@ -4326,8 +4186,7 @@ await Promise.resolve();
             mParticle.config.flags.cacheIdentity = 'True';
             mParticle.init(apiKey, window.mParticle.config);
 
-            await waitForCondition(hasIdentityCallInflightReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentityCallInflightReturned);
 
             fetchMock.resetHistory();
 
@@ -4337,8 +4196,7 @@ await Promise.resolve();
 
             mParticle.Identity.login(identities, callback);
 
-            await waitForCondition(() => mParticle.Identity?.getCurrentUser()?.getMPID() === testMPID)
-            await Promise.resolve();
+            await waitForCondition(() => mParticle.Identity?.getCurrentUser()?.getMPID() === testMPID);
 
             // Just make sure calls were actually made
             expect(fetchMock.calls().length).to.greaterThanOrEqual(1);
@@ -4353,8 +4211,7 @@ await Promise.resolve();
 
             await waitForCondition(() => {
                 return callbackCalled;
-            })
-            await Promise.resolve();
+            });
 
             expect(fetchMock.calls().length).to.equal(0);
 
@@ -4395,8 +4252,7 @@ await Promise.resolve();
             mParticle.config.flags.cacheIdentity = 'True';
             mParticle.init(apiKey, window.mParticle.config);
 
-            await waitForCondition(hasIdentityCallInflightReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentityCallInflightReturned);
 
             const initialIdentityCall = fetchMock.calls()[0];
             expect(initialIdentityCall[0].split('/')[4]).to.equal('identify');
@@ -4409,8 +4265,7 @@ await Promise.resolve();
 
             mParticle.Identity.login(identities, callback);
 
-            await waitForCondition(() => callbackCalled)
-            await Promise.resolve();
+            await waitForCondition(() => callbackCalled);
 
             // Just make sure calls were actually made
             expect(fetchMock.calls().length).to.greaterThanOrEqual(1);
@@ -4429,8 +4284,7 @@ await Promise.resolve();
 
             clock.restore();
 
-            await waitForCondition(() => callbackCalled)
-            await Promise.resolve();
+            await waitForCondition(() => callbackCalled);
             expect(fetchMock.calls().length).to.equal(1);
 
             const secondLoginCall = fetchMock.calls()[0];
@@ -4474,8 +4328,7 @@ await Promise.resolve();
 
             mParticle.init(apiKey, window.mParticle.config);
 
-            await waitForCondition(hasIdentityCallInflightReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentityCallInflightReturned);
 
             const idCache = localStorage.getItem('mprtcl-v4_abcdef-id-cache');
             expect(idCache).to.be.ok;
@@ -4486,8 +4339,7 @@ await Promise.resolve();
                 },
             });
 
-            await waitForCondition(hasIdentityCallInflightReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentityCallInflightReturned);
             const secondIdCache = localStorage.getItem(
                 'mprtcl-v4_abcdef-id-cache'
             );
@@ -4526,16 +4378,14 @@ await Promise.resolve();
 
             mParticle.init(apiKey, window.mParticle.config);
 
-            await waitForCondition(hasIdentityCallInflightReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentityCallInflightReturned);
 
             let idCache = localStorage.getItem('mprtcl-v4_abcdef-id-cache');
             expect(idCache).to.be.ok;
 
             mParticle.Identity.logout();
 
-            await waitForCondition(hasIdentityCallInflightReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentityCallInflightReturned);
 
             let secondIdCache = localStorage.getItem(
                 'mprtcl-v4_abcdef-id-cache'
@@ -4580,7 +4430,6 @@ await Promise.resolve();
             mParticle.init(apiKey, { ...window.mParticle.config, kitConfigs: [roktConfig] });
 
             await waitForCondition(() => hasIdentifyReturned(testRoktMPID));
-            await Promise.resolve();
 
             const mpInstance = mParticle.getInstance();
 
@@ -4593,7 +4442,6 @@ await Promise.resolve();
             });
 
             await waitForCondition(() => hasIdentifyReturnedWithEmail(testRoktEmail));
-            await Promise.resolve();
 
             expect(mpInstance._RoktManager['currentUser']).to.not.be.null;
             expect(mpInstance._RoktManager['currentUser'].getUserIdentities().userIdentities.email).to.equal(testRoktEmail);
@@ -4619,15 +4467,13 @@ await Promise.resolve();
 
             mParticle.init(apiKey, { ...window.mParticle.config, kitConfigs: [roktConfig] });
 
-            await waitForCondition(hasIdentityCallInflightReturned);
-            await Promise.resolve();
+            await waitForCondition(hasIdentityCallInflightReturned);            
 
             const mpInstance = mParticle.getInstance();
 
             mpInstance._RoktManager.attachKit(roktKit);
 
             await waitForCondition(hasIdentityCallInflightReturned);
-            await Promise.resolve();
 
             expect(mpInstance._RoktManager['currentUser']).be.null;
         })
@@ -4646,7 +4492,6 @@ await Promise.resolve();
             mParticle.init(apiKey, { ...window.mParticle.config, kitConfigs: [roktConfig] });
 
             await waitForCondition(() => hasIdentifyReturned('testMPID'));
-            await Promise.resolve();
 
             fetchMock.post(urls.identify, {
                 status: HTTP_BAD_REQUEST,
@@ -4676,7 +4521,6 @@ await Promise.resolve();
             });
 
             await waitForCondition(hasIdentityCallInflightReturned);
-            await Promise.resolve();
 
             // Current user will be the initial anonymous user from the initial identify call via mParticle.init
             // but should not have an email
@@ -4693,8 +4537,7 @@ await Promise.resolve();
         it("should deprecate the user's cart", async () => {
             mParticle.init(apiKey, window.mParticle.config);
             const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
-            await waitForCondition(hasIdentifyReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentifyReturned);
             mParticle
                 .getInstance()
                 .Identity.getCurrentUser()
@@ -4713,8 +4556,7 @@ await Promise.resolve();
             mParticle.init(apiKey, window.mParticle.config);
             const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
-            await waitForCondition(hasIdentifyReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentifyReturned);
 
             const product: SDKProduct = mParticle.eCommerce.createProduct(
                 'iPhone',
@@ -4743,8 +4585,7 @@ await Promise.resolve();
             mParticle.init(apiKey, window.mParticle.config);
             const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
-            await waitForCondition(hasIdentifyReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentifyReturned);
 
             const product: SDKProduct = mParticle.eCommerce.createProduct(
                 'iPhone',
@@ -4772,8 +4613,7 @@ await Promise.resolve();
         it('should deprecate clear', async () => {
             mParticle.init(apiKey, window.mParticle.config);
             const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
-            await waitForCondition(hasIdentifyReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentifyReturned);
             mParticle
                 .getInstance()
                 .Identity.getCurrentUser()
@@ -4796,8 +4636,7 @@ await Promise.resolve();
             mParticle.init(apiKey, window.mParticle.config);
             const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
-            await waitForCondition(hasIdentifyReturned)
-            await Promise.resolve();
+            await waitForCondition(hasIdentifyReturned);
 
             mParticle
                 .getInstance()
