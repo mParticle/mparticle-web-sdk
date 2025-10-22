@@ -21,7 +21,7 @@ const hasIdentifyReturned = () => {
     return window.mParticle.Identity.getCurrentUser()?.getMPID() === testMPID;
 };
 
-describe('feature-flags', () => {
+describe.only('feature-flags', () => {
     describe('user audiences', () => {
         beforeEach(() => {
             window.mParticle._resetForTests(MPConfig);
@@ -46,7 +46,6 @@ describe('feature-flags', () => {
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
-            await Promise.resolve();
 
             const bond = sinon.spy(window.mParticle.getInstance().Logger, 'error');
             window.mParticle.Identity.getCurrentUser().getUserAudiences();
@@ -85,7 +84,6 @@ describe('feature-flags', () => {
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
-            await Promise.resolve();
 
             const bond = sinon.spy(window.mParticle.getInstance().Logger, 'error');
 
@@ -128,7 +126,6 @@ describe('feature-flags', () => {
             window.mParticle.init(apiKey, window.mParticle.config);
 
             await waitForCondition(hasIdentifyReturned)
-            await Promise.resolve();
 
             const integrationCapture = window.mParticle.getInstance()._IntegrationCapture;
             sinon.stub(integrationCapture, 'getQueryParams').returns({ fbclid: '1234' });
@@ -158,7 +155,6 @@ describe('feature-flags', () => {
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned)
-            await Promise.resolve();
 
             const integrationCapture = window.mParticle.getInstance()._IntegrationCapture;
             let captureCalled = false;

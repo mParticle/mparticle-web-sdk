@@ -11,7 +11,7 @@ import Utils from './config/utils';
 
 const { waitForCondition, fetchMockSuccess, hasIdentityCallInflightReturned } = Utils;
 
-describe('helpers', function() {
+describe.only('helpers', function() {
     let sandbox;
 
     beforeEach(function() {
@@ -73,7 +73,6 @@ describe('helpers', function() {
 
     it('should return event name in warning when sanitizing invalid attributes', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
-        await Promise.resolve();
         const bond = sandbox.spy(mParticle.getInstance().Logger, 'warning');
         mParticle.logEvent('eventName', mParticle.EventType.Location, {invalidValue: {}});
 
@@ -109,7 +108,6 @@ describe('helpers', function() {
 
     it('should return commerce event name in warning when sanitizing invalid attributes', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
-        await Promise.resolve();
 
         const bond = sandbox.spy(mParticle.getInstance().Logger, 'warning');
 
