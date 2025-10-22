@@ -230,6 +230,7 @@ export interface MParticleWebSDK {
     generateHash(value: string): string;
     setIntegrationAttribute(integrationModuleId: number, attrs: IntegrationAttribute): void;
     getIntegrationAttributes(integrationModuleId: number): IntegrationAttribute;
+    captureTiming(metricName: string): void;
 }
 
 // https://go.mparticle.com/work/SQDSDKS-4805
@@ -253,7 +254,6 @@ export interface IMParticleInstanceManager extends MParticleWebSDK {
 
     // Public Methods
     getInstance(instanceName?: string): IMParticleWebSDKInstance;
-    captureTiming(metricName: string);
 }
 
 
