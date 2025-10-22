@@ -36,7 +36,7 @@ declare global {
 
 const mParticle = window.mParticle;
 
-describe('cookie syncing', function() {
+describe.only('cookie syncing', function() {
     // Have a reference to createElement function to reset after all cookie sync
     // tests have run
     const originalCreateElementFunction = window.document.createElement;
@@ -98,7 +98,6 @@ describe('cookie syncing', function() {
         window.mParticle.config.pixelConfigs = [pixelSettings];
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         expect(
             mParticle.getInstance()._Store.pixelConfigurations.length
@@ -119,7 +118,6 @@ describe('cookie syncing', function() {
         });
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         expect(
             mParticle.getInstance()._Store.pixelConfigurations.length
@@ -138,7 +136,6 @@ describe('cookie syncing', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         const data = mParticle.getInstance()._Persistence.getLocalStorage();
 
@@ -158,7 +155,6 @@ describe('cookie syncing', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         const data1 = mParticle
             .getInstance()
@@ -170,7 +166,6 @@ describe('cookie syncing', function() {
         
         mParticle.Identity.login();
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'otherMPID');
-        await Promise.resolve();
         const data2 = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
@@ -199,7 +194,6 @@ describe('cookie syncing', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         const data1 = mParticle
             .getInstance()
@@ -229,7 +223,6 @@ describe('cookie syncing', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         const data1 = mParticle
             .getInstance()
@@ -273,12 +266,10 @@ describe('cookie syncing', function() {
         });
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         // add pixels to preInitConfig
         mParticle.init(apiKey, window.mParticle.config);
         
         await waitForCondition(hasConfigurationReturned);
-        await Promise.resolve();
         mParticle
             .getInstance()
             ._Store.pixelConfigurations.length.should.equal(1);
@@ -291,7 +282,6 @@ describe('cookie syncing', function() {
             userIdentities: { customerid: 'abc' },
         });
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1');
-        await Promise.resolve();
         const cookies = getLocalStorage();
         Object.keys(cookies['MPID1'].csd).length.should.equal(1);
     });
@@ -303,7 +293,6 @@ describe('cookie syncing', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         expect( 
             mParticle.getInstance()._Store.pixelConfigurations.length
@@ -842,7 +831,6 @@ describe('cookie syncing', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         const localStorage = mParticle
             .getInstance()
@@ -876,7 +864,6 @@ describe('cookie syncing', function() {
         mParticle.Identity.getCurrentUser().setConsentState(
             trueConsentState
         );
-        await Promise.resolve();
 
         const cookieSyncLS = mParticle
             .getInstance()
@@ -905,7 +892,6 @@ describe('cookie syncing', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         const localStorage = mParticle
             .getInstance()
@@ -939,7 +925,6 @@ describe('cookie syncing', function() {
         mParticle.Identity.getCurrentUser().setConsentState(
             trueConsentState
         );
-        await Promise.resolve();
 
         newLocalStorage = mParticle
             .getInstance()
@@ -969,7 +954,6 @@ describe('cookie syncing', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         const localStorage = mParticle
             .getInstance()
@@ -1003,7 +987,6 @@ describe('cookie syncing', function() {
         mParticle.Identity.getCurrentUser().setConsentState(
             trueConsentState
         );
-        await Promise.resolve();
 
         const cookieSyncLS = mParticle
             .getInstance()
@@ -1032,7 +1015,6 @@ describe('cookie syncing', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         
         const localStorage = mParticle
             .getInstance()
@@ -1064,7 +1046,6 @@ describe('cookie syncing', function() {
         mParticle.Identity.getCurrentUser().setConsentState(
             trueConsentState
         );
-        await Promise.resolve();
 
         newLocalStorage = mParticle
             .getInstance()
@@ -1124,7 +1105,6 @@ describe('cookie syncing', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         const localStorage = mParticle
             .getInstance()
@@ -1145,7 +1125,6 @@ describe('cookie syncing', function() {
         mParticle.Identity.getCurrentUser().setConsentState(
             trueConsentState
         );
-        await Promise.resolve();
 
         const newLocalStorage = mParticle
             .getInstance()

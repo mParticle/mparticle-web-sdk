@@ -11,7 +11,7 @@ import {
 
 const { findEventFromRequest, findBatch, getIdentityEvent, waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
 
-describe('event logging', function() {
+describe.only('event logging', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
         fetchMock.post(urls.events, 200);
@@ -30,7 +30,6 @@ describe('event logging', function() {
 
     it('should log an event', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         window.mParticle.logEvent(
             'Test Event',
@@ -53,7 +52,6 @@ describe('event logging', function() {
 
     it('should log an event with new device id when set on setDeviceId', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         window.mParticle.logEvent(
             'Test Event',
@@ -80,7 +78,6 @@ describe('event logging', function() {
         window.mParticle.config.deviceId = 'foo-guid';
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         window.mParticle.logEvent('Test Event');
         const testEventBatch = findBatch(fetchMock.calls(), 'Test Event');
@@ -91,7 +88,6 @@ describe('event logging', function() {
 
     it('should allow an event to bypass server upload', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         window.mParticle.logEvent(
             'Test Standard Upload',
@@ -148,7 +144,6 @@ describe('event logging', function() {
 
     it('should allow an event to bypass server upload via logBaseEvent', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         window.mParticle.logBaseEvent(
             {
@@ -212,7 +207,6 @@ describe('event logging', function() {
 
     it('should log an error', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.logError('my error');
 
@@ -227,7 +221,6 @@ describe('event logging', function() {
 
     it('should log an error with name, message, stack', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         const error = new Error('my error');
         error.stack = 'my stacktrace';
@@ -250,7 +243,6 @@ describe('event logging', function() {
 
     it('should log an error with custom attrs', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         const error = new Error('my error');
         error.stack = 'my stacktrace';
@@ -274,7 +266,6 @@ describe('event logging', function() {
 
     it('should sanitize error custom attrs', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
         mParticle.logError('my error', {
@@ -300,7 +291,6 @@ describe('event logging', function() {
 
     it('should log an AST with firstRun = true when first visiting a page, and firstRun = false when reloading the page', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         const astEvent = findEventFromRequest(
             fetchMock.calls(),
@@ -329,7 +319,6 @@ describe('event logging', function() {
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
-        await Promise.resolve();
 
         const astEvent2 = findEventFromRequest(
             fetchMock.calls(),
@@ -341,7 +330,6 @@ describe('event logging', function() {
 
     it('should log an AST on init with firstRun = false when cookies already exist', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         // cookies currently exist, mParticle.init called from beforeEach
         fetchMock.resetHistory();
@@ -351,7 +339,6 @@ describe('event logging', function() {
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
-        await Promise.resolve();
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -364,7 +351,6 @@ describe('event logging', function() {
 
     it('should log a page view', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.logPageView();
 
@@ -388,7 +374,6 @@ describe('event logging', function() {
 
     it('should log custom page view', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.logPageView(
             'My Page View',
@@ -419,7 +404,6 @@ describe('event logging', function() {
 
     it('should pass custom flags in page views', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.logPageView('test', null, {
             'MyCustom.Flag': 'Test',
@@ -441,7 +425,6 @@ describe('event logging', function() {
 
     it('should allow a page view to bypass server upload', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.logPageView('test bypass', null, null, {
             shouldUploadEvent: false,
@@ -457,7 +440,6 @@ describe('event logging', function() {
 
     it('should not log a PageView event if there are invalid attrs', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.logPageView('test1', 'invalid', null);
         const pageViewEvent = findEventFromRequest(
@@ -470,7 +452,6 @@ describe('event logging', function() {
 
     it('should not log an event that has an invalid customFlags', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.logPageView('test', null, 'invalid');
 
@@ -483,7 +464,6 @@ describe('event logging', function() {
 
     it('should log event with name PageView when an invalid event name is passed', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         fetchMock.resetHistory();
 
@@ -516,7 +496,6 @@ describe('event logging', function() {
 
     it('should log opt out', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.setOptOut(true);
 
@@ -528,7 +507,6 @@ describe('event logging', function() {
 
     it('log event requires name', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         fetchMock.resetHistory();
         mParticle.logEvent();
@@ -538,7 +516,6 @@ describe('event logging', function() {
 
     it('log event requires valid event type', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         fetchMock.resetHistory();
 
@@ -549,7 +526,6 @@ describe('event logging', function() {
 
     it('event attributes must be object', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.logEvent('Test Event', null, 1);
         
@@ -560,7 +536,6 @@ describe('event logging', function() {
 
     it('opting out should prevent events being sent', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.setOptOut(true);
         fetchMock.resetHistory();
@@ -571,7 +546,6 @@ describe('event logging', function() {
 
     it('after logging optout, and reloading, events still should not be sent until opt out is enabled when using local storage', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.setOptOut(true);
         fetchMock.resetHistory();
@@ -597,7 +571,6 @@ describe('event logging', function() {
 
     it('after logging optout, and reloading, events still should not be sent until opt out is enabled when using cookie storage', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.config.useCookieStorage = true;
         mParticle.init(apiKey, window.mParticle.config);
@@ -615,7 +588,6 @@ describe('event logging', function() {
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
-        await Promise.resolve();
 
         fetchMock.resetHistory();
         mParticle.logEvent('test');
@@ -628,7 +600,6 @@ describe('event logging', function() {
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
-        await Promise.resolve();
 
         fetchMock.resetHistory();
         mParticle.logEvent('test');
@@ -640,7 +611,6 @@ describe('event logging', function() {
                 mpid: testMPID, is_logged_in: false
             });
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.Identity.identify();
         await waitForCondition(() => {
@@ -648,7 +618,6 @@ describe('event logging', function() {
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
-        await Promise.resolve();
 
         const identityCalls = fetchMock.calls().filter(call => 
             call[0].includes('/identify')
@@ -671,7 +640,6 @@ describe('event logging', function() {
         });
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.Identity.logout();
         await waitForCondition(() => {
@@ -679,7 +647,6 @@ describe('event logging', function() {
                 mParticle.Identity.getCurrentUser()?.getMPID() === 'logoutMPID'
             );
         });
-        await Promise.resolve();
 
         const data = getIdentityEvent(fetchMock.calls(), 'logout');
         data.should.have.properties(
@@ -699,7 +666,6 @@ describe('event logging', function() {
         });
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.Identity.login();
         await waitForCondition(() => {
@@ -707,7 +673,6 @@ describe('event logging', function() {
                 mParticle.Identity.getCurrentUser()?.getMPID() === 'loginMPID'
             );
         });
-        await Promise.resolve();
 
         const data = getIdentityEvent(fetchMock.calls(), 'login');
         data.should.have.properties(
@@ -723,7 +688,6 @@ describe('event logging', function() {
 
     it('should log modify event', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         fetchMockSuccess(urls.modify, {
             change_results: [
@@ -739,7 +703,6 @@ describe('event logging', function() {
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
-        await Promise.resolve();
 
         const data = getIdentityEvent(fetchMock.calls(), 'modify');
         data.should.have.properties(
@@ -754,7 +717,6 @@ describe('event logging', function() {
 
     it('should send das with each event logged', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         window.mParticle.logEvent('Test Event');
         const testEventBatch = findBatch(fetchMock.calls(), 'Test Event');
@@ -765,7 +727,6 @@ describe('event logging', function() {
 
     it('should send consent state with each event logged', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         const consentState = mParticle.Consent.createConsentState();
         consentState.addGDPRConsentState(
             'foo purpose',
@@ -803,7 +764,6 @@ describe('event logging', function() {
 
     it('should log integration attributes with each event', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.setIntegrationAttribute(128, { MCID: 'abcdefg' });
         mParticle.logEvent('Test Event');
         const testEvent = findBatch(fetchMock.calls(), 'Test Event');
@@ -819,7 +779,6 @@ describe('event logging', function() {
 
     it('should run the callback once when tracking succeeds', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         const clock = sinon.useFakeTimers();
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -856,7 +815,6 @@ describe('event logging', function() {
 
     it('should run the callback once when tracking fails', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         const clock = sinon.useFakeTimers();
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -866,7 +824,6 @@ describe('event logging', function() {
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
-        await Promise.resolve();
 
         let successCallbackCalled = false;
         let numberTimesCalled = 0;
@@ -878,7 +835,6 @@ describe('event logging', function() {
             successCallbackCalled = true;
             mParticle.logEvent('Test Event');
         });
-        await Promise.resolve();
 
         // mock geo will successfully run after 1 second (geomock.js // navigator.geolocation.delay)
         clock.tick(1000);
@@ -902,7 +858,6 @@ describe('event logging', function() {
 
     it('should pass the found or existing position to the callback in startTrackingLocation', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => {
             return (
@@ -931,7 +886,6 @@ describe('event logging', function() {
 
     it('should run the callback if tracking already exists', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -940,7 +894,6 @@ describe('event logging', function() {
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
-        await Promise.resolve();
 
         const clock = sinon.useFakeTimers();
 
@@ -972,14 +925,12 @@ describe('event logging', function() {
         };
 
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(() => {
             return (
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
-        await Promise.resolve();
 
         window.mParticle.logEvent('Test Event');
 
@@ -995,7 +946,6 @@ describe('event logging', function() {
 
     it('should log AST first_run as true on new page loads, and false for when a page has previously been loaded', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle._resetForTests(MPConfig);
 
         mParticle.init(apiKey, mParticle.config);
@@ -1024,7 +974,6 @@ describe('event logging', function() {
 
     it('should log AST with launch_referral with a url', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle._resetForTests(MPConfig);
 
         mParticle.config.flags = {
@@ -1037,7 +986,6 @@ describe('event logging', function() {
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
-        await Promise.resolve();
 
 
         const batch = JSON.parse(fetchMock.lastOptions().body);
@@ -1050,8 +998,7 @@ describe('event logging', function() {
     });
 
     it('should log appName in the payload on v3 endpoint when set on config prior to init', async () => {
-        await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
+        await waitForCondition(hasIdentifyReturned);  
         mParticle.config.flags = {
             eventBatchingIntervalMillis: 0,
         };
@@ -1060,7 +1007,6 @@ describe('event logging', function() {
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
-        await Promise.resolve();
 
 
         mParticle.init(apiKey, mParticle.config);
@@ -1087,8 +1033,7 @@ describe('event logging', function() {
             planVersion: 10,
         };
 
-        await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
+        await waitForCondition(hasIdentifyReturned); 
         mParticle.init(apiKey, mParticle.config);
 
         await waitForCondition(() => {
@@ -1096,7 +1041,6 @@ describe('event logging', function() {
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
-        await Promise.resolve();
         window.mParticle.logEvent('Test Event');
 
         const batch = JSON.parse(fetchMock.lastOptions().body);
@@ -1111,7 +1055,6 @@ describe('event logging', function() {
 
     it('should log a batch to v3 with no version if no version is passed', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.config.flags = {
             eventBatchingIntervalMillis: 0,
         };
@@ -1125,7 +1068,6 @@ describe('event logging', function() {
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
-        await Promise.resolve();
         window.mParticle.logEvent('Test Event');
 
         const batch = JSON.parse(fetchMock.lastOptions().body);
@@ -1140,7 +1082,6 @@ describe('event logging', function() {
 
     it('should log a batch to v3 with no context if no data plan is passed', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.config.flags = {
             eventBatchingIntervalMillis: 0,
         };
@@ -1154,7 +1095,6 @@ describe('event logging', function() {
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
-        await Promise.resolve();
         window.mParticle.logEvent('Test Event');
 
         const batch = JSON.parse(fetchMock.lastOptions().body);
@@ -1166,7 +1106,6 @@ describe('event logging', function() {
 
     it('should log an error if a non slug string is passed as the dataplan planId', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         let errorMessage;
 
         mParticle.config.logLevel = 'verbose';
@@ -1191,7 +1130,6 @@ describe('event logging', function() {
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
-        await Promise.resolve();
         window.mParticle.logEvent('Test Event');
 
         errorMessage.should.equal(
@@ -1204,7 +1142,6 @@ describe('event logging', function() {
 
     it('should log consent properly to v3 endpoint ', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.config.flags = {
             eventBatchingIntervalMillis: 0,
         };
@@ -1298,7 +1235,6 @@ describe('event logging', function() {
 
     it('should sanitize transaction attributes in the payload on v3 endpoint', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.config.flags = {
             eventBatchingIntervalMillis: 0,
         };
@@ -1309,7 +1245,6 @@ describe('event logging', function() {
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
-        await Promise.resolve();
         const product1 = mParticle.eCommerce.createProduct(
             'iphone',
             'iphoneSKU',
@@ -1352,7 +1287,6 @@ describe('event logging', function() {
 
     it('should sanitize product attributes in the payload on v3 endpoint', async () => {
         await waitForCondition(hasIdentifyReturned);
-        await Promise.resolve();
         mParticle.config.flags = {
             eventBatchingIntervalMillis: 0,
         };
@@ -1363,7 +1297,6 @@ describe('event logging', function() {
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
-        await Promise.resolve();
         const product1 = mParticle.eCommerce.createProduct(
             'iphone',
             'iphoneSKU',
