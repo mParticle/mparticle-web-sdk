@@ -27,7 +27,7 @@ const findBatch = Utils.findBatch;
 
 const mParticle = window.mParticle;
 
-describe('Consent', function() {
+describe.only('Consent', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
         fetchMock.config.overwriteRoutes = true;

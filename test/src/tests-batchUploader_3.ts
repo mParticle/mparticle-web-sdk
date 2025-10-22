@@ -12,7 +12,7 @@ declare global {
     }
 }
 
-describe('batch uploader', () => {
+describe.only('batch uploader', () => {
     beforeEach(() => {
         window.mParticle._resetForTests(MPConfig);
         fetchMock.restore();

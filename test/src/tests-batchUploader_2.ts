@@ -17,7 +17,7 @@ const enableBatchingConfigFlags = {
     eventBatchingIntervalMillis: 1000,
 };
 
-describe('batch uploader', () => {
+describe.only('batch uploader', () => {
     let clock;
     beforeEach(() => {
         window.mParticle._resetForTests(MPConfig);

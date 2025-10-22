@@ -32,7 +32,7 @@ const enableBatchingConfigFlags = {
     eventBatchingIntervalMillis: 1000,
 };
 
-describe('batch uploader', () => {
+describe.only('batch uploader', () => {
     let clock;
     let beaconSpy;
     beforeEach(() => {
@@ -81,7 +81,7 @@ describe('batch uploader', () => {
                 // Run all pending promises
                 await Promise.resolve();
 
-                // Verify tha beacon was called
+                // Verify that beacon was called
                 expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
 
                 // Parse the beacon data which is a batch

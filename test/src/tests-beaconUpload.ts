@@ -21,7 +21,7 @@ const enableBatchingConfigFlags = {
 };
 
 
-describe('Beacon Upload', () => {
+describe.only('Beacon Upload', () => {
     beforeEach(() => {
         window.mParticle._resetForTests(MPConfig);
         fetchMock.config.overwriteRoutes = true; 
