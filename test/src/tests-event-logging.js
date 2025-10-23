@@ -998,7 +998,7 @@ describe.only('event logging', function() {
     });
 
     it('should log appName in the payload on v3 endpoint when set on config prior to init', async () => {
-        await waitForCondition(hasIdentifyReturned);  
+        await waitForCondition(hasIdentifyReturned);
         mParticle.config.flags = {
             eventBatchingIntervalMillis: 0,
         };
@@ -1033,7 +1033,7 @@ describe.only('event logging', function() {
             planVersion: 10,
         };
 
-        await waitForCondition(hasIdentifyReturned); 
+        await waitForCondition(hasIdentifyReturned);
         mParticle.init(apiKey, mParticle.config);
 
         await waitForCondition(() => {
