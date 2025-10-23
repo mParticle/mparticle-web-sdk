@@ -23,9 +23,11 @@ declare global {
 
 const mParticle = window.mParticle as IMParticleInstanceManager;
 
-describe('Integration Capture', () => {
+describe.only('Integration Capture', () => {
     beforeEach(async function() {
         mParticle._resetForTests(MPConfig);
+        fetchMock.restore();
+        fetchMock.config.overwriteRoutes = true;
         fetchMock.post(urls.events, 200);
         delete mParticle._instances['default_instance'];
         fetchMockSuccess(urls.identify, {
@@ -60,9 +62,8 @@ describe('Integration Capture', () => {
     });
 
     afterEach(function() {
-        sinon.restore();
         fetchMock.restore();
-        mParticle._resetForTests(MPConfig);
+        sinon.restore();
         deleteAllCookies();
     });
 
@@ -139,6 +140,7 @@ describe('Integration Capture', () => {
 
     it('should add captured integrations to page view custom flags, prioritizing passed in custom flags', async () => {
         await waitForCondition(hasIdentifyReturned);
+
         window.mParticle.logPageView(
             'Test Page View',
             {'foo-attr': 'bar-attr'},
