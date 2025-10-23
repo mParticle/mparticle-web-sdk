@@ -3159,6 +3159,7 @@ describe.only('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1');
+        await Promise.resolve();
             
         cookies = mParticle.getInstance()._Persistence.getPersistence(); 
         cookies.should.have.property('gs');
