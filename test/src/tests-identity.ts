@@ -672,6 +672,7 @@ describe.only('identity', function() {
 
     // https://go.mparticle.com/work/SQDSDKS-6849
     // This test passes with no issue when it is run on its own, but fails when tests-forwarders.js are also ran.
+    // https://go/j-SDKE-420
     it('should respect consent rules on consent-change', async () => { 
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder('MockForwarder1');
@@ -858,6 +859,7 @@ describe.only('identity', function() {
         });
     });
 
+    // https://go/j-SDKE-420
     it('cookies - should switch user cookies to new mpid details from cookies when a new mpid is provided', async () => {
         mParticle.config.useCookieStorage = true;
 
@@ -900,7 +902,7 @@ describe.only('identity', function() {
 
         mParticle.Identity.login(userIdentities1);
 
-        await waitForCondition(hasLoginReturned);        
+        await waitForCondition(hasLoginReturned);       
 
         const cookiesAfterMPIDChange = findCookie();
         cookiesAfterMPIDChange.should.have.properties([
@@ -2083,7 +2085,6 @@ describe.only('identity', function() {
         // 1 for the modify
         // 1 for the UIC event
         await waitForCondition(hasIdentityCallInflightReturned);
-        await Promise.resolve();
         expect(fetchMock.calls().length).to.equal(6);
 
         // This will add a new UAC Event to the call
@@ -2116,7 +2117,6 @@ describe.only('identity', function() {
         mParticle.Identity.logout(user2);
 
         await waitForCondition(hasLogOutReturned);
-        await Promise.resolve();
 
         // This will add the following new calls:
         // 1 for the logout
@@ -2143,7 +2143,6 @@ describe.only('identity', function() {
         await waitForCondition(() => {
             return mParticle.Identity.getCurrentUser().getMPID() === 'testMPID';
         });
-        await Promise.resolve();
 
         // This will add the following new calls:
         // 1 for the login
@@ -2160,6 +2159,7 @@ describe.only('identity', function() {
         });
     });
 
+    // https://go/j-SDKE-420
     it('should add new MPIDs to cookie structure when initializing new identity requests, returning an existing mpid when reinitializing with a previous identity', async () => {
         const user1 = {
             userIdentities: {
@@ -2239,7 +2239,6 @@ describe.only('identity', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentityCallInflightReturned);
-
         const user5 = mParticle.Identity.getCurrentUser();
         user5.getUserIdentities().userIdentities.customerid.should.equal('1');
         user5.getMPID().should.equal('testMPID');
@@ -2952,6 +2951,7 @@ describe.only('identity', function() {
             .should.have.property('test', 'value');
     });
 
+    // https://go/j-SDKE-420
     describe('identityCallback responses', function () {
     it('should have a getUser function on identify result object', async () => {
         let result;
@@ -2987,6 +2987,7 @@ describe.only('identity', function() {
             .should.have.property('attr', 'value');
     });
 
+    // https://go/j-SDKE-420
     it('should have a getUser function on login result object', async () => {
         let result
         let loginResult;
@@ -3032,6 +3033,7 @@ describe.only('identity', function() {
             .should.have.property('attr', 'value');
     });
 
+    // https://go/j-SDKE-420
     it('should have a getUser function on logout result object', async () => {
         let result;
         let logoutResult; 
@@ -3077,6 +3079,7 @@ describe.only('identity', function() {
             .should.have.property('attr', 'value');
     });
 
+    // https://go/j-SDKE-420
     it('should have a getUser function on modify result object', async () => {
         let result
         let modifyResult;
@@ -3162,7 +3165,6 @@ describe.only('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1');
-        await Promise.resolve();
             
         cookies = mParticle.getInstance()._Persistence.getPersistence(); 
         cookies.should.have.property('gs');
@@ -4422,6 +4424,7 @@ describe.only('identity', function() {
             } as unknown as IRoktKit;
         });
 
+        // https://go/j-SDKE-420
         it('should set currentUser once the email is positively identified', async () => {
             fetchMockSuccess(urls.identify, {
                 mpid: testRoktMPID,

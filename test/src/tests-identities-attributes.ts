@@ -897,6 +897,7 @@ describe.only('identities and attributes', function() {
         delete window.mParticle.config.flags;
     });
 
+    // https://go/j-SDKE-420 - Intermittently fails in Firefox due to timing
     it('should send user identity change requests when setting new identities on new users', async () => {
         fetchMock.resetHistory();
 
