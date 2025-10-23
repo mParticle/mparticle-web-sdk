@@ -2083,6 +2083,7 @@ describe.only('identity', function() {
         // 1 for the modify
         // 1 for the UIC event
         await waitForCondition(hasIdentityCallInflightReturned);
+        await Promise.resolve();
         expect(fetchMock.calls().length).to.equal(6);
 
         // This will add a new UAC Event to the call
@@ -2115,6 +2116,7 @@ describe.only('identity', function() {
         mParticle.Identity.logout(user2);
 
         await waitForCondition(hasLogOutReturned);
+        await Promise.resolve();
 
         // This will add the following new calls:
         // 1 for the logout
@@ -2141,6 +2143,7 @@ describe.only('identity', function() {
         await waitForCondition(() => {
             return mParticle.Identity.getCurrentUser().getMPID() === 'testMPID';
         });
+        await Promise.resolve();
 
         // This will add the following new calls:
         // 1 for the login
