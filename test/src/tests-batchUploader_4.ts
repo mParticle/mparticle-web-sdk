@@ -15,10 +15,11 @@ declare global {
     }
 }
 
-describe('batch uploader', () => {
+describe.only('batch uploader', () => {
     let mockServer;
 
     beforeEach(() => {
+        window.mParticle._resetForTests(MPConfig);
         fetchMock.restore();
         fetchMock.config.overwriteRoutes = true;
         fetchMockSuccess(urls.identify, {
@@ -57,13 +58,11 @@ describe('batch uploader', () => {
         });
     
         afterEach(() => {
-            window.mParticle._resetForTests(MPConfig);
             window.fetch = fetch;
             sinon.restore();
         });
 
         it('should use custom v3 endpoint', async () => {
-            window.mParticle._resetForTests(MPConfig);
             mockServer.requests = [];
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
@@ -83,8 +82,6 @@ describe('batch uploader', () => {
         });
 
         it('should force uploads when using public `upload`', async () => {
-            window.mParticle._resetForTests(MPConfig);
-
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
 
@@ -106,8 +103,6 @@ describe('batch uploader', () => {
         });
 
         it('should trigger an upload of batch when a commerce event is called', async () => {
-            window.mParticle._resetForTests(MPConfig);
-
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
             
@@ -130,7 +125,6 @@ describe('batch uploader', () => {
         });
 
         it('should trigger an upload of batch when a UIC occurs', async () => {
-            window.mParticle._resetForTests(MPConfig);
             // include an identify request so that it creates a UIC
             window.mParticle.config.identifyRequest = {
                 userIdentities: {
@@ -162,8 +156,6 @@ describe('batch uploader', () => {
         // Web SDK update
         // TODO: https://go.mparticle.com/work/SQDSDKS-5891 
         it('should NOT trigger an upload of batch when a UAC occurs', async () => {
-            window.mParticle._resetForTests(MPConfig);
-
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
 
@@ -195,8 +187,6 @@ describe('batch uploader', () => {
         });
 
         it('should return pending uploads if a 500 is returned', async () => {
-            window.mParticle._resetForTests(MPConfig);
-
             mockServer.respondWith(urls.events, [
                 500,
                 {},
@@ -204,7 +194,6 @@ describe('batch uploader', () => {
             ]);
 
             window.mParticle.init(apiKey, window.mParticle.config);
-
             await waitForCondition(hasIdentifyReturned);
             
             window.mParticle.logEvent('Test Event');
@@ -229,8 +218,6 @@ describe('batch uploader', () => {
         });
 
         it('should add a modified boolean of true to a batch that has been modified via a config.onCreateBatch call', async () => {
-            window.mParticle._resetForTests(MPConfig);
-
             window.mParticle.config.onCreateBatch = function (batch: Batch) {
                 return batch
             };
@@ -247,8 +234,6 @@ describe('batch uploader', () => {
         });
 
         it('should respect rules for the batch modification', async () => {
-            window.mParticle._resetForTests(MPConfig);
-
             window.mParticle.config.onCreateBatch = function (batch) {
                 batch.events.map(event => {
                     if (event.event_type === "custom_event") {
@@ -259,7 +244,6 @@ describe('batch uploader', () => {
             };
 
             window.mParticle.init(apiKey, window.mParticle.config);
-
             await waitForCondition(hasIdentifyReturned);
             
             window.mParticle.logEvent('Test Event');
@@ -275,14 +259,11 @@ describe('batch uploader', () => {
         });
 
         it('should add a modified boolean of true to a batch that has been modified via a config.onCreateBatch call', async () => {
-            window.mParticle._resetForTests(MPConfig);
-
             window.mParticle.config.onCreateBatch = function (batch: Batch) {
                 return undefined;
             };
 
             window.mParticle.init(apiKey, window.mParticle.config);
-
             await waitForCondition(hasIdentifyReturned);
             
             window.mParticle.logEvent('Test Event');

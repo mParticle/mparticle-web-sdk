@@ -7,7 +7,7 @@ import { batch1, batch2, batch3 } from '../fixtures/batches';
 import _BatchValidator from '../../src/mockBatchCreator';
 import Utils from './config/utils';
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
-const { findEventFromRequest, findBatch, waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
+const { waitForCondition, fetchMockSuccess, hasIdentifyReturned, triggerVisibilityHidden } = Utils;
 
 declare global {
     interface Window {
@@ -21,14 +21,11 @@ const enableBatchingConfigFlags = {
 };
 
 
-describe('Beacon Upload', () => {
-    before(function() {
-        fetchMock.restore();
-        sinon.restore();
-    });
+describe.only('Beacon Upload', () => {
+    beforeEach(() => {
+        window.mParticle._resetForTests(MPConfig);
+        fetchMock.config.overwriteRoutes = true; 
 
-    beforeEach(function() {
-        fetchMock.restore();
         fetchMockSuccess(urls.identify, {
             mpid: testMPID,
             is_logged_in: false,
@@ -43,53 +40,45 @@ describe('Beacon Upload', () => {
     afterEach(() => {
         sinon.restore();
         fetchMock.restore();
+        window.sessionStorage.clear();
+        window.localStorage.clear();
     });
 
     it('should trigger beacon on page visibilitychange events', async () => {
-        window.mParticle._resetForTests(MPConfig);
-
         const bond = sinon.spy(navigator, 'sendBeacon');
         window.mParticle.init(apiKey, window.mParticle.config);
-
         await waitForCondition(hasIdentifyReturned);
 
-        // visibility change is a document property, not window
-        document.dispatchEvent(new Event('visibilitychange'));
+        triggerVisibilityHidden();
+        await Promise.resolve();
 
-        bond.called.should.eql(true);
-        bond.lastCall.args[0].should.eql(urls.events);
+        expect(bond.called).to.be.true;
+        expect(bond.lastCall.args[0]).to.equal(urls.events);
     });
 
     it('should trigger beacon on page beforeunload events', async () => {
-        window.mParticle._resetForTests(MPConfig);
-
         const bond = sinon.spy(navigator, 'sendBeacon');
         window.mParticle.init(apiKey, window.mParticle.config);
-
         await waitForCondition(hasIdentifyReturned);
 
-        // karma fails if onbeforeunload is not set to null
-        window.onbeforeunload = null;
         window.dispatchEvent(new Event('beforeunload'));
+        await Promise.resolve();
 
-        bond.called.should.eql(true);
-        bond.getCalls()[0].args[0].should.eql(urls.events);
+        expect(bond.called).to.be.true;
+        expect(bond.firstCall.args[0]).to.equal(urls.events);
     });
 
     it('should trigger beacon on pagehide events', async () => {
-        window.mParticle._resetForTests(MPConfig);
-
         const bond = sinon.spy(navigator, 'sendBeacon');
         window.mParticle.init(apiKey, window.mParticle.config);
-
         await waitForCondition(hasIdentifyReturned);
 
         window.dispatchEvent(new Event('pagehide'));
+        await Promise.resolve();
 
-        bond.called.should.eql(true);
-        bond.getCalls()[0].args[0].should.eql(urls.events);
-
-        (typeof bond.getCalls()[0].args[1]).should.eql('object');
+        expect(bond.called).to.be.true;
+        expect(bond.firstCall.args[0]).to.equal(urls.events);
+        expect(bond.firstCall.args[1]).to.be.instanceof(Blob);
     });
 
     describe('Offline Storage Enabled', () => {
@@ -98,24 +87,12 @@ describe('Beacon Upload', () => {
                 offlineStorage: '100',
                 ...enableBatchingConfigFlags,
             };
-
-            fetchMockSuccess(urls.identify, {
-                mpid: testMPID,
-                is_logged_in: false,
-            });
-
-            window.sessionStorage.clear();
-            window.localStorage.clear();
-        });
-
-        afterEach(() => {
-            fetchMock.restore();
         });
 
         it('`visibilitychange` should purge events and batches from Offline Storage after dispatch', async () => {
             const eventStorageKey = 'mprtcl-v4_abcdef-events';
             const batchStorageKey = 'mprtcl-v4_abcdef-batches';
-            window.mParticle._resetForTests(MPConfig);
+
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
 
@@ -123,52 +100,25 @@ describe('Beacon Upload', () => {
             const uploader = mpInstance._APIClient.uploader;
 
             // Add batches to queue so we can confirm they are purged later
-            uploader.batchesQueuedForProcessing.push(batch1);
-            uploader.batchesQueuedForProcessing.push(batch2);
-            uploader.batchesQueuedForProcessing.push(batch3);
+            uploader.batchesQueuedForProcessing.push(batch1, batch2, batch3);
             uploader.queueEvent(event0);
 
-            expect(
-                window.sessionStorage.getItem(eventStorageKey),
-                'Stored Events should exist'
-            ).to.be.ok;
+            expect(window.sessionStorage.getItem(eventStorageKey), 'Stored Events should exist').to.be.ok;
+            expect(JSON.parse(window.sessionStorage.getItem(eventStorageKey)).length, 'Events should be populated before dispatch').to.equal(3);
+            expect(uploader.batchesQueuedForProcessing.length, 'Batch Queue should be populated before dispatch').to.equal(3);
 
-            expect(
-                JSON.parse(window.sessionStorage.getItem(eventStorageKey))
-                    .length,
-                'Events should be populated before Before Dispatch'
-            ).to.equal(3);
+            triggerVisibilityHidden();
+            await Promise.resolve();
 
-            expect(
-                uploader.batchesQueuedForProcessing.length,
-                'Batch Queue be populated before dispatch'
-            ).to.equal(3);
-
-            // Dispatching event will trigger upload process
-            // visibility change is a document property, not window
-            document.dispatchEvent(new Event('visibilitychange'));
-
-            expect(
-                window.sessionStorage.getItem(eventStorageKey),
-                'Events should be empty after dispatch'
-            ).to.equal('');
-
-            expect(
-                window.localStorage.getItem(batchStorageKey),
-                'Batches should be empty after dispatch'
-            ).to.equal(null);
-
-            expect(
-                uploader.batchesQueuedForProcessing.length,
-                'Batch Queue should be empty after dispatch'
-            ).to.equal(0);
+            expect(window.sessionStorage.getItem(eventStorageKey), 'Events should be empty after dispatch').to.equal('');
+            expect(window.localStorage.getItem(batchStorageKey), 'Batches should be empty after dispatch').to.equal(null);
+            expect(uploader.batchesQueuedForProcessing.length, 'Batch Queue should be empty after dispatch').to.equal(0);
         });
 
         it('`beforeunload` should purge events and batches from Offline Storage after dispatch', async () => {
             const eventStorageKey = 'mprtcl-v4_abcdef-events';
             const batchStorageKey = 'mprtcl-v4_abcdef-batches';
 
-            window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
             
@@ -176,52 +126,25 @@ describe('Beacon Upload', () => {
             const uploader = mpInstance._APIClient.uploader;
 
             // Add batches to queue so we can confirm they are purged later
-            uploader.batchesQueuedForProcessing.push(batch1);
-            uploader.batchesQueuedForProcessing.push(batch2);
-            uploader.batchesQueuedForProcessing.push(batch3);
-
+            uploader.batchesQueuedForProcessing.push(batch1, batch2, batch3);
             uploader.queueEvent(event0);
 
-            expect(
-                window.sessionStorage.getItem(eventStorageKey),
-                'Stored Events should exist'
-            ).to.be.ok;
+            expect(window.sessionStorage.getItem(eventStorageKey), 'Stored Events should exist').to.be.ok;
+            expect(JSON.parse(window.sessionStorage.getItem(eventStorageKey)).length, 'Events should be populated before dispatch').to.equal(3);
+            expect(uploader.batchesQueuedForProcessing.length, 'Batch Queue should be populated before dispatch').to.equal(3);
 
-            expect(
-                JSON.parse(window.sessionStorage.getItem(eventStorageKey))
-                    .length,
-                'Events should be populated before Before Dispatch'
-            ).to.equal(3);
-
-            expect(
-                uploader.batchesQueuedForProcessing.length,
-                'Batch Queue be populated before dispatch'
-            ).to.equal(3);
-
-            // Dispatching event will trigger upload process
             window.dispatchEvent(new Event('beforeunload'));
+            await Promise.resolve();
 
-            expect(
-                window.sessionStorage.getItem(eventStorageKey),
-                'Events should be empty after dispatch'
-            ).to.equal('');
-
-            expect(
-                window.localStorage.getItem(batchStorageKey),
-                'Batches should be empty after dispatch'
-            ).to.equal(null);
-
-            expect(
-                uploader.batchesQueuedForProcessing.length,
-                'Batch Queue should be empty after dispatch'
-            ).to.equal(0);
+            expect(window.sessionStorage.getItem(eventStorageKey), 'Events should be empty after dispatch').to.equal('');
+            expect(window.localStorage.getItem(batchStorageKey), 'Batches should be empty after dispatch').to.equal(null);
+            expect(uploader.batchesQueuedForProcessing.length, 'Batch Queue should be empty after dispatch').to.equal(0);
         });
 
         it('`pagehide` should purge events and batches from Offline Storage after dispatch', async () => {
             const eventStorageKey = 'mprtcl-v4_abcdef-events';
             const batchStorageKey = 'mprtcl-v4_abcdef-batches';
 
-            window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
 
@@ -229,45 +152,19 @@ describe('Beacon Upload', () => {
             const uploader = mpInstance._APIClient.uploader;
 
             // Add batches to queue so we can confirm they are purged later
-            uploader.batchesQueuedForProcessing.push(batch1);
-            uploader.batchesQueuedForProcessing.push(batch2);
-            uploader.batchesQueuedForProcessing.push(batch3);
-
+            uploader.batchesQueuedForProcessing.push(batch1, batch2, batch3);
             uploader.queueEvent(event0);
 
-            expect(
-                window.sessionStorage.getItem(eventStorageKey),
-                'Stored Events should exist'
-            ).to.be.ok;
+            expect(window.sessionStorage.getItem(eventStorageKey), 'Stored Events should exist').to.be.ok;
+            expect(JSON.parse(window.sessionStorage.getItem(eventStorageKey)).length, 'Events should be populated before dispatch').to.equal(3);
+            expect(uploader.batchesQueuedForProcessing.length, 'Batch Queue should be populated before dispatch').to.equal(3);
 
-            expect(
-                JSON.parse(window.sessionStorage.getItem(eventStorageKey))
-                    .length,
-                'Events should be populated before Before Dispatch'
-            ).to.equal(3);
-
-            expect(
-                uploader.batchesQueuedForProcessing.length,
-                'Batch Queue be populated before dispatch'
-            ).to.equal(3);
-
-            // Dispatching event will trigger upload process
             window.dispatchEvent(new Event('pagehide'));
+            await Promise.resolve();
 
-            expect(
-                window.sessionStorage.getItem(eventStorageKey),
-                'Events should be empty after dispatch'
-            ).to.equal('');
-
-            expect(
-                window.localStorage.getItem(batchStorageKey),
-                'Batches should be empty after dispatch'
-            ).to.equal(null);
-
-            expect(
-                uploader.batchesQueuedForProcessing.length,
-                'Batch Queue should be empty after dispatch'
-            ).to.equal(0);
+            expect(window.sessionStorage.getItem(eventStorageKey), 'Events should be empty after dispatch').to.equal('');
+            expect(window.localStorage.getItem(batchStorageKey), 'Batches should be empty after dispatch').to.equal(null);
+            expect(uploader.batchesQueuedForProcessing.length, 'Batch Queue should be empty after dispatch').to.equal(0);
         });
     });
 });
