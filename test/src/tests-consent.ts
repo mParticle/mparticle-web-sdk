@@ -27,19 +27,20 @@ const findBatch = Utils.findBatch;
 
 const mParticle = window.mParticle;
 
-describe('Consent', function() {
+describe.only('Consent', function() {
     beforeEach(function() {
+        mParticle._resetForTests(MPConfig);
+        fetchMock.config.overwriteRoutes = true;
         fetchMock.post(urls.events, 200);
         fetchMockSuccess(urls.identify, {
             mpid: testMPID, is_logged_in: false
         });
-
         mParticle.init(apiKey, window.mParticle.config);
     });
 
     afterEach(function() {
+        sinon.restore();
         fetchMock.restore();
-        mParticle._resetForTests(MPConfig);
     });
 
     it('Should not create consent object without consented boolean', () => {
