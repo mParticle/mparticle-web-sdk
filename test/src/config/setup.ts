@@ -28,9 +28,13 @@ beforeEach(function() {
         isDevelopmentMode: false,
         flags: {
             eventBatchingIntervalMillis: 0,
+            astBackgroundEvents: 'False',
+            offlineStorage: '0',
         }
     };
-    
+
+    window.onbeforeunload = null;
+
     // This is to tell the resetPersistence method that we are in a test environment
     // It should probably be refactored to be included as an argument
     window.mParticle._resetForTests(MPConfig);

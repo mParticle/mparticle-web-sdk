@@ -222,30 +222,6 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     };
 
     this._resetForTests = function(config, keepPersistence, instance) {
-        if (typeof window !== 'undefined') {
-            type TestWindow = Window & { mParticle?: { _isTestEnv?: boolean } };
-            const sdkWindow = window as TestWindow;
-            if (sdkWindow.mParticle?._isTestEnv && config) {
-                type TestFlags = {
-                    eventBatchingIntervalMillis?: number | string;
-                    astBackgroundEvents?: string;
-                    offlineStorage?: string;
-                };
-                const configWithFlags = config as { flags?: TestFlags };
-                const flags = (configWithFlags.flags ??= {});
-                if (flags.eventBatchingIntervalMillis == null) {
-                    flags.eventBatchingIntervalMillis = 0;
-                }
-                if (flags.astBackgroundEvents == null) {
-                    flags.astBackgroundEvents = 'False';
-                }
-                if (flags.offlineStorage == null) {
-                    flags.offlineStorage = '0';
-                }
-                window.onbeforeunload = null;
-            }
-        }
-        
         if (
             instance?._Store?.globalTimer &&
             instance._Store.globalTimer > 0
