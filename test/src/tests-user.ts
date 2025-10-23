@@ -1,3 +1,4 @@
+import sinon from 'sinon';
 import { expect } from 'chai';
 import Utils from './config/utils';
 import { urls, apiKey, MPConfig, testMPID } from './config/constants';
@@ -20,8 +21,10 @@ const hasIdentifyReturned = () => {
 };
 
 // https://go.mparticle.com/work/SQDSDKS-6508
-describe('mParticle User', () => {
+describe.only('mParticle User', () => {
     beforeEach(() => {
+        mParticle._resetForTests(MPConfig);
+        fetchMock.config.overwriteRoutes = true;
         delete mParticle.config.useCookieStorage;
         fetchMock.post(urls.events, 200);
         localStorage.clear();
@@ -36,14 +39,12 @@ describe('mParticle User', () => {
 
     afterEach(() => {
         fetchMock.restore();
-        mParticle._resetForTests(MPConfig);
+        sinon.restore();
     });
 
     describe('Consent State', () => {
         // https://go.mparticle.com/work/SQDSDKS-7393
         it('get/set consent state for single user', async () => {
-            mParticle._resetForTests(MPConfig);
-
             mParticle.init(apiKey, mParticle.config);
             await waitForCondition(hasIdentifyReturned);
             let consentState = mParticle
@@ -80,8 +81,6 @@ describe('mParticle User', () => {
         });
 
         it('get/set consent state for multiple users', async () => {
-            mParticle._resetForTests(MPConfig);
-
             mParticle.init(apiKey, mParticle.config);
 
             await waitForCondition(hasIdentifyReturned);
