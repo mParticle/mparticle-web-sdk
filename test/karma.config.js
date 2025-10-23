@@ -42,10 +42,14 @@ module.exports = function(config) {
         debug: true,
         logLevel: config.LOG_INFO,
         browserConsoleLogOptions,
+        browserDisconnectTimeout: 10000,
+        browserDisconnectTolerance: 1,
+        captureTimeout: 120000,
+        processKillTimeout: 100000,
         client: {
             captureConsole,
             mocha: {
-                timeout: 5000 // 5 seconds.  Increase from default 2 seconds.
+                timeout: 10000
             }
         },
         customLaunchers: {
