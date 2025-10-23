@@ -1343,11 +1343,12 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             };
         }
     };
-
+    
+    const launcherInstanceGuidKey = Constants.Rokt.LauncherInstanceGuidKey;
     this.setLauncherInstanceGuid = function() {
-        if (!window[Constants.Rokt.LauncherInstanceGuidKey] 
-            || typeof window[Constants.Rokt.LauncherInstanceGuidKey] !== 'string') {
-            window[Constants.Rokt.LauncherInstanceGuidKey] = self._Helpers.generateUniqueId();
+        if (!window[launcherInstanceGuidKey] 
+            || typeof window[launcherInstanceGuidKey] !== 'string') {
+            window[launcherInstanceGuidKey] = self._Helpers.generateUniqueId();
         }
     };
 
