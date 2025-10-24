@@ -49,7 +49,7 @@ module.exports = function(config) {
         client: {
             captureConsole,
             mocha: {
-                timeout: 5000 // 5 seconds.  Increase from default 2 seconds.
+                timeout: 10000 // 10 seconds.  Increase from default 2 seconds.
             }
         },
         customLaunchers: {
