@@ -3222,7 +3222,7 @@ describe.only('identity', function() {
         fetchMock.resetHistory();
 
         mParticle.init(apiKey, window.mParticle.config);
-        await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1');
+        await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1', 1000);
             
         cookies = mParticle.getInstance()._Persistence.getPersistence(); 
         cookies.should.have.property('gs');
