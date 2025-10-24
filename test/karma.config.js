@@ -49,14 +49,14 @@ module.exports = function(config) {
         client: {
             captureConsole,
             mocha: {
-                timeout: 20000
+                timeout: 5000 // 5 seconds.  Increase from default 2 seconds.
             }
         },
         customLaunchers: {
             FirefoxHeadless: {
                 base: 'Firefox',
                 flags: ['-headless'],
-                browserNoActivityTimeout: 60000,
+                browserNoActivityTimeout: 20000,
             },
         },
         junitReporter: {
