@@ -3000,7 +3000,7 @@ describe.only('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
+        await waitForCondition(hasIdentityCallInflightReturned, 2000);
 
         result.should.have.property('getUser');
 
@@ -3161,7 +3161,7 @@ describe.only('identity', function() {
 
         await waitForCondition(() => {
             return mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1';
-        });
+        }, 2000);
 
         const identityRequest = { userIdentities: { customerid: 'test123' } };
         function modifyCallback(result) {
@@ -3170,7 +3170,7 @@ describe.only('identity', function() {
 
         mParticle.Identity.modify(identityRequest, modifyCallback);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
+        await waitForCondition(hasIdentityCallInflightReturned, 2000);
 
         modifyResult
             .getUser()
