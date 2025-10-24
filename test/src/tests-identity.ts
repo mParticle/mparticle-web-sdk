@@ -1781,7 +1781,7 @@ describe.only('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned, 2000);
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         expect(mParticle.Identity.getCurrentUser()).to.be.null;
 
@@ -3000,7 +3000,7 @@ describe.only('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned, 2000);
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         result.should.have.property('getUser');
 
@@ -3078,7 +3078,7 @@ describe.only('identity', function() {
 
         mParticle.Identity.login(identityRequest, loginCallback);
 
-        await waitForCondition(hasIdentityCallInflightReturned, 2000);
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         loginResult
             .getUser()
@@ -3170,7 +3170,7 @@ describe.only('identity', function() {
 
         mParticle.Identity.modify(identityRequest, modifyCallback);
 
-        await waitForCondition(hasIdentityCallInflightReturned, 2000);
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         modifyResult
             .getUser()
@@ -3189,7 +3189,7 @@ describe.only('identity', function() {
         // client had no programmatic handling of a failed identify request
         mParticle._resetForTests(MPConfig);
 
-        await waitForCondition(hasIdentityCallInflightReturned, 2000);
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         fetchMockSuccess(urls.identify, {
             mpid: 'MPID1',
@@ -3206,7 +3206,7 @@ describe.only('identity', function() {
         fetchMock.resetHistory();
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned, 2000);
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         let cookies = mParticle.getInstance()._Persistence.getPersistence();
         cookies.should.have.property('gs');
