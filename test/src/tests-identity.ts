@@ -1785,8 +1785,9 @@ describe.only('identity', function() {
 
         await waitForCondition(() => {
             const currentUser = mParticle.Identity.getCurrentUser();
-            return currentUser && currentUser.getMPID() === '0';
-        });
+            const mpid = currentUser?.getMPID();
+            return currentUser && (mpid === '0' || mpid === String(0));
+        }, 1000);
         
         mParticle.logEvent('Test Event 1');
 
