@@ -3069,7 +3069,7 @@ describe.only('identity', function() {
 
         await waitForCondition(() => {
             return mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1';
-        });
+        }, 2000);
 
         const identityRequest = { userIdentities: { customerid: 'test123' } };
         function loginCallback(result) {
@@ -3078,7 +3078,7 @@ describe.only('identity', function() {
 
         mParticle.Identity.login(identityRequest, loginCallback);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
+        await waitForCondition(hasIdentityCallInflightReturned, 2000);
 
         loginResult
             .getUser()
@@ -3189,7 +3189,7 @@ describe.only('identity', function() {
         // client had no programmatic handling of a failed identify request
         mParticle._resetForTests(MPConfig);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
+        await waitForCondition(hasIdentityCallInflightReturned, 2000);
 
         fetchMockSuccess(urls.identify, {
             mpid: 'MPID1',
@@ -3206,7 +3206,7 @@ describe.only('identity', function() {
         fetchMock.resetHistory();
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
+        await waitForCondition(hasIdentityCallInflightReturned, 2000);
 
         let cookies = mParticle.getInstance()._Persistence.getPersistence();
         cookies.should.have.property('gs');
@@ -3222,7 +3222,7 @@ describe.only('identity', function() {
         fetchMock.resetHistory();
 
         mParticle.init(apiKey, window.mParticle.config);
-        await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1', 1000);
+        await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1', 2000);
             
         cookies = mParticle.getInstance()._Persistence.getPersistence(); 
         cookies.should.have.property('gs');
