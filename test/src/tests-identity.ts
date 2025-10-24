@@ -1781,13 +1781,12 @@ describe.only('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
+        await waitForCondition(hasIdentityCallInflightReturned, 2000);
 
-        await waitForCondition(() => {
-            const currentUser = mParticle.Identity.getCurrentUser();
-            const mpid = currentUser?.getMPID();
-            return currentUser && (mpid === '0' || mpid === String(0));
-        }, 1000);
+        expect(mParticle.Identity.getCurrentUser()).to.be.null;
+
+        const identifyCall = fetchMock.calls().find(call => call[0].includes('/identify'));
+        expect(identifyCall).to.be.ok;
         
         mParticle.logEvent('Test Event 1');
 
@@ -1813,6 +1812,7 @@ describe.only('identity', function() {
         mParticle.logEvent('Test Event 2');
         mParticle.Identity.login();
 
+        await waitForCondition(hasIdentityCallInflightReturned);
         await waitForCondition(hasLoginReturned);
 
         // server requests will now have the following events:
