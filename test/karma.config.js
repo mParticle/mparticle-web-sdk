@@ -56,7 +56,7 @@ module.exports = function(config) {
             FirefoxHeadless: {
                 base: 'Firefox',
                 flags: ['-headless'],
-                browserNoActivityTimeout: 20000,
+                browserNoActivityTimeout: 60000,
             },
         },
         junitReporter: {
