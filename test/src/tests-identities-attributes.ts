@@ -1053,6 +1053,7 @@ describe.only('identities and attributes', function() {
         });
 
         mParticle.Identity.logout(logoutUser);
+        await waitForCondition(hasIdentityCallInflightReturned);
         await waitForCondition(() => {
             return (
                 mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid2'
@@ -1275,6 +1276,7 @@ describe.only('identities and attributes', function() {
         });
 
         mParticle.Identity.logout(logoutUser);
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         await waitForCondition(() => {
             return (

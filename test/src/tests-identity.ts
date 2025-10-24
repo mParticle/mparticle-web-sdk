@@ -773,6 +773,7 @@ describe.only('identity', function() {
         };
 
         mParticle.Identity.login(userIdentities1);
+        await waitForCondition(hasIdentityCallInflightReturned);
         await waitForCondition(hasLoginReturned);
 
         const localStorageDataBeforeSessionEnd = mParticle
@@ -902,6 +903,7 @@ describe.only('identity', function() {
 
         mParticle.Identity.login(userIdentities1);
 
+        await waitForCondition(hasIdentityCallInflightReturned);
         await waitForCondition(hasLoginReturned);       
 
         const cookiesAfterMPIDChange = findCookie();
@@ -2166,6 +2168,7 @@ describe.only('identity', function() {
         }); 
 
         mParticle.Identity.login(user1);
+        await waitForCondition(hasIdentityCallInflightReturned);
         await waitForCondition(() => {
             return mParticle.Identity.getCurrentUser().getMPID() === 'testMPID';
         });
@@ -2691,6 +2694,7 @@ describe.only('identity', function() {
         };
 
         mParticle.Identity.login(user2);
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'otherMPID');
 
@@ -2730,6 +2734,7 @@ describe.only('identity', function() {
         };
 
         mParticle.Identity.login(user3);
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'otherMPID2');
 
@@ -3069,7 +3074,7 @@ describe.only('identity', function() {
 
         await waitForCondition(() => {
             return mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1';
-        }, 2000);
+        });
 
         const identityRequest = { userIdentities: { customerid: 'test123' } };
         function loginCallback(result) {
@@ -3161,7 +3166,7 @@ describe.only('identity', function() {
 
         await waitForCondition(() => {
             return mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1';
-        }, 2000);
+        });
 
         const identityRequest = { userIdentities: { customerid: 'test123' } };
         function modifyCallback(result) {
@@ -3222,7 +3227,7 @@ describe.only('identity', function() {
         fetchMock.resetHistory();
 
         mParticle.init(apiKey, window.mParticle.config);
-        await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1', 2000);
+        await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1');
             
         cookies = mParticle.getInstance()._Persistence.getPersistence(); 
         cookies.should.have.property('gs');
@@ -3298,6 +3303,7 @@ describe.only('identity', function() {
         fetchMock.resetHistory();
 
         mParticle.Identity.login(userIdentities1);
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'MPID1');
 
@@ -3326,6 +3332,7 @@ describe.only('identity', function() {
         fetchMock.resetHistory();
 
         mParticle.Identity.login();
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === testMPID);
 
@@ -4259,6 +4266,7 @@ describe.only('identity', function() {
             };
 
             mParticle.Identity.login(identities, callback);
+            await waitForCondition(hasIdentityCallInflightReturned);
 
             await waitForCondition(() => mParticle.Identity?.getCurrentUser()?.getMPID() === testMPID);
 
