@@ -1244,6 +1244,15 @@ describe.only('identities and attributes', function() {
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
+        
+        await waitForCondition(() => {
+            const currentUser = mParticle.Identity.getCurrentUser();
+            const userIdentities = currentUser?.getUserIdentities()?.userIdentities;
+            return userIdentities && 
+                   userIdentities.customerid === 'customerid1' &&
+                   userIdentities.email === 'initial@gmail.com';
+        });
+        
         let batch = JSON.parse(`${fetchMock.lastOptions().body}`);
         expect(batch.mpid).to.equal(testMPID);
         expect(batch.user_identities).to.have.property(

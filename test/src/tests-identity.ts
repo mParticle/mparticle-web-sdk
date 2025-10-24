@@ -1762,17 +1762,32 @@ describe.only('identity', function() {
     it('queue events when MPID is 0, and then flush events once MPID changes', async () => {
         fetchMock.resetHistory();
 
-        fetchMockSuccess(
-            urls.identify,
-            {
-                status: 400,
-                body: JSON.stringify({}),
-            }
-        );
+        fetchMock.post(urls.identify, {
+            status: HTTP_BAD_REQUEST,
+            body: {
+                Errors: [
+                    {
+                        message: 'Bad Request',
+                        code: 'BAD_REQUEST'
+                    },
+                ],
+                ErrorCode: 'BAD_REQUEST',
+                StatusCode: HTTP_BAD_REQUEST,
+                RequestId: '123',
+            },
+        }, {
+            overwriteRoutes: true,
+        });
 
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentityCallInflightReturned);
+
+        await waitForCondition(() => {
+            const currentUser = mParticle.Identity.getCurrentUser();
+            return currentUser && currentUser.getMPID() === '0';
+        });
+        
         mParticle.logEvent('Test Event 1');
 
         // There should be 3 calls here:
@@ -1834,6 +1849,7 @@ describe.only('identity', function() {
         expect(testEvent2).to.be.ok;
         expect(ASTEvent).to.be.ok;
         expect(sessionStartEvent).to.be.ok;
+        expect(loginCall).to.be.ok;
         expect(loginCall[0].split('/')[4]).to.equal('login');
     });
 
@@ -2085,6 +2101,15 @@ describe.only('identity', function() {
         // 1 for the modify
         // 1 for the UIC event
         await waitForCondition(hasIdentityCallInflightReturned);
+        
+        await waitForCondition(() => {
+            const currentUser = mParticle.Identity.getCurrentUser();
+            const userIdentities = currentUser?.getUserIdentities()?.userIdentities;
+            return userIdentities && 
+                   userIdentities.customerid === 'customerid1' &&
+                   userIdentities.email === 'email2@test.com';
+        });
+        
         expect(fetchMock.calls().length).to.equal(6);
 
         // This will add a new UAC Event to the call
@@ -2191,6 +2216,12 @@ describe.only('identity', function() {
 
         await waitForCondition(hasIdentityCallInflightReturned);
 
+        await waitForCondition(() => {
+            const currentUser = mParticle.Identity.getCurrentUser();
+            const userIdentities = currentUser?.getUserIdentities()?.userIdentities;
+            return userIdentities && userIdentities.customerid === '1';
+        });
+
         const user1UIs = mParticle.Identity.getCurrentUser().getUserIdentities();
 
         user1UIs.userIdentities.customerid.should.equal('1');
@@ -2204,6 +2235,12 @@ describe.only('identity', function() {
 
         await waitForCondition(hasIdentityCallInflightReturned);
 
+        await waitForCondition(() => {
+            const currentUser = mParticle.Identity.getCurrentUser();
+            const userIdentities = currentUser?.getUserIdentities()?.userIdentities;
+            return userIdentities && userIdentities.customerid === '2';
+        });
+
         const user2UIs = mParticle.Identity.getCurrentUser().getUserIdentities();
         user2UIs.userIdentities.customerid.should.equal('2');
 
@@ -2215,6 +2252,12 @@ describe.only('identity', function() {
         mParticle.Identity.login(user3);
 
         await waitForCondition(hasIdentityCallInflightReturned);
+
+        await waitForCondition(() => {
+            const currentUser = mParticle.Identity.getCurrentUser();
+            const userIdentities = currentUser?.getUserIdentities()?.userIdentities;
+            return userIdentities && userIdentities.customerid === '3';
+        });
 
         const user3UIs = mParticle.Identity.getCurrentUser().getUserIdentities();
         user3UIs.userIdentities.customerid.should.equal('3');
@@ -2228,6 +2271,12 @@ describe.only('identity', function() {
 
         await waitForCondition(hasIdentityCallInflightReturned);
 
+        await waitForCondition(() => {
+            const currentUser = mParticle.Identity.getCurrentUser();
+            const userIdentities = currentUser?.getUserIdentities()?.userIdentities;
+            return userIdentities && userIdentities.customerid === '4';
+        });
+
         const user4UIs = mParticle.Identity.getCurrentUser().getUserIdentities();
         user4UIs.userIdentities.customerid.should.equal('4');
 
@@ -2239,6 +2288,14 @@ describe.only('identity', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentityCallInflightReturned);
+        
+        await waitForCondition(() => {
+            const currentUser = mParticle.Identity.getCurrentUser();
+            const userIdentities = currentUser?.getUserIdentities()?.userIdentities;
+            const mpid = currentUser?.getMPID();
+            return userIdentities && userIdentities.customerid === '1' && mpid === 'testMPID';
+        });
+        
         const user5 = mParticle.Identity.getCurrentUser();
         user5.getUserIdentities().userIdentities.customerid.should.equal('1');
         user5.getMPID().should.equal('testMPID');
