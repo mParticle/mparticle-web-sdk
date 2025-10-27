@@ -674,6 +674,7 @@ describe.only('identity', function() {
     // This test passes with no issue when it is run on its own, but fails when tests-forwarders.js are also ran.
     // https://go/j-SDKE-420
     it('should respect consent rules on consent-change', async () => { 
+        const loggerSpy = Utils.setupLoggerSpy();
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder('MockForwarder1');
         mockForwarder.register(window.mParticle.config);
@@ -717,7 +718,7 @@ describe.only('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition( () => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1');
+        await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
 
         let activeForwarders = mParticle.getInstance()._getActiveForwarders();
         expect(activeForwarders.length).to.equal(0);
@@ -738,9 +739,10 @@ describe.only('identity', function() {
             is_logged_in: false,
         });
 
+        loggerSpy.verbose.resetHistory();
         mParticle.Identity.login();
 
-        await waitForCondition(hasIdentityCallInflightReturned);
+        await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
 
         activeForwarders = mParticle.getInstance()._getActiveForwarders();
         expect(activeForwarders.length).to.equal(0);
@@ -862,13 +864,14 @@ describe.only('identity', function() {
 
     // https://go/j-SDKE-420
     it('cookies - should switch user cookies to new mpid details from cookies when a new mpid is provided', async () => {
+        const loggerSpy = Utils.setupLoggerSpy();
         mParticle.config.useCookieStorage = true;
 
         setLocalStorage();
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentifyReturned);
+        await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
 
         const cookiesAfterInit = findCookie();
         cookiesAfterInit.should.have.properties('gs', 'cu', testMPID);
@@ -901,10 +904,10 @@ describe.only('identity', function() {
             },
         };
 
+        loggerSpy.verbose.resetHistory();
         mParticle.Identity.login(userIdentities1);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        await waitForCondition(hasLoginReturned);       
+        await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));       
 
         const cookiesAfterMPIDChange = findCookie();
         cookiesAfterMPIDChange.should.have.properties([
@@ -2190,6 +2193,7 @@ describe.only('identity', function() {
 
     // https://go/j-SDKE-420
     it('should add new MPIDs to cookie structure when initializing new identity requests, returning an existing mpid when reinitializing with a previous identity', async () => {
+        const loggerSpy = Utils.setupLoggerSpy();
         const user1 = {
             userIdentities: {
                 customerid: '1',
@@ -2218,13 +2222,7 @@ describe.only('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-
-        await waitForCondition(() => {
-            const currentUser = mParticle.Identity.getCurrentUser();
-            const userIdentities = currentUser?.getUserIdentities()?.userIdentities;
-            return userIdentities && userIdentities.customerid === '1';
-        });
+        await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
 
         const user1UIs = mParticle.Identity.getCurrentUser().getUserIdentities();
 
@@ -2235,15 +2233,10 @@ describe.only('identity', function() {
             is_logged_in: true,
         });
 
+        loggerSpy.verbose.resetHistory();
         mParticle.Identity.login(user2);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-
-        await waitForCondition(() => {
-            const currentUser = mParticle.Identity.getCurrentUser();
-            const userIdentities = currentUser?.getUserIdentities()?.userIdentities;
-            return userIdentities && userIdentities.customerid === '2';
-        });
+        await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
 
         const user2UIs = mParticle.Identity.getCurrentUser().getUserIdentities();
         user2UIs.userIdentities.customerid.should.equal('2');
@@ -2253,15 +2246,10 @@ describe.only('identity', function() {
             is_logged_in: true,
         });
 
+        loggerSpy.verbose.resetHistory();
         mParticle.Identity.login(user3);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-
-        await waitForCondition(() => {
-            const currentUser = mParticle.Identity.getCurrentUser();
-            const userIdentities = currentUser?.getUserIdentities()?.userIdentities;
-            return userIdentities && userIdentities.customerid === '3';
-        });
+        await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
 
         const user3UIs = mParticle.Identity.getCurrentUser().getUserIdentities();
         user3UIs.userIdentities.customerid.should.equal('3');
@@ -2271,15 +2259,10 @@ describe.only('identity', function() {
             is_logged_in: true,
         });
 
+        loggerSpy.verbose.resetHistory();
         mParticle.Identity.login(user4);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-
-        await waitForCondition(() => {
-            const currentUser = mParticle.Identity.getCurrentUser();
-            const userIdentities = currentUser?.getUserIdentities()?.userIdentities;
-            return userIdentities && userIdentities.customerid === '4';
-        });
+        await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
 
         const user4UIs = mParticle.Identity.getCurrentUser().getUserIdentities();
         user4UIs.userIdentities.customerid.should.equal('4');
@@ -2289,16 +2272,10 @@ describe.only('identity', function() {
             is_logged_in: true,
         });
 
+        loggerSpy.verbose.resetHistory();
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        
-        await waitForCondition(() => {
-            const currentUser = mParticle.Identity.getCurrentUser();
-            const userIdentities = currentUser?.getUserIdentities()?.userIdentities;
-            const mpid = currentUser?.getMPID();
-            return userIdentities && userIdentities.customerid === '1' && mpid === 'testMPID';
-        });
+        await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
         
         const user5 = mParticle.Identity.getCurrentUser();
         user5.getUserIdentities().userIdentities.customerid.should.equal('1');
@@ -3017,6 +2994,7 @@ describe.only('identity', function() {
     // https://go/j-SDKE-420
     describe('identityCallback responses', function () {
     it('should have a getUser function on identify result object', async () => {
+        const loggerSpy = Utils.setupLoggerSpy();
         let result;
 
         mParticle.config.identityCallback = function(resp) {
@@ -3032,9 +3010,7 @@ describe.only('identity', function() {
         // Init fires an identify call
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(() => {
-            return mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1';
-        });
+        await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
 
         result.should.have.properties('body', 'httpCode', 'getUser');
         result.httpCode.should.equal(200);
@@ -3052,6 +3028,7 @@ describe.only('identity', function() {
 
     // https://go/j-SDKE-420
     it('should have a getUser function on login result object', async () => {
+        const loggerSpy = Utils.setupLoggerSpy();
         let result
         let loginResult;
 
@@ -3072,18 +3049,17 @@ describe.only('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(() => {
-            return mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1';
-        });
+        await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
 
         const identityRequest = { userIdentities: { customerid: 'test123' } };
         function loginCallback(result) {
             loginResult = result;
         }
 
+        loggerSpy.verbose.resetHistory();
         mParticle.Identity.login(identityRequest, loginCallback);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
+        await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
 
         loginResult
             .getUser()
@@ -3098,6 +3074,7 @@ describe.only('identity', function() {
 
     // https://go/j-SDKE-420
     it('should have a getUser function on logout result object', async () => {
+        const loggerSpy = Utils.setupLoggerSpy();
         let result;
         let logoutResult; 
 
@@ -3118,18 +3095,17 @@ describe.only('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(() => {
-            return mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1';
-        });
+        await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
 
         const identityRequest = { userIdentities: { customerid: 'test123' } };
         function logoutCallback(result) {
             logoutResult = result;
         }
 
+        loggerSpy.verbose.resetHistory();
         mParticle.Identity.logout(identityRequest, logoutCallback);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
+        await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
 
         logoutResult
             .getUser()
@@ -3144,6 +3120,7 @@ describe.only('identity', function() {
 
     // https://go/j-SDKE-420
     it('should have a getUser function on modify result object', async () => {
+        const loggerSpy = Utils.setupLoggerSpy();
         let result
         let modifyResult;
 
@@ -3157,25 +3134,24 @@ describe.only('identity', function() {
             is_logged_in: false,
         });
 
-        fetchMockSuccess(urls.modify, {
+        fetchMockSuccess('https://identity.mparticle.com/v1/MPID1/modify', {
             mpid: 'MPID1',
             is_logged_in: false,
         });
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(() => {
-            return mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1';
-        });
+        await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
 
         const identityRequest = { userIdentities: { customerid: 'test123' } };
         function modifyCallback(result) {
             modifyResult = result;
         }
 
+        loggerSpy.verbose.resetHistory();
         mParticle.Identity.modify(identityRequest, modifyCallback);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
+        await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
 
         modifyResult
             .getUser()
@@ -4492,6 +4468,7 @@ describe.only('identity', function() {
 
         // https://go/j-SDKE-420
         it('should set currentUser once the email is positively identified', async () => {
+            const loggerSpy = Utils.setupLoggerSpy();
             fetchMockSuccess(urls.identify, {
                 mpid: testRoktMPID,
                 is_logged_in: false,
@@ -4502,19 +4479,20 @@ describe.only('identity', function() {
 
             mParticle.init(apiKey, { ...window.mParticle.config, kitConfigs: [roktConfig] });
 
-            await waitForCondition(() => hasIdentifyReturned(testRoktMPID));
+            await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
 
             const mpInstance = mParticle.getInstance();
 
             mpInstance._RoktManager.attachKit(roktKit);
             
+            loggerSpy.verbose.resetHistory();
             mParticle.Identity.identify({
                 userIdentities: {
                     email: testRoktEmail,
                 },
             });
 
-            await waitForCondition(() => hasIdentifyReturnedWithEmail(testRoktEmail));
+            await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
 
             expect(mpInstance._RoktManager['currentUser']).to.not.be.null;
             expect(mpInstance._RoktManager['currentUser'].getUserIdentities().userIdentities.email).to.equal(testRoktEmail);

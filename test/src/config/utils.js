@@ -10,6 +10,7 @@ import {
     das,
 } from './constants';
 import fetchMock from 'fetch-mock/esm/client';
+import sinon from 'sinon';
 
 var pluses = /\+/g,
     decoded = function decoded(s) {
@@ -624,7 +625,22 @@ var pluses = /\+/g,
         return window.mParticle.Identity.getCurrentUser()?.getMPID() === _mpid;
     },
     hasIdentityCallInflightReturned = () => !mParticle.getInstance()?._Store?.identityCallInFlight,
-    hasConfigurationReturned = () => !!mParticle.getInstance()?._Store?.configurationLoaded;
+    hasConfigurationReturned = () => !!mParticle.getInstance()?._Store?.configurationLoaded,
+    setupLoggerSpy = () => {
+        const loggerSpy = {
+            verbose: sinon.spy(),
+            warning: sinon.spy(),
+            error: sinon.spy(),
+        };
+        window.mParticle.config.logger = loggerSpy;
+        window.mParticle.config.logLevel = 'verbose';
+        return loggerSpy;
+    },
+    hasIdentityResponseParsed = (loggerSpy) => {
+        return loggerSpy?.verbose?.getCalls()?.some(call => 
+            call.args[0] === 'Successfully parsed Identity Response'
+        ) || false;
+    };
 
 var TestsCore = {
     findCookie: findCookie,
@@ -653,6 +669,8 @@ var TestsCore = {
     hasIdentifyReturned: hasIdentifyReturned,
     hasIdentityCallInflightReturned,
     hasConfigurationReturned,
+    setupLoggerSpy,
+    hasIdentityResponseParsed,
 };
 
 export default TestsCore;
