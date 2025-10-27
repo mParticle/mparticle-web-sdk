@@ -61,7 +61,6 @@ describe.only('identities and attributes', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
         fetchMock.config.overwriteRoutes = true;
-        loggerSpy = Utils.setupLoggerSpy();
         
         fetchMockSuccess(urls.identify, {
             mpid: testMPID, is_logged_in: false
@@ -901,6 +900,8 @@ describe.only('identities and attributes', function() {
 
     it('should send user identity change requests when setting new identities on new users', async () => {
         fetchMock.resetHistory();
+        
+        loggerSpy = Utils.setupLoggerSpy();
 
         window.mParticle.config.identifyRequest = {
             userIdentities: {
@@ -1079,6 +1080,8 @@ describe.only('identities and attributes', function() {
 
         // Clear out before each init call
         await waitForCondition(hasBeforeEachCallbackReturned);
+        
+        loggerSpy = Utils.setupLoggerSpy();
 
         window.mParticle.config.identifyRequest = {
             userIdentities: {
@@ -1142,6 +1145,8 @@ describe.only('identities and attributes', function() {
 
         // Clear out before each init call
         await waitForCondition(hasBeforeEachCallbackReturned);
+        
+        loggerSpy = Utils.setupLoggerSpy();
 
         window.mParticle.config.identifyRequest = {
             userIdentities: {
@@ -1202,6 +1207,8 @@ describe.only('identities and attributes', function() {
     });
 
     it('should send historical UIs on batches when MPID changes', async () => {
+        loggerSpy = Utils.setupLoggerSpy();
+        
         window.mParticle.config.identifyRequest = {
             userIdentities: {
                 email: 'initial@gmail.com',
