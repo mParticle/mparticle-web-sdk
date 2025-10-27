@@ -2,14 +2,14 @@ import _BatchValidator from '../../src/mockBatchCreator';
 import { BaseEvent } from '../../src/sdkRuntimeModels';
 import { expect } from 'chai';
 
-describe('Create a batch from a base event', () => {
+describe.only('Create a batch from a base event', () => {
     const batchValidator = new _BatchValidator();
     const baseEvent: BaseEvent = {
         messageType: 4,
         name: 'testEvent'
     }
     
-    it('creates a batch with base event ', done => {
+    it('creates a batch with base event ', () => {
         let batch = batchValidator.returnBatch(baseEvent);
 
         expect(batch).to.have.property('environment').equal('production');
@@ -52,7 +52,5 @@ describe('Create a batch from a base event', () => {
         batch = batchValidator.returnBatch(baseEvent);
         expect(batch.events[0].data).to.have.property('custom_flags');
         expect(batch.events[0].data.custom_flags).to.have.property('flagFoo', 'flagBar');
-
-        done();
     });
 });

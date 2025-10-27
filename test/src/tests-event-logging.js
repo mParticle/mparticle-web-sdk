@@ -11,7 +11,7 @@ import {
 
 const { findEventFromRequest, findBatch, getIdentityEvent, waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
 
-describe('event logging', function() {
+describe.only('event logging', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
         fetchMock.post(urls.events, 200);
@@ -25,7 +25,7 @@ describe('event logging', function() {
 
     afterEach(function() {
         fetchMock.restore();
-        mParticle._resetForTests(MPConfig);
+        sinon.restore();
     });
 
     it('should log an event', async () => {
@@ -814,7 +814,7 @@ describe('event logging', function() {
     });
 
     it('should run the callback once when tracking fails', async () => {
-        await waitForCondition(hasIdentifyReturned)
+        await waitForCondition(hasIdentifyReturned);
         const clock = sinon.useFakeTimers();
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -823,7 +823,7 @@ describe('event logging', function() {
             return (
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
-        })
+        });
 
         let successCallbackCalled = false;
         let numberTimesCalled = 0;
