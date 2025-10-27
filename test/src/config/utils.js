@@ -593,7 +593,7 @@ var pluses = /\+/g,
     },
     waitForCondition = function async(
         conditionFn,
-        timeout = 2000,
+        timeout = 200,
         interval = 10
     ) {
         return new Promise((resolve, reject) => {

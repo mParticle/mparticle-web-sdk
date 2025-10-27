@@ -4197,7 +4197,7 @@ describe.only('identity', function() {
             mParticle.config.flags.cacheIdentity = 'True';
             mParticle.init(apiKey, window.mParticle.config);
 
-            await waitForCondition(hasIdentityCallInflightReturned);            
+            await waitForCondition(hasIdentityCallInflightReturned);  
 
             const initialIdentityCall = fetchMock.calls()[0];
             expect(initialIdentityCall[0].split('/')[4]).to.equal('identify');

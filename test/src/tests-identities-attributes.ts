@@ -1053,7 +1053,6 @@ describe.only('identities and attributes', function() {
         });
 
         mParticle.Identity.logout(logoutUser);
-        await waitForCondition(hasIdentityCallInflightReturned);
         await waitForCondition(() => {
             return (
                 mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid2'
@@ -1241,12 +1240,6 @@ describe.only('identities and attributes', function() {
         mParticle.Identity.login(loginUser);
         
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
-        });
-        
-        await waitForCondition(() => {
             const currentUser = mParticle.Identity.getCurrentUser();
             const userIdentities = currentUser?.getUserIdentities()?.userIdentities;
             return userIdentities && 
@@ -1303,6 +1296,7 @@ describe.only('identities and attributes', function() {
                 mParticle.getInstance()._Store.identityCallInFlight === false
             );
         });
+        // switching back to logged in user should not result in any UIC events
         expect(fetchMock.calls().length).to.equal(1);
 
         const data = getIdentityEvent(fetchMock.calls(), 'login');
