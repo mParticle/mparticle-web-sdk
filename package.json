@@ -61,7 +61,7 @@
         "test:karma:rollup:cjs": "cross-env BUNDLER=rollup karma start test/integrations/cjs/karma.rollup.config.js",
         "test:karma:webpack:module": "cross-env BUNDLER=webpack karma start test/integrations/module/karma.webpack.config.js",
         "test:karma:rollup:module": "cross-env BUNDLER=rollup karma start test/integrations/module/karma.rollup.config.js",
-        "test:jest": "jest --config jest.config.js",
+        "test:jest": "npm run build && jest --config jest.config.js",
         "test:jest:watch": "jest --config jest.config.js --watch",
         "watch": "cross-env ENVIRONMENT=dev BUILD=iife rollup --config rollup.config.js -w",
         "watch:all": "cross-env ENVIRONMENT=prod BUILDALL=true rollup --config rollup.config.js -w",

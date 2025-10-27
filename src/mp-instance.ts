@@ -89,6 +89,8 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _instanceName: string;
     _preInit: IPreInit;
     _timeOnSiteTimer: ForegroundTimer; 
+    setLauncherInstanceGuid: () => void;
+    captureTiming(metricName: string);
 }
 
 const { Messages, HTTPCodes, FeatureFlags, CaptureIntegrationSpecificIdsV2Modes } = Constants;
@@ -1341,6 +1343,20 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             };
         }
     };
+    
+    const launcherInstanceGuidKey = Constants.Rokt.LauncherInstanceGuidKey;
+    this.setLauncherInstanceGuid = function() {
+        if (!window[launcherInstanceGuidKey] 
+            || typeof window[launcherInstanceGuidKey] !== 'string') {
+            window[launcherInstanceGuidKey] = self._Helpers.generateUniqueId();
+        }
+    };
+
+    this.captureTiming = function(metricsName) {
+        if (typeof window !== 'undefined' && window.performance?.mark) {
+            window.performance.mark(metricsName);
+        }
+    }
 }
 
 // Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment

@@ -391,6 +391,10 @@ export const ApplicationTransitionType = {
     AppInit: 1 as const,
 };
 
+export const PerformanceMarkType = {
+    SdkStart: 'mp:sdkStart' as const,
+}
+
 export default {
     MessageType,
     EventType,

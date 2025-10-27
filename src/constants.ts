@@ -214,6 +214,9 @@ const Constants = {
         None: 'none',
         RoktOnly: 'roktonly',
     },
+    Rokt: {
+        LauncherInstanceGuidKey: '__rokt_li_guid__',
+    },
 } as const;
 
 export default Constants;
