@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.47.1";
+    var version = "2.48.0";
 
     var Constants = {
       sdkVersion: version,
@@ -401,6 +401,9 @@ var mParticle = (function () {
         All: 'all',
         None: 'none',
         RoktOnly: 'roktonly'
+      },
+      Rokt: {
+        LauncherInstanceGuidKey: '__rokt_li_guid__'
       }
     };
     // https://go.mparticle.com/work/SQDSDKS-6080
@@ -1209,6 +1212,9 @@ var mParticle = (function () {
     };
     var ApplicationTransitionType$1 = {
       AppInit: 1
+    };
+    var PerformanceMarkType = {
+      SdkStart: 'mp:sdkStart'
     };
     var Types = {
       MessageType: MessageType$1,
@@ -10871,6 +10877,18 @@ var mParticle = (function () {
           };
         }
       };
+      var launcherInstanceGuidKey = Constants.Rokt.LauncherInstanceGuidKey;
+      this.setLauncherInstanceGuid = function () {
+        if (!window[launcherInstanceGuidKey] || typeof window[launcherInstanceGuidKey] !== 'string') {
+          window[launcherInstanceGuidKey] = self._Helpers.generateUniqueId();
+        }
+      };
+      this.captureTiming = function (metricsName) {
+        var _a;
+        if (typeof window !== 'undefined' && ((_a = window.performance) === null || _a === void 0 ? void 0 : _a.mark)) {
+          window.performance.mark(metricsName);
+        }
+      };
     }
     // Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment
     function completeSDKInitialization(apiKey, config, mpInstance) {
@@ -11310,7 +11328,12 @@ var mParticle = (function () {
           client = new mParticleInstance(instanceName);
           self._instances[instanceName] = client;
         }
+        client.captureTiming(PerformanceMarkType.SdkStart);
+        client.setLauncherInstanceGuid();
         client.init(apiKey, config, instanceName);
+      };
+      this.captureTiming = function (metricsName) {
+        self.getInstance().captureTiming(metricsName);
       };
       this.getInstance = function getInstance(instanceName) {
         var client;
