@@ -1,3 +1,10 @@
+# [2.48.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.47.1...v2.48.0) (2025-10-27)
+
+
+### Features
+
+* Add performance timing for SDK start measurement ([#1101](https://github.com/mParticle/mparticle-web-sdk/issues/1101)) ([3dbbffe](https://github.com/mParticle/mparticle-web-sdk/commit/3dbbffe3c5279aa4d17b639a28473c9e9fb4fcec))
+
 ## [2.47.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.47.0...v2.47.1) (2025-10-06)
 
 # [2.47.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.46.0...v2.47.0) (2025-10-01)
