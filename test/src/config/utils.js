@@ -638,7 +638,7 @@ var pluses = /\+/g,
         return loggerSpy;
     },
     hasIdentityResponseParsed = (loggerSpy) => {
-        return loggerSpy?.verbose?.getCalls()?.some(call => 
+        return () => loggerSpy?.verbose?.getCalls()?.some(call => 
             call.args[0] === 'Successfully parsed Identity Response'
         ) || false;
     },

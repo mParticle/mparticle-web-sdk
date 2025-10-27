@@ -10,12 +10,12 @@ import Utils from './config/utils';
 import { AllUserAttributes, UserAttributesValue } from '@mparticle/web-sdk';
 import { UserAttributes } from '../../src/identity-user-interfaces';
 import { Batch, CustomEvent, UserAttributeChangeEvent } from '@mparticle/event-models';
-import { IMParticleInstanceManager, SDKProduct } from '../../src/sdkRuntimeModels';
+import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 const {
     waitForCondition,
     fetchMockSuccess,
-    hasIdentifyReturned, 
-    hasIdentityCallInflightReturned,
+    hasIdentifyReturned,
+    hasIdentityResponseParsed,
     findEventFromRequest,
     findBatch,
     getLocalStorage,
@@ -54,12 +54,14 @@ const BAD_USER_ATTRIBUTE_KEY_AS_ARRAY = ([
 const BAD_USER_ATTRIBUTE_LIST_VALUE = (1234 as unknown) as UserAttributesValue[];
 
 describe.only('identities and attributes', function() {
+    let loggerSpy;
     let beforeEachCallbackCalled = false;
     let hasBeforeEachCallbackReturned;
 
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
         fetchMock.config.overwriteRoutes = true;
+        loggerSpy = Utils.setupLoggerSpy();
         
         fetchMockSuccess(urls.identify, {
             mpid: testMPID, is_logged_in: false
@@ -897,9 +899,7 @@ describe.only('identities and attributes', function() {
         delete window.mParticle.config.flags;
     });
 
-    // https://go/j-SDKE-420
     it('should send user identity change requests when setting new identities on new users', async () => {
-        const loggerSpy = Utils.setupLoggerSpy();
         fetchMock.resetHistory();
 
         window.mParticle.config.identifyRequest = {
@@ -909,7 +909,7 @@ describe.only('identities and attributes', function() {
         };
         mParticle.config.flags.eventBatchingIntervalMillis = 5000
         mParticle.init(apiKey, window.mParticle.config);
-        await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
+        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
         mParticle.upload();
         expect(
             JSON.parse(`${fetchMock.lastOptions().body}`).user_identities
@@ -936,7 +936,7 @@ describe.only('identities and attributes', function() {
         };
         loggerSpy.verbose.resetHistory();
         mParticle.Identity.login(loginUser);
-        await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
+        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
         let body = JSON.parse(`${fetchMock.lastOptions().body}`);
 
         // should be the new MPID
@@ -982,7 +982,7 @@ describe.only('identities and attributes', function() {
             
         loggerSpy.verbose.resetHistory();
         mParticle.Identity.modify(modifyUser);
-        await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
+        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
         const body2 = JSON.parse(`${fetchMock.lastOptions().body}`);
         expect(body2.mpid).to.equal('anotherMPID');
         expect(body2.user_identities).to.have.property(
@@ -1015,7 +1015,7 @@ describe.only('identities and attributes', function() {
 
         loggerSpy.verbose.resetHistory();
         mParticle.Identity.modify(modifyUser2);
-        await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
+        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
         const body3 = JSON.parse(`${fetchMock.lastOptions().body}`);
         expect(body3.mpid).to.equal('anotherMPID');
 
@@ -1046,7 +1046,7 @@ describe.only('identities and attributes', function() {
 
         loggerSpy.verbose.resetHistory();
         mParticle.Identity.logout(logoutUser);
-        await waitForCondition(() => Utils.hasIdentityResponseParsed(loggerSpy));
+        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
         // Calls are for logout and UIC
         expect(fetchMock.calls().length).to.equal(2);
         const body4 = JSON.parse(`${fetchMock.lastOptions().body}`);
@@ -1088,7 +1088,7 @@ describe.only('identities and attributes', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
+        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
 
         mParticle.logEvent('Test Event 1');
         mParticle.logEvent('Test Event 2');
@@ -1157,7 +1157,7 @@ describe.only('identities and attributes', function() {
 
         expect(mParticle.getInstance()._preInit.readyQueue.length).to.equal(3);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
+        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
 
         expect(fetchMock.calls().length).to.equal(7);
 
@@ -1215,7 +1215,7 @@ describe.only('identities and attributes', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentifyReturned);
+        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
         fetchMockSuccess(urls.login, {
             mpid: 'testMPID', is_logged_in: true
         });
@@ -1226,15 +1226,10 @@ describe.only('identities and attributes', function() {
             },
         };
 
+        loggerSpy.verbose.resetHistory();
         mParticle.Identity.login(loginUser);
         
-        await waitForCondition(() => {
-            const currentUser = mParticle.Identity.getCurrentUser();
-            const userIdentities = currentUser?.getUserIdentities()?.userIdentities;
-            return userIdentities && 
-                   userIdentities.customerid === 'customerid1' &&
-                   userIdentities.email === 'initial@gmail.com';
-        });
+        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
         
         let batch = JSON.parse(`${fetchMock.lastOptions().body}`);
         expect(batch.mpid).to.equal(testMPID);
@@ -1257,14 +1252,9 @@ describe.only('identities and attributes', function() {
             mpid: 'mpid2', is_logged_in: false
         });
 
+        loggerSpy.verbose.resetHistory();
         mParticle.Identity.logout(logoutUser);
-        await waitForCondition(hasIdentityCallInflightReturned);
-
-        await waitForCondition(() => {
-            return (
-                mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid2'
-            );
-        });
+        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
         batch = JSON.parse(`${fetchMock.lastOptions().body}`);
         expect(batch.mpid).to.equal('mpid2');
         expect(batch.user_identities).to.have.property('other', 'other1');
@@ -1278,13 +1268,10 @@ describe.only('identities and attributes', function() {
             mpid: 'testMPID', is_logged_in: true
         });
         
+        loggerSpy.verbose.resetHistory();
         mParticle.Identity.login(loginUser);
 
-        await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
-        });
+        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
         // switching back to logged in user should not result in any UIC events
         expect(fetchMock.calls().length).to.equal(1);
 
