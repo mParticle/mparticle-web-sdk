@@ -20,7 +20,7 @@ const {
     hasConfigurationReturned
 } = Utils;
 
-describe.only('core SDK', function() {
+describe('core SDK', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
         fetchMock.config.overwriteRoutes = true;

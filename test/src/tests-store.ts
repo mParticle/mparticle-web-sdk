@@ -21,7 +21,7 @@ import { IGlobalStoreV2MinifiedKeys } from '../../src/persistence.interfaces';
 import { IMinifiedConsentJSONObject } from '../../src/consent';
 const MockSideloadedKit = Utils.MockSideloadedKit;
 
-describe.only('Store', () => {
+describe('Store', () => {
     const now = new Date();
     let sandbox;
     let clock;

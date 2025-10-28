@@ -11,7 +11,7 @@ import {
 
 const { findEventFromRequest, findBatch, getIdentityEvent, waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
 
-describe.only('event logging', function() {
+describe('event logging', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
         fetchMock.post(urls.events, 200);

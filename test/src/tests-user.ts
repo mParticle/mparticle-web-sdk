@@ -21,7 +21,7 @@ const hasIdentifyReturned = () => {
 };
 
 // https://go.mparticle.com/work/SQDSDKS-6508
-describe.only('mParticle User', () => {
+describe('mParticle User', () => {
     beforeEach(() => {
         mParticle._resetForTests(MPConfig);
         fetchMock.config.overwriteRoutes = true;

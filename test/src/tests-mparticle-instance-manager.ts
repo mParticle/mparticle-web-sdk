@@ -27,7 +27,7 @@ function returnEventForMPInstance(calls, apiKey, eventName) {
     return findEventFromRequest(requestsPerApiKey, eventName);
 }
 
-describe.only('mParticle instance manager', () => {
+describe('mParticle instance manager', () => {
     it('has all public apis on it', () => {
         expect(mParticle.ProductActionType, 'Product Action Type').to.have.keys(
             [

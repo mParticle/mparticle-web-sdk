@@ -11,7 +11,7 @@ import Utils from './config/utils';
 
 const { waitForCondition, fetchMockSuccess, hasIdentityCallInflightReturned } = Utils;
 
-describe.only('helpers', function() {
+describe('helpers', function() {
     let sandbox;
 
     beforeEach(function() {

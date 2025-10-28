@@ -12,7 +12,7 @@ const forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
     MockForwarder = Utils.MockForwarder;
 
 // https://go.mparticle.com/work/SQDSDKS-6508
-describe.only('mParticleUser', function() {
+describe('mParticleUser', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
         fetchMock.config.overwriteRoutes = true;

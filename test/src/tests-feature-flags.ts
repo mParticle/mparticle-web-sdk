@@ -21,7 +21,7 @@ const hasIdentifyReturned = () => {
     return window.mParticle.Identity.getCurrentUser()?.getMPID() === testMPID;
 };
 
-describe.only('feature-flags', () => {
+describe('feature-flags', () => {
     describe('user audiences', () => {
         beforeEach(() => {
             window.mParticle._resetForTests(MPConfig);

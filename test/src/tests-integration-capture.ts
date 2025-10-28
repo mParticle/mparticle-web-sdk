@@ -23,7 +23,7 @@ declare global {
 
 const mParticle = window.mParticle as IMParticleInstanceManager;
 
-describe.only('Integration Capture', () => {
+describe('Integration Capture', () => {
     beforeEach(async function() {
         mParticle._resetForTests(MPConfig);
         fetchMock.restore();

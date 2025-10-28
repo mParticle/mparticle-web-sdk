@@ -21,7 +21,7 @@ let initialEvent = {};
 const mParticle = window.mParticle;
 const ServerModel = mParticle.getInstance()._ServerModel;
 
-describe.only('ServerModel', () => {
+describe('ServerModel', () => {
     beforeEach(() => {
         mParticle._resetForTests(MPConfig);
         fetchMock.config.overwriteRoutes = true;

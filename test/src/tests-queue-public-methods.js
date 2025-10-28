@@ -6,7 +6,7 @@ import Utils from './config/utils';
 
 const { waitForCondition, fetchMockSuccess, hasIdentityCallInflightReturned } = Utils;
 
-describe.only('Queue Public Methods', function () {
+describe('Queue Public Methods', function () {
 
     beforeEach(function () {
         fetchMock.config.overwriteRoutes = true;

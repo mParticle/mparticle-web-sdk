@@ -20,7 +20,7 @@ declare global {
 
 const userAudienceUrl = `https://${Constants.DefaultBaseUrls.userAudienceUrl}${apiKey}/audience`;
 
-describe.only('AudienceManager', () => {
+describe('AudienceManager', () => {
     beforeEach(() => {    
         window.mParticle._resetForTests(MPConfig);
         fetchMockSuccess(urls.identify, {

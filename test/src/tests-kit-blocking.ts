@@ -21,7 +21,7 @@ declare global {
     }
 }
 
-describe.only('kit blocking', () => {
+describe('kit blocking', () => {
     let kitBlockerDataPlan: KitBlockerDataPlan = {
         document: dataPlan
     } as KitBlockerDataPlan;

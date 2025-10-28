@@ -12,7 +12,7 @@ declare global {
 
 const mParticle = window.mParticle;
 
-describe.only('Api Client', () => {
+describe('Api Client', () => {
     beforeEach(() => {
         mParticle._resetForTests(MPConfig);
         mParticle.init(apiKey, mParticle.config);

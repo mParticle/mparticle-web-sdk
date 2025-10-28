@@ -30,7 +30,7 @@ const {
     hasIdentityCallInflightReturned,
 } = Utils;
 
-describe.only('persistence', () => {
+describe('persistence', () => {
     beforeEach(() => {
         mParticle._resetForTests(MPConfig);
         fetchMock.config.overwriteRoutes = true;
