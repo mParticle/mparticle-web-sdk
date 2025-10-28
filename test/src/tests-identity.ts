@@ -1763,11 +1763,14 @@ describe.only('identity', function() {
         spy.calledOnce.should.be.ok();
     });
 
-    // https://go.mparticle.com/work/SDKE-420
     it('queue events when MPID is 0, and then flush events once MPID changes', async () => {
+        await waitForCondition(hasIdentityCallInflightReturned);
+        mParticle._resetForTests(MPConfig);
         loggerSpy = setupLoggerSpy();
+
         fetchMock.resetHistory();
 
+        // HTTP Bad Request results in an MPID of 0
         fetchMock.post(urls.identify, {
             status: HTTP_BAD_REQUEST,
             body: {
@@ -1793,15 +1796,12 @@ describe.only('identity', function() {
 
         const identifyCall = fetchMock.calls().find(call => call[0].includes('/identify'));
         expect(identifyCall).to.be.ok;
-        
         mParticle.logEvent('Test Event 1');
 
-        // There should be 3 calls here:
+        // There should be 1 call here:
         // 1. Identify (from init)
-        // 2. AST
-        // 3. Session start
-        // The event should not be sent because the MPID is 0
-        expect(fetchMock.calls().length).to.equal(3);
+        // AST, session start, and logEvent are all queued since MPID is 0
+        expect(fetchMock.calls().length).to.equal(1);
 
         let testEvent1 = findEventFromRequest(
             fetchMock.calls(),
@@ -1818,16 +1818,18 @@ describe.only('identity', function() {
         mParticle.logEvent('Test Event 2');
         loggerSpy.verbose.resetHistory();
         mParticle.Identity.login();
+
         await waitForCondition(hasIdentityResponseParsed(loggerSpy));
 
         // server requests will now have the following events:
-        // 1. Identify (from init)
-        // 2. AST
-        // 3. Session start
-        // 4. Test1,
-        // 5. Login 
+        // 1. Identify
+        // 2. Login 
+        // 3. AST
+        // 4. Session start
+        // 5. Test1,
         // 6. Test2
         expect(fetchMock.calls().length).to.equal(6);
+        fetchMock.calls().forEach(call => console.log('call', call[0]))
 
         testEvent1 = findEventFromRequest(
             fetchMock.calls(),
@@ -1849,7 +1851,7 @@ describe.only('identity', function() {
             'session_start'
         );
 
-        const loginCall = fetchMock.calls()[3];
+        const loginCall = fetchMock.calls()[1];
 
         expect(testEvent1).to.be.ok;
         expect(testEvent2).to.be.ok;
