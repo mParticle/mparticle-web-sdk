@@ -33,8 +33,6 @@ beforeEach(function() {
         }
     };
 
-    window.onbeforeunload = null;
-
     // This is to tell the resetPersistence method that we are in a test environment
     // It should probably be refactored to be included as an argument
     window.mParticle._resetForTests(MPConfig);

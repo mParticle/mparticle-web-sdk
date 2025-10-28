@@ -236,7 +236,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             const forwardingStatsTimer = mParticleSDK?._forwardingStatsTimer;
             if (typeof forwardingStatsTimer === 'number' && mParticleSDK) {
                 clearInterval(forwardingStatsTimer);
-                mParticleSDK._forwardingStatsTimer = null;
+                mParticleSDK._forwardingStatsTimer = 0;
             }
         }
 
