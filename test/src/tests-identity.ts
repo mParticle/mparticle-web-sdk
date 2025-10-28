@@ -2112,7 +2112,13 @@ describe.only('identity', function() {
         // 3 for the events (Session Start, UAT and UIC)
         // 1 for the modify
         // 1 for the UIC event
-        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+        await waitForCondition(() => {
+            const currentUser = mParticle.Identity.getCurrentUser();
+            const userIdentities = currentUser?.getUserIdentities()?.userIdentities;
+            return userIdentities && 
+                   userIdentities.customerid === 'customerid1' &&
+                   userIdentities.email === 'email2@test.com';
+        });
         
         expect(fetchMock.calls().length).to.equal(6);
 
@@ -2172,7 +2178,6 @@ describe.only('identity', function() {
         loggerSpy.verbose.resetHistory();
         mParticle.Identity.login(user1);
         await waitForCondition(hasIdentityResponseParsed(loggerSpy));
-
         // This will add the following new calls:
         // 1 for the login
         // 1 for Test Event 3
