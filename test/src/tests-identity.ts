@@ -803,12 +803,13 @@ describe.only('identity', function() {
     });
 
     it('localStorage - should switch user cookies to new mpid details from cookies when a new mpid is provided', async () => {
-        loggerSpy = setupLoggerSpy();
         window.mParticle.config.useCookieStorage = false;
 
         setLocalStorage();
 
         mParticle.init(apiKey, window.mParticle.config);
+
+        await waitForCondition(hasIdentifyReturned);
 
         const cookies1 = mParticle.getInstance()._Persistence.getLocalStorage();
         cookies1.cu.should.equal(testMPID);
@@ -826,7 +827,9 @@ describe.only('identity', function() {
         };
 
         mParticle.Identity.login(userIdentities1);
-        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+        
+        await waitForCondition(hasLoginReturned);
+
         const cookiesAfterMPIDChange = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
