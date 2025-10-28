@@ -864,6 +864,7 @@ describe.only('identity', function() {
         });
     });
 
+    // https://go.mparticle.com/work/SDKE-420
     it('cookies - should switch user cookies to new mpid details from cookies when a new mpid is provided', async () => {
         loggerSpy = setupLoggerSpy();
         mParticle.config.useCookieStorage = true;
@@ -1763,7 +1764,9 @@ describe.only('identity', function() {
         spy.calledOnce.should.be.ok();
     });
 
+    // https://go.mparticle.com/work/SDKE-420
     it('queue events when MPID is 0, and then flush events once MPID changes', async () => {
+        loggerSpy = setupLoggerSpy();
         fetchMock.resetHistory();
 
         fetchMock.post(urls.identify, {
@@ -1785,7 +1788,7 @@ describe.only('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
+        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
 
         expect(mParticle.Identity.getCurrentUser()).to.be.null;
 
@@ -1814,10 +1817,9 @@ describe.only('identity', function() {
         });
 
         mParticle.logEvent('Test Event 2');
+        loggerSpy.verbose.resetHistory();
         mParticle.Identity.login();
-
-        await waitForCondition(hasIdentityCallInflightReturned);
-        await waitForCondition(hasLoginReturned);
+        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
 
         // server requests will now have the following events:
         // 1. Identify (from init)
@@ -2060,6 +2062,7 @@ describe.only('identity', function() {
         expect(Object.keys(combinedUIsByType).length).to.equal(4);
     });
 
+    // https://go.mparticle.com/work/SDKE-420
     it("should find the related MPID's cookies when given a UI with fewer IDs when passed to login, logout, and identify, and then log events with updated cookies", async () => {
         loggerSpy = setupLoggerSpy();
         fetchMock.restore();
@@ -2189,6 +2192,7 @@ describe.only('identity', function() {
         });
     });
 
+    // https://go.mparticle.com/work/SDKE-420
     it('should add new MPIDs to cookie structure when initializing new identity requests, returning an existing mpid when reinitializing with a previous identity', async () => {
         loggerSpy = setupLoggerSpy();
         const user1 = {
@@ -2839,9 +2843,8 @@ describe.only('identity', function() {
     });
 
     it('should trigger the identityCallback before eventQueue is flushed', async () => {
-        mParticle._resetForTests(MPConfig);
-
         await waitForCondition(hasBeforeEachCallbackReturned);
+        mParticle._resetForTests(MPConfig);
 
         fetchMock.resetHistory();
 
@@ -2964,6 +2967,7 @@ describe.only('identity', function() {
             .should.have.property('attr', 'value');
     });
 
+    // https://go.mparticle.com/work/SDKE-420
     it('identifyCallback response should have a getUser function on the result object', async () => {
         let result;
         loggerSpy = setupLoggerSpy();
@@ -4460,6 +4464,7 @@ describe.only('identity', function() {
             } as unknown as IRoktKit;
         });
 
+        // https://go.mparticle.com/work/SDKE-420
         it('should set currentUser once the email is positively identified', async () => {
             loggerSpy = setupLoggerSpy();
             fetchMockSuccess(urls.identify, {
@@ -4472,7 +4477,7 @@ describe.only('identity', function() {
 
             mParticle.init(apiKey, { ...window.mParticle.config, kitConfigs: [roktConfig] });
 
-            await waitForCondition(() => hasIdentifyReturned(testRoktMPID));
+            await waitForCondition(hasIdentityResponseParsed(loggerSpy));
 
             const mpInstance = mParticle.getInstance();
 

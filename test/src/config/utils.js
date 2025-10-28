@@ -640,7 +640,7 @@ var pluses = /\+/g,
     hasIdentityResponseParsed = (loggerSpy) => {
         return () => loggerSpy?.verbose?.getCalls()?.some(call => 
             call.args[0] === 'Successfully parsed Identity Response'
-        ) || false;
+        );
     },
     getBeaconBatch = async function(beaconSpy, callIndex = 0) {
         const beaconCall = beaconSpy.getCall(callIndex);

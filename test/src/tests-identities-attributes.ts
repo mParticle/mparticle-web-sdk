@@ -900,11 +900,12 @@ describe.only('identities and attributes', function() {
     });
 
     it('should send user identity change requests when setting new identities on new users', async () => {
+        // Clear out before each init call
+        await waitForCondition(hasBeforeEachCallbackReturned);
+        
         mParticle._resetForTests(MPConfig);
         fetchMock.resetHistory();
         loggerSpy = setupLoggerSpy();
-        // Clear out before each init call
-        await waitForCondition(hasBeforeEachCallbackReturned);
 
         window.mParticle.config.identifyRequest = {
             userIdentities: {
@@ -1078,12 +1079,11 @@ describe.only('identities and attributes', function() {
     });
 
     it('should order user identity change events before logging any events', async () => {
-        mParticle._resetForTests(MPConfig);
-        fetchMock.resetHistory();
-
         // Clear out before each init call
         await waitForCondition(hasBeforeEachCallbackReturned);
         
+        mParticle._resetForTests(MPConfig);
+        fetchMock.resetHistory();
         loggerSpy = setupLoggerSpy();
 
         window.mParticle.config.identifyRequest = {
@@ -1143,12 +1143,11 @@ describe.only('identities and attributes', function() {
     });
 
     it('should order user identity change events before logging any events that are in the ready queue', async () => {
-        mParticle._resetForTests(MPConfig);
-        fetchMock.resetHistory();
-
         // Clear out before each init call
         await waitForCondition(hasBeforeEachCallbackReturned);
         
+        mParticle._resetForTests(MPConfig);
+        fetchMock.resetHistory();
         loggerSpy = setupLoggerSpy();
 
         window.mParticle.config.identifyRequest = {
@@ -1210,11 +1209,11 @@ describe.only('identities and attributes', function() {
     });
 
     it('should send historical UIs on batches when MPID changes', async () => {
-        mParticle._resetForTests(MPConfig);
-        fetchMock.resetHistory();
         // Clear out before each init call
         await waitForCondition(hasBeforeEachCallbackReturned);
         
+        mParticle._resetForTests(MPConfig);
+        fetchMock.resetHistory();
         loggerSpy = setupLoggerSpy();
         
         window.mParticle.config.identifyRequest = {
