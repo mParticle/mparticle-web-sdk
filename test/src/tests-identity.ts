@@ -865,8 +865,7 @@ describe.only('identity', function() {
     });
 
     // https://go.mparticle.com/work/SDKE-420
-    it('cookies - should switch user cookies to new mpid details from cookies when a new mpid is provided', async () => {
-        loggerSpy = setupLoggerSpy();
+    it('should switch user cookies to new mpid details from cookies when a new mpid is provided', async () => {
         mParticle.config.useCookieStorage = true;
 
         setLocalStorage();
@@ -908,7 +907,7 @@ describe.only('identity', function() {
 
         mParticle.Identity.login(userIdentities1);
 
-        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+        await waitForCondition(hasLoginReturned);
 
         const cookiesAfterMPIDChange = findCookie();
         cookiesAfterMPIDChange.should.have.properties([
