@@ -20,7 +20,8 @@ const {
     findBatch,
     getLocalStorage,
     MockForwarder,
-    getIdentityEvent
+    getIdentityEvent,
+    setupLoggerSpy
 } = Utils;
 
 declare global {
@@ -899,9 +900,11 @@ describe.only('identities and attributes', function() {
     });
 
     it('should send user identity change requests when setting new identities on new users', async () => {
+        mParticle._resetForTests(MPConfig);
         fetchMock.resetHistory();
-        
-        loggerSpy = Utils.setupLoggerSpy();
+        loggerSpy = setupLoggerSpy();
+        // Clear out before each init call
+        await waitForCondition(hasBeforeEachCallbackReturned);
 
         window.mParticle.config.identifyRequest = {
             userIdentities: {
@@ -1081,7 +1084,7 @@ describe.only('identities and attributes', function() {
         // Clear out before each init call
         await waitForCondition(hasBeforeEachCallbackReturned);
         
-        loggerSpy = Utils.setupLoggerSpy();
+        loggerSpy = setupLoggerSpy();
 
         window.mParticle.config.identifyRequest = {
             userIdentities: {
@@ -1146,7 +1149,7 @@ describe.only('identities and attributes', function() {
         // Clear out before each init call
         await waitForCondition(hasBeforeEachCallbackReturned);
         
-        loggerSpy = Utils.setupLoggerSpy();
+        loggerSpy = setupLoggerSpy();
 
         window.mParticle.config.identifyRequest = {
             userIdentities: {
@@ -1207,7 +1210,12 @@ describe.only('identities and attributes', function() {
     });
 
     it('should send historical UIs on batches when MPID changes', async () => {
-        loggerSpy = Utils.setupLoggerSpy();
+        mParticle._resetForTests(MPConfig);
+        fetchMock.resetHistory();
+        // Clear out before each init call
+        await waitForCondition(hasBeforeEachCallbackReturned);
+        
+        loggerSpy = setupLoggerSpy();
         
         window.mParticle.config.identifyRequest = {
             userIdentities: {
