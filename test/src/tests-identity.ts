@@ -3158,6 +3158,7 @@ describe.only('identity', function() {
     });
     });
 
+    // https://go.mparticle.com/work/SDKE-420
     it('should call identify when there is an active session but no current user', async () => {
         loggerSpy = setupLoggerSpy();
         // this broken cookie state occurs when an initial identify request is made, fails, and the
