@@ -1,6 +1,7 @@
 import Utils from './config/utils';
 import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
+import { expect } from 'chai';
 import {
     urls,
     apiKey,
@@ -9,7 +10,6 @@ import {
     MessageType,
 } from './config/constants';
 
-let mockServer;
 const { findEventFromRequest, findBatch, getIdentityEvent, waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
 
 describe('event logging', function() {
@@ -607,12 +607,12 @@ describe('event logging', function() {
         fetchMock.calls().should.have.lengthOf(0);
     });
 
-    // http://go/j-SDKE-301
     it('should log identify event', async () => {
         fetchMockSuccess(urls.identify, {
                 mpid: testMPID, is_logged_in: false
             });
         await waitForCondition(hasIdentifyReturned);
+        fetchMock.resetHistory();
 
         mParticle.Identity.identify();
         await waitForCondition(() => {
@@ -621,7 +621,12 @@ describe('event logging', function() {
             );
         });
 
-        const data = getIdentityEvent(mockServer.requests, 'identify');
+        const identityCalls = fetchMock.calls().filter(call => 
+            call[0].includes('/identify')
+        );
+
+        expect(identityCalls.length).to.equal(1);
+        const data = JSON.parse(identityCalls[0][1].body);
         data.should.have.properties(
             'client_sdk',
             'environment',

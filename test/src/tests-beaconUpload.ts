@@ -45,7 +45,6 @@ describe('Beacon Upload', () => {
         fetchMock.restore();
     });
 
-    // http://go/j-SDKE-301
     it('should trigger beacon on page visibilitychange events', async () => {
         window.mParticle._resetForTests(MPConfig);
 
@@ -113,7 +112,6 @@ describe('Beacon Upload', () => {
             fetchMock.restore();
         });
 
-        // http://go/j-SDKE-301
         it('`visibilitychange` should purge events and batches from Offline Storage after dispatch', async () => {
             const eventStorageKey = 'mprtcl-v4_abcdef-events';
             const batchStorageKey = 'mprtcl-v4_abcdef-batches';

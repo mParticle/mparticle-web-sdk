@@ -489,7 +489,6 @@ describe('legacy Alias Requests', function() {
         expect(requestBody['environment']).to.equal('development');expect(requestBody.environment).to.equal('development');
     });
 
-    // https://go/j-SDKE-301
     it('should have default urls if no custom urls are set in config object, but use custom urls when they are set', async () => {
         window.mParticle.config.v3SecureServiceUrl =
             'testtesttest-custom-v3secureserviceurl/v3/JS/';
@@ -499,7 +498,7 @@ describe('legacy Alias Requests', function() {
         window.mParticle.config.aliasUrl = 'custom-aliasUrl/';
 
         mockServer.respondWith('https://testtesttest-custom-v3secureserviceurl/v3/JS/test_key/events', HTTP_OK, JSON.stringify({ mpid: testMPID, Store: {}}));
-
+        clock.restore();
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
 
@@ -511,9 +510,7 @@ describe('legacy Alias Requests', function() {
         mockServer.requests = [];
         // test events endpoint
         mParticle.logEvent('Test Event');
-
-        const testEventURL = findRequestURL(mockServer.requests, 'Test Event');
-        testEventURL.should.equal(
+        mockServer.requests[0].url.should.equal(
             'https://' +
                 window.mParticle.config.v3SecureServiceUrl +
                 'test_key/events'
