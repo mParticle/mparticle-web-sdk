@@ -805,6 +805,7 @@ describe.only('identity', function() {
     });
 
     it('localStorage - should switch user cookies to new mpid details from cookies when a new mpid is provided', async () => {
+        loggerSpy = setupLoggerSpy();
         window.mParticle.config.useCookieStorage = false;
 
         setLocalStorage();
@@ -827,7 +828,7 @@ describe.only('identity', function() {
         };
 
         mParticle.Identity.login(userIdentities1);
-        await waitForCondition(hasLoginReturned);
+        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
         const cookiesAfterMPIDChange = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
@@ -2064,6 +2065,7 @@ describe.only('identity', function() {
     });
 
     it("should find the related MPID's cookies when given a UI with fewer IDs when passed to login, logout, and identify, and then log events with updated cookies", async () => {
+        loggerSpy = setupLoggerSpy();
         fetchMock.restore();
         const user1: IdentityApiData = {
             userIdentities: {
@@ -2101,22 +2103,16 @@ describe.only('identity', function() {
                 ],
         });
 
-        await waitForCondition(hasIdentifyReturned);
+        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+        
+        loggerSpy.verbose.resetHistory();
         mParticle.Identity.modify(user1modified);
         // Should contain the following calls:
         // 1 for the initial identify
         // 3 for the events (Session Start, UAT and UIC)
         // 1 for the modify
         // 1 for the UIC event
-        await waitForCondition(hasIdentityCallInflightReturned);
-        
-        await waitForCondition(() => {
-            const currentUser = mParticle.Identity.getCurrentUser();
-            const userIdentities = currentUser?.getUserIdentities()?.userIdentities;
-            return userIdentities && 
-                   userIdentities.customerid === 'customerid1' &&
-                   userIdentities.email === 'email2@test.com';
-        });
+        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
         
         expect(fetchMock.calls().length).to.equal(6);
 
@@ -2145,11 +2141,12 @@ describe.only('identity', function() {
         fetchMockSuccess(urls.logout, {
             mpid: 'logged-out-user',
             is_logged_in: true,
-        }); 
+        });
 
+        loggerSpy.verbose.resetHistory();
         mParticle.Identity.logout(user2);
 
-        await waitForCondition(hasLogOutReturned);
+        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
 
         // This will add the following new calls:
         // 1 for the logout
@@ -2170,13 +2167,11 @@ describe.only('identity', function() {
         fetchMockSuccess(urls.login, {
             mpid: 'testMPID',
             is_logged_in: true,
-        }); 
-
-        mParticle.Identity.login(user1);
-        await waitForCondition(hasIdentityCallInflightReturned);
-        await waitForCondition(() => {
-            return mParticle.Identity.getCurrentUser().getMPID() === 'testMPID';
         });
+
+        loggerSpy.verbose.resetHistory();
+        mParticle.Identity.login(user1);
+        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
 
         // This will add the following new calls:
         // 1 for the login
@@ -3169,6 +3164,7 @@ describe.only('identity', function() {
     });
 
     it('should call identify when there is an active session but no current user', async () => {
+        loggerSpy = setupLoggerSpy();
         // this broken cookie state occurs when an initial identify request is made, fails, and the
         // client had no programmatic handling of a failed identify request
         mParticle._resetForTests(MPConfig);
@@ -3202,9 +3198,10 @@ describe.only('identity', function() {
             },
         };
         fetchMock.resetHistory();
+        loggerSpy.verbose.resetHistory();
 
         mParticle.init(apiKey, window.mParticle.config);
-        await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1');
+        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
             
         cookies = mParticle.getInstance()._Persistence.getPersistence(); 
         cookies.should.have.property('gs');
