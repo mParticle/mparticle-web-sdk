@@ -777,7 +777,6 @@ describe.only('identity', function() {
         };
 
         mParticle.Identity.login(userIdentities1);
-        await waitForCondition(hasIdentityCallInflightReturned);
         await waitForCondition(hasLoginReturned);
 
         const localStorageDataBeforeSessionEnd = mParticle
@@ -1371,8 +1370,7 @@ describe.only('identity', function() {
         const identityAPIRequest = BAD_USER_IDENTITIES_AS_STRING;
         mParticle.Identity.login(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned)
-        
+        await waitForCondition(hasIdentityCallInflightReturned);
         expect(fetchMock.calls().length).to.equal(0);
     });
 
@@ -2275,7 +2273,7 @@ describe.only('identity', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentityResponseParsed(loggerSpy));
-        
+
         const user5 = mParticle.Identity.getCurrentUser();
         user5.getUserIdentities().userIdentities.customerid.should.equal('1');
         user5.getMPID().should.equal('testMPID');
@@ -2611,7 +2609,6 @@ describe.only('identity', function() {
         mParticle.Identity.login(user2);
 
         await waitForCondition(hasIdentityCallInflightReturned);
-
 
         expect(hasBeenRun).to.be.true;
     });
@@ -4514,7 +4511,7 @@ describe.only('identity', function() {
 
             mParticle.init(apiKey, { ...window.mParticle.config, kitConfigs: [roktConfig] });
 
-            await waitForCondition(hasIdentityCallInflightReturned);            
+            await waitForCondition(hasIdentityCallInflightReturned);         
 
             const mpInstance = mParticle.getInstance();
 
