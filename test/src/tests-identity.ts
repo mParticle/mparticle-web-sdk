@@ -675,7 +675,6 @@ describe.only('identity', function() {
 
     // https://go.mparticle.com/work/SQDSDKS-6849
     // This test passes with no issue when it is run on its own, but fails when tests-forwarders.js are also ran.
-    // https://go/j-SDKE-420
     it('should respect consent rules on consent-change', async () => {
         loggerSpy = setupLoggerSpy();
         mParticle.config.isDevelopmentMode = false;
@@ -866,7 +865,6 @@ describe.only('identity', function() {
         });
     });
 
-    // https://go/j-SDKE-420
     it('cookies - should switch user cookies to new mpid details from cookies when a new mpid is provided', async () => {
         loggerSpy = setupLoggerSpy();
         mParticle.config.useCookieStorage = true;
@@ -2193,7 +2191,6 @@ describe.only('identity', function() {
         });
     });
 
-    // https://go/j-SDKE-420
     it('should add new MPIDs to cookie structure when initializing new identity requests, returning an existing mpid when reinitializing with a previous identity', async () => {
         loggerSpy = setupLoggerSpy();
         const user1 = {
@@ -2994,7 +2991,6 @@ describe.only('identity', function() {
             .should.have.property('test', 'value');
     });
 
-    // https://go/j-SDKE-420
     describe('identityCallback responses', function () {
     it('should have a getUser function on identify result object', async () => {
         const loggerSpy = Utils.setupLoggerSpy();
@@ -3029,7 +3025,6 @@ describe.only('identity', function() {
             .should.have.property('attr', 'value');
     });
 
-    // https://go/j-SDKE-420
     it('should have a getUser function on login result object', async () => {
         loggerSpy = setupLoggerSpy();
         let result
@@ -3075,7 +3070,6 @@ describe.only('identity', function() {
             .should.have.property('attr', 'value');
     });
 
-    // https://go/j-SDKE-420
     it('should have a getUser function on logout result object', async () => {
         loggerSpy = setupLoggerSpy();
         let result;
@@ -3121,7 +3115,6 @@ describe.only('identity', function() {
             .should.have.property('attr', 'value');
     });
 
-    // https://go/j-SDKE-420
     it('should have a getUser function on modify result object', async () => {
         loggerSpy = setupLoggerSpy();
         let result
@@ -4469,7 +4462,6 @@ describe.only('identity', function() {
             } as unknown as IRoktKit;
         });
 
-        // https://go/j-SDKE-420
         it('should set currentUser once the email is positively identified', async () => {
             loggerSpy = setupLoggerSpy();
             fetchMockSuccess(urls.identify, {
