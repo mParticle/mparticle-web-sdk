@@ -2972,6 +2972,7 @@ describe.only('identity', function() {
 
     it('identifyCallback response should have a getUser function on the result object', async () => {
         let result;
+        loggerSpy = setupLoggerSpy();
         fetchMockSuccess(urls.identify, {
             mpid: 'MPID1',
             is_logged_in: false,
@@ -2984,7 +2985,7 @@ describe.only('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
+        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
 
         result.should.have.property('getUser');
 
