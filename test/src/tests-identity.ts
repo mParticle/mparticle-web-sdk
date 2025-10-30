@@ -675,6 +675,8 @@ describe.only('identity', function() {
     // https://go.mparticle.com/work/SQDSDKS-6849
     // This test passes with no issue when it is run on its own, but fails when tests-forwarders.js are also ran.
     it('should respect consent rules on consent-change', async () => {
+        await waitForCondition(hasIdentityCallInflightReturned);
+        mParticle._resetForTests(MPConfig);
         loggerSpy = setupLoggerSpy();
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder('MockForwarder1');
