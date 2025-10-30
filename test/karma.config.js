@@ -41,6 +41,7 @@ module.exports = function(config) {
         singleRun,
         debug: true,
         logLevel: config.LOG_INFO,
+        browserConsoleLogOptions,
         client: {
             captureConsole,
             mocha: {
