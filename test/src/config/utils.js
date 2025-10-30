@@ -627,6 +627,21 @@ var pluses = /\+/g,
     },
     hasIdentityCallInflightReturned = () => !mParticle.getInstance()?._Store?.identityCallInFlight,
     hasConfigurationReturned = () => !!mParticle.getInstance()?._Store?.configurationLoaded,
+    setupLoggerSpy = () => {
+        const loggerSpy = {
+            verbose: sinon.spy(),
+            warning: sinon.spy(),
+            error: sinon.spy(),
+        };
+        window.mParticle.config.logger = loggerSpy;
+        window.mParticle.config.logLevel = 'verbose';
+        return loggerSpy;
+    },
+    hasIdentityResponseParsed = (loggerSpy) => {
+        return () => loggerSpy?.verbose?.getCalls()?.some(call => 
+            call.args[0] === 'Successfully parsed Identity Response'
+        );
+    },
     getBeaconBatch = async function(beaconSpy, callIndex = 0) {
         const beaconCall = beaconSpy.getCall(callIndex);
         expect(beaconCall, 'Expected beacon call to exist').to.exist;
@@ -681,11 +696,13 @@ var TestsCore = {
     waitForCondition: waitForCondition,
     fetchMockSuccess: fetchMockSuccess,
     hasIdentifyReturned: hasIdentifyReturned,
-    hasIdentityCallInflightReturned,
-    hasConfigurationReturned,
     getBeaconBatch: getBeaconBatch,
     setupFakeTimers: setupFakeTimers,
     triggerVisibilityHidden: triggerVisibilityHidden,
+    hasIdentityCallInflightReturned,
+    hasConfigurationReturned,
+    setupLoggerSpy,
+    hasIdentityResponseParsed,
 };
 
 export default TestsCore;
