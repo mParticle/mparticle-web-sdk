@@ -149,7 +149,6 @@ describe.only('identity', function() {
         };
 
         hasBeforeEachCallbackReturned = () => beforeEachCallbackCalled;
-        
     });
 
     afterEach(function () {
@@ -803,6 +802,8 @@ describe.only('identity', function() {
     });
 
     it('localStorage - should switch user cookies to new mpid details from cookies when a new mpid is provided', async () => {
+        await waitForCondition(hasIdentityCallInflightReturned);
+        mParticle._resetForTests(MPConfig);
         window.mParticle.config.useCookieStorage = false;
 
         setLocalStorage();
@@ -867,8 +868,9 @@ describe.only('identity', function() {
         });
     });
 
-    // https://go.mparticle.com/work/SDKE-420
     it('should switch user cookies to new mpid details from cookies when a new mpid is provided', async () => {
+        await waitForCondition(hasIdentityCallInflightReturned);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.useCookieStorage = true;
 
         setLocalStorage();
@@ -2066,8 +2068,9 @@ describe.only('identity', function() {
         expect(Object.keys(combinedUIsByType).length).to.equal(4);
     });
 
-    // https://go.mparticle.com/work/SDKE-420
     it("should find the related MPID's cookies when given a UI with fewer IDs when passed to login, logout, and identify, and then log events with updated cookies", async () => {
+        await waitForCondition(hasIdentityCallInflightReturned);
+        mParticle._resetForTests(MPConfig);
         loggerSpy = setupLoggerSpy();
         fetchMock.restore();
         const user1: IdentityApiData = {
@@ -2196,8 +2199,9 @@ describe.only('identity', function() {
         });
     });
 
-    // https://go.mparticle.com/work/SDKE-420
-    it('should add new MPIDs to cookie structure when initializing new identity requests, returning an existing mpid when reinitializing with a previous identity', async () => {
+    it('should add new MPIDs to cookie structure when initializing new   with a previous identity', async () => {
+        await waitForCondition(hasIdentityCallInflightReturned);
+        mParticle._resetForTests(MPConfig);
         loggerSpy = setupLoggerSpy();
         const user1 = {
             userIdentities: {
@@ -2971,8 +2975,9 @@ describe.only('identity', function() {
             .should.have.property('attr', 'value');
     });
 
-    // https://go.mparticle.com/work/SDKE-420
     it('identifyCallback response should have a getUser function on the result object', async () => {
+        await waitForCondition(hasIdentityCallInflightReturned);
+        mParticle._resetForTests(MPConfig);
         let result;
         loggerSpy = setupLoggerSpy();
         fetchMockSuccess(urls.identify, {
@@ -3121,6 +3126,8 @@ describe.only('identity', function() {
     });
 
     it('should have a getUser function on modify result object', async () => {
+        await waitForCondition(hasIdentityCallInflightReturned);
+        mParticle._resetForTests(MPConfig);
         loggerSpy = setupLoggerSpy();
         let result
         let modifyResult;
@@ -3166,8 +3173,9 @@ describe.only('identity', function() {
     });
     });
 
-    // https://go.mparticle.com/work/SDKE-420
     it('should call identify when there is an active session but no current user', async () => {
+        await waitForCondition(hasIdentityCallInflightReturned);
+        mParticle._resetForTests(MPConfig);
         loggerSpy = setupLoggerSpy();
         // this broken cookie state occurs when an initial identify request is made, fails, and the
         // client had no programmatic handling of a failed identify request
@@ -4470,6 +4478,8 @@ describe.only('identity', function() {
 
         // https://go.mparticle.com/work/SDKE-420
         it('should set currentUser once the email is positively identified', async () => {
+            await waitForCondition(hasIdentityCallInflightReturned);
+            mParticle._resetForTests(MPConfig);
             loggerSpy = setupLoggerSpy();
             fetchMockSuccess(urls.identify, {
                 mpid: testRoktMPID,
