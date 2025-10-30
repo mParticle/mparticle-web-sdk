@@ -61,6 +61,7 @@ describe('Beacon Upload', () => {
         window.mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
 
+        window.onbeforeunload = null;
         window.dispatchEvent(new Event('beforeunload'));
         await Promise.resolve();
 
@@ -133,6 +134,7 @@ describe('Beacon Upload', () => {
             expect(JSON.parse(window.sessionStorage.getItem(eventStorageKey)).length, 'Events should be populated before dispatch').to.equal(3);
             expect(uploader.batchesQueuedForProcessing.length, 'Batch Queue should be populated before dispatch').to.equal(3);
 
+            window.onbeforeunload = null;
             window.dispatchEvent(new Event('beforeunload'));
             await Promise.resolve();
 
