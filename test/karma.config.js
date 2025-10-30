@@ -41,22 +41,16 @@ module.exports = function(config) {
         singleRun,
         debug: true,
         logLevel: config.LOG_INFO,
-        browserConsoleLogOptions,
-        browserDisconnectTimeout: 10000,
-        browserDisconnectTolerance: 1,
-        captureTimeout: 120000,
-        processKillTimeout: 100000,
         client: {
             captureConsole,
             mocha: {
-                timeout: 10000 // 10 seconds.  Increase from default 2 seconds.
+                timeout: 5000 // 5 seconds.  Increase from default 2 seconds.
             }
         },
         customLaunchers: {
             FirefoxHeadless: {
                 base: 'Firefox',
                 flags: ['-headless'],
-                browserNoActivityTimeout: 60000,
             },
         },
         junitReporter: {
