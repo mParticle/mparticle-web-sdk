@@ -134,12 +134,7 @@ export default function SessionManager(
         );
 
         if (override) {
-            mpInstance._Events.logEvent({
-                messageType: Types.MessageType.SessionEnd,
-            });
-
-            mpInstance._Store.nullifySession();
-            mpInstance._timeOnSiteTimer?.resetTimer();
+            performSessionEnd();
             return;
         }
 
@@ -185,15 +180,9 @@ export default function SessionManager(
             if (timeSinceLastEventSent < sessionTimeoutInMilliseconds) {
                 self.setSessionTimer();
             } else {
-                mpInstance._Events.logEvent({
-                    messageType: Types.MessageType.SessionEnd,
-                });
-
-                mpInstance._Store.sessionStartDate = null;
-                mpInstance._Store.nullifySession();
+                performSessionEnd();
             }
         }
-
         mpInstance._timeOnSiteTimer?.resetTimer();
     };
 
@@ -234,4 +223,13 @@ export default function SessionManager(
             }
         }
     };
+
+    function performSessionEnd(): void {
+        mpInstance._Events.logEvent({
+            messageType: Types.MessageType.SessionEnd,
+        });
+        mpInstance._Store.sessionStartDate = null;
+        mpInstance._Store.nullifySession();
+        mpInstance._timeOnSiteTimer?.resetTimer();
+    }
 }
