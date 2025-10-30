@@ -32,7 +32,7 @@ declare global {
 
 const mParticle = window.mParticle;
 
-describe.only('Identity Api Client', () => {
+describe('Identity Api Client', () => {
     describe('#sendIdentityRequest', () => {
         const identityRequest: IIdentityAPIRequestData = {
             client_sdk: {
