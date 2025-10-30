@@ -4476,7 +4476,6 @@ describe.only('identity', function() {
             } as unknown as IRoktKit;
         });
 
-        // https://go.mparticle.com/work/SDKE-420
         it('should set currentUser once the email is positively identified', async () => {
             await waitForCondition(hasIdentityCallInflightReturned);
             mParticle._resetForTests(MPConfig);
