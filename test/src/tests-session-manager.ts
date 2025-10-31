@@ -32,6 +32,7 @@ describe('SessionManager', () => {
 
     beforeEach(() => {
         mParticle._resetForTests(MPConfig);
+        fetchMock.config.overwriteRoutes = true;
         fetchMock.post(urls.events, 200);
         fetchMockSuccess(urls.identify, {
             mpid: testMPID, is_logged_in: false
@@ -39,8 +40,8 @@ describe('SessionManager', () => {
     });
 
     afterEach(function() {
-        sinon.restore();
         fetchMock.restore();
+        sinon.restore();
     });
 
     describe('Unit Tests', () => {
@@ -871,7 +872,7 @@ describe('SessionManager', () => {
         afterEach(() => {
             clock.restore();
         });
-
+      
         it('should end a session if the session timeout expires', () => {
             const generateUniqueIdSpy = sinon.stub(
                 mParticle.getInstance()._Helpers,

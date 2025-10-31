@@ -27,6 +27,7 @@ describe('kit blocking', () => {
     } as KitBlockerDataPlan;
 
     beforeEach(function() {
+        window.mParticle._resetForTests(MPConfig);
         window.mParticle.config.dataPlan = {
             document: dataPlan as DataPlanResult
         };
@@ -35,6 +36,7 @@ describe('kit blocking', () => {
     
     afterEach(function() {
         sinon.restore();
+        fetchMock.restore();
     });
 
     describe('kitBlocker', () => {
@@ -512,6 +514,8 @@ describe('kit blocking', () => {
 
     describe('kit blocking - integration tests', () => {
         beforeEach(() => {
+            fetchMock.restore();
+            fetchMock.config.overwriteRoutes = true;
             fetchMockSuccess(urls.identify, {
                 mpid: testMPID,
                 is_logged_in: false,
@@ -530,8 +534,6 @@ describe('kit blocking', () => {
             };
 
             let errorMessages = [];
-
-            window.mParticle._resetForTests(MPConfig);
 
             let mockForwarder = new MockForwarder();
             window.mParticle.addForwarder(mockForwarder);
@@ -1184,7 +1186,6 @@ describe('kit blocking', () => {
 
                 let errorMessages = [];
 
-                window.mParticle._resetForTests(MPConfig);
                 window.mParticle.config.logLevel = 'verbose';
 
                 window.mParticle.config.logger = {
@@ -1200,7 +1201,6 @@ describe('kit blocking', () => {
             });
 
             it('integration test - should prioritize data plan from config.dataPlanOptions over server provided data plan', async () => {
-                window.mParticle._resetForTests(MPConfig);
                 let mockForwarder = new MockForwarder();
                 window.mParticle.addForwarder(mockForwarder);
                 window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
@@ -1250,7 +1250,6 @@ describe('kit blocking', () => {
             });
 
             it('integration test - should block or unblock planned events', async () => {
-                window.mParticle._resetForTests(MPConfig);
                 let mockForwarder = new MockForwarder();
                 window.mParticle.addForwarder(mockForwarder);
 
@@ -1287,17 +1286,11 @@ describe('kit blocking', () => {
         });
 
         describe('integration tests - self hosting set up', () => {
-            afterEach(function() {
-                fetchMock.restore();
-            });
-
             it('should create a proper kitblocker on a self hosted set up', async () => {
                 fetchMock.get(`${urls.config}&plan_id=robs_plan&plan_version=1`, {
                     status: 200,
                     body: JSON.stringify({ dataPlanResult: dataPlan }),
                 });
-
-                window.mParticle._resetForTests(MPConfig);
 
                 let mockForwarder = new MockForwarder();
                 window.mParticle.addForwarder(mockForwarder);
@@ -1332,8 +1325,6 @@ describe('kit blocking', () => {
 
                 let errorMessages = [];
 
-                window.mParticle._resetForTests(MPConfig);
-
                 let mockForwarder = new MockForwarder();
                 window.mParticle.addForwarder(mockForwarder);
 
@@ -1354,7 +1345,7 @@ describe('kit blocking', () => {
                 }
 
                 window.mParticle.init(apiKey, window.mParticle.config);
-                await waitForCondition(hasIdentifyReturned)
+                await waitForCondition(hasIdentifyReturned);
 
                 errorMessages[0].should.equal(errorMessage);
                 window.mParticle.config.requestConfig = false;

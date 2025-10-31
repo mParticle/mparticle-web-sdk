@@ -14,6 +14,8 @@ const {
 // Calls to /config are specific to only the self hosting environment
 describe('/config self-hosting integration tests', function() {
     beforeEach(function() {
+        mParticle._resetForTests(MPConfig);
+        fetchMock.config.overwriteRoutes = true;
         fetchMock.post(urls.events, 200);
     });
 
@@ -25,7 +27,6 @@ describe('/config self-hosting integration tests', function() {
 
     // https://go.mparticle.com/work/SQDSDKS-7160
     it.skip('queues events in the eventQueue while /config is in flight, then processes them afterwards with correct MPID', async () => {
-        mParticle._resetForTests(MPConfig);
         window.mParticle.config.requestConfig = true;
         window.mParticle.config.flags.eventBatchingIntervalMillis = 0; // trigger event uploads immediately
 
@@ -75,7 +76,6 @@ describe('/config self-hosting integration tests', function() {
     // https://go.mparticle.com/work/SQDSDKS-6852
     it.skip('queued events contain login mpid instead of identify mpid when calling login immediately after mParticle initializes', async () => {
         const messages = [];
-        mParticle._resetForTests(MPConfig);
         window.mParticle.config.requestConfig = true;
         window.mParticle.config.flags.eventBatchingIntervalMillis = 0; // trigger event uploads immediately
 
@@ -159,11 +159,9 @@ describe('/config self-hosting integration tests', function() {
 
 
         localStorage.removeItem('mprtcl-v4_workspaceTokenTest');
-        window.mParticle.config.requestConfig = false;
     });
 
     it('cookie name has workspace token in it in self hosting mode after config fetch', async () => {
-        mParticle._resetForTests(MPConfig);
         window.mParticle.config.requestConfig = true;
         window.mParticle.config.logLevel = 'verbose';
         delete window.mParticle.config.workspaceToken;
@@ -181,12 +179,10 @@ describe('/config self-hosting integration tests', function() {
 
         const data = window.localStorage.getItem('mprtcl-v4_wtTest');
         (typeof data === 'string').should.equal(true);
-        window.mParticle.config.requestConfig = false;
     });
 
     describe('/config self-hosting with direct url routing', async () => {
         it('should return direct urls when no baseUrls are passed and directURLRouting is true', async () => {
-            mParticle._resetForTests(MPConfig);
             window.mParticle.config.requestConfig = true;
             delete window.mParticle.config.workspaceToken;
 
@@ -224,7 +220,6 @@ describe('/config self-hosting integration tests', function() {
         });
             
         it('should prioritize passed in baseUrls over direct urls', async () => {
-            mParticle._resetForTests(MPConfig);
             window.mParticle.config.requestConfig = true;
             window.mParticle.config.aliasUrl =
                 'jssdks.foo.mparticle.com/v1/identity/';
@@ -251,7 +246,7 @@ describe('/config self-hosting integration tests', function() {
 
             mParticle.init(apiKey, window.mParticle.config);
 
-            waitForCondition(hasConfigurationReturned);
+            await waitForCondition(hasConfigurationReturned);
             const {
                 aliasUrl,
                 configUrl,

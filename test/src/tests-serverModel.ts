@@ -1,5 +1,6 @@
+import fetchMock from 'fetch-mock/esm/client';
 import Types from '../../src/types';
-import { urls, testMPID, apiKey } from './config/constants';
+import { urls, testMPID, apiKey, MPConfig } from './config/constants';
 import { expect } from 'chai';
 import { IUploadObject } from '../../src/serverModel';
 import { IdentityApiData } from '@mparticle/web-sdk';
@@ -22,6 +23,8 @@ const ServerModel = mParticle.getInstance()._ServerModel;
 
 describe('ServerModel', () => {
     beforeEach(() => {
+        mParticle._resetForTests(MPConfig);
+        fetchMock.config.overwriteRoutes = true;
         initialEvent = {
             messageType: Types.MessageType.PageEvent,
             name: 'foo page',
@@ -29,6 +32,10 @@ describe('ServerModel', () => {
             eventType: Types.EventType.Navigation,
             customFlags: { 'foo-flag': 'foo-flag-val' },
         };
+    });
+
+    afterEach(() => {
+        fetchMock.restore();
     });
 
     describe('#convertToConsentStateDTO', () => {
@@ -157,9 +164,6 @@ describe('ServerModel', () => {
             });
 
             mParticle.init(apiKey, mParticle.config);
-        });
-
-        afterEach(function() {
         });
 
         it('should create an event object without a user', () => {
@@ -1129,9 +1133,6 @@ describe('ServerModel', () => {
             mParticle.init(apiKey, mParticle.config);
         });
 
-        afterEach(function() {
-        });
-
         it('Should not convert data plan object to server DTO when no id or version is set', () => {
             let sdkEvent = window.mParticle
                 .getInstance()
@@ -1146,7 +1147,6 @@ describe('ServerModel', () => {
         });
 
         it('Should convert data plan id to server DTO', () => {
-            mParticle._resetForTests();
             mParticle.config.dataPlan = {
                 planId: 'plan_slug',
             };
@@ -1164,7 +1164,6 @@ describe('ServerModel', () => {
         });
 
         it('Should not convert data plan object to server DTO when no id is set', () => {
-            mParticle._resetForTests();
             mParticle.config.dataPlan = {
                 planVersion: 5,
             };
@@ -1182,7 +1181,6 @@ describe('ServerModel', () => {
         });
 
         it('Should convert entire data plan object to server DTO', () => {
-            mParticle._resetForTests();
             mParticle.config.dataPlan = {
                 planId: 'plan_slug',
                 planVersion: 10,
