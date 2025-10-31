@@ -158,12 +158,6 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
     this.setPosition = function(lat, lng) {
         self.getInstance().setPosition(lat, lng);
     };
-    this.startNewSession = function() {
-        self.getInstance().startNewSession();
-    };
-    this.endSession = function() {
-        self.getInstance().endSession();
-    };
     this.logBaseEvent = function(event, eventOptions) {
         self.getInstance().logBaseEvent(event, eventOptions);
     };
