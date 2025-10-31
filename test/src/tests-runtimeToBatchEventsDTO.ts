@@ -1,3 +1,4 @@
+import fetchMock from 'fetch-mock/esm/client';
 import * as Converter from '../../src/sdkToEventsApiConverter';
 import { expect } from 'chai';
 import Types from '../../src/types';
@@ -14,17 +15,18 @@ declare global {
 
 describe('Old model to batch model conversion', () => {
     beforeEach(function() {
+        window.mParticle._resetForTests(MPConfig);
+        fetchMock.config.overwriteRoutes = true;
         window.mParticle.init(apiKey, window.mParticle.config);
     });
 
     afterEach(function() {
-        window.mParticle._resetForTests(MPConfig);
+        fetchMock.restore();
     });
 
     const batchDataTests = [{ devmode: false }, { devmode: true }];
     batchDataTests.forEach(params => {
-        it('Batch level conversion ' + params, done => {
-            window.mParticle._resetForTests(MPConfig);
+        it('Batch level conversion ' + params, () => {
             window.mParticle.config.appVersion = 'a version';
             window.mParticle.config.appName = 'a name';
 
@@ -79,9 +81,8 @@ describe('Old model to batch model conversion', () => {
 
             const sdkEvent = window.mParticle.getInstance()._ServerModel.createEventObject(
                 publicEvent
-                ) as SDKEvent;
-                console.log(sdkEvent);
-                expect(sdkEvent).to.be.ok;
+            ) as SDKEvent;
+            expect(sdkEvent).to.be.ok;
             batch = Converter.convertEvents(
                 '123',
                 [sdkEvent, sdkEvent],
@@ -118,12 +119,10 @@ describe('Old model to batch model conversion', () => {
                 'foo-flag': 'foo-flag-val',
             });
             expect(batchEvent.data.session_uuid).to.equal('foo-session-id');
-
-            done();
         });
     });
 
-    it('User attribute conversion ', done => {
+    it('User attribute conversion ', () => {
         window.mParticle.getInstance().Identity.getCurrentUser = () => {
             return {
                 getUserIdentities: () => {
@@ -164,11 +163,9 @@ describe('Old model to batch model conversion', () => {
             'foo-user-attr': 'foo-attr-value',
             'foo-user-attr-list': ['item1', 'item2'],
         });
-
-        done();
     });
 
-    it('Data Plan Context conversion', done => {
+    it('Data Plan Context conversion', () => {
         const publicEvent = {
             messageType: Types.MessageType.PageEvent,
             name: 'foo page',
@@ -209,10 +206,9 @@ describe('Old model to batch model conversion', () => {
         expect(batch.context.data_plan).to.be.ok;
         expect(batch.context.data_plan.plan_id).to.equal("foo");
         expect(batch.context.data_plan.plan_version).be.equal(4);
-        done();
     });
 
-    it('User identity conversion ', done => {
+    it('User identity conversion ', () => {
         window.mParticle.getInstance().Identity.getCurrentUser = () => {
             return {
                 getUserIdentities: () => {
@@ -263,8 +259,6 @@ describe('Old model to batch model conversion', () => {
         expect(batch.user_identities.other_id_2).to.equal('foo-other2');
         expect(batch.user_identities.other_id_3).to.equal('foo-other3');
         expect(batch.user_identities.other_id_4).to.equal('foo-other4');
-
-        done();
     });
 
     const baseEventConversion: { [key: number]: EventsApi.EventType } = {
@@ -279,7 +273,7 @@ describe('Old model to batch model conversion', () => {
     };
 
     Object.keys(baseEventConversion).forEach(key => {
-        it('Base Event Conversion ' + baseEventConversion[key], done => {
+        it('Base Event Conversion ' + baseEventConversion[key], () => {
             let event = Converter.convertEvent(null);
             expect(event).to.be.null;
 
@@ -312,11 +306,10 @@ describe('Old model to batch model conversion', () => {
             event = Converter.convertEvent(sdkEvent);
             expect(event).to.be.ok;
             expect(event.event_type).to.equal(baseEventConversion[key]);
-            done();
         });
     });
 
-    it('Commerce Event Product Action convertion', done => {
+    it('Commerce Event Product Action convertion', () => {
         const sdkEvent: SDKEvent = {
             EventName: 'eCommerce - Purchase',
             EventCategory: 16,
@@ -415,10 +408,9 @@ describe('Old model to batch model conversion', () => {
                 sdkProduct.Attributes
             );
         }
-        done();
     });
 
-    it ('Media Event Conversion', done => {
+    it ('Media Event Conversion', () => {
         const sdkEvent: SDKEvent = {
             EventName: "Pause Event",
             EventCategory: 9,
@@ -465,11 +457,9 @@ describe('Old model to batch model conversion', () => {
         expect(event).to.be.ok;
         expect(event.event_type).to.equal('custom_event');
         expect(event.data.custom_event_type).to.equal('media')
-
-        done();
     });
 
-    it('Set width and height to 0 when window is defined but screen is not defined', done => {
+    it('Set width and height to 0 when window is defined but screen is not defined', () => {
         const originalScreen = window.screen;
         delete window.screen;
 
@@ -519,6 +509,5 @@ describe('Old model to batch model conversion', () => {
 
         // set screen back on
         window.screen = originalScreen;
-        done();
     });
 });

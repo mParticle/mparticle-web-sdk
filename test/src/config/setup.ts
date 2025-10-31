@@ -10,14 +10,33 @@ declare global {
 let userApi = null;
 
 window.mParticle._isTestEnv = true;
+type MParticleSDK = { _forwardingStatsTimer?: number | null };
+
 
 beforeEach(function() {
+    const mpInstance = window.mParticle.getInstance();
+    const store = mpInstance?._Store;
+    const sessionTimer = store?.globalTimer;
+
+    if (typeof sessionTimer === 'number') {
+        clearTimeout(sessionTimer);
+        store.globalTimer = 0;
+    }
+
+    const mParticleSDK = (window as Window & { mParticle?: MParticleSDK }).mParticle;
+    const forwardingStatsTimer = mParticleSDK?._forwardingStatsTimer;
+
+    if (typeof forwardingStatsTimer === 'number') {
+        clearInterval(forwardingStatsTimer);
+        mParticleSDK._forwardingStatsTimer = 0;
+    }
+    
     // mocha can't clean up after itself, so this lets
     // tests mock the current user and restores in between runs.
     if (!userApi) {
-        userApi = window.mParticle.getInstance().Identity.getCurrentUser;
+        userApi = mpInstance.Identity.getCurrentUser;
     } else {
-        window.mParticle.getInstance().Identity.getCurrentUser = userApi;
+        mpInstance.Identity.getCurrentUser = userApi;
     }
 
     window.mParticle.config = {
@@ -28,9 +47,11 @@ beforeEach(function() {
         isDevelopmentMode: false,
         flags: {
             eventBatchingIntervalMillis: 0,
+            astBackgroundEvents: 'False',
+            offlineStorage: '0',
         }
     };
-    
+
     // This is to tell the resetPersistence method that we are in a test environment
     // It should probably be refactored to be included as an argument
     window.mParticle._resetForTests(MPConfig);

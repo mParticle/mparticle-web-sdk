@@ -21,34 +21,32 @@ const hasIdentifyReturned = () => {
     return window.mParticle.Identity.getCurrentUser()?.getMPID() === testMPID;
 };
 
-describe('feature-flags', function() {
-    describe('user audiences', function() {
-        beforeEach(function() {
+describe('feature-flags', () => {
+    describe('user audiences', () => {
+        beforeEach(() => {
+            window.mParticle._resetForTests(MPConfig);
+            fetchMock.config.overwriteRoutes = true;
             fetchMock.post(urls.events, 200);
-
             fetchMockSuccess(urls.identify, {
                 mpid: testMPID, is_logged_in: false
             });
-
             window.mParticle.init(apiKey, window.mParticle.config);
         });
 
         afterEach(() => {
-            sinon.restore();
             fetchMock.restore();
+            sinon.restore();
         });
 
-        it('should not be able to access user audience API if feature flag is false', function() {
+        it('should not be able to access user audience API if feature flag is false', async () => {
             window.mParticle.config.flags = {
                 audienceAPI: 'False'
             };
 
-            window.mParticle._resetForTests(MPConfig);
-
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
+            await waitForCondition(hasIdentifyReturned);
+
             const bond = sinon.spy(window.mParticle.getInstance().Logger, 'error');
             window.mParticle.Identity.getCurrentUser().getUserAudiences();
 
@@ -56,10 +54,9 @@ describe('feature-flags', function() {
             bond.getCalls()[0].args[0].should.eql(
                 Constants.Messages.ErrorMessages.AudienceAPINotEnabled
             );
-            })
         });
 
-        it('should be able to call user audience API if feature flag is false', function() {
+        it('should be able to call user audience API if feature flag is false', async () => {
             const userAudienceUrl = `https://${Constants.DefaultBaseUrls.userAudienceUrl}${apiKey}/audience`;
             const audienceMembershipServerResponse = {
                 ct: 1710441407915,
@@ -79,8 +76,6 @@ describe('feature-flags', function() {
                 status: 200,
                 body: JSON.stringify(audienceMembershipServerResponse)
             });
-            
-            window.mParticle._resetForTests(MPConfig);
 
             window.mParticle.config.flags = {
                 audienceAPI: 'True'
@@ -88,15 +83,14 @@ describe('feature-flags', function() {
 
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
+            await waitForCondition(hasIdentifyReturned);
+
             const bond = sinon.spy(window.mParticle.getInstance().Logger, 'error');
 
             window.mParticle.Identity.getCurrentUser().getUserAudiences((result) => {
                     console.log(result);   
             });
             bond.called.should.eql(false);
-            })
         });
     });
 
@@ -127,7 +121,6 @@ describe('feature-flags', function() {
                 captureIntegrationSpecificIds: 'True',
                 captureIntegrationSpecificIdsV2: 'all'
             };
-            window.mParticle._resetForTests(MPConfig);
 
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
@@ -158,7 +151,6 @@ describe('feature-flags', function() {
                 captureIntegrationSpecificIds: 'False',
                 captureIntegrationSpecificIdsV2: 'none'
             };
-            window.mParticle._resetForTests(MPConfig);
 
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
