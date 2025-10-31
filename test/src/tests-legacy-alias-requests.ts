@@ -34,8 +34,10 @@ describe('legacy Alias Requests', function() {
     const originalFetch = window.fetch;
 
     beforeEach(function() {
+        mParticle._resetForTests(MPConfig);
         delete window.fetch;
         delete mParticle.config.useCookieStorage;
+        fetchMock.config.overwriteRoutes = true;
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
         localStorage.clear();
@@ -62,7 +64,7 @@ describe('legacy Alias Requests', function() {
     afterEach(function() {
         mockServer.restore();
         fetchMock.restore();
-        mParticle._resetForTests(MPConfig);
+        sinon.restore();
         clock.restore();
         window.fetch = originalFetch;
     });
@@ -285,8 +287,6 @@ describe('legacy Alias Requests', function() {
     });
 
     it('should properly create AliasRequest', () => {
-        mParticle._resetForTests(MPConfig);
-
         const cookies = JSON.stringify({
             gs: {
                 sid: 'fst Test',
@@ -323,8 +323,6 @@ describe('legacy Alias Requests', function() {
     });
 
     it('should fill in missing fst and lst in createAliasRequest', () => {
-        mParticle._resetForTests(MPConfig);
-
         const cookies = JSON.stringify({
             gs: {
                 sid: 'fst Test',
@@ -365,8 +363,6 @@ describe('legacy Alias Requests', function() {
     });
 
     it('should fix startTime when default is outside max window create AliasRequest', () => {
-        mParticle._resetForTests(MPConfig);
-
         const millisPerDay = 24 * 60 * 60 * 1000;
         const cookies = JSON.stringify({
             gs: {
@@ -463,7 +459,6 @@ describe('legacy Alias Requests', function() {
     });
 
     it("alias request should have environment 'development' when isDevelopmentMode is true", () => {
-        mParticle._resetForTests(MPConfig);
         window.mParticle.config.isDevelopmentMode = true;
 
         mockServer.respondWith(urls.alias, [HTTP_ACCEPTED, {}, JSON.stringify({})]);
@@ -484,12 +479,10 @@ describe('legacy Alias Requests', function() {
 
         const request = mockServer.requests[0];
         const requestBody = JSON.parse(request.requestBody);
-        expect(requestBody['environment']).to.equal('development');expect(requestBody.environment).to.equal('development');
+        expect(requestBody.environment).to.equal('development');
     });
 
     it('should have default urls if no custom urls are set in config object, but use custom urls when they are set', () => {
-        mParticle._resetForTests(MPConfig);
-        
         window.mParticle.config.v3SecureServiceUrl =
             'testtesttest-custom-v3secureserviceurl/v3/JS/';
         window.mParticle.config.configUrl =

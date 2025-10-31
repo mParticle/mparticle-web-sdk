@@ -24,26 +24,24 @@ const hasIdentifyReturned = () => {
 describe('feature-flags', () => {
     describe('user audiences', () => {
         beforeEach(() => {
+            window.mParticle._resetForTests(MPConfig);
+            fetchMock.config.overwriteRoutes = true;
             fetchMock.post(urls.events, 200);
-
             fetchMockSuccess(urls.identify, {
                 mpid: testMPID, is_logged_in: false
             });
-
             window.mParticle.init(apiKey, window.mParticle.config);
         });
 
         afterEach(() => {
-            sinon.restore();
             fetchMock.restore();
+            sinon.restore();
         });
 
         it('should not be able to access user audience API if feature flag is false', async () => {
             window.mParticle.config.flags = {
                 audienceAPI: 'False'
             };
-
-            window.mParticle._resetForTests(MPConfig);
 
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
@@ -78,8 +76,6 @@ describe('feature-flags', () => {
                 status: 200,
                 body: JSON.stringify(audienceMembershipServerResponse)
             });
-            
-            window.mParticle._resetForTests(MPConfig);
 
             window.mParticle.config.flags = {
                 audienceAPI: 'True'
@@ -125,7 +121,6 @@ describe('feature-flags', () => {
                 captureIntegrationSpecificIds: 'True',
                 captureIntegrationSpecificIdsV2: 'all'
             };
-            window.mParticle._resetForTests(MPConfig);
 
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
@@ -156,7 +151,6 @@ describe('feature-flags', () => {
                 captureIntegrationSpecificIds: 'False',
                 captureIntegrationSpecificIdsV2: 'none'
             };
-            window.mParticle._resetForTests(MPConfig);
 
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);

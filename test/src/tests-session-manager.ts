@@ -32,6 +32,8 @@ describe('SessionManager', () => {
     let sandbox;
 
     beforeEach(() => {
+        mParticle._resetForTests(MPConfig);
+        fetchMock.config.overwriteRoutes = true;
         sandbox = sinon.createSandbox();
         fetchMock.post(urls.events, 200);
 
@@ -42,19 +44,13 @@ describe('SessionManager', () => {
 
     afterEach(function() {
         sandbox.restore();
-        mParticle._resetForTests(MPConfig);
         fetchMock.restore();
+        sinon.restore();
     });
 
     describe('Unit Tests', () => {
         beforeEach(() => {
             clock = sinon.useFakeTimers(now.getTime());
-        });
-
-        afterEach(function() {
-            sandbox.restore();
-            clock.restore();
-            mParticle._resetForTests(MPConfig);
         });
 
         describe('#initialize', () => {
@@ -855,10 +851,6 @@ describe('SessionManager', () => {
     });
 
     describe('Integration Tests', () => {
-        afterEach(function() {
-            fetchMock.restore();
-        });
-
         it('should end a session if the session timeout expires', () => {
             const generateUniqueIdSpy = sinon.stub(
                 mParticle.getInstance()._Helpers,

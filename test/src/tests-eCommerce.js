@@ -12,19 +12,17 @@ describe('eCommerce', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
         delete mParticle._instances['default_instance'];
+        fetchMock.config.overwriteRoutes = true;
         fetchMock.post(urls.events, 200);
-
         fetchMockSuccess(urls.identify, {
             mpid: testMPID, is_logged_in: false
         });
-        
-
         mParticle.init(apiKey, window.mParticle.config);
     });
 
     afterEach(function() {
         fetchMock.restore();
-        mParticle._resetForTests(MPConfig);
+        sinon.restore();
     });
 
     it('should create ecommerce product', () => {
@@ -766,7 +764,6 @@ describe('eCommerce', function() {
 
     it('expand product purchase commerce event', async () => {
         await waitForCondition(hasIdentifyReturned);
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -876,7 +873,6 @@ describe('eCommerce', function() {
         
     it('expand product refund commerce event', async () => {
         await waitForCondition(hasIdentifyReturned);
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -948,7 +944,6 @@ describe('eCommerce', function() {
 
     it('expand non-plus-one-product commerce event', async () => {
         await waitForCondition(hasIdentifyReturned);
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -1020,7 +1015,6 @@ describe('eCommerce', function() {
 
     it('expand checkout commerce event', async () => {
         await waitForCondition(hasIdentifyReturned);
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -1097,7 +1091,6 @@ describe('eCommerce', function() {
 
     it('expand promotion commerce event', async () => {
         await waitForCondition(hasIdentifyReturned);
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -1163,7 +1156,6 @@ describe('eCommerce', function() {
 
     it('expand impression commerce event', async () => {
         await waitForCondition(hasIdentifyReturned);
-        mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -1267,7 +1259,7 @@ describe('eCommerce', function() {
     });
 
     it('should add customFlags to logPurchase events', async () => {
-         await waitForCondition(hasIdentifyReturned);
+        await waitForCondition(hasIdentifyReturned);
         const product = mParticle.eCommerce.createProduct('iPhone', 'sku1', 499);
         const transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
             'id1',
@@ -1350,7 +1342,8 @@ describe('eCommerce', function() {
         });
 
         it('should deprecate add', async () => {
-            await waitForCondition(hasIdentifyReturned)
+            await waitForCondition(hasIdentifyReturned);
+            mParticle._resetForTests(MPConfig);
             const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
             const product = mParticle.eCommerce.createProduct(

@@ -18,10 +18,9 @@ const enableBatchingConfigFlags = {
 };
 
 describe('batch uploader', () => {
-    let mockServer;
     let clock;
-
     beforeEach(() => {
+        window.mParticle._resetForTests(MPConfig);
         fetchMock.restore();
         fetchMock.config.overwriteRoutes = true;
         fetchMockSuccess(urls.identify, {
@@ -37,26 +36,16 @@ describe('batch uploader', () => {
     });
 
     describe('Upload Workflow', () => {
-        beforeEach(() => {
-        });
-
-        afterEach(() => {
-            fetchMock.restore();
-        });
 
         it('should organize events in the order they are processed and maintain that order when uploading', async () => {
             // Batches should be uploaded in the order they were created to prevent
             // any potential corruption.
-            fetchMock.post(urls.events, 200);
-            fetchMock.config.overwriteRoutes = true;
-
             window.mParticle.config.flags = {
                 ...enableBatchingConfigFlags,
             };
 
-            window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-            
+
             await waitForCondition(hasIdentifyReturned);
             
             window.mParticle.logEvent('Test Event 0');
@@ -123,7 +112,6 @@ describe('batch uploader', () => {
                 ...enableBatchingConfigFlags,
             };
 
-            window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
             // Generates Batch 1 with Session Start + AST
 
@@ -222,7 +210,6 @@ describe('batch uploader', () => {
                 ...enableBatchingConfigFlags,
             };
 
-            window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
             // Generates Batch 1 with Session Start + AST
 
