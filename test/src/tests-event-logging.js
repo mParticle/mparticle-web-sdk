@@ -1,6 +1,7 @@
 import Utils from './config/utils';
 import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
+import { expect } from 'chai';
 import {
     urls,
     apiKey,
@@ -611,6 +612,7 @@ describe('event logging', function() {
                 mpid: testMPID, is_logged_in: false
             });
         await waitForCondition(hasIdentifyReturned);
+        fetchMock.resetHistory();
 
         mParticle.Identity.identify();
         await waitForCondition(() => {
@@ -622,7 +624,9 @@ describe('event logging', function() {
         const identityCalls = fetchMock.calls().filter(call => 
             call[0].includes('/identify')
         );
-        const data = JSON.parse(identityCalls[identityCalls.length - 1][1].body);
+
+        expect(identityCalls.length).to.equal(1);
+        const data = JSON.parse(identityCalls[0][1].body);
         data.should.have.properties(
             'client_sdk',
             'environment',

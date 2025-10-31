@@ -86,7 +86,7 @@ describe('Beacon Upload', () => {
                 ...enableBatchingConfigFlags,
             };
         });
-
+       
         it('`visibilitychange` should purge events and batches from Offline Storage after dispatch', async () => {
             const eventStorageKey = 'mprtcl-v4_abcdef-events';
             const batchStorageKey = 'mprtcl-v4_abcdef-batches';
