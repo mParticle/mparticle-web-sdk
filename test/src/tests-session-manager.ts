@@ -33,7 +33,6 @@ describe('SessionManager', () => {
     beforeEach(() => {
         mParticle._resetForTests(MPConfig);
         fetchMock.config.overwriteRoutes = true;
-        sandbox = sinon.createSandbox();
         fetchMock.post(urls.events, 200);
         fetchMockSuccess(urls.identify, {
             mpid: testMPID, is_logged_in: false
@@ -41,15 +40,11 @@ describe('SessionManager', () => {
     });
 
     afterEach(function() {
-        sandbox.restore();
         fetchMock.restore();
         sinon.restore();
     });
 
     describe('Unit Tests', () => {
-        beforeEach(() => {
-            clock = sinon.useFakeTimers(now.getTime());
-        });
         describe('#initialize', () => {
             beforeEach(() => {
                 // Change timeout to 10 minutes so we can make sure defaults are not in use

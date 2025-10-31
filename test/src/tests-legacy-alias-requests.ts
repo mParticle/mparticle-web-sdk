@@ -15,6 +15,8 @@ import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 
 const {
     setCookie,
+    waitForCondition,
+    hasIdentifyReturned,
 } = Utils;
 
 const { HTTPCodes } = Constants;
