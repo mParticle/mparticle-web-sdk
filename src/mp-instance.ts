@@ -222,24 +222,6 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     };
 
     this._resetForTests = function(config, keepPersistence, instance) {
-        if (
-            instance?._Store?.globalTimer &&
-            instance._Store.globalTimer > 0
-        ) {
-            clearTimeout(instance._Store.globalTimer);
-            instance._Store.globalTimer = 0;
-        }
-
-        if (typeof window !== 'undefined') {
-            type MParticleSDK = { _forwardingStatsTimer?: number | null };
-            const mParticleSDK = (window as Window & { mParticle?: MParticleSDK }).mParticle;
-            const forwardingStatsTimer = mParticleSDK?._forwardingStatsTimer;
-            if (typeof forwardingStatsTimer === 'number' && mParticleSDK) {
-                clearInterval(forwardingStatsTimer);
-                mParticleSDK._forwardingStatsTimer = 0;
-            }
-        }
-
         if (instance._Store) {
             delete instance._Store;
         }
