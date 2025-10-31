@@ -129,7 +129,8 @@ describe('Beacon Upload', () => {
             expect(window.sessionStorage.getItem(eventStorageKey), 'Stored Events should exist').to.be.ok;
             expect(JSON.parse(window.sessionStorage.getItem(eventStorageKey)).length, 'Events should be populated before dispatch').to.equal(3);
             expect(uploader.batchesQueuedForProcessing.length, 'Batch Queue should be populated before dispatch').to.equal(3);
-
+            
+            window.onbeforeunload = null;
             window.dispatchEvent(new Event('beforeunload'));
 
             expect(window.sessionStorage.getItem(eventStorageKey), 'Events should be empty after dispatch').to.equal('');
