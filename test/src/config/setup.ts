@@ -15,18 +15,21 @@ type MParticleSDK = { _forwardingStatsTimer?: number | null };
 
 beforeEach(function() {
     const mpInstance = window.mParticle.getInstance();
-    const sessionTimer = mpInstance._Store.globalTimer;
+    const store = mpInstance?._Store;
+    const sessionTimer = store?.globalTimer;
 
-    clearTimeout(sessionTimer);
-    mpInstance._Store.globalTimer = 0;
-    
-    
+    if (typeof sessionTimer === 'number') {
+        clearTimeout(sessionTimer);
+        store.globalTimer = 0;
+    }
+
     const mParticleSDK = (window as Window & { mParticle?: MParticleSDK }).mParticle;
     const forwardingStatsTimer = mParticleSDK?._forwardingStatsTimer;
-    
-    clearInterval(forwardingStatsTimer);
-    mParticleSDK._forwardingStatsTimer = 0;
-    
+
+    if (typeof forwardingStatsTimer === 'number') {
+        clearInterval(forwardingStatsTimer);
+        mParticleSDK._forwardingStatsTimer = 0;
+    }
     
     // mocha can't clean up after itself, so this lets
     // tests mock the current user and restores in between runs.
