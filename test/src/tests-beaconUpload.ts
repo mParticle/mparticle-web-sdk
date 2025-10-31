@@ -50,7 +50,6 @@ describe('Beacon Upload', () => {
         await waitForCondition(hasIdentifyReturned);
 
         triggerVisibilityHidden();
-        await Promise.resolve();
 
         expect(bond.called).to.be.true;
         expect(bond.lastCall.args[0]).to.equal(urls.events);
@@ -63,7 +62,6 @@ describe('Beacon Upload', () => {
 
         window.onbeforeunload = null;
         window.dispatchEvent(new Event('beforeunload'));
-        await Promise.resolve();
 
         expect(bond.called).to.be.true;
         expect(bond.firstCall.args[0]).to.equal(urls.events);
@@ -75,7 +73,6 @@ describe('Beacon Upload', () => {
         await waitForCondition(hasIdentifyReturned);
 
         window.dispatchEvent(new Event('pagehide'));
-        await Promise.resolve();
 
         expect(bond.called).to.be.true;
         expect(bond.firstCall.args[0]).to.equal(urls.events);
@@ -109,7 +106,6 @@ describe('Beacon Upload', () => {
             expect(uploader.batchesQueuedForProcessing.length, 'Batch Queue should be populated before dispatch').to.equal(3);
 
             triggerVisibilityHidden();
-            await Promise.resolve();
 
             expect(window.sessionStorage.getItem(eventStorageKey), 'Events should be empty after dispatch').to.equal('');
             expect(window.localStorage.getItem(batchStorageKey), 'Batches should be empty after dispatch').to.equal(null);
@@ -134,9 +130,7 @@ describe('Beacon Upload', () => {
             expect(JSON.parse(window.sessionStorage.getItem(eventStorageKey)).length, 'Events should be populated before dispatch').to.equal(3);
             expect(uploader.batchesQueuedForProcessing.length, 'Batch Queue should be populated before dispatch').to.equal(3);
 
-            window.onbeforeunload = null;
             window.dispatchEvent(new Event('beforeunload'));
-            await Promise.resolve();
 
             expect(window.sessionStorage.getItem(eventStorageKey), 'Events should be empty after dispatch').to.equal('');
             expect(window.localStorage.getItem(batchStorageKey), 'Batches should be empty after dispatch').to.equal(null);
@@ -162,7 +156,6 @@ describe('Beacon Upload', () => {
             expect(uploader.batchesQueuedForProcessing.length, 'Batch Queue should be populated before dispatch').to.equal(3);
 
             window.dispatchEvent(new Event('pagehide'));
-            await Promise.resolve();
 
             expect(window.sessionStorage.getItem(eventStorageKey), 'Events should be empty after dispatch').to.equal('');
             expect(window.localStorage.getItem(batchStorageKey), 'Batches should be empty after dispatch').to.equal(null);

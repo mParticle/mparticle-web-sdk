@@ -78,8 +78,6 @@ describe('batch uploader', () => {
                 beaconSpy = sinon.spy(navigator, 'sendBeacon');
 
                 triggerVisibilityHidden();
-                // Run all pending promises
-                await Promise.resolve();
 
                 // Verify that beacon was called
                 expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
@@ -116,8 +114,6 @@ describe('batch uploader', () => {
             beaconSpy = sinon.spy(navigator, 'sendBeacon');
 
             triggerVisibilityHidden();
-            // Run all pending promises
-            await Promise.resolve();
 
             // Verify that beacon was called
             expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
@@ -158,8 +154,6 @@ describe('batch uploader', () => {
                 const pagehideEvent = new Event('pagehide', { cancelable: true });
                 window.dispatchEvent(pagehideEvent);
 
-                // Run all pending promises
-                await Promise.resolve();
                 clock.runAll();
 
                 // Verify that beacon was called
@@ -218,8 +212,6 @@ describe('batch uploader', () => {
 
             // Trigger visibility change
             triggerVisibilityHidden();
-            // Run all pending promises
-            await Promise.resolve();
 
             clock.runAll();
 
@@ -312,8 +304,6 @@ describe('batch uploader', () => {
 
             // Trigger visibility change
             triggerVisibilityHidden();
-            // Run all pending promises
-            await Promise.resolve(); 
             clock.runAll();
 
             // Verify that beacon was called
@@ -385,8 +375,6 @@ describe('batch uploader', () => {
 
             // Trigger visibility change
             triggerVisibilityHidden();
-            // Run all pending promises
-            await Promise.resolve();
 
             expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
 
@@ -403,8 +391,6 @@ describe('batch uploader', () => {
             // Clean up
             clock.tick(500);
             document.dispatchEvent(new Event('visibilitychange'));
-            // Run all pending promises
-            await Promise.resolve();
 
             expect(beaconSpy.calledOnce, 'Expected beacon to be called twice').to.be.true;
         });
@@ -422,8 +408,6 @@ describe('batch uploader', () => {
 
             // Trigger visibility change
             triggerVisibilityHidden();
-            // Run all pending promises
-            await Promise.resolve();
 
             // Verify that beacon was called
             expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
@@ -441,8 +425,6 @@ describe('batch uploader', () => {
 
             clock.tick(1500);
             document.dispatchEvent(new Event('visibilitychange'));
-            // Run all pending promises
-            await Promise.resolve();
 
             expect(beaconSpy.calledTwice, 'Expected beacon to be called twice').to.be.true;
         });
