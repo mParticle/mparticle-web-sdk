@@ -118,6 +118,7 @@ module.exports = function(config) {
       username: process.env.BS_USERNAME,
       accessKey: process.env.BS_ACCESS_KEY,
       local: true,
+      idleTimeout: 300,
     },
     autoWatch: false,
     customLaunchers,
@@ -140,8 +141,11 @@ module.exports = function(config) {
       outputDir: 'reports/',
       outputFile: 'test-karma-mobile.xml',
     },
-    browserDisconnectTimeout: 50000,
+    captureTimeout: 240000,
+    browserNoActivityTimeout: 240000,
+    browserDisconnectTimeout: 120000,
     browserDisconnectTolerance: 5,
-    concurrency: 5,
+    concurrency: 2,
+    retryLimit: 2,
   });
 };
