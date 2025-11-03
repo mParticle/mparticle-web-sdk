@@ -24,8 +24,10 @@ declare global {
 const mParticle = window.mParticle as IMParticleInstanceManager;
 
 describe('Integration Capture', () => {
-    beforeEach(function() {
+    beforeEach(async function() {
         mParticle._resetForTests(MPConfig);
+        fetchMock.restore();
+        fetchMock.config.overwriteRoutes = true;
         fetchMock.post(urls.events, 200);
         delete mParticle._instances['default_instance'];
         fetchMockSuccess(urls.identify, {
@@ -44,26 +46,24 @@ describe('Integration Capture', () => {
         window.document.cookie = 'baz=qux';
         window.document.cookie = '_ttp=45670808';
         mParticle.init(apiKey, window.mParticle.config);
-        return waitForCondition(hasIdentifyReturned).then(function() {
-            const integrationCapture = window.mParticle.getInstance()._IntegrationCapture;
-            // Mock the query params capture function because we cannot mock window.location.href
-            sinon.stub(integrationCapture, 'getQueryParams').returns({
-                fbclid: '1234',
-                gclid: '234',
-                gbraid: '6574',
-                rtid: '45670808',
-                rclid: '7183717',
-                wbraid: '1234111',
-                ScCid: '1234',
-            });
-            integrationCapture.capture();
+        await waitForCondition(hasIdentifyReturned);
+        const integrationCapture = window.mParticle.getInstance()._IntegrationCapture;
+        // Mock the query params capture function because we cannot mock window.location.href
+        sinon.stub(integrationCapture, 'getQueryParams').returns({
+            fbclid: '1234',
+            gclid: '234',
+            gbraid: '6574',
+            rtid: '45670808',
+            rclid: '7183717',
+            wbraid: '1234111',
+            ScCid: '1234',
         });
+        integrationCapture.capture();
     });
 
     afterEach(function() {
-        sinon.restore();
         fetchMock.restore();
-        mParticle._resetForTests(MPConfig);
+        sinon.restore();
         deleteAllCookies();
     });
 
@@ -90,6 +90,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
         expect(testEvent.data.custom_flags['SnapchatConversions.ClickId'], 'Snapchat Click ID').to.equal('1234');
     });
+
     it('should add captured integrations to event custom flags, prioritizing passed in custom flags', async () => {
         await waitForCondition(hasIdentifyReturned);
         window.mParticle.logEvent(
@@ -139,6 +140,7 @@ describe('Integration Capture', () => {
 
     it('should add captured integrations to page view custom flags, prioritizing passed in custom flags', async () => {
         await waitForCondition(hasIdentifyReturned);
+
         window.mParticle.logPageView(
             'Test Page View',
             {'foo-attr': 'bar-attr'},

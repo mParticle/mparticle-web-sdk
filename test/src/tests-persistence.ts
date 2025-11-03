@@ -8,8 +8,6 @@ import {
     testMPID,
     mParticle,
     MPConfig,
-    localStorageProductsV4,
-    LocalStorageProductsV4WithWorkSpaceName,
     workspaceCookieName,
     v4LSKey
 } from './config/constants';
@@ -23,7 +21,6 @@ import {
 const {
     findCookie,
     getLocalStorage,
-    getLocalStorageProducts,
     setCookie,
     setLocalStorage,
     findBatch,
@@ -35,6 +32,8 @@ const {
 
 describe('persistence', () => {
     beforeEach(() => {
+        mParticle._resetForTests(MPConfig);
+        fetchMock.config.overwriteRoutes = true;
         fetchMock.post(urls.events, 200);
 
         fetchMockSuccess(urls.identify, {
@@ -45,6 +44,7 @@ describe('persistence', () => {
 
     afterEach(() => {
         fetchMock.restore();
+        sinon.restore();
     });
 
     describe('#setCookie', () => {
@@ -167,8 +167,6 @@ describe('persistence', () => {
     });
 
     it('should move new schema from cookies to localStorage with useCookieStorage = false', done => {
-        mParticle._resetForTests(MPConfig);
-
         const cookies = JSON.stringify({
             gs: {
                 sid: 'sid',
@@ -200,9 +198,7 @@ describe('persistence', () => {
         done();
     });
 
-    it('should migrate localStorage to cookies with useCookieStorage = true', done => {
-        mParticle._resetForTests(MPConfig);
-
+    it('should migrate localStorage to cookies with useCookieStorage = true', () => {
         setLocalStorage();
 
         mParticle.config.useCookieStorage = true;
@@ -222,8 +218,6 @@ describe('persistence', () => {
             '1',
             'testuser@mparticle.com'
         );
-
-        done();
     });
 
     it('localStorage - should key cookies on mpid on first run', async () => {
@@ -493,7 +487,6 @@ describe('persistence', () => {
     });
 
     it('should revert to cookie storage if localStorage is not available and useCookieStorage is set to false', async () => {
-        mParticle._resetForTests(MPConfig);
         mParticle.getInstance()._Persistence.determineLocalStorageAvailability = () => {
             return false;
         };
@@ -573,8 +566,6 @@ describe('persistence', () => {
     });
 
     it('should add new MPID to cookies when returned MPID does not match anything in cookies, and have empty UI and UA', async () => {
-        mParticle._resetForTests(MPConfig);
-
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(hasIdentifyReturned);
 
@@ -1210,7 +1201,6 @@ describe('persistence', () => {
     });
 
     it('integration test - migrates a large localStorage cookie to cookies and properly remove MPIDs', async () => {
-        mParticle._resetForTests(MPConfig);
         mParticle.config.useCookieStorage = false;
         mParticle.config.maxCookieSize = 700;
 
@@ -1613,54 +1603,6 @@ describe('persistence', () => {
         cgid.should.not.equal('4ebad5b4-8ed1-4275-8455-838a2e3aa5c0');
     });
 
-    it('integration test - clears LS products on reload if LS products are corrupt', async () => {
-        // randomly added gibberish to a Base64 encoded cart product array to force a corrupt product array
-        const products =
-            'eyItOTE4MjY2NTAzNTA1ODg1NjAwMyI6eyasdjfiojasdifojfsdfJjcCI6W3siTmFtZSI6ImFuZHJvaWQiLCJTa3UiOiI1MTg3MDkiLCJQcmljZSI6MjM0LCJRdWFudGl0eSI6MSwiQnJhbmQiOm51bGwsIlZhcmlhbnQiOm51bGwsIkNhdGVnb3J5IjpudWxsLCJQb3NpdGlvbiI6bnVsbCwiQ291cG9uQ29kZSI6bnVsbCwiVG90YWxBbW91bnQiOjIzNCwiQXR0cmlidXRlcyI6eyJwcm9kYXR0cjEiOiJoaSJ9fSx7Ik5hbWUiOiJ3aW5kb3dzIiwiU2t1IjoiODMzODYwIiwiUHJpY2UiOjM0NSwiUXVhbnRpdHkiOjEsIlRvdGFsQW1vdW50IjozNDUsIkF0dHJpYnV0ZXMiOm51bGx9XX19';
-
-        localStorage.setItem(localStorageProductsV4, products);
-        mParticle.init(apiKey, mParticle.config);
-        await waitForCondition(hasIdentifyReturned);
-
-        const productsAfterInit = getLocalStorageProducts().testMPID;
-        expect(productsAfterInit.length).to.not.be.ok;
-    });
-
-    it('should save products to persistence correctly when adding and removing products', async () => {
-        mParticle.init(apiKey, mParticle.config);
-        await waitForCondition(hasIdentifyReturned);
-
-        const iphone = mParticle.eCommerce.createProduct(
-            'iphone',
-            'iphonesku',
-            599,
-            1,
-            'iphone variant',
-            'iphonecategory',
-            'iphonebrand',
-            null,
-            'iphonecoupon',
-            { iphoneattr1: 'value1', iphoneattr2: 'value2' }
-        );
-        mParticle.eCommerce.Cart.add(iphone, true);
-
-        let ls = localStorage.getItem(LocalStorageProductsV4WithWorkSpaceName);
-        const parsedProducts = JSON.parse(atob(ls));
-        // parsedProducts should just have key of testMPID with value of cp with a single product
-        Object.keys(parsedProducts).length.should.equal(1);
-        parsedProducts['testMPID'].should.have.property('cp');
-        parsedProducts['testMPID'].cp.length.should.equal(1);
-
-        mParticle.eCommerce.Cart.remove(iphone, true);
-        ls = localStorage.getItem(LocalStorageProductsV4WithWorkSpaceName);
-        const parsedProductsAfter = JSON.parse(atob(ls));
-        // parsedProducts should just have key of testMPID with value of cp with no products
-
-        Object.keys(parsedProductsAfter).length.should.equal(1);
-        parsedProductsAfter['testMPID'].should.have.property('cp');
-        parsedProductsAfter['testMPID'].cp.length.should.equal(0);
-    });
-
     it('should only set setFirstSeenTime() once', async () => {
         const cookies = JSON.stringify({
             gs: {
@@ -1717,8 +1659,6 @@ describe('persistence', () => {
     });
 
     it('should properly set setLastSeenTime()', async () => {
-        mParticle._resetForTests(MPConfig);
-
         const cookies = JSON.stringify({
             gs: {
                 sid: 'lst Test',
@@ -1848,8 +1788,6 @@ describe('persistence', () => {
     });
 
     it('should save to persistence a device id set with setDeviceId', async () => {
-        mParticle._resetForTests(MPConfig);
-
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
         mParticle.setDeviceId('foo-guid');
@@ -1860,8 +1798,7 @@ describe('persistence', () => {
             .gs.das.should.equal('foo-guid');
     });
 
-    it('should save to persistence a device id set via mParticle.config', done => {
-        mParticle._resetForTests(MPConfig);
+    it('should save to persistence a device id set via mParticle.config', () => {
         mParticle.config.deviceId = 'foo-guid';
         mParticle.init(apiKey, mParticle.config);
 
@@ -1869,13 +1806,9 @@ describe('persistence', () => {
             .getInstance()
             ._Persistence.getLocalStorage()
             .gs.das.should.equal('foo-guid');
-
-        done();
     });
 
-    it('should prioritize device id set via mParticle.config instead of local storage', done => {
-        mParticle._resetForTests(MPConfig);
-
+    it('should prioritize device id set via mParticle.config instead of local storage', () => {
         mParticle.init(apiKey, mParticle.config);
 
         const initialDeviceId = mParticle.getInstance().getDeviceId();
@@ -1902,8 +1835,6 @@ describe('persistence', () => {
             mParticle.getInstance()._Persistence.getLocalStorage().gs.das,
             'Device ID stored in Local Storage should be the new Device ID'
         ).to.equal(expectedDeviceId);
-
-        done();
     });
 
     // this test confirms a bug has been fixed where setting a user attribute, then user attribute list
@@ -1918,7 +1849,6 @@ describe('persistence', () => {
         // first test local storage
         mParticle.config.useCookieStorage = false;
 
-        mParticle._resetForTests(MPConfig);
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
@@ -1930,8 +1860,6 @@ describe('persistence', () => {
         user.getAllUserAttributes()['ua-list'][0].should.equal('a\\');
         user.getAllUserAttributes()['ua-list'][1].should.equal('<b>');
         user.getAllUserAttributes()['ua-1'].should.equal('a');
-
-        mParticle._resetForTests(MPConfig);
 
         // then test cookie storage
         mParticle.config.useCookieStorage = true;
@@ -1947,5 +1875,87 @@ describe('persistence', () => {
         user2.getAllUserAttributes()['ua-list'][0].should.equal('a\\');
         user2.getAllUserAttributes()['ua-list'][1].should.equal('<b>');
         user2.getAllUserAttributes()['ua-1'].should.equal('a');
+    });
+
+    describe('noFunctional privacy flag', () => {
+        describe('set to true', () => {
+            beforeEach(() => {
+                mParticle.config.launcherOptions = { noFunctional: true };
+            });
+
+            it('should NOT store cookie when useCookieStorage = true', async () => {
+                mParticle.config.useCookieStorage = true;
+
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                mParticle.getInstance()._Persistence.update();
+
+                expect(findCookie()).to.not.be.ok;
+            });
+
+            it('should NOT write localStorage when useCookieStorage = false', async () => {
+                mParticle.config.useCookieStorage = false;
+
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                mParticle.getInstance()._Persistence.update();
+
+                expect(getLocalStorage()).to.not.be.ok;
+            });
+        });
+
+        describe('set to false', () => {
+            beforeEach(() => {
+                mParticle.config.launcherOptions = { noFunctional: false };
+            });
+            
+            it('should store cookie when useCookieStorage = true', async () => {
+                mParticle.config.useCookieStorage = true;
+
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                mParticle.getInstance()._Persistence.update();
+
+                expect(findCookie()).to.be.ok;
+            });
+
+            it('should store localStorage when useCookieStorage = false', async () => {
+                mParticle.config.useCookieStorage = false;
+
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                mParticle.getInstance()._Persistence.update();
+
+                expect(getLocalStorage()).to.be.ok;
+            });
+        });
+
+        describe('is false by default', () => {
+            it('should store cookie when useCookieStorage = true', async () => {
+                mParticle.config.useCookieStorage = true;
+
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                mParticle.getInstance()._Persistence.update();
+
+                expect(findCookie()).to.be.ok;
+            });
+
+            it('should store localStorage when useCookieStorage = false', async () => {
+                mParticle.config.useCookieStorage = false;
+
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                mParticle.getInstance()._Persistence.update();
+
+                expect(getLocalStorage()).to.be.ok;
+            });
+        });
     });
 });

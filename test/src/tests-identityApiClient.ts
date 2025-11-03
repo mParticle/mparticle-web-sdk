@@ -690,13 +690,15 @@ describe('Identity Api Client', () => {
         const aliasUrl = 'https://jssdks.mparticle.com/v1/identity/test_key/Alias';
 
         beforeEach(function() {
+            mParticle._resetForTests(MPConfig);
+            fetchMock.config.overwriteRoutes = true;
             fetchMockSuccess(urls.events);
             mParticle.init(apiKey, window.mParticle.config);
         });
 
         afterEach(function() {
             fetchMock.restore();
-            mParticle._resetForTests(MPConfig);
+            sinon.restore();
         });
 
         it('should have just an httpCode on the result passed to the callback on a 200', async () => {

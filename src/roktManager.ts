@@ -319,15 +319,15 @@ export default class RoktManager {
         this.logger?.verbose(`RoktManager: Processing ${this.messageQueue.size} queued messages`);
 
         this.messageQueue.forEach((message) => {
-            if(!(message.methodName in this.kit) || !isFunction(this.kit[message.methodName])) {
-                this.logger?.error(`RoktManager: Method ${message.methodName} not found in kit`);
+            if(!(message.methodName in this) || !isFunction(this[message.methodName])) {
+                this.logger?.error(`RoktManager: Method ${message.methodName} not found`);
                 return;
             }
 
             this.logger?.verbose(`RoktManager: Processing queued message: ${message.methodName} with payload: ${JSON.stringify(message.payload)}`);
 
             try {
-                const result = (this.kit[message.methodName] as Function)(message.payload);
+                const result = (this[message.methodName] as Function)(message.payload);
                 this.completePendingPromise(message.messageId, result);
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
@@ -335,6 +335,9 @@ export default class RoktManager {
                 this.completePendingPromise(message.messageId, Promise.reject(error));
             }
         });
+
+        // Clear the queue after processing all messages
+        this.messageQueue.clear();
     }
 
     private queueMessage(message: IRoktMessage): void {

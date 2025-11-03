@@ -6,8 +6,9 @@ const Constants = {
     platform: 'web',
     Messages: {
         DeprecationMessages: {
-            MethodIsDeprecatedPostfix:
-                'is a deprecated method and will be removed in future releases',
+            MethodHasBeenDeprecated: 'has been deprecated.',
+            MethodMarkedForDeprecationPostfix:
+                'is a deprecated method and will be removed in future releases.',
             AlternativeMethodPrefix: 'Please use the alternate method:',
         },
         ErrorMessages: {
@@ -213,6 +214,9 @@ const Constants = {
         None: 'none',
         RoktOnly: 'roktonly',
     },
+    Rokt: {
+        LauncherInstanceGuidKey: '__rokt_li_guid__',
+    },
 } as const;
 
 export default Constants;
@@ -229,3 +233,14 @@ export const HTTP_UNAUTHORIZED = 401 as const;
 export const HTTP_FORBIDDEN = 403 as const;
 export const HTTP_NOT_FOUND = 404 as const;
 export const HTTP_SERVER_ERROR = 500 as const;
+
+export type PrivacyControl = 'functional' | 'targeting';
+
+export type StorageTypes = 'SDKState' | 'OfflineEvents' | 'IdentityCache' | 'TimeOnSite';
+
+export const StoragePrivacyMap: Record<StorageTypes, PrivacyControl> = {
+    SDKState: 'functional',
+    OfflineEvents: 'functional',
+    IdentityCache: 'functional',
+    TimeOnSite: 'targeting',
+};

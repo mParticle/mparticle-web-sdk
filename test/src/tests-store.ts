@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
+import fetchMock from 'fetch-mock/esm/client';
 import { SDKInitConfig } from '../../src/sdkRuntimeModels';
 import Store, {
     IStore,
@@ -104,6 +105,8 @@ describe('Store', () => {
     };
 
     beforeEach(function() {
+        window.mParticle._resetForTests(MPConfig);
+        fetchMock.config.overwriteRoutes = true;
         sandbox = sinon.createSandbox();
         clock = sinon.useFakeTimers(now.getTime());
         // MP Instance is just used because Store requires an mParticle instance
@@ -111,9 +114,10 @@ describe('Store', () => {
     });
 
     afterEach(function() {
-        window.mParticle._resetForTests(MPConfig);
         sandbox.restore();
         clock.restore();
+        fetchMock.restore();
+        sinon.restore();
     });
 
     describe('initialization', () => {
@@ -162,7 +166,6 @@ describe('Store', () => {
                 'isLocalStorageAvailable'
             ).to.eq(null);
             expect(store.storageName, 'storageName').to.eq(null);
-            expect(store.prodStorageName, 'prodStorageName').to.eq(null);
             expect(store.activeForwarders.length, 'activeForwarders').to.eq(0);
             expect(store.kits, 'kits').to.be.ok;
             expect(store.sideloadedKits, 'sideloaded kits').to.be.ok;
@@ -1417,9 +1420,6 @@ describe('Store', () => {
             store.processConfig(config);
 
             expect(store.storageName, 'storageName').to.equal('mprtcl-v4_foo');
-            expect(store.prodStorageName, 'prodStorageName').to.equal(
-                'mprtcl-prodv4_foo'
-            );
             expect(store.SDKConfig.workspaceToken, 'workspace token').to.equal(
                 'foo'
             );
@@ -1815,10 +1815,8 @@ describe('Store', () => {
         });
 
         it('should set noFunctional and noTargeting from init config', () => {
-            window.mParticle._resetForTests(MPConfig);
             window.mParticle.config = window.mParticle.config || {};
-            window.mParticle.config.noFunctional = true;
-            window.mParticle.config.noTargeting = true;
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: true };
 
             window.mParticle.init(apiKey, window.mParticle.config);
 

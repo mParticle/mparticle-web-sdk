@@ -1,5 +1,5 @@
 import Polyfill from './polyfill';
-import { CommerceEventType, EventType, IdentityType, ProductActionType, PromotionActionType } from './types';
+import { CommerceEventType, EventType, IdentityType, PerformanceMarkType, ProductActionType, PromotionActionType } from './types';
 import Constants from './constants';
 import mParticleInstance, { IMParticleWebSDKInstance } from './mp-instance.js';
 import _BatchValidator from './mockBatchCreator';
@@ -77,8 +77,14 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
             self._instances[instanceName] = client;
         }
 
+        client.captureTiming(PerformanceMarkType.SdkStart);
+        client.setLauncherInstanceGuid();
         client.init(apiKey, config, instanceName);
     };
+
+    this.captureTiming = function(metricsName) {
+        self.getInstance().captureTiming(metricsName);
+    }
 
     this.getInstance = function getInstance(instanceName) {
         let client: IMParticleWebSDKInstance;
@@ -151,12 +157,6 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
     };
     this.setPosition = function(lat, lng) {
         self.getInstance().setPosition(lat, lng);
-    };
-    this.startNewSession = function() {
-        self.getInstance().startNewSession();
-    };
-    this.endSession = function() {
-        self.getInstance().endSession();
     };
     this.logBaseEvent = function(event, eventOptions) {
         self.getInstance().logBaseEvent(event, eventOptions);

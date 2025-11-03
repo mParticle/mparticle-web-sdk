@@ -389,8 +389,10 @@ describe('RoktManager', () => {
     });
 
     describe('#processMessageQueue', () => {
-        it('should process the message queue if a launcher and kit are attached', () => {
-            const kit: IRoktKit = {
+        let kit: IRoktKit;
+
+        beforeEach(() => {
+            kit = {
                 launcher: {
                     selectPlacements: jest.fn(),
                     hashAttributes: jest.fn(),
@@ -404,6 +406,9 @@ describe('RoktManager', () => {
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
             };
+        });
+
+        it('should process the message queue if a launcher and kit are attached', () => {
 
 
             roktManager.selectPlacements({} as IRoktSelectPlacementsOptions);
@@ -419,6 +424,130 @@ describe('RoktManager', () => {
             roktManager['processMessageQueue']();
             expect(roktManager['messageQueue'].size).toBe(0);
             expect(kit.selectPlacements).toHaveBeenCalledTimes(3);
+        });
+
+        it('should call RoktManager methods (not kit methods directly) when processing queue', () => {
+            // Queue some calls before kit is ready (these will be deferred)
+            const selectOptions = { attributes: { test: 'value' } } as IRoktSelectPlacementsOptions;
+            const hashAttrs = { email: 'test@example.com' };
+            const extensionData = { 'test-ext': { config: true } };
+            const useName = 'TestExtension';
+
+            roktManager.selectPlacements(selectOptions);
+            roktManager.hashAttributes(hashAttrs);
+            roktManager.setExtensionData(extensionData);
+            roktManager.use(useName);
+
+            // Verify calls were queued
+            expect(roktManager['messageQueue'].size).toBe(4);
+            expect(kit.selectPlacements).not.toHaveBeenCalled(); // Kit methods not called yet
+            expect(kit.hashAttributes).not.toHaveBeenCalled(); // Kit methods not called yet
+            expect(kit.setExtensionData).not.toHaveBeenCalled(); // Kit methods not called yet
+            expect(kit.use).not.toHaveBeenCalled(); // Kit methods not called yet
+
+            // Spy on RoktManager methods AFTER initial calls to track queue processing
+            const selectPlacementsSpy = jest.spyOn(roktManager, 'selectPlacements');
+            const hashAttributesSpy = jest.spyOn(roktManager, 'hashAttributes');
+            const setExtensionDataSpy = jest.spyOn(roktManager, 'setExtensionData');
+            const useSpy = jest.spyOn(roktManager, 'use');
+
+            // Attach kit (triggers processMessageQueue)
+            roktManager.attachKit(kit);
+
+            // Verify RoktManager methods were called during queue processing
+            expect(selectPlacementsSpy).toHaveBeenCalledTimes(1);
+            expect(selectPlacementsSpy).toHaveBeenCalledWith(selectOptions);
+            
+            expect(hashAttributesSpy).toHaveBeenCalledTimes(1);
+            expect(hashAttributesSpy).toHaveBeenCalledWith(hashAttrs);
+            
+            expect(setExtensionDataSpy).toHaveBeenCalledTimes(1);
+            expect(setExtensionDataSpy).toHaveBeenCalledWith(extensionData);
+            
+            expect(useSpy).toHaveBeenCalledTimes(1);
+            expect(useSpy).toHaveBeenCalledWith(useName);
+
+            // Verify queue was cleared
+            expect(roktManager['messageQueue'].size).toBe(0);
+
+            // Clean up spies
+            selectPlacementsSpy.mockRestore();
+            hashAttributesSpy.mockRestore();
+            setExtensionDataSpy.mockRestore();
+            useSpy.mockRestore();
+        });
+
+        it('should preserve RoktManager preprocessing logic when processing deferred selectPlacements calls', () => {
+            // Set up placement attributes mapping to test preprocessing
+            roktManager['placementAttributesMapping'] = [
+                {
+                    jsmap: null,
+                    map: 'original_key',
+                    maptype: 'UserAttributeClass.Name',
+                    value: 'mapped_key'
+                }
+            ];
+
+            // Set up current user mock
+            roktManager['currentUser'] = {
+                setUserAttributes: jest.fn(),
+                getUserIdentities: jest.fn().mockReturnValue({
+                    userIdentities: {}
+                })
+            } as unknown as IMParticleUser;
+
+            // Queue a selectPlacements call with attributes that need mapping
+            const originalOptions: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    original_key: 'test_value',
+                    other_attr: 'other_value'
+                }
+            };
+
+            roktManager.selectPlacements(originalOptions);
+            expect(roktManager['messageQueue'].size).toBe(1);
+
+            // Attach kit (triggers processMessageQueue)
+            roktManager.attachKit(kit);
+
+            // Verify the kit method was called with MAPPED attributes (proving preprocessing occurred)
+            const expectedMappedOptions = {
+                attributes: {
+                    mapped_key: 'test_value',  // This key should be mapped
+                    other_attr: 'other_value'  // This key should remain unchanged
+                }
+            };
+
+            expect(kit.selectPlacements).toHaveBeenCalledWith(expectedMappedOptions);
+            expect(roktManager['currentUser'].setUserAttributes).toHaveBeenCalledWith({
+                mapped_key: 'test_value',
+                other_attr: 'other_value'
+            });
+        });
+
+
+        it('should skip processing if method does not exist on RoktManager', () => {
+            // Manually add a message with a non-existent method name
+            roktManager['queueMessage']({
+                messageId: 'test_123',
+                methodName: 'nonExistentMethod',
+                payload: { test: 'data' },
+                resolve: jest.fn(),
+                reject: jest.fn()
+            });
+
+            expect(roktManager['messageQueue'].size).toBe(1);
+
+            // Attach kit (triggers processMessageQueue)
+            roktManager.attachKit(kit);
+
+            // Verify error was logged for non-existent method
+            expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
+                'RoktManager: Method nonExistentMethod not found'
+            );
+
+            // Verify message was removed from queue even though method didn't exist
+            expect(roktManager['messageQueue'].size).toBe(0);
         });
     });
 
