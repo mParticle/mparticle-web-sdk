@@ -1,3 +1,4 @@
+import sinon from 'sinon';
 import { expect } from 'chai';
 import Utils from './config/utils';
 import { urls, apiKey, MPConfig, testMPID } from './config/constants';
@@ -22,6 +23,8 @@ const hasIdentifyReturned = () => {
 // https://go.mparticle.com/work/SQDSDKS-6508
 describe('mParticle User', () => {
     beforeEach(() => {
+        mParticle._resetForTests(MPConfig);
+        fetchMock.config.overwriteRoutes = true;
         delete mParticle.config.useCookieStorage;
         fetchMock.post(urls.events, 200);
         localStorage.clear();
@@ -36,54 +39,48 @@ describe('mParticle User', () => {
 
     afterEach(() => {
         fetchMock.restore();
-        mParticle._resetForTests(MPConfig);
+        sinon.restore();
     });
 
     describe('Consent State', () => {
         // https://go.mparticle.com/work/SQDSDKS-7393
-        it('get/set consent state for single user', (done) => {
-            mParticle._resetForTests(MPConfig);
-
+        it('get/set consent state for single user', async () => {
             mParticle.init(apiKey, mParticle.config);
-            waitForCondition(hasIdentifyReturned).then(() => {
-                let consentState = mParticle
-                    .getInstance()
-                    .Identity.getCurrentUser()
-                    .getConsentState();
+            await waitForCondition(hasIdentifyReturned);
+            let consentState = mParticle
+                .getInstance()
+                .Identity.getCurrentUser()
+                .getConsentState();
 
-                expect(consentState).to.equal(null);
-                consentState = mParticle.Consent.createConsentState();
-                consentState.addGDPRConsentState(
-                    'foo purpose',
-                    mParticle.Consent.createGDPRConsent(true, 10),
-                );
+            expect(consentState).to.equal(null);
+            consentState = mParticle.Consent.createConsentState();
+            consentState.addGDPRConsentState(
+                'foo purpose',
+                mParticle.Consent.createGDPRConsent(true, 10),
+            );
 
-                mParticle
-                    .getInstance()
-                    .Identity.getCurrentUser()
-                    .setConsentState(consentState);
+            mParticle
+                .getInstance()
+                .Identity.getCurrentUser()
+                .setConsentState(consentState);
 
-                const storedConsentState = mParticle
-                    .getInstance()
-                    .Identity.getCurrentUser()
-                    .getConsentState();
-                expect(storedConsentState).to.be.ok;
-                expect(
-                    storedConsentState.getGDPRConsentState(),
-                ).to.have.property('foo purpose');
-                expect(
-                    storedConsentState.getGDPRConsentState()['foo purpose'],
-                ).to.have.property('Consented', true);
-                expect(
-                    storedConsentState.getGDPRConsentState()['foo purpose'],
-                ).to.have.property('Timestamp', 10);
-                done();
-            });
+            const storedConsentState = mParticle
+                .getInstance()
+                .Identity.getCurrentUser()
+                .getConsentState();
+            expect(storedConsentState).to.be.ok;
+            expect(
+                storedConsentState.getGDPRConsentState(),
+            ).to.have.property('foo purpose');
+            expect(
+                storedConsentState.getGDPRConsentState()['foo purpose'],
+            ).to.have.property('Consented', true);
+            expect(
+                storedConsentState.getGDPRConsentState()['foo purpose'],
+            ).to.have.property('Timestamp', 10);
         });
 
         it('get/set consent state for multiple users', async () => {
-            mParticle._resetForTests(MPConfig);
-
             mParticle.init(apiKey, mParticle.config);
 
             await waitForCondition(hasIdentifyReturned);
