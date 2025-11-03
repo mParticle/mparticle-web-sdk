@@ -228,6 +228,7 @@ export interface MParticleWebSDK {
     generateHash(value: string): string;
     setIntegrationAttribute(integrationModuleId: number, attrs: IntegrationAttribute): void;
     getIntegrationAttributes(integrationModuleId: number): IntegrationAttribute;
+    captureTiming(metricName: string): void;
 }
 
 // https://go.mparticle.com/work/SQDSDKS-4805
@@ -319,7 +320,6 @@ export interface DataPlanConfig {
 export interface SDKHelpersApi {
     canLog?(): boolean;
     createMainStorageName?(workspaceToken: string): string;
-    createProductStorageName?(workspaceToken: string): string;
     createServiceUrl(url: string, devToken?: string): string;
     createXHR?(cb: () => void): XMLHttpRequest;
     extend?(...args: any[]);

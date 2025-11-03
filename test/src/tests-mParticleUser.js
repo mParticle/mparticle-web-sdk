@@ -14,6 +14,9 @@ const forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
 // https://go.mparticle.com/work/SQDSDKS-6508
 describe('mParticleUser', function() {
     beforeEach(function() {
+        mParticle._resetForTests(MPConfig);
+        fetchMock.config.overwriteRoutes = true;
+        
         fetchMockSuccess(urls.identify, {
             mpid: 'identifyMPID', is_logged_in: false
         });
@@ -34,8 +37,7 @@ describe('mParticleUser', function() {
         fetchMock.restore();
     });
 
-    it('should call forwarder onUserIdentified method with a filtered user identity list', function(done) {
-        mParticle._resetForTests(MPConfig);
+    it('should call forwarder onUserIdentified method with a filtered user identity list', async () => {
         const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -45,8 +47,8 @@ describe('mParticleUser', function() {
             window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        await waitForCondition(hasIdentifyReturned);
+        
         const userIdentityRequest = {
             userIdentities: {
                 google: 'test',
@@ -55,13 +57,13 @@ describe('mParticleUser', function() {
             },
         };
         mParticle.Identity.login(userIdentityRequest);
-        waitForCondition(() => {
+        await waitForCondition(() => {
             return (
                 mParticle.Identity.getCurrentUser()?.getMPID() ===
                 'loginMPID'
             );
-        })
-        .then(() => {
+        });
+        
         window.MockForwarder1.instance.onUserIdentifiedUser
             .getUserIdentities()
             .userIdentities.should.not.have.property('google');
@@ -71,13 +73,9 @@ describe('mParticleUser', function() {
         window.MockForwarder1.instance.onUserIdentifiedUser
             .getUserIdentities()
             .userIdentities.should.have.property('other', 'id2');
-        done();
-        })
-        })
     });
 
-    it('should call forwarder onUserIdentified method with a filtered user attributes list', function(done) {
-        mParticle._resetForTests(MPConfig);
+    it('should call forwarder onUserIdentified method with a filtered user attributes list', async () => {
         const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -89,8 +87,8 @@ describe('mParticleUser', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        await waitForCondition(hasIdentifyReturned);
+        
         const userIdentityRequest = {
             userIdentities: {
                 google: 'test',
@@ -100,13 +98,13 @@ describe('mParticleUser', function() {
         };
 
         mParticle.Identity.login(userIdentityRequest);
-        waitForCondition(() => {
+        await waitForCondition(() => {
             return (
                 mParticle.Identity.getCurrentUser()?.getMPID() ===
                 'loginMPID'
             );
-        })
-        .then(() => {});
+        });
+        
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.Identity.getCurrentUser().setUserAttribute('color', 'blue');
         mParticle.Identity.login(userIdentityRequest);
@@ -116,13 +114,9 @@ describe('mParticleUser', function() {
         window.MockForwarder1.instance.onUserIdentifiedUser
             .getAllUserAttributes()
             .should.have.property('color', 'blue');
-
-        done();
-    });
     });
 
-    it('should call forwarder onIdentifyComplete', function(done) {
-        mParticle._resetForTests(MPConfig);
+    it('should call forwarder onIdentifyComplete', async () => {
         const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -134,15 +128,12 @@ describe('mParticleUser', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        await waitForCondition(hasIdentifyReturned);
+        
         window.MockForwarder1.instance.onIdentifyCompleteCalled.should.equal(true);
-        done();
-        })
     });
 
-    it('should call forwarder onLoginComplete', function(done) {
-        mParticle._resetForTests(MPConfig);
+    it('should call forwarder onLoginComplete', async () => {
         const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -154,8 +145,8 @@ describe('mParticleUser', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        await waitForCondition(hasIdentifyReturned);
+        
         const userIdentityRequest = {
             userIdentities: {
                 google: 'test',
@@ -165,21 +156,17 @@ describe('mParticleUser', function() {
         };
 
         mParticle.Identity.login(userIdentityRequest);
-        waitForCondition(() => {
+        await waitForCondition(() => {
             return (
                 mParticle.Identity.getCurrentUser()?.getMPID() ===
                 'loginMPID'
             );
-        })
-        .then(() => {
-        window.MockForwarder1.instance.onLoginCompleteCalled.should.equal(true);
-        done();
         });
-        })
+        
+        window.MockForwarder1.instance.onLoginCompleteCalled.should.equal(true);
     });
 
-    it('should call forwarder onLogoutComplete', function(done) {
-        mParticle._resetForTests(MPConfig);
+    it('should call forwarder onLogoutComplete', async () => {
         const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -191,8 +178,8 @@ describe('mParticleUser', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        await waitForCondition(hasIdentifyReturned);
+        
         const userIdentityRequest = {
             userIdentities: {
                 google: 'test',
@@ -202,21 +189,17 @@ describe('mParticleUser', function() {
         };
 
         mParticle.Identity.logout(userIdentityRequest);
-        waitForCondition(() => {
+        await waitForCondition(() => {
             return (
                 mParticle.Identity.getCurrentUser()?.getMPID() ===
                 'logoutMPID'
             );
-        })
-        .then(() => {
-            window.MockForwarder1.instance.onLogoutCompleteCalled.should.equal(true);
-            done();
-        }); 
-        })
+        });
+        
+        window.MockForwarder1.instance.onLogoutCompleteCalled.should.equal(true);
     });
 
-    it('should call forwarder onModifyComplete method with the proper identity method passed through', function(done) {
-        mParticle._resetForTests(MPConfig);
+    it('should call forwarder onModifyComplete method with the proper identity method passed through', async () => {
         const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -228,8 +211,8 @@ describe('mParticleUser', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        await waitForCondition(hasIdentifyReturned);
+        
         const userIdentityRequest = {
             userIdentities: {
                 google: 'test',
@@ -243,16 +226,13 @@ describe('mParticleUser', function() {
         });
 
         mParticle.Identity.modify(userIdentityRequest);
-        waitForCondition(() => {
+        await waitForCondition(() => {
             return (
                 mParticle.Identity.getCurrentUser()?.getMPID() ===
                 'modifyMPID'
             );
-        })
-        .then(() => {
+        });
+        
         window.MockForwarder1.instance.onModifyCompleteCalled.should.equal(true);
-        done();
-        }); 
-        })
     });
 });

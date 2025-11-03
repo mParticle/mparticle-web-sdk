@@ -18,10 +18,9 @@ const enableBatchingConfigFlags = {
 };
 
 describe('batch uploader', () => {
-    let mockServer;
     let clock;
-
     beforeEach(() => {
+        window.mParticle._resetForTests(MPConfig);
         fetchMock.restore();
         fetchMock.config.overwriteRoutes = true;
         fetchMockSuccess(urls.identify, {
@@ -37,27 +36,18 @@ describe('batch uploader', () => {
     });
 
     describe('Upload Workflow', () => {
-        beforeEach(() => {
-        });
 
-        afterEach(() => {
-            fetchMock.restore();
-        });
-
-        it('should organize events in the order they are processed and maintain that order when uploading', (done) => {
+        it('should organize events in the order they are processed and maintain that order when uploading', async () => {
             // Batches should be uploaded in the order they were created to prevent
             // any potential corruption.
-            fetchMock.post(urls.events, 200);
-            fetchMock.config.overwriteRoutes = true;
-
             window.mParticle.config.flags = {
                 ...enableBatchingConfigFlags,
             };
 
-            window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
+
+            await waitForCondition(hasIdentifyReturned);
+            
             window.mParticle.logEvent('Test Event 0');
 
             // Manually initiate the upload process - turn event into batches and upload the batch
@@ -108,17 +98,11 @@ describe('batch uploader', () => {
             expect(batch3.events.length).to.equal(2);
             expect(batch3.events[0].data.event_name).to.equal('Test Event 4');
             expect(batch3.events[1].data.event_name).to.equal('Test Event 5');
-
-            done();
-
-        })
-        .catch((e) => {
-        })
         });
 
         // TODO: Investigate workflow with unshift vs push
         // https://go.mparticle.com/work/SQDSDKS-5165
-        it.skip('should keep batches in sequence for future retries when an HTTP 500 error occurs', (done) => {
+        it.skip('should keep batches in sequence for future retries when an HTTP 500 error occurs', () => {
             // If batches cannot upload, they should be added back to the Batch Queue
             // in the order they were created so they can be retransmitted.
 
@@ -128,7 +112,6 @@ describe('batch uploader', () => {
                 ...enableBatchingConfigFlags,
             };
 
-            window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
             // Generates Batch 1 with Session Start + AST
 
@@ -207,14 +190,12 @@ describe('batch uploader', () => {
                 expect((batchQueue[2].events[2] as CustomEvent).data.event_name).to.equal(
                     'Test Event 6'
                 );
-
-                done();
             }, 0);
         });
 
         // TODO: Investigate workflow with unshift vs push
         // https://go.mparticle.com/work/SQDSDKS-5165
-        it.skip('should keep and retry batches in sequence if the transmission fails midway', (done) => {
+        it.skip('should keep and retry batches in sequence if the transmission fails midway', () => {
             // First request is successful, subsequent requests fail
             fetchMock.post(urls.events, 200, {
                 overwriteRoutes: false,
@@ -229,7 +210,6 @@ describe('batch uploader', () => {
                 ...enableBatchingConfigFlags,
             };
 
-            window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
             // Generates Batch 1 with Session Start + AST
 
@@ -288,8 +268,6 @@ describe('batch uploader', () => {
                 expect((batchQueue[1].events[2] as CustomEvent).data.event_name).to.equal(
                     'Test Event 6'
                 );
-
-                done();
             }, 0);
         });
     });

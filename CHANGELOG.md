@@ -1,3 +1,27 @@
+# [2.48.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.47.1...v2.48.0) (2025-10-27)
+
+
+### Features
+
+* Add performance timing for SDK start measurement ([#1101](https://github.com/mParticle/mparticle-web-sdk/issues/1101)) ([3dbbffe](https://github.com/mParticle/mparticle-web-sdk/commit/3dbbffe3c5279aa4d17b639a28473c9e9fb4fcec))
+
+## [2.47.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.47.0...v2.47.1) (2025-10-06)
+
+# [2.47.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.46.0...v2.47.0) (2025-10-01)
+
+
+### Bug Fixes
+
+* SDKE-317 Call deferred methods on Rokt Manager instead of kit ([#1076](https://github.com/mParticle/mparticle-web-sdk/issues/1076)) ([3a0643b](https://github.com/mParticle/mparticle-web-sdk/commit/3a0643b13ce1d7ade12be85fa9d87ac5278fe158))
+
+
+### Features
+
+* added DisabledVault to disable id-cache when noFunctional is set ([#1072](https://github.com/mParticle/mparticle-web-sdk/issues/1072)) ([8187d72](https://github.com/mParticle/mparticle-web-sdk/commit/8187d726aac79493a1a6c5891eaa23823ca7bf52))
+* added noFunctional in batchUploader to disable offline storage ([#1063](https://github.com/mParticle/mparticle-web-sdk/issues/1063)) ([97dd88a](https://github.com/mParticle/mparticle-web-sdk/commit/97dd88aa20938f2976552c86c6db774d4b6c1023))
+* disable session cookie/localStorage when noFunctional is set ([#1070](https://github.com/mParticle/mparticle-web-sdk/issues/1070)) ([edb2e61](https://github.com/mParticle/mparticle-web-sdk/commit/edb2e61825ffacd2ca0b444c4a9d730cd9c95590))
+* disable time tracking when noTargeting is set to true ([#1064](https://github.com/mParticle/mparticle-web-sdk/issues/1064)) ([71c891c](https://github.com/mParticle/mparticle-web-sdk/commit/71c891c703353451aaad712d2e7d25722cb9f641))
+
 # [2.46.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.45.0...v2.46.0) (2025-09-17)
 
 

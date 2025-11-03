@@ -3,8 +3,10 @@ import {
     apiKey,
     testMPID,
     mParticle,
+    MPConfig,
 } from './config/constants';
 import sinon from 'sinon';
+import fetchMock from 'fetch-mock/esm/client';
 import Utils from './config/utils';
 
 const { waitForCondition, fetchMockSuccess, hasIdentityCallInflightReturned } = Utils;
@@ -13,6 +15,9 @@ describe('helpers', function() {
     let sandbox;
 
     beforeEach(function() {
+        mParticle._resetForTests(MPConfig);
+        fetchMock.config.overwriteRoutes = true;
+        
         // Create a fresh sandbox for each test to avoid spy conflicts
         sandbox = sinon.createSandbox();
 
@@ -31,13 +36,14 @@ describe('helpers', function() {
     });
 
     afterEach(function() {
+        fetchMock.restore();
         // Restore all spies/stubs created by this test's sandbox
         if (sandbox) {
             sandbox.restore();
         }
     });
 
-    it('should correctly validate an attribute value', function(done) {
+    it('should correctly validate an attribute value', () => {
         const validatedString = mParticle
             .getInstance()
             ._Helpers.Validators.isValidAttributeValue('testValue1');
@@ -63,8 +69,6 @@ describe('helpers', function() {
         validatedObject.should.not.be.ok();
         validatedArray.should.not.be.ok();
         validatedUndefined.should.not.be.ok();
-
-        done();
     });
 
     it('should return event name in warning when sanitizing invalid attributes', async () => {
@@ -80,7 +84,7 @@ describe('helpers', function() {
         );
     });
 
-    it('should return product name in warning when sanitizing invalid attributes', function(done) {
+    it('should return product name in warning when sanitizing invalid attributes', () => {
         const bond = sandbox.spy(mParticle.getInstance().Logger, 'warning');
         mParticle.eCommerce.createProduct(
             'productName',
@@ -100,8 +104,6 @@ describe('helpers', function() {
         bond.getCalls()[0].args[0].should.eql(
             "For 'productName', the corresponding attribute value of 'invalidValue' must be a string, number, boolean, or null."
         );
-
-        done();
     });
 
     it('should return commerce event name in warning when sanitizing invalid attributes', async () => {
@@ -123,7 +125,7 @@ describe('helpers', function() {
         );
     });
 
-    it('should correctly validate an identity request with copyUserAttribute as a key using any identify method', function(done) {
+    it('should correctly validate an identity request with copyUserAttribute as a key using any identify method', () => {
         const identityApiData = {
             userIdentities: {
                 customerid: '123',
@@ -147,11 +149,9 @@ describe('helpers', function() {
         logoutResult.valid.should.equal(true);
         loginResult.valid.should.equal(true);
         modifyResult.valid.should.equal(true);
-
-        done();
     });
 
-    it('should correctly parse string or number', function(done) {
+    it('should correctly parse string or number', () => {
         const string = 'abc';
         const number = 123;
         const object = {};
@@ -178,11 +178,9 @@ describe('helpers', function() {
         Should(objectResult).not.be.ok();
         Should(arrayResult).not.be.ok();
         Should(nullResult).not.be.ok();
-
-        done();
     });
 
-    it('should filterUserIdentities and include customerId as first in the array', function(done) {
+    it('should filterUserIdentities and include customerId as first in the array', () => {
         const filterList = [2, 4, 6, 8];
         const userIdentitiesObject = {
             email: 'test@gmail.com',
@@ -205,12 +203,10 @@ describe('helpers', function() {
         );
         filteredIdentities[1].should.have.property('Type', 7);
         filteredIdentities[2].should.have.property('Identity', 'abc');
-        filteredIdentities[2].should.have.property('Type', 0);
-
-        done();
+        filteredIdentities[2].should.have.property('Type', 0);        
     });
 
-    it('should return the appropriate boolean for if events should be delayed by an integration', function(done) {
+    it('should return the appropriate boolean for if events should be delayed by an integration', () => {
         const integrationDelays1 = {
             128: false,
             20: false,
@@ -246,22 +242,18 @@ describe('helpers', function() {
         result2.should.equal(true);
         result3.should.equal(false);
         result4.should.equal(false);
-
-        done();
     });
 
-    it('should return false if integration delay object is empty', function(done) {
+    it('should return false if integration delay object is empty', () => {
         const emptyIntegrationDelays = {};
         const result1 = mParticle
             .getInstance()
             ._Helpers.isDelayedByIntegration(emptyIntegrationDelays);
 
         result1.should.equal(false);
-
-        done();
     });
 
-    it('should return 0 when hashing undefined or null', function(done) {
+    it('should return 0 when hashing undefined or null', () => {
         mParticle.generateHash(undefined)
             .should.equal(0);
         mParticle.generateHash(null)
@@ -269,11 +261,9 @@ describe('helpers', function() {
         (typeof mParticle.generateHash(false)).should.equal('number');
         mParticle.generateHash(false)
             .should.not.equal(0);
-
-        done();
     });
 
-    it('should generate random value', function(done) {
+    it('should generate random value', () => {
         let randomValue = mParticle.getInstance()._Helpers.generateUniqueId();
         randomValue.should.be.ok();
         window.crypto.getRandomValues = undefined;
@@ -288,41 +278,19 @@ describe('helpers', function() {
 
         randomValue = mParticle.getInstance()._Helpers.generateUniqueId();
         randomValue.should.be.ok();
-        done();
     });
 
-    it('should create a storage name based on default mParticle storage version + apiKey if apiKey is passed in', function(done) {
+    it('should create a storage name based on default mParticle storage version + apiKey if apiKey is passed in', () => {
         const cookieName = mParticle
             .getInstance()
             ._Helpers.createMainStorageName(apiKey);
         cookieName.should.equal('mprtcl-v4_test_key');
-
-        done();
     });
 
-    it('should create a storage name based on default mParticle storage version if no apiKey is passed in', function(done) {
+    it('should create a storage name based on default mParticle storage version if no apiKey is passed in', () => {
         const cookieName = mParticle
             .getInstance()
             ._Helpers.createMainStorageName();
         cookieName.should.equal('mprtcl-v4');
-
-        done();
-    });
-
-    it('should create a product storage name based on default mParticle storage version + apiKey if apiKey is passed in', function(done) {
-        const cookieName = mParticle
-            .getInstance()
-            ._Helpers.createProductStorageName(apiKey);
-        cookieName.should.equal('mprtcl-prodv4_test_key');
-
-        done();
-    });
-    it('should create a product storage name based on default mParticle storage version if no apiKey is passed in', function(done) {
-        const cookieName = mParticle
-            .getInstance()
-            ._Helpers.createProductStorageName();
-        cookieName.should.equal('mprtcl-prodv4');
-
-        done();
     });
 });
