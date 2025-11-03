@@ -227,15 +227,25 @@ export default class RoktManager {
         }
     }
 
-    public hashAttributes(attributes: IRoktPartnerAttributes): Promise<IRoktPartnerAttributes> {
-        if (!this.isReady()) {
-            return this.deferredCall<IRoktPartnerAttributes>('hashAttributes', attributes);
-        }
-
+    public async hashAttributes(attributes: IRoktPartnerAttributes): Promise<Record<string, string>> {
+        const hashedAttributes: Record<string, string> = {};
         try {
-            return this.kit.hashAttributes(attributes);
+            const attributeEntries = Object.entries(attributes ?? {});
+            const hashingTasks = attributeEntries
+                .filter(([, value]) => value !== undefined && value !== null)
+                .map(async ([key, value]) => {
+                    const normalizedAttributeValue = String(value).trim().toLocaleLowerCase();
+                    const hashedKey = `${key}sha256`;
+                    const hashedValue = await this.sha256Hex(normalizedAttributeValue);
+                    hashedAttributes[hashedKey] = hashedValue;
+                });
+
+            await Promise.all(hashingTasks);
+            return hashedAttributes;
         } catch (error) {
-            return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger.error('Failed hashAttributes: ' + errorMessage);
+            return Promise.reject(new Error(String(error)));
         }
     }
 
@@ -372,5 +382,22 @@ export default class RoktManager {
         }
         
         this.messageQueue.delete(messageId);
+    }
+
+    private async sha256Hex(input: string): Promise<string> {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(input);
+        const digest = await crypto.subtle.digest('SHA-256', data);
+        return this.arrayBufferToHex(digest);
+    }
+
+    private arrayBufferToHex(buffer: ArrayBuffer): string {
+        const bytes = new Uint8Array(buffer);
+        let hexString = '';
+        for (let i = 0; i < bytes.length; i++) {
+            const hexByte = bytes[i].toString(16).padStart(2, '0');
+            hexString += hexByte;
+        }
+        return hexString;
     }
 }
