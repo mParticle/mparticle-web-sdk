@@ -949,11 +949,7 @@ export default function _Persistence(mpInstance) {
     };
 
     this.resetPersistence = function() {
-        removeLocalStorage(StorageNames.localStorageName);
-        removeLocalStorage(StorageNames.localStorageNameV3);
-        removeLocalStorage(StorageNames.localStorageNameV4);
-        removeLocalStorage(mpInstance._Store.storageName);
-        removeLocalStorage(StorageNames.localStorageProductsV4);
+        localStorage.clear();
 
         self.expireCookies(StorageNames.cookieName);
         self.expireCookies(StorageNames.cookieNameV2);
