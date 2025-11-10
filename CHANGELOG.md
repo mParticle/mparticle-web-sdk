@@ -1,3 +1,10 @@
+# [2.49.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.48.0...v2.49.0) (2025-11-10)
+
+
+### Features
+
+* add BrowserStack beta suite and workflow ([#1074](https://github.com/mParticle/mparticle-web-sdk/issues/1074)) ([8c5749d](https://github.com/mParticle/mparticle-web-sdk/commit/8c5749d42bdfe3c4a2ef0ca8e58d17705132218e))
+
 # [2.48.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.47.1...v2.48.0) (2025-10-27)
 
 
