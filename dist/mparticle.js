@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.48.0";
+    var version = "2.49.0";
 
     var Constants = {
       sdkVersion: version,
@@ -5612,11 +5612,7 @@ var mParticle = (function () {
         self.update();
       };
       this.resetPersistence = function () {
-        removeLocalStorage(StorageNames.localStorageName);
-        removeLocalStorage(StorageNames.localStorageNameV3);
-        removeLocalStorage(StorageNames.localStorageNameV4);
-        removeLocalStorage(mpInstance._Store.storageName);
-        removeLocalStorage(StorageNames.localStorageProductsV4);
+        localStorage.clear();
         self.expireCookies(StorageNames.cookieName);
         self.expireCookies(StorageNames.cookieNameV2);
         self.expireCookies(StorageNames.cookieNameV3);
@@ -11399,12 +11395,6 @@ var mParticle = (function () {
       };
       this.setPosition = function (lat, lng) {
         self.getInstance().setPosition(lat, lng);
-      };
-      this.startNewSession = function () {
-        self.getInstance().startNewSession();
-      };
-      this.endSession = function () {
-        self.getInstance().endSession();
       };
       this.logBaseEvent = function (event, eventOptions) {
         self.getInstance().logBaseEvent(event, eventOptions);
