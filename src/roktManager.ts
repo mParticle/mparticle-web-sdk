@@ -8,10 +8,13 @@ import {
     generateUniqueId,
     isFunction,
     AttributeValue,
+    isEmpty,
 } from "./utils";
 import { SDKIdentityApi } from "./identity.interfaces";
 import { SDKLoggerApi } from "./sdkRuntimeModels";
 import { IStore, LocalSessionAttributes } from "./store";
+import { UserIdentities } from "@mparticle/web-sdk";
+import { IdentityType } from "./types";
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export interface IRoktPartnerAttributes {
@@ -96,6 +99,7 @@ export default class RoktManager {
     private launcherOptions?: IRoktLauncherOptions;
     private logger: SDKLoggerApi;
     private domain?: string;
+    private mappedEmailShaIdentityType?: string  | null;
     /**
      * Initializes the RoktManager with configuration settings and user data.
      * 
@@ -116,7 +120,8 @@ export default class RoktManager {
         options?: IRoktOptions
     ): void {
         const { userAttributeFilters, settings } = roktConfig || {};
-        const { placementAttributesMapping } = settings || {};
+        const { placementAttributesMapping, hashedEmailUserIdentityType } = settings || {};
+        this.mappedEmailShaIdentityType = hashedEmailUserIdentityType?.toLowerCase() ?? null;
 
         this.identityService = identityService;
         this.store = store;
@@ -182,23 +187,43 @@ export default class RoktManager {
             // Get current user identities
             this.currentUser = this.identityService.getCurrentUser();
             const currentUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
+
             const currentEmail = currentUserIdentities.email;
             const newEmail = mappedAttributes.email as string;
 
-            // https://go.mparticle.com/work/SQDSDKS-7338
-            // Check if email exists and differs
-            if (newEmail && (!currentEmail || currentEmail !== newEmail)) {
-                if (currentEmail && currentEmail !== newEmail) {
+            let currentHashedEmail: string | undefined;
+            let newHashedEmail: string | undefined;
+            
+            // Hashed email identity is valid if it is set to Other-Other10
+            if(this.mappedEmailShaIdentityType && IdentityType.getIdentityType(this.mappedEmailShaIdentityType) !== false) {
+                currentHashedEmail = currentUserIdentities[this.mappedEmailShaIdentityType];
+                newHashedEmail = mappedAttributes['emailsha256'] as string || mappedAttributes[this.mappedEmailShaIdentityType] as string || undefined;
+            }
+
+            const emailChanged = this.hasIdentityChanged(currentEmail, newEmail);
+            const hashedEmailChanged = this.hasIdentityChanged(currentHashedEmail, newHashedEmail);
+
+            const newIdentities: UserIdentities = {};
+            if (emailChanged) {
+                newIdentities.email = newEmail;
+                if (newEmail) {
                     this.logger.warning(`Email mismatch detected. Current email, ${currentEmail} differs from email passed to selectPlacements call, ${newEmail}. Proceeding to call identify with ${newEmail}. Please verify your implementation.`);
                 }
+            }
 
+            if (hashedEmailChanged) {
+                newIdentities[this.mappedEmailShaIdentityType] = newHashedEmail;
+                this.logger.warning(`emailsha256 mismatch detected. Current mParticle ${this.mappedEmailShaIdentityType} identity, ${currentHashedEmail}, differs from 'emailsha256' passed to selectPlacements call, ${newHashedEmail}. Proceeding to call identify with ${this.mappedEmailShaIdentityType} set to ${newHashedEmail}. Please verify your implementation`);
+            }
+
+            if (!isEmpty(newIdentities)) {
                 // Call identify with the new user identities
                 try {
                     await new Promise<void>((resolve, reject) => {
                         this.identityService.identify({
                             userIdentities: {
                                 ...currentUserIdentities,
-                                email: newEmail
+                                ...newIdentities
                             }
                         }, () => {
                             resolve();
@@ -321,6 +346,7 @@ export default class RoktManager {
         this.messageQueue.forEach((message) => {
             if(!(message.methodName in this) || !isFunction(this[message.methodName])) {
                 this.logger?.error(`RoktManager: Method ${message.methodName} not found`);
+
                 return;
             }
 
@@ -372,5 +398,28 @@ export default class RoktManager {
         }
         
         this.messageQueue.delete(messageId);
+    }
+
+    /**
+     * Checks if an identity value has changed by comparing current and new values
+     * 
+     * @param {string | undefined} currentValue - The current identity value
+     * @param {string | undefined} newValue - The new identity value to compare against
+     * @returns {boolean} True if the identity has changed (new value exists and differs from current), false otherwise
+     */
+    private hasIdentityChanged(currentValue: string | undefined, newValue: string | undefined): boolean {
+        if (!newValue) {
+            return false;
+        }
+        
+        if (!currentValue) {
+            return true; // New value exists but no current value
+        }
+        
+        if (currentValue !== newValue) {
+            return true; // Values are different
+        }
+        
+        return false; // Values are the same
     }
 }
