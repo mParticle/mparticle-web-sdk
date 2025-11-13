@@ -207,13 +207,13 @@ export default class RoktManager {
             if (emailChanged) {
                 newIdentities.email = newEmail;
                 if (newEmail) {
-                    this.logger.warning(`Email mismatch detected. Current email, ${currentEmail} differs from email passed to selectPlacements call, ${newEmail}. Proceeding to call identify with ${newEmail}. Please verify your implementation.`);
+                    this.logger.warning(`Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.`);
                 }
             }
 
             if (hashedEmailChanged) {
                 newIdentities[this.mappedEmailShaIdentityType] = newHashedEmail;
-                this.logger.warning(`emailsha256 mismatch detected. Current mParticle ${this.mappedEmailShaIdentityType} identity, ${currentHashedEmail}, differs from 'emailsha256' passed to selectPlacements call, ${newHashedEmail}. Proceeding to call identify with ${this.mappedEmailShaIdentityType} set to ${newHashedEmail}. Please verify your implementation`);
+                this.logger.warning(`emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.`);
             }
 
             if (!isEmpty(newIdentities)) {
