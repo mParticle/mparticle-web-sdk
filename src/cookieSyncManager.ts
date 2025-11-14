@@ -13,6 +13,16 @@ const { InformationMessages } = Messages;
 
 export const DAYS_IN_MILLISECONDS = 1000 * 60 * 60 * 24;
 
+// Partner module IDs for cookie sync configurations
+export const PARTNER_MODULE_IDS = {
+    AdobeEventForwarder: 11,
+    DoubleclickDFP: 41,
+    AppNexus: 50,
+    Lotame: 58,
+    TradeDesk: 103,
+    VerizonMedia: 155,
+} as const;
+
 export type CookieSyncDates = Dictionary<number>; 
 
 export interface IPixelConfiguration {
@@ -112,7 +122,9 @@ export default function CookieSyncManager(
             }
 
             // Url for cookie sync pixel
-            const fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl)
+            // Add domain parameter for Trade Desk
+            const domain = moduleId === PARTNER_MODULE_IDS.TradeDesk ? window.location.hostname : undefined;
+            const fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl, domain);
 
             self.performCookieSync(
                 fullUrl,
