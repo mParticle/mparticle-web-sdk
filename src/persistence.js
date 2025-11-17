@@ -25,7 +25,6 @@ export default function _Persistence(mpInstance) {
                 localStorageData = self.getLocalStorage(),
                 cookies = self.getCookie(),
                 allData;
-
             // https://go.mparticle.com/work/SQDSDKS-6045
             // Determine if there is any data in cookies or localStorage to figure out if it is the first time the browser is loading mParticle
             if (!localStorageData && !cookies) {
@@ -36,6 +35,8 @@ export default function _Persistence(mpInstance) {
             }
 
             if (mpInstance._Store.getPrivacyFlag('SDKState')) {
+                // Call storeDataInMemory without parameters will create a new DAS
+                self.storeDataInMemory();
                 return;
             }
 
