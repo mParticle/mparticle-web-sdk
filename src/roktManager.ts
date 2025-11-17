@@ -264,28 +264,6 @@ export default class RoktManager {
         }
     }
 
-    /**
-     * Hashes a single value using SHA-256
-     * Accepts the same types as IRoktPartnerAttributes values
-     * 
-     * @param {string | number | boolean | undefined | null} attribute - The value to hash
-     * @returns {Promise<string>} The SHA-256 hex digest of the normalized value
-     * 
-     */
-    public async hashSha256(attribute: string | number | boolean | undefined | null): Promise<string> {
-        try {
-            if (attribute === undefined || attribute === null) {
-                return Promise.reject(new Error('Value cannot be null or undefined'));
-            }
-            const normalizedValue = String(attribute).trim().toLocaleLowerCase();
-            return await this.sha256Hex(normalizedValue);
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            this.logger.error('Failed hashSha256: ' + errorMessage);
-            return Promise.reject(new Error(String(error)));
-        }
-    }
-
     public setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void {
         if (!this.isReady()) {
             this.deferredCall<void>('setExtensionData', extensionData);
@@ -309,6 +287,28 @@ export default class RoktManager {
             return this.kit.use<T>(name);
         } catch (error) {
             return Promise.reject(error instanceof Error ? error : new Error('Error using extension: ' + name));
+        }
+    }
+
+    /**
+     * Hashes an attribute using SHA-256
+     * 
+     * @param {string | number | boolean | undefined | null} attribute - The value to hash
+     * @returns {Promise<string>} The SHA-256 hex digest of the normalized value
+     * 
+     */
+    public async hashSha256(attribute: string | number | boolean | undefined | null): Promise<string> {
+        if (attribute === undefined || attribute === null) {
+            throw new Error('Value cannot be null or undefined');
+        }
+        
+        try {
+            const normalizedValue = String(attribute).trim().toLocaleLowerCase();
+            return await this.sha256Hex(normalizedValue);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger.error('Failed hashSha256: ' + errorMessage);
+            throw error;
         }
     }
 
