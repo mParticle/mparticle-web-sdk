@@ -35,7 +35,7 @@ export default function _Persistence(mpInstance) {
             }
 
             if (mpInstance._Store.getPrivacyFlag('SDKState')) {
-                // Call storeDataInMemory without parameters will create a new DAS
+                // Calling storeDataInMemory without parameters will create a new DAS if it doesn't exist
                 self.storeDataInMemory();
                 return;
             }
