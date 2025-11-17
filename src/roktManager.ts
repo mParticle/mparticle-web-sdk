@@ -264,6 +264,28 @@ export default class RoktManager {
         }
     }
 
+    /**
+     * Hashes a single value using SHA-256
+     * Accepts the same types as IRoktPartnerAttributes values
+     * 
+     * @param {string | number | boolean | undefined | null} attribute - The value to hash
+     * @returns {Promise<string>} The SHA-256 hex digest of the normalized value
+     * 
+     */
+    public async hashSha256(attribute: string | number | boolean | undefined | null): Promise<string> {
+        try {
+            if (attribute === undefined || attribute === null) {
+                return Promise.reject(new Error('Value cannot be null or undefined'));
+            }
+            const normalizedValue = String(attribute).trim().toLocaleLowerCase();
+            return await this.sha256Hex(normalizedValue);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger.error('Failed hashSha256: ' + errorMessage);
+            return Promise.reject(new Error(String(error)));
+        }
+    }
+
     public setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void {
         if (!this.isReady()) {
             this.deferredCall<void>('setExtensionData', extensionData);
@@ -398,6 +420,37 @@ export default class RoktManager {
         }
         
         this.messageQueue.delete(messageId);
+    }
+
+    /**
+     * Hashes a string input using SHA-256 and returns the hex digest
+     * Uses the Web Crypto API for secure hashing
+     * 
+     * @param {string} input - The string to hash
+     * @returns {Promise<string>} The SHA-256 hash as a hexadecimal string
+     */
+    private async sha256Hex(input: string): Promise<string> {
+        const encoder = new TextEncoder();
+        const encodedInput = encoder.encode(input);
+        const digest = await crypto.subtle.digest('SHA-256', encodedInput);
+        return this.arrayBufferToHex(digest);
+    }
+
+    /**
+     * Converts an ArrayBuffer to a hexadecimal string representation
+     * Each byte is converted to a 2-character hex string with leading zeros
+     * 
+     * @param {ArrayBuffer} buffer - The buffer to convert
+     * @returns {string} The hexadecimal string representation
+     */
+    private arrayBufferToHex(buffer: ArrayBuffer): string {
+        const bytes = new Uint8Array(buffer);
+        let hexString = '';
+        for (let i = 0; i < bytes.length; i++) {
+            const hexByte = bytes[i].toString(16).padStart(2, '0');
+            hexString += hexByte;
+        }
+        return hexString;
     }
 
     /**
