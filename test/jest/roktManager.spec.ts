@@ -210,6 +210,112 @@ describe('RoktManager', () => {
         });
     });
 
+    describe('#hashSha256', () => {
+        interface Hasher {
+            sha256Hex(input: string): Promise<string>
+        }
+
+        const nodeCrypto = require('crypto');
+        let shaSpy: jest.SpyInstance;
+
+        beforeEach(() => {
+            shaSpy = jest.spyOn(roktManager as unknown as Hasher, 'sha256Hex');
+            shaSpy.mockImplementation((s: any) =>
+                Promise.resolve(nodeCrypto.createHash('sha256').update(String(s)).digest('hex')),
+            );
+        });
+
+        afterEach(() => {
+            shaSpy.mockRestore();
+        });
+
+        it('should hash a single string value using SHA-256', async () => {
+            const result = await roktManager.hashSha256('test@example.com');
+            const expected = nodeCrypto.createHash('sha256').update('test@example.com').digest('hex');
+
+            expect(result).toBe(expected);
+            expect(shaSpy).toHaveBeenCalledWith('test@example.com');
+            expect(shaSpy).toHaveBeenCalledTimes(1);
+        });
+
+        it('should hash values without kit being attached', async () => {
+            // Verify kit is not attached
+            expect(roktManager['kit']).toBeNull();
+
+            const result = await roktManager.hashSha256('user@example.com');
+            const expected = nodeCrypto.createHash('sha256').update('user@example.com').digest('hex');
+
+            expect(result).toBe(expected);
+        });
+
+        it('should handle empty string', async () => {
+            const emptyStringHash = await roktManager.hashSha256('');
+            
+            // Empty string after trim becomes '', hash of empty string
+            expect(emptyStringHash).toBe('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
+        });
+
+        it('should reject when value is null', async () => {
+            await expect(roktManager.hashSha256(null)).rejects.toThrow('Value cannot be null or undefined');
+        });
+
+        it('should reject when value is undefined', async () => {
+            await expect(roktManager.hashSha256(undefined)).rejects.toThrow('Value cannot be null or undefined');
+        });
+
+        it('should log error when hashing fails', async () => {
+            shaSpy.mockRejectedValue(new Error('Hash failed'));
+
+            await expect(roktManager.hashSha256('test@example.com')).rejects.toThrow();
+            expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(expect.stringContaining('Failed hashSha256'));
+        });
+
+        it('should hash firstName to known SHA-256 value', async () => {
+            const hashedFirstName = await roktManager.hashSha256('jane');
+            
+            // Expected SHA-256 hash of 'jane'
+            expect(hashedFirstName).toBe('81f8f6dde88365f3928796ec7aa53f72820b06db8664f5fe76a7eb13e24546a2');
+        });
+
+        it('should produce same hash for different case and whitespace variations', async () => {
+            const lowercaseEmail = await roktManager.hashSha256('jane.doe@gmail.com');
+            const mixedCaseEmail = await roktManager.hashSha256('Jane.Doe@gmail.com');
+            const emailWithWhitespace = await roktManager.hashSha256(' jane.doe@gmail.com   ');
+
+            // All should normalize to same hash
+            expect(lowercaseEmail).toBe(mixedCaseEmail);
+            expect(mixedCaseEmail).toBe(emailWithWhitespace);
+            expect(lowercaseEmail).toBe('831f6494ad6be4fcb3a724c3d5fef22d3ceffa3c62ef3a7984e45a0ea177f982');
+        });
+
+        it('should handle numeric values and match known SHA-256', async () => {
+            const hashedNumber = await roktManager.hashSha256(42);
+            const hashedString = await roktManager.hashSha256('42');
+
+            // Numeric value should be converted to string and produce same hash
+            expect(hashedNumber).toBe(hashedString);
+            // Expected SHA-256 hash of '42'
+            expect(hashedNumber).toBe('73475cb40a568e8da8a045ced110137e159f890ac4da883b6b17dc651b3a8049');
+        });
+
+        it('should handle boolean values and match known SHA-256', async () => {
+            const hashedBoolean = await roktManager.hashSha256(true);
+            const hashedString = await roktManager.hashSha256('true');
+
+            // Boolean value should be converted to string and produce same hash
+            expect(hashedBoolean).toBe(hashedString);
+            // Expected SHA-256 hash of 'true'
+            expect(hashedBoolean).toBe('b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b');
+        });
+
+        it('should hash phone number to known SHA-256 value', async () => {
+            const hashedPhone = await roktManager.hashSha256('1234567890');
+            
+            // Expected SHA-256 hash of '1234567890'
+            expect(hashedPhone).toBe('c775e7b757ede630cd0aa1113bd102661ab38829ca52a6422ab782862f268646');
+        });
+    });
+
     describe('#init', () => {
         it('should initialize the manager with defaults when no config is provided', () => {
             roktManager.init(
