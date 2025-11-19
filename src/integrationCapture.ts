@@ -120,6 +120,12 @@ const integrationMappingExternal: IntegrationIdMapping = {
         mappedKey: 'SnapchatConversions.ClickId',
         output: IntegrationOutputs.CUSTOM_FLAGS,
     },
+    // Snapchat
+    // https://businesshelp.snapchat.com/s/article/capi-gtm-examples?language=en_US
+    sc_cookie1: {
+        mappedKey: 'SnapchatConversions.Cookie1',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
+    },
 };
 
 const integrationMappingRokt: IntegrationIdMapping = {
