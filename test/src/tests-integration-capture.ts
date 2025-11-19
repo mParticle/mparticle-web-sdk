@@ -45,6 +45,7 @@ describe('Integration Capture', () => {
         window.document.cookie = '_fbp=54321';
         window.document.cookie = 'baz=qux';
         window.document.cookie = '_ttp=45670808';
+        window.document.cookie = '_scid=cookie1-value';
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
         const integrationCapture = window.mParticle.getInstance()._IntegrationCapture;
@@ -57,7 +58,6 @@ describe('Integration Capture', () => {
             rclid: '7183717',
             wbraid: '1234111',
             ScCid: '1234',
-            sc_cookie1: 'cookie1-value',
         });
         integrationCapture.capture();
     });

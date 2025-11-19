@@ -121,8 +121,8 @@ const integrationMappingExternal: IntegrationIdMapping = {
         output: IntegrationOutputs.CUSTOM_FLAGS,
     },
     // Snapchat
-    // https://businesshelp.snapchat.com/s/article/capi-gtm-examples?language=en_US
-    sc_cookie1: {
+    // https://developers.snap.com/api/marketing-api/Conversions-API/UsingTheAPI#sending-click-id
+    _scid: {
         mappedKey: 'SnapchatConversions.Cookie1',
         output: IntegrationOutputs.CUSTOM_FLAGS,
     },

@@ -28,7 +28,7 @@ describe('Integration Capture', () => {
                 'wbraid',
                 'ttclid',
                 'ScCid',
-                'sc_cookie1'
+                '_scid'
             ]);
         });
 
@@ -56,7 +56,7 @@ describe('Integration Capture', () => {
                 'wbraid',
                 'ttclid',
                 'ScCid',
-                'sc_cookie1',
+                '_scid',
             ];
             for (const key of excludedKeys) {
                 expect(mappings).not.toHaveProperty(key);
@@ -108,7 +108,7 @@ describe('Integration Capture', () => {
         it('should return all mapped keys from helpers when captureMode is all (lowercase)', () => {
             jest.spyOn(Date, 'now').mockImplementation(() => 42);
             // Query params
-            const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1&ScCid=snap1&sc_cookie1=cookie1');
+            const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1&ScCid=snap1');
             window.location.href = url.href;
             window.location.search = url.search;
 
@@ -127,7 +127,7 @@ describe('Integration Capture', () => {
             const clickIdLocalStorage = integrationCapture.captureLocalStorage();
 
             // fbclid is formatted with timestamp/domain index
-            expect(clickIds).toMatchObject({ fbclid: 'fb.2.42.abc', gclid: 'g1', rtid: 'rt1', rclid: 'rc1', ScCid: 'snap1', sc_cookie1: 'cookie1' });
+            expect(clickIds).toMatchObject({ fbclid: 'fb.2.42.abc', gclid: 'g1', rtid: 'rt1', rclid: 'rc1', ScCid: 'snap1' });
             expect(clickIdCookies).toMatchObject({ _fbp: '54321', _fbc: 'fb.1.1554763741205.abcdef', RoktTransactionId: 'xyz' });
             expect(clickIdLocalStorage).toEqual({ RoktTransactionId: 'ls-rok' });
         });
@@ -135,7 +135,7 @@ describe('Integration Capture', () => {
         it('should NOT return mapped keys from helpers when captureMode is none (lowercase)', () => {
             jest.spyOn(Date, 'now').mockImplementation(() => 42);
             // Query params
-            const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1&ScCid=snap1&sc_cookie1=cookie1');
+            const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1&ScCid=snap1');
             window.location.href = url.href;
             window.location.search = url.search;
 
@@ -201,8 +201,7 @@ describe('Integration Capture', () => {
                 'wbraid=09876',
                 'rtid=84324',
                 'rclid=7183717',
-                'ScCid=1234',
-                'sc_cookie1=cookie1-value'
+                'ScCid=1234'
             ].join('&');
 
             const url = new URL(`https://www.example.com/?${queryParams}`);
@@ -226,8 +225,7 @@ describe('Integration Capture', () => {
                 rtid: '84324',
                 rclid: '7183717',
                 wbraid: '09876',
-                ScCid:'1234',
-                sc_cookie1: 'cookie1-value'
+                ScCid:'1234'
             }); 
         });
 
@@ -278,39 +276,10 @@ describe('Integration Capture', () => {
                 });
             });
 
-            it('should capture sc_cookie1', () => {
-                const url = new URL('https://www.example.com/?sc_cookie1=cookie1-value');
-
-                window.location.href = url.href;
-                window.location.search = url.search;
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    sc_cookie1: 'cookie1-value',
-                });
-            });
-
-            it('should capture both ScCid and sc_cookie1', () => {
-                const url = new URL('https://www.example.com/?ScCid=1234&sc_cookie1=cookie1-value');
-
-                window.location.href = url.href;
-                window.location.search = url.search;
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    ScCid: '1234',
-                    sc_cookie1: 'cookie1-value',
-                });
-            });
-
-            it('should capture sc_cookie1 from cookies', () => {
+            it('should capture _scid from cookies', () => {
                 const url = new URL('https://www.example.com/');
 
-                window.document.cookie = 'sc_cookie1=cookie1-from-cookie';
+                window.document.cookie = '_scid=cookie1-from-cookie';
                 window.document.cookie = '_cookie1=1234';
                 window.document.cookie = 'baz=qux';
 
@@ -321,7 +290,25 @@ describe('Integration Capture', () => {
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
-                    sc_cookie1: 'cookie1-from-cookie',
+                    _scid: 'cookie1-from-cookie',
+                });
+            });
+
+            it('should capture both ScCid from query params and _scid from cookies', () => {
+                const url = new URL('https://www.example.com/?ScCid=1234');
+
+                window.document.cookie = '_scid=cookie1-from-cookie';
+                window.document.cookie = '_cookie1=1234';
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    ScCid: '1234',
+                    _scid: 'cookie1-from-cookie',
                 });
             });
         });
@@ -662,16 +649,16 @@ describe('Integration Capture', () => {
             });
         });
 
-        it('should capture sc_cookie1 from cookies', () => {
+        it('should capture _scid from cookies', () => {
             window.document.cookie = '_cookie1=1234';
-            window.document.cookie = 'sc_cookie1=cookie1-from-cookie';
+            window.document.cookie = '_scid=cookie1-from-cookie';
             window.document.cookie = 'baz=qux';
 
             const integrationCapture = new IntegrationCapture('all');
             const clickIds = integrationCapture.captureCookies();
 
             expect(clickIds).toEqual({
-                sc_cookie1: 'cookie1-from-cookie',
+                _scid: 'cookie1-from-cookie',
             });
         });
 
@@ -730,7 +717,7 @@ describe('Integration Capture', () => {
                 ttclid: '12345',
                 gclid: '123233.23131',
                 ScCid: '1234',
-                sc_cookie1: 'cookie1-value',
+                _scid: 'cookie1-value',
                 invalidId: '12345',
             };
 
