@@ -255,19 +255,25 @@ describe('RoktManager', () => {
             expect(emptyStringHash).toBe('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
         });
 
-        it('should reject when value is null', async () => {
-            await expect(roktManager.hashSha256(null)).rejects.toThrow('Value cannot be null or undefined');
+        it('should return null and log warning when value is null', async () => {
+            const result = await roktManager.hashSha256(null);
+            
+            expect(result).toBeNull();
+            expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith('hashSha256 received null as input');
         });
 
-        it('should reject when value is undefined', async () => {
-            await expect(roktManager.hashSha256(undefined)).rejects.toThrow('Value cannot be null or undefined');
+        it('should return undefined and log warning when value is undefined', async () => {
+            const result = await roktManager.hashSha256(undefined);
+            
+            expect(result).toBeUndefined();
+            expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith('hashSha256 received undefined as input');
         });
 
         it('should log error when hashing fails', async () => {
             shaSpy.mockRejectedValue(new Error('Hash failed'));
 
             await expect(roktManager.hashSha256('test@example.com')).rejects.toThrow();
-            expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(expect.stringContaining('Failed hashSha256'));
+            expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(expect.stringContaining('Failed to hash attribute'));
         });
 
         it('should hash firstName to known SHA-256 value', async () => {

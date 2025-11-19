@@ -294,12 +294,13 @@ export default class RoktManager {
      * Hashes an attribute using SHA-256
      * 
      * @param {string | number | boolean | undefined | null} attribute - The value to hash
-     * @returns {Promise<string>} The SHA-256 hex digest of the normalized value
+     * @returns {Promise<string | undefined | null>} SHA-256 hashed value or undefined/null
      * 
      */
-    public async hashSha256(attribute: string | number | boolean | undefined | null): Promise<string> {
-        if (attribute === undefined || attribute === null) {
-            throw new Error('Value cannot be null or undefined');
+    public async hashSha256(attribute: string | number | boolean | undefined | null): Promise<string | undefined | null> {
+        if (attribute === null || attribute === undefined) {
+            this.logger.warning(`hashSha256 received ${attribute} as input`);
+            return attribute as null | undefined;
         }
         
         try {
@@ -307,7 +308,7 @@ export default class RoktManager {
             return await this.sha256Hex(normalizedValue);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            this.logger.error('Failed hashSha256: ' + errorMessage);
+            this.logger.error('Failed to hash attribute: ' + errorMessage);
             throw error;
         }
     }
