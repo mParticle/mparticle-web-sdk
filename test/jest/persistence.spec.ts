@@ -39,36 +39,12 @@ describe('Persistence', () => {
     });
 
     describe('#update', () => {
-        describe('noFunctional privacy flag set to true', () => {
-            beforeEach(() => {
-                store.setNoFunctional(true);
-                store.webviewBridgeEnabled = false;
-            });
-
-            it('should NOT write to cookie and localStorage when useCookieStorage is true', () => {
-                store.SDKConfig.useCookieStorage = true;
-
-                const setCookieSpy = jest.spyOn(persistence, 'setCookie');
-                const setLocalStorageSpy = jest.spyOn(persistence, 'setLocalStorage');
-
-                persistence.update();
-
-                expect(setCookieSpy).not.toHaveBeenCalled();
-                expect(setLocalStorageSpy).not.toHaveBeenCalled();
-            });
-
-            it('should NOT write to localStorage when useCookieStorage is false', () => {
-                store.SDKConfig.useCookieStorage = false;
-
-                const setCookieSpy = jest.spyOn(persistence, 'setCookie');
-                const setLocalStorageSpy = jest.spyOn(persistence, 'setLocalStorage');
-
-                persistence.update();
-
-                expect(setCookieSpy).not.toHaveBeenCalled();
-                expect(setLocalStorageSpy).not.toHaveBeenCalled();
-            });
-        });
+        // describe('noFunctional privacy flag set to true', () => {
+        //     beforeEach(() => {
+        //         store.setNoFunctional(true);
+        //         store.webviewBridgeEnabled = false;
+        //     });
+        // });
 
         describe('noFunctional privacy flag set to false', () => {
             beforeEach(() => {

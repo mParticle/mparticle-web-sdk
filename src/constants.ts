@@ -236,10 +236,9 @@ export const HTTP_SERVER_ERROR = 500 as const;
 
 export type PrivacyControl = 'functional' | 'targeting';
 
-export type StorageTypes = 'SDKState' | 'OfflineEvents' | 'IdentityCache' | 'TimeOnSite';
+export type StorageTypes = 'OfflineEvents' | 'IdentityCache' | 'TimeOnSite';
 
 export const StoragePrivacyMap: Record<StorageTypes, PrivacyControl> = {
-    SDKState: 'functional',
     OfflineEvents: 'functional',
     IdentityCache: 'functional',
     TimeOnSite: 'targeting',

@@ -34,12 +34,6 @@ export default function _Persistence(mpInstance) {
                 mpInstance._Store.isFirstRun = false;
             }
 
-            if (mpInstance._Store.getPrivacyFlag('SDKState')) {
-                // Calling storeDataInMemory without parameters will create a new DAS if it doesn't exist
-                self.storeDataInMemory();
-                return;
-            }
-
             // https://go.mparticle.com/work/SQDSDKS-6045
             if (!mpInstance._Store.isLocalStorageAvailable) {
                 mpInstance._Store.SDKConfig.useCookieStorage = true;
@@ -118,10 +112,7 @@ export default function _Persistence(mpInstance) {
     };
 
     this.update = function() {
-        if (
-            !mpInstance._Store.webviewBridgeEnabled &&
-            !mpInstance._Store.getPrivacyFlag('SDKState')
-        ) {
+        if (!mpInstance._Store.webviewBridgeEnabled) {
             if (mpInstance._Store.SDKConfig.useCookieStorage) {
                 self.setCookie();
             }
@@ -811,9 +802,6 @@ export default function _Persistence(mpInstance) {
 
     // https://go.mparticle.com/work/SQDSDKS-6021
     this.savePersistence = function(persistence) {
-        if (mpInstance._Store.getPrivacyFlag('SDKState')) {
-            return;
-        }
         var encodedPersistence = self.encodePersistence(
                 JSON.stringify(persistence)
             ),
@@ -858,9 +846,6 @@ export default function _Persistence(mpInstance) {
     };
 
     this.getPersistence = function() {
-        if (mpInstance._Store.getPrivacyFlag('SDKState')) {
-            return null;
-        }
         var persistence = this.useLocalStorage()
             ? this.getLocalStorage()
             : this.getCookie();
