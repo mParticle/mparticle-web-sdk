@@ -233,11 +233,3 @@ export const HTTP_UNAUTHORIZED = 401 as const;
 export const HTTP_FORBIDDEN = 403 as const;
 export const HTTP_NOT_FOUND = 404 as const;
 export const HTTP_SERVER_ERROR = 500 as const;
-
-export type PrivacyControl = 'functional' | 'targeting';
-
-export type StorageTypes = 'SDKState';
-
-export const StoragePrivacyMap: Record<StorageTypes, PrivacyControl> = {
-    SDKState: 'functional'
-};

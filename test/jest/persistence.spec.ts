@@ -66,7 +66,6 @@ describe('Persistence', () => {
         });
 
         it('should NOT write to storage when webviewBridgeEnabled is true', () => {
-            store.setNoFunctional(false);
             store.webviewBridgeEnabled = true;
             store.SDKConfig.useCookieStorage = true;
 
