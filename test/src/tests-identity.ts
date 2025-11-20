@@ -643,35 +643,6 @@ describe('identity', function() {
         });
     });
 
-    describe('privacy flags', function() {
-        beforeEach(function() {
-            mParticle.config.flags.cacheIdentity = 'True';
-            localStorage.clear();
-        });
-
-        describe('#createIdentityCache', function() {
-            it('should save id cache to local storage when noFunctional is false by default', async () => {
-                mParticle.init(apiKey, window.mParticle.config);
-                await waitForCondition(hasIdentifyReturned);
-                expect(localStorage.getItem('mprtcl-v4_abcdef-id-cache')).to.be.ok;
-            });
-
-            it('should NOT save id cache to local storage when noFunctional is true', async () => {
-                mParticle.config.launcherOptions = { noFunctional: true };
-                mParticle.init(apiKey, window.mParticle.config);
-                await waitForCondition(hasIdentifyReturned);
-                expect(localStorage.getItem('mprtcl-v4_abcdef-id-cache')).not.to.be.ok;
-            });
-
-            it('should save id cache to local storage when noFunctional is false', async () => {
-                mParticle.config.launcherOptions = { noFunctional: false };
-                mParticle.init(apiKey, window.mParticle.config);
-                await waitForCondition(hasIdentifyReturned);
-                expect(localStorage.getItem('mprtcl-v4_abcdef-id-cache')).to.be.ok;
-            });
-        });
-    });
-
     it('should respect consent rules on consent-change', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
         mParticle._resetForTests(MPConfig);

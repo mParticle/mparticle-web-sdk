@@ -1805,25 +1805,4 @@ describe('Store', () => {
             });
         });
     });
-
-    describe('#privacy flags', () => {
-        it('should set noFunctional and noTargeting to false when not provided', () => {
-            const inst = window.mParticle.getInstance();
-            const store = (inst as any)._Store;
-            expect(store.getNoFunctional()).to.equal(false);
-            expect(store.getNoTargeting()).to.equal(false);
-        });
-
-        it('should set noFunctional and noTargeting from init config', () => {
-            window.mParticle.config = window.mParticle.config || {};
-            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: true };
-
-            window.mParticle.init(apiKey, window.mParticle.config);
-
-            const inst = window.mParticle.getInstance();
-            const store = (inst as any)._Store;
-            expect(store.getNoFunctional()).to.equal(true);
-            expect(store.getNoTargeting()).to.equal(true);
-        });
-    });
 });

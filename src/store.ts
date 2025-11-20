@@ -8,7 +8,7 @@ import {
     UserIdentities,
 } from '@mparticle/web-sdk';
 import { IKitConfigs } from './configAPIClient';
-import Constants, { PrivacyControl, StoragePrivacyMap, StorageTypes } from './constants';
+import Constants from './constants';
 import {
     DataPlanResult,
     KitBlockerOptions,
@@ -153,8 +153,6 @@ export interface IFeatureFlags {
 export interface IStore {
     isEnabled: boolean;
     isInitialized: boolean;
-    noFunctional: boolean;
-    noTargeting: boolean;
 
     // Session Attributes are persistent attributes that are tied to the current session and
     // are uploaded then cleared when the session ends.
@@ -211,12 +209,6 @@ export interface IStore {
     _getFromPersistence?<T>(mpid: MPID, key: string): T;
     _setPersistence?<T>(mpid: MPID, key: string, value: T): void;
 
-    getNoFunctional?(): boolean;
-    setNoFunctional?(noFunctional: boolean): void;
-    getNoTargeting?(): boolean;
-    setNoTargeting?(noTargeting: boolean): void;
-    getPrivacyFlag?(storageType: StorageTypes): boolean;
-
     getDeviceId?(): string;
     setDeviceId?(deviceId: string): void;
     getFirstSeenTime?(mpid: MPID): number;
@@ -252,8 +244,6 @@ export default function Store(
 
     const defaultStore: Partial<IStore> = {
         isEnabled: true,
-        noFunctional: false,
-        noTargeting: false,
         sessionAttributes: {},
         localSessionAttributes: {},
         currentSessionMPIDs: [],
@@ -596,27 +586,6 @@ export default function Store(
         }
     };
 
-    this.getNoFunctional = (): boolean => this.noFunctional;
-    this.setNoFunctional = (noFunctional: boolean): void => {
-        this.noFunctional = noFunctional;
-    };
-
-    this.getNoTargeting = (): boolean => this.noTargeting;
-    this.setNoTargeting = (noTargeting: boolean): void => {
-        this.noTargeting = noTargeting;
-    };
-
-    this.getPrivacyFlag = (storageType: StorageTypes): boolean => {
-        const privacyControl: PrivacyControl = StoragePrivacyMap[storageType];
-        if (privacyControl === 'functional') {
-            return this.getNoFunctional();
-        }
-        if (privacyControl === 'targeting') {
-            return this.getNoTargeting();
-        }
-        return false;
-    };
-
     this.getDeviceId = () => this.deviceId;
     this.setDeviceId = (deviceId: string) => {
         this.deviceId = deviceId;
@@ -737,21 +706,9 @@ export default function Store(
             this.SDKConfig[baseUrlKeys] = baseUrls[baseUrlKeys];
         }
 
-        const { noFunctional, noTargeting } = config?.launcherOptions ?? {};
-
-        if (noFunctional != null) {
-            this.setNoFunctional(noFunctional);
-        }
-        
-        if (noTargeting != null) {
-            this.setNoTargeting(noTargeting);
-        }
-
         if (workspaceToken) {
             this.SDKConfig.workspaceToken = workspaceToken;
-            if (!this.getPrivacyFlag('TimeOnSite')) {
-                mpInstance._timeOnSiteTimer = new ForegroundTimer(workspaceToken);
-            }
+            mpInstance._timeOnSiteTimer = new ForegroundTimer(workspaceToken);
         } else {
             mpInstance.Logger.warning(
                 'You should have a workspaceToken on your config object for security purposes.'
