@@ -308,8 +308,8 @@ export default class RoktManager {
             return await this.sha256Hex(normalizedValue);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            this.logger.error('Failed to hash attribute: ' + errorMessage);
-            throw error;
+            this.logger.error(`Failed to hash "${attribute}" and returning undefined, selectPlacements will continue: ${errorMessage}`);
+            return undefined;
         }
     }
 
