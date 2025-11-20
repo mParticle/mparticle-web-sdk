@@ -310,8 +310,6 @@ describe('RoktManager', () => {
         it('should initialize the manager with launcher options from options', () => {
             const launcherOptions = {
                 integrationName: 'customName',
-                noFunctional: true,
-                noTargeting: true
             };
 
             roktManager.init(
