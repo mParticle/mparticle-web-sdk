@@ -4718,4 +4718,289 @@ describe('identity', function() {
                     );
         });
     });
+
+    describe('cleaned identities in callbacks', () => {
+        let mockForwarder;
+        let identityCallbackResult;
+        let onUserIdentifiedResult;
+
+        beforeEach(async () => {
+            await waitForCondition(hasBeforeEachCallbackReturned);
+            mParticle._resetForTests(MPConfig);
+            fetchMock.resetHistory();
+
+            // Set up mock forwarder to capture onUserIdentified calls
+            mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            
+            const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+            window.mParticle.config.kitConfigs.push(config1);
+
+            // Set up identity callback to capture results
+            mParticle.config.identityCallback = function(result) {
+                identityCallbackResult = result;
+            };
+        });
+
+        afterEach(() => {
+            identityCallbackResult = null;
+            onUserIdentifiedResult = null;
+        });
+
+        it('should pass cleaned identities to onUserIdentified callback, removing falsy values', async () => {
+            fetchMockSuccess(urls.identify, {
+                mpid: 'test-mpid-cleaned',
+                is_logged_in: false,
+                matched_identities: {
+                    email: 'test@example.com',
+                    customerid: 'customer123'
+                }
+            });
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            // Make identify call with falsy values that should be cleaned
+            const identityRequest = {
+                userIdentities: {
+                    email: 'test@example.com',
+                    customerid: 'customer123',
+                    other: null,           // Should be removed
+                    other2: undefined,     // Should be removed  
+                    other3: '',           // Should be removed
+                    other4: false,        // Should be removed
+                    other5: 0,            // Should be removed
+                    facebook: 'valid-fb-id' // Should be kept
+                }
+            };
+
+            fetchMockSuccess(urls.identify, {
+                mpid: 'cleaned-identity-mpid',
+                is_logged_in: false,
+                matched_identities: {
+                    email: 'test@example.com',
+                    customerid: 'customer123',
+                    facebook: 'valid-fb-id'
+                }
+            });
+
+            mParticle.Identity.identify(identityRequest);
+            
+            await waitForCondition(() => {
+                return mParticle.getInstance()._Store.identityCallInFlight === false;
+            });
+
+            // Verify onUserIdentified received cleaned identities
+            const onUserIdentifiedUser = window.MockForwarder1.instance.onUserIdentifiedUser;
+            expect(onUserIdentifiedUser).to.be.ok;
+            
+            const userIdentities = onUserIdentifiedUser.getUserIdentities().userIdentities;
+            
+            // Should have valid identities
+            expect(userIdentities).to.have.property('email', 'test@example.com');
+            expect(userIdentities).to.have.property('customerid', 'customer123');
+            expect(userIdentities).to.have.property('facebook', 'valid-fb-id');
+            
+            // Should NOT have falsy identities
+            expect(userIdentities).to.not.have.property('other');
+            expect(userIdentities).to.not.have.property('other2');
+            expect(userIdentities).to.not.have.property('other3');
+            expect(userIdentities).to.not.have.property('other4');
+            expect(userIdentities).to.not.have.property('other5');
+        });
+
+        it('should pass cleaned identities to identity callback, removing falsy values', async () => {
+            fetchMockSuccess(urls.identify, {
+                mpid: 'callback-test-mpid',
+                is_logged_in: false,
+                matched_identities: {
+                    email: 'callback@example.com',
+                    customerid: 'callback123'
+                }
+            });
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            // Make identify call with falsy values
+            const identityRequest = {
+                userIdentities: {
+                    email: 'callback@example.com',
+                    customerid: 'callback123',
+                    other: null,
+                    other2: '',
+                    facebook: 'fb-callback-id'
+                }
+            };
+
+            fetchMockSuccess(urls.identify, {
+                mpid: 'callback-cleaned-mpid',
+                is_logged_in: false,
+                matched_identities: {
+                    email: 'callback@example.com',
+                    customerid: 'callback123',
+                    facebook: 'fb-callback-id'
+                }
+            });
+
+            mParticle.Identity.identify(identityRequest);
+            
+            await waitForCondition(() => {
+                return identityCallbackResult && identityCallbackResult.body;
+            });
+
+            // Verify identity callback received cleaned identities
+            expect(identityCallbackResult).to.be.ok;
+            expect(identityCallbackResult.body).to.be.ok;
+            
+            // The callback should receive the response from the server with matched_identities
+            // which should only contain the cleaned identities that were sent
+            const matchedIdentities = identityCallbackResult.body.matched_identities;
+            expect(matchedIdentities).to.have.property('email', 'callback@example.com');
+            expect(matchedIdentities).to.have.property('customerid', 'callback123');
+            expect(matchedIdentities).to.have.property('facebook', 'fb-callback-id');
+            
+            // Should not contain falsy values
+            expect(matchedIdentities).to.not.have.property('other');
+            expect(matchedIdentities).to.not.have.property('other2');
+        });
+
+        it('should verify that actual network request contains only cleaned identities', async () => {
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            fetchMock.resetHistory();
+
+            // Make identify call with falsy values
+            const identityRequest = {
+                userIdentities: {
+                    email: 'network@example.com',
+                    customerid: 'network123',
+                    other: null,
+                    other2: undefined,
+                    other3: '',
+                    other4: false,
+                    google: 'google-id'
+                }
+            };
+
+            fetchMockSuccess(urls.identify, {
+                mpid: 'network-test-mpid',
+                is_logged_in: false
+            });
+
+            mParticle.Identity.identify(identityRequest);
+            
+            await waitForCondition(() => {
+                return mParticle.getInstance()._Store.identityCallInFlight === false;
+            });
+
+            // Verify the actual network request was made with cleaned identities
+            const identifyCalls = fetchMock.calls().filter(call => 
+                call[0].includes('/identify')
+            );
+            expect(identifyCalls.length).to.be.greaterThan(0);
+
+            const lastIdentifyCall = identifyCalls[identifyCalls.length - 1];
+            const requestBody = JSON.parse(lastIdentifyCall[1].body as string);
+            
+            expect(requestBody).to.have.property('known_identities');
+            const sentIdentities = requestBody.known_identities;
+            
+            // Should contain valid identities
+            expect(sentIdentities).to.have.property('email', 'network@example.com');
+            expect(sentIdentities).to.have.property('customerid', 'network123');
+            expect(sentIdentities).to.have.property('google', 'google-id');
+            
+            // Should NOT contain falsy identities in the network request
+            expect(sentIdentities).to.not.have.property('other');
+            expect(sentIdentities).to.not.have.property('other2');
+            expect(sentIdentities).to.not.have.property('other3');
+            expect(sentIdentities).to.not.have.property('other4');
+        });
+
+        it('should handle login calls with cleaned identities', async () => {
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const loginRequest = {
+                userIdentities: {
+                    email: 'login@example.com',
+                    customerid: 'login123',
+                    other: null,
+                    other2: '',
+                    facebook: 'login-fb-id'
+                }
+            };
+
+            fetchMockSuccess(urls.login, {
+                mpid: 'login-cleaned-mpid',
+                is_logged_in: true,
+                matched_identities: {
+                    email: 'login@example.com',
+                    customerid: 'login123',
+                    facebook: 'login-fb-id'
+                }
+            });
+
+            mParticle.Identity.login(loginRequest);
+            
+            await waitForCondition(() => {
+                return mParticle.getInstance()._Store.identityCallInFlight === false;
+            });
+
+            // Verify onLoginComplete received cleaned identities
+            const onLoginCompleteUser = window.MockForwarder1.instance.onLoginCompleteUser;
+            expect(onLoginCompleteUser).to.be.ok;
+            
+            const userIdentities = onLoginCompleteUser.getUserIdentities().userIdentities;
+            expect(userIdentities).to.have.property('email', 'login@example.com');
+            expect(userIdentities).to.have.property('customerid', 'login123');
+            expect(userIdentities).to.have.property('facebook', 'login-fb-id');
+            expect(userIdentities).to.not.have.property('other');
+            expect(userIdentities).to.not.have.property('other2');
+        });
+
+        it('should handle modify calls with cleaned identities', async () => {
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const modifyRequest = {
+                userIdentities: {
+                    email: 'modify@example.com',
+                    customerid: 'modify123',
+                    other: null,
+                    other2: false,
+                    twitter: 'twitter-handle'
+                }
+            };
+
+            fetchMockSuccess(urls.modify, {
+                mpid: testMPID,
+                is_logged_in: false,
+                matched_identities: {
+                    email: 'modify@example.com',
+                    customerid: 'modify123',
+                    twitter: 'twitter-handle'
+                }
+            });
+
+            mParticle.Identity.modify(modifyRequest);
+            
+            await waitForCondition(() => {
+                return mParticle.getInstance()._Store.identityCallInFlight === false;
+            });
+
+            // Verify onModifyComplete received cleaned identities
+            const onModifyCompleteUser = window.MockForwarder1.instance.onModifyCompleteUser;
+            expect(onModifyCompleteUser).to.be.ok;
+            
+            const userIdentities = onModifyCompleteUser.getUserIdentities().userIdentities;
+            expect(userIdentities).to.have.property('email', 'modify@example.com');
+            expect(userIdentities).to.have.property('customerid', 'modify123');
+            expect(userIdentities).to.have.property('twitter', 'twitter-handle');
+            expect(userIdentities).to.not.have.property('other');
+            expect(userIdentities).to.not.have.property('other2');
+        });
+    });
 });

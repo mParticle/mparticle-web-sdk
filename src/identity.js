@@ -292,7 +292,7 @@ export default function Identity(mpInstance) {
                             identityApiRequest,
                             Identify,
                             callback,
-                            identityApiData,
+                            preProcessResult.cleanedIdentities,
                             self.parseIdentityResponse,
                             mpid,
                             identityApiRequest.known_identities
@@ -368,7 +368,7 @@ export default function Identity(mpInstance) {
                             identityApiRequest,
                             Logout,
                             callback,
-                            identityApiData,
+                            preProcessResult.cleanedIdentities,
                             self.parseIdentityResponse,
                             mpid
                         );
@@ -478,7 +478,7 @@ export default function Identity(mpInstance) {
                             identityApiRequest,
                             Login,
                             callback,
-                            identityApiData,
+                            preProcessResult.cleanedIdentities,
                             self.parseIdentityResponse,
                             mpid,
                             identityApiRequest.known_identities
@@ -557,7 +557,7 @@ export default function Identity(mpInstance) {
                             identityApiRequest,
                             Modify,
                             callback,
-                            identityApiData,
+                            preProcessResult.cleanedIdentities,
                             self.parseIdentityResponse,
                             mpid,
                             identityApiRequest.known_identities
