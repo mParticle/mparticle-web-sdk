@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.50.0";
+    var version = "2.50.1";
 
     var Constants = {
       sdkVersion: version,
@@ -413,12 +413,6 @@ var mParticle = (function () {
     var HTTP_OK = 200;
     var HTTP_ACCEPTED = 202;
     var HTTP_BAD_REQUEST = 400;
-    var StoragePrivacyMap = {
-      SDKState: 'functional',
-      OfflineEvents: 'functional',
-      IdentityCache: 'functional',
-      TimeOnSite: 'targeting'
-    };
 
     /******************************************************************************
     Copyright (c) Microsoft Corporation.
@@ -2200,22 +2194,6 @@ var mParticle = (function () {
       }
       return SessionStorageVault;
     }(BaseVault);
-    // DisabledVault is used when persistence is disabled by privacy flags.
-    var DisabledVault = /** @class */function (_super) {
-      __extends(DisabledVault, _super);
-      function DisabledVault(storageKey, options) {
-        var _this = _super.call(this, storageKey, window.localStorage, options) || this;
-        _this.contents = null;
-        return _this;
-      }
-      DisabledVault.prototype.store = function (_item) {
-        this.contents = null;
-      };
-      DisabledVault.prototype.retrieve = function () {
-        return this.contents;
-      };
-      return DisabledVault;
-    }(BaseVault);
 
     var AsyncUploader = /** @class */function () {
       function AsyncUploader(url) {
@@ -2395,7 +2373,7 @@ var mParticle = (function () {
         this.batchesQueuedForProcessing = [];
         // Cache Offline Storage Availability boolean
         // so that we don't have to check it every time
-        this.offlineStorageEnabled = this.isOfflineStorageAvailable() && !mpInstance._Store.getPrivacyFlag('OfflineEvents');
+        this.offlineStorageEnabled = this.isOfflineStorageAvailable();
         if (this.offlineStorageEnabled) {
           this.eventVault = new SessionStorageVault("".concat(mpInstance._Store.storageName, "-events"), {
             logger: mpInstance.Logger
@@ -4402,8 +4380,6 @@ var mParticle = (function () {
       var isWebviewEnabled = mpInstance._NativeSdkHelpers.isWebviewEnabled;
       var defaultStore = {
         isEnabled: true,
-        noFunctional: false,
-        noTargeting: false,
         sessionAttributes: {},
         localSessionAttributes: {},
         currentSessionMPIDs: [],
@@ -4641,28 +4617,6 @@ var mParticle = (function () {
           _this._setPersistence(mpid, 'con', toMinifiedJsonObject(consentState));
         }
       };
-      this.getNoFunctional = function () {
-        return _this.noFunctional;
-      };
-      this.setNoFunctional = function (noFunctional) {
-        _this.noFunctional = noFunctional;
-      };
-      this.getNoTargeting = function () {
-        return _this.noTargeting;
-      };
-      this.setNoTargeting = function (noTargeting) {
-        _this.noTargeting = noTargeting;
-      };
-      this.getPrivacyFlag = function (storageType) {
-        var privacyControl = StoragePrivacyMap[storageType];
-        if (privacyControl === 'functional') {
-          return _this.getNoFunctional();
-        }
-        if (privacyControl === 'targeting') {
-          return _this.getNoTargeting();
-        }
-        return false;
-      };
       this.getDeviceId = function () {
         return _this.deviceId;
       };
@@ -4743,7 +4697,6 @@ var mParticle = (function () {
         mpInstance._Persistence.update();
       };
       this.processConfig = function (config) {
-        var _a;
         var workspaceToken = config.workspaceToken,
           requiredWebviewBridgeName = config.requiredWebviewBridgeName;
         // We should reprocess the flags and baseUrls in case they have changed when we request an updated config
@@ -4754,20 +4707,9 @@ var mParticle = (function () {
         for (var baseUrlKeys in baseUrls) {
           _this.SDKConfig[baseUrlKeys] = baseUrls[baseUrlKeys];
         }
-        var _b = (_a = config === null || config === void 0 ? void 0 : config.launcherOptions) !== null && _a !== void 0 ? _a : {},
-          noFunctional = _b.noFunctional,
-          noTargeting = _b.noTargeting;
-        if (noFunctional != null) {
-          _this.setNoFunctional(noFunctional);
-        }
-        if (noTargeting != null) {
-          _this.setNoTargeting(noTargeting);
-        }
         if (workspaceToken) {
           _this.SDKConfig.workspaceToken = workspaceToken;
-          if (!_this.getPrivacyFlag('TimeOnSite')) {
-            mpInstance._timeOnSiteTimer = new ForegroundTimeTracker(workspaceToken);
-          }
+          mpInstance._timeOnSiteTimer = new ForegroundTimeTracker(workspaceToken);
         } else {
           mpInstance.Logger.warning('You should have a workspaceToken on your config object for security purposes.');
         }
@@ -4952,9 +4894,6 @@ var mParticle = (function () {
           } else {
             mpInstance._Store.isFirstRun = false;
           }
-          if (mpInstance._Store.getPrivacyFlag('SDKState')) {
-            return;
-          }
 
           // https://go.mparticle.com/work/SQDSDKS-6045
           if (!mpInstance._Store.isLocalStorageAvailable) {
@@ -5021,7 +4960,7 @@ var mParticle = (function () {
         }
       };
       this.update = function () {
-        if (!mpInstance._Store.webviewBridgeEnabled && !mpInstance._Store.getPrivacyFlag('SDKState')) {
+        if (!mpInstance._Store.webviewBridgeEnabled) {
           if (mpInstance._Store.SDKConfig.useCookieStorage) {
             self.setCookie();
           }
@@ -5504,9 +5443,6 @@ var mParticle = (function () {
 
       // https://go.mparticle.com/work/SQDSDKS-6021
       this.savePersistence = function (persistence) {
-        if (mpInstance._Store.getPrivacyFlag('SDKState')) {
-          return;
-        }
         var encodedPersistence = self.encodePersistence(JSON.stringify(persistence)),
           date = new Date(),
           key = mpInstance._Store.storageName,
@@ -5528,9 +5464,6 @@ var mParticle = (function () {
         }
       };
       this.getPersistence = function () {
-        if (mpInstance._Store.getPrivacyFlag('SDKState')) {
-          return null;
-        }
         var persistence = this.useLocalStorage() ? this.getLocalStorage() : this.getCookie();
         return persistence;
       };
@@ -11065,13 +10998,7 @@ var mParticle = (function () {
       return kitBlocker;
     }
     function createIdentityCache(mpInstance) {
-      var cacheKey = "".concat(mpInstance._Store.storageName, "-id-cache");
-      if (mpInstance._Store.getPrivacyFlag('IdentityCache')) {
-        return new DisabledVault(cacheKey, {
-          logger: mpInstance.Logger
-        });
-      }
-      return new LocalStorageVault(cacheKey, {
+      return new LocalStorageVault("".concat(mpInstance._Store.storageName, "-id-cache"), {
         logger: mpInstance.Logger
       });
     }
