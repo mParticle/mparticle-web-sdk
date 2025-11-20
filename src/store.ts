@@ -749,9 +749,7 @@ export default function Store(
 
         if (workspaceToken) {
             this.SDKConfig.workspaceToken = workspaceToken;
-            if (!this.getPrivacyFlag('TimeOnSite')) {
-                mpInstance._timeOnSiteTimer = new ForegroundTimer(workspaceToken);
-            }
+            mpInstance._timeOnSiteTimer = new ForegroundTimer(workspaceToken);
         } else {
             mpInstance.Logger.warning(
                 'You should have a workspaceToken on your config object for security purposes.'
