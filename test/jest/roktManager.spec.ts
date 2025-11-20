@@ -333,11 +333,15 @@ describe('RoktManager', () => {
             expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith('hashSha256 received undefined as input');
         });
 
-        it('should log error when hashing fails', async () => {
+        it('should return undefined and log error when hashing fails', async () => {
             shaSpy.mockRejectedValue(new Error('Hash failed'));
 
-            await expect(roktManager.hashSha256('test@example.com')).rejects.toThrow();
-            expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(expect.stringContaining('Failed to hash attribute'));
+            const result = await roktManager.hashSha256('test@example.com');
+            
+            expect(result).toBeUndefined();
+            expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
+                expect.stringContaining('Failed to hash "test@example.com" and returning undefined, selectPlacements will continue')
+            );
         });
 
         it('should hash firstName to known SHA-256 value', async () => {
