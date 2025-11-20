@@ -39,101 +39,30 @@ describe('Persistence', () => {
     });
 
     describe('#update', () => {
-        describe('noFunctional privacy flag set to true', () => {
-            beforeEach(() => {
-                store.setNoFunctional(true);
-                store.webviewBridgeEnabled = false;
-            });
+        it('should write to cookie and localStorage by default when useCookieStorage is true', () => {
+            store.SDKConfig.useCookieStorage = true;
 
-            it('should NOT write to cookie and localStorage when useCookieStorage is true', () => {
-                store.SDKConfig.useCookieStorage = true;
+            jest.spyOn(persistence, 'getCookie').mockReturnValue(null);
 
-                const setCookieSpy = jest.spyOn(persistence, 'setCookie');
-                const setLocalStorageSpy = jest.spyOn(persistence, 'setLocalStorage');
+            const setCookieSpy = jest.spyOn(persistence, 'setCookie');
+            const setLocalStorageSpy = jest.spyOn(persistence, 'setLocalStorage');
 
-                persistence.update();
+            persistence.update();
 
-                expect(setCookieSpy).not.toHaveBeenCalled();
-                expect(setLocalStorageSpy).not.toHaveBeenCalled();
-            });
-
-            it('should NOT write to localStorage when useCookieStorage is false', () => {
-                store.SDKConfig.useCookieStorage = false;
-
-                const setCookieSpy = jest.spyOn(persistence, 'setCookie');
-                const setLocalStorageSpy = jest.spyOn(persistence, 'setLocalStorage');
-
-                persistence.update();
-
-                expect(setCookieSpy).not.toHaveBeenCalled();
-                expect(setLocalStorageSpy).not.toHaveBeenCalled();
-            });
+            expect(setCookieSpy).toHaveBeenCalled();
+            expect(setLocalStorageSpy).toHaveBeenCalled();
         });
 
-        describe('noFunctional privacy flag set to false', () => {
-            beforeEach(() => {
-                store.setNoFunctional(false);
-                store.webviewBridgeEnabled = false;
-            });
+        it('should write to localStorage by default when useCookieStorage is false', () => {
+            store.SDKConfig.useCookieStorage = false;
 
-            it('should write to cookie and localStorage when useCookieStorage is true', () => {
-                store.SDKConfig.useCookieStorage = true;
+            const setCookieSpy = jest.spyOn(persistence, 'setCookie');
+            const setLocalStorageSpy = jest.spyOn(persistence, 'setLocalStorage');
 
-                jest.spyOn(persistence, 'getCookie').mockReturnValue(null);
+            persistence.update();
 
-                const setCookieSpy = jest.spyOn(persistence, 'setCookie');
-                const setLocalStorageSpy = jest.spyOn(persistence, 'setLocalStorage');
-
-                persistence.update();
-
-                expect(setCookieSpy).toHaveBeenCalled();
-                expect(setLocalStorageSpy).toHaveBeenCalled();
-            });
-
-            it('should write to localStorage when useCookieStorage is false', () => {
-                store.SDKConfig.useCookieStorage = false;
-
-                const setCookieSpy = jest.spyOn(persistence, 'setCookie');
-                const setLocalStorageSpy = jest.spyOn(persistence, 'setLocalStorage');
-
-                persistence.update();
-
-                expect(setCookieSpy).not.toHaveBeenCalled();
-                expect(setLocalStorageSpy).toHaveBeenCalled();
-            });
-        });
-
-        describe('noFunctional privacy flag set to false by default', () => {
-            beforeEach(() => {
-                // default is false
-                store.webviewBridgeEnabled = false;
-            });
-
-            it('should write to cookie and localStorage by default when useCookieStorage is true', () => {
-                store.SDKConfig.useCookieStorage = true;
-
-                jest.spyOn(persistence, 'getCookie').mockReturnValue(null);
-
-                const setCookieSpy = jest.spyOn(persistence, 'setCookie');
-                const setLocalStorageSpy = jest.spyOn(persistence, 'setLocalStorage');
-
-                persistence.update();
-
-                expect(setCookieSpy).toHaveBeenCalled();
-                expect(setLocalStorageSpy).toHaveBeenCalled();
-            });
-
-            it('should write to localStorage by default when useCookieStorage is false', () => {
-                store.SDKConfig.useCookieStorage = false;
-
-                const setCookieSpy = jest.spyOn(persistence, 'setCookie');
-                const setLocalStorageSpy = jest.spyOn(persistence, 'setLocalStorage');
-
-                persistence.update();
-
-                expect(setCookieSpy).not.toHaveBeenCalled();
-                expect(setLocalStorageSpy).toHaveBeenCalled();
-            });
+            expect(setCookieSpy).not.toHaveBeenCalled();
+            expect(setLocalStorageSpy).toHaveBeenCalled();
         });
 
         it('should NOT write to storage when webviewBridgeEnabled is true', () => {
