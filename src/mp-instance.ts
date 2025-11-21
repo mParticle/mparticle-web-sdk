@@ -25,7 +25,7 @@ import CookieSyncManager, { ICookieSyncManager } from './cookieSyncManager';
 import SessionManager, { ISessionManager } from './sessionManager';
 import Ecommerce from './ecommerce';
 import Store, { IStore } from './store';
-import Logger from './logger';
+import { Logger } from './logger';
 import Persistence from './persistence';
 import Events from './events';
 import Forwarders from './forwarders';

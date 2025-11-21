@@ -7,7 +7,7 @@ import { IMParticleInstanceManager, SDKLoggerApi } from '../../src/sdkRuntimeMod
 import AudienceManager, {
     IAudienceMemberships, IAudienceMembershipsServerResponse
 } from '../../src/audienceManager';
-import Logger from '../../src/logger';
+import { Logger } from '../../src/logger';
 import Utils from './config/utils';
 const { fetchMockSuccess } = Utils;
 
