@@ -3,7 +3,7 @@ import { LogLevelType, SDKInitConfig, SDKLoggerApi } from './sdkRuntimeModels';
 export type ILoggerConfig = Pick<SDKInitConfig, 'logLevel' | 'logger'>;
 export type IConsoleLogger = Partial<Pick<SDKLoggerApi, 'error' | 'warning' | 'verbose'>>;
 
-export default class Logger {
+export class Logger {
     private logLevel: LogLevelType;
     private logger: IConsoleLogger;
 

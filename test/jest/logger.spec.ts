@@ -1,4 +1,4 @@
-import Logger, { ConsoleLogger } from '../../src/logger';
+import { Logger, ConsoleLogger } from '../../src/logger';
 
 describe('Logger', () => {
     let mockConsole: any;
