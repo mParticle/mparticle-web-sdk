@@ -8,8 +8,8 @@ export class Logger {
     private logger: IConsoleLogger;
 
     constructor(config: ILoggerConfig) {
-        this.logLevel = config.logLevel || LogLevelType.Warning;
-        this.logger = config.logger || new ConsoleLogger();
+        this.logLevel = config.logLevel ?? LogLevelType.Warning;
+        this.logger = config.logger ?? new ConsoleLogger();
     }
 
     public verbose(msg: string): void {
