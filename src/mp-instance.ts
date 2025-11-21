@@ -227,6 +227,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         if (instance._Store) {
             delete instance._Store;
         }
+        instance.Logger = new Logger(config);
         instance._Store = new Store(config, instance);
         instance._Store.isLocalStorageAvailable = instance._Persistence.determineLocalStorageAvailability(
             window.localStorage
