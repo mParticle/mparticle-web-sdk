@@ -259,13 +259,15 @@ export class BatchUploader {
             return;
         }
 
+        const { Logger } = this.mpInstance;
+
         this.eventsQueuedForProcessing.push(event);
         if (this.offlineStorageEnabled && this.eventVault) {
             this.eventVault.store(this.eventsQueuedForProcessing);
         }
 
-        this.mpInstance.Logger.verbose(`Queuing event: ${JSON.stringify(event)}`);
-        this.mpInstance.Logger.verbose(`Queued event count: ${this.eventsQueuedForProcessing.length}`);
+        Logger.verbose(`Queuing event: ${JSON.stringify(event)}`);
+        Logger.verbose(`Queued event count: ${this.eventsQueuedForProcessing.length}`);
 
         if (this.shouldTriggerImmediateUpload(event.EventDataType)) {
             this.prepareAndUpload(false, false);

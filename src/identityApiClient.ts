@@ -88,11 +88,12 @@ export default function IdentityAPIClient(
         aliasRequest: IAliasRequest,
         aliasCallback: IAliasCallback
     ) {
+        const { Logger } = mpInstance;
         const { invokeAliasCallback } = mpInstance._Helpers;
         const { aliasUrl } = mpInstance._Store.SDKConfig;
         const { devToken: apiKey } = mpInstance._Store;
 
-        mpInstance.Logger.verbose(Messages.InformationMessages.SendAliasHttp);
+        Logger.verbose(Messages.InformationMessages.SendAliasHttp);
 
         // https://go.mparticle.com/work/SQDSDKS-6750
         const uploadUrl = `https://${aliasUrl}${apiKey}/Alias`;
@@ -135,7 +136,7 @@ export default function IdentityAPIClient(
                         try {
                             aliasResponseBody = await response.json();
                         } catch (e) {
-                            mpInstance.Logger.verbose('The request has no response body');
+                            Logger.verbose('The request has no response body');
                         }
                     } else {
                         // https://go.mparticle.com/work/SQDSDKS-6568
@@ -170,11 +171,11 @@ export default function IdentityAPIClient(
 
             }
 
-            mpInstance.Logger.verbose(message);
+            Logger.verbose(message);
             invokeAliasCallback(aliasCallback, response.status, errorMessage);
         } catch (e) {
             const errorMessage = (e as Error).message || e.toString();
-            mpInstance.Logger.error('Error sending alias request to mParticle servers. ' + errorMessage);
+            Logger.error('Error sending alias request to mParticle servers. ' + errorMessage);
             invokeAliasCallback(
                 aliasCallback,
                 HTTPCodes.noHttpCoverage,
@@ -193,13 +194,13 @@ export default function IdentityAPIClient(
         knownIdentities: UserIdentities
     ) {
         const { invokeCallback } = mpInstance._Helpers;
-
-        mpInstance.Logger.verbose(Messages.InformationMessages.SendIdentityBegin);
+        const { Logger } = mpInstance;
+        Logger.verbose(Messages.InformationMessages.SendIdentityBegin);
         if (!identityApiRequest) {
-            mpInstance.Logger.error(Messages.ErrorMessages.APIRequestEmpty);
+            Logger.error(Messages.ErrorMessages.APIRequestEmpty);
             return;
         }
-        mpInstance.Logger.verbose(Messages.InformationMessages.SendIdentityHttp);
+        Logger.verbose(Messages.InformationMessages.SendIdentityHttp);
 
         if (mpInstance._Store.identityCallInFlight) {
             invokeCallback(
@@ -287,7 +288,7 @@ export default function IdentityAPIClient(
 
             mpInstance._Store.identityCallInFlight = false;
 
-            mpInstance.Logger.verbose(message);
+            Logger.verbose(message);
             parseIdentityResponse(
                 identityResponse,
                 previousMPID,
@@ -302,7 +303,7 @@ export default function IdentityAPIClient(
             
             const errorMessage = (err as Error).message || err.toString();
 
-            mpInstance.Logger.error('Error sending identity request to servers' + ' - ' + errorMessage);
+            Logger.error('Error sending identity request to servers' + ' - ' + errorMessage);
             invokeCallback(
                 callback,
                 HTTPCodes.noHttpCoverage,
