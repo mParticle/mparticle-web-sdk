@@ -1,4 +1,5 @@
 import { Logger, ConsoleLogger } from '../../src/logger';
+import { LogLevelType } from '../../src/sdkRuntimeModels';
 
 describe('Logger', () => {
     let mockConsole: any;
@@ -18,7 +19,7 @@ describe('Logger', () => {
     });
 
     it('should call verbose, warning, and error methods on ConsoleLogger at correct log levels', () => {
-        logger = new Logger({ logLevel: 'verbose' as any });
+        logger = new Logger({ logLevel: LogLevelType.Verbose });
 
         logger.verbose('message1');
         logger.warning('message2');
@@ -30,7 +31,7 @@ describe('Logger', () => {
     });
 
     it('should only call warning and error at warning log level', () => {
-        logger = new Logger({ logLevel: 'warning' as any });
+        logger = new Logger({ logLevel: LogLevelType.Warning });
 
         logger.verbose('message1');
         logger.warning('message2');
@@ -41,8 +42,8 @@ describe('Logger', () => {
         expect(mockConsole.error).toHaveBeenCalledWith('message3');
     });
 
-    it('should only call error at none log level', () => {
-        logger = new Logger({ logLevel: 'none' as any });
+    it('should not call any log methods at none log level', () => {
+        logger = new Logger({ logLevel: LogLevelType.None });
 
         logger.verbose('message1');
         logger.warning('message2');
@@ -51,6 +52,18 @@ describe('Logger', () => {
         expect(mockConsole.info).not.toHaveBeenCalled();
         expect(mockConsole.warn).not.toHaveBeenCalled();
         expect(mockConsole.error).not.toHaveBeenCalled();
+    });
+
+    it('should only call error at error log level', () => {  
+        logger = new Logger({ logLevel: LogLevelType.Error });  
+    
+        logger.verbose('message1');  
+        logger.warning('message2');  
+        logger.error('message3');  
+    
+        expect(mockConsole.info).not.toHaveBeenCalled();  
+        expect(mockConsole.warn).not.toHaveBeenCalled();  
+        expect(mockConsole.error).toHaveBeenCalledWith('message3');  
     });
 
     it('should allow providing a custom logger', () => {

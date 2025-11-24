@@ -13,29 +13,30 @@ export class Logger {
     }
 
     public verbose(msg: string): void {
-        if (this.logLevel !== LogLevelType.None) {
-            if (this.logger.verbose && this.logLevel === LogLevelType.Verbose) {
-                this.logger.verbose(msg);
-            }
+        if(this.logLevel === LogLevelType.None) 
+            return;
+
+        if (this.logger.verbose && this.logLevel === LogLevelType.Verbose) {
+            this.logger.verbose(msg);
         }
     }
 
     public warning(msg: string): void {
-        if (this.logLevel !== LogLevelType.None) {
-            if (
-                this.logger.warning &&
-                (this.logLevel === LogLevelType.Verbose || this.logLevel === LogLevelType.Warning)
-            ) {
-                this.logger.warning(msg);
-            }
+        if(this.logLevel === LogLevelType.None) 
+            return;
+
+        if (this.logger.warning && 
+            (this.logLevel === LogLevelType.Verbose || this.logLevel === LogLevelType.Warning)) {
+            this.logger.warning(msg);
         }
     }
 
     public error(msg: string): void {
-        if (this.logLevel !== LogLevelType.None) {
-            if (this.logger.error) {
-                this.logger.error(msg);
-            }
+        if(this.logLevel === LogLevelType.None) 
+            return;
+
+        if (this.logger.error) {
+            this.logger.error(msg);
         }
     }
 
