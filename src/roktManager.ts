@@ -252,15 +252,39 @@ export default class RoktManager {
         }
     }
 
-    public hashAttributes(attributes: IRoktPartnerAttributes): Promise<IRoktPartnerAttributes> {
-        if (!this.isReady()) {
-            return this.deferredCall<IRoktPartnerAttributes>('hashAttributes', attributes);
-        }
-
+    /**
+     * Hashes attributes and returns both original and hashed versions
+     * with Rokt-compatible key names (like emailsha256, mobilesha256)
+     * 
+     * 
+     * @param {IRoktPartnerAttributes} attributes - Attributes to hash
+     * @returns {Promise<IRoktPartnerAttributes>} Object with both original and hashed attributes
+     * 
+     */
+    public async hashAttributes(attributes: IRoktPartnerAttributes): Promise<IRoktPartnerAttributes> {
         try {
-            return this.kit.hashAttributes(attributes);
+            if (!attributes || typeof attributes !== 'object') {
+                return {};
+            }
+            
+            const hashedAttributes: IRoktPartnerAttributes = {};
+            
+            for (const key in attributes) {
+                const attributeValue = attributes[key];
+
+                hashedAttributes[key] = attributeValue;
+
+                const hashedValue = await this.hashSha256(attributeValue);
+                
+                if (hashedValue) {
+                    hashedAttributes[`${key}sha256`] = hashedValue;
+                }
+            }
+            
+            return hashedAttributes;
+            
         } catch (error) {
-            return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
+            return Promise.reject(error instanceof Error ? error : new Error('Failed to hash attributes'));
         }
     }
 

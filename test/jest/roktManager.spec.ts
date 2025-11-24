@@ -76,152 +76,98 @@ describe('RoktManager', () => {
     });
 
     describe('#hashAttributes', () => {
-        beforeEach(() => {
-            roktManager['currentUser'] = currentUser;
-        });
-
-        it('should call kit.hashAttributes with empty attributes', () => {
-            const kit: IRoktKit = {
-                launcher: {
-                    selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn(),
-                    use: jest.fn(),
-                },
-                filters: undefined,
-                filteredUser: undefined,
-                hashAttributes: jest.fn(),
-                selectPlacements: jest.fn(),
-                setExtensionData: jest.fn(),
-                use: jest.fn(),
-                userAttributes: undefined,
-            };
-
-            roktManager.attachKit(kit);
-
-            const attributes = {};
-
-            roktManager.hashAttributes(attributes);
-            expect(kit.hashAttributes).toHaveBeenCalledWith(attributes);
-        });
-
-        it('should call kit.hashAttributes with passed in attributes', () => {
-            const kit: IRoktKit = {
-                launcher: {
-                    selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn(),
-                    use: jest.fn(),
-                },
-                filters: undefined,
-                filteredUser: undefined,
-                hashAttributes: jest.fn(),
-                selectPlacements: jest.fn(),
-                setExtensionData: jest.fn(),
-                use: jest.fn(),
-                userAttributes: undefined,
-            };
-
-            roktManager.attachKit(kit);
-
-            const attributes = {
-                email: 'test@example.com',
-                phone: '1234567890'
-            };
-
-            roktManager.hashAttributes(attributes);
-            expect(kit.hashAttributes).toHaveBeenCalledWith(attributes);
-        });
-
-        it('should queue the hashAttributes method if no launcher or kit is attached', () => {
-            const attributes = {
-                email: 'test@example.com'
-            };
-
-            roktManager.hashAttributes(attributes);
-
-            expect(roktManager['kit']).toBeNull();
-            expect(roktManager['messageQueue'].size).toBe(1);
-            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
-            expect(queuedMessage.methodName).toBe('hashAttributes');
-            expect(queuedMessage.payload).toBe(attributes);
-        });
-
-        it('should process queued hashAttributes calls once the launcher and kit are attached', () => {
-            const kit: IRoktKit = {
-                launcher: {
-                    selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn(),  
-                    use: jest.fn(),
-                },
-                filters: undefined,
-                filteredUser: undefined,
-                hashAttributes: jest.fn(),
-                selectPlacements: jest.fn(),
-                setExtensionData: jest.fn(),
-                use: jest.fn(),
-                userAttributes: undefined,
-            };
-
-            const attributes = {
-                email: 'test@example.com'
-            };
-
-            roktManager.hashAttributes(attributes);
-            expect(roktManager['kit']).toBeNull();
-            expect(roktManager['messageQueue'].size).toBe(1);
-            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
-            expect(queuedMessage.methodName).toBe('hashAttributes');
-            expect(queuedMessage.payload).toBe(attributes);
-            expect(kit.hashAttributes).not.toHaveBeenCalled();
-
-            roktManager.attachKit(kit);
-            expect(roktManager['kit']).not.toBeNull();
-            expect(roktManager['messageQueue'].size).toBe(0);
-            expect(kit.hashAttributes).toHaveBeenCalledWith(attributes);
-        });
-
-        it('should pass through the correct attributes to kit.launcher.hashAttributes', async () => {
-            const kit: Partial<IRoktKit> = {
-                launcher: {
-                    selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn(),
-                    use: jest.fn(),
-                },
-
-                // We are mocking the hashAttributes method to return the
-                // launcher's hashAttributes method and verify that
-                // both the kit's and the launcher's methods
-                // are called with the correct attributes.
-                // This will happen through the Web Kit's hashAttributes method
-                hashAttributes: jest.fn().mockImplementation((attributes) => {
-                    return kit.launcher.hashAttributes(attributes);
-                })
-            };
-
-            roktManager.attachKit(kit as IRoktKit);
-
-            const attributes = {
-                email: 'test@example.com',
-                phone: '1234567890'
-            };
-
-            roktManager.hashAttributes(attributes);
-            expect(kit.hashAttributes).toHaveBeenCalledWith(attributes);
-            expect(kit.launcher.hashAttributes).toHaveBeenCalledWith(attributes);
-        });
-    });
-
-    describe('#hashSha256', () => {
-        interface Hasher {
-            sha256Hex(input: string): Promise<string>
-        }
-
         const nodeCrypto = require('crypto');
         let shaSpy: jest.SpyInstance;
 
         beforeEach(() => {
-            shaSpy = jest.spyOn(roktManager as unknown as Hasher, 'sha256Hex');
-            shaSpy.mockImplementation((s: any) =>
-                Promise.resolve(nodeCrypto.createHash('sha256').update(String(s)).digest('hex')),
+            roktManager['currentUser'] = currentUser;
+            shaSpy = jest.spyOn(roktManager as any, 'sha256Hex');
+            shaSpy.mockImplementation((s: string) =>
+                Promise.resolve(nodeCrypto.createHash('sha256').update(s).digest('hex')),
+            );
+        });
+
+        afterEach(() => {
+            shaSpy.mockRestore();
+        });
+
+        it('should hash attributes with passed in attributes', async () => {
+            const attributes = {
+                email: 'test@example.com',
+                phone: '1234567890'
+            };
+
+            const result = await roktManager.hashAttributes(attributes);
+
+            expect(result).toEqual({
+                email: 'test@example.com',
+                emailsha256: nodeCrypto.createHash('sha256').update('test@example.com').digest('hex'),
+                phone: '1234567890',
+                phonesha256: nodeCrypto.createHash('sha256').update('1234567890').digest('hex'),
+            });
+        });
+
+        it('should hash all non-null string, number, and boolean values', async () => {
+            const attributes = {
+                email: 'Test@Example.COM',
+                age: 25,
+                active: true,
+                nullable: null,
+                undefinedVal: undefined
+            };
+
+            const result = await roktManager.hashAttributes(attributes);
+
+            expect(result).toEqual({
+                email: 'Test@Example.COM',
+                emailsha256: nodeCrypto.createHash('sha256').update('test@example.com').digest('hex'),
+                age: 25,
+                agesha256: nodeCrypto.createHash('sha256').update('25').digest('hex'),
+                active: true,
+                activesha256: nodeCrypto.createHash('sha256').update('true').digest('hex'),
+                nullable: null,
+                undefinedVal: undefined
+            });
+        });
+
+        it('should return empty object if attributes is null', async () => {
+            const result = await roktManager.hashAttributes(null as any);
+            expect(result).toEqual({});
+        });
+
+        it('should return empty object if attributes is undefined', async () => {
+            const result = await roktManager.hashAttributes(undefined as any);
+            expect(result).toEqual({});
+        });
+
+        it('should handle empty attributes object', async () => {
+            const result = await roktManager.hashAttributes({});
+            expect(result).toEqual({});
+        });
+
+        it('should reject if hashSha256 throws an error', async () => {
+            shaSpy.mockRestore();
+            
+            // Mock hashSha256 to throw an error
+            const hashError = new Error('Hashing failed');
+            jest.spyOn(roktManager, 'hashSha256').mockRejectedValue(hashError);
+
+            const attributes = { email: 'test@example.com' };
+
+            await expect(roktManager.hashAttributes(attributes))
+                .rejects
+                .toThrow('Hashing failed');
+        });
+    });
+
+    describe('#hashSha256', () => {
+        const nodeCrypto = require('crypto');
+        let shaSpy: jest.SpyInstance;
+
+        beforeEach(() => {
+            shaSpy = jest.spyOn(roktManager as any, 'sha256Hex');
+            shaSpy.mockImplementation((s: string) =>
+                Promise.resolve(nodeCrypto.createHash('sha256').update(s).digest('hex')),
             );
         });
 
@@ -556,25 +502,21 @@ describe('RoktManager', () => {
         it('should call RoktManager methods (not kit methods directly) when processing queue', () => {
             // Queue some calls before kit is ready (these will be deferred)
             const selectOptions = { attributes: { test: 'value' } } as IRoktSelectPlacementsOptions;
-            const hashAttrs = { email: 'test@example.com' };
             const extensionData = { 'test-ext': { config: true } };
             const useName = 'TestExtension';
 
             roktManager.selectPlacements(selectOptions);
-            roktManager.hashAttributes(hashAttrs);
             roktManager.setExtensionData(extensionData);
             roktManager.use(useName);
 
             // Verify calls were queued
-            expect(roktManager['messageQueue'].size).toBe(4);
+            expect(roktManager['messageQueue'].size).toBe(3);
             expect(kit.selectPlacements).not.toHaveBeenCalled(); // Kit methods not called yet
-            expect(kit.hashAttributes).not.toHaveBeenCalled(); // Kit methods not called yet
             expect(kit.setExtensionData).not.toHaveBeenCalled(); // Kit methods not called yet
             expect(kit.use).not.toHaveBeenCalled(); // Kit methods not called yet
 
             // Spy on RoktManager methods AFTER initial calls to track queue processing
             const selectPlacementsSpy = jest.spyOn(roktManager, 'selectPlacements');
-            const hashAttributesSpy = jest.spyOn(roktManager, 'hashAttributes');
             const setExtensionDataSpy = jest.spyOn(roktManager, 'setExtensionData');
             const useSpy = jest.spyOn(roktManager, 'use');
 
@@ -584,9 +526,6 @@ describe('RoktManager', () => {
             // Verify RoktManager methods were called during queue processing
             expect(selectPlacementsSpy).toHaveBeenCalledTimes(1);
             expect(selectPlacementsSpy).toHaveBeenCalledWith(selectOptions);
-            
-            expect(hashAttributesSpy).toHaveBeenCalledTimes(1);
-            expect(hashAttributesSpy).toHaveBeenCalledWith(hashAttrs);
             
             expect(setExtensionDataSpy).toHaveBeenCalledTimes(1);
             expect(setExtensionDataSpy).toHaveBeenCalledWith(extensionData);
@@ -599,7 +538,6 @@ describe('RoktManager', () => {
 
             // Clean up spies
             selectPlacementsSpy.mockRestore();
-            hashAttributesSpy.mockRestore();
             setExtensionDataSpy.mockRestore();
             useSpy.mockRestore();
         });
@@ -846,7 +784,7 @@ describe('RoktManager', () => {
             expect(kit.launcher.selectPlacements).toHaveBeenCalledWith(options);
         });
 
-        it('should pass sandbox flag as an attribute through to kit.selectPlacements', ()=> {
+        it('should pass sandbox flag as an attribute through to kit.selectPlacements', () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
