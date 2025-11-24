@@ -180,6 +180,7 @@ export default class RoktManager {
     }
 
     public attachKit(kit: IRoktKit): void {
+        // TODO: Pass back integrationName via kit
         this.kit = kit;
         this.processMessageQueue();
 
