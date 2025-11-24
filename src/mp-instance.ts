@@ -162,7 +162,10 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             );
         }
 
-        runPreConfigFetchInitialization(this, apiKey, config);
+        const kitBlocker = createKitBlocker(config, this);
+        runPreConfigFetchInitialization(this, apiKey, config, kitBlocker);
+        debugger;
+        this.Logger.error('gt error test');
 
         // config code - Fetch config when requestConfig = true, otherwise, proceed with SDKInitialization
         // Since fetching the configuration is asynchronous, we must pass completeSDKInitialization
@@ -185,10 +188,10 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                         result
                     );
 
-                    completeSDKInitialization(apiKey, mergedConfig, this);
+                    completeSDKInitialization(apiKey, mergedConfig, this, kitBlocker);
                 });
             } else {
-                completeSDKInitialization(apiKey, config, this);
+                completeSDKInitialization(apiKey, config, this, kitBlocker);
             }
         } else {
             console.error(
@@ -1361,11 +1364,9 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
 }
 
 // Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment
-function completeSDKInitialization(apiKey, config, mpInstance) {
-    const kitBlocker = createKitBlocker(config, mpInstance);
+function completeSDKInitialization(apiKey, config, mpInstance, kitBlocker: KitBlocker) {
     const { getFeatureFlag } = mpInstance._Helpers;
 
-    mpInstance._APIClient = new APIClient(mpInstance, kitBlocker);
     mpInstance._Forwarders = new Forwarders(mpInstance, kitBlocker);
     mpInstance._Store.processConfig(config);
 
@@ -1551,8 +1552,9 @@ function createIdentityCache(mpInstance) {
     return new LocalStorageVault(cacheKey, { logger: mpInstance.Logger });
 }
 
-function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
-    mpInstance.Logger = new Logger(config);
+function runPreConfigFetchInitialization(mpInstance, apiKey, config, kitBlocker: KitBlocker) {
+    mpInstance._APIClient = new APIClient(mpInstance, kitBlocker);
+    mpInstance.Logger = new Logger(config, mpInstance._APIClient);
     mpInstance._Store = new Store(config, mpInstance, apiKey);
     window.mParticle.Store = mpInstance._Store;
     mpInstance.Logger.verbose(StartingInitialization);
