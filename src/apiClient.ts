@@ -10,6 +10,7 @@ import { IMParticleUser, ISDKUserAttributes } from './identity-user-interfaces';
 import { AsyncUploader, FetchUploader, XHRUploader } from './uploaders';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { appendUserInfo } from './user-utils';
+import { LogRequest } from './logging/logRequest';
 
 export interface IAPIClient {
     uploader: BatchUploader | null;
@@ -27,6 +28,7 @@ export interface IAPIClient {
         forwarder: MPForwarder,
         event: IUploadObject
     ) => void;
+    sendLogToServer: (log: LogRequest) => void;
 }
 
 export interface IForwardingStatsData {
@@ -230,5 +232,27 @@ export default function APIClient(
                 sendSingleForwardingStatsToServer(forwardingStatsData);
             }
         }
+    };
+
+    this.sendLogToServer = function(logRequest: LogRequest) {
+        const baseUrl = mpInstance._Helpers.createServiceUrl(
+            mpInstance._Store.SDKConfig.v2SecureServiceUrl,
+            mpInstance._Store.devToken
+        );
+        const uploadUrl = `apps.stage.rokt.com/v1/log/v1/log`;
+        // const uploadUrl = `${baseUrl}/v1/log`;
+
+        const uploader = window.fetch
+            ? new FetchUploader(uploadUrl)
+            : new XHRUploader(uploadUrl);
+
+        uploader.upload({
+            method: 'POST',
+            headers: {
+                Accept: 'text/plain;charset=UTF-8',
+                'Content-Type': 'text/plain;charset=UTF-8',
+            },
+            body: JSON.stringify(logRequest),
+        });
     };
 }
