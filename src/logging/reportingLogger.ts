@@ -1,4 +1,3 @@
-import { LogLevelType, SDKLoggerApi } from "../sdkRuntimeModels";
 import { IAPIClient } from "../apiClient";
 import { ErrorCodes } from "./errorCodes";
 import { LogRequest, LogRequestSeverity } from "./logRequest";

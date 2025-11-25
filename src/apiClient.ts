@@ -239,9 +239,8 @@ export default function APIClient(
             mpInstance._Store.SDKConfig.v2SecureServiceUrl,
             mpInstance._Store.devToken
         );
-        const uploadUrl = `apps.stage.rokt.com/v1/log/v1/log`;
-        // const uploadUrl = `${baseUrl}/v1/log`;
-
+        
+        const uploadUrl = `${baseUrl}/v1/log`;
         const uploader = window.fetch
             ? new FetchUploader(uploadUrl)
             : new XHRUploader(uploadUrl);
