@@ -10,7 +10,7 @@ import Utils from './config/utils';
 import { BatchUploader } from '../../src/batchUploader';
 import { expect } from 'chai';
 import _BatchValidator from '../../src/mockBatchCreator';
-import Logger from '../../src/logger.js';
+import { Logger } from '../../src/logger';
 import { event0, event1, event2, event3 } from '../fixtures/events';
 import fetchMock from 'fetch-mock/esm/client';
 const { 
