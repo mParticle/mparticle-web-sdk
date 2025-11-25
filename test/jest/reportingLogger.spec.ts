@@ -11,13 +11,13 @@ describe('ReportingLogger', () => {
         apiClient = { sendLogToServer: jest.fn() };
         
         // Mock location object to allow modifying search property
-        delete (window as any).location;
-        (window as any).location = {
+        delete (globalThis as any).location;
+        (globalThis as any).location = {
             href: 'https://e.com',
             search: ''
         };
         
-        Object.assign(window, {
+        Object.assign(globalThis, {
             navigator: { userAgent: 'ua' },
             mParticle: { config: { isWebSdkLoggingEnabled: true } },
             ROKT_DOMAIN: 'set'
@@ -48,7 +48,7 @@ describe('ReportingLogger', () => {
     });
 
     it('does not log if ROKT_DOMAIN missing', () => {
-        delete (window as any).ROKT_DOMAIN;
+        delete (globalThis as any).ROKT_DOMAIN;
         logger = new ReportingLogger(apiClient, sdkVersion);
         logger.error('x');
         expect(apiClient.sendLogToServer).not.toHaveBeenCalled();
