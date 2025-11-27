@@ -1,4 +1,4 @@
-import { RateLimiter, ReportingLogger } from '../../src/logging/reportingLogger';
+import { IRateLimiter, RateLimiter, ReportingLogger } from '../../src/logging/reportingLogger';
 import { LogRequestSeverity } from '../../src/logging/logRequest';
 import { ErrorCodes } from '../../src/logging/errorCodes';
 
@@ -70,14 +70,13 @@ describe('ReportingLogger', () => {
     });
 
     it('rate limits after 3 errors', () => {
-        const mockRateLimiter = {
+        let count = 0;
+        const mockRateLimiter: IRateLimiter = {
             incrementAndCheck: jest.fn().mockImplementation((severity) => {
-                // allow only first 3, then start rate limiting
-                mockRateLimiter.count = (mockRateLimiter.count || 0) + 1;
-                return mockRateLimiter.count > 3;
+                return ++count > 3;
             }),
         };
-        logger = new ReportingLogger(apiClient, sdkVersion, mockRateLimiter as any);
+        logger = new ReportingLogger(apiClient, sdkVersion, mockRateLimiter);
 
         for (let i = 0; i < 5; i++) logger.error('err');
         expect(apiClient.sendLogToServer).toHaveBeenCalledTimes(3);
