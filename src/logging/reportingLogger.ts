@@ -57,7 +57,7 @@ export class ReportingLogger implements IReportingLogger {
         this.apiClient.sendLogToServer(logRequest);
     }
 
-    private isReportingEnabled() {
+    private isReportingEnabled(): boolean {
         return (
             this.isRoktDomainPresent() && 
             (this.isFeatureFlagEnabled() ||
@@ -65,18 +65,18 @@ export class ReportingLogger implements IReportingLogger {
         );
     }
 
-    private isRoktDomainPresent() {
-        return window['ROKT_DOMAIN'];
+    private isRoktDomainPresent(): boolean {
+        return Boolean(window['ROKT_DOMAIN']);
     }
 
-    private isFeatureFlagEnabled() {
+    private isFeatureFlagEnabled(): boolean {
         return window.
                 mParticle?.
                 config?.
                 isWebSdkLoggingEnabled ?? false;
     }
 
-    private isDebugModeEnabled() {
+    private isDebugModeEnabled(): boolean {
         return (
             window.
                 location?.
