@@ -12,12 +12,12 @@ export class ReportingLogger implements IReportingLogger {
     private readonly apiClient: IAPIClient;
     private readonly reporter: string = 'mp-wsdk';
     private readonly integration: string = 'mp-wsdk';
-    private readonly rateLimiter: RateLimiter;
+    private readonly rateLimiter: IRateLimiter;
 
     constructor(
         apiClient: IAPIClient,
         private readonly sdkVersion: string,
-        rateLimiter?: RateLimiter,
+        rateLimiter?: IRateLimiter,
     ) {
         this.isEnabled = this.isReportingEnabled();
         this.apiClient = apiClient;
