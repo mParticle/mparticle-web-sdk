@@ -10,7 +10,6 @@ describe('ReportingLogger', () => {
     beforeEach(() => {
         apiClient = { sendLogToServer: jest.fn() };
         
-        // Mock location object to allow modifying search property
         delete (globalThis as any).location;
         (globalThis as any).location = {
             href: 'https://e.com',
@@ -70,9 +69,18 @@ describe('ReportingLogger', () => {
         expect(apiClient.sendLogToServer).toHaveBeenCalled();
     });
 
-    it('rate limits after 10 errors', () => {
-        for (let i = 0; i < 12; i++) logger.error('err');
-        expect(apiClient.sendLogToServer).toHaveBeenCalledTimes(10);
+    it('rate limits after 3 errors', () => {
+        const mockRateLimiter = {
+            incrementAndCheck: jest.fn().mockImplementation((severity) => {
+                // allow only first 3, then start rate limiting
+                mockRateLimiter.count = (mockRateLimiter.count || 0) + 1;
+                return mockRateLimiter.count > 3;
+            }),
+        };
+        logger = new ReportingLogger(apiClient, sdkVersion, mockRateLimiter as any);
+
+        for (let i = 0; i < 5; i++) logger.error('err');
+        expect(apiClient.sendLogToServer).toHaveBeenCalledTimes(3);
     });
 });
 
