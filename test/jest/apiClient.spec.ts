@@ -16,8 +16,8 @@ jest.mock('../../src/uploaders', () => {
         upload = xhrUploadMock;
     }
     
-    (global as any).__fetchUploadSpy = fetchUploadMock;
-    (global as any).__xhrUploadSpy = xhrUploadMock;
+    (globalThis as any).__fetchUploadSpy = fetchUploadMock;
+    (globalThis as any).__xhrUploadSpy = xhrUploadMock;
     
     return {
         AsyncUploader: class {},
@@ -69,22 +69,22 @@ describe('apiClient.sendLogToServer', () => {
         // @ts-ignore
         (global as any).window = {};
 
-        const fetchSpy = (global as any).__fetchUploadSpy as jest.Mock;
-        const xhrSpy = (global as any).__xhrUploadSpy as jest.Mock;
+        const fetchSpy = (globalThis as any).__fetchUploadSpy as jest.Mock;
+        const xhrSpy = (globalThis as any).__xhrUploadSpy as jest.Mock;
         if (fetchSpy) fetchSpy.mockClear();
         if (xhrSpy) xhrSpy.mockClear();
     });
 
     afterEach(() => {
-        (global as any).window = originalWindow;
+        (globalThis as any).window = originalWindow;
         if (originalFetch !== undefined) {
-            (global as any).window.fetch = originalFetch;
+            (globalThis as any).window.fetch = originalFetch;
         }
         jest.clearAllMocks();
     });
 
     test('should use FetchUploader if window.fetch is available', () => {
-        (global as any).window.fetch = jest.fn();
+        (globalThis as any).window.fetch = jest.fn();
         
         const uploadSpy = (global as any).__fetchUploadSpy as jest.Mock;
         const client = new APIClient(mpInstance, kitBlocker);
