@@ -297,6 +297,188 @@ describe('SessionManager', () => {
             });
         });
 
+        describe('#hasSessionTimedOut', () => {
+            it('should return true when elapsed time exceeds session timeout', () => {
+                const timePassed = 35 * (MILLIS_IN_ONE_SEC * 60); // 35 minutes
+                
+                mParticle.init(apiKey, window.mParticle.config);
+                const mpInstance = mParticle.getInstance();
+                
+                mpInstance._Store.sessionId = 'OLD-ID';
+                const timeLastEventSent = mpInstance._Store.dateLastEventSent.getTime();
+                mpInstance._Store.dateLastEventSent = new Date(timeLastEventSent - timePassed);
+                
+                // initialize() uses hasSessionTimedOut internally
+                mpInstance._SessionManager.initialize();
+                
+                // Should have created a new session because timeout was exceeded
+                expect(mpInstance._Store.sessionId).to.not.equal('OLD-ID');
+            });
+
+            it('should return false when elapsed time is within session timeout', () => {
+                const timePassed = 15 * (MILLIS_IN_ONE_SEC * 60); // 15 minutes
+                
+                mParticle.init(apiKey, window.mParticle.config);
+                const mpInstance = mParticle.getInstance();
+                
+                mpInstance._Store.sessionId = 'OLD-ID';
+                const timeLastEventSent = mpInstance._Store.dateLastEventSent.getTime();
+                mpInstance._Store.dateLastEventSent = new Date(timeLastEventSent - timePassed);
+                
+                // initialize() uses hasSessionTimedOut internally
+                mpInstance._SessionManager.initialize();
+                
+                // Should have kept the old session because timeout was not exceeded
+                expect(mpInstance._Store.sessionId).to.equal('OLD-ID');
+            });
+
+            it('should work consistently with both in-memory and persisted timestamps', () => {
+                const now = new Date();
+                const thirtyOneMinutesAgo = new Date();
+                thirtyOneMinutesAgo.setMinutes(now.getMinutes() - 31);
+                
+                mParticle.init(apiKey, window.mParticle.config);
+                const mpInstance = mParticle.getInstance();
+                
+                // Test with in-memory store (via initialize)
+                mpInstance._Store.sessionId = 'TEST-ID';
+                mpInstance._Store.dateLastEventSent = thirtyOneMinutesAgo;
+                mpInstance._SessionManager.initialize();
+                
+                // Session should have expired (default timeout is 30 minutes)
+                expect(mpInstance._Store.sessionId).to.not.equal('TEST-ID');
+                
+                // Test with persistence (via endSession)
+                const newSessionId = mpInstance._Store.sessionId;
+                sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                    gs: {
+                        les: thirtyOneMinutesAgo.getTime(),
+                        sid: newSessionId,
+                    },
+                });
+                
+                mpInstance._SessionManager.endSession();
+                
+                // Session should have ended (same timeout logic)
+                expect(mpInstance._Store.sessionId).to.equal(null);
+            });
+
+            it('should return true when elapsed time equals session timeout exactly', () => {
+                const now = new Date();
+                const exactlyThirtyMinutesAgo = new Date();
+                exactlyThirtyMinutesAgo.setMinutes(now.getMinutes() - 30);
+                
+                mParticle.init(apiKey, window.mParticle.config);
+                const mpInstance = mParticle.getInstance();
+                
+                sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                    gs: {
+                        les: exactlyThirtyMinutesAgo.getTime(),
+                        sid: 'TEST-ID',
+                    },
+                });
+                
+                mpInstance._SessionManager.endSession();
+                
+                // At exactly 30 minutes, session should be expired
+                expect(mpInstance._Store.sessionId).to.equal(null);
+            });
+        });
+
+        describe('#performSessionEnd', () => {
+            it('should log a SessionEnd event', () => {
+                mParticle.init(apiKey, window.mParticle.config);
+                const mpInstance = mParticle.getInstance();
+                const eventSpy = sinon.spy(mpInstance._Events, 'logEvent');
+                
+                mpInstance._SessionManager.endSession(true);
+                
+                // Find the SessionEnd event call
+                const sessionEndCall = eventSpy.getCalls().find(call => 
+                    call.args[0]?.messageType === MessageType.SessionEnd
+                );
+                
+                expect(sessionEndCall).to.not.be.undefined;
+                expect(sessionEndCall.args[0]).to.eql({
+                    messageType: MessageType.SessionEnd,
+                });
+            });
+
+            it('should clear sessionStartDate', () => {
+                mParticle.init(apiKey, window.mParticle.config);
+                const mpInstance = mParticle.getInstance();
+                
+                const sessionStartDate = mpInstance._Store.sessionStartDate;
+                expect(sessionStartDate).to.not.be.null;
+                
+                mpInstance._SessionManager.endSession(true);
+                
+                expect(mpInstance._Store.sessionStartDate).to.equal(null);
+            });
+
+            it('should nullify session ID and session attributes', () => {
+                mParticle.init(apiKey, window.mParticle.config);
+                const mpInstance = mParticle.getInstance();
+                
+                // Set up session data
+                mpInstance._Store.sessionAttributes = { testAttr: 'value' };
+                mpInstance._Store.localSessionAttributes = { localAttr: 'value' };
+                
+                expect(mpInstance._Store.sessionId).to.not.be.null;
+                
+                mpInstance._SessionManager.endSession(true);
+                
+                expect(mpInstance._Store.sessionId).to.equal(null);
+                expect(mpInstance._Store.sessionAttributes).to.eql({});
+                expect(mpInstance._Store.localSessionAttributes).to.eql({});
+            });
+
+            it('should reset timeOnSiteTimer if it exists', () => {
+                mParticle.init(apiKey, window.mParticle.config);
+                const mpInstance = mParticle.getInstance();
+                
+                // Timer should exist since workspaceToken is present in config
+                expect(mpInstance._timeOnSiteTimer).to.exist;
+                
+                const resetTimerSpy = sinon.spy(mpInstance._timeOnSiteTimer, 'resetTimer');
+                
+                mpInstance._SessionManager.endSession(true);
+                
+                expect(resetTimerSpy.called).to.equal(true);
+            });
+
+            it('should handle missing timeOnSiteTimer gracefully', () => {
+                mParticle.init(apiKey, window.mParticle.config);
+                const mpInstance = mParticle.getInstance();
+                
+                // Explicitly remove the timer to test the optional chaining behavior
+                mpInstance._timeOnSiteTimer = undefined;
+                
+                expect(() => {
+                    mpInstance._SessionManager.endSession(true);
+                }).to.not.throw();
+                
+                // Session should still end properly
+                expect(mpInstance._Store.sessionId).to.equal(null);
+            });
+
+            it('should perform all session end operations', () => {
+                mParticle.init(apiKey, window.mParticle.config);
+                const mpInstance = mParticle.getInstance();
+                
+                const eventSpy = sinon.spy(mpInstance._Events, 'logEvent');
+                const persistenceSpy = sinon.spy(mpInstance._Persistence, 'update');
+                
+                mpInstance._SessionManager.endSession(true);
+                
+                // Verify all operations happened
+                expect(eventSpy.called).to.equal(true);
+                expect(mpInstance._Store.sessionStartDate).to.equal(null);
+                expect(mpInstance._Store.sessionId).to.equal(null);
+                expect(persistenceSpy.called).to.equal(true);
+            });
+        });
+
         describe('#endSession', () => {
             it('should end a session', () => {
                 mParticle.init(apiKey, window.mParticle.config);

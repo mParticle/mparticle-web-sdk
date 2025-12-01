@@ -33,16 +33,7 @@ export default function SessionManager(
 
     this.initialize = function (): void {
         if (mpInstance._Store.sessionId) {
-            const sessionTimeoutInMilliseconds: number =
-                mpInstance._Store.SDKConfig.sessionTimeout * 60000;
-
-            if (
-                new Date() >
-                new Date(
-                    mpInstance._Store.dateLastEventSent.getTime() +
-                        sessionTimeoutInMilliseconds
-                )
-            ) {
+            if (hasSessionTimedOut(mpInstance._Store.dateLastEventSent.getTime())) {
                 self.endSession();
                 self.startNewSession();
             } else {
@@ -151,9 +142,6 @@ export default function SessionManager(
             return;
         }
 
-        let sessionTimeoutInMilliseconds: number;
-        let timeSinceLastEventSent: number;
-
         const cookies: IPersistenceMinified =
             mpInstance._Persistence.getPersistence();
 
@@ -172,15 +160,10 @@ export default function SessionManager(
         }
 
         if (cookies?.gs?.les) {
-            sessionTimeoutInMilliseconds =
-                mpInstance._Store.SDKConfig.sessionTimeout * 60000;
-            const newDate: number = new Date().getTime();
-            timeSinceLastEventSent = newDate - cookies.gs.les;
-
-            if (timeSinceLastEventSent < sessionTimeoutInMilliseconds) {
-                self.setSessionTimer();
-            } else {
+            if (hasSessionTimedOut(cookies.gs.les)) {
                 performSessionEnd();
+            } else {
+                self.setSessionTimer();
             }
         }
         mpInstance._timeOnSiteTimer?.resetTimer();
@@ -224,6 +207,27 @@ export default function SessionManager(
         }
     };
 
+    /**
+     * Checks if the session has expired based on the last event timestamp
+     * @param lastEventTimestamp - Unix timestamp in milliseconds of the last event
+     * @returns true if the session has expired, false otherwise
+     */
+    function hasSessionTimedOut(lastEventTimestamp: number): boolean {
+        const sessionTimeoutInMilliseconds: number =
+            mpInstance._Store.SDKConfig.sessionTimeout * 60000;
+        const timeSinceLastEvent: number =
+            new Date().getTime() - lastEventTimestamp;
+
+        return timeSinceLastEvent >= sessionTimeoutInMilliseconds;
+    }
+
+    /**
+     * Performs session end operations:
+     * - Logs a SessionEnd event
+     * - Clears session start date
+     * - Nullifies the session ID and related data
+     * - Resets the time-on-site timer
+     */
     function performSessionEnd(): void {
         mpInstance._Events.logEvent({
             messageType: Types.MessageType.SessionEnd,
