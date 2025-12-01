@@ -2,6 +2,7 @@ import sinon from 'sinon';
 import { expect } from 'chai';
 import Utils from './config/utils';
 import Constants, { HTTP_ACCEPTED, HTTP_BAD_REQUEST, HTTP_OK } from '../../src/constants';
+import fetchMock from 'fetch-mock/esm/client';
 import {
     urls,
     apiKey,
@@ -14,9 +15,8 @@ import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 
 const {
     setCookie,
-    findRequestURL,
     waitForCondition,
-    hasIdentifyReturned
+    hasIdentifyReturned,
 } = Utils;
 
 const { HTTPCodes } = Constants;
@@ -36,8 +36,10 @@ describe('legacy Alias Requests', function() {
     const originalFetch = window.fetch;
 
     beforeEach(function() {
+        mParticle._resetForTests(MPConfig);
         delete window.fetch;
         delete mParticle.config.useCookieStorage;
+        fetchMock.config.overwriteRoutes = true;
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
         localStorage.clear();
@@ -63,13 +65,13 @@ describe('legacy Alias Requests', function() {
 
     afterEach(function() {
         mockServer.restore();
-        // fetchMock.restore();
-        mParticle._resetForTests(MPConfig);
+        fetchMock.restore();
+        sinon.restore();
         clock.restore();
         window.fetch = originalFetch;
     });
 
-    it('Alias request should be received when API is called validly', function(done) {
+    it('Alias request should be received when API is called validly', () => {
         mockServer.requests = [];
         mockServer.respondWith(urls.alias, [HTTP_OK, {}, JSON.stringify({})]);
 
@@ -100,11 +102,9 @@ describe('legacy Alias Requests', function() {
         expect(dataBody['source_mpid']).to.equal('sourceMpid');
         expect(dataBody['start_unixtime_ms']).to.equal(3);
         expect(dataBody['end_unixtime_ms']).to.equal(4);
-
-        done();
     });
 
-    it('Alias request should include scope if specified', function(done) {
+    it('Alias request should include scope if specified', () => {
         mockServer.requests = [];
         mockServer.respondWith(urls.alias, [HTTP_OK, {}, JSON.stringify({})]);
 
@@ -125,11 +125,9 @@ describe('legacy Alias Requests', function() {
         const requestBody = JSON.parse(request.requestBody);
         const dataBody = requestBody['data'];
         expect(dataBody['scope']).to.equal('mpid');
-
-        done();
     });
 
-    it('should reject malformed Alias Requests', function(done) {
+    it('should reject malformed Alias Requests', () => {
         mParticle.config.logLevel = 'verbose';
         let warnMessage = null;
 
@@ -257,12 +255,11 @@ describe('legacy Alias Requests', function() {
             expect(callbackResult.message).to.equal(undefined);
             expect(warnMessage).to.equal(null);
             callbackResult = null;
-            done();
         });
 
     });
 
-    it('should parse error info from Alias Requests', function(done) {
+    it('should parse error info from Alias Requests', () => {
         clock.restore();
         mParticle.init(apiKey, window.mParticle.config);
         const errorMessage = 'this is a sample error message';
@@ -288,14 +285,10 @@ describe('legacy Alias Requests', function() {
             callbackResult = callback;
             callbackResult.httpCode.should.equal(HTTP_BAD_REQUEST);
             callbackResult.message.should.equal(errorMessage);
-    
-            done();
         });
     });
 
-    it('should properly create AliasRequest', function(done) {
-        mParticle._resetForTests(MPConfig);
-
+    it('should properly create AliasRequest', () => {
         const cookies = JSON.stringify({
             gs: {
                 sid: 'fst Test',
@@ -329,13 +322,9 @@ describe('legacy Alias Requests', function() {
         expect(aliasRequest.startTime).to.equal(200);
         expect(aliasRequest.endTime).to.equal(400);
         clock.restore();
-
-        done();
     });
 
-    it('should fill in missing fst and lst in createAliasRequest', function(done) {
-        mParticle._resetForTests(MPConfig);
-
+    it('should fill in missing fst and lst in createAliasRequest', () => {
         const cookies = JSON.stringify({
             gs: {
                 sid: 'fst Test',
@@ -373,13 +362,9 @@ describe('legacy Alias Requests', function() {
         expect(aliasRequest.endTime).to.equal(1000);
 
         clock.restore();
-
-        done();
     });
 
-    it('should fix startTime when default is outside max window create AliasRequest', function(done) {
-        mParticle._resetForTests(MPConfig);
-
+    it('should fix startTime when default is outside max window create AliasRequest', () => {
         const millisPerDay = 24 * 60 * 60 * 1000;
         const cookies = JSON.stringify({
             gs: {
@@ -417,11 +402,9 @@ describe('legacy Alias Requests', function() {
         expect(aliasRequest.startTime).to.equal(oldestAllowedStartTime);
         expect(aliasRequest.endTime).to.equal(new Date().getTime());
         clock.restore();
-
-        done();
     });
 
-    it('should warn if legal aliasRequest cannot be created with MParticleUser', function(done) {
+    it('should warn if legal aliasRequest cannot be created with MParticleUser', () => {
         const millisPerDay = 24 * 60 * 60 * 1000;
 
         mParticle.config.logLevel = 'verbose';
@@ -475,11 +458,9 @@ describe('legacy Alias Requests', function() {
         );
 
         clock.restore();
-        done();
     });
 
-    it("alias request should have environment 'development' when isDevelopmentMode is true", function(done) {
-        mParticle._resetForTests(MPConfig);
+    it("alias request should have environment 'development' when isDevelopmentMode is true", () => {
         window.mParticle.config.isDevelopmentMode = true;
 
         mockServer.respondWith(urls.alias, [HTTP_ACCEPTED, {}, JSON.stringify({})]);
@@ -500,11 +481,10 @@ describe('legacy Alias Requests', function() {
 
         const request = mockServer.requests[0];
         const requestBody = JSON.parse(request.requestBody);
-        expect(requestBody['environment']).to.equal('development');expect(requestBody.environment).to.equal('development');
-        done()
+        expect(requestBody.environment).to.equal('development');
     });
-
-    it('should have default urls if no custom urls are set in config object, but use custom urls when they are set', function(done) {
+  
+    it('should have default urls if no custom urls are set in config object, but use custom urls when they are set', async () => {
         window.mParticle.config.v3SecureServiceUrl =
             'testtesttest-custom-v3secureserviceurl/v3/JS/';
         window.mParticle.config.configUrl =
@@ -513,10 +493,9 @@ describe('legacy Alias Requests', function() {
         window.mParticle.config.aliasUrl = 'custom-aliasUrl/';
 
         mockServer.respondWith('https://testtesttest-custom-v3secureserviceurl/v3/JS/test_key/events', HTTP_OK, JSON.stringify({ mpid: testMPID, Store: {}}));
-
+        clock.restore();
         mParticle.init(apiKey, window.mParticle.config);
-        waitForCondition(hasIdentifyReturned)
-        .then(() => {
+        await waitForCondition(hasIdentifyReturned);
 
         mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(window.mParticle.config.v3SecureServiceUrl)
         mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(window.mParticle.config.configUrl)
@@ -526,9 +505,7 @@ describe('legacy Alias Requests', function() {
         mockServer.requests = [];
         // test events endpoint
         mParticle.logEvent('Test Event');
-
-        const testEventURL = findRequestURL(mockServer.requests, 'Test Event');
-        testEventURL.should.equal(
+        mockServer.requests[0].url.should.equal(
             'https://' +
                 window.mParticle.config.v3SecureServiceUrl +
                 'test_key/events'
@@ -536,6 +513,7 @@ describe('legacy Alias Requests', function() {
 
         // test Identity endpoint
         mockServer.requests = [];
+        mParticle.getInstance()._Store.identityCallInFlight = false;
         mParticle.Identity.login({ userIdentities: { customerid: 'test1' } });
         mockServer.requests[0].url.should.equal(
             'https://' + window.mParticle.config.identityUrl + 'login'
@@ -554,9 +532,6 @@ describe('legacy Alias Requests', function() {
         mockServer.requests[0].url.should.equal(
             'https://' + window.mParticle.config.aliasUrl + 'test_key/Alias'
         );
-        })
-        
-        done();
     });
 
 });

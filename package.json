@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-sdk",
-    "version": "2.48.0",
+    "version": "2.50.1",
     "description": "mParticle core SDK for web applications",
     "license": "Apache-2.0",
     "keywords": [
@@ -43,6 +43,8 @@
         "test": "npm run build && npm run build:test-bundle && cross-env DEBUG=false karma start test/karma.config.js",
         "test:browserstack": "karma start test/cross-browser-testing/browserstack.karma.config.js",
         "test:browserstack:debug": "cross-env DEBUG=true karma start test/cross-browser-testing/browserstack.karma.config.js",
+        "test:browserstack-beta": "karma start test/cross-browser-testing/browserstack.karma.beta.config.js",
+        "test:browserstack-beta:debug": "cross-env DEBUG=true karma start test/cross-browser-testing/browserstack.karma.beta.config.js",
         "test:debug": "cross-env DEBUG=true karma start test/karma.config.js",
         "test:stub": "cross-env TESTTYPE=stub ENVIRONMENT=prod rollup --config rollup.test.config.js && karma start test/stub/karma.stub.config.js",
         "test:integrations": "npm run test:requirejs && npm run test:integrations:cjs && npm run test:integrations:module",

@@ -24,17 +24,17 @@ describe('ConfigAPIClient', () => {
     let dataPlanResult: DataPlanResult;
 
     beforeEach(() => {
-        fetchMock.restore();
+        window.mParticle._resetForTests(MPConfig);
+        fetchMock.config.overwriteRoutes = true;
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
         sdkInitCompleteCallback = sinon.spy();
-        window.mParticle._resetForTests(MPConfig);
     });
 
     afterEach(() => {
-        mockServer.reset();
-        fetchMock.restore();
         sinon.restore();
+        fetchMock.restore();
+        mockServer.reset();
     });
 
     describe('with FetchUploader', () => {
@@ -74,7 +74,7 @@ describe('ConfigAPIClient', () => {
                 });
 
                 it('should return inital config fetch fails', async () => {
-                    const config = { requestConfig: true };
+                    const config = { requestConfig: true } as SDKInitConfig;
                     fetchMock.get(urls.config, {
                         status: 400,
                     });
@@ -134,10 +134,6 @@ describe('ConfigAPIClient', () => {
                     });
                 });
 
-                afterEach(() => {
-                    fetchMock.restore();
-                });
-
                 it('appends data plan information to url', async () => {
                     const config: Partial<SDKInitConfig> = {
                         requestConfig: true,
@@ -185,8 +181,10 @@ describe('ConfigAPIClient', () => {
 
 
     describe('with XHRUploader', () => {
-        var fetchHolder = window.fetch;
+        let fetchHolder: typeof window.fetch;
+        
         beforeEach(() => {
+            fetchHolder = window.fetch;
             delete window.fetch;
         });
 
@@ -231,7 +229,7 @@ describe('ConfigAPIClient', () => {
                 });
 
                 it('should return inital config fetch fails', async () => {
-                    const config = { requestConfig: true };
+                    const config = { requestConfig: true } as SDKInitConfig;
                     mockServer.respondWith(urls.config, [400, {}, '']);
 
                     const configAPIClient = new ConfigAPIClient(

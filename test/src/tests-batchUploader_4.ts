@@ -19,6 +19,7 @@ describe('batch uploader', () => {
     let mockServer;
 
     beforeEach(() => {
+        window.mParticle._resetForTests(MPConfig);
         fetchMock.restore();
         fetchMock.config.overwriteRoutes = true;
         fetchMockSuccess(urls.identify, {
@@ -57,17 +58,15 @@ describe('batch uploader', () => {
         });
     
         afterEach(() => {
-            window.mParticle._resetForTests(MPConfig);
             window.fetch = fetch;
             sinon.restore();
         });
 
-        it('should use custom v3 endpoint', function(done) {
-            window.mParticle._resetForTests(MPConfig);
+        it('should use custom v3 endpoint', async () => {
             mockServer.requests = [];
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
+            await waitForCondition(hasIdentifyReturned);
+            
             window.mParticle.logEvent('Test Event');
             
             mockServer.requests.length.should.equal(1);
@@ -80,19 +79,11 @@ describe('batch uploader', () => {
             batch.events[1].event_type.should.equal('application_state_transition');
             batch.events[2].event_type.should.equal('custom_event');
             batch.events[2].data.event_name.should.equal('Test Event');
-
-            done();
-            }).catch((e) => {
-            })
         });
 
-        it('should force uploads when using public `upload`', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-
+        it('should force uploads when using public `upload`', async () => {
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
-
+            await waitForCondition(hasIdentifyReturned);
 
             window.mParticle.logEvent('Test Event');
     
@@ -109,17 +100,12 @@ describe('batch uploader', () => {
             batch.events[1].event_type.should.equal('application_state_transition');
             batch.events[2].event_type.should.equal('custom_event');
             batch.events[2].data.event_name.should.equal('Test Event');
-
-            done();
-            })
         });
 
-        it('should trigger an upload of batch when a commerce event is called', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-
+        it('should trigger an upload of batch when a commerce event is called', async () => {
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
+            await waitForCondition(hasIdentifyReturned);
+            
             window.mParticle.logEvent('Test Event');
             // The only request to the server should be the identify call
             // Session start, AST, and Test Event are queued.
@@ -136,13 +122,9 @@ describe('batch uploader', () => {
             batch.events[2].data.event_name.should.equal('Test Event');
             batch.events[3].event_type.should.equal('commerce_event');
             batch.events[3].data.product_action.action.should.equal('add_to_cart');
-
-            done();
-            })
         });
 
-        it('should trigger an upload of batch when a UIC occurs', function(done) {
-            window.mParticle._resetForTests(MPConfig);
+        it('should trigger an upload of batch when a UIC occurs', async () => {
             // include an identify request so that it creates a UIC
             window.mParticle.config.identifyRequest = {
                 userIdentities: {
@@ -151,8 +133,8 @@ describe('batch uploader', () => {
             };
 
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
+            await waitForCondition(hasIdentifyReturned);
+            
             // Requests sent should be identify call, then UIC event
             // Session start, AST, and Test Event are queued, and don't appear
             // in the mockServer.requests
@@ -166,9 +148,6 @@ describe('batch uploader', () => {
 
             batch.events[0].event_type.should.equal('session_start');
             batch.events[1].event_type.should.equal('application_state_transition');
-
-            done();
-            });
         });
 
         // Originally, we had the Batch uploader set to force an upload when a UAC event
@@ -176,12 +155,9 @@ describe('batch uploader', () => {
         // make sure the Web SDK does not regress. This test will be removed in a future
         // Web SDK update
         // TODO: https://go.mparticle.com/work/SQDSDKS-5891 
-        it('should NOT trigger an upload of batch when a UAC occurs', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-
+        it('should NOT trigger an upload of batch when a UAC occurs', async () => {
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
+            await waitForCondition(hasIdentifyReturned);
 
             // Set a user attribute to trigger a UAC event
             window.mParticle.Identity.getCurrentUser().setUserAttribute('age', 25);
@@ -208,14 +184,9 @@ describe('batch uploader', () => {
             batch.events[0].event_type.should.equal('session_start');
             batch.events[1].event_type.should.equal('application_state_transition');
             batch.events[2].event_type.should.equal('user_attribute_change');
-
-            done();
-        });
         });
 
-        it('should return pending uploads if a 500 is returned', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-
+        it('should return pending uploads if a 500 is returned', async () => {
             mockServer.respondWith(urls.events, [
                 500,
                 {},
@@ -223,9 +194,8 @@ describe('batch uploader', () => {
             ]);
 
             window.mParticle.init(apiKey, window.mParticle.config);
-
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
+            await waitForCondition(hasIdentifyReturned);
+            
             window.mParticle.logEvent('Test Event');
 
             const pendingEvents = window.mParticle.getInstance()._APIClient.uploader.eventsQueuedForProcessing;
@@ -245,34 +215,25 @@ describe('batch uploader', () => {
             batch.events[1].event_type.should.equal('application_state_transition');
             batch.events[2].event_type.should.equal('custom_event');
             batch.events[2].data.event_name.should.equal('Test Event');
-            done();
-            });
         });
 
-        it('should add a modified boolean of true to a batch that has been modified via a config.onCreateBatch call', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-
+        it('should add a modified boolean of true to a batch that has been modified via a config.onCreateBatch call', async () => {
             window.mParticle.config.onCreateBatch = function (batch: Batch) {
                 return batch
             };
 
             window.mParticle.init(apiKey, window.mParticle.config);
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
+            await waitForCondition(hasIdentifyReturned);
+            
             window.mParticle.logEvent('Test Event');
             
             window.mParticle.upload()
             
             const batch = JSON.parse(mockServer.secondRequest.requestBody);
             batch.modified.should.equal(true);
-            done();
-            });
-
         });
 
-        it('should respect rules for the batch modification', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-
+        it('should respect rules for the batch modification', async () => {
             window.mParticle.config.onCreateBatch = function (batch) {
                 batch.events.map(event => {
                     if (event.event_type === "custom_event") {
@@ -283,9 +244,8 @@ describe('batch uploader', () => {
             };
 
             window.mParticle.init(apiKey, window.mParticle.config);
-
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
+            await waitForCondition(hasIdentifyReturned);
+            
             window.mParticle.logEvent('Test Event');
             
             window.mParticle.upload();
@@ -296,28 +256,21 @@ describe('batch uploader', () => {
             batch.events[1].event_type.should.equal('application_state_transition');
             batch.events[2].event_type.should.equal('custom_event');
             batch.events[2].data.event_name.should.equal('Modified!');
-            done();
-            });
         });
 
-        it('should add a modified boolean of true to a batch that has been modified via a config.onCreateBatch call', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-
+        it('should add a modified boolean of true to a batch that has been modified via a config.onCreateBatch call', async () => {
             window.mParticle.config.onCreateBatch = function (batch: Batch) {
                 return undefined;
             };
 
             window.mParticle.init(apiKey, window.mParticle.config);
-
-            waitForCondition(hasIdentifyReturned)
-            .then(() => {
+            await waitForCondition(hasIdentifyReturned);
+            
             window.mParticle.logEvent('Test Event');
             
             window.mParticle.upload();
             
             (mockServer.secondRequest === null).should.equal(true);
-            done();
-            })
         });
     });
 });

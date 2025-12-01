@@ -29,34 +29,22 @@ const mParticle = window.mParticle;
 describe('SessionManager', () => {
     const now = new Date();
     let clock;
-    let sandbox;
 
     beforeEach(() => {
-        sandbox = sinon.createSandbox();
+        mParticle._resetForTests(MPConfig);
+        fetchMock.config.overwriteRoutes = true;
         fetchMock.post(urls.events, 200);
-
         fetchMockSuccess(urls.identify, {
             mpid: testMPID, is_logged_in: false
         });
     });
 
     afterEach(function() {
-        sandbox.restore();
-        mParticle._resetForTests(MPConfig);
         fetchMock.restore();
+        sinon.restore();
     });
 
     describe('Unit Tests', () => {
-        beforeEach(() => {
-            clock = sinon.useFakeTimers(now.getTime());
-        });
-
-        afterEach(function() {
-            sandbox.restore();
-            clock.restore();
-            mParticle._resetForTests(MPConfig);
-        });
-
         describe('#initialize', () => {
             beforeEach(() => {
                 // Change timeout to 10 minutes so we can make sure defaults are not in use
@@ -165,6 +153,14 @@ describe('SessionManager', () => {
         });
 
         describe('#startNewSession', () => {
+            beforeEach(() => {
+                clock = sinon.useFakeTimers(now.getTime());
+            });
+
+            afterEach(() => {
+                clock.restore();
+            });
+
             it('should create a new session', () => {
                 const generateUniqueIdSpy = sinon.stub(
                     mParticle.getInstance()._Helpers,
@@ -480,22 +476,28 @@ describe('SessionManager', () => {
         });
 
         describe('#endSession', () => {
-            it('should end a session', () => {
+            beforeEach(() => {
+                clock = sinon.useFakeTimers(now.getTime());
+            });
+
+            it('should end a session if enough time has passed in between sessions', async () => {
+                clock.restore();
                 mParticle.init(apiKey, window.mParticle.config);
-                waitForCondition(() => {
-                    return (
-                        mParticle.Identity.getCurrentUser()?.getMPID() === testMPID
-                    );
-                })
-                .then(() => {
+                await waitForCondition(hasIdentifyReturned);
+
                 const mpInstance = mParticle.getInstance();
                 const persistenceSpy = sinon.spy(
                     mpInstance._Persistence,
                     'update'
                 );
 
-                mpInstance._SessionManager.endSession();
+                const persistence = mpInstance._Persistence.getPersistence();
+                if (persistence?.gs) {
+                    persistence.gs.les = new Date().getTime() - (60 * 60 * 1000);
+                    mpInstance._Persistence.savePersistence(persistence);
+                }
 
+                mpInstance._SessionManager.endSession();
                 expect(mpInstance._Store.sessionId).to.equal(null);
                 expect(mpInstance._Store.dateLastEventSent).to.equal(null);
                 expect(mpInstance._Store.sessionAttributes).to.eql({});
@@ -504,7 +506,39 @@ describe('SessionManager', () => {
                 // Persistence isn't necessary for this feature, but we should test
                 // to see that it is called in case this ever needs to be refactored
                 expect(persistenceSpy.called).to.equal(true);
+            });
+
+            it('should NOT end a session if NOT enough time has passed in between sessions', () => {
+                // The default timeout limit is 30 minutes.
+                const twentyMinutesAgo = new Date();
+                twentyMinutesAgo.setMinutes(now.getMinutes() - 20);
+
+                mParticle.init(apiKey, window.mParticle.config);
+                const mpInstance = mParticle.getInstance();
+                const timerSpy = sinon.spy(
+                    mpInstance._SessionManager,
+                    'setSessionTimer'
+                );
+
+                // Session Manager relies on persistence to determine last event sent (LES) time
+                // Also requires sid to verify session exists
+                sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                    gs: {
+                        les: twentyMinutesAgo,
+                        sid: 'fake-session-id',
+                    },
                 });
+
+                mpInstance._SessionManager.endSession();
+
+                // We are verifying that the session has not ended, and therefore the
+                // session ID should still be the same, as opposed to null, which
+                // is assigned when the session actually ends
+                expect(mpInstance._Store.sessionId).to.equal('fake-session-id');
+
+                // When session is not timed out, setSessionTimer is called to keep track
+                // of current session timeout
+                expect(timerSpy.getCalls().length).to.equal(1);
             });
 
             it('should force a session end when override is used', () => {
@@ -527,7 +561,7 @@ describe('SessionManager', () => {
                 expect(persistenceSpy.called).to.equal(true);
             });
 
-            it('should log  NoSessionToEnd Message  and return if Persistence is null', () => {
+            it('should log NoSessionToEnd Message and return if Persistence is null', () => {
                 mParticle.init(apiKey, window.mParticle.config);
 
                 const mpInstance = mParticle.getInstance();
@@ -675,40 +709,6 @@ describe('SessionManager', () => {
                 );
             });
 
-            it('should NOT end session if session has not timed out', () => {
-                const now = new Date();
-                // The default timeout limit is 30 minutes.
-                const twentyMinutesAgo = new Date();
-                twentyMinutesAgo.setMinutes(now.getMinutes() - 20);
-
-                mParticle.init(apiKey, window.mParticle.config);
-                const mpInstance = mParticle.getInstance();
-                const timerSpy = sinon.spy(
-                    mpInstance._SessionManager,
-                    'setSessionTimer'
-                );
-
-                // Session Manager relies on persistence to determine last event sent (LES) time
-                // Also requires sid to verify session exists
-                sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
-                    gs: {
-                        les: twentyMinutesAgo,
-                        sid: 'fake-session-id',
-                    },
-                });
-
-                mpInstance._SessionManager.endSession();
-
-                // We are verifying that the session has not ended, and therefore the
-                // session ID should still be the same, as opposed to null, which
-                // is assigned when the session actually ends
-                expect(mpInstance._Store.sessionId).to.equal('fake-session-id');
-
-                // When session is not timed out, setSessionTimer is called to keep track
-                // of current session timeout
-                expect(timerSpy.getCalls().length).to.equal(1);
-            });
-
             it('should end session if the session timeout limit has been reached', () => {
                 const generateUniqueIdSpy = sinon.stub(
                     mParticle.getInstance()._Helpers,
@@ -716,11 +716,8 @@ describe('SessionManager', () => {
                 );
                 generateUniqueIdSpy.returns('test-unique-id');
 
-                const now = new Date();
-                const twentyMinutesAgo = new Date();
-                const hourAgo = new Date();
-                twentyMinutesAgo.setMinutes(now.getMinutes() - 20);
-                hourAgo.setMinutes(now.getMinutes() - 60);
+                const twentyMinutesAgo = new Date(now.getTime() - (20 * 60 * 1000));
+                const hourAgo = new Date(now.getTime() - (60 * 60 * 1000));
 
                 mParticle.init(apiKey, window.mParticle.config);
                 const mpInstance = mParticle.getInstance();
@@ -779,6 +776,14 @@ describe('SessionManager', () => {
         });
 
         describe('#setSessionTimer', () => {
+            beforeEach(() => {
+                clock = sinon.useFakeTimers(now.getTime());
+            });
+
+            afterEach(() => {
+                clock.restore();
+            }); 
+
             it('should end a session after the timeout expires', () => {
                 mParticle.init(apiKey, window.mParticle.config);
                 const mpInstance = mParticle.getInstance();
@@ -1042,19 +1047,20 @@ describe('SessionManager', () => {
     });
 
     describe('Integration Tests', () => {
-        afterEach(function() {
-            fetchMock.restore();
+        beforeEach(function() {
+            clock = sinon.useFakeTimers(now.getTime());
         });
 
+        afterEach(() => {
+            clock.restore();
+        });
+      
         it('should end a session if the session timeout expires', () => {
             const generateUniqueIdSpy = sinon.stub(
                 mParticle.getInstance()._Helpers,
                 'generateUniqueId'
             );
             generateUniqueIdSpy.returns('test-unique-id');
-
-            const now = new Date();
-            clock = sinon.useFakeTimers(now.getTime());
 
             mParticle.init(apiKey, window.mParticle.config);
             const mpInstance = mParticle.getInstance();
@@ -1087,11 +1093,10 @@ describe('SessionManager', () => {
             // Persistence isn't necessary for this feature, but we should test
             // to see that it is called in case this ever needs to be refactored
             expect(persistenceSpy.called).to.equal(true);
-
-            clock.restore();
         });
 
         it('should call identify when SDKConfig.identifyRequest differs from getCurrentUser().userIdentities on page refresh', async () => {
+                clock.restore();
                 // First initialization with initial identity request
                 const initialIdentityApiData: IdentityApiData = {
                     userIdentities: {
@@ -1143,6 +1148,7 @@ describe('SessionManager', () => {
             });
 
             it('should NOT call identify when SDKConfig.identifyRequest matches getCurrentUser().userIdentities on page refresh', async () => {
+                clock.restore();
                 // First initialization with initial identity request
                 const initialIdentityApiData: IdentityApiData = {
                     userIdentities: {

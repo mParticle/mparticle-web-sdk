@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.48.0";
+    var version = "2.50.1";
 
     var Constants = {
       sdkVersion: version,
@@ -413,12 +413,6 @@ var mParticle = (function () {
     var HTTP_OK = 200;
     var HTTP_ACCEPTED = 202;
     var HTTP_BAD_REQUEST = 400;
-    var StoragePrivacyMap = {
-      SDKState: 'functional',
-      OfflineEvents: 'functional',
-      IdentityCache: 'functional',
-      TimeOnSite: 'targeting'
-    };
 
     /******************************************************************************
     Copyright (c) Microsoft Corporation.
@@ -2200,22 +2194,6 @@ var mParticle = (function () {
       }
       return SessionStorageVault;
     }(BaseVault);
-    // DisabledVault is used when persistence is disabled by privacy flags.
-    var DisabledVault = /** @class */function (_super) {
-      __extends(DisabledVault, _super);
-      function DisabledVault(storageKey, options) {
-        var _this = _super.call(this, storageKey, window.localStorage, options) || this;
-        _this.contents = null;
-        return _this;
-      }
-      DisabledVault.prototype.store = function (_item) {
-        this.contents = null;
-      };
-      DisabledVault.prototype.retrieve = function () {
-        return this.contents;
-      };
-      return DisabledVault;
-    }(BaseVault);
 
     var AsyncUploader = /** @class */function () {
       function AsyncUploader(url) {
@@ -2395,7 +2373,7 @@ var mParticle = (function () {
         this.batchesQueuedForProcessing = [];
         // Cache Offline Storage Availability boolean
         // so that we don't have to check it every time
-        this.offlineStorageEnabled = this.isOfflineStorageAvailable() && !mpInstance._Store.getPrivacyFlag('OfflineEvents');
+        this.offlineStorageEnabled = this.isOfflineStorageAvailable();
         if (this.offlineStorageEnabled) {
           this.eventVault = new SessionStorageVault("".concat(mpInstance._Store.storageName, "-events"), {
             logger: mpInstance.Logger
@@ -4402,8 +4380,6 @@ var mParticle = (function () {
       var isWebviewEnabled = mpInstance._NativeSdkHelpers.isWebviewEnabled;
       var defaultStore = {
         isEnabled: true,
-        noFunctional: false,
-        noTargeting: false,
         sessionAttributes: {},
         localSessionAttributes: {},
         currentSessionMPIDs: [],
@@ -4641,28 +4617,6 @@ var mParticle = (function () {
           _this._setPersistence(mpid, 'con', toMinifiedJsonObject(consentState));
         }
       };
-      this.getNoFunctional = function () {
-        return _this.noFunctional;
-      };
-      this.setNoFunctional = function (noFunctional) {
-        _this.noFunctional = noFunctional;
-      };
-      this.getNoTargeting = function () {
-        return _this.noTargeting;
-      };
-      this.setNoTargeting = function (noTargeting) {
-        _this.noTargeting = noTargeting;
-      };
-      this.getPrivacyFlag = function (storageType) {
-        var privacyControl = StoragePrivacyMap[storageType];
-        if (privacyControl === 'functional') {
-          return _this.getNoFunctional();
-        }
-        if (privacyControl === 'targeting') {
-          return _this.getNoTargeting();
-        }
-        return false;
-      };
       this.getDeviceId = function () {
         return _this.deviceId;
       };
@@ -4743,7 +4697,6 @@ var mParticle = (function () {
         mpInstance._Persistence.update();
       };
       this.processConfig = function (config) {
-        var _a;
         var workspaceToken = config.workspaceToken,
           requiredWebviewBridgeName = config.requiredWebviewBridgeName;
         // We should reprocess the flags and baseUrls in case they have changed when we request an updated config
@@ -4754,20 +4707,9 @@ var mParticle = (function () {
         for (var baseUrlKeys in baseUrls) {
           _this.SDKConfig[baseUrlKeys] = baseUrls[baseUrlKeys];
         }
-        var _b = (_a = config === null || config === void 0 ? void 0 : config.launcherOptions) !== null && _a !== void 0 ? _a : {},
-          noFunctional = _b.noFunctional,
-          noTargeting = _b.noTargeting;
-        if (noFunctional != null) {
-          _this.setNoFunctional(noFunctional);
-        }
-        if (noTargeting != null) {
-          _this.setNoTargeting(noTargeting);
-        }
         if (workspaceToken) {
           _this.SDKConfig.workspaceToken = workspaceToken;
-          if (!_this.getPrivacyFlag('TimeOnSite')) {
-            mpInstance._timeOnSiteTimer = new ForegroundTimeTracker(workspaceToken);
-          }
+          mpInstance._timeOnSiteTimer = new ForegroundTimeTracker(workspaceToken);
         } else {
           mpInstance.Logger.warning('You should have a workspaceToken on your config object for security purposes.');
         }
@@ -4952,9 +4894,6 @@ var mParticle = (function () {
           } else {
             mpInstance._Store.isFirstRun = false;
           }
-          if (mpInstance._Store.getPrivacyFlag('SDKState')) {
-            return;
-          }
 
           // https://go.mparticle.com/work/SQDSDKS-6045
           if (!mpInstance._Store.isLocalStorageAvailable) {
@@ -5021,7 +4960,7 @@ var mParticle = (function () {
         }
       };
       this.update = function () {
-        if (!mpInstance._Store.webviewBridgeEnabled && !mpInstance._Store.getPrivacyFlag('SDKState')) {
+        if (!mpInstance._Store.webviewBridgeEnabled) {
           if (mpInstance._Store.SDKConfig.useCookieStorage) {
             self.setCookie();
           }
@@ -5504,9 +5443,6 @@ var mParticle = (function () {
 
       // https://go.mparticle.com/work/SQDSDKS-6021
       this.savePersistence = function (persistence) {
-        if (mpInstance._Store.getPrivacyFlag('SDKState')) {
-          return;
-        }
         var encodedPersistence = self.encodePersistence(JSON.stringify(persistence)),
           date = new Date(),
           key = mpInstance._Store.storageName,
@@ -5528,9 +5464,6 @@ var mParticle = (function () {
         }
       };
       this.getPersistence = function () {
-        if (mpInstance._Store.getPrivacyFlag('SDKState')) {
-          return null;
-        }
         var persistence = this.useLocalStorage() ? this.getLocalStorage() : this.getCookie();
         return persistence;
       };
@@ -5612,11 +5545,7 @@ var mParticle = (function () {
         self.update();
       };
       this.resetPersistence = function () {
-        removeLocalStorage(StorageNames.localStorageName);
-        removeLocalStorage(StorageNames.localStorageNameV3);
-        removeLocalStorage(StorageNames.localStorageNameV4);
-        removeLocalStorage(mpInstance._Store.storageName);
-        removeLocalStorage(StorageNames.localStorageProductsV4);
+        localStorage.clear();
         self.expireCookies(StorageNames.cookieName);
         self.expireCookies(StorageNames.cookieNameV2);
         self.expireCookies(StorageNames.cookieNameV3);
@@ -9713,10 +9642,14 @@ var mParticle = (function () {
        * @throws Logs error to console if placementAttributesMapping parsing fails
        */
       RoktManager.prototype.init = function (roktConfig, filteredUser, identityService, store, logger, options) {
-        var _a = roktConfig || {},
-          userAttributeFilters = _a.userAttributeFilters,
-          settings = _a.settings;
-        var placementAttributesMapping = (settings || {}).placementAttributesMapping;
+        var _a;
+        var _b = roktConfig || {},
+          userAttributeFilters = _b.userAttributeFilters,
+          settings = _b.settings;
+        var _c = settings || {},
+          placementAttributesMapping = _c.placementAttributesMapping,
+          hashedEmailUserIdentityType = _c.hashedEmailUserIdentityType;
+        this.mappedEmailShaIdentityType = (_a = hashedEmailUserIdentityType === null || hashedEmailUserIdentityType === void 0 ? void 0 : hashedEmailUserIdentityType.toLowerCase()) !== null && _a !== void 0 ? _a : null;
         this.identityService = identityService;
         this.store = store;
         this.logger = logger;
@@ -9766,7 +9699,7 @@ var mParticle = (function () {
       RoktManager.prototype.selectPlacements = function (options) {
         var _a, _b;
         return __awaiter(this, void 0, void 0, function () {
-          var attributes, sandboxValue, mappedAttributes, currentUserIdentities_1, currentEmail, newEmail_1, error_1, enrichedAttributes, enrichedOptions, error_2;
+          var attributes, sandboxValue, mappedAttributes, currentUserIdentities_1, currentEmail, newEmail, currentHashedEmail, newHashedEmail, emailChanged, hashedEmailChanged, newIdentities_1, error_1, enrichedAttributes, enrichedOptions, error_2;
           var _this = this;
           return __generator(this, function (_c) {
             switch (_c.label) {
@@ -9784,19 +9717,34 @@ var mParticle = (function () {
                 this.currentUser = this.identityService.getCurrentUser();
                 currentUserIdentities_1 = ((_b = (_a = this.currentUser) === null || _a === void 0 ? void 0 : _a.getUserIdentities()) === null || _b === void 0 ? void 0 : _b.userIdentities) || {};
                 currentEmail = currentUserIdentities_1.email;
-                newEmail_1 = mappedAttributes.email;
-                if (!(newEmail_1 && (!currentEmail || currentEmail !== newEmail_1))) return [3 /*break*/, 5];
-                if (currentEmail && currentEmail !== newEmail_1) {
-                  this.logger.warning("Email mismatch detected. Current email, ".concat(currentEmail, " differs from email passed to selectPlacements call, ").concat(newEmail_1, ". Proceeding to call identify with ").concat(newEmail_1, ". Please verify your implementation."));
+                newEmail = mappedAttributes.email;
+                currentHashedEmail = void 0;
+                newHashedEmail = void 0;
+                // Hashed email identity is valid if it is set to Other-Other10
+                if (this.mappedEmailShaIdentityType && IdentityType.getIdentityType(this.mappedEmailShaIdentityType) !== false) {
+                  currentHashedEmail = currentUserIdentities_1[this.mappedEmailShaIdentityType];
+                  newHashedEmail = mappedAttributes['emailsha256'] || mappedAttributes[this.mappedEmailShaIdentityType] || undefined;
                 }
+                emailChanged = this.hasIdentityChanged(currentEmail, newEmail);
+                hashedEmailChanged = this.hasIdentityChanged(currentHashedEmail, newHashedEmail);
+                newIdentities_1 = {};
+                if (emailChanged) {
+                  newIdentities_1.email = newEmail;
+                  if (newEmail) {
+                    this.logger.warning("Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.");
+                  }
+                }
+                if (hashedEmailChanged) {
+                  newIdentities_1[this.mappedEmailShaIdentityType] = newHashedEmail;
+                  this.logger.warning("emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.");
+                }
+                if (!!isEmpty(newIdentities_1)) return [3 /*break*/, 5];
                 _c.label = 2;
               case 2:
                 _c.trys.push([2, 4,, 5]);
                 return [4 /*yield*/, new Promise(function (resolve, reject) {
                   _this.identityService.identify({
-                    userIdentities: __assign(__assign({}, currentUserIdentities_1), {
-                      email: newEmail_1
-                    })
+                    userIdentities: __assign(__assign({}, currentUserIdentities_1), newIdentities_1)
                   }, function () {
                     resolve();
                   });
@@ -9954,6 +9902,28 @@ var mParticle = (function () {
         }
         this.messageQueue["delete"](messageId);
       };
+      /**
+       * Checks if an identity value has changed by comparing current and new values
+       *
+       * @param {string | undefined} currentValue - The current identity value
+       * @param {string | undefined} newValue - The new identity value to compare against
+       * @returns {boolean} True if the identity has changed (new value exists and differs from current), false otherwise
+       */
+      RoktManager.prototype.hasIdentityChanged = function (currentValue, newValue) {
+        if (!newValue) {
+          return false;
+        }
+        if (!currentValue) {
+          return true; // New value exists but no current value
+        }
+
+        if (currentValue !== newValue) {
+          return true; // Values are different
+        }
+
+        return false; // Values are the same
+      };
+
       return RoktManager;
     }();
 
@@ -11028,13 +10998,7 @@ var mParticle = (function () {
       return kitBlocker;
     }
     function createIdentityCache(mpInstance) {
-      var cacheKey = "".concat(mpInstance._Store.storageName, "-id-cache");
-      if (mpInstance._Store.getPrivacyFlag('IdentityCache')) {
-        return new DisabledVault(cacheKey, {
-          logger: mpInstance.Logger
-        });
-      }
-      return new LocalStorageVault(cacheKey, {
+      return new LocalStorageVault("".concat(mpInstance._Store.storageName, "-id-cache"), {
         logger: mpInstance.Logger
       });
     }
@@ -11399,12 +11363,6 @@ var mParticle = (function () {
       };
       this.setPosition = function (lat, lng) {
         self.getInstance().setPosition(lat, lng);
-      };
-      this.startNewSession = function () {
-        self.getInstance().startNewSession();
-      };
-      this.endSession = function () {
-        self.getInstance().endSession();
       };
       this.logBaseEvent = function (event, eventOptions) {
         self.getInstance().logBaseEvent(event, eventOptions);

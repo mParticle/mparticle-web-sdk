@@ -1,3 +1,19 @@
+## [2.50.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.50.0...v2.50.1) (2025-11-20)
+
+# [2.50.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.49.0...v2.50.0) (2025-11-13)
+
+
+### Features
+
+* SDKE-221 Support hashedEmailUserIdentityType for "other" identity type ([#1052](https://github.com/mParticle/mparticle-web-sdk/issues/1052)) ([3fb8cb1](https://github.com/mParticle/mparticle-web-sdk/commit/3fb8cb123e6213d6a832a9455f5285e1c9989271))
+
+# [2.49.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.48.0...v2.49.0) (2025-11-10)
+
+
+### Features
+
+* add BrowserStack beta suite and workflow ([#1074](https://github.com/mParticle/mparticle-web-sdk/issues/1074)) ([8c5749d](https://github.com/mParticle/mparticle-web-sdk/commit/8c5749d42bdfe3c4a2ef0ca8e58d17705132218e))
+
 # [2.48.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.47.1...v2.48.0) (2025-10-27)
 
 
