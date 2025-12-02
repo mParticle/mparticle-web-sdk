@@ -10,7 +10,6 @@ import { IMParticleUser, ISDKUserAttributes } from './identity-user-interfaces';
 import { AsyncUploader, FetchUploader, XHRUploader } from './uploaders';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { appendUserInfo } from './user-utils';
-import { LogRequest } from './logging/logRequest';
 
 export interface IAPIClient {
     uploader: BatchUploader | null;
