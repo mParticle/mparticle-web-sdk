@@ -8,6 +8,8 @@ import AudienceManager, {
     IAudienceMemberships, IAudienceMembershipsServerResponse
 } from '../../src/audienceManager';
 import { Logger } from '../../src/logger';
+import { IReportingLogger } from '../../src/logging/reportingLogger';
+import { ErrorCodes } from '../../src/logging/errorCodes';
 import Utils from './config/utils';
 const { fetchMockSuccess } = Utils;
 
@@ -18,6 +20,11 @@ declare global {
     }
 }
 
+const mockReportingLogger: IReportingLogger = {
+    error: sinon.spy(),
+    warning: sinon.spy()
+};
+
 const userAudienceUrl = `https://${Constants.DefaultBaseUrls.userAudienceUrl}${apiKey}/audience`;
 
 describe('AudienceManager', () => {
@@ -26,6 +33,9 @@ describe('AudienceManager', () => {
         fetchMockSuccess(urls.identify, {
             mpid: testMPID, is_logged_in: false
         });
+        (mockReportingLogger.error as sinon.SinonSpy).resetHistory();
+        (mockReportingLogger.warning as sinon.SinonSpy).resetHistory();
+        window.mParticle.config.logLevel = 'error';
     });
 
     afterEach(() => {
@@ -35,7 +45,7 @@ describe('AudienceManager', () => {
 
     describe('initialization', () => {
         it('should have proper properties on AudienceManager', () => {
-            const newLogger: SDKLoggerApi = new Logger(window.mParticle.config);
+            const newLogger: SDKLoggerApi = new Logger(window.mParticle.config, mockReportingLogger);
             const audienceManager = new AudienceManager(
                 Constants.DefaultBaseUrls.userAudienceUrl,
                 apiKey,
@@ -45,6 +55,7 @@ describe('AudienceManager', () => {
             expect(audienceManager.logger).to.be.ok;
             expect(audienceManager.url).to.equal(userAudienceUrl);
             expect(audienceManager.userAudienceAPI).to.be.ok;
+            expect((mockReportingLogger.error as sinon.SinonSpy).called).to.eq(false);
         });
     });
 
@@ -52,7 +63,7 @@ describe('AudienceManager', () => {
         let newLogger: SDKLoggerApi;
         let audienceManager: AudienceManager;
         beforeEach(() => {
-            newLogger = new Logger(window.mParticle.config);
+            newLogger = new Logger(window.mParticle.config, mockReportingLogger);
             audienceManager = new AudienceManager(
                 Constants.DefaultBaseUrls.userAudienceUrl,
                 apiKey,
@@ -101,6 +112,7 @@ describe('AudienceManager', () => {
             expect(callback.getCall(0).lastArg).to.deep.equal(
                 expectedAudienceMembership
             );
+            expect((mockReportingLogger.error as sinon.SinonSpy).called).to.eq(false);
         });
 
         it('should change the URL endpoint to a new MPID when switching users and attempting to retrieve audiences', async () => {
@@ -159,6 +171,22 @@ describe('AudienceManager', () => {
             expect(callback.getCall(1).lastArg).to.deep.equal(
                 expectedAudienceMembership2
             );
+            expect((mockReportingLogger.error as sinon.SinonSpy).called).to.eq(false);
+        });
+
+        it('should call reportingLogger.error when an HTTP error occurs', async () => {
+            const callback = sinon.spy();
+
+            fetchMock.get(`${userAudienceUrl}?mpid=${testMPID}`, {
+                status: 500,
+                body: JSON.stringify({ error: 'Internal Server Error' })
+            });
+
+            await audienceManager.sendGetUserAudienceRequest(testMPID, callback);
+
+            expect((mockReportingLogger.error as sinon.SinonSpy).calledOnce).to.eq(true);
+            expect((mockReportingLogger.error as sinon.SinonSpy).getCall(0).args[1]).to.eq(ErrorCodes.AUDIENCE_MANAGER_ERROR);
+            expect(callback.called).to.eq(false);
         });
     });
 });
