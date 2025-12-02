@@ -28,7 +28,6 @@ export interface IAPIClient {
         forwarder: MPForwarder,
         event: IUploadObject
     ) => void;
-    sendLogToServer: (log: LogRequest) => void;
 }
 
 export interface IForwardingStatsData {
@@ -232,26 +231,5 @@ export default function APIClient(
                 sendSingleForwardingStatsToServer(forwardingStatsData);
             }
         }
-    };
-
-    this.sendLogToServer = function(logRequest: LogRequest) {
-        const baseUrl = mpInstance._Helpers.createServiceUrl(
-            mpInstance._Store.SDKConfig.v2SecureServiceUrl,
-            mpInstance._Store.devToken
-        );
-        
-        const uploadUrl = `${baseUrl}/v1/log`;
-        const uploader = window.fetch
-            ? new FetchUploader(uploadUrl)
-            : new XHRUploader(uploadUrl);
-
-        uploader.upload({
-            method: 'POST',
-            headers: {
-                Accept: 'text/plain;charset=UTF-8',
-                'Content-Type': 'text/plain;charset=UTF-8',
-            },
-            body: JSON.stringify(logRequest),
-        });
     };
 }

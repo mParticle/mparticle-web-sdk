@@ -1,6 +1,8 @@
 import { IAPIClient } from "../apiClient";
+import { IMParticleWebSDKInstance } from "../mp-instance";
 import { ErrorCodes } from "./errorCodes";
 import { LogRequest, LogRequestSeverity } from "./logRequest";
+import { FetchUploader, XHRUploader } from "../uploaders";
 
 export interface IReportingLogger {
     error(msg: string, code?: ErrorCodes, stackTrace?: string): void;
@@ -9,18 +11,18 @@ export interface IReportingLogger {
 
 export class ReportingLogger implements IReportingLogger {
     private readonly isEnabled: boolean;
-    private readonly apiClient: IAPIClient;
     private readonly reporter: string = 'mp-wsdk';
     private readonly integration: string = 'mp-wsdk';
     private readonly rateLimiter: IRateLimiter;
+    private readonly mpInstance: IMParticleWebSDKInstance;
 
     constructor(
-        apiClient: IAPIClient,
+        mpInstance: IMParticleWebSDKInstance,
         private readonly sdkVersion: string,
         rateLimiter?: IRateLimiter,
     ) {
+        this.mpInstance = mpInstance;
         this.isEnabled = this.isReportingEnabled();
-        this.apiClient = apiClient;
         this.rateLimiter = rateLimiter ?? new RateLimiter();
     }
 
@@ -55,7 +57,7 @@ export class ReportingLogger implements IReportingLogger {
             integration: this.integration,
         };
         
-        this.apiClient.sendLogToServer(logRequest);
+        this.sendLogToServer(logRequest);
     }
 
     private isReportingEnabled(): boolean {
@@ -102,6 +104,27 @@ export class ReportingLogger implements IReportingLogger {
     private getUserAgent(): string {
         return window.navigator.userAgent;
     }
+
+    private sendLogToServer(logRequest: LogRequest) {
+        const baseUrl = this.mpInstance._Helpers.createServiceUrl(
+            this.mpInstance._Store.SDKConfig.v2SecureServiceUrl,
+            this.mpInstance._Store.devToken
+        );
+        
+        const uploadUrl = `${baseUrl}/v1/log`;
+        const uploader = window.fetch
+            ? new FetchUploader(uploadUrl)
+            : new XHRUploader(uploadUrl);
+
+        uploader.upload({
+            method: 'POST',
+            headers: {
+                Accept: 'text/plain;charset=UTF-8',
+                'Content-Type': 'text/plain;charset=UTF-8',
+            },
+            body: JSON.stringify(logRequest),
+        });
+    };
 }
 
 export interface IRateLimiter {
