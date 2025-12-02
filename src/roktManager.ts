@@ -267,20 +267,30 @@ export default class RoktManager {
                 return {};
             }
             
-            const hashedAttributes: IRoktPartnerAttributes = {};
+            // Get own property keys only
+            const keys = Object.keys(attributes);
             
-            for (const key in attributes) {
+            if (keys.length === 0) {
+                return {};
+            }
+            
+            // Hash all attributes in parallel
+            const hashPromises = keys.map(async (key) => {
                 const attributeValue = attributes[key];
-
-                hashedAttributes[key] = attributeValue;
-
                 const hashedValue = await this.hashSha256(attributeValue);
-                
+                return { key, attributeValue, hashedValue };
+            });
+            
+            const results = await Promise.all(hashPromises);
+            
+            // Build the result object
+            const hashedAttributes: IRoktPartnerAttributes = {};
+            for (const { key, attributeValue, hashedValue } of results) {
+                hashedAttributes[key] = attributeValue;
                 if (hashedValue) {
                     hashedAttributes[`${key}sha256`] = hashedValue;
                 }
             }
-            
             return hashedAttributes;
             
         } catch (error) {
