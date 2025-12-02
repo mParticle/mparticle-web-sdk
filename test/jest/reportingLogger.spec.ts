@@ -3,12 +3,26 @@ import { LogRequestSeverity } from '../../src/logging/logRequest';
 import { ErrorCodes } from '../../src/logging/errorCodes';
 
 describe('ReportingLogger', () => {
-    let apiClient: any;
+    let mpInstance: any;
     let logger: ReportingLogger;
     const sdkVersion = '1.2.3';
+    let mockFetch: jest.Mock;
 
     beforeEach(() => {
-        apiClient = { sendLogToServer: jest.fn() };
+        mockFetch = jest.fn().mockResolvedValue({ ok: true });
+        global.fetch = mockFetch;
+        
+        mpInstance = {
+            _Helpers: {
+                createServiceUrl: jest.fn().mockReturnValue('https://test-url.com')
+            },
+            _Store: {
+                SDKConfig: {
+                    v2SecureServiceUrl: 'https://secure-service.com'
+                },
+                devToken: 'test-token'
+            }
+        };
         
         delete (globalThis as any).location;
         (globalThis as any).location = {
@@ -19,9 +33,10 @@ describe('ReportingLogger', () => {
         Object.assign(globalThis, {
             navigator: { userAgent: 'ua' },
             mParticle: { config: { isWebSdkLoggingEnabled: true } },
-            ROKT_DOMAIN: 'set'
+            ROKT_DOMAIN: 'set',
+            fetch: mockFetch
         });
-        logger = new ReportingLogger(apiClient, sdkVersion);
+        logger = new ReportingLogger(mpInstance, sdkVersion);
     });
 
     afterEach(() => {
@@ -32,41 +47,49 @@ describe('ReportingLogger', () => {
 
     it('sends error logs with correct params', () => {
         logger.error('msg', ErrorCodes.UNHANDLED_EXCEPTION, 'stack');
-        expect(apiClient.sendLogToServer).toHaveBeenCalledWith(expect.objectContaining({
+        expect(mockFetch).toHaveBeenCalled();
+        const fetchCall = mockFetch.mock.calls[0];
+        expect(fetchCall[0]).toContain('/v1/log');
+        const body = JSON.parse(fetchCall[1].body);
+        expect(body).toMatchObject({
             severity: LogRequestSeverity.Error,
             code: ErrorCodes.UNHANDLED_EXCEPTION,
             stackTrace: 'stack'
-        }));
+        });
     });
 
     it('sends warning logs with correct params', () => {
         logger.warning('warn');
-        expect(apiClient.sendLogToServer).toHaveBeenCalledWith(expect.objectContaining({
+        expect(mockFetch).toHaveBeenCalled();
+        const fetchCall = mockFetch.mock.calls[0];
+        expect(fetchCall[0]).toContain('/v1/log');
+        const body = JSON.parse(fetchCall[1].body);
+        expect(body).toMatchObject({
             severity: LogRequestSeverity.Warning
-        }));
+        });
     });
 
     it('does not log if ROKT_DOMAIN missing', () => {
         delete (globalThis as any).ROKT_DOMAIN;
-        logger = new ReportingLogger(apiClient, sdkVersion);
+        logger = new ReportingLogger(mpInstance, sdkVersion);
         logger.error('x');
-        expect(apiClient.sendLogToServer).not.toHaveBeenCalled();
+        expect(mockFetch).not.toHaveBeenCalled();
     });
 
     it('does not log if feature flag and debug mode off', () => {
         window.mParticle.config.isWebSdkLoggingEnabled = false;
         window.location.search = '';
-        logger = new ReportingLogger(apiClient, sdkVersion);
+        logger = new ReportingLogger(mpInstance, sdkVersion);
         logger.error('x');
-        expect(apiClient.sendLogToServer).not.toHaveBeenCalled();
+        expect(mockFetch).not.toHaveBeenCalled();
     });
 
     it('logs if debug mode on even if feature flag off', () => {
         window.mParticle.config.isWebSdkLoggingEnabled = false;
         window.location.search = '?mp_enable_logging=true';
-        logger = new ReportingLogger(apiClient, sdkVersion);
+        logger = new ReportingLogger(mpInstance, sdkVersion);
         logger.error('x');
-        expect(apiClient.sendLogToServer).toHaveBeenCalled();
+        expect(mockFetch).toHaveBeenCalled();
     });
 
     it('rate limits after 3 errors', () => {
@@ -76,10 +99,10 @@ describe('ReportingLogger', () => {
                 return ++count > 3;
             }),
         };
-        logger = new ReportingLogger(apiClient, sdkVersion, mockRateLimiter);
+        logger = new ReportingLogger(mpInstance, sdkVersion, mockRateLimiter);
 
         for (let i = 0; i < 5; i++) logger.error('err');
-        expect(apiClient.sendLogToServer).toHaveBeenCalledTimes(3);
+        expect(mockFetch).toHaveBeenCalledTimes(3);
     });
 });
 
