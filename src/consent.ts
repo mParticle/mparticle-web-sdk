@@ -9,6 +9,7 @@ import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
 import { IMParticleUser } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
+import { ErrorCodes } from './logging/errorCodes';
 
 const { CCPAPurpose } = Constants;
 
@@ -183,31 +184,36 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
     ): PrivacyConsentState | null {
         if (typeof consented !== 'boolean') {
             mpInstance.Logger.error(
-                'Consented boolean is required when constructing a Consent object.'
+                'Consented boolean is required when constructing a Consent object.',
+                ErrorCodes.CONSENT_ERROR
             );
             return null;
         }
         if (timestamp && isNaN(timestamp)) {
             mpInstance.Logger.error(
-                'Timestamp must be a valid number when constructing a Consent object.'
+                'Timestamp must be a valid number when constructing a Consent object.',
+                ErrorCodes.CONSENT_ERROR
             );
             return null;
         }
         if (consentDocument && typeof consentDocument !== 'string') {
             mpInstance.Logger.error(
-                'Document must be a valid string when constructing a Consent object.'
+                'Document must be a valid string when constructing a Consent object.',
+                ErrorCodes.CONSENT_ERROR
             );
             return null;
         }
         if (location && typeof location !== 'string') {
             mpInstance.Logger.error(
-                'Location must be a valid string when constructing a Consent object.'
+                'Location must be a valid string when constructing a Consent object.',
+                ErrorCodes.CONSENT_ERROR
             );
             return null;
         }
         if (hardwareId && typeof hardwareId !== 'string') {
             mpInstance.Logger.error(
-                'Hardware ID must be a valid string when constructing a Consent object.'
+                'Hardware ID must be a valid string when constructing a Consent object.',
+                ErrorCodes.CONSENT_ERROR
             );
             return null;
         }
@@ -381,13 +387,14 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
         ): ConsentState {
             const normalizedPurpose = canonicalizeForDeduplication(purpose);
             if (!normalizedPurpose) {
-                mpInstance.Logger.error('Purpose must be a string.');
+                mpInstance.Logger.error('Purpose must be a string.', ErrorCodes.CONSENT_ERROR);
                 return this;
             }
 
             if (!isObject(gdprConsent)) {
                 mpInstance.Logger.error(
-                    'Invoked with a bad or empty consent object.'
+                    'Invoked with a bad or empty consent object.',
+                    ErrorCodes.CONSENT_ERROR
                 );
                 return this;
             }
@@ -466,7 +473,8 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
         ) {
             if (!isObject(ccpaConsent)) {
                 mpInstance.Logger.error(
-                    'Invoked with a bad or empty CCPA consent object.'
+                    'Invoked with a bad or empty CCPA consent object.',
+                    ErrorCodes.CONSENT_ERROR
                 );
                 return this;
             }

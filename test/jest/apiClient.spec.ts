@@ -44,11 +44,15 @@ describe('apiClient.sendLogToServer', () => {
 
         mpInstance = {
             _Helpers: {
-                createServiceUrl: jest.fn((url: string, token: string) => `https://api.fake.com/${token}`)
+                createServiceUrl: jest.fn((url: string, token: string) => `https://api.fake.com/${token}`),
+                generateUniqueId: jest.fn(() => 'test-uuid')
             },
             _Store: {
                 SDKConfig: { v2SecureServiceUrl: 'someUrl' },
                 devToken: 'testToken123'
+            },
+            Logger: {
+                error: jest.fn()
             }
         };
 
@@ -123,6 +127,22 @@ describe('apiClient.sendLogToServer', () => {
             mpInstance._Store.devToken
         );
     }
+
+    test('should call logger.error with correct parameters when sendBatchForwardingStatsToServer throws', () => {
+        mpInstance._Helpers.createServiceUrl = jest.fn(() => {
+            throw new Error('Test error');
+        });
+
+        const client = new APIClient(mpInstance, kitBlocker);
+        const mockXhr = { open: jest.fn(), send: jest.fn() };
+
+        client.sendBatchForwardingStatsToServer({}, mockXhr as any);
+
+        expect(mpInstance.Logger.error).toHaveBeenCalledWith(
+            'Error sending forwarding stats to mParticle servers.',
+            ErrorCodes.API_CLIENT_ERROR
+        );
+    });
 });
 
 

@@ -18,6 +18,7 @@ import {
 } from './utils';
 import { hasMPIDAndUserLoginChanged, hasMPIDChanged } from './user-utils';
 import { processReadyQueue } from './pre-init-utils';
+import { ErrorCodes } from './logging/errorCodes';
 
 export default function Identity(mpInstance) {
     const { getFeatureFlag, extend } = mpInstance._Helpers;
@@ -46,7 +47,8 @@ export default function Identity(mpInstance) {
 
             if (!identityValidationResult.valid) {
                 mpInstance.Logger.error(
-                    'ERROR: ' + identityValidationResult.error
+                    'ERROR: ' + identityValidationResult.error,
+                    ErrorCodes.IDENTITY_ERROR
                 );
                 return {
                     valid: false,
@@ -61,7 +63,7 @@ export default function Identity(mpInstance) {
                 var error =
                     'The optional callback must be a function. You tried entering a(n) ' +
                     typeof callback;
-                mpInstance.Logger.error(error);
+                mpInstance.Logger.error(error, ErrorCodes.IDENTITY_ERROR);
                 return {
                     valid: false,
                     error: error,
@@ -748,7 +750,8 @@ export default function Identity(mpInstance) {
             try {
                 if (!destinationUser || !sourceUser) {
                     mpInstance.Logger.error(
-                        "'destinationUser' and 'sourceUser' must both be present"
+                        "'destinationUser' and 'sourceUser' must both be present",
+                        ErrorCodes.IDENTITY_ERROR
                     );
                     return null;
                 }
@@ -791,7 +794,8 @@ export default function Identity(mpInstance) {
                 };
             } catch (e) {
                 mpInstance.Logger.error(
-                    'There was a problem with creating an alias request: ' + e
+                    'There was a problem with creating an alias request: ' + e,
+                    ErrorCodes.IDENTITY_ERROR
                 );
                 return null;
             }
@@ -845,7 +849,10 @@ export default function Identity(mpInstance) {
              */
             setUserTag: function(tagName) {
                 if (!mpInstance._Helpers.Validators.isValidKeyValue(tagName)) {
-                    mpInstance.Logger.error(Messages.ErrorMessages.BadKey);
+                    mpInstance.Logger.error(
+                        Messages.ErrorMessages.BadKey,
+                        ErrorCodes.IDENTITY_ERROR
+                    );
                     return;
                 }
 
@@ -858,7 +865,10 @@ export default function Identity(mpInstance) {
              */
             removeUserTag: function(tagName) {
                 if (!mpInstance._Helpers.Validators.isValidKeyValue(tagName)) {
-                    mpInstance.Logger.error(Messages.ErrorMessages.BadKey);
+                    mpInstance.Logger.error(
+                        Messages.ErrorMessages.BadKey,
+                        ErrorCodes.IDENTITY_ERROR
+                    );
                     return;
                 }
 
@@ -882,13 +892,17 @@ export default function Identity(mpInstance) {
                         )
                     ) {
                         mpInstance.Logger.error(
-                            Messages.ErrorMessages.BadAttribute
+                            Messages.ErrorMessages.BadAttribute,
+                            ErrorCodes.IDENTITY_ERROR
                         );
                         return;
                     }
 
                     if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
-                        mpInstance.Logger.error(Messages.ErrorMessages.BadKey);
+                        mpInstance.Logger.error(
+                            Messages.ErrorMessages.BadKey,
+                            ErrorCodes.IDENTITY_ERROR
+                        );
                         return;
                     }
                     if (mpInstance._Store.webviewBridgeEnabled) {
@@ -961,7 +975,8 @@ export default function Identity(mpInstance) {
                 } else {
                     mpInstance.Logger.error(
                         'Must pass an object into setUserAttributes. You passed a ' +
-                            typeof userAttributes
+                            typeof userAttributes,
+                        ErrorCodes.IDENTITY_ERROR
                     );
                 }
             },
@@ -975,7 +990,10 @@ export default function Identity(mpInstance) {
                 mpInstance._SessionManager.resetSessionTimer();
 
                 if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
-                    mpInstance.Logger.error(Messages.ErrorMessages.BadKey);
+                    mpInstance.Logger.error(
+                        Messages.ErrorMessages.BadKey,
+                        ErrorCodes.IDENTITY_ERROR
+                    );
                     return;
                 }
 
@@ -1040,14 +1058,18 @@ export default function Identity(mpInstance) {
                 mpInstance._SessionManager.resetSessionTimer();
 
                 if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
-                    mpInstance.Logger.error(Messages.ErrorMessages.BadKey);
+                    mpInstance.Logger.error(
+                        Messages.ErrorMessages.BadKey,
+                        ErrorCodes.IDENTITY_ERROR
+                    );
                     return;
                 }
 
                 if (!Array.isArray(newValue)) {
                     mpInstance.Logger.error(
                         'The value you passed in to setUserAttributeList must be an array. You passed in a ' +
-                            typeof value
+                            typeof value,
+                        ErrorCodes.IDENTITY_ERROR
                     );
                     return;
                 }
@@ -1262,7 +1284,8 @@ export default function Identity(mpInstance) {
                     )
                 ) {
                     mpInstance.Logger.error(
-                        ErrorMessages.AudienceAPINotEnabled
+                        ErrorMessages.AudienceAPINotEnabled,
+                        ErrorCodes.IDENTITY_ERROR
                     );
                     return;
                 }
@@ -1553,7 +1576,8 @@ export default function Identity(mpInstance) {
                     'Received HTTP response code of ' +
                         identityResponse.status +
                         ' - ' +
-                        identityApiResult.errors[0].message
+                        identityApiResult.errors[0].message,
+                    ErrorCodes.IDENTITY_ERROR
                 );
             }
 
@@ -1570,7 +1594,8 @@ export default function Identity(mpInstance) {
                 );
             }
             mpInstance.Logger.error(
-                'Error parsing JSON response from Identity server: ' + e
+                'Error parsing JSON response from Identity server: ' + e,
+                ErrorCodes.IDENTITY_ERROR
             );
         }
         mpInstance._Store.isInitialized = true;
@@ -1740,7 +1765,8 @@ function tryOnUserAlias(previousUser, newUser, identityApiData, logger) {
             identityApiData.onUserAlias(previousUser, newUser);
         } catch (e) {
             logger.error(
-                'There was an error with your onUserAlias function - ' + e
+                'There was an error with your onUserAlias function - ' + e,
+                ErrorCodes.IDENTITY_ERROR
             );
         }
     }

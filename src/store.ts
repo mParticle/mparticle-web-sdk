@@ -42,6 +42,7 @@ import {
 import { CookieSyncDates, IPixelConfiguration } from './cookieSyncManager';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import ForegroundTimer from './foregroundTimeTracker';
+import { ErrorCodes } from './logging/errorCodes';
 
 const { Messages } = Constants;
 
@@ -439,7 +440,8 @@ export default function Store(
                     this.SDKConfig.dataPlan.PlanId = dataPlan.planId;
                 } else {
                     mpInstance.Logger.error(
-                        'Your data plan id must be a string and match the data plan slug format (i.e. under_case_slug)'
+                        'Your data plan id must be a string and match the data plan slug format (i.e. under_case_slug)',
+                        ErrorCodes.STORE
                     );
                 }
             }
@@ -449,7 +451,8 @@ export default function Store(
                     this.SDKConfig.dataPlan.PlanVersion = dataPlan.planVersion;
                 } else {
                     mpInstance.Logger.error(
-                        'Your data plan version must be a number'
+                        'Your data plan version must be a number',
+                        ErrorCodes.STORE
                     );
                 }
             }
@@ -490,7 +493,8 @@ export default function Store(
                 !dataPlanOptions.hasOwnProperty('blockUserIdentities')
             ) {
                 mpInstance.Logger.error(
-                    'Ensure your config.dataPlanOptions object has the following keys: a "dataPlanVersion" object, and "blockUserAttributes", "blockEventAttributes", "blockEvents", "blockUserIdentities" booleans'
+                    'Ensure your config.dataPlanOptions object has the following keys: a "dataPlanVersion" object, and "blockUserAttributes", "blockEventAttributes", "blockEvents", "blockUserIdentities" booleans',
+                    ErrorCodes.STORE
                 );
             }
         }
@@ -500,7 +504,8 @@ export default function Store(
                 this.SDKConfig.onCreateBatch = config.onCreateBatch;
             } else {
                 mpInstance.Logger.error(
-                    'config.onCreateBatch must be a function'
+                    'config.onCreateBatch must be a function',
+                    ErrorCodes.STORE
                 );
                 // set to undefined because all items are set on createSDKConfig
                 this.SDKConfig.onCreateBatch = undefined;
@@ -754,7 +759,8 @@ export default function Store(
             }
         } else {
             mpInstance.Logger.warning(
-                'You should have a workspaceToken on your config object for security purposes.'
+                'You should have a workspaceToken on your config object for security purposes.',
+                ErrorCodes.STORE
             );
         }
         // add a new function to apply items to the store that require config to be returned

@@ -1,5 +1,6 @@
 import Types from './types';
 import Constants from './constants';
+import { ErrorCodes } from './logging/errorCodes';
 
 var Messages = Constants.Messages;
 
@@ -67,9 +68,10 @@ export default function Events(mpInstance) {
                     }
                 } catch (e) {
                     mpInstance.Logger.error(
-                        'Error invoking the callback passed to startTrackingLocation.'
+                        'Error invoking the callback passed to startTrackingLocation.',
+                        ErrorCodes.EVENTS_ERROR
                     );
-                    mpInstance.Logger.error(e);
+                    mpInstance.Logger.error(e, ErrorCodes.EVENTS_ERROR);
                 }
             }
         }
@@ -224,7 +226,10 @@ export default function Events(mpInstance) {
         customFlags
     ) {
         if (!transactionAttributes) {
-            mpInstance.Logger.error(Messages.ErrorMessages.TransactionRequired);
+            mpInstance.Logger.error(
+                Messages.ErrorMessages.TransactionRequired,
+                ErrorCodes.EVENTS_ERROR
+            );
             return;
         }
 
@@ -329,7 +334,8 @@ export default function Events(mpInstance) {
             commerceEvent.EventCategory === null
         ) {
             mpInstance.Logger.error(
-                'Commerce event not sent.  The mParticle.ProductActionType you passed was invalid. Re-check your code.'
+                'Commerce event not sent.  The mParticle.ProductActionType you passed was invalid. Re-check your code.',
+                ErrorCodes.EVENTS_ERROR
             );
             return;
         }
@@ -414,7 +420,10 @@ export default function Events(mpInstance) {
             i;
 
         if (!selector) {
-            mpInstance.Logger.error("Can't bind event, selector is required");
+            mpInstance.Logger.error(
+                "Can't bind event, selector is required",
+                ErrorCodes.EVENTS_ERROR
+            );
             return;
         }
 

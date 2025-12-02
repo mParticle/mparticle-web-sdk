@@ -15,6 +15,7 @@ import { SDKLoggerApi } from "./sdkRuntimeModels";
 import { IStore, LocalSessionAttributes } from "./store";
 import { UserIdentities } from "@mparticle/web-sdk";
 import { IdentityType } from "./types";
+import { ErrorCodes } from "./logging/errorCodes";
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export interface IRoktPartnerAttributes {
@@ -136,9 +137,9 @@ export default class RoktManager {
         try {
             this.placementAttributesMapping = parseSettingsString(placementAttributesMapping);
         } catch (error) {
-            this.logger.error('Error parsing placement attributes mapping from config: ' + error);
+            this.logger.error('Error parsing placement attributes mapping from config: ' + error, ErrorCodes.ROKT_MANAGER);
         }
-
+        
         // This is the global setting for sandbox mode
         // It is set here and passed in to the createLauncher method in the Rokt Kit
         // This is not to be confused for the `sandbox` flag in the selectPlacements attributes
@@ -207,13 +208,13 @@ export default class RoktManager {
             if (emailChanged) {
                 newIdentities.email = newEmail;
                 if (newEmail) {
-                    this.logger.warning(`Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.`);
+                    this.logger.warning(`Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.`, ErrorCodes.EMAIL_MISMATCH);
                 }
             }
 
             if (hashedEmailChanged) {
                 newIdentities[this.mappedEmailShaIdentityType] = newHashedEmail;
-                this.logger.warning(`emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.`);
+                this.logger.warning(`emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.`, ErrorCodes.EMAILSHA256_MISMATCH);
             }
 
             if (!isEmpty(newIdentities)) {
@@ -230,7 +231,7 @@ export default class RoktManager {
                         });
                     });
                 } catch (error) {
-                    this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error));
+                    this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error), ErrorCodes.ROKT_MANAGER);
                 }
             }
 
@@ -316,7 +317,7 @@ export default class RoktManager {
         try {
             this.currentUser.setUserAttributes(filteredAttributes);
         } catch (error) {
-            this.logger.error('Error setting user attributes: ' + error);
+            this.logger.error('Error setting user attributes: ' + error, ErrorCodes.ROKT_MANAGER);
         }
     }
 

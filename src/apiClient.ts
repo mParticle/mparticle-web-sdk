@@ -11,6 +11,7 @@ import { AsyncUploader, FetchUploader, XHRUploader } from './uploaders';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { appendUserInfo } from './user-utils';
 import { LogRequest } from './logging/logRequest';
+import { ErrorCodes } from './logging/errorCodes';
 
 export interface IAPIClient {
     uploader: BatchUploader | null;
@@ -174,7 +175,8 @@ export default function APIClient(
             }
         } catch (e) {
             mpInstance.Logger.error(
-                'Error sending forwarding stats to mParticle servers.'
+                'Error sending forwarding stats to mParticle servers.',
+                ErrorCodes.API_CLIENT_ERROR
             );
         }
     };

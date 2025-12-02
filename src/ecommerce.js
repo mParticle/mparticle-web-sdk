@@ -1,5 +1,6 @@
 import Types from './types';
 import Constants from './constants';
+import { ErrorCodes } from './logging/errorCodes';
 
 var Messages = Constants.Messages;
 
@@ -116,7 +117,8 @@ export default function Ecommerce(mpInstance) {
                 mpInstance.Logger.error(
                     'Could not convert product action type ' +
                         productActionType +
-                        ' to event type'
+                        ' to event type',
+                    ErrorCodes.ECOMMERCE_ERROR
                 );
                 return null;
         }
@@ -132,7 +134,8 @@ export default function Ecommerce(mpInstance) {
                 mpInstance.Logger.error(
                     'Could not convert promotion action type ' +
                         promotionActionType +
-                        ' to event type'
+                        ' to event type',
+                    ErrorCodes.ECOMMERCE_ERROR
                 );
                 return null;
         }
@@ -262,20 +265,25 @@ export default function Ecommerce(mpInstance) {
         attributes = mpInstance._Helpers.sanitizeAttributes(attributes, name);
 
         if (typeof name !== 'string') {
-            mpInstance.Logger.error('Name is required when creating a product');
+            mpInstance.Logger.error(
+                'Name is required when creating a product',
+                ErrorCodes.ECOMMERCE_ERROR
+            );
             return null;
         }
 
         if (!mpInstance._Helpers.Validators.isStringOrNumber(sku)) {
             mpInstance.Logger.error(
-                'SKU is required when creating a product, and must be a string or a number'
+                'SKU is required when creating a product, and must be a string or a number',
+                ErrorCodes.ECOMMERCE_ERROR
             );
             return null;
         }
 
         if (!mpInstance._Helpers.Validators.isStringOrNumber(price)) {
             mpInstance.Logger.error(
-                'Price is required when creating a product, and must be a string or a number'
+                'Price is required when creating a product, and must be a string or a number',
+                ErrorCodes.ECOMMERCE_ERROR
             );
             return null;
         } else {
@@ -284,7 +292,8 @@ export default function Ecommerce(mpInstance) {
 
         if (position && !mpInstance._Helpers.Validators.isNumber(position)) {
             mpInstance.Logger.error(
-                'Position must be a number, it will be set to null.'
+                'Position must be a number, it will be set to null.',
+                ErrorCodes.ECOMMERCE_ERROR
             );
             position = null;
         }
@@ -312,7 +321,10 @@ export default function Ecommerce(mpInstance) {
 
     this.createPromotion = function(id, creative, name, position) {
         if (!mpInstance._Helpers.Validators.isStringOrNumber(id)) {
-            mpInstance.Logger.error(Messages.ErrorMessages.PromotionIdRequired);
+            mpInstance.Logger.error(
+                Messages.ErrorMessages.PromotionIdRequired,
+                ErrorCodes.ECOMMERCE_ERROR
+            );
             return null;
         }
 
@@ -327,14 +339,16 @@ export default function Ecommerce(mpInstance) {
     this.createImpression = function(name, product) {
         if (typeof name !== 'string') {
             mpInstance.Logger.error(
-                'Name is required when creating an impression.'
+                'Name is required when creating an impression.',
+                ErrorCodes.ECOMMERCE_ERROR
             );
             return null;
         }
 
         if (!product) {
             mpInstance.Logger.error(
-                'Product is required when creating an impression.'
+                'Product is required when creating an impression.',
+                ErrorCodes.ECOMMERCE_ERROR
             );
             return null;
         }
@@ -355,7 +369,8 @@ export default function Ecommerce(mpInstance) {
     ) {
         if (!mpInstance._Helpers.Validators.isStringOrNumber(id)) {
             mpInstance.Logger.error(
-                Messages.ErrorMessages.TransactionIdRequired
+                Messages.ErrorMessages.TransactionIdRequired,
+                ErrorCodes.ECOMMERCE_ERROR
             );
             return null;
         }

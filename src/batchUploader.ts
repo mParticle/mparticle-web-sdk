@@ -15,6 +15,7 @@ import { IMParticleUser } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { appendUserInfo } from './user-utils';
 import { IntegrationAttributes } from './store';
+import { ErrorCodes } from './logging/errorCodes';
 /**
  * BatchUploader contains all the logic to store/retrieve events and batches
  * to/from persistence, and upload batches to mParticle.
@@ -489,13 +490,15 @@ export class BatchUploader {
                         response.status === 429
                     ) {
                         logger.error(
-                            `HTTP error status ${response.status} received`
+                            `HTTP error status ${response.status} received`,
+                            ErrorCodes.BATCH_UPLOADER_ERROR
                         );
                         // Server error, add back current batches and try again later
                         return uploads.slice(i, uploads.length);
                     } else if (response.status >= 401) {
                         logger.error(
-                            `HTTP error status ${response.status} while uploading - please verify your API key.`
+                            `HTTP error status ${response.status} while uploading - please verify your API key.`,
+                            ErrorCodes.BATCH_UPLOADER_ERROR
                         );
                         //if we're getting a 401, assume we'll keep getting a 401 and clear the uploads.
                         return null;
@@ -512,7 +515,8 @@ export class BatchUploader {
                     }
                 } catch (e) {
                     logger.error(
-                        `Error sending event to mParticle servers. ${e}`
+                        `Error sending event to mParticle servers. ${e}`,
+                        ErrorCodes.BATCH_UPLOADER_ERROR
                     );
                     return uploads.slice(i, uploads.length);
                 }
