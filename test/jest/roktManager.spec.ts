@@ -224,7 +224,7 @@ describe('RoktManager', () => {
             
             expect(result).toBeUndefined();
             expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
-                expect.stringContaining('Failed to hashSha256 and returning undefined: Hash failed')
+                expect.stringContaining('Failed to hashSha256, returning undefined: Hash failed')
             );
         });
 

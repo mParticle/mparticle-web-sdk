@@ -344,7 +344,7 @@ export default class RoktManager {
             return await this.sha256Hex(normalizedValue);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            this.logger.error(`Failed to hashSha256 and returning undefined: ${errorMessage}`);
+            this.logger.error(`Failed to hashSha256, returning undefined: ${errorMessage}`);
             return undefined;
         }
     }
