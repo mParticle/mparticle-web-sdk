@@ -295,7 +295,7 @@ export default class RoktManager {
             
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            this.logger.error(`Failed to hash "${attributes}", selectPlacements will continue: ${errorMessage}`);
+            this.logger.error(`Failed to hashAttributes, returning an empty object: ${errorMessage}`);
             return {};
         }
     }
@@ -335,7 +335,7 @@ export default class RoktManager {
      */
     public async hashSha256(attribute: string | number | boolean | undefined | null): Promise<string | undefined | null> {
         if (attribute === null || attribute === undefined) {
-            this.logger.warning(`hashSha256 received ${attribute} as input`);
+            this.logger.warning(`hashSha256 received null/undefined as input`);
             return attribute as null | undefined;
         }
         
@@ -344,7 +344,7 @@ export default class RoktManager {
             return await this.sha256Hex(normalizedValue);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            this.logger.error(`Failed to hash "${attribute}" and returning undefined: ${errorMessage}`);
+            this.logger.error(`Failed to hashSha256 and returning undefined: ${errorMessage}`);
             return undefined;
         }
     }

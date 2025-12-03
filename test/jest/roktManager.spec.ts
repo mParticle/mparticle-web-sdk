@@ -157,7 +157,7 @@ describe('RoktManager', () => {
 
             expect(result).toEqual({});
             expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
-                expect.stringContaining('Failed to hash "')
+                expect.stringContaining('Failed to hashAttributes, returning an empty object: Hashing failed')
             );
         });
     });
@@ -207,14 +207,14 @@ describe('RoktManager', () => {
             const result = await roktManager.hashSha256(null);
             
             expect(result).toBeNull();
-            expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith('hashSha256 received null as input');
+            expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith('hashSha256 received null/undefined as input');
         });
 
         it('should return undefined and log warning when value is undefined', async () => {
             const result = await roktManager.hashSha256(undefined);
             
             expect(result).toBeUndefined();
-            expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith('hashSha256 received undefined as input');
+            expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith('hashSha256 received null/undefined as input');
         });
 
         it('should return undefined and log error when hashing fails', async () => {
@@ -224,7 +224,7 @@ describe('RoktManager', () => {
             
             expect(result).toBeUndefined();
             expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
-                expect.stringContaining('Failed to hash "test@example.com" and returning undefined')
+                expect.stringContaining('Failed to hashSha256 and returning undefined: Hash failed')
             );
         });
 
