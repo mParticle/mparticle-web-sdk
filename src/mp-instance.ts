@@ -1553,7 +1553,7 @@ function createIdentityCache(mpInstance) {
 }
 
 function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
-    const reportingLogger = new ReportingLogger(Constants.sdkVersion, mpInstance);
+    const reportingLogger = new ReportingLogger(mpInstance, Constants.sdkVersion);
     mpInstance.Logger = new Logger(config, reportingLogger);
     mpInstance._Store = new Store(config, mpInstance, apiKey);
     window.mParticle.Store = mpInstance._Store;

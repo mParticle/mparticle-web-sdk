@@ -4,13 +4,20 @@ import fetchMock from 'fetch-mock/esm/client';
 import { urls, apiKey, MPConfig, testMPID, ProductActionType, PromotionActionType } from './config/constants';
 const { waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
 
+const mockReportingLogger = {
+    error: sinon.spy(),
+    warning: sinon.spy()
+};
+
 const forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
     findEventFromRequest = Utils.findEventFromRequest,
     MockForwarder = Utils.MockForwarder;
 
 describe('eCommerce', function() {
     beforeEach(function() {
-        mParticle._resetForTests(MPConfig);
+        mockReportingLogger.error.resetHistory();
+        mockReportingLogger.warning.resetHistory();
+        mParticle._resetForTests(MPConfig, false, undefined, mockReportingLogger);
         delete mParticle._instances['default_instance'];
         fetchMock.config.overwriteRoutes = true;
         fetchMock.post(urls.events, 200);
@@ -1343,7 +1350,7 @@ describe('eCommerce', function() {
 
         it('should deprecate add', async () => {
             await waitForCondition(hasIdentifyReturned);
-            mParticle._resetForTests(MPConfig);
+            mParticle._resetForTests(MPConfig, false, undefined, mockReportingLogger);
             const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
             const product = mParticle.eCommerce.createProduct(

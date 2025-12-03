@@ -346,7 +346,7 @@ export default class RoktManager {
 
         this.messageQueue.forEach((message) => {
             if(!(message.methodName in this) || !isFunction(this[message.methodName])) {
-                this.logger?.error(`RoktManager: Method ${message.methodName} not found`);
+                this.logger?.error(`RoktManager: Method ${message.methodName} not found`, ErrorCodes.ROKT_MANAGER);
 
                 return;
             }
