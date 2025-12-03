@@ -294,7 +294,9 @@ export default class RoktManager {
             return hashedAttributes;
             
         } catch (error) {
-            return Promise.reject(error instanceof Error ? error : new Error('Failed to hash attributes'));
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger.error(`Failed to hash "${attributes}", selectPlacements will continue: ${errorMessage}`);
+            return {};
         }
     }
 
@@ -342,7 +344,7 @@ export default class RoktManager {
             return await this.sha256Hex(normalizedValue);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            this.logger.error(`Failed to hash "${attribute}" and returning undefined, selectPlacements will continue: ${errorMessage}`);
+            this.logger.error(`Failed to hash "${attribute}" and returning undefined: ${errorMessage}`);
             return undefined;
         }
     }

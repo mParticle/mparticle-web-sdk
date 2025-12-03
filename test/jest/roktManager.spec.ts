@@ -145,7 +145,7 @@ describe('RoktManager', () => {
             expect(result).toEqual({});
         });
 
-        it('should reject if hashSha256 throws an error', async () => {
+        it('should log error if hashSha256 throws an error', async () => {
             shaSpy.mockRestore();
             
             // Mock hashSha256 to throw an error
@@ -153,10 +153,12 @@ describe('RoktManager', () => {
             jest.spyOn(roktManager, 'hashSha256').mockRejectedValue(hashError);
 
             const attributes = { email: 'test@example.com' };
+            const result = await roktManager.hashAttributes(attributes);
 
-            await expect(roktManager.hashAttributes(attributes))
-                .rejects
-                .toThrow('Hashing failed');
+            expect(result).toEqual({});
+            expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
+                expect.stringContaining('Failed to hash "')
+            );
         });
     });
 
@@ -222,7 +224,7 @@ describe('RoktManager', () => {
             
             expect(result).toBeUndefined();
             expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
-                expect.stringContaining('Failed to hash "test@example.com" and returning undefined, selectPlacements will continue')
+                expect.stringContaining('Failed to hash "test@example.com" and returning undefined')
             );
         });
 
