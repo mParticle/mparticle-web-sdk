@@ -38,6 +38,7 @@ describe('Helpers - Prototype Pollution Protection', () => {
             const malicious = JSON.parse('{"__proto__": {"isAdmin": true}}');
             const result = helpers.extend({}, malicious);
 
+            expect(typeof result).toBe('object');
             const testObj = {};
             expect((testObj as any).isAdmin).toBeUndefined();
             expect((Object.prototype as any).isAdmin).toBeUndefined();
@@ -47,6 +48,7 @@ describe('Helpers - Prototype Pollution Protection', () => {
             const malicious = JSON.parse('{"__proto__": {"polluted": "yes"}}');
             const result = helpers.extend(true, {}, malicious);
 
+            expect(typeof result).toBe('object');
             const testObj = {};
             expect((testObj as any).polluted).toBeUndefined();
             expect((Object.prototype as any).polluted).toBeUndefined();
@@ -56,6 +58,7 @@ describe('Helpers - Prototype Pollution Protection', () => {
             const malicious = JSON.parse('{"constructor": {"polluted": "constructor"}}');
             const result = helpers.extend({}, malicious);
 
+            expect(typeof result).toBe('object');
             const testObj = {};
             expect((testObj as any).polluted).toBeUndefined();
         });
@@ -64,6 +67,7 @@ describe('Helpers - Prototype Pollution Protection', () => {
             const malicious = JSON.parse('{"prototype": {"polluted": "prototype"}}');
             const result = helpers.extend({}, malicious);
 
+            expect(typeof result).toBe('object');
             const testObj = {};
             expect((testObj as any).polluted).toBeUndefined();
         });
@@ -142,6 +146,56 @@ describe('Helpers - Prototype Pollution Protection', () => {
             expect(result.items).toEqual([1, 2, 3]);
             expect(result.nested.arr).toEqual(['a', 'b']);
         });
+
+        it('should handle objects with null prototype (Object.create(null))', () => {
+            const nullProtoObj = Object.create(null);
+            nullProtoObj.name = 'test';
+            nullProtoObj.value = 42;
+
+            const result = helpers.extend({}, nullProtoObj);
+
+            expect(result.name).toBe('test');
+            expect(result.value).toBe(42);
+        });
+
+        it('should handle objects with null prototype in deep merge', () => {
+            const nullProtoObj = Object.create(null);
+            nullProtoObj.nested = Object.create(null);
+            nullProtoObj.nested.deep = 'value';
+
+            const result = helpers.extend(true, {}, nullProtoObj);
+
+            expect(result.nested.deep).toBe('value');
+        });
+
+        it('should handle null/undefined source arguments gracefully', () => {
+            const obj1 = { a: 1 };
+            const obj2 = { b: 2 };
+
+            const result = helpers.extend({}, obj1, null, obj2, undefined);
+
+            expect(result.a).toBe(1);
+            expect(result.b).toBe(2);
+        });
+
+        it('should handle null/undefined source arguments in deep merge', () => {
+            const obj1 = { a: { nested: 1 } };
+            const obj2 = { b: { nested: 2 } };
+
+            const result = helpers.extend(true, {}, obj1, null, obj2, undefined);
+
+            expect(result.a.nested).toBe(1);
+            expect(result.b.nested).toBe(2);
+        });
+
+        it('should handle all null/undefined sources', () => {
+            const target = { existing: 'value' };
+
+            const result = helpers.extend(target, null, undefined, null);
+
+            expect(result.existing).toBe('value');
+            expect(result).toBe(target);
+        });
     });
 
     describe('Real-world attack scenarios', () => {
@@ -168,6 +222,7 @@ describe('Helpers - Prototype Pollution Protection', () => {
 
             const result = helpers.extend(true, {}, malicious);
 
+            expect(typeof result).toBe('object');
             const testObj = {};
             expect((testObj as any).polluted).toBeUndefined();
         });
