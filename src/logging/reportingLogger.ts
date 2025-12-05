@@ -19,6 +19,7 @@ export class ReportingLogger implements IReportingLogger {
     constructor(
         mpInstance: IMParticleWebSDKInstance,
         private readonly sdkVersion: string,
+        private readonly accountId: string,
         rateLimiter?: IRateLimiter,
     ) {
         this.mpInstance = mpInstance;
@@ -121,6 +122,7 @@ export class ReportingLogger implements IReportingLogger {
             headers: {
                 Accept: 'text/plain;charset=UTF-8',
                 'Content-Type': 'text/plain;charset=UTF-8',
+                'rokt-account-id': this.accountId
             },
             body: JSON.stringify(logRequest),
         });

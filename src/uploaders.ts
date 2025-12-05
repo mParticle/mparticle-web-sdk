@@ -5,6 +5,7 @@ export interface IFetchPayload {
     headers: {
         Accept: string;
         'Content-Type'?: string;
+        'rokt-account-id'?: string;
     };
     body?: string;
 }
