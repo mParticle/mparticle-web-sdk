@@ -7,7 +7,7 @@ describe('ReportingLogger', () => {
     let logger: ReportingLogger;
     const sdkVersion = '1.2.3';
     let mockFetch: jest.Mock;
-
+    const accountId = '1234567890';
     beforeEach(() => {
         mockFetch = jest.fn().mockResolvedValue({ ok: true });
         global.fetch = mockFetch;
@@ -36,7 +36,7 @@ describe('ReportingLogger', () => {
             ROKT_DOMAIN: 'set',
             fetch: mockFetch
         });
-        logger = new ReportingLogger(mpInstance, sdkVersion);
+        logger = new ReportingLogger(mpInstance, sdkVersion, accountId);
     });
 
     afterEach(() => {
@@ -67,11 +67,12 @@ describe('ReportingLogger', () => {
         expect(body).toMatchObject({
             severity: LogRequestSeverity.Warning
         });
+        expect(fetchCall[1].headers['rokt-account-id']).toBe(accountId);
     });
 
     it('does not log if ROKT_DOMAIN missing', () => {
         delete (globalThis as any).ROKT_DOMAIN;
-        logger = new ReportingLogger(mpInstance, sdkVersion);
+        logger = new ReportingLogger(mpInstance, sdkVersion, accountId);
         logger.error('x');
         expect(mockFetch).not.toHaveBeenCalled();
     });
@@ -79,7 +80,7 @@ describe('ReportingLogger', () => {
     it('does not log if feature flag and debug mode off', () => {
         window.mParticle.config.isWebSdkLoggingEnabled = false;
         window.location.search = '';
-        logger = new ReportingLogger(mpInstance, sdkVersion);
+        logger = new ReportingLogger(mpInstance, sdkVersion, accountId);
         logger.error('x');
         expect(mockFetch).not.toHaveBeenCalled();
     });
@@ -87,7 +88,7 @@ describe('ReportingLogger', () => {
     it('logs if debug mode on even if feature flag off', () => {
         window.mParticle.config.isWebSdkLoggingEnabled = false;
         window.location.search = '?mp_enable_logging=true';
-        logger = new ReportingLogger(mpInstance, sdkVersion);
+        logger = new ReportingLogger(mpInstance, sdkVersion, accountId);
         logger.error('x');
         expect(mockFetch).toHaveBeenCalled();
     });
@@ -99,7 +100,7 @@ describe('ReportingLogger', () => {
                 return ++count > 3;
             }),
         };
-        logger = new ReportingLogger(mpInstance, sdkVersion, mockRateLimiter);
+        logger = new ReportingLogger(mpInstance, sdkVersion, accountId, mockRateLimiter);
 
         for (let i = 0; i < 5; i++) logger.error('err');
         expect(mockFetch).toHaveBeenCalledTimes(3);
