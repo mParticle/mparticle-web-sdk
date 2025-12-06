@@ -120,6 +120,13 @@ const integrationMappingExternal: IntegrationIdMapping = {
         mappedKey: 'SnapchatConversions.ClickId',
         output: IntegrationOutputs.CUSTOM_FLAGS,
     },
+
+    // Pinterest
+    // https://help.pinterest.com/en/business/article/add-event-codes
+    _epik: {
+        mappedKey: 'Pinterest.click_id',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
+    },
 };
 
 const integrationMappingRokt: IntegrationIdMapping = {
