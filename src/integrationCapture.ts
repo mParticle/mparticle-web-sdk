@@ -120,6 +120,12 @@ const integrationMappingExternal: IntegrationIdMapping = {
         mappedKey: 'SnapchatConversions.ClickId',
         output: IntegrationOutputs.CUSTOM_FLAGS,
     },
+    // Snapchat
+    // https://developers.snap.com/api/marketing-api/Conversions-API/UsingTheAPI#sending-click-id
+    _scid: {
+        mappedKey: 'SnapchatConversions.Cookie1',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
+    },
 };
 
 const integrationMappingRokt: IntegrationIdMapping = {
