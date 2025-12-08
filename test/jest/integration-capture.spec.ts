@@ -280,7 +280,7 @@ describe('Integration Capture', () => {
                 const url = new URL('https://www.example.com/');
 
                 window.document.cookie = '_scid=cookie1-from-cookie';
-                window.document.cookie = '_cookie1=1234';
+                window.document.cookie = '_cookie1=4567';
                 window.document.cookie = 'baz=qux';
 
                 window.location.href = url.href;
@@ -295,10 +295,10 @@ describe('Integration Capture', () => {
             });
 
             it('should capture both ScCid from query params and _scid from cookies', () => {
-                const url = new URL('https://www.example.com/?ScCid=1234');
+                const url = new URL('https://www.example.com/?ScCid=4567');
 
                 window.document.cookie = '_scid=cookie1-from-cookie';
-                window.document.cookie = '_cookie1=1234';
+                window.document.cookie = '_cookie1=334455';
 
                 window.location.href = url.href;
                 window.location.search = url.search;
@@ -307,7 +307,7 @@ describe('Integration Capture', () => {
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
-                    ScCid: '1234',
+                    ScCid: '4567',
                     _scid: 'cookie1-from-cookie',
                 });
             });
@@ -650,7 +650,7 @@ describe('Integration Capture', () => {
         });
 
         it('should capture _scid from cookies', () => {
-            window.document.cookie = '_cookie1=1234';
+            window.document.cookie = '_cookie1=4567';
             window.document.cookie = '_scid=cookie1-from-cookie';
             window.document.cookie = 'baz=qux';
 
@@ -716,7 +716,7 @@ describe('Integration Capture', () => {
                 _ttp: '0823422223.23234',
                 ttclid: '12345',
                 gclid: '123233.23131',
-                ScCid: '1234',
+                ScCid: '456789',
                 _scid: 'cookie1-value',
                 invalidId: '12345',
             };
@@ -728,7 +728,7 @@ describe('Integration Capture', () => {
                 'Facebook.BrowserId': '54321',
                 'TikTok.Callback': '12345',
                 'GoogleEnhancedConversions.Gclid': '123233.23131',
-                'SnapchatConversions.ClickId': '1234',
+                'SnapchatConversions.ClickId': '456789',
                 'SnapchatConversions.Cookie1': 'cookie1-value',
             });
         });
