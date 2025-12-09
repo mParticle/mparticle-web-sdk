@@ -27,7 +27,8 @@ describe('Integration Capture', () => {
                 'gbraid',
                 'wbraid',
                 'ttclid',
-                'ScCid'
+                'ScCid',
+                '_epik'
             ]);
         });
 
@@ -271,6 +272,22 @@ describe('Integration Capture', () => {
 
                 expect(integrationCapture.clickIds).toEqual({
                     ScCid: '1234',
+                });
+            });
+        });
+
+        describe('Pinterest Click Ids', () => {
+            it('should capture Pinterest specific click ids', () => {
+                const url = new URL('https://www.example.com/?_epik=1234');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    _epik: '1234',
                 });
             });
         });
@@ -665,6 +682,7 @@ describe('Integration Capture', () => {
                 _ttp: '0823422223.23234',
                 ttclid: '12345',
                 gclid: '123233.23131',
+                _epik: 'pinterest123',
                 invalidId: '12345',
             };
 
@@ -675,6 +693,7 @@ describe('Integration Capture', () => {
                 'Facebook.BrowserId': '54321',
                 'TikTok.Callback': '12345',
                 'GoogleEnhancedConversions.Gclid': '123233.23131',
+                'Pinterest.click_id': 'pinterest123',
             });
         });
     });
