@@ -1,5 +1,4 @@
-import { IAPIClient } from "../apiClient";
-import { IMParticleWebSDKInstance } from "../mp-instance";
+
 import { ErrorCodes } from "./errorCodes";
 import { LogRequest, LogRequestSeverity } from "./logRequest";
 import { FetchUploader, XHRUploader } from "../uploaders";
@@ -14,15 +13,14 @@ export class ReportingLogger implements IReportingLogger {
     private readonly reporter: string = 'mp-wsdk';
     private readonly integration: string = 'mp-wsdk';
     private readonly rateLimiter: IRateLimiter;
-    private readonly mpInstance: IMParticleWebSDKInstance;
-
+    private readonly DEFAULT_ACCOUNT_ID: string = 'no-account-id-set';
+    
     constructor(
-        mpInstance: IMParticleWebSDKInstance,
+        private baseUrl: string,
         private readonly sdkVersion: string,
         private readonly accountId: string,
         rateLimiter?: IRateLimiter,
     ) {
-        this.mpInstance = mpInstance;
         this.isEnabled = this.isReportingEnabled();
         this.rateLimiter = rateLimiter ?? new RateLimiter();
     }
@@ -107,12 +105,7 @@ export class ReportingLogger implements IReportingLogger {
     }
 
     private sendLogToServer(logRequest: LogRequest) {
-        const baseUrl = this.mpInstance._Helpers.createServiceUrl(
-            this.mpInstance._Store.SDKConfig.v2SecureServiceUrl,
-            this.mpInstance._Store.devToken
-        );
-        
-        const uploadUrl = `${baseUrl}/v1/log`;
+        const uploadUrl = `${this.baseUrl}/v1/log`;
         const uploader = window.fetch
             ? new FetchUploader(uploadUrl)
             : new XHRUploader(uploadUrl);
@@ -122,7 +115,7 @@ export class ReportingLogger implements IReportingLogger {
             headers: {
                 Accept: 'text/plain;charset=UTF-8',
                 'Content-Type': 'text/plain;charset=UTF-8',
-                'rokt-account-id': this.accountId
+                'rokt-account-id': this.accountId || this.DEFAULT_ACCOUNT_ID
             },
             body: JSON.stringify(logRequest),
         });

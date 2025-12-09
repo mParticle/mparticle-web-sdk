@@ -3,26 +3,14 @@ import { LogRequestSeverity } from '../../src/logging/logRequest';
 import { ErrorCodes } from '../../src/logging/errorCodes';
 
 describe('ReportingLogger', () => {
-    let mpInstance: any;
     let logger: ReportingLogger;
+    const baseUrl = 'https://test-url.com';
     const sdkVersion = '1.2.3';
     let mockFetch: jest.Mock;
     const accountId = '1234567890';
     beforeEach(() => {
         mockFetch = jest.fn().mockResolvedValue({ ok: true });
         global.fetch = mockFetch;
-        
-        mpInstance = {
-            _Helpers: {
-                createServiceUrl: jest.fn().mockReturnValue('https://test-url.com')
-            },
-            _Store: {
-                SDKConfig: {
-                    v2SecureServiceUrl: 'https://secure-service.com'
-                },
-                devToken: 'test-token'
-            }
-        };
         
         delete (globalThis as any).location;
         (globalThis as any).location = {
@@ -36,7 +24,7 @@ describe('ReportingLogger', () => {
             ROKT_DOMAIN: 'set',
             fetch: mockFetch
         });
-        logger = new ReportingLogger(mpInstance, sdkVersion, accountId);
+        logger = new ReportingLogger(baseUrl, sdkVersion, accountId);
     });
 
     afterEach(() => {
@@ -72,7 +60,7 @@ describe('ReportingLogger', () => {
 
     it('does not log if ROKT_DOMAIN missing', () => {
         delete (globalThis as any).ROKT_DOMAIN;
-        logger = new ReportingLogger(mpInstance, sdkVersion, accountId);
+        logger = new ReportingLogger(baseUrl, sdkVersion, accountId);
         logger.error('x');
         expect(mockFetch).not.toHaveBeenCalled();
     });
@@ -80,7 +68,7 @@ describe('ReportingLogger', () => {
     it('does not log if feature flag and debug mode off', () => {
         window.mParticle.config.isWebSdkLoggingEnabled = false;
         window.location.search = '';
-        logger = new ReportingLogger(mpInstance, sdkVersion, accountId);
+        logger = new ReportingLogger(baseUrl, sdkVersion, accountId);
         logger.error('x');
         expect(mockFetch).not.toHaveBeenCalled();
     });
@@ -88,7 +76,7 @@ describe('ReportingLogger', () => {
     it('logs if debug mode on even if feature flag off', () => {
         window.mParticle.config.isWebSdkLoggingEnabled = false;
         window.location.search = '?mp_enable_logging=true';
-        logger = new ReportingLogger(mpInstance, sdkVersion, accountId);
+        logger = new ReportingLogger(baseUrl, sdkVersion, accountId);
         logger.error('x');
         expect(mockFetch).toHaveBeenCalled();
     });
@@ -100,10 +88,18 @@ describe('ReportingLogger', () => {
                 return ++count > 3;
             }),
         };
-        logger = new ReportingLogger(mpInstance, sdkVersion, accountId, mockRateLimiter);
+        logger = new ReportingLogger(baseUrl, sdkVersion, accountId, mockRateLimiter);
 
         for (let i = 0; i < 5; i++) logger.error('err');
         expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('uses default account id when accountId is empty', () => {
+        logger = new ReportingLogger(baseUrl, sdkVersion, undefined);
+        logger.error('msg');
+        expect(mockFetch).toHaveBeenCalled();
+        const fetchCall = mockFetch.mock.calls[0];
+        expect(fetchCall[1].headers['rokt-account-id']).toBe('no-account-id-set');
     });
 });
 
