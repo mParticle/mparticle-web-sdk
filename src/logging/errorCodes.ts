@@ -1,4 +1,6 @@
-export type ErrorCodes = (typeof ErrorCodes)[keyof typeof ErrorCodes];
+import { valueof } from '../utils';
+
+export type ErrorCodes = valueof<typeof ErrorCodes>;
 
 export const ErrorCodes = {
     UNHANDLED_EXCEPTION: 'UNHANDLED_EXCEPTION',
