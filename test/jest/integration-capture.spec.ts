@@ -277,7 +277,7 @@ describe('Integration Capture', () => {
         });
 
         describe('Pinterest Click Ids', () => {
-            it('should capture Pinterest specific click ids', () => {
+            it('should capture Pinterest specific click ids from query params', () => {
                 const url = new URL('https://www.example.com/?_epik=1234');
 
                 window.location.href = url.href;
@@ -288,6 +288,37 @@ describe('Integration Capture', () => {
 
                 expect(integrationCapture.clickIds).toEqual({
                     _epik: '1234',
+                });
+            });
+
+            it('should capture Pinterest specific click ids from cookies', () => {
+                const url = new URL('https://www.example.com/');
+
+                window.document.cookie = '_epik=pinterest_cookie_value';
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    _epik: 'pinterest_cookie_value',
+                });
+            });
+
+            it('should capture Pinterest specific click ids from localStorage', () => {
+                const url = new URL('https://www.example.com/');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                localStorage.setItem('_epik', 'pinterest_localstorage_value');
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    _epik: 'pinterest_localstorage_value',
                 });
             });
         });
