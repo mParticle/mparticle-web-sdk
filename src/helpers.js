@@ -193,6 +193,21 @@ export default function Helpers(mpInstance) {
             if ((options = arguments[i]) != null) {
                 // Extend the base object
                 for (name in options) {
+                    // Prevent prototype pollution
+                    // https://github.com/advisories/GHSA-jf85-cpcp-j695
+                    if (
+                        name === '__proto__' ||
+                        name === 'constructor' ||
+                        name === 'prototype'
+                    ) {
+                        continue;
+                    }
+
+                    // Only copy own properties
+                    if (!Object.prototype.hasOwnProperty.call(options, name)) {
+                        continue;
+                    }
+
                     src = target[name];
                     copy = options[name];
 
