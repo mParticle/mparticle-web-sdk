@@ -1,3 +1,15 @@
+# [2.51.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.50.1...v2.51.0) (2025-12-10)
+
+
+### Bug Fixes
+
+* Refactor extend() to handle prototype pollution cases in object merging ([#1125](https://github.com/mParticle/mparticle-web-sdk/issues/1125)) ([b16bdd2](https://github.com/mParticle/mparticle-web-sdk/commit/b16bdd2413f5d54fba4ce7d7b08e0348d39ddea8))
+
+
+### Features
+
+* Add collection of Snap cookie1 ([#1118](https://github.com/mParticle/mparticle-web-sdk/issues/1118)) ([22490c6](https://github.com/mParticle/mparticle-web-sdk/commit/22490c6554bf990fe0871ea8f8c6b9ab33ade5ed))
+
 ## [2.50.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.50.0...v2.50.1) (2025-11-20)
 
 # [2.50.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.49.0...v2.50.0) (2025-11-13)
