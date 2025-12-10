@@ -16,7 +16,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Git checkout
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
 
             - name: Branch Check
               run: |
@@ -32,7 +32,7 @@ jobs:
         needs: confirm-staging-branch
         steps:
             - name: Checkout
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
               with:
                   ref: development
 
@@ -73,7 +73,7 @@ jobs:
                 node-version: [16.x, 17.x, 18.x, 19.x, 20.x, 21.x, 22.x, 23.x, 24.x, 25.x]
         steps:
             - name: Checkout
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
 
             - name: NPM install
               uses: actions/setup-node@v3
@@ -117,7 +117,7 @@ jobs:
             - build-bundle
         steps:
             - name: Checkout
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
 
             - name: NPM install
               uses: actions/setup-node@v3
@@ -238,7 +238,7 @@ jobs:
             - confirm-staging-branch
         steps:
             - name: Checkout development branch
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
               with:
                   repository: mparticle/mparticle-web-sdk
                   ref: development
@@ -270,7 +270,7 @@ jobs:
 
         steps:
             - name: Checkout staging branch
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
               with:
                   fetch-depth: 0
                   ref: staging
@@ -288,10 +288,9 @@ jobs:
                   git pull origin release/${{ github.run_number }}
 
             - name: Setup Node.js
-              uses: actions/setup-node@v3
+              uses: actions/setup-node@v4
               with:
                   node-version: 24.x
-                  registry-url: 'https://registry.npmjs.org'
 
             - name: Install dependencies
               run: npm ci
