@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.50.1";
+    var version = "2.51.0";
 
     var Constants = {
       sdkVersion: version,
@@ -3182,6 +3182,16 @@ var mParticle = (function () {
           if ((options = arguments[i]) != null) {
             // Extend the base object
             for (name in options) {
+              // Prevent prototype pollution
+              // https://github.com/advisories/GHSA-jf85-cpcp-j695
+              if (name === '__proto__' || name === 'constructor' || name === 'prototype') {
+                continue;
+              }
+
+              // Only copy own properties
+              if (!Object.prototype.hasOwnProperty.call(options, name)) {
+                continue;
+              }
               src = target[name];
               copy = options[name];
 
@@ -9398,6 +9408,12 @@ var mParticle = (function () {
       // https://businesshelp.snapchat.com/s/article/troubleshooting-click-id?language=en_US
       ScCid: {
         mappedKey: 'SnapchatConversions.ClickId',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      // Snapchat
+      // https://developers.snap.com/api/marketing-api/Conversions-API/UsingTheAPI#sending-click-id
+      _scid: {
+        mappedKey: 'SnapchatConversions.Cookie1',
         output: IntegrationOutputs.CUSTOM_FLAGS
       }
     };
