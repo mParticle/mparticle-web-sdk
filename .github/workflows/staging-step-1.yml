@@ -296,6 +296,9 @@ jobs:
             - name: Install dependencies
               run: npm ci
 
+            - name: Verify npm version
+              run: npm --version
+
             - name: Release --dry-run
               if: ${{ github.event.inputs.dryRun == 'true'}}
               run: |

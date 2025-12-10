@@ -16,7 +16,8 @@
     ],
     "publishConfig": {
         "access": "public",
-        "provenance": true
+        "provenance": true,
+        "registry": "https://registry.npmjs.org"
     },
     "main": "dist/mparticle.common.js",
     "module": "dist/mparticle.esm.js",
