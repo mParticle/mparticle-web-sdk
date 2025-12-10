@@ -99,7 +99,7 @@ describe('ReportingLogger', () => {
         logger.error('msg');
         expect(mockFetch).toHaveBeenCalled();
         const fetchCall = mockFetch.mock.calls[0];
-        expect(fetchCall[1].headers['rokt-account-id']).toBe('no-account-id-set');
+        expect(fetchCall[1].headers['rokt-account-id']).toBe('0');
     });
 
     it('uses default user agent when user agent is empty', () => {
