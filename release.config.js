@@ -39,12 +39,11 @@ module.exports = {
                 npmPublish: false,
             },
         ],
+        ['@semantic-release/npm'],
         [
             '@semantic-release/exec',
             {
                 prepareCmd: 'sh ./scripts/release.sh',
-                // Publish using npm CLI with OIDC trusted publishing
-                publishCmd: 'npm publish',
             },
         ],
         [
