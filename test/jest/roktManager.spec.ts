@@ -1,6 +1,7 @@
 import { IKitConfigs } from "../../src/configAPIClient";
 import { IMParticleUser } from "../../src/identity-user-interfaces";
 import { SDKIdentityApi } from "../../src/identity.interfaces";
+import { ErrorCodes } from "../../src/logging/errorCodes";
 import { IMParticleWebSDKInstance } from "../../src/mp-instance";
 import RoktManager, { IRoktKit, IRoktSelectPlacementsOptions } from "../../src/roktManager";
 import { testMPID } from '../src/config/constants';
@@ -554,7 +555,8 @@ describe('RoktManager', () => {
 
             // Verify error was logged for non-existent method
             expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
-                'RoktManager: Method nonExistentMethod not found'
+                'RoktManager: Method nonExistentMethod not found',
+                ErrorCodes.ROKT_MANAGER
             );
 
             // Verify message was removed from queue even though method didn't exist
@@ -1030,8 +1032,10 @@ describe('RoktManager', () => {
                 }
             }, expect.any(Function));
             expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(
-                'Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.'
+                'Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.',
+                ErrorCodes.EMAIL_MISMATCH
             );
+            expect(mockMPInstance.Logger.error).not.toHaveBeenCalled();
         });
 
         it('should not call identify when email matches current user email', () => {
@@ -1217,7 +1221,8 @@ describe('RoktManager', () => {
                 }
             }, expect.any(Function));
             expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(
-                "emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation."
+                "emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.",
+                ErrorCodes.EMAILSHA256_MISMATCH
             );
         });
 
@@ -1307,7 +1312,8 @@ describe('RoktManager', () => {
                 }
             }, expect.any(Function));
             expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(
-                "emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation."
+                "emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.",
+                ErrorCodes.EMAILSHA256_MISMATCH
             );
         });
 
@@ -1396,7 +1402,8 @@ describe('RoktManager', () => {
             
             // Verify error was logged
             expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
-                'Failed to identify user with new email: ' + JSON.stringify(mockError)
+                'Failed to identify user with new email: ' + JSON.stringify(mockError),
+                ErrorCodes.ROKT_MANAGER
             );
 
             // Verify selectPlacements was still called

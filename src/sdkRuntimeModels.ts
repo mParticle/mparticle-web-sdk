@@ -41,7 +41,8 @@ import { IErrorLogMessage, IMParticleWebSDKInstance, IntegrationDelays } from '.
 import Constants from './constants';
 import RoktManager, { IRoktLauncherOptions } from './roktManager';
 import { IConsoleLogger } from './logger';
-
+import { ErrorCodes } from './logging/errorCodes';
+import { IReportingLogger } from './logging/reportingLogger';
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
 
@@ -179,6 +180,7 @@ export interface MParticleWebSDK {
         MPConfig?: SDKInitConfig,
         keepPersistence?: boolean,
         instance?: IMParticleWebSDKInstance,
+        reportingLogger?: IReportingLogger,
     ): void;
     configurePixel(config: IPixelConfiguration): void;
     endSession(): void;
@@ -365,9 +367,9 @@ export interface SDKHelpersApi {
 }
 
 export interface SDKLoggerApi {
-    error(arg0: string): void;
+    error(arg0: string, code?: ErrorCodes): void;
     verbose(arg0: string): void;
-    warning(arg0: string): void;
+    warning(arg0: string, code?: ErrorCodes): void;
     setLogLevel(logLevel: LogLevelType): void;
 }
 

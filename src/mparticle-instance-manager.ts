@@ -7,6 +7,7 @@ import MPSideloadedKit from './sideloadedKit';
 import { IMParticleInstanceManager } from './sdkRuntimeModels';
 import { IStore } from './store';
 import { Dictionary } from '@mparticle/web-sdk';
+import { IReportingLogger } from './logging/reportingLogger';
 
 if (!Array.prototype.forEach) {
     Array.prototype.forEach = Polyfill.forEach;
@@ -446,18 +447,20 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
         self.getInstance().reset(self.getInstance());
     };
 
-    this._resetForTests = function(MPConfig, keepPersistence) {
+    this._resetForTests = function(MPConfig, keepPersistence, _?: IMParticleWebSDKInstance, reportingLogger?: IReportingLogger) {
         if (typeof keepPersistence === 'boolean') {
             self.getInstance()._resetForTests(
                 MPConfig,
                 keepPersistence,
-                self.getInstance()
+                self.getInstance(),
+                reportingLogger
             );
         } else {
             self.getInstance()._resetForTests(
                 MPConfig,
                 false,
-                self.getInstance()
+                self.getInstance(),
+                reportingLogger
             );
         }
     };

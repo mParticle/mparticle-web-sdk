@@ -4,6 +4,7 @@ import { BaseEvent, EventTypeEnum, CommerceEvent, ScreenViewEvent, CustomEvent }
 import Types from './types'
 import { DataPlanPoint } from '@mparticle/data-planning-models';
 import { IMParticleWebSDKInstance } from './mp-instance';
+import { ErrorCodes } from './logging/errorCodes';
 
 /*  
     TODO: Including this as a workaround because attempting to import it from
@@ -66,14 +67,14 @@ export default class KitBlocker {
                 }
             }
             catch(e) {
-                this.mpInstance.Logger.error('There was an issue with the data plan: ' + e);
+                this.mpInstance.Logger.error('There was an issue with the data plan: ' + e, ErrorCodes.KIT_BLOCKING);
             }
         }
     }
 
     addToMatchLookups(point: DataPlanPoint) {
         if (!point.match || !point.validator) {
-            this.mpInstance.Logger.warning(`Data Plan Point is not valid' + ${point}`);
+            this.mpInstance.Logger.warning(`Data Plan Point is not valid' + ${point}`, ErrorCodes.KIT_BLOCKING);
             return;
         }
 

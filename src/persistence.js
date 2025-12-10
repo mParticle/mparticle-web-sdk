@@ -1,6 +1,7 @@
 import Constants from './constants';
 import Polyfill from './polyfill';
 import * as Utils from './utils';
+import { ErrorCodes } from './logging/errorCodes';
 
 var Base64 = Polyfill.Base64,
     Messages = Constants.Messages,
@@ -112,7 +113,10 @@ export default function _Persistence(mpInstance) {
             } else {
                 self.expireCookies(mpInstance._Store.storageName);
             }
-            mpInstance.Logger.error('Error initializing storage: ' + e);
+            mpInstance.Logger.error(
+                'Error initializing storage: ' + e,
+                ErrorCodes.PERSISTENCE_ERROR
+            );
         }
     };
 
@@ -209,7 +213,10 @@ export default function _Persistence(mpInstance) {
                 }
             }
         } catch (e) {
-            mpInstance.Logger.error(Messages.ErrorMessages.CookieParseError);
+            mpInstance.Logger.error(
+                Messages.ErrorMessages.CookieParseError,
+                ErrorCodes.PERSISTENCE_ERROR
+            );
         }
     };
 
@@ -274,7 +281,8 @@ export default function _Persistence(mpInstance) {
                 );
             } catch (e) {
                 mpInstance.Logger.error(
-                    'Error with setting localStorage item.'
+                    'Error with setting localStorage item.',
+                    ErrorCodes.PERSISTENCE_ERROR
                 );
             }
         }
@@ -567,7 +575,8 @@ export default function _Persistence(mpInstance) {
                         mpInstance.Logger.error(
                             'Unable to save MPID data to cookies because the resulting encoded cookie is larger than the maxCookieSize setting of ' +
                                 maxCookieSize +
-                                '. We recommend using a maxCookieSize of 1500.'
+                                '. We recommend using a maxCookieSize of 1500.',
+                            ErrorCodes.PERSISTENCE_ERROR
                         );
                     }
                 } else {
@@ -735,7 +744,10 @@ export default function _Persistence(mpInstance) {
                 return JSON.stringify(persistence);
             }
         } catch (e) {
-            mpInstance.Logger.error('Problem with decoding cookie', e);
+            mpInstance.Logger.error(
+                'Problem with decoding cookie',
+                ErrorCodes.PERSISTENCE_ERROR
+            );
         }
     };
 

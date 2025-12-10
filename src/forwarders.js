@@ -7,6 +7,8 @@ import APIClient from './apiClient';
 
 const { Modify, Identify, Login, Logout } = Constants.IdentityMethods;
 
+import { ErrorCodes } from './logging/errorCodes';
+
 export default function Forwarders(mpInstance, kitBlocker) {
     var self = this;
     this.forwarderStatsUploader = new APIClient(
@@ -443,7 +445,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     mpInstance.Logger.verbose(result);
                 }
             } catch (e) {
-                mpInstance.Logger.error(e);
+                mpInstance.Logger.error(e, ErrorCodes.FORWARDERS_ERROR);
             }
         });
     };
@@ -592,7 +594,8 @@ export default function Forwarders(mpInstance, kitBlocker) {
         } catch (e) {
             mpInstance.Logger.error(
                 'MP Kits not configured propertly. Kits may not be initialized. ' +
-                    e
+                    e,
+                ErrorCodes.FORWARDERS_ERROR
             );
         }
     };
@@ -702,7 +705,8 @@ export default function Forwarders(mpInstance, kitBlocker) {
         } catch (e) {
             mpInstance.Logger.error(
                 'Sideloaded Kits not configured propertly. Kits may not be initialized. ' +
-                    e
+                    e,
+                ErrorCodes.FORWARDERS_ERROR
             );
         }
     };
@@ -772,7 +776,8 @@ export default function Forwarders(mpInstance, kitBlocker) {
         } catch (e) {
             mpInstance.Logger.error(
                 'Cookie Sync configs not configured propertly. Cookie Sync may not be initialized. ' +
-                    e
+                    e,
+                ErrorCodes.FORWARDERS_ERROR
             );
         }
     };

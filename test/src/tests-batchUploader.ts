@@ -11,6 +11,8 @@ import { BatchUploader } from '../../src/batchUploader';
 import { expect } from 'chai';
 import _BatchValidator from '../../src/mockBatchCreator';
 import { Logger } from '../../src/logger';
+import { IReportingLogger } from '../../src/logging/reportingLogger';
+import { ErrorCodes } from '../../src/logging/errorCodes';
 import { event0, event1, event2, event3 } from '../fixtures/events';
 import fetchMock from 'fetch-mock/esm/client';
 const { 
@@ -27,6 +29,11 @@ declare global {
         mParticle: IMParticleInstanceManager;
     }
 }
+
+const mockReportingLogger: IReportingLogger = {
+    error: sinon.spy(),
+    warning: sinon.spy()
+};
 
 const enableBatchingConfigFlags = {
     eventBatchingIntervalMillis: 1000,
@@ -46,6 +53,9 @@ describe('batch uploader', () => {
         window.mParticle.config.flags = {
             eventBatchingIntervalMillis: 1000,
         };
+        window.mParticle.config.logLevel = 'error';
+        (mockReportingLogger.error as sinon.SinonSpy).resetHistory();
+        (mockReportingLogger.warning as sinon.SinonSpy).resetHistory();
     });
 
     afterEach(() => {
@@ -512,7 +522,7 @@ describe('batch uploader', () => {
 
                 fetchMock.post(urls.events, 200);
 
-                const newLogger = new Logger(window.mParticle.config);
+                const newLogger = new Logger(window.mParticle.config, mockReportingLogger);
                 const mpInstance = window.mParticle.getInstance();
 
                 const uploader = new BatchUploader(mpInstance, 1000);
@@ -545,6 +555,7 @@ describe('batch uploader', () => {
 
                 expect(actualBatchResult.events.length).to.equal(1);
                 expect(actualBatchResult.events).to.eql(actualBatch.events);
+                expect((mockReportingLogger.error as sinon.SinonSpy).called).to.eq(false);
             });
 
             it('should return batches that fail to upload with 500 errors', async () => {
@@ -554,7 +565,7 @@ describe('batch uploader', () => {
 
                 fetchMock.post(urls.events, 500);
 
-                const newLogger = new Logger(window.mParticle.config);
+                const newLogger = new Logger(window.mParticle.config, mockReportingLogger);
                 const mpInstance = window.mParticle.getInstance();
 
                 const uploader = new BatchUploader(mpInstance, 1000);
@@ -596,6 +607,8 @@ describe('batch uploader', () => {
                 expect(
                     batchesNotUploaded[2].events[0].data.event_name
                 ).to.equal('Test Event 3');
+                expect((mockReportingLogger.error as sinon.SinonSpy).calledOnce).to.eq(true);
+                expect((mockReportingLogger.error as sinon.SinonSpy).getCall(0).args[1]).to.eq(ErrorCodes.BATCH_UPLOADER_ERROR);
             });
 
             it('should return batches that fail to upload with 429 errors', async () => {
@@ -605,7 +618,7 @@ describe('batch uploader', () => {
                 
                 fetchMock.post(urls.events,  429);
 
-                const newLogger = new Logger(window.mParticle.config);
+                const newLogger = new Logger(window.mParticle.config, mockReportingLogger);
                 const mpInstance = window.mParticle.getInstance();
 
                 const uploader = new BatchUploader(mpInstance, 1000);
@@ -647,6 +660,8 @@ describe('batch uploader', () => {
                 expect(
                     batchesNotUploaded[2].events[0].data.event_name
                 ).to.equal('Test Event 3');
+                expect((mockReportingLogger.error as sinon.SinonSpy).calledOnce).to.eq(true);
+                expect((mockReportingLogger.error as sinon.SinonSpy).getCall(0).args[1]).to.eq(ErrorCodes.BATCH_UPLOADER_ERROR);
             });
 
             it('should return null if batches fail to upload with 401 errors', async () => {
@@ -656,7 +671,7 @@ describe('batch uploader', () => {
                 
                 fetchMock.post(urls.events, 401);
 
-                const newLogger = new Logger(window.mParticle.config);
+                const newLogger = new Logger(window.mParticle.config, mockReportingLogger);
                 const mpInstance = window.mParticle.getInstance();
 
                 const uploader = new BatchUploader(mpInstance, 1000);
@@ -685,6 +700,8 @@ describe('batch uploader', () => {
                 );
 
                 expect(batchesNotUploaded === null).to.equal(true);
+                expect((mockReportingLogger.error as sinon.SinonSpy).calledOnce).to.eq(true);
+                expect((mockReportingLogger.error as sinon.SinonSpy).getCall(0).args[1]).to.eq(ErrorCodes.BATCH_UPLOADER_ERROR);
             });
 
             it('should not throw an error when upload is called while storage has not been created yet', async () => {
@@ -708,7 +725,7 @@ describe('batch uploader', () => {
                 
                 fetchMock.post(urls.events, 400);
 
-                const newLogger = new Logger(window.mParticle.config);
+                const newLogger = new Logger(window.mParticle.config, mockReportingLogger);
                 const mpInstance = window.mParticle.getInstance();
 
                 const uploader = new BatchUploader(mpInstance, 1000);
@@ -737,6 +754,8 @@ describe('batch uploader', () => {
                 );
 
                 expect(batchesNotUploaded).to.be.ok;
+                expect((mockReportingLogger.error as sinon.SinonSpy).calledOnce).to.eq(true);
+                expect((mockReportingLogger.error as sinon.SinonSpy).getCall(0).args[1]).to.eq(ErrorCodes.BATCH_UPLOADER_ERROR);
 
                 expect(
                     batchesNotUploaded.length,

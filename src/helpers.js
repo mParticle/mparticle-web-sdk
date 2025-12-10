@@ -3,6 +3,7 @@ import Constants from './constants';
 import * as utils from './utils';
 import Validators from './validators';
 import KitFilterHelper from './kitFilterHelper';
+import { ErrorCodes } from './logging/errorCodes';
 
 var StorageNames = Constants.StorageNames;
 
@@ -73,7 +74,8 @@ export default function Helpers(mpInstance) {
             }
         } catch (e) {
             mpInstance.Logger.error(
-                'There was an error with your callback: ' + e
+                'There was an error with your callback: ' + e,
+                ErrorCodes.HELPERS_CALLBACK_ERROR
             );
         }
     };
@@ -94,7 +96,8 @@ export default function Helpers(mpInstance) {
             }
         } catch (e) {
             mpInstance.Logger.error(
-                'There was an error with your callback: ' + e
+                'There was an error with your callback: ' + e,
+                ErrorCodes.HELPERS_CALLBACK_ERROR
             );
         }
     };
@@ -256,7 +259,10 @@ export default function Helpers(mpInstance) {
         try {
             xhr = new window.XMLHttpRequest();
         } catch (e) {
-            mpInstance.Logger.error('Error creating XMLHttpRequest object.');
+            mpInstance.Logger.error(
+                'Error creating XMLHttpRequest object.',
+                ErrorCodes.HELPERS_XHR_ERROR
+            );
         }
 
         if (xhr && cb && 'withCredentials' in xhr) {
@@ -268,7 +274,10 @@ export default function Helpers(mpInstance) {
                 xhr = new window.XDomainRequest();
                 xhr.onload = cb;
             } catch (e) {
-                mpInstance.Logger.error('Error creating XDomainRequest object');
+                mpInstance.Logger.error(
+                    'Error creating XDomainRequest object',
+                    ErrorCodes.HELPERS_XHR_ERROR
+                );
             }
         }
 

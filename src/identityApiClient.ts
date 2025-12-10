@@ -25,6 +25,7 @@ import {
     IIdentityResponse,
 } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
+import { ErrorCodes } from './logging/errorCodes';
 
 const { HTTPCodes, Messages, IdentityMethods } = Constants;
 
@@ -175,7 +176,10 @@ export default function IdentityAPIClient(
             invokeAliasCallback(aliasCallback, response.status, errorMessage);
         } catch (e) {
             const errorMessage = (e as Error).message || e.toString();
-            Logger.error('Error sending alias request to mParticle servers. ' + errorMessage);
+            Logger.error(
+                'Error sending alias request to mParticle servers. ' + errorMessage,
+                ErrorCodes.IDENTITY_API_CLIENT_ERROR
+            );
             invokeAliasCallback(
                 aliasCallback,
                 HTTPCodes.noHttpCoverage,
@@ -197,7 +201,7 @@ export default function IdentityAPIClient(
         const { Logger } = mpInstance;
         Logger.verbose(Messages.InformationMessages.SendIdentityBegin);
         if (!identityApiRequest) {
-            Logger.error(Messages.ErrorMessages.APIRequestEmpty);
+            Logger.error(Messages.ErrorMessages.APIRequestEmpty, ErrorCodes.IDENTITY_API_CLIENT_ERROR);
             return;
         }
         Logger.verbose(Messages.InformationMessages.SendIdentityHttp);
@@ -303,7 +307,7 @@ export default function IdentityAPIClient(
             
             const errorMessage = (err as Error).message || err.toString();
 
-            Logger.error('Error sending identity request to servers' + ' - ' + errorMessage);
+            Logger.error('Error sending identity request to servers' + ' - ' + errorMessage, ErrorCodes.IDENTITY_API_CLIENT_ERROR);
             invokeCallback(
                 callback,
                 HTTPCodes.noHttpCoverage,

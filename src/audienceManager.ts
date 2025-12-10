@@ -6,6 +6,7 @@ import {
     IFetchPayload
 } from './uploaders';
 import Audience from './audience';
+import { ErrorCodes } from './logging/errorCodes';
 
 export interface IAudienceMembershipsServerResponse {
     dt: 'cam';  // current audience memberships
@@ -81,7 +82,8 @@ export default class AudienceManager {
             }
         } catch (e) {
             this.logger.error(
-                `Error retrieving audiences. ${e}`
+                `Error retrieving audiences. ${e}`,
+                ErrorCodes.AUDIENCE_MANAGER_ERROR
             );
         }
     }

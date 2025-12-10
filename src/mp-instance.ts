@@ -51,6 +51,7 @@ import { IPersistence } from './persistence.interfaces';
 import ForegroundTimer from './foregroundTimeTracker';
 import RoktManager, { IRoktOptions } from './roktManager';
 import filteredMparticleUser from './filteredMparticleUser';
+import { IReportingLogger, ReportingLogger } from './logging/reportingLogger';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -223,11 +224,11 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         }
     };
 
-    this._resetForTests = function(config, keepPersistence, instance) {
+    this._resetForTests = function(config, keepPersistence, instance, reportingLogger: IReportingLogger) {
         if (instance._Store) {
             delete instance._Store;
         }
-        instance.Logger = new Logger(config);
+        instance.Logger = new Logger(config, reportingLogger);
         instance._Store = new Store(config, instance);
         instance._Store.isLocalStorageAvailable = instance._Persistence.determineLocalStorageAvailability(
             window.localStorage
@@ -1364,7 +1365,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
 function completeSDKInitialization(apiKey, config, mpInstance) {
     const kitBlocker = createKitBlocker(config, mpInstance);
     const { getFeatureFlag } = mpInstance._Helpers;
-
+    
     mpInstance._APIClient = new APIClient(mpInstance, kitBlocker);
     mpInstance._Forwarders = new Forwarders(mpInstance, kitBlocker);
     mpInstance._Store.processConfig(config);
@@ -1552,7 +1553,8 @@ function createIdentityCache(mpInstance) {
 }
 
 function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
-    mpInstance.Logger = new Logger(config);
+    const reportingLogger = new ReportingLogger(mpInstance, Constants.sdkVersion);
+    mpInstance.Logger = new Logger(config, reportingLogger);
     mpInstance._Store = new Store(config, mpInstance, apiKey);
     window.mParticle.Store = mpInstance._Store;
     mpInstance.Logger.verbose(StartingInitialization);
