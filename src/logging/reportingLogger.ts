@@ -13,7 +13,7 @@ export class ReportingLogger implements IReportingLogger {
     private readonly reporter: string = 'mp-wsdk';
     private readonly integration: string = 'mp-wsdk';
     private readonly rateLimiter: IRateLimiter;
-    private readonly DEFAULT_ACCOUNT_ID: string = 'no-account-id-set';
+    private readonly DEFAULT_ACCOUNT_ID: string = '0';
     private readonly DEFAULT_USER_AGENT: string = 'no-user-agent-set';
     private readonly DEFAULT_URL: string = 'no-url-set';
     
