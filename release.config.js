@@ -33,11 +33,17 @@ module.exports = {
                 changelogFile: 'CHANGELOG.md',
             },
         ],
-        ['@semantic-release/npm'],
+        [
+            '@semantic-release/npm',
+            {
+                npmPublish: false, // Disable npm publish here; we use exec with OIDC instead
+            },
+        ],
         [
             '@semantic-release/exec',
             {
                 prepareCmd: 'sh ./scripts/release.sh',
+                publishCmd: 'npm publish',
             },
         ],
         [
