@@ -14,6 +14,8 @@ export class ReportingLogger implements IReportingLogger {
     private readonly integration: string = 'mp-wsdk';
     private readonly rateLimiter: IRateLimiter;
     private readonly DEFAULT_ACCOUNT_ID: string = 'no-account-id-set';
+    private readonly DEFAULT_USER_AGENT: string = 'no-user-agent-set';
+    private readonly DEFAULT_URL: string = 'no-url-set';
     
     constructor(
         private baseUrl: string,
@@ -97,11 +99,11 @@ export class ReportingLogger implements IReportingLogger {
     }
 
     private getUrl(): string {
-        return window.location.href;
+        return window?.location?.href ?? this.DEFAULT_URL;
     }
 
     private getUserAgent(): string {
-        return window.navigator.userAgent;
+        return window?.navigator?.userAgent ?? this.DEFAULT_USER_AGENT;
     }
 
     private sendLogToServer(logRequest: LogRequest) {
