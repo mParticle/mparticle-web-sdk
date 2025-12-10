@@ -101,6 +101,17 @@ describe('ReportingLogger', () => {
         const fetchCall = mockFetch.mock.calls[0];
         expect(fetchCall[1].headers['rokt-account-id']).toBe('no-account-id-set');
     });
+
+    it('uses default user agent when user agent is empty', () => {
+        logger = new ReportingLogger(baseUrl, sdkVersion, accountId);
+        delete (globalThis as any).navigator;
+        delete (globalThis as any).location;
+        logger.error('msg');
+        expect(mockFetch).toHaveBeenCalled();
+        const fetchCall = mockFetch.mock.calls[0];
+        const body = JSON.parse(fetchCall[1].body);
+        expect(body).toMatchObject({ deviceInfo: 'no-user-agent-set', url: 'no-url-set' });
+    });
 });
 
 describe('RateLimiter', () => {
