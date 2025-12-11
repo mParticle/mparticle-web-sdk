@@ -252,15 +252,51 @@ export default class RoktManager {
         }
     }
 
-    public hashAttributes(attributes: IRoktPartnerAttributes): Promise<IRoktPartnerAttributes> {
-        if (!this.isReady()) {
-            return this.deferredCall<IRoktPartnerAttributes>('hashAttributes', attributes);
-        }
-
+    /**
+     * Hashes attributes and returns both original and hashed versions
+     * with Rokt-compatible key names (like emailsha256, mobilesha256)
+     * 
+     * 
+     * @param {IRoktPartnerAttributes} attributes - Attributes to hash
+     * @returns {Promise<IRoktPartnerAttributes>} Object with both original and hashed attributes
+     * 
+     */
+    public async hashAttributes(attributes: IRoktPartnerAttributes): Promise<IRoktPartnerAttributes> {
         try {
-            return this.kit.hashAttributes(attributes);
+            if (!attributes || typeof attributes !== 'object') {
+                return {};
+            }
+            
+            // Get own property keys only
+            const keys = Object.keys(attributes);
+            
+            if (keys.length === 0) {
+                return {};
+            }
+            
+            // Hash all attributes in parallel
+            const hashPromises = keys.map(async (key) => {
+                const attributeValue = attributes[key];
+                const hashedValue = await this.hashSha256(attributeValue);
+                return { key, attributeValue, hashedValue };
+            });
+            
+            const results = await Promise.all(hashPromises);
+            
+            // Build the result object
+            const hashedAttributes: IRoktPartnerAttributes = {};
+            for (const { key, attributeValue, hashedValue } of results) {
+                hashedAttributes[key] = attributeValue;
+                if (hashedValue) {
+                    hashedAttributes[`${key}sha256`] = hashedValue;
+                }
+            }
+            return hashedAttributes;
+            
         } catch (error) {
-            return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger.error(`Failed to hashAttributes, returning an empty object: ${errorMessage}`);
+            return {};
         }
     }
 
@@ -287,6 +323,29 @@ export default class RoktManager {
             return this.kit.use<T>(name);
         } catch (error) {
             return Promise.reject(error instanceof Error ? error : new Error('Error using extension: ' + name));
+        }
+    }
+
+    /**
+     * Hashes an attribute using SHA-256
+     * 
+     * @param {string | number | boolean | undefined | null} attribute - The value to hash
+     * @returns {Promise<string | undefined | null>} SHA-256 hashed value or undefined/null
+     * 
+     */
+    public async hashSha256(attribute: string | number | boolean | undefined | null): Promise<string | undefined | null> {
+        if (attribute === null || attribute === undefined) {
+            this.logger.warning(`hashSha256 received null/undefined as input`);
+            return attribute as null | undefined;
+        }
+        
+        try {
+            const normalizedValue = String(attribute).trim().toLocaleLowerCase();
+            return await this.sha256Hex(normalizedValue);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger.error(`Failed to hashSha256, returning undefined: ${errorMessage}`);
+            return undefined;
         }
     }
 
@@ -398,6 +457,37 @@ export default class RoktManager {
         }
         
         this.messageQueue.delete(messageId);
+    }
+
+    /**
+     * Hashes a string input using SHA-256 and returns the hex digest
+     * Uses the Web Crypto API for secure hashing
+     * 
+     * @param {string} input - The string to hash
+     * @returns {Promise<string>} The SHA-256 hash as a hexadecimal string
+     */
+    private async sha256Hex(input: string): Promise<string> {
+        const encoder = new TextEncoder();
+        const encodedInput = encoder.encode(input);
+        const digest = await crypto.subtle.digest('SHA-256', encodedInput);
+        return this.arrayBufferToHex(digest);
+    }
+
+    /**
+     * Converts an ArrayBuffer to a hexadecimal string representation
+     * Each byte is converted to a 2-character hex string with leading zeros
+     * 
+     * @param {ArrayBuffer} buffer - The buffer to convert
+     * @returns {string} The hexadecimal string representation
+     */
+    private arrayBufferToHex(buffer: ArrayBuffer): string {
+        const bytes = new Uint8Array(buffer);
+        let hexString = '';
+        for (let i = 0; i < bytes.length; i++) {
+            const hexByte = bytes[i].toString(16).padStart(2, '0');
+            hexString += hexByte;
+        }
+        return hexString;
     }
 
     /**
