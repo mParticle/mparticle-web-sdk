@@ -206,18 +206,28 @@ const replaceAmpWithAmpersand = (value: string): string => value.replace(/&amp;/
 const createCookieSyncUrl = (
     mpid: MPID,
     pixelUrl: string,
-    redirectUrl?: string
+    redirectUrl?: string,
+    domain?: string
 ): string => {
     const modifiedPixelUrl = replaceAmpWithAmpersand(pixelUrl);
     const modifiedDirectUrl = redirectUrl
         ? replaceAmpWithAmpersand(redirectUrl)
         : null;
 
-    const url = replaceMPID(modifiedPixelUrl, mpid);
+    let url = replaceMPID(modifiedPixelUrl, mpid);
+    
     const redirect = modifiedDirectUrl
         ? replaceMPID(modifiedDirectUrl, mpid)
         : '';
-    return url + encodeURIComponent(redirect);
+    
+    let fullUrl = url + encodeURIComponent(redirect);
+    
+    if (domain) {
+        const separator = fullUrl.includes('?') ? '&' : '?';
+        fullUrl += `${separator}domain=${domain}`;
+    }
+    
+    return fullUrl;
 };
 
 // FIXME: REFACTOR for V3
