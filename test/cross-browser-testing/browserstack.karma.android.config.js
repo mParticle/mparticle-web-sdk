@@ -145,7 +145,7 @@ module.exports = function(config) {
     browserNoActivityTimeout: 240000,
     browserDisconnectTimeout: 120000,
     browserDisconnectTolerance: 5,
-    concurrency: 2,
+    concurrency: 5,
     retryLimit: 2,
   });
 };
