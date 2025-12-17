@@ -25,6 +25,7 @@ import {
     IIdentityResponse,
 } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
+import { ErrorCodes } from './logging/errorCodes';
 
 const { HTTPCodes, Messages, IdentityMethods } = Constants;
 
@@ -300,10 +301,13 @@ export default function IdentityAPIClient(
             );
         } catch (err) {
             mpInstance._Store.identityCallInFlight = false;
-            
+
             const errorMessage = (err as Error).message || err.toString();
 
-            Logger.error('Error sending identity request to servers' + ' - ' + errorMessage);
+            Logger.error(
+                'Error sending identity request to servers' + ' - ' + errorMessage,
+                ErrorCodes.UNHANDLED_EXCEPTION
+            );
             invokeCallback(
                 callback,
                 HTTPCodes.noHttpCoverage,

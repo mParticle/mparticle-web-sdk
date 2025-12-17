@@ -1,11 +1,11 @@
-
 import { ErrorCodes } from "./errorCodes";
-import { LogRequest, LogRequestSeverity } from "./logRequest";
-import { FetchUploader, XHRUploader } from "../uploaders";
+import { LogRequestBody, WSDKErrorSeverity } from "./logRequest";
+import { FetchUploader, IFetchPayload } from "../uploaders";
 
+// QUESTION: Should we collapse the interface with the class?
 export interface IReportingLogger {
-    error(msg: string, code?: ErrorCodes, stackTrace?: string): void;
-    warning(msg: string, code?: ErrorCodes): void;
+    error(msg: string, code: ErrorCodes, stackTrace?: string): void;
+    warning(msg: string, code: ErrorCodes): void;
 }
 
 export class ReportingLogger implements IReportingLogger {
@@ -13,30 +13,54 @@ export class ReportingLogger implements IReportingLogger {
     private readonly reporter: string = 'mp-wsdk';
     private readonly integration: string = 'mp-wsdk';
     private readonly rateLimiter: IRateLimiter;
-    private readonly DEFAULT_ACCOUNT_ID: string = '0';
-    private readonly DEFAULT_USER_AGENT: string = 'no-user-agent-set';
-    private readonly DEFAULT_URL: string = 'no-url-set';
-    
+    private loggingUrl: string;
+    private errorUrl: string;
+    private accountId: string;
+    private integrationName: string;
+
     constructor(
-        private baseUrl: string,
         private readonly sdkVersion: string,
-        private readonly accountId: string,
-        rateLimiter?: IRateLimiter,
+        rateLimiter?: IRateLimiter, // QUESTION: Do we need this in the constructor?
+        private readonly launcherInstanceGuid?: string,
     ) {
         this.isEnabled = this.isReportingEnabled();
+        console.warn('ReportingLogger: isEnabled', this.isEnabled);
         this.rateLimiter = rateLimiter ?? new RateLimiter();
     }
 
-    public error(msg: string, code?: ErrorCodes, stackTrace?: string) {
-        this.sendLog(LogRequestSeverity.Error, msg, code ?? ErrorCodes.UNHANDLED_EXCEPTION, stackTrace);
+    public setLoggingUrl(url: string) {
+        this.loggingUrl = url;
+    }
+
+    public setErrorUrl(url: string) {
+        this.errorUrl = url;
+    }
+    
+    public setAccountId(accountId: string) {
+        this.accountId = accountId;
+    }
+    
+    public setIntegrationName(integrationName: string) {
+        this.integrationName = integrationName;
+    }
+
+    // TODO: Add an `info` method to the logger for `/v1/log`
+
+    public error(msg: string, code: ErrorCodes, stackTrace?: string) {
+        this.sendLog(WSDKErrorSeverity.ERROR, msg, code, stackTrace);
     };
 
-    public warning(msg: string, code?: ErrorCodes) { 
-        this.sendLog(LogRequestSeverity.Warning, msg, code ?? ErrorCodes.UNHANDLED_EXCEPTION);
+    public warning(msg: string, code: ErrorCodes) { 
+        this.sendLog(WSDKErrorSeverity.WARNING, msg, code);
     };
     
+    private getVersion(): string {
+        return this.integrationName ?? this.sdkVersion;
+    }
+    
+    // QUESTION: Should we split this into `sendError` and `sendLog`?
     private sendLog(
-        severity: LogRequestSeverity,
+        severity: WSDKErrorSeverity,
         msg: string,
         code: ErrorCodes,
         stackTrace?: string
@@ -44,16 +68,16 @@ export class ReportingLogger implements IReportingLogger {
         if(!this.canSendLog(severity))
             return;
 
-        const logRequest: LogRequest = {
+        const logRequest: LogRequestBody = {
             additionalInformation: {
                 message: msg,
-                version: this.sdkVersion,
+                version: this.getVersion(),
             },
             severity: severity,
             code: code,
             url: this.getUrl(),
             deviceInfo: this.getUserAgent(),
-            stackTrace: stackTrace ?? '',
+            stackTrace: stackTrace ?? 'this is my stack trace',
             reporter: this.reporter,
             integration: this.integration,
         };
@@ -62,6 +86,8 @@ export class ReportingLogger implements IReportingLogger {
     }
 
     private isReportingEnabled(): boolean {
+        // QUESTION: Should isDebugModeEnabled take precedence over
+        // isFeatureFlagEnabled and rokt domain present?
         return (
             this.isRoktDomainPresent() && 
             (this.isFeatureFlagEnabled() ||
@@ -90,53 +116,62 @@ export class ReportingLogger implements IReportingLogger {
         );
     }
     
-    private canSendLog(severity: LogRequestSeverity): boolean {
+    private canSendLog(severity: WSDKErrorSeverity): boolean {
         return this.isEnabled && !this.isRateLimited(severity);
     }
 
-    private isRateLimited(severity: LogRequestSeverity): boolean {
+    private isRateLimited(severity: WSDKErrorSeverity): boolean {
         return this.rateLimiter.incrementAndCheck(severity);
     }
 
     private getUrl(): string {
-        return window?.location?.href ?? this.DEFAULT_URL;
+        return window.location.href;
     }
 
     private getUserAgent(): string {
-        return window?.navigator?.userAgent ?? this.DEFAULT_USER_AGENT;
+        return window.navigator.userAgent;
     }
 
-    private sendLogToServer(logRequest: LogRequest) {
-        const uploadUrl = `${this.baseUrl}/v1/log`;
-        const uploader = window.fetch
-            ? new FetchUploader(uploadUrl)
-            : new XHRUploader(uploadUrl);
+    private getLoggingUrl = (): string => `https://${this.loggingUrl}`;
+    private getErrorUrl = (): string => `https://${this.errorUrl}`;
+    
+    private getHeaders(): IFetchPayload['headers'] {
+        const headers: Record<string, string> = {
+            Accept: 'text/plain;charset=UTF-8',
+            'Content-Type': 'application/json',
+            'rokt-launcher-instance-guid': this.launcherInstanceGuid,
+            'rokt-launcher-version': this.getVersion(),
+            'rokt-wsdk-version': 'joint',
+        };
+        return headers as IFetchPayload['headers'];
+    }
 
-        uploader.upload({
+    private sendLogToServer(logRequest: LogRequestBody) {
+        const uploadUrl = this.getErrorUrl();
+        const uploader = new FetchUploader(uploadUrl);
+        const payload: IFetchPayload = {
             method: 'POST',
-            headers: {
-                Accept: 'text/plain;charset=UTF-8',
-                'Content-Type': 'text/plain;charset=UTF-8',
-                'rokt-account-id': this.accountId || this.DEFAULT_ACCOUNT_ID
-            },
+            headers: this.getHeaders(),
             body: JSON.stringify(logRequest),
-        });
+        };
+            
+        uploader.upload(payload);
     };
 }
 
 export interface IRateLimiter {
-    incrementAndCheck(severity: LogRequestSeverity): boolean;
+    incrementAndCheck(severity: WSDKErrorSeverity): boolean;
 }
 
 export class RateLimiter implements IRateLimiter {
-    private readonly rateLimits: Map<LogRequestSeverity, number> = new Map([
-        [LogRequestSeverity.Error, 10],
-        [LogRequestSeverity.Warning, 10],
-        [LogRequestSeverity.Info, 10],
+    private readonly rateLimits: Map<WSDKErrorSeverity, number> = new Map([
+        [WSDKErrorSeverity.ERROR, 10],
+        [WSDKErrorSeverity.WARNING, 10],
+        [WSDKErrorSeverity.INFO, 10],
     ]);
-    private logCount: Map<LogRequestSeverity, number> = new Map();
+    private logCount: Map<WSDKErrorSeverity, number> = new Map();
 
-    public incrementAndCheck(severity: LogRequestSeverity): boolean {
+    public incrementAndCheck(severity: WSDKErrorSeverity): boolean {
         const count = this.logCount.get(severity) || 0;
         const limit = this.rateLimits.get(severity) || 10;
         

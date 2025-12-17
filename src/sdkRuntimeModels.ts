@@ -41,6 +41,7 @@ import { IErrorLogMessage, IMParticleWebSDKInstance, IntegrationDelays } from '.
 import Constants from './constants';
 import RoktManager, { IRoktLauncherOptions } from './roktManager';
 import { IConsoleLogger } from './logger';
+import { ErrorCodes } from './logging/errorCodes';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -362,9 +363,9 @@ export interface SDKHelpersApi {
 }
 
 export interface SDKLoggerApi {
-    error(arg0: string): void;
-    verbose(arg0: string): void;
-    warning(arg0: string): void;
+    error(msg: string, code?: ErrorCodes): void;
+    verbose(msg: string): void;
+    warning(msg: string, code?: ErrorCodes): void;
     setLogLevel(logLevel: LogLevelType): void;
 }
 

@@ -1,21 +1,23 @@
 import { ErrorCodes } from "./errorCodes";
+export type ErrorCode = ErrorCodes | string;
 
-export enum LogRequestSeverity {
-    Error = 'error',
-    Warning = 'warning',
-    Info = 'info',
-}
+export type WSDKErrorSeverity = (typeof WSDKErrorSeverity)[keyof typeof WSDKErrorSeverity];
+export const WSDKErrorSeverity = {
+  ERROR: 'ERROR',
+  INFO: 'INFO',
+  WARNING: 'WARNING',
+} as const;
 
-export interface LogRequest {
-    additionalInformation: {
-        message: string;
-        version: string;
-    };
-    severity: LogRequestSeverity;
-    code: ErrorCodes;
-    url: string;
-    deviceInfo: string;
-    stackTrace: string;
-    reporter: string;
-    integration: string;
-}
+
+export type ErrorsRequestBody = {
+    additionalInformation?: Record<string, string>;
+    code: ErrorCode;
+    severity: WSDKErrorSeverity;
+    stackTrace?: string;
+    deviceInfo?: string;
+    integration?: string;
+    reporter?: string;
+    url?: string;
+  };
+
+export type LogRequestBody = ErrorsRequestBody;

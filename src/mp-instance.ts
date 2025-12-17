@@ -51,6 +51,7 @@ import { IPersistence } from './persistence.interfaces';
 import ForegroundTimer from './foregroundTimeTracker';
 import RoktManager, { IRoktOptions } from './roktManager';
 import filteredMparticleUser from './filteredMparticleUser';
+import { IReportingLogger, ReportingLogger } from './logging/reportingLogger';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -82,6 +83,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _IntegrationCapture: IntegrationCapture;
     _NativeSdkHelpers: INativeSdkHelpers;
     _Persistence: IPersistence;
+    _ReportingLogger: IReportingLogger;
     _RoktManager: RoktManager;
     _SessionManager: ISessionManager;
     _ServerModel: IServerModel;
@@ -90,6 +92,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _preInit: IPreInit;
     _timeOnSiteTimer: ForegroundTimer; 
     setLauncherInstanceGuid: () => void;
+    getLauncherInstanceGuid: () => string;
     captureTiming(metricName: string);
 }
 
@@ -223,11 +226,11 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         }
     };
 
-    this._resetForTests = function(config, keepPersistence, instance) {
+    this._resetForTests = function(config, keepPersistence, instance, reportingLogger?: IReportingLogger) {
         if (instance._Store) {
             delete instance._Store;
         }
-        instance.Logger = new Logger(config);
+        instance.Logger = new Logger(config, reportingLogger);
         instance._Store = new Store(config, instance);
         instance._Store.isLocalStorageAvailable = instance._Persistence.determineLocalStorageAvailability(
             window.localStorage
@@ -1352,6 +1355,10 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             window[launcherInstanceGuidKey] = self._Helpers.generateUniqueId();
         }
     };
+    
+    this.getLauncherInstanceGuid = function() {
+        return window[launcherInstanceGuidKey];
+    };
 
     this.captureTiming = function(metricsName) {
         if (typeof window !== 'undefined' && window.performance?.mark) {
@@ -1418,6 +1425,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         // Configure Rokt Manager with user and filtered user
         const roktConfig: IKitConfigs = parseConfig(config, 'Rokt', 181);
         if (roktConfig) {
+            mpInstance._ReportingLogger.accountId = roktConfig.settings?.accountId ?? '';
             const { userAttributeFilters } = roktConfig;
             const roktFilteredUser = filteredMparticleUser(
                 currentUserMPID,
@@ -1550,10 +1558,22 @@ function createIdentityCache(mpInstance) {
 }
 
 function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
-    mpInstance.Logger = new Logger(config);
+    // QUESTION: Should Store come before ReportingLogger?
+    // Logger needs the store to generate the url
+    // But Store needs the Logger to log errors
+    mpInstance._ReportingLogger = new ReportingLogger(
+        Constants.sdkVersion,
+        undefined, // QUESTION: Do we need a RateLimiter??
+        mpInstance.getLauncherInstanceGuid()
+    );
+    mpInstance.Logger = new Logger(config, mpInstance._ReportingLogger);
     mpInstance._Store = new Store(config, mpInstance, apiKey);
     window.mParticle.Store = mpInstance._Store;
     mpInstance.Logger.verbose(StartingInitialization);
+    
+    // TODO: Extract urls from config into a url builder
+    mpInstance._ReportingLogger.loggingUrl = mpInstance._Store.SDKConfig.loggingUrl;
+    mpInstance._ReportingLogger.errorUrl = mpInstance._Store.SDKConfig.errorUrl;
 
     // Check to see if localStorage is available before main configuration runs
     // since we will need this for the current implementation of user persistence
