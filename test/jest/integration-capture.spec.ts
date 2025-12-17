@@ -28,6 +28,7 @@ describe('Integration Capture', () => {
                 'wbraid',
                 'ttclid',
                 'ScCid',
+                'epik',
                 '_epik'
             ]);
         });
@@ -277,7 +278,7 @@ describe('Integration Capture', () => {
         });
 
         describe('Pinterest Click Ids', () => {
-            it('should capture Pinterest specific click ids from query params', () => {
+            it('should capture Pinterest specific click ids from query params (_epik)', () => {
                 const url = new URL('https://www.example.com/?_epik=1234');
 
                 window.location.href = url.href;
@@ -291,7 +292,21 @@ describe('Integration Capture', () => {
                 });
             });
 
-            it('should capture Pinterest specific click ids from cookies', () => {
+            it('should capture Pinterest specific click ids from query params (epik)', () => {
+                const url = new URL('https://www.example.com/?epik=5678');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    epik: '5678',
+                });
+            });
+
+            it('should capture Pinterest specific click ids from cookies (_epik)', () => {
                 const url = new URL('https://www.example.com/');
 
                 window.document.cookie = '_epik=pinterest_cookie_value';
@@ -306,7 +321,22 @@ describe('Integration Capture', () => {
                 });
             });
 
-            it('should capture Pinterest specific click ids from localStorage', () => {
+            it('should capture Pinterest specific click ids from cookies (epik)', () => {
+                const url = new URL('https://www.example.com/');
+
+                window.document.cookie = 'epik=pinterest_cookie_value_epik';
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    epik: 'pinterest_cookie_value_epik',
+                });
+            });
+
+            it('should capture Pinterest specific click ids from localStorage (_epik)', () => {
                 const url = new URL('https://www.example.com/');
 
                 window.location.href = url.href;
@@ -319,6 +349,22 @@ describe('Integration Capture', () => {
 
                 expect(integrationCapture.clickIds).toEqual({
                     _epik: 'pinterest_localstorage_value',
+                });
+            });
+
+            it('should capture Pinterest specific click ids from localStorage (epik)', () => {
+                const url = new URL('https://www.example.com/');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                localStorage.setItem('epik', 'pinterest_localstorage_value_epik');
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    epik: 'pinterest_localstorage_value_epik',
                 });
             });
         });
@@ -713,7 +759,7 @@ describe('Integration Capture', () => {
                 _ttp: '0823422223.23234',
                 ttclid: '12345',
                 gclid: '123233.23131',
-                _epik: 'pinterest123',
+                epik: 'pinterest123',
                 invalidId: '12345',
             };
 
@@ -726,6 +772,21 @@ describe('Integration Capture', () => {
                 'GoogleEnhancedConversions.Gclid': '123233.23131',
                 'Pinterest.click_id': 'pinterest123',
             });
+        });
+
+        it('should map both epik and _epik to Pinterest.click_id', () => {
+            const integrationCapture = new IntegrationCapture('all');
+            integrationCapture.clickIds = {
+                epik: 'pinterest_epik',
+                _epik: 'pinterest_underscore_epik',
+            };
+
+            const customFlags = integrationCapture.getClickIdsAsCustomFlags();
+
+            // Both map to the same key, last one wins (based on object iteration order)
+            expect(customFlags).toHaveProperty('Pinterest.click_id');
+            // The value will be one of them depending on iteration order
+            expect(['pinterest_epik', 'pinterest_underscore_epik']).toContain(customFlags['Pinterest.click_id']);
         });
     });
 
