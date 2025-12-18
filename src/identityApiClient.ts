@@ -306,7 +306,7 @@ export default function IdentityAPIClient(
 
             Logger.error(
                 'Error sending identity request to servers' + ' - ' + errorMessage,
-                ErrorCodes.UNHANDLED_EXCEPTION
+                ErrorCodes.IDENTITY_REQUEST
             );
             invokeCallback(
                 callback,
