@@ -34,7 +34,7 @@ export class Logger {
         if (this.logger.warning && 
             (this.logLevel === LogLevelType.Verbose || this.logLevel === LogLevelType.Warning)) {
             this.logger.warning(msg);
-            this.reportingLogger.warning(msg, code);
+            this.reportingLogger?.warning(msg, code);
         }
     }
 

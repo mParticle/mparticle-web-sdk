@@ -98,6 +98,7 @@ export interface SDKConfig {
     requiredWebviewBridgeName?: string;
     loggingUrl?: string;
     errorUrl?: string;
+    isWebSdkLoggingEnabled?: boolean;
 }
 
 function createSDKConfig(config: SDKInitConfig): SDKConfig {
@@ -202,6 +203,7 @@ export interface IStore {
     integrationDelayTimeoutStart: number; // UNIX Timestamp
     webviewBridgeEnabled?: boolean;
     wrapperSDKInfo: WrapperSDKInfo;
+    roktAccountId: string;
 
     persistenceData?: IPersistenceMinified;
 
@@ -223,6 +225,8 @@ export interface IStore {
     setUserAttributes?(mpid: MPID, attributes: UserAttributes): void;
     getUserIdentities?(mpid: MPID): UserIdentities;
     setUserIdentities?(mpid: MPID, userIdentities: UserIdentities): void;
+    getRoktAccountId?(): string;
+    setRoktAccountId?(accountId: string): void;
 
     addMpidToSessionHistory?(mpid: MPID, previousMpid?: MPID): void;
     hasInvalidIdentifyRequest?: () => boolean;
@@ -287,6 +291,7 @@ export default function Store(
             version: null,
             isInfoSet: false,
         },
+        roktAccountId: null,
 
         // Placeholder for in-memory persistence model
         persistenceData: {
@@ -305,41 +310,6 @@ export default function Store(
     this.SDKConfig = createSDKConfig(config);
 
     if (config) {
-        if (!config.hasOwnProperty('flags')) {
-            this.SDKConfig.flags = {};
-        }
-
-        // We process the initial config that is passed via the SDK init
-        // and then we will reprocess the config within the processConfig
-        // function when the config is updated from the server
-        // https://go.mparticle.com/work/SQDSDKS-6317
-        this.SDKConfig.flags = processFlags(config);
-
-        if (config.deviceId) {
-            this.deviceId = config.deviceId;
-        }
-        if (config.hasOwnProperty('isDevelopmentMode')) {
-            this.SDKConfig.isDevelopmentMode = returnConvertedBoolean(
-                config.isDevelopmentMode
-            );
-        } else {
-            this.SDKConfig.isDevelopmentMode = false;
-        }
-
-        const baseUrls: Dictionary<string> = processBaseUrls(
-            config,
-            this.SDKConfig.flags,
-            apiKey
-        );
-
-        for (const baseUrlKeys in baseUrls) {
-            this.SDKConfig[baseUrlKeys] = baseUrls[baseUrlKeys];
-        }
-
-        if (config.hasOwnProperty('logLevel')) {
-            this.SDKConfig.logLevel = config.logLevel;
-        }
-
         this.SDKConfig.useNativeSdk = !!config.useNativeSdk;
 
         this.SDKConfig.kits = config.kits || {};
@@ -664,6 +634,11 @@ export default function Store(
 
     this.setUserIdentities = (mpid: MPID, userIdentities: UserIdentities) => {
         this._setPersistence(mpid, 'ui', userIdentities);
+    };
+    
+    this.getRoktAccountId = () => this.roktAccountId;
+    this.setRoktAccountId = (accountId: string) => {
+        this.roktAccountId = accountId;
     };
 
     this.addMpidToSessionHistory = (mpid: MPID, previousMPID?: MPID): void => {

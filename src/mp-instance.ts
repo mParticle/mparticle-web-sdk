@@ -41,7 +41,7 @@ import { LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
 import { IPreInit, processReadyQueue } from './pre-init-utils';
-import { BaseEvent, MParticleWebSDK, SDKHelpersApi } from './sdkRuntimeModels';
+import { BaseEvent, MParticleWebSDK, SDKHelpersApi, SDKInitConfig } from './sdkRuntimeModels';
 import { Dictionary, SDKEventAttrs } from '@mparticle/web-sdk';
 import { IIdentity } from './identity.interfaces';
 import { IEvents } from './events.interfaces';
@@ -52,6 +52,7 @@ import ForegroundTimer from './foregroundTimeTracker';
 import RoktManager, { IRoktOptions } from './roktManager';
 import filteredMparticleUser from './filteredMparticleUser';
 import { IReportingLogger, ReportingLogger } from './logging/reportingLogger';
+import { SDKConfigManager } from './sdkConfigManager';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -1425,7 +1426,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         // Configure Rokt Manager with user and filtered user
         const roktConfig: IKitConfigs = parseConfig(config, 'Rokt', 181);
         if (roktConfig) {
-            mpInstance._ReportingLogger.accountId = roktConfig.settings?.accountId ?? '';
+            mpInstance._Store.setRoktAccountId(roktConfig.settings?.accountId ?? undefined);
             const { userAttributeFilters } = roktConfig;
             const roktFilteredUser = filteredMparticleUser(
                 currentUserMPID,
@@ -1558,22 +1559,22 @@ function createIdentityCache(mpInstance) {
 }
 
 function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
-    // QUESTION: Should Store come before ReportingLogger?
-    // Logger needs the store to generate the url
-    // But Store needs the Logger to log errors
+    
+    const sdkConfig = new SDKConfigManager(config, apiKey).getSDKConfig();
     mpInstance._ReportingLogger = new ReportingLogger(
+        sdkConfig,
         Constants.sdkVersion,
-        undefined, // QUESTION: Do we need a RateLimiter??
-        mpInstance.getLauncherInstanceGuid()
+        mpInstance.getLauncherInstanceGuid(),
     );
     mpInstance.Logger = new Logger(config, mpInstance._ReportingLogger);
-    mpInstance._Store = new Store(config, mpInstance, apiKey);
+    mpInstance._Store = new Store(
+        { ...config, ...sdkConfig } as SDKInitConfig,
+        mpInstance,
+        apiKey
+    );
     window.mParticle.Store = mpInstance._Store;
+    mpInstance._ReportingLogger.setStore(mpInstance._Store);
     mpInstance.Logger.verbose(StartingInitialization);
-    
-    // TODO: Extract urls from config into a url builder
-    mpInstance._ReportingLogger.loggingUrl = mpInstance._Store.SDKConfig.loggingUrl;
-    mpInstance._ReportingLogger.errorUrl = mpInstance._Store.SDKConfig.errorUrl;
 
     // Check to see if localStorage is available before main configuration runs
     // since we will need this for the current implementation of user persistence

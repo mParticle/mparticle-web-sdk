@@ -1,6 +1,7 @@
 import { IRateLimiter, RateLimiter, ReportingLogger } from '../../src/logging/reportingLogger';
-import { LogRequestSeverity } from '../../src/logging/logRequest';
+import { WSDKErrorSeverity } from '../../src/logging/logRequest';
 import { ErrorCodes } from '../../src/logging/errorCodes';
+import { SDKConfig } from '../../src/store';
 
 describe('ReportingLogger', () => {
     let logger: ReportingLogger;
@@ -24,7 +25,11 @@ describe('ReportingLogger', () => {
             ROKT_DOMAIN: 'set',
             fetch: mockFetch
         });
-        logger = new ReportingLogger(baseUrl, sdkVersion, accountId);
+        logger = new ReportingLogger(
+            { loggingUrl: baseUrl, errorUrl: baseUrl } as SDKConfig,
+            sdkVersion,
+            'test-launcher-instance-guid'
+        );
     });
 
     afterEach(() => {
@@ -40,7 +45,7 @@ describe('ReportingLogger', () => {
         expect(fetchCall[0]).toContain('/v1/log');
         const body = JSON.parse(fetchCall[1].body);
         expect(body).toMatchObject({
-            severity: LogRequestSeverity.Error,
+            severity: WSDKErrorSeverity.ERROR,
             code: ErrorCodes.UNHANDLED_EXCEPTION,
             stackTrace: 'stack'
         });
@@ -53,14 +58,18 @@ describe('ReportingLogger', () => {
         expect(fetchCall[0]).toContain('/v1/log');
         const body = JSON.parse(fetchCall[1].body);
         expect(body).toMatchObject({
-            severity: LogRequestSeverity.Warning
+            severity: WSDKErrorSeverity.WARNING
         });
         expect(fetchCall[1].headers['rokt-account-id']).toBe(accountId);
     });
 
     it('does not log if ROKT_DOMAIN missing', () => {
         delete (globalThis as any).ROKT_DOMAIN;
-        logger = new ReportingLogger(baseUrl, sdkVersion, accountId);
+        logger = new ReportingLogger(
+            { loggingUrl: baseUrl, errorUrl: baseUrl } as SDKConfig,
+            sdkVersion,
+            'test-launcher-instance-guid'
+        );
         logger.error('x');
         expect(mockFetch).not.toHaveBeenCalled();
     });
@@ -68,7 +77,11 @@ describe('ReportingLogger', () => {
     it('does not log if feature flag and debug mode off', () => {
         window.mParticle.config.isWebSdkLoggingEnabled = false;
         window.location.search = '';
-        logger = new ReportingLogger(baseUrl, sdkVersion, accountId);
+        logger = new ReportingLogger(
+            { loggingUrl: baseUrl, errorUrl: baseUrl } as SDKConfig,
+            sdkVersion,
+            'test-launcher-instance-guid'
+        );
         logger.error('x');
         expect(mockFetch).not.toHaveBeenCalled();
     });
@@ -76,7 +89,11 @@ describe('ReportingLogger', () => {
     it('logs if debug mode on even if feature flag off', () => {
         window.mParticle.config.isWebSdkLoggingEnabled = false;
         window.location.search = '?mp_enable_logging=true';
-        logger = new ReportingLogger(baseUrl, sdkVersion, accountId);
+        logger = new ReportingLogger(
+            { loggingUrl: baseUrl, errorUrl: baseUrl } as SDKConfig,
+            sdkVersion,
+            'test-launcher-instance-guid'
+        );
         logger.error('x');
         expect(mockFetch).toHaveBeenCalled();
     });
@@ -88,14 +105,23 @@ describe('ReportingLogger', () => {
                 return ++count > 3;
             }),
         };
-        logger = new ReportingLogger(baseUrl, sdkVersion, accountId, mockRateLimiter);
+        logger = new ReportingLogger(
+            { loggingUrl: baseUrl, errorUrl: baseUrl } as SDKConfig,
+            sdkVersion,
+            'test-launcher-instance-guid',
+            mockRateLimiter
+        );
 
         for (let i = 0; i < 5; i++) logger.error('err');
         expect(mockFetch).toHaveBeenCalledTimes(3);
     });
 
     it('uses default account id when accountId is empty', () => {
-        logger = new ReportingLogger(baseUrl, sdkVersion, undefined);
+        logger = new ReportingLogger(
+            { loggingUrl: baseUrl, errorUrl: baseUrl } as SDKConfig,
+            sdkVersion,
+            'test-launcher-instance-guid'
+        );
         logger.error('msg');
         expect(mockFetch).toHaveBeenCalled();
         const fetchCall = mockFetch.mock.calls[0];
@@ -103,7 +129,11 @@ describe('ReportingLogger', () => {
     });
 
     it('uses default user agent when user agent is empty', () => {
-        logger = new ReportingLogger(baseUrl, sdkVersion, accountId);
+        logger = new ReportingLogger(
+            { loggingUrl: baseUrl, errorUrl: baseUrl } as SDKConfig,
+            sdkVersion,
+            'test-launcher-instance-guid'
+        );
         delete (globalThis as any).navigator;
         delete (globalThis as any).location;
         logger.error('msg');
@@ -122,33 +152,33 @@ describe('RateLimiter', () => {
 
     it('allows up to 10 error logs then rate limits', () => {
         for (let i = 0; i < 10; i++) {
-            expect(rateLimiter.incrementAndCheck(LogRequestSeverity.Error)).toBe(false);
+            expect(rateLimiter.incrementAndCheck(WSDKErrorSeverity.ERROR)).toBe(false);
         }
-        expect(rateLimiter.incrementAndCheck(LogRequestSeverity.Error)).toBe(true);
-        expect(rateLimiter.incrementAndCheck(LogRequestSeverity.Error)).toBe(true);
+        expect(rateLimiter.incrementAndCheck(WSDKErrorSeverity.ERROR)).toBe(true);
+        expect(rateLimiter.incrementAndCheck(WSDKErrorSeverity.ERROR)).toBe(true);
     });
 
     it('allows up to 10 warning logs then rate limits', () => {
         for (let i = 0; i < 10; i++) {
-            expect(rateLimiter.incrementAndCheck(LogRequestSeverity.Warning)).toBe(false);
+            expect(rateLimiter.incrementAndCheck(WSDKErrorSeverity.WARNING)).toBe(false);
         }
-        expect(rateLimiter.incrementAndCheck(LogRequestSeverity.Warning)).toBe(true);
-        expect(rateLimiter.incrementAndCheck(LogRequestSeverity.Warning)).toBe(true);
+        expect(rateLimiter.incrementAndCheck(WSDKErrorSeverity.WARNING)).toBe(true);
+        expect(rateLimiter.incrementAndCheck(WSDKErrorSeverity.WARNING)).toBe(true);
     });
 
     it('allows up to 10 info logs then rate limits', () => {
         for (let i = 0; i < 10; i++) {
-            expect(rateLimiter.incrementAndCheck(LogRequestSeverity.Info)).toBe(false);
+            expect(rateLimiter.incrementAndCheck(WSDKErrorSeverity.INFO)).toBe(false);
         }
-        expect(rateLimiter.incrementAndCheck(LogRequestSeverity.Info)).toBe(true);
-        expect(rateLimiter.incrementAndCheck(LogRequestSeverity.Info)).toBe(true);
+        expect(rateLimiter.incrementAndCheck(WSDKErrorSeverity.INFO)).toBe(true);
+        expect(rateLimiter.incrementAndCheck(WSDKErrorSeverity.INFO)).toBe(true);
     });
 
     it('tracks rate limits independently per severity', () => {
         for (let i = 0; i < 10; i++) {
-            rateLimiter.incrementAndCheck(LogRequestSeverity.Error);
+            rateLimiter.incrementAndCheck(WSDKErrorSeverity.ERROR);
         }
-        expect(rateLimiter.incrementAndCheck(LogRequestSeverity.Error)).toBe(true);
-        expect(rateLimiter.incrementAndCheck(LogRequestSeverity.Warning)).toBe(false);
+        expect(rateLimiter.incrementAndCheck(WSDKErrorSeverity.ERROR)).toBe(true);
+        expect(rateLimiter.incrementAndCheck(WSDKErrorSeverity.WARNING)).toBe(false);
     });
 });

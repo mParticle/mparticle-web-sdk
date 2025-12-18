@@ -1,11 +1,12 @@
 import { ErrorCodes } from "./errorCodes";
 import { LogRequestBody, WSDKErrorSeverity } from "./logRequest";
 import { FetchUploader, IFetchPayload } from "../uploaders";
+import { IStore, SDKConfig } from "../store";
 
 // QUESTION: Should we collapse the interface with the class?
 export interface IReportingLogger {
-    error(msg: string, code: ErrorCodes, stackTrace?: string): void;
-    warning(msg: string, code: ErrorCodes): void;
+    error(msg: string, code?: ErrorCodes, stackTrace?: string): void;
+    warning(msg: string, code?: ErrorCodes): void;
 }
 
 export class ReportingLogger implements IReportingLogger {
@@ -13,78 +14,82 @@ export class ReportingLogger implements IReportingLogger {
     private readonly reporter: string = 'mp-wsdk';
     private readonly integration: string = 'mp-wsdk';
     private readonly rateLimiter: IRateLimiter;
-    private loggingUrl: string;
-    private errorUrl: string;
-    private accountId: string;
     private integrationName: string;
+    private store: IStore;
 
     constructor(
+        private readonly config: SDKConfig,
         private readonly sdkVersion: string,
-        rateLimiter?: IRateLimiter, // QUESTION: Do we need this in the constructor?
         private readonly launcherInstanceGuid?: string,
+        rateLimiter?: IRateLimiter,
     ) {
         this.isEnabled = this.isReportingEnabled();
-        console.warn('ReportingLogger: isEnabled', this.isEnabled);
         this.rateLimiter = rateLimiter ?? new RateLimiter();
     }
 
-    public setLoggingUrl(url: string) {
-        this.loggingUrl = url;
-    }
-
-    public setErrorUrl(url: string) {
-        this.errorUrl = url;
-    }
-    
-    public setAccountId(accountId: string) {
-        this.accountId = accountId;
-    }
-    
     public setIntegrationName(integrationName: string) {
         this.integrationName = integrationName;
     }
-
-    // TODO: Add an `info` method to the logger for `/v1/log`
-
-    public error(msg: string, code: ErrorCodes, stackTrace?: string) {
-        this.sendLog(WSDKErrorSeverity.ERROR, msg, code, stackTrace);
-    };
-
-    public warning(msg: string, code: ErrorCodes) { 
-        this.sendLog(WSDKErrorSeverity.WARNING, msg, code);
-    };
     
-    private getVersion(): string {
-        return this.integrationName ?? this.sdkVersion;
+    public setStore(store: IStore) {
+        this.store = store;
     }
+
+    public info(msg: string, code?: ErrorCodes) {
+        this.sendLog(WSDKErrorSeverity.INFO, msg, code);
+    }
+
+    public error(msg: string, code?: ErrorCodes, stackTrace?: string) {
+        this.sendError(WSDKErrorSeverity.ERROR, msg, code, stackTrace);
+    };
+
+    public warning(msg: string, code?: ErrorCodes) { 
+        this.sendError(WSDKErrorSeverity.WARNING, msg, code);
+    };
     
-    // QUESTION: Should we split this into `sendError` and `sendLog`?
-    private sendLog(
-        severity: WSDKErrorSeverity,
-        msg: string,
-        code: ErrorCodes,
-        stackTrace?: string
-    ): void {
+    private sendToServer(url: string,severity: WSDKErrorSeverity, msg: string, code?: ErrorCodes, stackTrace?: string): void {
         if(!this.canSendLog(severity))
             return;
+    
+        const logRequest = this.getLogRequest(severity, msg, code, stackTrace);
+        const uploader = new FetchUploader(url);
+        const payload: IFetchPayload = {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify(logRequest),
+        };
+        uploader.upload(payload);
+    }
 
-        const logRequest: LogRequestBody = {
+    private sendLog(severity: WSDKErrorSeverity, msg: string, code?: ErrorCodes, stackTrace?: string): void {
+        const url = this.getLoggingUrl();
+        this.sendToServer(url, severity, msg, code, stackTrace);
+    }
+    private sendError(severity: WSDKErrorSeverity, msg: string, code?: ErrorCodes, stackTrace?: string): void {
+        const url = this.getErrorUrl();
+        this.sendToServer(url, severity, msg, code, stackTrace);
+    }
+    
+    private getLogRequest(severity: WSDKErrorSeverity, msg: string, code?: ErrorCodes, stackTrace?: string): LogRequestBody {
+        return {
             additionalInformation: {
                 message: msg,
                 version: this.getVersion(),
             },
             severity: severity,
-            code: code,
+            code: code ?? ErrorCodes.UNKNOWN_ERROR,
             url: this.getUrl(),
             deviceInfo: this.getUserAgent(),
-            stackTrace: stackTrace ?? 'this is my stack trace',
+            stackTrace: stackTrace ?? '',
             reporter: this.reporter,
-            integration: this.integration,
+            integration: this.integration
         };
-        
-        this.sendLogToServer(logRequest);
     }
 
+    private getVersion(): string {
+        return this.integrationName ?? this.sdkVersion;
+    }
+    
     private isReportingEnabled(): boolean {
         // QUESTION: Should isDebugModeEnabled take precedence over
         // isFeatureFlagEnabled and rokt domain present?
@@ -100,10 +105,7 @@ export class ReportingLogger implements IReportingLogger {
     }
 
     private isFeatureFlagEnabled(): boolean {
-        return window.
-                mParticle?.
-                config?.
-                isWebSdkLoggingEnabled ?? false;
+        return this.config.isWebSdkLoggingEnabled;
     }
 
     private isDebugModeEnabled(): boolean {
@@ -132,8 +134,8 @@ export class ReportingLogger implements IReportingLogger {
         return window.navigator.userAgent;
     }
 
-    private getLoggingUrl = (): string => `https://${this.loggingUrl}`;
-    private getErrorUrl = (): string => `https://${this.errorUrl}`;
+    private getLoggingUrl = (): string => `https://${this.config.loggingUrl}`;
+    private getErrorUrl = (): string => `https://${this.config.errorUrl}`;
     
     private getHeaders(): IFetchPayload['headers'] {
         const headers: Record<string, string> = {
@@ -143,20 +145,13 @@ export class ReportingLogger implements IReportingLogger {
             'rokt-launcher-version': this.getVersion(),
             'rokt-wsdk-version': 'joint',
         };
+        
+        if (this.store?.getRoktAccountId()) {
+            headers['rokt-account-id'] = this.store.getRoktAccountId();
+        }
+
         return headers as IFetchPayload['headers'];
     }
-
-    private sendLogToServer(logRequest: LogRequestBody) {
-        const uploadUrl = this.getErrorUrl();
-        const uploader = new FetchUploader(uploadUrl);
-        const payload: IFetchPayload = {
-            method: 'POST',
-            headers: this.getHeaders(),
-            body: JSON.stringify(logRequest),
-        };
-            
-        uploader.upload(payload);
-    };
 }
 
 export interface IRateLimiter {
