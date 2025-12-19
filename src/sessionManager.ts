@@ -166,7 +166,7 @@ export default function SessionManager(
                 performSessionEnd();
             } else {
                 self.setSessionTimer();
-                mpInstance._timeOnSiteTimer?.resetTimer();   
+                mpInstance._timeOnSiteTimer?.resetTimer();
             }
         } 
     };

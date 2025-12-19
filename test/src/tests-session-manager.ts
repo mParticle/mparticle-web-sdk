@@ -302,7 +302,7 @@ describe('SessionManager', () => {
                 clock.restore();
             });
 
-            it('should return true when elapsed time exceeds session timeout', () => {
+            it('should end the session when elapsed time exceeds session timeout', () => {
                 const timePassed = 35 * (MILLIS_IN_ONE_SEC * 60); // 35 minutes
                 
                 mParticle.init(apiKey, window.mParticle.config);
@@ -319,7 +319,7 @@ describe('SessionManager', () => {
                 expect(mpInstance._Store.sessionId).to.not.equal('OLD-ID');
             });
 
-            it('should return false when elapsed time is within session timeout', () => {
+            it('should preserve the session when elapsed time is within session timeout', () => {
                 const timePassed = 15 * (MILLIS_IN_ONE_SEC * 60); // 15 minutes
                 
                 mParticle.init(apiKey, window.mParticle.config);
@@ -368,7 +368,7 @@ describe('SessionManager', () => {
                 getPersistenceStub.restore();
             });
 
-            it('should return true when elapsed time equals session timeout exactly', () => {
+            it('should end the session when elapsed time equals session timeout exactly', () => {
                 const exactlyThirtyMinutesAgo = new Date(now.getTime() - (30 * MILLIS_IN_ONE_SEC * 60));
                 
                 mParticle.init(apiKey, window.mParticle.config);
