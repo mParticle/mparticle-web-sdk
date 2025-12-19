@@ -168,7 +168,7 @@ export default function SessionManager(
                 self.setSessionTimer();
                 mpInstance._timeOnSiteTimer?.resetTimer();
             }
-        } 
+        }
     };
 
     this.setSessionTimer = function (): void {
