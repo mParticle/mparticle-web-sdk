@@ -41,11 +41,11 @@ export class ReportingLogger implements IReportingLogger {
 
     public error(msg: string, code?: ErrorCodes, stackTrace?: string) {
         this.sendError(WSDKErrorSeverity.ERROR, msg, code, stackTrace);
-    };
+    }
 
     public warning(msg: string, code?: ErrorCodes) { 
         this.sendError(WSDKErrorSeverity.WARNING, msg, code);
-    };
+    }
     
     private sendToServer(url: string,severity: WSDKErrorSeverity, msg: string, code?: ErrorCodes, stackTrace?: string): void {
         if(!this.canSendLog(severity))
