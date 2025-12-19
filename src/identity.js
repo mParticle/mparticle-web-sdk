@@ -183,8 +183,8 @@ export default function Identity(mpInstance) {
                     source_mpid: aliasRequest.sourceMpid,
                     start_unixtime_ms: aliasRequest.startTime,
                     end_unixtime_ms: aliasRequest.endTime,
-                    scope: aliasRequest.scope,
                     device_application_stamp: mpInstance._Store.deviceId,
+                    scope: aliasRequest.scope || 'device',
                 },
             };
         },
@@ -195,6 +195,7 @@ export default function Identity(mpInstance) {
                 SourceMpid: aliasRequest.sourceMpid,
                 StartUnixtimeMs: aliasRequest.startTime,
                 EndUnixtimeMs: aliasRequest.endTime,
+                Scope: aliasRequest.scope || 'device',
             };
         },
 
@@ -744,7 +745,7 @@ export default function Identity(mpInstance) {
         after applying this adjustment it will be impossible to create an aliasRequest passes the aliasUsers() 
         validation that the startTime must be less than the endTime 
         */
-        createAliasRequest: function(sourceUser, destinationUser) {
+        createAliasRequest: function(sourceUser, destinationUser, scope) {
             try {
                 if (!destinationUser || !sourceUser) {
                     mpInstance.Logger.error(
@@ -788,6 +789,7 @@ export default function Identity(mpInstance) {
                     sourceMpid: sourceUser.getMPID(),
                     startTime: startTime,
                     endTime: endTime,
+                    scope: scope || 'device',
                 };
             } catch (e) {
                 mpInstance.Logger.error(

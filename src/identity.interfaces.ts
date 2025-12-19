@@ -151,7 +151,8 @@ export interface SDKIdentityApi {
     ): void;
     createAliasRequest?(
         sourceUser: IMParticleUser,
-        destinationUser: IMParticleUser
+        destinationUser: IMParticleUser,
+        scope?: string
     ): IAliasRequest;
 }
 

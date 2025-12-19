@@ -368,10 +368,10 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
         aliasUsers: function(aliasRequest, callback) {
             self.getInstance().Identity.aliasUsers(aliasRequest, callback);
         },
-        createAliasRequest: function(sourceUser, destinationUser) {
+        createAliasRequest: function(sourceUser, destinationUser, scope) {
             return self
                 .getInstance()
-                .Identity.createAliasRequest(sourceUser, destinationUser);
+                .Identity.createAliasRequest(sourceUser, destinationUser, scope);
         },
         getCurrentUser: function() {
             return self.getInstance().Identity.getCurrentUser();
