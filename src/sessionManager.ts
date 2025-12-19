@@ -140,7 +140,6 @@ export default function SessionManager(
                 Messages.InformationMessages.AbandonEndSession
             );
             mpInstance._timeOnSiteTimer?.resetTimer();
-
             return;
         }
 
@@ -152,7 +151,6 @@ export default function SessionManager(
                 Messages.InformationMessages.NoSessionToEnd
             );
             mpInstance._timeOnSiteTimer?.resetTimer();
-
             return;
         }
 
@@ -168,9 +166,9 @@ export default function SessionManager(
                 performSessionEnd();
             } else {
                 self.setSessionTimer();
+                mpInstance._timeOnSiteTimer?.resetTimer();   
             }
-        }
-        mpInstance._timeOnSiteTimer?.resetTimer();
+        } 
     };
 
     this.setSessionTimer = function (): void {
@@ -218,6 +216,10 @@ export default function SessionManager(
      * @returns true if the session has expired, false otherwise
      */
     function hasSessionTimedOut(lastEventTimestamp: number, sessionTimeout: number): boolean {
+        if (!lastEventTimestamp || !sessionTimeout || sessionTimeout <= 0) {
+            return false;
+        }
+
         const sessionTimeoutInMilliseconds: number = sessionTimeout * 60000;
         const timeSinceLastEvent: number = Date.now() - lastEventTimestamp;
 

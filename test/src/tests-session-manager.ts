@@ -294,6 +294,14 @@ describe('SessionManager', () => {
         });
 
         describe('#hasSessionTimedOut', () => {
+            beforeEach(() => {
+                clock = sinon.useFakeTimers(now.getTime());
+            });
+
+            afterEach(() => {
+                clock.restore();
+            });
+
             it('should return true when elapsed time exceeds session timeout', () => {
                 const timePassed = 35 * (MILLIS_IN_ONE_SEC * 60); // 35 minutes
                 
@@ -329,9 +337,7 @@ describe('SessionManager', () => {
             });
 
             it('should work consistently with both in-memory and persisted timestamps', () => {
-                const now = new Date();
-                const thirtyOneMinutesAgo = new Date();
-                thirtyOneMinutesAgo.setMinutes(now.getMinutes() - 31);
+                const thirtyOneMinutesAgo = new Date(now.getTime() - (31 * MILLIS_IN_ONE_SEC * 60));
                 
                 mParticle.init(apiKey, window.mParticle.config);
                 const mpInstance = mParticle.getInstance();
@@ -346,7 +352,7 @@ describe('SessionManager', () => {
                 
                 // Test with persistence (via endSession)
                 const newSessionId = mpInstance._Store.sessionId;
-                sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                const getPersistenceStub = sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
                     gs: {
                         les: thirtyOneMinutesAgo.getTime(),
                         sid: newSessionId,
@@ -357,17 +363,18 @@ describe('SessionManager', () => {
                 
                 // Session should have ended (same timeout logic)
                 expect(mpInstance._Store.sessionId).to.equal(null);
+                
+                // Clean up stub
+                getPersistenceStub.restore();
             });
 
             it('should return true when elapsed time equals session timeout exactly', () => {
-                const now = new Date();
-                const exactlyThirtyMinutesAgo = new Date();
-                exactlyThirtyMinutesAgo.setMinutes(now.getMinutes() - 30);
+                const exactlyThirtyMinutesAgo = new Date(now.getTime() - (30 * MILLIS_IN_ONE_SEC * 60));
                 
                 mParticle.init(apiKey, window.mParticle.config);
                 const mpInstance = mParticle.getInstance();
                 
-                sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                const getPersistenceStub = sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
                     gs: {
                         les: exactlyThirtyMinutesAgo.getTime(),
                         sid: 'TEST-ID',
@@ -378,6 +385,9 @@ describe('SessionManager', () => {
                 
                 // At exactly 30 minutes, session should be expired
                 expect(mpInstance._Store.sessionId).to.equal(null);
+                
+                // Clean up stub
+                getPersistenceStub.restore();
             });
         });
 
@@ -522,7 +532,7 @@ describe('SessionManager', () => {
 
                 // Session Manager relies on persistence to determine last event sent (LES) time
                 // Also requires sid to verify session exists
-                sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                const getPersistenceStub = sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
                     gs: {
                         les: twentyMinutesAgo,
                         sid: 'fake-session-id',
@@ -539,6 +549,9 @@ describe('SessionManager', () => {
                 // When session is not timed out, setSessionTimer is called to keep track
                 // of current session timeout
                 expect(timerSpy.getCalls().length).to.equal(1);
+                
+                // Clean up stub
+                getPersistenceStub.restore();
             });
 
             it('should force a session end when override is used', () => {
@@ -694,7 +707,7 @@ describe('SessionManager', () => {
                 mParticle.init(apiKey, window.mParticle.config);
 
                 const mpInstance = mParticle.getInstance();
-                sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                const getPersistenceStub = sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
                     gs: {
                         sid: 'cookie-session-id',
                     },
@@ -707,6 +720,9 @@ describe('SessionManager', () => {
                 expect(mpInstance._Store.sessionId).to.equal(
                     'cookie-session-id'
                 );
+                
+                // Clean up stub
+                getPersistenceStub.restore();
             });
 
             it('should end session if the session timeout limit has been reached', () => {
@@ -926,7 +942,7 @@ describe('SessionManager', () => {
                 const mpInstance = mParticle.getInstance();
 
                 // Session Manager relies on persistence check sid (Session ID)
-                sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                const getPersistenceStub = sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
                     gs: {
                         sid: null,
                     },
@@ -941,6 +957,9 @@ describe('SessionManager', () => {
 
                 mpInstance._SessionManager.startNewSessionIfNeeded();
                 expect(startNewSessionSpy.called).to.equal(true);
+                
+                // Clean up stub
+                getPersistenceStub.restore();
             });
 
             it('should NOT call startNewSession if sessionId is undefined and Persistence is undefined', () => {
@@ -970,7 +989,7 @@ describe('SessionManager', () => {
                 const mpInstance = mParticle.getInstance();
 
                 // Session Manager relies on persistence check sid (Session ID)
-                sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                const getPersistenceStub = sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
                     gs: {
                         sid: 'sid-from-persistence',
                     },
@@ -981,6 +1000,9 @@ describe('SessionManager', () => {
                 mpInstance._SessionManager.startNewSessionIfNeeded();
 
                 mpInstance._Store.sessionId = 'sid-from-persistence';
+                
+                // Clean up stub
+                getPersistenceStub.restore();
             });
 
             it('should set sessionId from Persistence if Store.sessionId is undefined', () => {
@@ -988,7 +1010,7 @@ describe('SessionManager', () => {
                 const mpInstance = mParticle.getInstance();
 
                 // Session Manager relies on persistence check sid (Session ID)
-                sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                const getPersistenceStub = sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
                     gs: {
                         sid: 'sid-from-persistence',
                     },
@@ -1006,6 +1028,9 @@ describe('SessionManager', () => {
                 mpInstance._Store.sessionId = 'sid-from-persistence';
 
                 expect(startNewSessionSpy.called).to.equal(true);
+                
+                // Clean up stub
+                getPersistenceStub.restore();
             });
 
             it('should NOT call startNewSession if Store.sessionId and Persistence are null', () => {
@@ -1075,7 +1100,7 @@ describe('SessionManager', () => {
 
             // Session Manager relies on persistence to determine last time seen (LES)
             // Also requires sid to verify session exists
-            sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+            const getPersistenceStub = sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
                 gs: {
                     les: now,
                     sid: 'fake-session-id',
@@ -1093,6 +1118,9 @@ describe('SessionManager', () => {
             // Persistence isn't necessary for this feature, but we should test
             // to see that it is called in case this ever needs to be refactored
             expect(persistenceSpy.called).to.equal(true);
+            
+            // Clean up stub
+            getPersistenceStub.restore();
         });
 
         it('should call identify when SDKConfig.identifyRequest differs from getCurrentUser().userIdentities on page refresh', async () => {
