@@ -25,7 +25,7 @@ describe('ReportingLogger', () => {
             ROKT_DOMAIN: 'set',
             fetch: mockFetch
         });
-        logger = new ReportingLogger(baseUrl, sdkVersion, accountId, roktLauncherInstanceGuid);
+        logger = new ReportingLogger(baseUrl, true, sdkVersion, accountId, roktLauncherInstanceGuid);
     });
 
     afterEach(() => {
@@ -72,15 +72,14 @@ describe('ReportingLogger', () => {
 
     it('does not log if ROKT_DOMAIN missing', () => {
         delete (globalThis as any).ROKT_DOMAIN;
-        logger = new ReportingLogger(baseUrl, sdkVersion, accountId, roktLauncherInstanceGuid);
+        logger = new ReportingLogger(baseUrl, true, sdkVersion, accountId, roktLauncherInstanceGuid);
         logger.error('x', ErrorCodes.UNHANDLED_EXCEPTION);
         expect(mockFetch).not.toHaveBeenCalled();
     });
 
     it('does not log if feature flag and debug mode off', () => {
-        window.mParticle.config.isWebSdkLoggingEnabled = false;
         window.location.search = '';
-        logger = new ReportingLogger(baseUrl, sdkVersion, accountId, roktLauncherInstanceGuid);
+        logger = new ReportingLogger(baseUrl, false, sdkVersion, accountId, roktLauncherInstanceGuid);
         logger.error('x', ErrorCodes.UNHANDLED_EXCEPTION);
         expect(mockFetch).not.toHaveBeenCalled();
     });
@@ -88,7 +87,7 @@ describe('ReportingLogger', () => {
     it('logs if debug mode on even if feature flag off', () => {
         window.mParticle.config.isWebSdkLoggingEnabled = false;
         window.location.search = '?mp_enable_logging=true';
-        logger = new ReportingLogger(baseUrl, sdkVersion, accountId, roktLauncherInstanceGuid);
+        logger = new ReportingLogger(baseUrl, false, sdkVersion, accountId, roktLauncherInstanceGuid);
         logger.error('x', ErrorCodes.UNHANDLED_EXCEPTION);
         expect(mockFetch).toHaveBeenCalled();
     });
@@ -100,14 +99,14 @@ describe('ReportingLogger', () => {
                 return ++count > 3;
             }),
         };
-        logger = new ReportingLogger(baseUrl, sdkVersion, accountId, roktLauncherInstanceGuid, mockRateLimiter);
+        logger = new ReportingLogger(baseUrl, true, sdkVersion, accountId, roktLauncherInstanceGuid, mockRateLimiter);
 
         for (let i = 0; i < 5; i++) logger.error('err', ErrorCodes.UNHANDLED_EXCEPTION);
         expect(mockFetch).toHaveBeenCalledTimes(3);
     });
 
     it('does not send account id when accountId is empty', () => {
-        logger = new ReportingLogger(baseUrl, sdkVersion, '', roktLauncherInstanceGuid);
+        logger = new ReportingLogger(baseUrl, true, sdkVersion, '', roktLauncherInstanceGuid);
         logger.error('msg', ErrorCodes.UNHANDLED_EXCEPTION);
         expect(mockFetch).toHaveBeenCalled();
         const fetchCall = mockFetch.mock.calls[0];

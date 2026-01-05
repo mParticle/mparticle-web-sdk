@@ -16,6 +16,7 @@ export class ReportingLogger implements IReportingLogger {
     
     constructor(
         private baseUrl: string,
+        private readonly isFeatureFlagEnabled: boolean,
         private readonly sdkVersion: string,
         private readonly accountId: string,
         private readonly roktLauncherInstanceGuid: string,
@@ -64,20 +65,13 @@ export class ReportingLogger implements IReportingLogger {
     private isReportingEnabled(): boolean {
         return (
             this.isRoktDomainPresent() && 
-            (this.isFeatureFlagEnabled() ||
+            (this.isFeatureFlagEnabled ||
             this.isDebugModeEnabled())
         );
     }
 
     private isRoktDomainPresent(): boolean {
         return Boolean(window['ROKT_DOMAIN']);
-    }
-
-    private isFeatureFlagEnabled(): boolean {
-        return window.
-                mParticle?.
-                config?.
-                isWebSdkLoggingEnabled ?? false;
     }
 
     private isDebugModeEnabled(): boolean {
