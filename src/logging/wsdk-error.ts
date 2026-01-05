@@ -8,15 +8,13 @@ export const WSDKErrorSeverity = {
 } as const;
 
 export interface IWSDKError {
-    additionalInformation: {
-        message: string;
-        version: string;
-    };
-    severity: WSDKErrorSeverity;
-    code: ErrorCodes;
-    url: string;
-    deviceInfo: string;
-    stackTrace: string;
-    reporter: string;
-    integration: string;
+  name: string;
+  message: string;
+  stack?: string;
+  code?: ErrorCodes;
+  reporter?: string;
+  integration?: string;
+  severity?: WSDKErrorSeverity;
+  additionalInformation?: Record<string, string>;
+  handled?: boolean;
 }

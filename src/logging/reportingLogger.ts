@@ -4,7 +4,7 @@ import { IWSDKError, WSDKErrorSeverity } from "./wsdk-error";
 import { FetchUploader, XHRUploader } from "../uploaders";
 
 export interface IReportingLogger {
-    error(msg: string, code?: ErrorCodes, stackTrace?: string): void;
+    error(msg: string, code?: ErrorCodes, stack?: string): void;
     warning(msg: string, code?: ErrorCodes): void;
 }
 
@@ -25,33 +25,35 @@ export class ReportingLogger implements IReportingLogger {
         this.rateLimiter = rateLimiter ?? new RateLimiter();
     }
 
-    public error(msg: string, code: ErrorCodes, stackTrace?: string) {
-        this.sendLog(WSDKErrorSeverity.ERROR, msg, code, stackTrace);
+    public error(msg: string, code: ErrorCodes, name?: string, stack?: string) {
+        this.sendLog(WSDKErrorSeverity.ERROR, msg, code, name, stack);
     };
 
-    public warning(msg: string, code: ErrorCodes) { 
-        this.sendLog(WSDKErrorSeverity.WARNING, msg, code);
+    public warning(msg: string, code: ErrorCodes, name?: string) { 
+        this.sendLog(WSDKErrorSeverity.WARNING, msg, code, name);
     };
     
     private sendLog(
         severity: WSDKErrorSeverity,
         msg: string,
         code: ErrorCodes,
-        stackTrace?: string
+        name?: string,
+        stack?: string
     ): void {
         if(!this.canSendLog(severity))
             return;
 
         const wsdkError: IWSDKError = {
+            name: name,
+            message: msg,
             additionalInformation: {
                 message: msg,
                 version: this.sdkVersion,
+                url: window?.location?.href,
             },
             severity: severity,
             code: code,
-            url: window?.location?.href,
-            deviceInfo: window?.navigator?.userAgent,
-            stackTrace: stackTrace ?? '',
+            stack: stack,
             reporter: this.reporter,
             integration: this.integration,
         };
