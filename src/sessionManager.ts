@@ -36,7 +36,7 @@ export default function SessionManager(
             const { dateLastEventSent, SDKConfig } = mpInstance._Store;
             const { sessionTimeout } = SDKConfig;
                 
-            if (hasSessionTimedOut(dateLastEventSent.getTime(), sessionTimeout)) {
+            if (hasSessionTimedOut(dateLastEventSent?.getTime(), sessionTimeout)) {
                 self.endSession();
                 self.startNewSession();
             } else {
