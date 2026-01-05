@@ -1,6 +1,6 @@
 
 import { ErrorCodes } from "./errorCodes";
-import { LogRequest, LogRequestSeverity } from "./logRequest";
+import { IWSDKError, WSDKErrorSeverity } from "./wsdk-error";
 import { FetchUploader, XHRUploader } from "../uploaders";
 
 export interface IReportingLogger {
@@ -13,30 +13,28 @@ export class ReportingLogger implements IReportingLogger {
     private readonly reporter: string = 'mp-wsdk';
     private readonly integration: string = 'mp-wsdk';
     private readonly rateLimiter: IRateLimiter;
-    private readonly DEFAULT_ACCOUNT_ID: string = '0';
-    private readonly DEFAULT_USER_AGENT: string = 'no-user-agent-set';
-    private readonly DEFAULT_URL: string = 'no-url-set';
     
     constructor(
         private baseUrl: string,
         private readonly sdkVersion: string,
         private readonly accountId: string,
+        private readonly roktLauncherInstanceGuid: string,
         rateLimiter?: IRateLimiter,
     ) {
         this.isEnabled = this.isReportingEnabled();
         this.rateLimiter = rateLimiter ?? new RateLimiter();
     }
 
-    public error(msg: string, code?: ErrorCodes, stackTrace?: string) {
-        this.sendLog(LogRequestSeverity.Error, msg, code ?? ErrorCodes.UNHANDLED_EXCEPTION, stackTrace);
+    public error(msg: string, code: ErrorCodes, stackTrace?: string) {
+        this.sendLog(WSDKErrorSeverity.ERROR, msg, code, stackTrace);
     };
 
-    public warning(msg: string, code?: ErrorCodes) { 
-        this.sendLog(LogRequestSeverity.Warning, msg, code ?? ErrorCodes.UNHANDLED_EXCEPTION);
+    public warning(msg: string, code: ErrorCodes) { 
+        this.sendLog(WSDKErrorSeverity.WARNING, msg, code);
     };
     
     private sendLog(
-        severity: LogRequestSeverity,
+        severity: WSDKErrorSeverity,
         msg: string,
         code: ErrorCodes,
         stackTrace?: string
@@ -44,21 +42,21 @@ export class ReportingLogger implements IReportingLogger {
         if(!this.canSendLog(severity))
             return;
 
-        const logRequest: LogRequest = {
+        const wsdkError: IWSDKError = {
             additionalInformation: {
                 message: msg,
                 version: this.sdkVersion,
             },
             severity: severity,
             code: code,
-            url: this.getUrl(),
-            deviceInfo: this.getUserAgent(),
+            url: window?.location?.href,
+            deviceInfo: window?.navigator?.userAgent,
             stackTrace: stackTrace ?? '',
             reporter: this.reporter,
             integration: this.integration,
         };
         
-        this.sendLogToServer(logRequest);
+        this.sendLogToServer(wsdkError);
     }
 
     private isReportingEnabled(): boolean {
@@ -90,53 +88,51 @@ export class ReportingLogger implements IReportingLogger {
         );
     }
     
-    private canSendLog(severity: LogRequestSeverity): boolean {
+    private canSendLog(severity: WSDKErrorSeverity): boolean {
         return this.isEnabled && !this.isRateLimited(severity);
     }
 
-    private isRateLimited(severity: LogRequestSeverity): boolean {
+    private isRateLimited(severity: WSDKErrorSeverity): boolean {
         return this.rateLimiter.incrementAndCheck(severity);
     }
 
-    private getUrl(): string {
-        return window?.location?.href ?? this.DEFAULT_URL;
-    }
-
-    private getUserAgent(): string {
-        return window?.navigator?.userAgent ?? this.DEFAULT_USER_AGENT;
-    }
-
-    private sendLogToServer(logRequest: LogRequest) {
+    private sendLogToServer(wsdkError: IWSDKError) {
         const uploadUrl = `${this.baseUrl}/v1/log`;
         const uploader = window.fetch
             ? new FetchUploader(uploadUrl)
             : new XHRUploader(uploadUrl);
 
+        const headers = {
+            Accept: 'text/plain;charset=UTF-8',
+            'Content-Type': 'text/plain;charset=UTF-8',
+            'rokt-launcher-instance-guid': this.roktLauncherInstanceGuid,
+        };
+
+        if (this.accountId) {
+            headers['rokt-account-id'] = this.accountId;
+        }
+
         uploader.upload({
+            headers: headers,
             method: 'POST',
-            headers: {
-                Accept: 'text/plain;charset=UTF-8',
-                'Content-Type': 'text/plain;charset=UTF-8',
-                'rokt-account-id': this.accountId || this.DEFAULT_ACCOUNT_ID
-            },
-            body: JSON.stringify(logRequest),
+            body: JSON.stringify(wsdkError),
         });
     };
 }
 
 export interface IRateLimiter {
-    incrementAndCheck(severity: LogRequestSeverity): boolean;
+    incrementAndCheck(severity: WSDKErrorSeverity): boolean;
 }
 
 export class RateLimiter implements IRateLimiter {
-    private readonly rateLimits: Map<LogRequestSeverity, number> = new Map([
-        [LogRequestSeverity.Error, 10],
-        [LogRequestSeverity.Warning, 10],
-        [LogRequestSeverity.Info, 10],
+    private readonly rateLimits: Map<WSDKErrorSeverity, number> = new Map([
+        [WSDKErrorSeverity.ERROR, 10],
+        [WSDKErrorSeverity.WARNING, 10],
+        [WSDKErrorSeverity.INFO, 10],
     ]);
-    private logCount: Map<LogRequestSeverity, number> = new Map();
+    private logCount: Map<WSDKErrorSeverity, number> = new Map();
 
-    public incrementAndCheck(severity: LogRequestSeverity): boolean {
+    public incrementAndCheck(severity: WSDKErrorSeverity): boolean {
         const count = this.logCount.get(severity) || 0;
         const limit = this.rateLimits.get(severity) || 10;
         

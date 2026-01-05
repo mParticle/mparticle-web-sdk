@@ -1,17 +1,18 @@
 import { ErrorCodes } from "./errorCodes";
 
-export enum LogRequestSeverity {
-    Error = 'error',
-    Warning = 'warning',
-    Info = 'info',
-}
+export type WSDKErrorSeverity = (typeof WSDKErrorSeverity)[keyof typeof WSDKErrorSeverity];
+export const WSDKErrorSeverity = {
+  ERROR: 'ERROR',
+  INFO: 'INFO',
+  WARNING: 'WARNING',
+} as const;
 
-export interface LogRequest {
+export interface IWSDKError {
     additionalInformation: {
         message: string;
         version: string;
     };
-    severity: LogRequestSeverity;
+    severity: WSDKErrorSeverity;
     code: ErrorCodes;
     url: string;
     deviceInfo: string;
