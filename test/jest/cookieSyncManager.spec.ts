@@ -2,7 +2,8 @@ import CookieSyncManager, {
     DAYS_IN_MILLISECONDS,
     IPixelConfiguration,
     CookieSyncDates,
-    isLastSyncDateExpired
+    isLastSyncDateExpired,
+    PARTNER_MODULE_IDS
 } from '../../src/cookieSyncManager';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 import { testMPID } from '../src/config/constants';
@@ -424,6 +425,217 @@ describe('CookieSyncManager', () => {
             );
 
             expect(cookieSyncManager.performCookieSync).not.toHaveBeenCalled();
+        });
+
+        describe('Trade Desk domain parameter', () => {
+            const originalLocation = window.location;
+
+            beforeEach(() => {
+                // Mock window.location.hostname
+                delete (window as any).location;
+                (window as any).location = { ...originalLocation, hostname: 'example.com' };
+            });
+
+            afterEach(() => {
+                (window as any).location = originalLocation;
+            });
+
+            it('should add domain parameter for Trade Desk (module ID 103)', () => {
+                const tradeDeskPixelSettings: IPixelConfiguration = {
+                    ...pixelSettings,
+                    moduleId: PARTNER_MODULE_IDS.TradeDesk, // 103
+                    pixelUrl: 'https://insight.adsrvr.org/track/up?adv=abc123',
+                    redirectUrl: '',
+                };
+
+                const mockMPInstance = ({
+                    _Store: {
+                        webviewBridgeEnabled: false,
+                        pixelConfigurations: [tradeDeskPixelSettings],
+                    },
+                    _Persistence: {
+                        getPersistence: () => ({testMPID: {
+                            csd: {}
+                        }}),
+                    },
+                    _Consent: {
+                        isEnabledForUserConsent: jest.fn().mockReturnValue(true),
+                    },
+                    Identity: {
+                        getCurrentUser: jest.fn().mockReturnValue({
+                            getMPID: () => testMPID,
+                        }),
+                    },
+                } as unknown) as IMParticleWebSDKInstance;
+
+                const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+                cookieSyncManager.performCookieSync = jest.fn();
+
+                cookieSyncManager.attemptCookieSync(testMPID, true);
+
+                expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
+                    'https://insight.adsrvr.org/track/up?adv=abc123&domain=example.com',
+                    '103',
+                    testMPID,
+                    {},
+                );
+            });
+
+            it('should not add domain parameter for non-Trade Desk partners', () => {
+                const nonTradeDeskPixelSettings: IPixelConfiguration = {
+                    ...pixelSettings,
+                    moduleId: PARTNER_MODULE_IDS.AppNexus, // 50
+                    pixelUrl: 'https://ib.adnxs.com/cookie_sync?adv=abc123',
+                    redirectUrl: '',
+                };
+
+                const mockMPInstance = ({
+                    _Store: {
+                        webviewBridgeEnabled: false,
+                        pixelConfigurations: [nonTradeDeskPixelSettings],
+                    },
+                    _Persistence: {
+                        getPersistence: () => ({testMPID: {
+                            csd: {}
+                        }}),
+                    },
+                    _Consent: {
+                        isEnabledForUserConsent: jest.fn().mockReturnValue(true),
+                    },
+                    Identity: {
+                        getCurrentUser: jest.fn().mockReturnValue({
+                            getMPID: () => testMPID,
+                        }),
+                    },
+                } as unknown) as IMParticleWebSDKInstance;
+
+                const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+                cookieSyncManager.performCookieSync = jest.fn();
+
+                cookieSyncManager.attemptCookieSync(testMPID, true);
+
+                expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
+                    'https://ib.adnxs.com/cookie_sync?adv=abc123',
+                    '50',
+                    testMPID,
+                    {},
+                );
+            });
+
+            it('should handle multiple pixel configurations with mixed Trade Desk and non-Trade Desk', () => {
+                const tradeDeskPixelSettings: IPixelConfiguration = {
+                    ...pixelSettings,
+                    moduleId: PARTNER_MODULE_IDS.TradeDesk,
+                    pixelUrl: 'https://insight.adsrvr.org/track/up?adv=ttd123',
+                    redirectUrl: '',
+                };
+
+                const appNexusPixelSettings: IPixelConfiguration = {
+                    ...pixelSettings,
+                    moduleId: PARTNER_MODULE_IDS.AppNexus,
+                    pixelUrl: 'https://ib.adnxs.com/cookie_sync?adv=anx123',
+                    redirectUrl: '',
+                };
+
+                const mockMPInstance = ({
+                    _Store: {
+                        webviewBridgeEnabled: false,
+                        pixelConfigurations: [tradeDeskPixelSettings, appNexusPixelSettings],
+                    },
+                    _Persistence: {
+                        getPersistence: () => ({testMPID: {
+                            csd: {}
+                        }}),
+                    },
+                    _Consent: {
+                        isEnabledForUserConsent: jest.fn().mockReturnValue(true),
+                    },
+                    Identity: {
+                        getCurrentUser: jest.fn().mockReturnValue({
+                            getMPID: () => testMPID,
+                        }),
+                    },
+                } as unknown) as IMParticleWebSDKInstance;
+
+                const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+                cookieSyncManager.performCookieSync = jest.fn();
+
+                cookieSyncManager.attemptCookieSync(testMPID, true);
+
+                expect(cookieSyncManager.performCookieSync).toHaveBeenCalledTimes(2);
+                
+                // Check Trade Desk call (with domain)
+                expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
+                    'https://insight.adsrvr.org/track/up?adv=ttd123&domain=example.com',
+                    '103',
+                    testMPID,
+                    {},
+                );
+
+                // Check AppNexus call (without domain)
+                expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
+                    'https://ib.adnxs.com/cookie_sync?adv=anx123',
+                    '50',
+                    testMPID,
+                    {},
+                );
+            });
+
+            it('should handle domain parameter with hyphens and subdomains', () => {
+                // Mock a hostname with hyphens and subdomains
+                delete (window as any).location;
+                (window as any).location = { ...originalLocation, hostname: 'sub-domain.example.com' };
+
+                const tradeDeskPixelSettings: IPixelConfiguration = {
+                    ...pixelSettings,
+                    moduleId: PARTNER_MODULE_IDS.TradeDesk,
+                    pixelUrl: 'https://insight.adsrvr.org/track/up',
+                    redirectUrl: '',
+                };
+
+                const mockMPInstance = ({
+                    _Store: {
+                        webviewBridgeEnabled: false,
+                        pixelConfigurations: [tradeDeskPixelSettings],
+                    },
+                    _Persistence: {
+                        getPersistence: () => ({testMPID: {
+                            csd: {}
+                        }}),
+                    },
+                    _Consent: {
+                        isEnabledForUserConsent: jest.fn().mockReturnValue(true),
+                    },
+                    Identity: {
+                        getCurrentUser: jest.fn().mockReturnValue({
+                            getMPID: () => testMPID,
+                        }),
+                    },
+                } as unknown) as IMParticleWebSDKInstance;
+
+                const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+                cookieSyncManager.performCookieSync = jest.fn();
+
+                cookieSyncManager.attemptCookieSync(testMPID, true);
+
+                expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
+                    'https://insight.adsrvr.org/track/up?domain=sub-domain.example.com',
+                    '103',
+                    testMPID,
+                    {},
+                );
+            });
+        });
+    });
+
+    describe('PARTNER_MODULE_IDS', () => {
+        it('should contain all expected partner module IDs', () => {
+            expect(PARTNER_MODULE_IDS.AdobeEventForwarder).toBe(11);
+            expect(PARTNER_MODULE_IDS.DoubleclickDFP).toBe(41);
+            expect(PARTNER_MODULE_IDS.AppNexus).toBe(50);
+            expect(PARTNER_MODULE_IDS.Lotame).toBe(58);
+            expect(PARTNER_MODULE_IDS.TradeDesk).toBe(103);
+            expect(PARTNER_MODULE_IDS.VerizonMedia).toBe(155);
         });
     });
 
