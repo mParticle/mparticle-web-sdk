@@ -183,8 +183,8 @@ export default function Identity(mpInstance) {
                     source_mpid: aliasRequest.sourceMpid,
                     start_unixtime_ms: aliasRequest.startTime,
                     end_unixtime_ms: aliasRequest.endTime,
+                    scope: aliasRequest.scope,
                     device_application_stamp: mpInstance._Store.deviceId,
-                    scope: aliasRequest.scope || 'device',
                 },
             };
         },
@@ -195,7 +195,7 @@ export default function Identity(mpInstance) {
                 SourceMpid: aliasRequest.sourceMpid,
                 StartUnixtimeMs: aliasRequest.startTime,
                 EndUnixtimeMs: aliasRequest.endTime,
-                Scope: aliasRequest.scope || 'device',
+                Scope: aliasRequest.scope,
             };
         },
 
