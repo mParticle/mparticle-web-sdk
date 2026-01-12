@@ -7,6 +7,31 @@ const getLocalStorage = Utils.getLocalStorage,
     mParticleAndroid = Utils.mParticleAndroid,
     HTTPCodes = Constants.HTTPCodes;
 
+// Alias request test fixtures
+const aliasRequestFixture = {
+    destinationMpid: '101',
+    sourceMpid: '202',
+    startTime: 300,
+    endTime: 400,
+};
+
+const expectedAliasPayload = {
+    DestinationMpid: '101',
+    SourceMpid: '202',
+    StartUnixtimeMs: 300,
+    EndUnixtimeMs: 400,
+};
+
+const expectedAliasPayloadWithDeviceScope = JSON.stringify({
+    ...expectedAliasPayload,
+    Scope: 'device',
+});
+
+const expectedAliasPayloadWithMpidScope = JSON.stringify({
+    ...expectedAliasPayload,
+    Scope: 'mpid',
+});
+
 describe('native-sdk methods', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
@@ -651,18 +676,12 @@ describe('native-sdk methods', function() {
 
             it("should send a JSON object to the Android's Alias method", () => {
                 let callbackResult;
-                const aliasRequest = {
-                    destinationMpid: '101',
-                    sourceMpid: '202',
-                    startTime: 300,
-                    endTime: 400,
-                };
 
-                mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+                mParticle.Identity.aliasUsers(aliasRequestFixture, function(callback) {
                     callbackResult = callback;
                 });
                 mParticleAndroidV2Bridge.aliasUsers.should.equal(
-                    '{"DestinationMpid":"101","SourceMpid":"202","StartUnixtimeMs":300,"EndUnixtimeMs":400,"Scope":"device"}'
+                    expectedAliasPayloadWithDeviceScope
                 );
 
                 callbackResult.httpCode.should.equal(
@@ -675,19 +694,16 @@ describe('native-sdk methods', function() {
 
             it("should send a JSON object with scope to the Android's Alias method when scope is provided", () => {
                 let callbackResult;
-                const aliasRequest = {
-                    destinationMpid: '101',
-                    sourceMpid: '202',
-                    startTime: 300,
-                    endTime: 400,
+                const aliasRequestWithMPIDScope = {
+                    ...aliasRequestFixture,
                     scope: 'mpid',
                 };
 
-                mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+                mParticle.Identity.aliasUsers(aliasRequestWithMPIDScope, function(callback) {
                     callbackResult = callback;
                 });
                 mParticleAndroidV2Bridge.aliasUsers.should.equal(
-                    '{"DestinationMpid":"101","SourceMpid":"202","StartUnixtimeMs":300,"EndUnixtimeMs":400,"Scope":"mpid"}'
+                    expectedAliasPayloadWithMpidScope
                 );
 
                 callbackResult.httpCode.should.equal(
@@ -987,14 +1003,8 @@ describe('native-sdk methods', function() {
 
             it("should send a JSON object to the iOS SDK's Alias method", () => {
                 let callbackResult;
-                const aliasRequest = {
-                    destinationMpid: '101',
-                    sourceMpid: '202',
-                    startTime: 300,
-                    endTime: 400,
-                };
 
-                mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+                mParticle.Identity.aliasUsers(aliasRequestFixture, function(callback) {
                     callbackResult = callback;
                 });
 
@@ -1006,9 +1016,7 @@ describe('native-sdk methods', function() {
                 );
                 JSON.stringify(
                     JSON.parse(mParticleIOSV2Bridge.data[0]).value
-                ).should.equal(
-                    '{"DestinationMpid":"101","SourceMpid":"202","StartUnixtimeMs":300,"EndUnixtimeMs":400,"Scope":"device"}'
-                );
+                ).should.equal(expectedAliasPayloadWithDeviceScope);
                 mParticleIOSV2Bridge.reset();
 
                 callbackResult.httpCode.should.equal(
@@ -1021,15 +1029,12 @@ describe('native-sdk methods', function() {
 
             it("should send a JSON object with scope to the iOS SDK's Alias method when scope is provided", () => {
                 let callbackResult;
-                const aliasRequest = {
-                    destinationMpid: '101',
-                    sourceMpid: '202',
-                    startTime: 300,
-                    endTime: 400,
+                const aliasRequestWithMPIDScope = {
+                    ...aliasRequestFixture,
                     scope: 'mpid',
                 };
 
-                mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+                mParticle.Identity.aliasUsers(aliasRequestWithMPIDScope, function(callback) {
                     callbackResult = callback;
                 });
 
@@ -1041,9 +1046,7 @@ describe('native-sdk methods', function() {
                 );
                 JSON.stringify(
                     JSON.parse(mParticleIOSV2Bridge.data[0]).value
-                ).should.equal(
-                    '{"DestinationMpid":"101","SourceMpid":"202","StartUnixtimeMs":300,"EndUnixtimeMs":400,"Scope":"mpid"}'
-                );
+                ).should.equal(expectedAliasPayloadWithMpidScope);
                 mParticleIOSV2Bridge.reset();
 
                 callbackResult.httpCode.should.equal(
