@@ -209,7 +209,7 @@ describe('Identity', () => {
                 sourceMpid: '456',
                 startTime: Date.now(),
                 endTime: Date.now() + 1000,
-                scope: 'test-scope',
+                scope: 'mpid',
             };
 
             expect(testAliasRequest).toBeDefined();
