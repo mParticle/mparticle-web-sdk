@@ -683,6 +683,7 @@ export default function Store(
     this.nullifySession = (): void => {
         this.sessionId = null;
         this.dateLastEventSent = null;
+        this.sessionStartDate = null;
         this.sessionAttributes = {};
         this.localSessionAttributes = {};
         mpInstance._Persistence.update();

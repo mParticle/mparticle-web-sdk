@@ -240,6 +240,32 @@ describe('Utils', () => {
         it('should return a cookieSyncUrl when pixelUrl is not null but redirectUrl is null', () => {
             expect(createCookieSyncUrl('testMPID', pixelUrl, null)).toBe('https://abc.abcdex.net/ibs:exampleid=12345&exampleuuid=testMPID&redir=');
         });
+
+        it('should add domain parameter when provided', () => {
+            const simplePixelUrl = 'https://test.com/pixel';
+            expect(createCookieSyncUrl('testMPID', simplePixelUrl, null, 'example.com')).toBe('https://test.com/pixel?domain=example.com');
+        });
+
+        it('should handle domain parameter with hyphens and dots', () => {
+            const simplePixelUrl = 'https://test.com/pixel';
+            expect(createCookieSyncUrl('testMPID', simplePixelUrl, null, 'sub-domain.example.com')).toBe('https://test.com/pixel?domain=sub-domain.example.com');
+        });
+
+        it('should handle domain parameter with redirect URL', () => {
+            const simplePixelUrl = 'https://test.com/pixel';
+            const simpleRedirectUrl = 'https://redirect.com/callback';
+            expect(createCookieSyncUrl('testMPID', simplePixelUrl, simpleRedirectUrl, 'example.com')).toBe('https://test.com/pixelhttps%3A%2F%2Fredirect.com%2Fcallback?domain=example.com');
+        });
+
+        it('should not add domain parameter when domain is undefined', () => {
+            const simplePixelUrl = 'https://test.com/pixel';
+            expect(createCookieSyncUrl('testMPID', simplePixelUrl, null, undefined)).toBe('https://test.com/pixel');
+        });
+
+        it('should not add domain parameter when domain is empty string', () => {
+            const simplePixelUrl = 'https://test.com/pixel';
+            expect(createCookieSyncUrl('testMPID', simplePixelUrl, null, '')).toBe('https://test.com/pixel');
+        });
     });
 
     describe('#inArray', () => {

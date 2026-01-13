@@ -107,12 +107,14 @@ export interface IIdentityRequest {
     ): IdentityPreProcessResult;
 }
 
+export type AliasRequestScope = 'device' | 'mpid';
+
 export interface IAliasRequest {
     destinationMpid: MPID;
     sourceMpid: MPID;
     startTime: number;
     endTime: number;
-    scope?: string;
+    scope?: AliasRequestScope;
 }
 
 export interface IAliasCallback {
@@ -151,7 +153,8 @@ export interface SDKIdentityApi {
     ): void;
     createAliasRequest?(
         sourceUser: IMParticleUser,
-        destinationUser: IMParticleUser
+        destinationUser: IMParticleUser,
+        scope?: AliasRequestScope
     ): IAliasRequest;
 }
 

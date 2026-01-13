@@ -3887,6 +3887,79 @@ describe('identity', function() {
         clock.restore();
     });
 
+    it('should include scope in createAliasRequest when provided', async () => {
+        const cookies = JSON.stringify({
+            gs: {
+                sid: 'fst Test',
+                les: new Date().getTime(),
+            },
+            1: {
+                fst: 200,
+                lst: 400,
+            },
+            cu: '2',
+        });
+
+        setCookie(workspaceCookieName, cookies);
+
+        mParticle.init(apiKey, window.mParticle.config);
+        await waitForCondition(hasIdentityCallInflightReturned);
+
+        // Mock clock so we can use simple integers for time
+        clock = sinon.useFakeTimers();
+        clock.tick(1000);
+
+        const destinationUser = mParticle.Identity.getCurrentUser();
+        const sourceUser = mParticle.Identity.getUser('1');
+
+        const aliasRequest = mParticle.Identity.createAliasRequest(
+            sourceUser,
+            destinationUser,
+            'mpid'
+        );
+        expect(aliasRequest.sourceMpid).to.equal('1');
+        expect(aliasRequest.destinationMpid).to.equal('2');
+        expect(aliasRequest.startTime).to.equal(200);
+        expect(aliasRequest.endTime).to.equal(400);
+        expect(aliasRequest.scope).to.equal('mpid');
+        clock.restore();
+    });
+
+    it('should default scope to device in createAliasRequest when not provided', async () => {
+        const cookies = JSON.stringify({
+            gs: {
+                sid: 'fst Test',
+                les: new Date().getTime(),
+            },
+            1: {
+                fst: 200,
+                lst: 400,
+            },
+            cu: '2',
+        });
+
+        setCookie(workspaceCookieName, cookies);
+
+        mParticle.init(apiKey, window.mParticle.config);
+        await waitForCondition(hasIdentityCallInflightReturned);
+
+        // Mock clock so we can use simple integers for time
+        clock = sinon.useFakeTimers();
+        clock.tick(1000);
+
+        const destinationUser = mParticle.Identity.getCurrentUser();
+        const sourceUser = mParticle.Identity.getUser('1');
+
+        const aliasRequest = mParticle.Identity.createAliasRequest(
+            sourceUser,
+            destinationUser
+        );
+        expect(aliasRequest.sourceMpid).to.equal('1');
+        expect(aliasRequest.destinationMpid).to.equal('2');
+        expect(aliasRequest.scope).to.equal('device');
+        clock.restore();
+    });
+
     it("alias request should have environment 'development' when isDevelopmentMode is true", async () => {
         window.mParticle.config.isDevelopmentMode = true;
 

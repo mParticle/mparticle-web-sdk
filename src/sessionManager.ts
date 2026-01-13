@@ -33,31 +33,24 @@ export default function SessionManager(
 
     this.initialize = function (): void {
         if (mpInstance._Store.sessionId) {
-            const sessionTimeoutInMilliseconds: number =
-                mpInstance._Store.SDKConfig.sessionTimeout * 60000;
-
-            if (
-                new Date() >
-                new Date(
-                    mpInstance._Store.dateLastEventSent.getTime() +
-                        sessionTimeoutInMilliseconds
-                )
-            ) {
+            const { dateLastEventSent, SDKConfig } = mpInstance._Store;
+            const { sessionTimeout } = SDKConfig;
+                
+            if (hasSessionTimedOut(dateLastEventSent?.getTime(), sessionTimeout)) {
                 self.endSession();
                 self.startNewSession();
             } else {
                 // https://go.mparticle.com/work/SQDSDKS-6045
                 // https://go.mparticle.com/work/SQDSDKS-6323
                 const currentUser = mpInstance.Identity.getCurrentUser();
-                const sdkIdentityRequest =
-                    mpInstance._Store.SDKConfig.identifyRequest;
+                const sdkIdentityRequest = SDKConfig.identifyRequest;
 
                 if (
                     hasIdentityRequestChanged(currentUser, sdkIdentityRequest)
                 ) {
                     mpInstance.Identity.identify(
-                        mpInstance._Store.SDKConfig.identifyRequest,
-                        mpInstance._Store.SDKConfig.identityCallback
+                        sdkIdentityRequest,
+                        SDKConfig.identityCallback
                     );
                     mpInstance._Store.identifyCalled = true;
                     mpInstance._Store.SDKConfig.identityCallback = null;
@@ -134,12 +127,7 @@ export default function SessionManager(
         );
 
         if (override) {
-            mpInstance._Events.logEvent({
-                messageType: Types.MessageType.SessionEnd,
-            });
-
-            mpInstance._Store.nullifySession();
-            mpInstance._timeOnSiteTimer?.resetTimer();
+            performSessionEnd();
             return;
         }
 
@@ -152,12 +140,8 @@ export default function SessionManager(
                 Messages.InformationMessages.AbandonEndSession
             );
             mpInstance._timeOnSiteTimer?.resetTimer();
-
             return;
         }
-
-        let sessionTimeoutInMilliseconds: number;
-        let timeSinceLastEventSent: number;
 
         const cookies: IPersistenceMinified =
             mpInstance._Persistence.getPersistence();
@@ -167,7 +151,6 @@ export default function SessionManager(
                 Messages.InformationMessages.NoSessionToEnd
             );
             mpInstance._timeOnSiteTimer?.resetTimer();
-
             return;
         }
 
@@ -177,24 +160,15 @@ export default function SessionManager(
         }
 
         if (cookies?.gs?.les) {
-            sessionTimeoutInMilliseconds =
-                mpInstance._Store.SDKConfig.sessionTimeout * 60000;
-            const newDate: number = new Date().getTime();
-            timeSinceLastEventSent = newDate - cookies.gs.les;
-
-            if (timeSinceLastEventSent < sessionTimeoutInMilliseconds) {
-                self.setSessionTimer();
+            const sessionTimeout = mpInstance._Store.SDKConfig.sessionTimeout;
+            
+            if (hasSessionTimedOut(cookies.gs.les, sessionTimeout)) {
+                performSessionEnd();
             } else {
-                mpInstance._Events.logEvent({
-                    messageType: Types.MessageType.SessionEnd,
-                });
-
-                mpInstance._Store.sessionStartDate = null;
-                mpInstance._Store.nullifySession();
+                self.setSessionTimer();
+                mpInstance._timeOnSiteTimer?.resetTimer();
             }
         }
-
-        mpInstance._timeOnSiteTimer?.resetTimer();
     };
 
     this.setSessionTimer = function (): void {
@@ -234,4 +208,35 @@ export default function SessionManager(
             }
         }
     };
+
+    /**
+     * Checks if the session has expired based on the last event timestamp
+     * @param lastEventTimestamp - Unix timestamp in milliseconds of the last event
+     * @param sessionTimeout - Session timeout in minutes
+     * @returns true if the session has expired, false otherwise
+     */
+    function hasSessionTimedOut(lastEventTimestamp: number, sessionTimeout: number): boolean {
+        if (!lastEventTimestamp || !sessionTimeout || sessionTimeout <= 0) {
+            return false;
+        }
+
+        const sessionTimeoutInMilliseconds: number = sessionTimeout * 60000;
+        const timeSinceLastEvent: number = Date.now() - lastEventTimestamp;
+
+        return timeSinceLastEvent >= sessionTimeoutInMilliseconds;
+    }
+
+    /**
+     * Performs session end operations:
+     * - Logs a SessionEnd event
+     * - Nullifies the session ID and related data
+     * - Resets the time-on-site timer
+     */
+    function performSessionEnd(): void {
+        mpInstance._Events.logEvent({
+            messageType: Types.MessageType.SessionEnd,
+        });
+        mpInstance._Store.nullifySession();
+        mpInstance._timeOnSiteTimer?.resetTimer();
+    }
 }

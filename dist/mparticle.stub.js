@@ -168,6 +168,7 @@ var mParticle = (function () {
             destinationMpid: 'b',
             startTime: new Date().getTime(),
             endTime: new Date().getTime(),
+            scope: 'device',
         };
     }
 
