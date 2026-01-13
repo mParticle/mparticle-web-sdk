@@ -1,3 +1,16 @@
+# [2.52.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.51.0...v2.52.0) (2026-01-13)
+
+
+### Bug Fixes
+
+* Append domain query parameter to Trade Desk cookie syncs ([#1115](https://github.com/mParticle/mparticle-web-sdk/issues/1115)) ([1379816](https://github.com/mParticle/mparticle-web-sdk/commit/1379816603ed7f45a74204856f2b96454d29d7c4))
+
+
+### Features
+
+* Add hashSha256 method for SHA-256 hashing ([#1116](https://github.com/mParticle/mparticle-web-sdk/issues/1116)) ([89c5baa](https://github.com/mParticle/mparticle-web-sdk/commit/89c5baa9711b6efd64edb902158d45640cdde75d))
+* Support scope in alias requests ([#1138](https://github.com/mParticle/mparticle-web-sdk/issues/1138)) ([b3c937a](https://github.com/mParticle/mparticle-web-sdk/commit/b3c937a1fe5c5083f74eb7ea331892368fbda1e7))
+
 # [2.51.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.50.1...v2.51.0) (2025-12-10)
 
 
