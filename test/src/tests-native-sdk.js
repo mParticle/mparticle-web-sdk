@@ -13,6 +13,7 @@ const aliasRequestFixture = {
     sourceMpid: '202',
     startTime: 300,
     endTime: 400,
+    scope: 'device',
 };
 
 const expectedAliasPayload = {
