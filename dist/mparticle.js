@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.51.0";
+    var version = "2.52.0";
 
     var Constants = {
       sdkVersion: version,
@@ -667,12 +667,17 @@ var mParticle = (function () {
     var replaceAmpWithAmpersand = function replaceAmpWithAmpersand(value) {
       return value.replace(/&amp;/g, '&');
     };
-    var createCookieSyncUrl = function createCookieSyncUrl(mpid, pixelUrl, redirectUrl) {
+    var createCookieSyncUrl = function createCookieSyncUrl(mpid, pixelUrl, redirectUrl, domain) {
       var modifiedPixelUrl = replaceAmpWithAmpersand(pixelUrl);
       var modifiedDirectUrl = redirectUrl ? replaceAmpWithAmpersand(redirectUrl) : null;
       var url = replaceMPID(modifiedPixelUrl, mpid);
       var redirect = modifiedDirectUrl ? replaceMPID(modifiedDirectUrl, mpid) : '';
-      return url + encodeURIComponent(redirect);
+      var fullUrl = url + encodeURIComponent(redirect);
+      if (domain) {
+        var separator = fullUrl.includes('?') ? '&' : '?';
+        fullUrl += "".concat(separator, "domain=").concat(domain);
+      }
+      return fullUrl;
     };
     // FIXME: REFACTOR for V3
     // only used in store.js to sanitize server-side formatting of
@@ -3474,6 +3479,15 @@ var mParticle = (function () {
     var Messages$7 = Constants.Messages;
     var InformationMessages = Messages$7.InformationMessages;
     var DAYS_IN_MILLISECONDS = 1000 * 60 * 60 * 24;
+    // Partner module IDs for cookie sync configurations
+    var PARTNER_MODULE_IDS = {
+      AdobeEventForwarder: 11,
+      DoubleclickDFP: 41,
+      AppNexus: 50,
+      Lotame: 58,
+      TradeDesk: 103,
+      VerizonMedia: 155
+    };
     function CookieSyncManager(mpInstance) {
       var self = this;
       // Public
@@ -3522,8 +3536,12 @@ var mParticle = (function () {
           if (!isLastSyncDateExpired(frequencyCap, lastSyncDateForModule)) {
             return;
           }
-          // Url for cookie sync pixel
-          var fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl);
+          // The Trade Desk requires a URL parameter for GDPR enabled users.
+          // It is optional but to simplify the code, we add it for all Trade
+          // // Desk cookie syncs.
+          var domain = moduleId === PARTNER_MODULE_IDS.TradeDesk ? window.location.hostname : undefined;
+          // Add domain parameter for Trade Desk
+          var fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl, domain);
           self.performCookieSync(fullUrl, moduleId.toString(), mpid, cookieSyncDates);
         });
       };
@@ -3710,17 +3728,20 @@ var mParticle = (function () {
       var self = this;
       this.initialize = function () {
         if (mpInstance._Store.sessionId) {
-          var sessionTimeoutInMilliseconds = mpInstance._Store.SDKConfig.sessionTimeout * 60000;
-          if (new Date() > new Date(mpInstance._Store.dateLastEventSent.getTime() + sessionTimeoutInMilliseconds)) {
+          var _a = mpInstance._Store,
+            dateLastEventSent = _a.dateLastEventSent,
+            SDKConfig = _a.SDKConfig;
+          var sessionTimeout = SDKConfig.sessionTimeout;
+          if (hasSessionTimedOut(dateLastEventSent === null || dateLastEventSent === void 0 ? void 0 : dateLastEventSent.getTime(), sessionTimeout)) {
             self.endSession();
             self.startNewSession();
           } else {
             // https://go.mparticle.com/work/SQDSDKS-6045
             // https://go.mparticle.com/work/SQDSDKS-6323
             var currentUser = mpInstance.Identity.getCurrentUser();
-            var sdkIdentityRequest = mpInstance._Store.SDKConfig.identifyRequest;
+            var sdkIdentityRequest = SDKConfig.identifyRequest;
             if (hasIdentityRequestChanged(currentUser, sdkIdentityRequest)) {
-              mpInstance.Identity.identify(mpInstance._Store.SDKConfig.identifyRequest, mpInstance._Store.SDKConfig.identityCallback);
+              mpInstance.Identity.identify(sdkIdentityRequest, SDKConfig.identityCallback);
               mpInstance._Store.identifyCalled = true;
               mpInstance._Store.SDKConfig.identityCallback = null;
             }
@@ -3764,14 +3785,10 @@ var mParticle = (function () {
         }
       };
       this.endSession = function (override) {
-        var _a, _b, _c, _d, _e;
+        var _a, _b, _c, _d;
         mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingEndSession);
         if (override) {
-          mpInstance._Events.logEvent({
-            messageType: Types.MessageType.SessionEnd
-          });
-          mpInstance._Store.nullifySession();
-          (_a = mpInstance._timeOnSiteTimer) === null || _a === void 0 ? void 0 : _a.resetTimer();
+          performSessionEnd();
           return;
         }
         if (!mpInstance._Helpers.canLog()) {
@@ -3780,36 +3797,28 @@ var mParticle = (function () {
           // - the devToken is undefined
           // - webviewBridgeEnabled is set to false
           mpInstance.Logger.verbose(Messages$6.InformationMessages.AbandonEndSession);
-          (_b = mpInstance._timeOnSiteTimer) === null || _b === void 0 ? void 0 : _b.resetTimer();
+          (_a = mpInstance._timeOnSiteTimer) === null || _a === void 0 ? void 0 : _a.resetTimer();
           return;
         }
-        var sessionTimeoutInMilliseconds;
-        var timeSinceLastEventSent;
         var cookies = mpInstance._Persistence.getPersistence();
         if (!cookies || cookies.gs && !cookies.gs.sid) {
           mpInstance.Logger.verbose(Messages$6.InformationMessages.NoSessionToEnd);
-          (_c = mpInstance._timeOnSiteTimer) === null || _c === void 0 ? void 0 : _c.resetTimer();
+          (_b = mpInstance._timeOnSiteTimer) === null || _b === void 0 ? void 0 : _b.resetTimer();
           return;
         }
         // sessionId is not equal to cookies.sid if cookies.sid is changed in another tab
         if (cookies.gs.sid && mpInstance._Store.sessionId !== cookies.gs.sid) {
           mpInstance._Store.sessionId = cookies.gs.sid;
         }
-        if ((_d = cookies === null || cookies === void 0 ? void 0 : cookies.gs) === null || _d === void 0 ? void 0 : _d.les) {
-          sessionTimeoutInMilliseconds = mpInstance._Store.SDKConfig.sessionTimeout * 60000;
-          var newDate = new Date().getTime();
-          timeSinceLastEventSent = newDate - cookies.gs.les;
-          if (timeSinceLastEventSent < sessionTimeoutInMilliseconds) {
-            self.setSessionTimer();
+        if ((_c = cookies === null || cookies === void 0 ? void 0 : cookies.gs) === null || _c === void 0 ? void 0 : _c.les) {
+          var sessionTimeout = mpInstance._Store.SDKConfig.sessionTimeout;
+          if (hasSessionTimedOut(cookies.gs.les, sessionTimeout)) {
+            performSessionEnd();
           } else {
-            mpInstance._Events.logEvent({
-              messageType: Types.MessageType.SessionEnd
-            });
-            mpInstance._Store.sessionStartDate = null;
-            mpInstance._Store.nullifySession();
+            self.setSessionTimer();
+            (_d = mpInstance._timeOnSiteTimer) === null || _d === void 0 ? void 0 : _d.resetTimer();
           }
         }
-        (_e = mpInstance._timeOnSiteTimer) === null || _e === void 0 ? void 0 : _e.resetTimer();
       };
       this.setSessionTimer = function () {
         var sessionTimeoutInMilliseconds = mpInstance._Store.SDKConfig.sessionTimeout * 60000;
@@ -3842,6 +3851,34 @@ var mParticle = (function () {
           }
         }
       };
+      /**
+       * Checks if the session has expired based on the last event timestamp
+       * @param lastEventTimestamp - Unix timestamp in milliseconds of the last event
+       * @param sessionTimeout - Session timeout in minutes
+       * @returns true if the session has expired, false otherwise
+       */
+      function hasSessionTimedOut(lastEventTimestamp, sessionTimeout) {
+        if (!lastEventTimestamp || !sessionTimeout || sessionTimeout <= 0) {
+          return false;
+        }
+        var sessionTimeoutInMilliseconds = sessionTimeout * 60000;
+        var timeSinceLastEvent = Date.now() - lastEventTimestamp;
+        return timeSinceLastEvent >= sessionTimeoutInMilliseconds;
+      }
+      /**
+       * Performs session end operations:
+       * - Logs a SessionEnd event
+       * - Nullifies the session ID and related data
+       * - Resets the time-on-site timer
+       */
+      function performSessionEnd() {
+        var _a;
+        mpInstance._Events.logEvent({
+          messageType: Types.MessageType.SessionEnd
+        });
+        mpInstance._Store.nullifySession();
+        (_a = mpInstance._timeOnSiteTimer) === null || _a === void 0 ? void 0 : _a.resetTimer();
+      }
     }
 
     var Messages$5 = Constants.Messages;
@@ -4702,6 +4739,7 @@ var mParticle = (function () {
       this.nullifySession = function () {
         _this.sessionId = null;
         _this.dateLastEventSent = null;
+        _this.sessionStartDate = null;
         _this.sessionAttributes = {};
         _this.localSessionAttributes = {};
         mpInstance._Persistence.update();
@@ -7362,7 +7400,8 @@ var mParticle = (function () {
             DestinationMpid: aliasRequest.destinationMpid,
             SourceMpid: aliasRequest.sourceMpid,
             StartUnixtimeMs: aliasRequest.startTime,
-            EndUnixtimeMs: aliasRequest.endTime
+            EndUnixtimeMs: aliasRequest.endTime,
+            Scope: aliasRequest.scope
           };
         },
         convertToNative: function convertToNative(identityApiData) {
@@ -7662,7 +7701,7 @@ var mParticle = (function () {
         after applying this adjustment it will be impossible to create an aliasRequest passes the aliasUsers() 
         validation that the startTime must be less than the endTime 
         */
-        createAliasRequest: function createAliasRequest(sourceUser, destinationUser) {
+        createAliasRequest: function createAliasRequest(sourceUser, destinationUser, scope) {
           try {
             if (!destinationUser || !sourceUser) {
               mpInstance.Logger.error("'destinationUser' and 'sourceUser' must both be present");
@@ -7689,7 +7728,8 @@ var mParticle = (function () {
               destinationMpid: destinationUser.getMPID(),
               sourceMpid: sourceUser.getMPID(),
               startTime: startTime,
-              endTime: endTime
+              endTime: endTime,
+              scope: scope || 'device'
             };
           } catch (e) {
             mpInstance.Logger.error('There was a problem with creating an alias request: ' + e);
@@ -9790,17 +9830,73 @@ var mParticle = (function () {
           });
         });
       };
-
+      /**
+       * Hashes attributes and returns both original and hashed versions
+       * with Rokt-compatible key names (like emailsha256, mobilesha256)
+       *
+       *
+       * @param {IRoktPartnerAttributes} attributes - Attributes to hash
+       * @returns {Promise<IRoktPartnerAttributes>} Object with both original and hashed attributes
+       *
+       */
       RoktManager.prototype.hashAttributes = function (attributes) {
-        if (!this.isReady()) {
-          return this.deferredCall('hashAttributes', attributes);
-        }
-        try {
-          return this.kit.hashAttributes(attributes);
-        } catch (error) {
-          return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
-        }
+        return __awaiter(this, void 0, void 0, function () {
+          var keys, hashPromises, results, hashedAttributes, _i, results_1, _a, key, attributeValue, hashedValue, error_3, errorMessage;
+          var _this = this;
+          return __generator(this, function (_b) {
+            switch (_b.label) {
+              case 0:
+                _b.trys.push([0, 2,, 3]);
+                if (!attributes || _typeof$1(attributes) !== 'object') {
+                  return [2 /*return*/, {}];
+                }
+                keys = Object.keys(attributes);
+                if (keys.length === 0) {
+                  return [2 /*return*/, {}];
+                }
+                hashPromises = keys.map(function (key) {
+                  return __awaiter(_this, void 0, void 0, function () {
+                    var attributeValue, hashedValue;
+                    return __generator(this, function (_a) {
+                      switch (_a.label) {
+                        case 0:
+                          attributeValue = attributes[key];
+                          return [4 /*yield*/, this.hashSha256(attributeValue)];
+                        case 1:
+                          hashedValue = _a.sent();
+                          return [2 /*return*/, {
+                            key: key,
+                            attributeValue: attributeValue,
+                            hashedValue: hashedValue
+                          }];
+                      }
+                    });
+                  });
+                });
+                return [4 /*yield*/, Promise.all(hashPromises)];
+              case 1:
+                results = _b.sent();
+                hashedAttributes = {};
+                for (_i = 0, results_1 = results; _i < results_1.length; _i++) {
+                  _a = results_1[_i], key = _a.key, attributeValue = _a.attributeValue, hashedValue = _a.hashedValue;
+                  hashedAttributes[key] = attributeValue;
+                  if (hashedValue) {
+                    hashedAttributes["".concat(key, "sha256")] = hashedValue;
+                  }
+                }
+                return [2 /*return*/, hashedAttributes];
+              case 2:
+                error_3 = _b.sent();
+                errorMessage = error_3 instanceof Error ? error_3.message : String(error_3);
+                this.logger.error("Failed to hashAttributes, returning an empty object: ".concat(errorMessage));
+                return [2 /*return*/, {}];
+              case 3:
+                return [2 /*return*/];
+            }
+          });
+        });
       };
+
       RoktManager.prototype.setExtensionData = function (extensionData) {
         if (!this.isReady()) {
           this.deferredCall('setExtensionData', extensionData);
@@ -9823,6 +9919,42 @@ var mParticle = (function () {
           return Promise.reject(error instanceof Error ? error : new Error('Error using extension: ' + name));
         }
       };
+      /**
+       * Hashes an attribute using SHA-256
+       *
+       * @param {string | number | boolean | undefined | null} attribute - The value to hash
+       * @returns {Promise<string | undefined | null>} SHA-256 hashed value or undefined/null
+       *
+       */
+      RoktManager.prototype.hashSha256 = function (attribute) {
+        return __awaiter(this, void 0, void 0, function () {
+          var normalizedValue, error_4, errorMessage;
+          return __generator(this, function (_a) {
+            switch (_a.label) {
+              case 0:
+                if (attribute === null || attribute === undefined) {
+                  this.logger.warning("hashSha256 received null/undefined as input");
+                  return [2 /*return*/, attribute];
+                }
+                _a.label = 1;
+              case 1:
+                _a.trys.push([1, 3,, 4]);
+                normalizedValue = String(attribute).trim().toLocaleLowerCase();
+                return [4 /*yield*/, this.sha256Hex(normalizedValue)];
+              case 2:
+                return [2 /*return*/, _a.sent()];
+              case 3:
+                error_4 = _a.sent();
+                errorMessage = error_4 instanceof Error ? error_4.message : String(error_4);
+                this.logger.error("Failed to hashSha256, returning undefined: ".concat(errorMessage));
+                return [2 /*return*/, undefined];
+              case 4:
+                return [2 /*return*/];
+            }
+          });
+        });
+      };
+
       RoktManager.prototype.getLocalSessionAttributes = function () {
         return this.store.getLocalSessionAttributes();
       };
@@ -9917,6 +10049,45 @@ var mParticle = (function () {
           });
         }
         this.messageQueue["delete"](messageId);
+      };
+      /**
+       * Hashes a string input using SHA-256 and returns the hex digest
+       * Uses the Web Crypto API for secure hashing
+       *
+       * @param {string} input - The string to hash
+       * @returns {Promise<string>} The SHA-256 hash as a hexadecimal string
+       */
+      RoktManager.prototype.sha256Hex = function (input) {
+        return __awaiter(this, void 0, void 0, function () {
+          var encoder, encodedInput, digest;
+          return __generator(this, function (_a) {
+            switch (_a.label) {
+              case 0:
+                encoder = new TextEncoder();
+                encodedInput = encoder.encode(input);
+                return [4 /*yield*/, crypto.subtle.digest('SHA-256', encodedInput)];
+              case 1:
+                digest = _a.sent();
+                return [2 /*return*/, this.arrayBufferToHex(digest)];
+            }
+          });
+        });
+      };
+      /**
+       * Converts an ArrayBuffer to a hexadecimal string representation
+       * Each byte is converted to a 2-character hex string with leading zeros
+       *
+       * @param {ArrayBuffer} buffer - The buffer to convert
+       * @returns {string} The hexadecimal string representation
+       */
+      RoktManager.prototype.arrayBufferToHex = function (buffer) {
+        var bytes = new Uint8Array(buffer);
+        var hexString = '';
+        for (var i = 0; i < bytes.length; i++) {
+          var hexByte = bytes[i].toString(16).padStart(2, '0');
+          hexString += hexByte;
+        }
+        return hexString;
       };
       /**
        * Checks if an identity value has changed by comparing current and new values
@@ -11467,8 +11638,8 @@ var mParticle = (function () {
         aliasUsers: function aliasUsers(aliasRequest, callback) {
           self.getInstance().Identity.aliasUsers(aliasRequest, callback);
         },
-        createAliasRequest: function createAliasRequest(sourceUser, destinationUser) {
-          return self.getInstance().Identity.createAliasRequest(sourceUser, destinationUser);
+        createAliasRequest: function createAliasRequest(sourceUser, destinationUser, scope) {
+          return self.getInstance().Identity.createAliasRequest(sourceUser, destinationUser, scope);
         },
         getCurrentUser: function getCurrentUser() {
           return self.getInstance().Identity.getCurrentUser();
