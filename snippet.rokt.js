@@ -19,7 +19,7 @@
     window.mParticle.Rokt = {};
     window.mParticle.config = window.mParticle.config || {};
     window.mParticle.config.rq = [];
-    window.mParticle.config.snippetVersion = 2.7;
+    window.mParticle.config.snippetVersion = 2.8;
     window.mParticle.ready = function(f) {
         window.mParticle.config.rq.push(f);
     };
@@ -48,6 +48,7 @@
     var roktMethods = [
         'selectPlacements',
         'hashAttributes',
+        'hashSha256',
         'setExtensionData',
         'use',
         'getVersion',
