@@ -122,9 +122,8 @@ const integrationMappingExternal: IntegrationIdMapping = {
     },
 
     // Pinterest
-    // https://help.pinterest.com/en/business/article/pinterest-tag-parameters-and-cookies
-    // https://help.pinterest.com/en/business/article/add-event-codes
     // https://developers.pinterest.com/docs/track-conversions/track-conversions-in-the-api/
+    // https://help.pinterest.com/en/business/article/pinterest-tag-parameters-and-cookies
     epik: {
         mappedKey: 'Pinterest.click_id',
         output: IntegrationOutputs.CUSTOM_FLAGS,
