@@ -439,6 +439,21 @@ describe('RoktManager', () => {
         });
     });
 
+    describe('Rokt privacy flags', () => {
+        it('should store noTargeting and noFunctional', () => {
+            roktManager.init(
+                {} as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+                { launcherOptions: { noTargeting: true, noFunctional: false } },
+            );
+            expect(roktManager['launcherOptions'].noTargeting).toBe(true);
+            expect(roktManager['launcherOptions'].noFunctional).toBe(false);
+        });
+    });
+
     describe('#attachKit', () => {
         it('should attach a kit', () => {
             const kit: IRoktKit = {

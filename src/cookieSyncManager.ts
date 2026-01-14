@@ -21,6 +21,7 @@ export const PARTNER_MODULE_IDS = {
     Lotame: 58,
     TradeDesk: 103,
     VerizonMedia: 155,
+    Rokt: 1277,
 } as const;
 
 export type CookieSyncDates = Dictionary<number>; 
@@ -106,6 +107,13 @@ export default function CookieSyncManager(
             // we should not check if it's enabled if the user has a blank consent
             if (requiresConsent && mpidIsNotInCookies) {
                 return;
+            }
+
+            // For Rokt, check noTargeting privacy flag before performing cookie sync
+            if (moduleId === PARTNER_MODULE_IDS.Rokt) {
+                if (mpInstance._PrivacyManager.getNoTargeting()) {
+                    return;
+                }
             }
 
             const { isEnabledForUserConsent } = mpInstance._Consent;

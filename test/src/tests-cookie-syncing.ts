@@ -1,3 +1,4 @@
+import sinon from 'sinon';
 import { expect } from 'chai';
 import Utils from './config/utils';
 import fetchMock from 'fetch-mock/esm/client';
@@ -1133,5 +1134,185 @@ describe('cookie syncing', function() {
         // Now has both cookie syncs because the appropriate consent was added
         newLocalStorage.testMPID.csd.should.have.property(2);
         newLocalStorage.testMPID.csd.should.have.property(1);
+    });
+
+    describe('Rokt privacy flag', function() {
+        const roktPixelSettings: IPixelConfiguration = {
+            name: 'Rokt',
+            moduleId: 1277,
+            esId: 83009,
+            isDebug: false,
+            isProduction: true,
+            settings: {},
+            frequencyCap: 1,
+            pixelUrl: 'https://apps.rokt.com/sync?redir=',
+            redirectUrl: 'https://cookiesync.mparticle.com/v1/sync?esid=12004&MPID=%%mpid%%&ID=${RoktRecogniser}&Key=test&env=2',
+        };
+
+        const nonRoktPixelSettings: IPixelConfiguration = {
+            name: 'NonRoktPixel',
+            moduleId: 5,
+            esId: 24053,
+            isDebug: true,
+            isProduction: true,
+            settings: {},
+            frequencyCap: 14,
+            pixelUrl: 'https://other.com/pixel',
+            redirectUrl: '?redirect=https://other-redirect.com&mpid=%%mpid%%',
+        };
+
+        const createConsentRules = (purpose: string, consentType: '1' | '2' = '1') => ({
+            includeOnMatch: true,
+            values: [{
+                consentPurpose: mParticle.generateHash(consentType + purpose),
+                hasConsented: true,
+            }],
+        });
+
+        const initAndWait = async () => {
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+        };
+
+        const initWithSpy = async () => {
+            mParticle.init(apiKey, window.mParticle.config);
+            const spy = sinon.spy(mParticle.getInstance()._CookieSyncManager, 'performCookieSync');
+            await waitForCondition(hasIdentifyReturned);
+            return spy;
+        };
+
+        const getLocalStorageData = () => mParticle.getInstance()._Persistence.getLocalStorage();
+
+        it('should block Rokt cookie sync when noTargeting is true', async () => {
+            window.mParticle.config.pixelConfigs = [roktPixelSettings];
+            window.mParticle.config.launcherOptions = { noTargeting: true };
+
+            const spy = await initWithSpy();
+
+            expect(spy.called).to.equal(false);
+            expect(getLocalStorageData()[testMPID]).to.not.have.property('csd');
+            spy.restore();
+        });
+
+        it('should allow Rokt cookie sync when noTargeting is false', async () => {
+            window.mParticle.config.pixelConfigs = [roktPixelSettings];
+            window.mParticle.config.launcherOptions = { noTargeting: false };
+
+            const spy = await initWithSpy();
+
+            expect(spy.calledOnce).to.equal(true);
+            expect(spy.firstCall.args[1]).to.equal('1277');
+            getLocalStorageData()[testMPID].csd.should.have.property('1277');
+            spy.restore();
+        });
+
+        it('should allow Rokt cookie sync when launcherOptions is not provided', async () => {
+            window.mParticle.config.pixelConfigs = [roktPixelSettings];
+            delete window.mParticle.config.launcherOptions;
+
+            await initAndWait();
+
+            getLocalStorageData()[testMPID].csd.should.have.property('1277');
+        });
+
+        it('should allow Rokt cookie sync when noTargeting is non-boolean value', async () => {
+            window.mParticle.config.pixelConfigs = [roktPixelSettings];
+            window.mParticle.config.launcherOptions = { noTargeting: null as unknown as boolean };
+
+            await initAndWait();
+
+            getLocalStorageData()[testMPID].csd.should.have.property('1277');
+        });
+
+        it('should block only Rokt while allowing other partners when noTargeting is true', async () => {
+            window.mParticle.config.pixelConfigs = [roktPixelSettings, nonRoktPixelSettings];
+            window.mParticle.config.launcherOptions = { noTargeting: true };
+
+            const spy = await initWithSpy();
+
+            expect(spy.calledOnce).to.equal(true);
+            expect(spy.firstCall.args[1]).to.equal('5');
+            expect(getLocalStorageData()[testMPID].csd).to.not.have.property('1277');
+            getLocalStorageData()[testMPID].csd.should.have.property('5');
+            spy.restore();
+        });
+
+        it('should block Rokt when noTargeting is true and if consent rules allow it', async () => {
+            const roktWithConsent = {
+                ...roktPixelSettings,
+                filteringConsentRuleValues: createConsentRules('targeting'),
+            };
+
+            window.mParticle.config.pixelConfigs = [roktWithConsent];
+            window.mParticle.config.launcherOptions = { noTargeting: true };
+
+            await initAndWait();
+
+            const consentState = mParticle.getInstance().Consent.createConsentState()
+                .addGDPRConsentState('targeting', mParticle.getInstance().Consent.createGDPRConsent(true));
+            mParticle.Identity.getCurrentUser().setConsentState(consentState);
+
+            // csd object won't exist when all cookie syncs are blocked
+            expect(getLocalStorageData()[testMPID]).to.not.have.property('csd');
+        });
+
+        it('should block Rokt via consent rules when noTargeting is false', async () => {
+            const roktWithConsent = {
+                ...roktPixelSettings,
+                filteringConsentRuleValues: createConsentRules('targeting'),
+            };
+
+            window.mParticle.config.pixelConfigs = [roktWithConsent];
+            window.mParticle.config.launcherOptions = { noTargeting: false };
+
+            await initAndWait();
+
+            const consentState = mParticle.getInstance().Consent.createConsentState()
+                .addGDPRConsentState('targeting', mParticle.getInstance().Consent.createGDPRConsent(false));
+            mParticle.Identity.getCurrentUser().setConsentState(consentState);
+
+            // csd object won't exist when cookie sync is blocked by consent rules
+            expect(getLocalStorageData()[testMPID]).to.not.have.property('csd');
+        });
+
+        it('should maintain noTargeting block across MPID changes', async () => {
+            window.mParticle.config.pixelConfigs = [roktPixelSettings];
+            window.mParticle.config.launcherOptions = { noTargeting: true };
+
+            await initAndWait();
+
+            fetchMockSuccess(urls.login, { mpid: 'newMPID', is_logged_in: true });
+            mParticle.Identity.login({ userIdentities: { customerid: 'test@test.com' } });
+            await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'newMPID');
+
+            const data = getLocalStorageData();
+            // Neither MPID should have csd when cookie syncs are blocked
+            expect(data[testMPID]).to.not.have.property('csd');
+            expect(data['newMPID']).to.not.have.property('csd');
+        });
+
+        it('should allow cookie sync for both MPIDs when noTargeting is false', async () => {
+            window.mParticle.config.pixelConfigs = [roktPixelSettings];
+            window.mParticle.config.launcherOptions = { noTargeting: false };
+
+            await initAndWait();
+
+            fetchMockSuccess(urls.login, { mpid: 'newMPID', is_logged_in: true });
+            mParticle.Identity.login({ userIdentities: { customerid: 'test@test.com' } });
+            await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'newMPID');
+
+            const data = getLocalStorageData();
+            data[testMPID].csd.should.have.property('1277');
+            data['newMPID'].csd.should.have.property('1277');
+        });
+
+        it('should not block Rokt cookie sync when only noFunctional is true', async () => {
+            window.mParticle.config.pixelConfigs = [roktPixelSettings];
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+
+            await initAndWait();
+
+            getLocalStorageData()[testMPID].csd.should.have.property('1277');
+        });
     });
 });

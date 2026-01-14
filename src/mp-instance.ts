@@ -51,6 +51,7 @@ import { IPersistence } from './persistence.interfaces';
 import ForegroundTimer from './foregroundTimeTracker';
 import RoktManager, { IRoktOptions } from './roktManager';
 import filteredMparticleUser from './filteredMparticleUser';
+import PrivacyManager, { IPrivacyManager } from './privacyManager';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -82,6 +83,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _IntegrationCapture: IntegrationCapture;
     _NativeSdkHelpers: INativeSdkHelpers;
     _Persistence: IPersistence;
+    _PrivacyManager: IPrivacyManager;
     _RoktManager: RoktManager;
     _SessionManager: ISessionManager;
     _ServerModel: IServerModel;
@@ -125,6 +127,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this._ForwardingStatsUploader = new ForwardingStatsUploader(this);
     this._Consent = new Consent(this);
     this._IdentityAPIClient = new IdentityAPIClient(this);
+    this._PrivacyManager = new PrivacyManager();
     this._preInit = {
         readyQueue: [],
         integrationDelays: {},
@@ -1553,6 +1556,10 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     mpInstance._Store = new Store(config, mpInstance, apiKey);
     window.mParticle.Store = mpInstance._Store;
     mpInstance.Logger.verbose(StartingInitialization);
+
+    // Initialize PrivacyManager with privacy flags from launcherOptions
+    const { noFunctional, noTargeting } = config?.launcherOptions ?? {};
+    mpInstance._PrivacyManager.init({ noFunctional, noTargeting }, mpInstance.Logger);
 
     // Check to see if localStorage is available before main configuration runs
     // since we will need this for the current implementation of user persistence
