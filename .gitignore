@@ -18,6 +18,8 @@ coverage/
 # Integration test artifacts
 IntegrationTests/node_modules/
 
-IntegrationTests/wiremock-recordings/mappings/mapping-*-?????.json
-IntegrationTests/wiremock-recordings/__files/body-*-?????.txt
-IntegrationTests/wiremock-recordings/__files/body-*-?????.json
+IntegrationTests/wiremock-recordings/mappings/*-?????.json
+IntegrationTests/wiremock-recordings/__files/*-?????.txt
+IntegrationTests/wiremock-recordings/__files/*-?????.json
+
+IntegrationTests/wiremock-recordings/stubs-backup/
