@@ -1,0 +1,28 @@
+{
+  "id": "77f1e1d6-9dbf-3a67-85aa-1263456fa315",
+  "priority": 0,
+  "request": {
+    "method": "POST",
+    "urlPattern": "/v3/JS/us1-[a-z0-9]+/events",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": "$.mpid"
+      }
+    ]
+  },
+  "response": {
+    "status": 202,
+    "bodyFileName": "body-events.json",
+    "headers": {
+      "X-Cache": "MISS",
+      "Server": "Kestrel",
+      "Access-Control-Allow-Origin": "*",
+      "Date": "Mon, 05 Jan 2026 16:19:35 GMT",
+      "Via": "1.1 varnish",
+      "Accept-Ranges": "bytes",
+      "Vary": "Accept-Encoding",
+      "Content-Type": "application/json"
+    }
+  },
+  "uuid": "77f1e1d6-9dbf-3a67-85aa-1263456fa315"
+}
