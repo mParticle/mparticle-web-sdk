@@ -2,7 +2,6 @@ import PrivacyManager from '../../src/privacyManager';
 import { SDKLoggerApi } from '../../src/sdkRuntimeModels';
 
 describe('PrivacyManager', () => {
-    let privacyManager: PrivacyManager;
     let mockLogger: SDKLoggerApi;
 
     beforeEach(() => {
@@ -11,13 +10,11 @@ describe('PrivacyManager', () => {
             warning: jest.fn(),
             error: jest.fn(),
         } as unknown as SDKLoggerApi;
-
-        privacyManager = new PrivacyManager();
     });
 
-    describe('#init', () => {
+    describe('#constructor', () => {
         it('should default flags to false when not provided', () => {
-            privacyManager.init(undefined, mockLogger);
+            const privacyManager = new PrivacyManager(undefined, mockLogger);
 
             expect(privacyManager.getNoFunctional()).toBe(false);
             expect(privacyManager.getNoTargeting()).toBe(false);
@@ -27,7 +24,7 @@ describe('PrivacyManager', () => {
         });
 
         it('should set flags when passed and log', () => {
-            privacyManager.init({ noFunctional: true, noTargeting: true }, mockLogger);
+            const privacyManager = new PrivacyManager({ noFunctional: true, noTargeting: true }, mockLogger);
 
             expect(privacyManager.getNoFunctional()).toBe(true);
             expect(privacyManager.getNoTargeting()).toBe(true);
@@ -36,7 +33,7 @@ describe('PrivacyManager', () => {
         });
 
         it('should ignore non-boolean values', () => {
-            privacyManager.init({
+            const privacyManager = new PrivacyManager({
                 noFunctional: 'true' as unknown as boolean,
                 noTargeting: 1 as unknown as boolean,
             }, mockLogger);
@@ -46,7 +43,7 @@ describe('PrivacyManager', () => {
         });
 
         it('should work without a logger', () => {
-            privacyManager.init({ noTargeting: true });
+            const privacyManager = new PrivacyManager({ noTargeting: true });
 
             expect(privacyManager.getNoTargeting()).toBe(true);
         });
@@ -54,7 +51,7 @@ describe('PrivacyManager', () => {
 
     describe('#getNoFunctional', () => {
         it('should return the noFunctional flag value', () => {
-            privacyManager.init({ noFunctional: true });
+            const privacyManager = new PrivacyManager({ noFunctional: true });
 
             expect(privacyManager.getNoFunctional()).toBe(true);
         });
@@ -62,7 +59,7 @@ describe('PrivacyManager', () => {
 
     describe('#getNoTargeting', () => {
         it('should return the noTargeting flag value', () => {
-            privacyManager.init({ noTargeting: true });
+            const privacyManager = new PrivacyManager({ noTargeting: true });
 
             expect(privacyManager.getNoTargeting()).toBe(true);
         });

@@ -437,10 +437,8 @@ describe('RoktManager', () => {
             );
             expect(roktManager['mappedEmailShaIdentityType']).toBe('other5');
         });
-    });
 
-    describe('Rokt privacy flags', () => {
-        it('should store noTargeting and noFunctional', () => {
+        it('should pass through Rokt privacy flags (noTargeting and noFunctional) from launcher options', () => {
             roktManager.init(
                 {} as IKitConfigs,
                 {} as IMParticleUser,

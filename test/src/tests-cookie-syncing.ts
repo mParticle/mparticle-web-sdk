@@ -4,7 +4,7 @@ import Utils from './config/utils';
 import fetchMock from 'fetch-mock/esm/client';
 import { urls, testMPID, MPConfig, v4LSKey, apiKey } from './config/constants';
 import { IMParticleUser } from '../../src/identity-user-interfaces';
-import { IPixelConfiguration } from '../../src/cookieSyncManager';
+import { IPixelConfiguration, PARTNER_MODULE_IDS } from '../../src/cookieSyncManager';
 import { IConsentRules } from '../../src/consent';
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 const {
@@ -1137,9 +1137,11 @@ describe('cookie syncing', function() {
     });
 
     describe('Rokt privacy flag', function() {
+        const roktModuleId = PARTNER_MODULE_IDS.Rokt.toString();
+
         const roktPixelSettings: IPixelConfiguration = {
             name: 'Rokt',
-            moduleId: 1277,
+            moduleId: PARTNER_MODULE_IDS.Rokt,
             esId: 83009,
             isDebug: false,
             isProduction: true,
@@ -1201,8 +1203,8 @@ describe('cookie syncing', function() {
             const spy = await initWithSpy();
 
             expect(spy.calledOnce).to.equal(true);
-            expect(spy.firstCall.args[1]).to.equal('1277');
-            getLocalStorageData()[testMPID].csd.should.have.property('1277');
+            expect(spy.firstCall.args[1]).to.equal(roktModuleId);
+            getLocalStorageData()[testMPID].csd.should.have.property(roktModuleId);
             spy.restore();
         });
 
@@ -1212,7 +1214,7 @@ describe('cookie syncing', function() {
 
             await initAndWait();
 
-            getLocalStorageData()[testMPID].csd.should.have.property('1277');
+            getLocalStorageData()[testMPID].csd.should.have.property(roktModuleId);
         });
 
         it('should allow Rokt cookie sync when noTargeting is non-boolean value', async () => {
@@ -1221,7 +1223,7 @@ describe('cookie syncing', function() {
 
             await initAndWait();
 
-            getLocalStorageData()[testMPID].csd.should.have.property('1277');
+            getLocalStorageData()[testMPID].csd.should.have.property(roktModuleId);
         });
 
         it('should block only Rokt while allowing other partners when noTargeting is true', async () => {
@@ -1232,12 +1234,12 @@ describe('cookie syncing', function() {
 
             expect(spy.calledOnce).to.equal(true);
             expect(spy.firstCall.args[1]).to.equal('5');
-            expect(getLocalStorageData()[testMPID].csd).to.not.have.property('1277');
+            expect(getLocalStorageData()[testMPID].csd).to.not.have.property(roktModuleId);
             getLocalStorageData()[testMPID].csd.should.have.property('5');
             spy.restore();
         });
 
-        it('should block Rokt when noTargeting is true and if consent rules allow it', async () => {
+        it('should block Rokt when noTargeting is true even if consent rules allow it', async () => {
             const roktWithConsent = {
                 ...roktPixelSettings,
                 filteringConsentRuleValues: createConsentRules('targeting'),
@@ -1302,8 +1304,8 @@ describe('cookie syncing', function() {
             await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === 'newMPID');
 
             const data = getLocalStorageData();
-            data[testMPID].csd.should.have.property('1277');
-            data['newMPID'].csd.should.have.property('1277');
+            data[testMPID].csd.should.have.property(roktModuleId);
+            data['newMPID'].csd.should.have.property(roktModuleId);
         });
 
         it('should not block Rokt cookie sync when only noFunctional is true', async () => {
@@ -1312,7 +1314,7 @@ describe('cookie syncing', function() {
 
             await initAndWait();
 
-            getLocalStorageData()[testMPID].csd.should.have.property('1277');
+            getLocalStorageData()[testMPID].csd.should.have.property(roktModuleId);
         });
     });
 });

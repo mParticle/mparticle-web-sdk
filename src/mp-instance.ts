@@ -127,7 +127,6 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this._ForwardingStatsUploader = new ForwardingStatsUploader(this);
     this._Consent = new Consent(this);
     this._IdentityAPIClient = new IdentityAPIClient(this);
-    this._PrivacyManager = new PrivacyManager();
     this._preInit = {
         readyQueue: [],
         integrationDelays: {},
@@ -1559,7 +1558,10 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
 
     // Initialize PrivacyManager with privacy flags from launcherOptions
     const { noFunctional, noTargeting } = config?.launcherOptions ?? {};
-    mpInstance._PrivacyManager.init({ noFunctional, noTargeting }, mpInstance.Logger);
+    mpInstance._PrivacyManager = new PrivacyManager(
+        { noFunctional, noTargeting },
+        mpInstance.Logger
+    );
 
     // Check to see if localStorage is available before main configuration runs
     // since we will need this for the current implementation of user persistence

@@ -1,7 +1,8 @@
 import { SDKLoggerApi } from './sdkRuntimeModels';
 
 /**
- * Privacy flags that control SDK behavior based on user consent choices.
+ * Privacy flags control SDK behavior based on user consent preferences for Rokt integration.
+ * @see https://docs.rokt.com/developers/integration-guides/web/cookie-consent-flags/
  */
 export interface IPrivacyFlags {
     /**
@@ -19,13 +20,6 @@ export interface IPrivacyFlags {
 }
 
 export interface IPrivacyManager {
-    /**
-     * Initializes the PrivacyManager with privacy flags from configuration.
-     * @param flags - Privacy flags from launcherOptions
-     * @param logger - Optional logger for verbose output
-     */
-    init: (flags?: Partial<IPrivacyFlags>, logger?: SDKLoggerApi) => void;
-
     /**
      * Targeting is allowed when noTargeting is false (default)
      */
@@ -52,10 +46,7 @@ export default class PrivacyManager implements IPrivacyManager {
         noTargeting: false,
     };
 
-    /**
-     * Initializes privacy flags from configuration
-     */
-    init(flags?: Partial<IPrivacyFlags>, logger?: SDKLoggerApi): void {
+    constructor(flags?: Partial<IPrivacyFlags>, logger?: SDKLoggerApi) {
         if (!flags) {
             logger?.verbose('PrivacyManager: No privacy flags provided, using defaults');
             return;
