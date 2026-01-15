@@ -35,7 +35,7 @@ export interface IPrivacyManager {
  * PrivacyManager handles storage and access of privacy flags (noFunctional, noTargeting)
  * that are passed via launcherOptions during SDK initialization.
  *
- * These flags allow Rokt integration to respect user privacy choices
+ * These flags allow Rokt integration to respect user privacy choices.
  *
  * Default behavior: Both flags default to false, meaning all features are allowed
  * unless explicitly opted out by the user.
