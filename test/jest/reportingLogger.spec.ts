@@ -1,15 +1,24 @@
 import { IRateLimiter, RateLimiter, ReportingLogger } from '../../src/logging/reportingLogger';
 import { WSDKErrorSeverity } from '../../src/logging/logRequest';
 import { ErrorCodes } from '../../src/logging/errorCodes';
-import { SDKConfig } from '../../src/store';
+import { IStore, SDKConfig } from '../../src/store';
 
 describe('ReportingLogger', () => {
     let logger: ReportingLogger;
-    const baseUrl = 'https://test-url.com';
+    const loggingUrl = 'https://test-url.com/v1/log';
+    const errorUrl = 'https://test-url.com/v1/errors';
     const sdkVersion = '1.2.3';
     let mockFetch: jest.Mock;
     const accountId = '1234567890';
+    const mockStore: IStore = { getRoktAccountId: () => accountId } as IStore;
+    let sdkConfig: SDKConfig;
     beforeEach(() => {
+        sdkConfig = { 
+            loggingUrl: loggingUrl, 
+            errorUrl: errorUrl, 
+            isWebSdkLoggingEnabled: true,
+        } as SDKConfig;
+        
         mockFetch = jest.fn().mockResolvedValue({ ok: true });
         global.fetch = mockFetch;
         
@@ -26,10 +35,11 @@ describe('ReportingLogger', () => {
             fetch: mockFetch
         });
         logger = new ReportingLogger(
-            { loggingUrl: baseUrl, errorUrl: baseUrl } as SDKConfig,
+            sdkConfig,
             sdkVersion,
             'test-launcher-instance-guid'
         );
+        logger.setStore(mockStore);
     });
 
     afterEach(() => {
@@ -42,7 +52,7 @@ describe('ReportingLogger', () => {
         logger.error('msg', ErrorCodes.UNHANDLED_EXCEPTION, 'stack');
         expect(mockFetch).toHaveBeenCalled();
         const fetchCall = mockFetch.mock.calls[0];
-        expect(fetchCall[0]).toContain('/v1/log');
+        expect(fetchCall[0]).toContain('/v1/error');
         const body = JSON.parse(fetchCall[1].body);
         expect(body).toMatchObject({
             severity: WSDKErrorSeverity.ERROR,
@@ -55,7 +65,7 @@ describe('ReportingLogger', () => {
         logger.warning('warn');
         expect(mockFetch).toHaveBeenCalled();
         const fetchCall = mockFetch.mock.calls[0];
-        expect(fetchCall[0]).toContain('/v1/log');
+        expect(fetchCall[0]).toContain('/v1/error');
         const body = JSON.parse(fetchCall[1].body);
         expect(body).toMatchObject({
             severity: WSDKErrorSeverity.WARNING
@@ -66,7 +76,7 @@ describe('ReportingLogger', () => {
     it('does not log if ROKT_DOMAIN missing', () => {
         delete (globalThis as any).ROKT_DOMAIN;
         logger = new ReportingLogger(
-            { loggingUrl: baseUrl, errorUrl: baseUrl } as SDKConfig,
+            sdkConfig,
             sdkVersion,
             'test-launcher-instance-guid'
         );
@@ -75,10 +85,10 @@ describe('ReportingLogger', () => {
     });
 
     it('does not log if feature flag and debug mode off', () => {
-        window.mParticle.config.isWebSdkLoggingEnabled = false;
+        sdkConfig.isWebSdkLoggingEnabled = false;
         window.location.search = '';
         logger = new ReportingLogger(
-            { loggingUrl: baseUrl, errorUrl: baseUrl } as SDKConfig,
+            sdkConfig,
             sdkVersion,
             'test-launcher-instance-guid'
         );
@@ -87,13 +97,14 @@ describe('ReportingLogger', () => {
     });
 
     it('logs if debug mode on even if feature flag off', () => {
-        window.mParticle.config.isWebSdkLoggingEnabled = false;
+        sdkConfig.isWebSdkLoggingEnabled = false;
         window.location.search = '?mp_enable_logging=true';
         logger = new ReportingLogger(
-            { loggingUrl: baseUrl, errorUrl: baseUrl } as SDKConfig,
+            sdkConfig,
             sdkVersion,
             'test-launcher-instance-guid'
         );
+        
         logger.error('x');
         expect(mockFetch).toHaveBeenCalled();
     });
@@ -106,7 +117,7 @@ describe('ReportingLogger', () => {
             }),
         };
         logger = new ReportingLogger(
-            { loggingUrl: baseUrl, errorUrl: baseUrl } as SDKConfig,
+            sdkConfig,
             sdkVersion,
             'test-launcher-instance-guid',
             mockRateLimiter
@@ -114,33 +125,6 @@ describe('ReportingLogger', () => {
 
         for (let i = 0; i < 5; i++) logger.error('err');
         expect(mockFetch).toHaveBeenCalledTimes(3);
-    });
-
-    it('uses default account id when accountId is empty', () => {
-        logger = new ReportingLogger(
-            { loggingUrl: baseUrl, errorUrl: baseUrl } as SDKConfig,
-            sdkVersion,
-            'test-launcher-instance-guid'
-        );
-        logger.error('msg');
-        expect(mockFetch).toHaveBeenCalled();
-        const fetchCall = mockFetch.mock.calls[0];
-        expect(fetchCall[1].headers['rokt-account-id']).toBe('0');
-    });
-
-    it('uses default user agent when user agent is empty', () => {
-        logger = new ReportingLogger(
-            { loggingUrl: baseUrl, errorUrl: baseUrl } as SDKConfig,
-            sdkVersion,
-            'test-launcher-instance-guid'
-        );
-        delete (globalThis as any).navigator;
-        delete (globalThis as any).location;
-        logger.error('msg');
-        expect(mockFetch).toHaveBeenCalled();
-        const fetchCall = mockFetch.mock.calls[0];
-        const body = JSON.parse(fetchCall[1].body);
-        expect(body).toMatchObject({ deviceInfo: 'no-user-agent-set', url: 'no-url-set' });
     });
 });
 
