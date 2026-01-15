@@ -461,6 +461,7 @@ export {
     toDataPlanSlug,
     isString,
     isNumber,
+    isBoolean,
     isFunction,
     isDataPlanSlug,
     isEmpty,

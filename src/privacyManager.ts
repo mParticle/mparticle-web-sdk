@@ -1,4 +1,6 @@
 import { SDKLoggerApi } from './sdkRuntimeModels';
+import { isBoolean } from './utils';
+
 
 /**
  * Privacy flags control SDK behavior based on user consent preferences for Rokt integration.
@@ -54,14 +56,18 @@ export default class PrivacyManager implements IPrivacyManager {
 
         const { noFunctional, noTargeting } = flags;
 
-        if (typeof noFunctional === 'boolean') {
+        if (isBoolean(noFunctional)) {
             this.privacyFlags.noFunctional = noFunctional;
             logger?.verbose(`PrivacyManager: noFunctional set to ${noFunctional}`);
+        } else if (noFunctional !== undefined) {
+            logger?.error('PrivacyManager: noFunctional must be a boolean');
         }
-
-        if (typeof noTargeting === 'boolean') {
+        
+        if (isBoolean(noTargeting)) {
             this.privacyFlags.noTargeting = noTargeting;
             logger?.verbose(`PrivacyManager: noTargeting set to ${noTargeting}`);
+        } else if (noTargeting !== undefined) {
+            logger?.error('PrivacyManager: noTargeting must be a boolean');
         }
     }
 
