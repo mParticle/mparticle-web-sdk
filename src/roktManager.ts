@@ -244,6 +244,7 @@ export default class RoktManager {
             const enrichedOptions = {
                 ...options,
                 attributes: enrichedAttributes,
+                devPassedAttributes: attributes,
             };
 
             return this.kit.selectPlacements(enrichedOptions);
