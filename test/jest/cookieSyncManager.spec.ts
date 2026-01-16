@@ -6,7 +6,7 @@ import CookieSyncManager, {
     PARTNER_MODULE_IDS
 } from '../../src/cookieSyncManager';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
-import PrivacyManager from '../../src/privacyManager';
+import CookieConsentManager from '../../src/cookieConsentManager';
 import { testMPID } from '../src/config/constants';
 
 const pixelSettings: IPixelConfiguration = {
@@ -407,7 +407,7 @@ describe('CookieSyncManager', () => {
                     _Consent: {
                         isEnabledForUserConsent: jest.fn().mockReturnValue(true),
                     },
-                    _PrivacyManager: {
+                    _CookieConsentManager: {
                         getNoTargeting: jest.fn().mockReturnValue(true),
                     },
                     Identity: {
@@ -420,7 +420,7 @@ describe('CookieSyncManager', () => {
 
                 cookieSyncManager.attemptCookieSync(testMPID, true);
 
-                expect(mockMPInstance._PrivacyManager.getNoTargeting).toHaveBeenCalled();
+                expect(mockMPInstance._CookieConsentManager.getNoTargeting).toHaveBeenCalled();
                 expect(cookieSyncManager.performCookieSync).not.toHaveBeenCalled();
             });
 
@@ -436,7 +436,7 @@ describe('CookieSyncManager', () => {
                     _Consent: {
                         isEnabledForUserConsent: jest.fn().mockReturnValue(true),
                     },
-                    _PrivacyManager: {
+                    _CookieConsentManager: {
                         getNoTargeting: jest.fn().mockReturnValue(false),
                     },
                     Identity: {
@@ -449,12 +449,12 @@ describe('CookieSyncManager', () => {
 
                 cookieSyncManager.attemptCookieSync(testMPID, true);
 
-                expect(mockMPInstance._PrivacyManager.getNoTargeting).toHaveBeenCalled();
+                expect(mockMPInstance._CookieConsentManager.getNoTargeting).toHaveBeenCalled();
                 expect(cookieSyncManager.performCookieSync).toHaveBeenCalled();
             });
 
             it('should allow cookie sync when noTargeting is false by default', () => {
-                const privacyManager = new PrivacyManager(); // Defaults to noTargeting: false
+                const cookieConsentManager = new CookieConsentManager(); // Defaults to noTargeting: false
 
                 const mockMPInstance = ({
                     _Store: {
@@ -467,7 +467,7 @@ describe('CookieSyncManager', () => {
                     _Consent: {
                         isEnabledForUserConsent: jest.fn().mockReturnValue(true),
                     },
-                    _PrivacyManager: privacyManager,
+                    _CookieConsentManager: cookieConsentManager,
                     Identity: {
                         getCurrentUser: jest.fn().mockReturnValue({ getMPID: () => testMPID }),
                     },
@@ -479,7 +479,7 @@ describe('CookieSyncManager', () => {
                 cookieSyncManager.attemptCookieSync(testMPID, true);
 
                 // Default noTargeting is false, so cookie sync should be allowed
-                expect(privacyManager.getNoTargeting()).toBe(false);
+                expect(cookieConsentManager.getNoTargeting()).toBe(false);
                 expect(cookieSyncManager.performCookieSync).toHaveBeenCalled();
             });
 
@@ -495,7 +495,7 @@ describe('CookieSyncManager', () => {
                     _Consent: {
                         isEnabledForUserConsent: jest.fn().mockReturnValue(true),
                     },
-                    _PrivacyManager: {
+                    _CookieConsentManager: {
                         getNoTargeting: jest.fn().mockReturnValue(true),
                     },
                     Identity: {
@@ -509,7 +509,7 @@ describe('CookieSyncManager', () => {
                 cookieSyncManager.attemptCookieSync(testMPID, true);
 
                 // Should not check noTargeting for non-Rokt partners
-                expect(mockMPInstance._PrivacyManager.getNoTargeting).not.toHaveBeenCalled();
+                expect(mockMPInstance._CookieConsentManager.getNoTargeting).not.toHaveBeenCalled();
                 // Should still perform cookie sync
                 expect(cookieSyncManager.performCookieSync).toHaveBeenCalled();
             });

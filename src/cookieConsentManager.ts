@@ -1,12 +1,8 @@
-import { SDKLoggerApi } from './sdkRuntimeModels';
-import { isBoolean } from './utils';
-
-
 /**
- * Privacy flags control SDK behavior based on user consent preferences for Rokt integration.
+ * Cookie consent flags control SDK behavior based on user consent preferences for Rokt integration.
  * @see https://docs.rokt.com/developers/integration-guides/web/cookie-consent-flags/
  */
-export interface IPrivacyFlags {
+export interface ICookieConsentFlags {
     /**
      * When true, indicates the user has opted out of functional cookies/tracking.
      * Default: false (functional tracking is allowed)
@@ -21,7 +17,7 @@ export interface IPrivacyFlags {
     noTargeting: boolean;
 }
 
-export interface IPrivacyManager {
+export interface ICookieConsentManager {
     /**
      * Targeting is allowed when noTargeting is false (default)
      */
@@ -34,7 +30,7 @@ export interface IPrivacyManager {
 }
 
 /**
- * PrivacyManager handles storage and access of privacy flags (noFunctional, noTargeting)
+ * CookieConsentManager handles storage and access of consent flags (noFunctional, noTargeting)
  * that are passed via launcherOptions during SDK initialization.
  *
  * These flags allow Rokt integration to respect user privacy choices.
@@ -42,33 +38,20 @@ export interface IPrivacyManager {
  * Default behavior: Both flags default to false, meaning all features are allowed
  * unless explicitly opted out by the user.
  */
-export default class PrivacyManager implements IPrivacyManager {
-    private privacyFlags: IPrivacyFlags = {
+export default class CookieConsentManager implements ICookieConsentManager {
+    private flags: ICookieConsentFlags = {
         noFunctional: false,
         noTargeting: false,
     };
 
-    constructor(flags?: Partial<IPrivacyFlags>, logger?: SDKLoggerApi) {
+    constructor(flags?: Partial<ICookieConsentFlags>) {
         if (!flags) {
-            logger?.verbose('PrivacyManager: No privacy flags provided, using defaults');
             return;
         }
 
         const { noFunctional, noTargeting } = flags;
-
-        if (isBoolean(noFunctional)) {
-            this.privacyFlags.noFunctional = noFunctional;
-            logger?.verbose(`PrivacyManager: noFunctional set to ${noFunctional}`);
-        } else if (noFunctional !== undefined) {
-            logger?.error('PrivacyManager: noFunctional must be a boolean');
-        }
-        
-        if (isBoolean(noTargeting)) {
-            this.privacyFlags.noTargeting = noTargeting;
-            logger?.verbose(`PrivacyManager: noTargeting set to ${noTargeting}`);
-        } else if (noTargeting !== undefined) {
-            logger?.error('PrivacyManager: noTargeting must be a boolean');
-        }
+        this.flags.noFunctional = noFunctional === true;
+        this.flags.noTargeting = noTargeting === true;
     }
 
     /**
@@ -76,7 +59,7 @@ export default class PrivacyManager implements IPrivacyManager {
      * Targeting is allowed when noTargeting is false (default).
      */
     getNoTargeting(): boolean {
-        return this.privacyFlags.noTargeting;
+        return this.flags.noTargeting;
     }
 
     /**
@@ -84,6 +67,6 @@ export default class PrivacyManager implements IPrivacyManager {
      * Functional tracking is allowed when noFunctional is false (default).
      */
     getNoFunctional(): boolean {
-        return this.privacyFlags.noFunctional;
+        return this.flags.noFunctional;
     }
 }

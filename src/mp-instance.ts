@@ -51,7 +51,7 @@ import { IPersistence } from './persistence.interfaces';
 import ForegroundTimer from './foregroundTimeTracker';
 import RoktManager, { IRoktOptions } from './roktManager';
 import filteredMparticleUser from './filteredMparticleUser';
-import PrivacyManager, { IPrivacyManager } from './privacyManager';
+import CookieConsentManager, { ICookieConsentManager } from './cookieConsentManager';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -83,7 +83,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _IntegrationCapture: IntegrationCapture;
     _NativeSdkHelpers: INativeSdkHelpers;
     _Persistence: IPersistence;
-    _PrivacyManager: IPrivacyManager;
+    _CookieConsentManager: ICookieConsentManager;
     _RoktManager: RoktManager;
     _SessionManager: ISessionManager;
     _ServerModel: IServerModel;
@@ -1556,12 +1556,9 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     window.mParticle.Store = mpInstance._Store;
     mpInstance.Logger.verbose(StartingInitialization);
 
-    // Initialize PrivacyManager with privacy flags from launcherOptions
+    // Initialize CookieConsentManager with privacy flags from launcherOptions
     const { noFunctional, noTargeting } = config?.launcherOptions ?? {};
-    mpInstance._PrivacyManager = new PrivacyManager(
-        { noFunctional, noTargeting },
-        mpInstance.Logger
-    );
+    mpInstance._CookieConsentManager = new CookieConsentManager({ noFunctional, noTargeting });
 
     // Check to see if localStorage is available before main configuration runs
     // since we will need this for the current implementation of user persistence

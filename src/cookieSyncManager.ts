@@ -110,7 +110,7 @@ export default function CookieSyncManager(
             }
 
             // For Rokt, block cookie sync when noTargeting privacy flag is true
-            if (moduleId === PARTNER_MODULE_IDS.Rokt && mpInstance._PrivacyManager.getNoTargeting()) {
+            if (moduleId === PARTNER_MODULE_IDS.Rokt && mpInstance._CookieConsentManager.getNoTargeting()) {
                 return;
             }
 
