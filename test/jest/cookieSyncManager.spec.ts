@@ -454,7 +454,7 @@ describe('CookieSyncManager', () => {
             });
 
             it('should allow cookie sync when noTargeting is false by default', () => {
-                const cookieConsentManager = new CookieConsentManager(); // Defaults to noTargeting: false
+                const cookieConsentManager = new CookieConsentManager({ noTargeting: undefined, noFunctional: undefined }); // Defaults to noTargeting: false
 
                 const mockMPInstance = ({
                     _Store: {

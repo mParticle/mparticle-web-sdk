@@ -39,15 +39,11 @@ export interface ICookieConsentManager {
  * unless explicitly opted out by the user.
  */
 export default class CookieConsentManager implements ICookieConsentManager {
-    private flags: ICookieConsentFlags = {
-        noFunctional: false,
-        noTargeting: false,
-    };
-
-    constructor(flags: Partial<ICookieConsentFlags> = {}) {
-        const { noFunctional, noTargeting } = flags;
-        this.flags.noFunctional = noFunctional === true;
-        this.flags.noTargeting = noTargeting === true;
+    constructor(private flags: ICookieConsentFlags) {
+        this.flags = {
+            noFunctional: flags.noFunctional === true,
+            noTargeting: flags.noTargeting === true,
+        };
     }
 
     /**

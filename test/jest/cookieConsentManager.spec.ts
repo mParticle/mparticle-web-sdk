@@ -3,7 +3,7 @@ import CookieConsentManager from '../../src/cookieConsentManager';
 describe('CookieConsentManager', () => {
     describe('#constructor', () => {
         it('should default flags to false when not provided', () => {
-            const cookieConsentManager = new CookieConsentManager();
+            const cookieConsentManager = new CookieConsentManager({ noFunctional: undefined, noTargeting: undefined });
 
             expect(cookieConsentManager.getNoFunctional()).toBe(false);
             expect(cookieConsentManager.getNoTargeting()).toBe(false);
@@ -29,7 +29,7 @@ describe('CookieConsentManager', () => {
 
     describe('#getNoFunctional', () => {
         it('should return the noFunctional flag value', () => {
-            const cookieConsentManager = new CookieConsentManager({ noFunctional: true });
+            const cookieConsentManager = new CookieConsentManager({ noFunctional: true, noTargeting: undefined });
 
             expect(cookieConsentManager.getNoFunctional()).toBe(true);
         });
@@ -37,7 +37,7 @@ describe('CookieConsentManager', () => {
 
     describe('#getNoTargeting', () => {
         it('should return the noTargeting flag value', () => {
-            const cookieConsentManager = new CookieConsentManager({ noTargeting: true });
+            const cookieConsentManager = new CookieConsentManager({ noTargeting: true, noFunctional: undefined });
 
             expect(cookieConsentManager.getNoTargeting()).toBe(true);
         });
