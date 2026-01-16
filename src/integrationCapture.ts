@@ -130,6 +130,7 @@ const integrationMappingExternal: IntegrationIdMapping = {
     },
     _epik: {
         mappedKey: 'Pinterest.click_id',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
     // Snapchat
     // https://developers.snap.com/api/marketing-api/Conversions-API/UsingTheAPI#sending-click-id
     _scid: {
