@@ -41,7 +41,7 @@ import { LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
 import { IPreInit, processReadyQueue } from './pre-init-utils';
-import { BaseEvent, MParticleWebSDK, SDKHelpersApi } from './sdkRuntimeModels';
+import { BaseEvent, MParticleWebSDK, SDKHelpersApi, SDKInitConfig } from './sdkRuntimeModels';
 import { Dictionary, SDKEventAttrs } from '@mparticle/web-sdk';
 import { IIdentity } from './identity.interfaces';
 import { IEvents } from './events.interfaces';
@@ -51,6 +51,8 @@ import { IPersistence } from './persistence.interfaces';
 import ForegroundTimer from './foregroundTimeTracker';
 import RoktManager, { IRoktOptions } from './roktManager';
 import filteredMparticleUser from './filteredMparticleUser';
+import { IReportingLogger, ReportingLogger } from './logging/reportingLogger';
+import { SDKConfigManager } from './sdkConfigManager';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -82,6 +84,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _IntegrationCapture: IntegrationCapture;
     _NativeSdkHelpers: INativeSdkHelpers;
     _Persistence: IPersistence;
+    _ReportingLogger: IReportingLogger;
     _RoktManager: RoktManager;
     _SessionManager: ISessionManager;
     _ServerModel: IServerModel;
@@ -90,6 +93,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _preInit: IPreInit;
     _timeOnSiteTimer: ForegroundTimer; 
     setLauncherInstanceGuid: () => void;
+    getLauncherInstanceGuid: () => string;
     captureTiming(metricName: string);
 }
 
@@ -223,11 +227,11 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         }
     };
 
-    this._resetForTests = function(config, keepPersistence, instance) {
+    this._resetForTests = function(config, keepPersistence, instance, reportingLogger?: IReportingLogger) {
         if (instance._Store) {
             delete instance._Store;
         }
-        instance.Logger = new Logger(config);
+        instance.Logger = new Logger(config, reportingLogger);
         instance._Store = new Store(config, instance);
         instance._Store.isLocalStorageAvailable = instance._Persistence.determineLocalStorageAvailability(
             window.localStorage
@@ -1352,6 +1356,10 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             window[launcherInstanceGuidKey] = self._Helpers.generateUniqueId();
         }
     };
+    
+    this.getLauncherInstanceGuid = function() {
+        return window[launcherInstanceGuidKey];
+    };
 
     this.captureTiming = function(metricsName) {
         if (typeof window !== 'undefined' && window.performance?.mark) {
@@ -1418,6 +1426,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         // Configure Rokt Manager with user and filtered user
         const roktConfig: IKitConfigs = parseConfig(config, 'Rokt', 181);
         if (roktConfig) {
+            mpInstance._Store.setRoktAccountId(roktConfig.settings?.accountId ?? undefined);
             const { userAttributeFilters } = roktConfig;
             const roktFilteredUser = filteredMparticleUser(
                 currentUserMPID,
@@ -1550,9 +1559,21 @@ function createIdentityCache(mpInstance) {
 }
 
 function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
-    mpInstance.Logger = new Logger(config);
-    mpInstance._Store = new Store(config, mpInstance, apiKey);
+    
+    const sdkConfig = new SDKConfigManager(config, apiKey).getSDKConfig();
+    mpInstance._ReportingLogger = new ReportingLogger(
+        sdkConfig,
+        Constants.sdkVersion,
+        mpInstance.getLauncherInstanceGuid(),
+    );
+    mpInstance.Logger = new Logger(config, mpInstance._ReportingLogger);
+    mpInstance._Store = new Store(
+        { ...config, ...sdkConfig } as SDKInitConfig,
+        mpInstance,
+        apiKey
+    );
     window.mParticle.Store = mpInstance._Store;
+    mpInstance._ReportingLogger.setStore(mpInstance._Store);
     mpInstance.Logger.verbose(StartingInitialization);
 
     // Check to see if localStorage is available before main configuration runs
