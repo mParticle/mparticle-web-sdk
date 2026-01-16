@@ -40,6 +40,7 @@ import {  SDKECommerceAPI } from './ecommerce.interfaces';
 import { IErrorLogMessage, IMParticleWebSDKInstance, IntegrationDelays } from './mp-instance';
 import Constants from './constants';
 import RoktManager, { IRoktLauncherOptions } from './roktManager';
+import { IConsoleLogger } from './logger';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -259,7 +260,13 @@ export interface IMParticleInstanceManager extends MParticleWebSDK {
 export type BooleanStringLowerCase = 'false' | 'true';
 export type BooleanStringTitleCase = 'False' | 'True';
 
-export type LogLevelType = 'none' | 'verbose' | 'warning' | 'error';
+export type LogLevelType = (typeof LogLevelType)[keyof typeof LogLevelType];
+export const LogLevelType = {
+    None: 'none',
+    Verbose: 'verbose',
+    Warning: 'warning',
+    Error: 'error',
+} as const;
 
 // TODO: This should eventually be moved into wherever init logic lives
 // TODO: Replace/Merge this with MPConfiguration in @types/mparticle__web-sdk
@@ -306,6 +313,7 @@ export interface SDKInitConfig
     launcherOptions?: IRoktLauncherOptions;
 
     rq?: Function[] | any[];
+    logger?: IConsoleLogger;
 }
 
 export interface DataPlanConfig {

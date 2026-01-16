@@ -25,7 +25,7 @@ import CookieSyncManager, { ICookieSyncManager } from './cookieSyncManager';
 import SessionManager, { ISessionManager } from './sessionManager';
 import Ecommerce from './ecommerce';
 import Store, { IStore } from './store';
-import Logger from './logger';
+import { Logger } from './logger';
 import Persistence from './persistence';
 import Events from './events';
 import Forwarders from './forwarders';
@@ -227,6 +227,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         if (instance._Store) {
             delete instance._Store;
         }
+        instance.Logger = new Logger(config);
         instance._Store = new Store(config, instance);
         instance._Store.isLocalStorageAvailable = instance._Persistence.determineLocalStorageAvailability(
             window.localStorage
