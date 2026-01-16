@@ -44,11 +44,7 @@ export default class CookieConsentManager implements ICookieConsentManager {
         noTargeting: false,
     };
 
-    constructor(flags?: Partial<ICookieConsentFlags>) {
-        if (!flags) {
-            return;
-        }
-
+    constructor(flags: Partial<ICookieConsentFlags> = {}) {
         const { noFunctional, noTargeting } = flags;
         this.flags.noFunctional = noFunctional === true;
         this.flags.noTargeting = noTargeting === true;
