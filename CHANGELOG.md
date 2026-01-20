@@ -1,3 +1,10 @@
+## [2.53.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.53.0...v2.53.1) (2026-01-20)
+
+
+### Bug Fixes
+
+* SDKE-842 - Stringify Placement Attributes when passed into UserAttributes ([#1145](https://github.com/mParticle/mparticle-web-sdk/issues/1145)) ([b01b5eb](https://github.com/mParticle/mparticle-web-sdk/commit/b01b5eb1a6b7f6699d24fcc368c2536a7042bcfa))
+
 # [2.53.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.52.0...v2.53.0) (2026-01-20)
 
 
