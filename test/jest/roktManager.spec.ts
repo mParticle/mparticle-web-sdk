@@ -1531,6 +1531,259 @@ describe('RoktManager', () => {
             expect(mockMPInstance.Logger.warning).not.toHaveBeenCalled();
         });
 
+        it('should propagate email from current user identities to kit.selectPlacements when not in attributes', async () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+            
+            roktManager['placementAttributesMapping'] = [];
+            roktManager.kit = kit as IRoktKit;
+
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getUserIdentities: () => ({
+                        userIdentities: {
+                            email: 'user@example.com'
+                        }
+                    }),
+                    setUserAttributes: jest.fn()
+                }),
+                identify: jest.fn()
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    firstname: 'John',
+                    lastname: 'Doe'
+                }
+            };
+
+            await roktManager.selectPlacements(options);
+
+            expect(mockIdentity.identify).not.toHaveBeenCalled();
+            expect(kit.selectPlacements).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    attributes: expect.objectContaining({
+                        email: 'user@example.com',
+                        firstname: 'John',
+                        lastname: 'Doe'
+                    })
+                })
+            );
+        });
+
+        it('should propagate emailsha256 from current user identities to kit.selectPlacements when not in attributes', async () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+            
+            roktManager.init(
+                {
+                    settings: {
+                        hashedEmailUserIdentityType: 'other5'
+                    }
+                } as unknown as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+            );
+            roktManager['placementAttributesMapping'] = [];
+            roktManager.kit = kit as IRoktKit;
+
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getUserIdentities: () => ({
+                        userIdentities: {
+                            email: 'user@example.com',
+                            other5: 'hashed-email-value-12345'
+                        }
+                    }),
+                    setUserAttributes: jest.fn()
+                }),
+                identify: jest.fn()
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    firstname: 'John'
+                }
+            };
+
+            await roktManager.selectPlacements(options);
+
+            expect(mockIdentity.identify).not.toHaveBeenCalled();
+            expect(kit.selectPlacements).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    attributes: expect.objectContaining({
+                        email: 'user@example.com',
+                        emailsha256: 'hashed-email-value-12345',
+                        firstname: 'John'
+                    })
+                })
+            );
+        });
+
+        it('should propagate email after identify completes when identify is called during init', async () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+            
+            roktManager['placementAttributesMapping'] = [];
+            roktManager.kit = kit as IRoktKit;
+
+            let identifyCallback: (() => void) | null = null;
+            let identifyResolve: (() => void) | null = null;
+            const identifyPromise = new Promise<void>((resolve) => {
+                identifyResolve = resolve;
+            });
+
+            const mockIdentity = {
+                getCurrentUser: jest.fn()
+                    .mockReturnValueOnce({
+                        getUserIdentities: () => ({
+                            userIdentities: {}
+                        }),
+                        setUserAttributes: jest.fn()
+                    })
+                    .mockReturnValueOnce({
+                        getUserIdentities: () => ({
+                            userIdentities: {
+                                email: 'user@example.com'
+                            }
+                        }),
+                        setUserAttributes: jest.fn()
+                    }),
+                identify: jest.fn().mockImplementation((data, callback) => {
+                    identifyCallback = callback;
+                    setTimeout(() => {
+                        if (identifyCallback) {
+                            identifyCallback();
+                        }
+                        if (identifyResolve) {
+                            identifyResolve();
+                        }
+                    }, 10);
+                })
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+
+            mockIdentity.identify({
+                userIdentities: {
+                    email: 'user@example.com'
+                }
+            }, () => {});
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    firstname: 'John'
+                }
+            };
+
+            const selectPlacementsPromise = roktManager.selectPlacements(options);
+            
+            await identifyPromise;
+            await selectPlacementsPromise;
+
+            expect(kit.selectPlacements).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    attributes: expect.objectContaining({
+                        email: 'user@example.com',
+                        firstname: 'John'
+                    })
+                })
+            );
+        });
+
+        it('should not override email in attributes with current user email', async () => {
+            // Reset mappedEmailShaIdentityType to avoid issues from previous tests
+            roktManager['mappedEmailShaIdentityType'] = undefined;
+
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+            
+            roktManager['placementAttributesMapping'] = [];
+            roktManager.kit = kit as IRoktKit;
+
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getUserIdentities: () => ({
+                        userIdentities: {
+                            email: 'current@example.com'
+                        }
+                    }),
+                    setUserAttributes: jest.fn()
+                }),
+                identify: jest.fn().mockImplementation((data, callback) => {
+                    // Call the callback immediately to resolve the Promise
+                    if (callback) {
+                        callback();
+                    }
+                })
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    email: 'explicit@example.com',
+                    firstname: 'John'
+                }
+            };
+
+            await roktManager.selectPlacements(options);
+
+            expect(kit.selectPlacements).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    attributes: expect.objectContaining({
+                        email: 'explicit@example.com',
+                        firstname: 'John'
+                    })
+                })
+            );
+            expect(kit.selectPlacements).not.toHaveBeenCalledWith(
+                expect.objectContaining({
+                    attributes: expect.objectContaining({
+                        email: 'current@example.com'
+                    })
+                })
+            );
+        });
+
         it('should log error when identify fails with a 500 but continue execution', async () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
