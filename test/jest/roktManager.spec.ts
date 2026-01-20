@@ -437,6 +437,19 @@ describe('RoktManager', () => {
             );
             expect(roktManager['mappedEmailShaIdentityType']).toBe('other5');
         });
+
+        it('should pass through Rokt privacy flags (noTargeting and noFunctional) from launcher options', () => {
+            roktManager.init(
+                {} as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+                { launcherOptions: { noTargeting: true, noFunctional: false } },
+            );
+            expect(roktManager['launcherOptions'].noTargeting).toBe(true);
+            expect(roktManager['launcherOptions'].noFunctional).toBe(false);
+        });
     });
 
     describe('#attachKit', () => {

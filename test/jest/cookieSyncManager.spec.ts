@@ -6,6 +6,7 @@ import CookieSyncManager, {
     PARTNER_MODULE_IDS
 } from '../../src/cookieSyncManager';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
+import CookieConsentManager from '../../src/cookieConsentManager';
 import { testMPID } from '../src/config/constants';
 
 const pixelSettings: IPixelConfiguration = {
@@ -19,6 +20,15 @@ const pixelSettings: IPixelConfiguration = {
     pixelUrl: 'https://test.com',
     redirectUrl: '?redirect=https://redirect.com&mpid=%%mpid%%',
 };
+
+const roktPixelSettings: IPixelConfiguration = {
+    name: 'Rokt',
+    moduleId: PARTNER_MODULE_IDS.Rokt,
+    pixelUrl: 'https://rokt.com/pixel',
+    redirectUrl: '?redirect=https://redirect.com&mpid=%%mpid%%',
+    frequencyCap: 14,
+    settings: {},
+} as IPixelConfiguration;
 
 const pixelUrlAndRedirectUrl = 'https://test.com%3Fredirect%3Dhttps%3A%2F%2Fredirect.com%26mpid%3DtestMPID';
 
@@ -382,6 +392,127 @@ describe('CookieSyncManager', () => {
             );
 
             expect(cookieSyncManager.performCookieSync).not.toHaveBeenCalled();
+        });
+
+        describe('Rokt noTargeting privacy flag', () => {
+            it('should block cookie sync when noTargeting is true', () => {
+                const mockMPInstance = ({
+                    _Store: {
+                        webviewBridgeEnabled: false,
+                        pixelConfigurations: [roktPixelSettings],
+                    },
+                    _Persistence: {
+                        getPersistence: () => ({ testMPID: { csd: {} } }),
+                    },
+                    _Consent: {
+                        isEnabledForUserConsent: jest.fn().mockReturnValue(true),
+                    },
+                    _CookieConsentManager: {
+                        getNoTargeting: jest.fn().mockReturnValue(true),
+                    },
+                    Identity: {
+                        getCurrentUser: jest.fn().mockReturnValue({ getMPID: () => testMPID }),
+                    },
+                } as unknown) as IMParticleWebSDKInstance;
+
+                const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+                cookieSyncManager.performCookieSync = jest.fn();
+
+                cookieSyncManager.attemptCookieSync(testMPID, true);
+
+                expect(mockMPInstance._CookieConsentManager.getNoTargeting).toHaveBeenCalled();
+                expect(cookieSyncManager.performCookieSync).not.toHaveBeenCalled();
+            });
+
+            it('should allow cookie sync when noTargeting is false', () => {
+                const mockMPInstance = ({
+                    _Store: {
+                        webviewBridgeEnabled: false,
+                        pixelConfigurations: [roktPixelSettings],
+                    },
+                    _Persistence: {
+                        getPersistence: () => ({ testMPID: { csd: {} } }),
+                    },
+                    _Consent: {
+                        isEnabledForUserConsent: jest.fn().mockReturnValue(true),
+                    },
+                    _CookieConsentManager: {
+                        getNoTargeting: jest.fn().mockReturnValue(false),
+                    },
+                    Identity: {
+                        getCurrentUser: jest.fn().mockReturnValue({ getMPID: () => testMPID }),
+                    },
+                } as unknown) as IMParticleWebSDKInstance;
+
+                const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+                cookieSyncManager.performCookieSync = jest.fn();
+
+                cookieSyncManager.attemptCookieSync(testMPID, true);
+
+                expect(mockMPInstance._CookieConsentManager.getNoTargeting).toHaveBeenCalled();
+                expect(cookieSyncManager.performCookieSync).toHaveBeenCalled();
+            });
+
+            it('should allow cookie sync when noTargeting is false by default', () => {
+                const cookieConsentManager = new CookieConsentManager({ noTargeting: undefined, noFunctional: undefined }); // Defaults to noTargeting: false
+
+                const mockMPInstance = ({
+                    _Store: {
+                        webviewBridgeEnabled: false,
+                        pixelConfigurations: [roktPixelSettings],
+                    },
+                    _Persistence: {
+                        getPersistence: () => ({ testMPID: { csd: {} } }),
+                    },
+                    _Consent: {
+                        isEnabledForUserConsent: jest.fn().mockReturnValue(true),
+                    },
+                    _CookieConsentManager: cookieConsentManager,
+                    Identity: {
+                        getCurrentUser: jest.fn().mockReturnValue({ getMPID: () => testMPID }),
+                    },
+                } as unknown) as IMParticleWebSDKInstance;
+
+                const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+                cookieSyncManager.performCookieSync = jest.fn();
+
+                cookieSyncManager.attemptCookieSync(testMPID, true);
+
+                // Default noTargeting is false, so cookie sync should be allowed
+                expect(cookieConsentManager.getNoTargeting()).toBe(false);
+                expect(cookieSyncManager.performCookieSync).toHaveBeenCalled();
+            });
+
+            it('should not check noTargeting for non-Rokt partners', () => {
+                const mockMPInstance = ({
+                    _Store: {
+                        webviewBridgeEnabled: false,
+                        pixelConfigurations: [pixelSettings], // Uses non-Rokt pixelSettings (moduleId: 5)
+                    },
+                    _Persistence: {
+                        getPersistence: () => ({ testMPID: { csd: {} } }),
+                    },
+                    _Consent: {
+                        isEnabledForUserConsent: jest.fn().mockReturnValue(true),
+                    },
+                    _CookieConsentManager: {
+                        getNoTargeting: jest.fn().mockReturnValue(true),
+                    },
+                    Identity: {
+                        getCurrentUser: jest.fn().mockReturnValue({ getMPID: () => testMPID }),
+                    },
+                } as unknown) as IMParticleWebSDKInstance;
+
+                const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+                cookieSyncManager.performCookieSync = jest.fn();
+
+                cookieSyncManager.attemptCookieSync(testMPID, true);
+
+                // Should not check noTargeting for non-Rokt partners
+                expect(mockMPInstance._CookieConsentManager.getNoTargeting).not.toHaveBeenCalled();
+                // Should still perform cookie sync
+                expect(cookieSyncManager.performCookieSync).toHaveBeenCalled();
+            });
         });
 
         it('should return early if requiresConsent and mpidIsNotInCookies are both true', () => {
