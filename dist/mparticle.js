@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.52.0";
+    var version = "2.53.0";
 
     var Constants = {
       sdkVersion: version,
@@ -1251,6 +1251,12 @@ var mParticle = (function () {
       SDKProductActionType[SDKProductActionType["AddToWishlist"] = 9] = "AddToWishlist";
       SDKProductActionType[SDKProductActionType["RemoveFromWishlist"] = 10] = "RemoveFromWishlist";
     })(SDKProductActionType || (SDKProductActionType = {}));
+    var LogLevelType = {
+      None: 'none',
+      Verbose: 'verbose',
+      Warning: 'warning',
+      Error: 'error'
+    };
 
     function getDefaultExportFromCjs (x) {
     	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
@@ -2529,13 +2535,13 @@ var mParticle = (function () {
         if (isEmpty(event)) {
           return;
         }
-        var verbose = this.mpInstance.Logger.verbose;
+        var Logger = this.mpInstance.Logger;
         this.eventsQueuedForProcessing.push(event);
         if (this.offlineStorageEnabled && this.eventVault) {
           this.eventVault.store(this.eventsQueuedForProcessing);
         }
-        verbose("Queuing event: ".concat(JSON.stringify(event)));
-        verbose("Queued event count: ".concat(this.eventsQueuedForProcessing.length));
+        Logger.verbose("Queuing event: ".concat(JSON.stringify(event)));
+        Logger.verbose("Queued event count: ".concat(this.eventsQueuedForProcessing.length));
         if (this.shouldTriggerImmediateUpload(event.EventDataType)) {
           this.prepareAndUpload(false, false);
         }
@@ -3486,7 +3492,8 @@ var mParticle = (function () {
       AppNexus: 50,
       Lotame: 58,
       TradeDesk: 103,
-      VerizonMedia: 155
+      VerizonMedia: 155,
+      Rokt: 1277
     };
     function CookieSyncManager(mpInstance) {
       var self = this;
@@ -3525,6 +3532,10 @@ var mParticle = (function () {
           // because a cookie sync can only occur once a user either consents or doesn't.
           // we should not check if it's enabled if the user has a blank consent
           if (requiresConsent && mpidIsNotInCookies) {
+            return;
+          }
+          // For Rokt, block cookie sync when noTargeting privacy flag is true
+          if (moduleId === PARTNER_MODULE_IDS.Rokt && mpInstance._CookieConsentManager.getNoTargeting()) {
             return;
           }
           var isEnabledForUserConsent = mpInstance._Consent.isEnabledForUserConsent;
@@ -4864,56 +4875,54 @@ var mParticle = (function () {
       return directBaseUrls;
     }
 
-    function Logger(config) {
-      var self = this;
-      var logLevel = config.logLevel || 'warning';
-      if (config.hasOwnProperty('logger')) {
-        this.logger = config.logger;
-      } else {
-        this.logger = new ConsoleLogger();
+    var Logger = /** @class */function () {
+      function Logger(config) {
+        var _a, _b;
+        this.logLevel = (_a = config.logLevel) !== null && _a !== void 0 ? _a : LogLevelType.Warning;
+        this.logger = (_b = config.logger) !== null && _b !== void 0 ? _b : new ConsoleLogger();
       }
-      this.verbose = function (msg) {
-        if (logLevel !== 'none') {
-          if (self.logger.verbose && logLevel === 'verbose') {
-            self.logger.verbose(msg);
-          }
+      Logger.prototype.verbose = function (msg) {
+        if (this.logLevel === LogLevelType.None) return;
+        if (this.logger.verbose && this.logLevel === LogLevelType.Verbose) {
+          this.logger.verbose(msg);
         }
       };
-      this.warning = function (msg) {
-        if (logLevel !== 'none') {
-          if (self.logger.warning && (logLevel === 'verbose' || logLevel === 'warning')) {
-            self.logger.warning(msg);
-          }
+      Logger.prototype.warning = function (msg) {
+        if (this.logLevel === LogLevelType.None) return;
+        if (this.logger.warning && (this.logLevel === LogLevelType.Verbose || this.logLevel === LogLevelType.Warning)) {
+          this.logger.warning(msg);
         }
       };
-      this.error = function (msg) {
-        if (logLevel !== 'none') {
-          if (self.logger.error) {
-            self.logger.error(msg);
-          }
+      Logger.prototype.error = function (msg) {
+        if (this.logLevel === LogLevelType.None) return;
+        if (this.logger.error) {
+          this.logger.error(msg);
         }
       };
-      this.setLogLevel = function (newLogLevel) {
-        logLevel = newLogLevel;
+      Logger.prototype.setLogLevel = function (newLogLevel) {
+        this.logLevel = newLogLevel;
       };
-    }
-    function ConsoleLogger() {
-      this.verbose = function (msg) {
+      return Logger;
+    }();
+    var ConsoleLogger = /** @class */function () {
+      function ConsoleLogger() {}
+      ConsoleLogger.prototype.verbose = function (msg) {
         if (console && console.info) {
           console.info(msg);
         }
       };
-      this.error = function (msg) {
+      ConsoleLogger.prototype.error = function (msg) {
         if (console && console.error) {
           console.error(msg);
         }
       };
-      this.warning = function (msg) {
+      ConsoleLogger.prototype.warning = function (msg) {
         if (console && console.warn) {
           console.warn(msg);
         }
       };
-    }
+      return ConsoleLogger;
+    }();
 
     var Base64 = Polyfill.Base64,
       Messages$4 = Constants.Messages,
@@ -9156,15 +9165,15 @@ var mParticle = (function () {
     function IdentityAPIClient(mpInstance) {
       this.sendAliasRequest = function (aliasRequest, aliasCallback) {
         return __awaiter(this, void 0, void 0, function () {
-          var _a, verbose, error, invokeAliasCallback, aliasUrl, apiKey, uploadUrl, uploader, uploadPayload, response, aliasResponseBody, message, errorMessage, _b, xhrResponse, errorResponse, e_2, errorMessage;
-          return __generator(this, function (_c) {
-            switch (_c.label) {
+          var Logger, invokeAliasCallback, aliasUrl, apiKey, uploadUrl, uploader, uploadPayload, response, aliasResponseBody, message, errorMessage, _a, xhrResponse, errorResponse, e_2, errorMessage;
+          return __generator(this, function (_b) {
+            switch (_b.label) {
               case 0:
-                _a = mpInstance.Logger, verbose = _a.verbose, error = _a.error;
+                Logger = mpInstance.Logger;
                 invokeAliasCallback = mpInstance._Helpers.invokeAliasCallback;
                 aliasUrl = mpInstance._Store.SDKConfig.aliasUrl;
                 apiKey = mpInstance._Store.devToken;
-                verbose(Messages$1.InformationMessages.SendAliasHttp);
+                Logger.verbose(Messages$1.InformationMessages.SendAliasHttp);
                 uploadUrl = "https://".concat(aliasUrl).concat(apiKey, "/Alias");
                 uploader = window.fetch ? new FetchUploader(uploadUrl) : new XHRUploader(uploadUrl);
                 uploadPayload = {
@@ -9175,17 +9184,17 @@ var mParticle = (function () {
                   },
                   body: JSON.stringify(aliasRequest)
                 };
-                _c.label = 1;
+                _b.label = 1;
               case 1:
-                _c.trys.push([1, 13,, 14]);
+                _b.trys.push([1, 13,, 14]);
                 return [4 /*yield*/, uploader.upload(uploadPayload)];
               case 2:
-                response = _c.sent();
+                response = _b.sent();
                 aliasResponseBody = void 0;
                 message = void 0;
                 errorMessage = void 0;
-                _b = response.status;
-                switch (_b) {
+                _a = response.status;
+                switch (_a) {
                   case HTTP_ACCEPTED:
                     return [3 /*break*/, 3];
                   case HTTP_OK:
@@ -9200,23 +9209,23 @@ var mParticle = (function () {
                 return [3 /*break*/, 12];
               case 4:
                 if (!response.json) return [3 /*break*/, 9];
-                _c.label = 5;
+                _b.label = 5;
               case 5:
-                _c.trys.push([5, 7,, 8]);
+                _b.trys.push([5, 7,, 8]);
                 return [4 /*yield*/, response.json()];
               case 6:
-                aliasResponseBody = _c.sent();
+                aliasResponseBody = _b.sent();
                 return [3 /*break*/, 8];
               case 7:
-                _c.sent();
-                verbose('The request has no response body');
+                _b.sent();
+                Logger.verbose('The request has no response body');
                 return [3 /*break*/, 8];
               case 8:
                 return [3 /*break*/, 10];
               case 9:
                 xhrResponse = response;
                 aliasResponseBody = xhrResponse.responseText ? JSON.parse(xhrResponse.responseText) : '';
-                _c.label = 10;
+                _b.label = 10;
               case 10:
                 errorResponse = aliasResponseBody;
                 if (errorResponse === null || errorResponse === void 0 ? void 0 : errorResponse.message) {
@@ -9232,13 +9241,13 @@ var mParticle = (function () {
                   throw new Error('Received HTTP Code of ' + response.status);
                 }
               case 12:
-                verbose(message);
+                Logger.verbose(message);
                 invokeAliasCallback(aliasCallback, response.status, errorMessage);
                 return [3 /*break*/, 14];
               case 13:
-                e_2 = _c.sent();
+                e_2 = _b.sent();
                 errorMessage = e_2.message || e_2.toString();
-                error('Error sending alias request to mParticle servers. ' + errorMessage);
+                Logger.error('Error sending alias request to mParticle servers. ' + errorMessage);
                 invokeAliasCallback(aliasCallback, HTTPCodes$1.noHttpCoverage, errorMessage);
                 return [3 /*break*/, 14];
               case 14:
@@ -9250,19 +9259,19 @@ var mParticle = (function () {
 
       this.sendIdentityRequest = function (identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid, knownIdentities) {
         return __awaiter(this, void 0, void 0, function () {
-          var _a, verbose, error, invokeCallback, previousMPID, uploadUrl, uploader, fetchPayload, response, identityResponse, message, _b, responseBody, errorResponse, errorMessage, err_1, errorMessage;
-          return __generator(this, function (_c) {
-            switch (_c.label) {
+          var invokeCallback, Logger, previousMPID, uploadUrl, uploader, fetchPayload, response, identityResponse, message, _a, responseBody, errorResponse, errorMessage, err_1, errorMessage;
+          return __generator(this, function (_b) {
+            switch (_b.label) {
               case 0:
-                _a = mpInstance.Logger, verbose = _a.verbose, error = _a.error;
                 invokeCallback = mpInstance._Helpers.invokeCallback;
-                verbose(Messages$1.InformationMessages.SendIdentityBegin);
+                Logger = mpInstance.Logger;
+                Logger.verbose(Messages$1.InformationMessages.SendIdentityBegin);
                 if (!identityApiRequest) {
-                  error(Messages$1.ErrorMessages.APIRequestEmpty);
+                  Logger.error(Messages$1.ErrorMessages.APIRequestEmpty);
                   return [2 /*return*/];
                 }
 
-                verbose(Messages$1.InformationMessages.SendIdentityHttp);
+                Logger.verbose(Messages$1.InformationMessages.SendIdentityHttp);
                 if (mpInstance._Store.identityCallInFlight) {
                   invokeCallback(callback, HTTPCodes$1.activeIdentityRequest, 'There is currently an Identity request processing. Please wait for this to return before requesting again');
                   return [2 /*return*/];
@@ -9281,16 +9290,16 @@ var mParticle = (function () {
                   body: JSON.stringify(identityApiRequest)
                 };
                 mpInstance._Store.identityCallInFlight = true;
-                _c.label = 1;
+                _b.label = 1;
               case 1:
-                _c.trys.push([1, 9,, 10]);
+                _b.trys.push([1, 9,, 10]);
                 return [4 /*yield*/, uploader.upload(fetchPayload)];
               case 2:
-                response = _c.sent();
+                response = _b.sent();
                 identityResponse = void 0;
                 message = void 0;
-                _b = response.status;
-                switch (_b) {
+                _a = response.status;
+                switch (_a) {
                   case HTTP_ACCEPTED:
                     return [3 /*break*/, 3];
                   case HTTP_OK:
@@ -9303,12 +9312,12 @@ var mParticle = (function () {
                 if (!response.json) return [3 /*break*/, 5];
                 return [4 /*yield*/, response.json()];
               case 4:
-                responseBody = _c.sent();
+                responseBody = _b.sent();
                 identityResponse = this.getIdentityResponseFromFetch(response, responseBody);
                 return [3 /*break*/, 6];
               case 5:
                 identityResponse = this.getIdentityResponseFromXHR(response);
-                _c.label = 6;
+                _b.label = 6;
               case 6:
                 if (identityResponse.status === HTTP_BAD_REQUEST) {
                   errorResponse = identityResponse.responseText;
@@ -9330,14 +9339,14 @@ var mParticle = (function () {
                 }
               case 8:
                 mpInstance._Store.identityCallInFlight = false;
-                verbose(message);
+                Logger.verbose(message);
                 parseIdentityResponse(identityResponse, previousMPID, callback, originalIdentityApiData, method, knownIdentities, false);
                 return [3 /*break*/, 10];
               case 9:
-                err_1 = _c.sent();
+                err_1 = _b.sent();
                 mpInstance._Store.identityCallInFlight = false;
                 errorMessage = err_1.message || err_1.toString();
-                error('Error sending identity request to servers' + ' - ' + errorMessage);
+                Logger.error('Error sending identity request to servers' + ' - ' + errorMessage);
                 invokeCallback(callback, HTTPCodes$1.noHttpCoverage, errorMessage);
                 return [3 /*break*/, 10];
               case 10:
@@ -10114,6 +10123,40 @@ var mParticle = (function () {
       return RoktManager;
     }();
 
+    /**
+     * CookieConsentManager handles storage and access of consent flags (noFunctional, noTargeting)
+     * that are passed via launcherOptions during SDK initialization.
+     *
+     * These flags allow Rokt integration to respect user privacy choices.
+     *
+     * Default behavior: Both flags default to false, meaning all features are allowed
+     * unless explicitly opted out by the user.
+     */
+    var CookieConsentManager = /** @class */function () {
+      function CookieConsentManager(flags) {
+        this.flags = flags;
+        this.flags = {
+          noFunctional: flags.noFunctional === true,
+          noTargeting: flags.noTargeting === true
+        };
+      }
+      /**
+       * Returns true if third-party targeting is disabled.
+       * Targeting is allowed when noTargeting is false (default).
+       */
+      CookieConsentManager.prototype.getNoTargeting = function () {
+        return this.flags.noTargeting;
+      };
+      /**
+       * Returns true if functional tracking is disabled.
+       * Functional tracking is allowed when noFunctional is false (default).
+       */
+      CookieConsentManager.prototype.getNoFunctional = function () {
+        return this.flags.noFunctional;
+      };
+      return CookieConsentManager;
+    }();
+
     var Messages = Constants.Messages,
       HTTPCodes = Constants.HTTPCodes,
       FeatureFlags = Constants.FeatureFlags,
@@ -10226,6 +10269,7 @@ var mParticle = (function () {
         if (instance._Store) {
           delete instance._Store;
         }
+        instance.Logger = new Logger(config);
         instance._Store = new Store(config, instance);
         instance._Store.isLocalStorageAvailable = instance._Persistence.determineLocalStorageAvailability(window.localStorage);
         instance._Events.stopTracking();
@@ -11190,10 +11234,19 @@ var mParticle = (function () {
       });
     }
     function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
+      var _a;
       mpInstance.Logger = new Logger(config);
       mpInstance._Store = new Store(config, mpInstance, apiKey);
       window.mParticle.Store = mpInstance._Store;
       mpInstance.Logger.verbose(StartingInitialization);
+      // Initialize CookieConsentManager with privacy flags from launcherOptions
+      var _b = (_a = config === null || config === void 0 ? void 0 : config.launcherOptions) !== null && _a !== void 0 ? _a : {},
+        noFunctional = _b.noFunctional,
+        noTargeting = _b.noTargeting;
+      mpInstance._CookieConsentManager = new CookieConsentManager({
+        noFunctional: noFunctional,
+        noTargeting: noTargeting
+      });
       // Check to see if localStorage is available before main configuration runs
       // since we will need this for the current implementation of user persistence
       // TODO: Refactor this when we refactor User Identity Persistence
