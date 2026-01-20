@@ -1,3 +1,11 @@
+# [2.53.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.52.0...v2.53.0) (2026-01-20)
+
+
+### Features
+
+* map Rokt Privacy flags in cookieSyncManager ([#1140](https://github.com/mParticle/mparticle-web-sdk/issues/1140)) ([3840afa](https://github.com/mParticle/mparticle-web-sdk/commit/3840afa3866ccdd0efd33f7e5816ff7b553b78f8))
+* Migrate Logger to Typescript ([#1120](https://github.com/mParticle/mparticle-web-sdk/issues/1120)) ([#1141](https://github.com/mParticle/mparticle-web-sdk/issues/1141)) ([e8d1ef1](https://github.com/mParticle/mparticle-web-sdk/commit/e8d1ef130859aec485248513eca924bb82ac2b71))
+
 # [2.52.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.51.0...v2.52.0) (2026-01-13)
 
 
