@@ -1037,6 +1037,126 @@ describe('RoktManager', () => {
             });
         });
 
+        it('should stringify array attributes before setting on current user', async () => {
+            mockMPInstance.Identity.getCurrentUser = jest.fn().mockReturnValue({
+                getMPID: () => testMPID,
+                getUserIdentities: () => ({
+                    userIdentities: {
+                        email: 'test@example.com'
+                    }
+                }),
+                setUserAttributes: jest.fn(),
+            });
+            mockMPInstance.Identity.identify = jest.fn().mockImplementation((data, callback) => {
+                callback();
+            });
+
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    'favorite_colors': ['blue', 'green'],
+                    'cartItems': ['item 1', 'item 2', 'item 3'],
+                    'firstname': 'John'
+                }
+            };
+
+            await roktManager.selectPlacements(options);
+            expect(mockMPInstance.Identity.getCurrentUser().setUserAttributes).toHaveBeenCalledWith({
+                favorite_colors: JSON.stringify(['blue', 'green']),
+                cartItems: JSON.stringify(['item 1', 'item 2', 'item 3']),
+                firstname: 'John'
+            });
+        });
+
+        it('should stringify mixed primitives and arrays correctly', () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn(),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+            roktManager['currentUser'] = {
+                setUserAttributes: jest.fn()
+            } as unknown as IMParticleUser;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    'email': 'test@example.com',
+                    'age': 29,
+                    'active': true,
+                    'favorite_colors': ['blue', 'green'],
+                    'nullValue': null
+                }
+            };
+
+            roktManager.selectPlacements(options);
+            expect(roktManager['currentUser'].setUserAttributes).toHaveBeenCalledWith({
+                email: 'test@example.com',
+                age: 29,
+                active: true,
+                favorite_colors: JSON.stringify(['blue', 'green']),
+                nullValue: null
+            });
+        });
+
+        it('should not stringify reserved attributes and should filter them out', () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn(),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+            roktManager['currentUser'] = {
+                setUserAttributes: jest.fn()
+            } as unknown as IMParticleUser;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    'sandbox': ['test', 'array'],
+                    'email': 'test@example.com',
+                    'favorite_colors': ['blue', 'green']
+                }
+            };
+
+            roktManager.selectPlacements(options);
+            expect(roktManager['currentUser'].setUserAttributes).toHaveBeenCalledWith({
+                email: 'test@example.com',
+                favorite_colors: JSON.stringify(['blue', 'green'])
+            });
+            expect(roktManager['currentUser'].setUserAttributes).not.toHaveBeenCalledWith(
+                expect.objectContaining({
+                    sandbox: expect.anything()
+                })
+            );
+        });
+
         it('should call identify with new email when it differs from current user email', async () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {

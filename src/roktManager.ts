@@ -17,9 +17,11 @@ import { UserIdentities } from "@mparticle/web-sdk";
 import { IdentityType } from "./types";
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
-export interface IRoktPartnerAttributes {
-    [key: string]: string | number | boolean | undefined | null;
-}
+export type RoktAttributeValueArray = Array<string | number | boolean>;
+export type RoktAttributeValueType = string | number | boolean | undefined | null;
+export type RoktAttributeValue = RoktAttributeValueType | RoktAttributeValueArray;
+export type RoktAttributes = Record<string, RoktAttributeValue>;
+
 
 export interface IRoktPartnerExtensionData<T> {
     [extensionName: string]: T;
@@ -27,7 +29,7 @@ export interface IRoktPartnerExtensionData<T> {
 
 // https://docs.rokt.com/developers/integration-guides/web/library/select-placements-options
 export interface IRoktSelectPlacementsOptions {
-    attributes: IRoktPartnerAttributes;
+    attributes: RoktAttributes;
     identifier?: string;
 }
 
@@ -40,7 +42,7 @@ export interface IRoktSelection {
 
 export interface IRoktLauncher {
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
-    hashAttributes: (attributes: IRoktPartnerAttributes) => Promise<Record<string, string>>;
+    hashAttributes: (attributes: RoktAttributes) => Promise<Record<string, string>>;
     use: <T>(name: string) => Promise<T>;
 }
 
@@ -63,7 +65,7 @@ export interface IRoktKit {
     filteredUser: IMParticleUser | null;
     launcher: IRoktLauncher | null;
     userAttributes: Dictionary<string>;
-    hashAttributes: (attributes: IRoktPartnerAttributes) => Promise<Record<string, string>>;
+    hashAttributes: (attributes: RoktAttributes) => Promise<RoktAttributes>;
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
     setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void;
     use: <T>(name: string) => Promise<T>;
@@ -257,11 +259,11 @@ export default class RoktManager {
      * with Rokt-compatible key names (like emailsha256, mobilesha256)
      * 
      * 
-     * @param {IRoktPartnerAttributes} attributes - Attributes to hash
-     * @returns {Promise<IRoktPartnerAttributes>} Object with both original and hashed attributes
+     * @param {RoktAttributes} attributes - Attributes to hash
+     * @returns {Promise<RoktAttributes>} Object with both original and hashed attributes
      * 
      */
-    public async hashAttributes(attributes: IRoktPartnerAttributes): Promise<IRoktPartnerAttributes> {
+    public async hashAttributes(attributes: RoktAttributes): Promise<RoktAttributes> {
         try {
             if (!attributes || typeof attributes !== 'object') {
                 return {};
@@ -276,7 +278,7 @@ export default class RoktManager {
             
             // Hash all attributes in parallel
             const hashPromises = keys.map(async (key) => {
-                const attributeValue = attributes[key];
+                const attributeValue = attributes[key] as RoktAttributeValueType;
                 const hashedValue = await this.hashSha256(attributeValue);
                 return { key, attributeValue, hashedValue };
             });
@@ -284,7 +286,7 @@ export default class RoktManager {
             const results = await Promise.all(hashPromises);
             
             // Build the result object
-            const hashedAttributes: IRoktPartnerAttributes = {};
+            const hashedAttributes: RoktAttributes = {};
             for (const { key, attributeValue, hashedValue } of results) {
                 hashedAttributes[key] = attributeValue;
                 if (hashedValue) {
@@ -333,7 +335,7 @@ export default class RoktManager {
      * @returns {Promise<string | undefined | null>} SHA-256 hashed value or undefined/null
      * 
      */
-    public async hashSha256(attribute: string | number | boolean | undefined | null): Promise<string | undefined | null> {
+    public async hashSha256(attribute: RoktAttributeValueType): Promise<string | undefined | null> {
         if (attribute === null || attribute === undefined) {
             this.logger.warning(`hashSha256 received null/undefined as input`);
             return attribute as null | undefined;
@@ -362,13 +364,14 @@ export default class RoktManager {
         return Boolean(this.kit && this.kit.launcher);
     }
 
-    private setUserAttributes(attributes: IRoktPartnerAttributes): void {
+    private setUserAttributes(attributes: RoktAttributes): void {
         const reservedAttributes = ['sandbox'];
         const filteredAttributes = {};
         
         for (const key in attributes) {
             if (attributes.hasOwnProperty(key) && reservedAttributes.indexOf(key) === -1) {
-                filteredAttributes[key] = attributes[key];
+                const value = attributes[key];
+                filteredAttributes[key] = Array.isArray(value) ? JSON.stringify(value) : value;
             }
         }
 
@@ -379,13 +382,13 @@ export default class RoktManager {
         }
     }
 
-    private mapPlacementAttributes(attributes: IRoktPartnerAttributes, placementAttributesMapping: Dictionary<string>[]): IRoktPartnerAttributes {
+    private mapPlacementAttributes(attributes: RoktAttributes, placementAttributesMapping: Dictionary<string>[]): RoktAttributes {
         const mappingLookup: { [key: string]: string } = {};
         for (const mapping of placementAttributesMapping) {
             mappingLookup[mapping.map] = mapping.value;
         }
     
-        const mappedAttributes: IRoktPartnerAttributes = {};
+        const mappedAttributes: RoktAttributes = {};
         for (const key in attributes) {
             if (attributes.hasOwnProperty(key)) {
                 const newKey = mappingLookup[key] || key;
