@@ -1006,38 +1006,10 @@ describe('RoktManager', () => {
             });
         });
 
-        it('should not set reserved attributes on the current user', () => {
-            const kit: Partial<IRoktKit> = {
-                launcher: {
-                    selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn(),
-                    use: jest.fn(),
-                },
-                selectPlacements: jest.fn(),
-                hashAttributes: jest.fn(),
-                setExtensionData: jest.fn(),
-                use: jest.fn(),
-            };
-
-            roktManager.kit = kit as IRoktKit;
-            roktManager['currentUser'] = {
-                setUserAttributes: jest.fn()
-            } as unknown as IMParticleUser;
-
-            const options: IRoktSelectPlacementsOptions = {
-                attributes: {
-                    'sandbox': true
-                }
-            };
-
-            roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
-            expect(roktManager['currentUser'].setUserAttributes).not.toHaveBeenCalledWith({
-                sandbox: true
-            });
-        });
-
-        it('should stringify array attributes before setting on current user', async () => {
+        it('should not set reserved attributes on the current user', async () => {
+            const setUserAttributesSpy = jest.fn();
+            // Configure current user with matching email to bypass identify flow so
+            // we can focus on testing that reserved attributes are filtered out
             mockMPInstance.Identity.getCurrentUser = jest.fn().mockReturnValue({
                 getMPID: () => testMPID,
                 getUserIdentities: () => ({
@@ -1045,7 +1017,47 @@ describe('RoktManager', () => {
                         email: 'test@example.com'
                     }
                 }),
-                setUserAttributes: jest.fn(),
+                setUserAttributes: setUserAttributesSpy,
+            });
+
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    'sandbox': true,
+                    'email': 'test@example.com'
+                }
+            };
+
+            await roktManager.selectPlacements(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+            expect(setUserAttributesSpy).not.toHaveBeenCalledWith({
+                sandbox: true
+            });
+        });
+
+        it('should stringify array attributes and preserve primitives when setting on current user', async () => {
+            const setUserAttributesSpy = jest.fn();
+            mockMPInstance.Identity.getCurrentUser = jest.fn().mockReturnValue({
+                getMPID: () => testMPID,
+                getUserIdentities: () => ({
+                    userIdentities: {
+                        email: 'test@example.com'
+                    }
+                }),
+                setUserAttributes: setUserAttributesSpy,
             });
             mockMPInstance.Identity.identify = jest.fn().mockImplementation((data, callback) => {
                 callback();
@@ -1069,73 +1081,52 @@ describe('RoktManager', () => {
                 attributes: {
                     'favorite_colors': ['blue', 'green'],
                     'cartItems': ['item 1', 'item 2', 'item 3'],
-                    'firstname': 'John'
-                }
-            };
-
-            await roktManager.selectPlacements(options);
-            expect(mockMPInstance.Identity.getCurrentUser().setUserAttributes).toHaveBeenCalledWith({
-                favorite_colors: JSON.stringify(['blue', 'green']),
-                cartItems: JSON.stringify(['item 1', 'item 2', 'item 3']),
-                firstname: 'John'
-            });
-        });
-
-        it('should stringify mixed primitives and arrays correctly', () => {
-            const kit: Partial<IRoktKit> = {
-                launcher: {
-                    selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn(),
-                    use: jest.fn(),
-                },
-                selectPlacements: jest.fn(),
-                hashAttributes: jest.fn(),
-                setExtensionData: jest.fn(),
-                use: jest.fn(),
-            };
-
-            roktManager.kit = kit as IRoktKit;
-            roktManager['currentUser'] = {
-                setUserAttributes: jest.fn()
-            } as unknown as IMParticleUser;
-
-            const options: IRoktSelectPlacementsOptions = {
-                attributes: {
                     'email': 'test@example.com',
                     'age': 29,
                     'active': true,
-                    'favorite_colors': ['blue', 'green'],
                     'nullValue': null
                 }
             };
 
-            roktManager.selectPlacements(options);
-            expect(roktManager['currentUser'].setUserAttributes).toHaveBeenCalledWith({
+            await roktManager.selectPlacements(options);
+            expect(setUserAttributesSpy).toHaveBeenCalledWith({
+                favorite_colors: JSON.stringify(['blue', 'green']),
+                cartItems: JSON.stringify(['item 1', 'item 2', 'item 3']),
                 email: 'test@example.com',
                 age: 29,
                 active: true,
-                favorite_colors: JSON.stringify(['blue', 'green']),
                 nullValue: null
             });
         });
 
-        it('should not stringify reserved attributes and should filter them out', () => {
+        it('should not stringify reserved attributes and should filter them out', async () => {
+            const setUserAttributesSpy = jest.fn();
+            // Configure current user with matching email to bypass identify flow so
+            // we can focus on the interaction between setting user attributes when making
+            // a selectPlacements call.
+            mockMPInstance.Identity.getCurrentUser = jest.fn().mockReturnValue({
+                getMPID: () => testMPID,
+                getUserIdentities: () => ({
+                    userIdentities: {
+                        email: 'test@example.com'
+                    }
+                }),
+                setUserAttributes: setUserAttributesSpy,
+            });
+
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
                     hashAttributes: jest.fn(),
                     use: jest.fn(),
                 },
-                selectPlacements: jest.fn(),
+                selectPlacements: jest.fn().mockResolvedValue({}),
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
-            roktManager['currentUser'] = {
-                setUserAttributes: jest.fn()
-            } as unknown as IMParticleUser;
 
             const options: IRoktSelectPlacementsOptions = {
                 attributes: {
@@ -1145,12 +1136,12 @@ describe('RoktManager', () => {
                 }
             };
 
-            roktManager.selectPlacements(options);
-            expect(roktManager['currentUser'].setUserAttributes).toHaveBeenCalledWith({
+            await roktManager.selectPlacements(options);
+            expect(setUserAttributesSpy).toHaveBeenCalledWith({
                 email: 'test@example.com',
                 favorite_colors: JSON.stringify(['blue', 'green'])
             });
-            expect(roktManager['currentUser'].setUserAttributes).not.toHaveBeenCalledWith(
+            expect(setUserAttributesSpy).not.toHaveBeenCalledWith(
                 expect.objectContaining({
                     sandbox: expect.anything()
                 })

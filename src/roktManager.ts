@@ -22,7 +22,6 @@ export type RoktAttributeValueType = string | number | boolean | undefined | nul
 export type RoktAttributeValue = RoktAttributeValueType | RoktAttributeValueArray;
 export type RoktAttributes = Record<string, RoktAttributeValue>;
 
-
 export interface IRoktPartnerExtensionData<T> {
     [extensionName: string]: T;
 }
