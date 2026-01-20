@@ -230,15 +230,12 @@ export default class RoktManager {
                             resolve();
                         });
                     });
-                    
-                    // After identify completes, refresh current user identities
-                    this.currentUser = this.identityService.getCurrentUser();
                 } catch (error) {
                     this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error));
                 }
             }
             
-            // Refresh current user identities one more time before creating enrichedAttributes
+            // Refresh current user identities to ensure we have the latest values before building enrichedAttributes
             this.currentUser = this.identityService.getCurrentUser();
             const finalUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
 
@@ -258,7 +255,7 @@ export default class RoktManager {
             if (this.mappedEmailShaIdentityType) {
                 try {
                     const identityType = IdentityType.getIdentityType(this.mappedEmailShaIdentityType);
-                    if (identityType !== false && identityType !== null && identityType !== undefined) {
+                    if (identityType !== false) {
                         const hashedEmail = finalUserIdentities[this.mappedEmailShaIdentityType];
                         if (hashedEmail && !enrichedAttributes.emailsha256 && !enrichedAttributes[this.mappedEmailShaIdentityType]) {
                             enrichedAttributes.emailsha256 = hashedEmail;
@@ -266,6 +263,7 @@ export default class RoktManager {
                     }
                 } catch (error) {
                     // If IdentityType.getIdentityType fails, skip emailsha256 propagation
+                    this.logger.warning("Failed to propagate emailsha256 from user identities: " + error);
                 }
             }
 
