@@ -244,7 +244,7 @@ export default class RoktManager {
 
             this.setUserAttributes(mappedAttributes);
 
-            const enrichedAttributes: IRoktPartnerAttributes = {
+            const enrichedAttributes: RoktAttributes = {
                 ...mappedAttributes,
                 ...(sandboxValue !== null ? { sandbox: sandboxValue } : {}),
             };
