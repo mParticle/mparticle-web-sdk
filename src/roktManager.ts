@@ -100,7 +100,7 @@ export default class RoktManager {
     private launcherOptions?: IRoktLauncherOptions;
     private logger: SDKLoggerApi;
     private domain?: string;
-    private mappedEmailShaIdentityType?: string  | null;
+    private mappedEmailShaIdentityType?: string | null;
     /**
      * Initializes the RoktManager with configuration settings and user data.
      * 
