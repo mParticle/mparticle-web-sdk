@@ -229,17 +229,44 @@ export default class RoktManager {
                             resolve();
                         });
                     });
+                    
+                    // After identify completes, refresh current user identities
+                    this.currentUser = this.identityService.getCurrentUser();
                 } catch (error) {
                     this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error));
                 }
             }
+            
+            // Refresh current user identities one more time before creating enrichedAttributes
+            this.currentUser = this.identityService.getCurrentUser();
+            const finalUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
 
             this.setUserAttributes(mappedAttributes);
 
-            const enrichedAttributes = {
+            const enrichedAttributes: IRoktPartnerAttributes = {
                 ...mappedAttributes,
                 ...(sandboxValue !== null ? { sandbox: sandboxValue } : {}),
             };
+
+            // Propagate email from current user identities if not already in attributes
+            if (finalUserIdentities.email && !enrichedAttributes.email) {
+                enrichedAttributes.email = finalUserIdentities.email;
+            }
+
+            // Propagate emailsha256 from current user identities if not already in attributes
+            if (this.mappedEmailShaIdentityType) {
+                try {
+                    const identityType = IdentityType.getIdentityType(this.mappedEmailShaIdentityType);
+                    if (identityType !== false && identityType !== null && identityType !== undefined) {
+                        const hashedEmail = finalUserIdentities[this.mappedEmailShaIdentityType];
+                        if (hashedEmail && !enrichedAttributes.emailsha256 && !enrichedAttributes[this.mappedEmailShaIdentityType]) {
+                            enrichedAttributes.emailsha256 = hashedEmail;
+                        }
+                    }
+                } catch (error) {
+                    // If IdentityType.getIdentityType fails, skip emailsha256 propagation
+                }
+            }
 
             const enrichedOptions = {
                 ...options,
