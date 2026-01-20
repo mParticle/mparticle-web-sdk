@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.53.0";
+    var version = "2.53.1";
 
     var Constants = {
       sdkVersion: version,
@@ -9844,8 +9844,8 @@ var mParticle = (function () {
        * with Rokt-compatible key names (like emailsha256, mobilesha256)
        *
        *
-       * @param {IRoktPartnerAttributes} attributes - Attributes to hash
-       * @returns {Promise<IRoktPartnerAttributes>} Object with both original and hashed attributes
+       * @param {RoktAttributes} attributes - Attributes to hash
+       * @returns {Promise<RoktAttributes>} Object with both original and hashed attributes
        *
        */
       RoktManager.prototype.hashAttributes = function (attributes) {
@@ -9979,7 +9979,8 @@ var mParticle = (function () {
         var filteredAttributes = {};
         for (var key in attributes) {
           if (attributes.hasOwnProperty(key) && reservedAttributes.indexOf(key) === -1) {
-            filteredAttributes[key] = attributes[key];
+            var value = attributes[key];
+            filteredAttributes[key] = Array.isArray(value) ? JSON.stringify(value) : value;
           }
         }
         try {
