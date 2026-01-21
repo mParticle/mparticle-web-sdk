@@ -1459,13 +1459,17 @@ describe('RoktManager', () => {
             roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith({
                 attributes: {
+                    'email': 'test@example.com',
                     'sandbox': true
                 },
                 devPassedAttributes: {
-                    'sandbox': true
+                    'email': 'test@example.com',
+                    'sandbox': true,
                 }
             });
             expect(roktManager['currentUser'].setUserAttributes).not.toHaveBeenCalledWith({
+            
+            expect(setUserAttributesSpy).not.toHaveBeenCalledWith({
                 sandbox: true
             });
         });
