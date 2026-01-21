@@ -594,7 +594,7 @@ describe('RoktManager', () => {
                     mapped_key: 'test_value',  // This key should be mapped
                     other_attr: 'other_value'  // This key should remain unchanged
                 },
-                devPassedAttributes: {
+                debugAttributes: {
                     original_key: 'test_value',
                     other_attr: 'other_value'
                 }
@@ -664,7 +664,7 @@ describe('RoktManager', () => {
             roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith({
                 attributes: {},
-                devPassedAttributes: {}
+                debugAttributes: {}
             });
         });
 
@@ -705,7 +705,7 @@ describe('RoktManager', () => {
                     isActive: false,
                     interests: 'sports,music,books'
                 },
-                devPassedAttributes: {
+                debugAttributes: {
                     age: 25,
                     score: 100.5,
                     isSubscribed: true,
@@ -776,7 +776,7 @@ describe('RoktManager', () => {
             expect(roktManager['messageQueue'].size).toBe(0);
             expect(kit.selectPlacements).toHaveBeenCalledWith({
                 attributes: {},
-                devPassedAttributes: {}
+                debugAttributes: {}
             });
             expect(result).toEqual(expectedResult);
         });
@@ -825,7 +825,7 @@ describe('RoktManager', () => {
                     isActive: false,
                     interests: 'sports,music,books'
                 },
-                devPassedAttributes: {
+                debugAttributes: {
                     age: 25,
                     score: 100.5,
                     isSubscribed: true,
@@ -872,7 +872,7 @@ describe('RoktManager', () => {
                     sandbox: true
                 },
                 identifier: 'test-identifier',
-                devPassedAttributes: {
+                debugAttributes: {
                     customAttr: 'value',
                     sandbox: true
                 }
@@ -913,7 +913,7 @@ describe('RoktManager', () => {
                     customAttr: 'value',
                     sandbox: false
                 },
-                devPassedAttributes: {
+                debugAttributes: {
                     customAttr: 'value',
                     sandbox: false
                 }
@@ -954,7 +954,7 @@ describe('RoktManager', () => {
                     sandbox: true
                 },
                 identifier: 'test-identifier',
-                devPassedAttributes: {
+                debugAttributes: {
                     customAttr: 'value',
                     sandbox: true
                 }
@@ -1004,7 +1004,7 @@ describe('RoktManager', () => {
                     lastname: 'Doe',
                     score: 42,
                 },
-                devPassedAttributes: {
+                debugAttributes: {
                     'f.name': 'John',
                     'last_name': 'Doe',
                     'score': 42,
@@ -1048,7 +1048,7 @@ describe('RoktManager', () => {
                     'score': 42,
                     'age': 25,
                 },
-                devPassedAttributes: {
+                debugAttributes: {
                     'f.name': 'John',
                     'last_name': 'Doe',
                     'score': 42,
@@ -1057,7 +1057,7 @@ describe('RoktManager', () => {
             });
         });
 
-        it('should pass devPassedAttributes to kit for event logging', () => {
+        it('should pass debugAttributes to kit for event logging', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -1083,14 +1083,14 @@ describe('RoktManager', () => {
 
             expect(kit.selectPlacements).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    devPassedAttributes: {
+                    debugAttributes: {
                         'customAttr': 'value',
                     }
                 })
             );
         });
 
-        it('should include original attributes in devPassedAttributes even after mapping', () => {
+        it('should include original attributes in debugAttributes even after mapping', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -1122,10 +1122,10 @@ describe('RoktManager', () => {
 
             roktManager.selectPlacements(options);
 
-            // devPassedAttributes should contain the ORIGINAL unmapped attributes
+            // debugAttributes should contain the ORIGINAL unmapped attributes
             expect(kit.selectPlacements).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    devPassedAttributes: {
+                    debugAttributes: {
                         'f.name': 'John',
                         'userId': 'user123',
                     },
@@ -1230,7 +1230,7 @@ describe('RoktManager', () => {
                     'email': 'test@example.com',
                     'sandbox': true
                 },
-                devPassedAttributes: {
+                debugAttributes: {
                     'email': 'test@example.com',
                     'sandbox': true,
                 }
