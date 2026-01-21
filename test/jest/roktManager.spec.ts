@@ -1584,6 +1584,7 @@ describe('RoktManager', () => {
         });
 
         it('should propagate emailsha256 from current user identities to kit.selectPlacements when not in attributes', async () => {
+            const testRoktManager = new RoktManager();
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -1595,7 +1596,7 @@ describe('RoktManager', () => {
                 setExtensionData: jest.fn(),
             };
             
-            roktManager.init(
+            testRoktManager.init(
                 {
                     settings: {
                         hashedEmailUserIdentityType: 'other5'
@@ -1606,8 +1607,8 @@ describe('RoktManager', () => {
                 mockMPInstance._Store,
                 mockMPInstance.Logger,
             );
-            roktManager['placementAttributesMapping'] = [];
-            roktManager.kit = kit as IRoktKit;
+            testRoktManager['placementAttributesMapping'] = [];
+            testRoktManager.kit = kit as IRoktKit;
 
             const mockIdentity = {
                 getCurrentUser: jest.fn().mockReturnValue({
@@ -1622,7 +1623,7 @@ describe('RoktManager', () => {
                 identify: jest.fn()
             } as unknown as SDKIdentityApi;
 
-            roktManager['identityService'] = mockIdentity;
+            testRoktManager['identityService'] = mockIdentity;
 
             const options: IRoktSelectPlacementsOptions = {
                 attributes: {
@@ -1630,7 +1631,7 @@ describe('RoktManager', () => {
                 }
             };
 
-            await roktManager.selectPlacements(options);
+            await testRoktManager.selectPlacements(options);
 
             expect(mockIdentity.identify).not.toHaveBeenCalled();
             expect(kit.selectPlacements).toHaveBeenCalledWith(
@@ -1690,11 +1691,17 @@ describe('RoktManager', () => {
                         if (identifyResolve) {
                             identifyResolve();
                         }
-                    }, 10);
+                    }, 150);
                 })
             } as unknown as SDKIdentityApi;
 
             roktManager['identityService'] = mockIdentity;
+
+            // Create a store mock that simulates identity call in flight
+            const mockStore: any = {
+                identityCallInFlight: true
+            };
+            roktManager['store'] = mockStore as IStore;
 
             mockIdentity.identify({
                 userIdentities: {
@@ -1702,16 +1709,30 @@ describe('RoktManager', () => {
                 }
             }, () => {});
 
+            // Simulate identity call completing after a delay
+            const identityCompletePromise = new Promise<void>((resolve) => {
+                setTimeout(() => {
+                    mockStore.identityCallInFlight = false;
+                    resolve();
+                }, 150);
+            });
+
             const options: IRoktSelectPlacementsOptions = {
                 attributes: {
                     firstname: 'John'
                 }
             };
 
+            const startTime = Date.now();
             const selectPlacementsPromise = roktManager.selectPlacements(options);
             
-            await identifyPromise;
-            await selectPlacementsPromise;
+            // Wait for both identity to complete and selectPlacements to finish
+            await Promise.all([identityCompletePromise, identifyPromise, selectPlacementsPromise]);
+            const elapsedTime = Date.now() - startTime;
+
+            // Verify that selectPlacements waited for the identity call to complete
+            expect(elapsedTime).toBeGreaterThanOrEqual(100);
+            expect(elapsedTime).toBeLessThan(500);
 
             expect(kit.selectPlacements).toHaveBeenCalledWith(
                 expect.objectContaining({
