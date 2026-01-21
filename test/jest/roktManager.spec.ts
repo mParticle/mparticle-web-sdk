@@ -437,6 +437,19 @@ describe('RoktManager', () => {
             );
             expect(roktManager['mappedEmailShaIdentityType']).toBe('other5');
         });
+
+        it('should pass through Rokt privacy flags (noTargeting and noFunctional) from launcher options', () => {
+            roktManager.init(
+                {} as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+                { launcherOptions: { noTargeting: true, noFunctional: false } },
+            );
+            expect(roktManager['launcherOptions'].noTargeting).toBe(true);
+            expect(roktManager['launcherOptions'].noFunctional).toBe(false);
+        });
     });
 
     describe('#attachKit', () => {
@@ -1176,31 +1189,42 @@ describe('RoktManager', () => {
             });
         });
 
-        it('should not set reserved attributes on the current user', () => {
+        it('should not set reserved attributes on the current user', async () => {
+            const setUserAttributesSpy = jest.fn();
+            // Configure current user with matching email to bypass identify flow so
+            // we can focus on testing that reserved attributes are filtered out
+            mockMPInstance.Identity.getCurrentUser = jest.fn().mockReturnValue({
+                getMPID: () => testMPID,
+                getUserIdentities: () => ({
+                    userIdentities: {
+                        email: 'test@example.com'
+                    }
+                }),
+                setUserAttributes: setUserAttributesSpy,
+            });
+
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
                     hashAttributes: jest.fn(),
                     use: jest.fn(),
                 },
-                selectPlacements: jest.fn(),
+                selectPlacements: jest.fn().mockResolvedValue({}),
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
-            roktManager['currentUser'] = {
-                setUserAttributes: jest.fn()
-            } as unknown as IMParticleUser;
 
             const options: IRoktSelectPlacementsOptions = {
                 attributes: {
-                    'sandbox': true
+                    'sandbox': true,
+                    'email': 'test@example.com'
                 }
             };
 
-            roktManager.selectPlacements(options);
+            await roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith({
                 attributes: {
                     'sandbox': true
@@ -1209,9 +1233,110 @@ describe('RoktManager', () => {
                     'sandbox': true
                 }
             });
-            expect(roktManager['currentUser'].setUserAttributes).not.toHaveBeenCalledWith({
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+            expect(setUserAttributesSpy).not.toHaveBeenCalledWith({
                 sandbox: true
             });
+        });
+
+        it('should stringify array attributes and preserve primitives when setting on current user', async () => {
+            const setUserAttributesSpy = jest.fn();
+            mockMPInstance.Identity.getCurrentUser = jest.fn().mockReturnValue({
+                getMPID: () => testMPID,
+                getUserIdentities: () => ({
+                    userIdentities: {
+                        email: 'test@example.com'
+                    }
+                }),
+                setUserAttributes: setUserAttributesSpy,
+            });
+            mockMPInstance.Identity.identify = jest.fn().mockImplementation((data, callback) => {
+                callback();
+            });
+
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    'favorite_colors': ['blue', 'green'],
+                    'cartItems': ['item 1', 'item 2', 'item 3'],
+                    'email': 'test@example.com',
+                    'age': 29,
+                    'active': true,
+                    'nullValue': null
+                }
+            };
+
+            await roktManager.selectPlacements(options);
+            expect(setUserAttributesSpy).toHaveBeenCalledWith({
+                favorite_colors: JSON.stringify(['blue', 'green']),
+                cartItems: JSON.stringify(['item 1', 'item 2', 'item 3']),
+                email: 'test@example.com',
+                age: 29,
+                active: true,
+                nullValue: null
+            });
+        });
+
+        it('should not stringify reserved attributes and should filter them out', async () => {
+            const setUserAttributesSpy = jest.fn();
+            // Configure current user with matching email to bypass identify flow so
+            // we can focus on the interaction between setting user attributes when making
+            // a selectPlacements call.
+            mockMPInstance.Identity.getCurrentUser = jest.fn().mockReturnValue({
+                getMPID: () => testMPID,
+                getUserIdentities: () => ({
+                    userIdentities: {
+                        email: 'test@example.com'
+                    }
+                }),
+                setUserAttributes: setUserAttributesSpy,
+            });
+
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    'sandbox': ['test', 'array'],
+                    'email': 'test@example.com',
+                    'favorite_colors': ['blue', 'green']
+                }
+            };
+
+            await roktManager.selectPlacements(options);
+            expect(setUserAttributesSpy).toHaveBeenCalledWith({
+                email: 'test@example.com',
+                favorite_colors: JSON.stringify(['blue', 'green'])
+            });
+            expect(setUserAttributesSpy).not.toHaveBeenCalledWith(
+                expect.objectContaining({
+                    sandbox: expect.anything()
+                })
+            );
         });
 
         it('should call identify with new email when it differs from current user email', async () => {
