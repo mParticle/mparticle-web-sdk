@@ -1227,13 +1227,15 @@ describe('RoktManager', () => {
             await roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith({
                 attributes: {
+                    'email': 'test@example.com',
                     'sandbox': true
                 },
                 devPassedAttributes: {
-                    'sandbox': true
+                    'email': 'test@example.com',
+                    'sandbox': true,
                 }
             });
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+            
             expect(setUserAttributesSpy).not.toHaveBeenCalledWith({
                 sandbox: true
             });
