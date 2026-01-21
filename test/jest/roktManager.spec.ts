@@ -64,6 +64,7 @@ describe('RoktManager', () => {
 
     afterEach(() => {
         jest.clearAllMocks();
+        roktManager = null;
     });
 
     describe('constructor', () => {
@@ -1723,9 +1724,6 @@ describe('RoktManager', () => {
         });
 
         it('should not override email in attributes with current user email', async () => {
-            // Reset mappedEmailShaIdentityType to avoid issues from previous tests
-            roktManager['mappedEmailShaIdentityType'] = undefined;
-
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),

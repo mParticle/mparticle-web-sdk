@@ -89,6 +89,8 @@ export type IRoktLauncherOptions = Dictionary<any>;
 //
 // https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt
 export default class RoktManager {
+    private static readonly IDENTITY_CALL_WAIT_MS = 200; // Wait time when identity call is in flight
+
     public kit: IRoktKit = null;
     public filters: RoktKitFilterSettings = {};
     private currentUser: IMParticleUser | null = null;
@@ -191,7 +193,7 @@ export default class RoktManager {
             if (this.store?.identityCallInFlight) {
                 // Wait a short time for the in-flight identify call to complete
                 // This handles the common case where identify is called during SDK initialization
-                await new Promise(resolve => setTimeout(resolve, 200));
+                await new Promise(resolve => setTimeout(resolve, RoktManager.IDENTITY_CALL_WAIT_MS));
                 
                 this.logger.verbose('Rokt Manager: identity call in flight: ' + this.store?.identityCallInFlight);
             }
