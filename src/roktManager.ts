@@ -275,7 +275,7 @@ export default class RoktManager {
                 return {};
             }
             
-            // Hash all attributes in parallel accept arrays
+            // Hash all attributes in parallel except arrays
             const hashPromises = keys.map(async (key) => {
                 const attributeValue = attributes[key] as RoktAttributeValueType;
                 if (Array.isArray(attributeValue)) {
