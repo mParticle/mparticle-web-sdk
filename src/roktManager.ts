@@ -271,17 +271,14 @@ export default class RoktManager {
             }
 
             // Propagate emailsha256 from current user identities if not already in attributes
-            if (this.mappedEmailShaIdentityType) {
+            if (isValidHashedEmailIdentityType) {
                 try {
-                    const identityType = IdentityType.getIdentityType(this.mappedEmailShaIdentityType);
-                    if (identityType !== false) {
-                        const hashedEmail = finalUserIdentities[this.mappedEmailShaIdentityType];
-                        if (hashedEmail && !enrichedAttributes.emailsha256 && !enrichedAttributes[this.mappedEmailShaIdentityType]) {
-                            enrichedAttributes.emailsha256 = hashedEmail;
-                        }
+                    const hashedEmail = finalUserIdentities[this.mappedEmailShaIdentityType];
+                    if (hashedEmail && !enrichedAttributes.emailsha256 && !enrichedAttributes[this.mappedEmailShaIdentityType]) {
+                        enrichedAttributes.emailsha256 = hashedEmail;
                     }
                 } catch (error) {
-                    // If IdentityType.getIdentityType fails, skip emailsha256 propagation
+                    // If there's an unexpected error while accessing user identities, skip emailsha256 propagation
                     this.logger.warning("Failed to propagate emailsha256 from user identities: " + error);
                 }
             }
