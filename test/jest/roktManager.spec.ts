@@ -3,6 +3,7 @@ import { IMParticleUser } from "../../src/identity-user-interfaces";
 import { SDKIdentityApi } from "../../src/identity.interfaces";
 import { IMParticleWebSDKInstance } from "../../src/mp-instance";
 import RoktManager, { IRoktKit, IRoktSelectPlacementsOptions } from "../../src/roktManager";
+import { IStore } from "../../src/store";
 import { testMPID } from '../src/config/constants';
 
 const resolvePromise = () => new Promise(resolve => setTimeout(resolve, 0));
@@ -1831,6 +1832,214 @@ describe('RoktManager', () => {
             );
 
             // Verify selectPlacements was still called
+            expect(kit.selectPlacements).toHaveBeenCalled();
+        });
+
+        it('should update filters.filteredUser with current user before calling kit.selectPlacements', async () => {
+            const mockUser = {
+                getMPID: () => testMPID,
+                getUserIdentities: () => ({
+                    userIdentities: {
+                        email: 'test@example.com'
+                    }
+                }),
+                setUserAttributes: jest.fn()
+            } as unknown as IMParticleUser;
+
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+            roktManager['placementAttributesMapping'] = [];
+
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue(mockUser),
+                identify: jest.fn()
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {}
+            };
+
+            await roktManager.selectPlacements(options);
+
+            // Verify filters.filteredUser was updated with current user
+            expect(roktManager.filters.filteredUser).toBe(mockUser);
+            expect(kit.selectPlacements).toHaveBeenCalled();
+        });
+
+        it('should update filters.filteredUser when getCurrentUser returns a different user', async () => {
+            const initialUser = {
+                getMPID: () => 'initial-mpid',
+                getUserIdentities: () => ({ userIdentities: {} }),
+                setUserAttributes: jest.fn()
+            } as unknown as IMParticleUser;
+
+            const updatedUser = {
+                getMPID: () => testMPID,
+                getUserIdentities: () => ({
+                    userIdentities: {
+                        email: 'updated@example.com'
+                    }
+                }),
+                setUserAttributes: jest.fn()
+            } as unknown as IMParticleUser;
+
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+            roktManager['placementAttributesMapping'] = [];
+            roktManager.filters.filteredUser = initialUser;
+
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue(updatedUser),
+                identify: jest.fn()
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {}
+            };
+
+            await roktManager.selectPlacements(options);
+
+            // Verify filters.filteredUser was updated to the new user
+            expect(roktManager.filters.filteredUser).toBe(updatedUser);
+            expect(roktManager.filters.filteredUser).not.toBe(initialUser);
+        });
+
+        it('should wait briefly when identity call is in flight', async () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+            roktManager['placementAttributesMapping'] = [];
+
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getUserIdentities: () => ({ userIdentities: {} }),
+                    setUserAttributes: jest.fn()
+                }),
+                identify: jest.fn()
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+            roktManager['store'] = {
+                identityCallInFlight: true
+            } as unknown as IStore;
+
+            const startTime = Date.now();
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {}
+            };
+
+            await roktManager.selectPlacements(options);
+
+            const elapsedTime = Date.now() - startTime;
+            // Should have waited at least 200ms (allowing for some variance)
+            expect(elapsedTime).toBeGreaterThanOrEqual(180);
+            expect(kit.selectPlacements).toHaveBeenCalled();
+        });
+
+        it('should update filters.filteredUser with newly identified user when anonymous user is identified through selectPlacements', async () => {
+            const anonymousUser = {
+                getMPID: () => 'anonymous-mpid',
+                getUserIdentities: () => ({
+                    userIdentities: {}
+                }),
+                setUserAttributes: jest.fn()
+            } as unknown as IMParticleUser;
+
+            const identifiedUser = {
+                getMPID: () => testMPID,
+                getUserIdentities: () => ({
+                    userIdentities: {
+                        email: 'user@example.com'
+                    }
+                }),
+                setUserAttributes: jest.fn()
+            } as unknown as IMParticleUser;
+
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+            roktManager['placementAttributesMapping'] = [];
+            
+            // Start with anonymous user (no email)
+            roktManager.filters.filteredUser = anonymousUser;
+
+            const mockIdentity = {
+                getCurrentUser: jest.fn()
+                    // First call: anonymous user (before identify)
+                    .mockReturnValueOnce(anonymousUser)
+                    // Second call: identified user (after identify completes)
+                    .mockReturnValue(identifiedUser),
+                identify: jest.fn().mockImplementation((data, callback) => {
+                    // Simulate identify completing and updating the user
+                    callback();
+                })
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    email: 'user@example.com'
+                }
+            };
+
+            await roktManager.selectPlacements(options);
+
+            // Verify identify was called
+            expect(mockIdentity.identify).toHaveBeenCalledWith({
+                userIdentities: {
+                    email: 'user@example.com'
+                }
+            }, expect.any(Function));
+
+            // Verify filters.filteredUser was updated with the newly identified user
+            expect(roktManager.filters.filteredUser).toBe(identifiedUser);
+            expect(roktManager.filters.filteredUser).not.toBe(anonymousUser);
+            expect(roktManager.filters.filteredUser?.getMPID()).toBe(testMPID);
+
+            // Verify kit was called
             expect(kit.selectPlacements).toHaveBeenCalled();
         });
     });

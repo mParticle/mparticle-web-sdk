@@ -101,6 +101,7 @@ export default class RoktManager {
     private logger: SDKLoggerApi;
     private domain?: string;
     private mappedEmailShaIdentityType?: string | null;
+    
     /**
      * Initializes the RoktManager with configuration settings and user data.
      * 
@@ -185,7 +186,16 @@ export default class RoktManager {
             const sandboxValue = attributes?.sandbox || null;
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
 
-            // Get current user identities
+            // If an identify call is in flight (e.g., during SDK initialization), wait briefly for it to complete
+            // This is a single check with a short wait, not continuous polling
+            if (this.store?.identityCallInFlight) {
+                // Wait a short time for the in-flight identify call to complete
+                // This handles the common case where identify is called during SDK initialization
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
+                this.logger.verbose('Rokt Manager: identity call in flight: ' + this.store?.identityCallInFlight);
+            }
+            
             this.currentUser = this.identityService.getCurrentUser();
             const currentUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
 
@@ -273,6 +283,8 @@ export default class RoktManager {
                     this.logger.warning("Failed to propagate emailsha256 from user identities: " + error);
                 }
             }
+
+            this.filters.filteredUser = this.currentUser || this.filters.filteredUser || null;
 
             const enrichedOptions = {
                 ...options,
