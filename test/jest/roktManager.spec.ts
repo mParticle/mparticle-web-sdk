@@ -160,6 +160,25 @@ describe('RoktManager', () => {
                 expect.stringContaining('Failed to hashAttributes, returning an empty object: Hashing failed')
             );
         });
+
+        it('should skip hashing for array values', async () => {
+            const attributes = {
+                email: 'test@example.com',
+                tags: ['vip', 'premium'],
+                emptyList: [],
+            };
+
+            const result = await roktManager.hashAttributes(attributes);
+
+            expect(result).toEqual({
+                email: 'test@example.com',
+                emailsha256: nodeCrypto.createHash('sha256').update('test@example.com').digest('hex'),
+                tags: ['vip', 'premium'],
+                emptyList: [],
+            });
+            expect(result['tagssha256']).toBeUndefined();
+            expect(result['emptyListsha256']).toBeUndefined();
+        });
     });
 
     describe('#hashSha256', () => {
