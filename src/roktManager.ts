@@ -89,9 +89,6 @@ export type IRoktLauncherOptions = Dictionary<any>;
 //
 // https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt
 export default class RoktManager {
-    private static readonly IDENTITY_CALL_POLL_INTERVAL_MS = 50; // Polling interval for checking identityCallInFlight
-    private static readonly IDENTITY_CALL_MAX_WAIT_MS = 5000; // Maximum time to wait for identity call to complete
-
     public kit: IRoktKit = null;
     public filters: RoktKitFilterSettings = {};
     private currentUser: IMParticleUser | null = null;
@@ -104,6 +101,13 @@ export default class RoktManager {
     private logger: SDKLoggerApi;
     private domain?: string;
     private mappedEmailShaIdentityType?: string | null;
+    
+    // Queue for selectPlacements calls waiting for identity to complete
+    private identityQueue: Array<{
+        options: IRoktSelectPlacementsOptions;
+        resolve: (value: IRoktSelection) => void;
+        reject: (reason?: any) => void;
+    }> = [];
     
     /**
      * Initializes the RoktManager with configuration settings and user data.
@@ -179,32 +183,51 @@ export default class RoktManager {
      *   }
      * });
      */
-    public async selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
+    public selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
         if (!this.isReady()) {
             return this.deferredCall<IRoktSelection>('selectPlacements', options);
         }
 
+        // If an identity call is in flight, queue this call to be processed when it completes
+        if (this.store?.identityCallInFlight) {
+            this.logger?.verbose('RoktManager: Identity call in flight, queueing selectPlacements');
+            return new Promise<IRoktSelection>((resolve, reject) => {
+                this.identityQueue.push({ options, resolve, reject });
+            });
+        }
+
+        return this.executeSelectPlacements(options);
+    }
+
+    /**
+     * Called by the identity service when an identity call completes.
+     * Processes any queued selectPlacements calls that were waiting for identity.
+     */
+    public onIdentityComplete(): void {
+        if (this.identityQueue.length === 0) {
+            return;
+        }
+
+        this.logger?.verbose(`RoktManager: Identity complete, processing ${this.identityQueue.length} queued selectPlacements calls`);
+
+        // Copy and clear the queue before processing to avoid issues if new items are added during processing
+        const queueCopy = [...this.identityQueue];
+        this.identityQueue = [];
+
+        for (const { options, resolve, reject } of queueCopy) {
+            this.executeSelectPlacements(options).then(resolve).catch(reject);
+        }
+    }
+
+    /**
+     * Internal method that executes the selectPlacements logic.
+     * Called directly when no identity call is in progress, or from the queue when identity completes.
+     */
+    private async executeSelectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
         try {
             const { attributes } = options;
             const sandboxValue = attributes?.sandbox || null;
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
-
-            // If an identify call is in flight (e.g., during SDK initialization), poll until it completes
-            if (this.store?.identityCallInFlight) {
-                const startTime = Date.now();
-                this.logger.verbose('Rokt Manager: identity call in flight, polling until complete');
-                
-                // Poll until identity call completes or max wait time is reached
-                while (this.store?.identityCallInFlight && (Date.now() - startTime) < RoktManager.IDENTITY_CALL_MAX_WAIT_MS) {
-                    await new Promise(resolve => setTimeout(resolve, RoktManager.IDENTITY_CALL_POLL_INTERVAL_MS));
-                }
-                
-                if (this.store?.identityCallInFlight) {
-                    this.logger.warning('Rokt Manager: identity call still in flight after max wait time, proceeding anyway');
-                } else {
-                    this.logger.verbose('Rokt Manager: identity call completed');
-                }
-            }
             
             this.currentUser = this.identityService.getCurrentUser();
             const currentUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
@@ -409,7 +432,7 @@ export default class RoktManager {
         this.store.setLocalSessionAttribute(key, value);
     }
 
-    private isReady(): boolean {
+    public isReady(): boolean {
         // The Rokt Manager is ready when a kit is attached and has a launcher
         return Boolean(this.kit && this.kit.launcher);
     }

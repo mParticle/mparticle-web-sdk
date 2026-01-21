@@ -1926,8 +1926,78 @@ describe('RoktManager', () => {
             expect(roktManager.filters.filteredUser).not.toBe(initialUser);
         });
 
-        it('should wait briefly when identity call is in flight', async () => {
-            jest.setTimeout(10000); // Increase timeout for this test
+        it('should queue selectPlacements when identity call is in flight and process when complete', async () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+            roktManager['placementAttributesMapping'] = [];
+
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getUserIdentities: () => ({ 
+                        userIdentities: {
+                            email: 'user@example.com'
+                        } 
+                    }),
+                    setUserAttributes: jest.fn()
+                }),
+                identify: jest.fn()
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+            
+            // Create a store mock that simulates identity call in flight
+            const mockStore: any = {
+                identityCallInFlight: true
+            };
+            roktManager['store'] = mockStore as IStore;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    firstname: 'John'
+                }
+            };
+
+            // Call selectPlacements while identity is in flight - should be queued
+            const selectPlacementsPromise = roktManager.selectPlacements(options);
+
+            // Verify the call was queued
+            expect(roktManager['identityQueue'].length).toBe(1);
+            
+            // Kit's selectPlacements should NOT have been called yet
+            expect(kit.selectPlacements).not.toHaveBeenCalled();
+
+            // Simulate identity call completing
+            mockStore.identityCallInFlight = false;
+            roktManager.onIdentityComplete();
+
+            // Wait for the promise to resolve
+            await selectPlacementsPromise;
+
+            // Verify selectPlacements was called with email propagated from user identities
+            expect(kit.selectPlacements).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    attributes: expect.objectContaining({
+                        email: 'user@example.com',
+                        firstname: 'John'
+                    })
+                })
+            );
+
+            // Queue should be empty now
+            expect(roktManager['identityQueue'].length).toBe(0);
+        });
+
+        it('should process multiple queued selectPlacements calls when identity completes', async () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -1952,38 +2022,30 @@ describe('RoktManager', () => {
 
             roktManager['identityService'] = mockIdentity;
             
-            // Create a store mock that simulates identity call completing after a short delay
             const mockStore: any = {
                 identityCallInFlight: true
             };
             roktManager['store'] = mockStore as IStore;
 
-            // Simulate identity call completing after ~150ms
-            // Use a promise to ensure the setTimeout completes
-            const identityCompletePromise = new Promise<void>((resolve) => {
-                setTimeout(() => {
-                    mockStore.identityCallInFlight = false;
-                    resolve();
-                }, 150);
-            });
+            // Queue multiple calls
+            const promise1 = roktManager.selectPlacements({ attributes: { call: '1' } });
+            const promise2 = roktManager.selectPlacements({ attributes: { call: '2' } });
+            const promise3 = roktManager.selectPlacements({ attributes: { call: '3' } });
 
-            const startTime = Date.now();
-            const options: IRoktSelectPlacementsOptions = {
-                attributes: {}
-            };
+            // Verify all calls were queued
+            expect(roktManager['identityQueue'].length).toBe(3);
+            expect(kit.selectPlacements).not.toHaveBeenCalled();
 
-            // Start selectPlacements and wait for identity to complete
-            const selectPlacementsPromise = roktManager.selectPlacements(options);
-            
-            // Wait for both identity to complete and selectPlacements to finish
-            await Promise.all([identityCompletePromise, selectPlacementsPromise]);
+            // Simulate identity completing
+            mockStore.identityCallInFlight = false;
+            roktManager.onIdentityComplete();
 
-            const elapsedTime = Date.now() - startTime;
-            // Should have waited until identity call completed (allowing for polling interval variance)
-            // With 50ms polling interval, it should complete around 150-200ms
-            expect(elapsedTime).toBeGreaterThanOrEqual(100);
-            expect(elapsedTime).toBeLessThan(500); // Should complete well before max wait time
-            expect(kit.selectPlacements).toHaveBeenCalled();
+            // Wait for all promises
+            await Promise.all([promise1, promise2, promise3]);
+
+            // All three should have been processed
+            expect(kit.selectPlacements).toHaveBeenCalledTimes(3);
+            expect(roktManager['identityQueue'].length).toBe(0);
         });
 
         it('should update filters.filteredUser with newly identified user when anonymous user is identified through selectPlacements', async () => {

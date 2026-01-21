@@ -1577,8 +1577,13 @@ export default function Identity(mpInstance) {
         }
         mpInstance._Store.isInitialized = true;
 
-        if (mpInstance._RoktManager.isReady()) {
-            mpInstance._RoktManager.currentUser = mpInstance.Identity.getCurrentUser();
+        // Notify RoktManager that identity call has completed so it can process any queued selectPlacements calls
+        if (mpInstance._RoktManager) {
+            mpInstance._RoktManager.onIdentityComplete();
+            
+            if (mpInstance._RoktManager.isReady()) {
+                mpInstance._RoktManager.currentUser = mpInstance.Identity.getCurrentUser();
+            }
         }
 
         mpInstance._preInit.readyQueue = processReadyQueue(
