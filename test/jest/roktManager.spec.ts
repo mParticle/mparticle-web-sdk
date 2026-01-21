@@ -1927,6 +1927,7 @@ describe('RoktManager', () => {
         });
 
         it('should wait briefly when identity call is in flight', async () => {
+            jest.setTimeout(10000); // Increase timeout for this test
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -1950,20 +1951,38 @@ describe('RoktManager', () => {
             } as unknown as SDKIdentityApi;
 
             roktManager['identityService'] = mockIdentity;
-            roktManager['store'] = {
+            
+            // Create a store mock that simulates identity call completing after a short delay
+            const mockStore: any = {
                 identityCallInFlight: true
-            } as unknown as IStore;
+            };
+            roktManager['store'] = mockStore as IStore;
+
+            // Simulate identity call completing after ~150ms
+            // Use a promise to ensure the setTimeout completes
+            const identityCompletePromise = new Promise<void>((resolve) => {
+                setTimeout(() => {
+                    mockStore.identityCallInFlight = false;
+                    resolve();
+                }, 150);
+            });
 
             const startTime = Date.now();
             const options: IRoktSelectPlacementsOptions = {
                 attributes: {}
             };
 
-            await roktManager.selectPlacements(options);
+            // Start selectPlacements and wait for identity to complete
+            const selectPlacementsPromise = roktManager.selectPlacements(options);
+            
+            // Wait for both identity to complete and selectPlacements to finish
+            await Promise.all([identityCompletePromise, selectPlacementsPromise]);
 
             const elapsedTime = Date.now() - startTime;
-            // Should have waited briefly (allowing for generous variance to avoid flakiness)
+            // Should have waited until identity call completed (allowing for polling interval variance)
+            // With 50ms polling interval, it should complete around 150-200ms
             expect(elapsedTime).toBeGreaterThanOrEqual(100);
+            expect(elapsedTime).toBeLessThan(500); // Should complete well before max wait time
             expect(kit.selectPlacements).toHaveBeenCalled();
         });
 

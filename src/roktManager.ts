@@ -89,7 +89,8 @@ export type IRoktLauncherOptions = Dictionary<any>;
 //
 // https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt
 export default class RoktManager {
-    private static readonly IDENTITY_CALL_WAIT_MS = 200; // Wait time when identity call is in flight
+    private static readonly IDENTITY_CALL_POLL_INTERVAL_MS = 50; // Polling interval for checking identityCallInFlight
+    private static readonly IDENTITY_CALL_MAX_WAIT_MS = 5000; // Maximum time to wait for identity call to complete
 
     public kit: IRoktKit = null;
     public filters: RoktKitFilterSettings = {};
@@ -188,14 +189,21 @@ export default class RoktManager {
             const sandboxValue = attributes?.sandbox || null;
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
 
-            // If an identify call is in flight (e.g., during SDK initialization), wait briefly for it to complete
-            // This is a single check with a short wait, not continuous polling
+            // If an identify call is in flight (e.g., during SDK initialization), poll until it completes
             if (this.store?.identityCallInFlight) {
-                // Wait a short time for the in-flight identify call to complete
-                // This handles the common case where identify is called during SDK initialization
-                await new Promise(resolve => setTimeout(resolve, RoktManager.IDENTITY_CALL_WAIT_MS));
+                const startTime = Date.now();
+                this.logger.verbose('Rokt Manager: identity call in flight, polling until complete');
                 
-                this.logger.verbose('Rokt Manager: identity call in flight: ' + this.store?.identityCallInFlight);
+                // Poll until identity call completes or max wait time is reached
+                while (this.store?.identityCallInFlight && (Date.now() - startTime) < RoktManager.IDENTITY_CALL_MAX_WAIT_MS) {
+                    await new Promise(resolve => setTimeout(resolve, RoktManager.IDENTITY_CALL_POLL_INTERVAL_MS));
+                }
+                
+                if (this.store?.identityCallInFlight) {
+                    this.logger.warning('Rokt Manager: identity call still in flight after max wait time, proceeding anyway');
+                } else {
+                    this.logger.verbose('Rokt Manager: identity call completed');
+                }
             }
             
             this.currentUser = this.identityService.getCurrentUser();
