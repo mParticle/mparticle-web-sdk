@@ -894,9 +894,6 @@ describe('RoktManager', () => {
             // Ensure store has identityCallInFlight set to false (from beforeEach)
             // This prevents re-queuing when selectPlacements is called from the queue
             roktManager['store'].identityCallInFlight = false;
-            
-            // Ensure identity service is set up (from beforeEach init)
-            // selectPlacements calls getCurrentUser() which needs to be available
 
             const options = {
                 attributes: {}
@@ -1818,6 +1815,16 @@ describe('RoktManager', () => {
         });
 
         it('should propagate email after identify completes when identify is called during init', async () => {
+            // Set initial currentUser with first email to mimic real user flow
+            roktManager['currentUser'] = {
+                getUserIdentities: () => ({
+                    userIdentities: {
+                        email: 'first@gmail.com'
+                    }
+                }),
+                setUserAttributes: jest.fn()
+            } as unknown as IMParticleUser;
+
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -1901,6 +1908,7 @@ describe('RoktManager', () => {
             
             // Verify it was queued (not called yet)
             expect(kit.selectPlacements).not.toHaveBeenCalled();
+            expect(roktManager['messageQueue'].size).toBe(1);
 
             // Wait for identity to complete
             await identityCompletePromise;
@@ -2414,68 +2422,6 @@ describe('RoktManager', () => {
         });
     });
 
-    describe('#completePendingPromise', () => {
-        it('should resolve pending promise when given a direct value', async () => {
-            const promise = roktManager['deferredCall']<string>('testMethod', {});
-            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
-            const messageId = queuedMessage.messageId!;
-
-            // Complete the promise with direct value (not wrapped in Promise)
-            roktManager['completePendingPromise'](messageId, 'success result');
-
-            // Promise should resolve with the direct value
-            await expect(promise).resolves.toBe('success result');
-
-            // Should clean up the message from queue
-            expect(roktManager['messageQueue'].has(messageId)).toBe(false);
-        });
-
-        it('should resolve pending promise when given a Promise and unwrap it', async () => {
-            const promise = roktManager['deferredCall']<any>('testMethod', {});
-            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
-            const messageId = queuedMessage.messageId!;
-            const asyncResult = { data: 'async data' };
-
-            // Complete with a Promise that needs unwrapping
-            roktManager['completePendingPromise'](messageId, Promise.resolve(asyncResult));
-
-            // Should get the unwrapped result, not the promise wrapper
-            const result = await promise;
-            expect(result).toEqual(asyncResult);
-            expect(result).not.toBeInstanceOf(Promise);
-
-            // Should clean up the message from queue
-            expect(roktManager['messageQueue'].has(messageId)).toBe(false);
-        });
-
-        it('should reject pending promise with error', async () => {
-            const promise = roktManager['deferredCall']<string>('testMethod', {});
-            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
-            const messageId = queuedMessage.messageId!;
-            const error = new Error('test error');
-
-            // Complete the promise with error (wrapped in rejected promise)
-            roktManager['completePendingPromise'](messageId, Promise.reject(error));
-
-            // Promise should reject with the error
-            await expect(promise).rejects.toThrow('test error');
-
-            // Should clean up the pending promise
-            expect(roktManager['messageQueue'].has(messageId)).toBe(false);
-        });
-
-        it('should handle missing messageId gracefully', () => {
-            // Should not throw when messageId is undefined
-            expect(() => {
-                roktManager['completePendingPromise'](undefined, 'result');
-            }).not.toThrow();
-
-            // Should not throw when messageId does not exist
-            expect(() => {
-                roktManager['completePendingPromise']('nonexistent', 'result');
-            }).not.toThrow();
-        });
-    });
 
     describe('#use', () => {
         it('should call kit.use with provided name', async () => {

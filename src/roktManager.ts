@@ -503,22 +503,6 @@ export default class RoktManager {
         });
     }
 
-    private completePendingPromise(messageId: string | undefined, resultOrError: any): void {
-        if (!messageId || !this.messageQueue.has(messageId)) {
-            return;
-        }
-
-        const message = this.messageQueue.get(messageId)!;
-        
-        if (message.resolve) {
-            Promise.resolve(resultOrError)
-                .then((result) => message.resolve!(result))
-                .catch((error) => message.reject!(error));
-        }
-        
-        this.messageQueue.delete(messageId);
-    }
-
     /**
      * Hashes a string input using SHA-256 and returns the hex digest
      * Uses the Web Crypto API for secure hashing
