@@ -1372,7 +1372,6 @@ export default function Identity(mpInstance) {
             : {};
         let mpidIsNotInCookies;
         let identityApiResult;
-
         let newUser;
         let newIdentitiesByType = {};
 
@@ -1577,9 +1576,7 @@ export default function Identity(mpInstance) {
         }
         mpInstance._Store.isInitialized = true;
 
-        if (mpInstance._RoktManager.isReady()) {
-            mpInstance._RoktManager.currentUser = mpInstance.Identity.getCurrentUser();
-        }
+        mpInstance._RoktManager.onIdentityComplete();
 
         mpInstance._preInit.readyQueue = processReadyQueue(
             mpInstance._preInit.readyQueue

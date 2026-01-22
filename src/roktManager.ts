@@ -89,9 +89,6 @@ export type IRoktLauncherOptions = Dictionary<any>;
 //
 // https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt
 export default class RoktManager {
-    private static readonly IDENTITY_CALL_POLL_INTERVAL_MS = 50; // Polling interval for checking identityCallInFlight
-    private static readonly IDENTITY_CALL_MAX_WAIT_MS = 5000; // Maximum time to wait for identity call to complete
-
     public kit: IRoktKit = null;
     public filters: RoktKitFilterSettings = {};
     private currentUser: IMParticleUser | null = null;
@@ -180,7 +177,8 @@ export default class RoktManager {
      * });
      */
     public async selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
-        if (!this.isReady()) {
+        // Queue if kit isn't ready OR if identity is in flight
+        if (!this.isReady() || this.store?.identityCallInFlight) {
             return this.deferredCall<IRoktSelection>('selectPlacements', options);
         }
 
@@ -188,23 +186,6 @@ export default class RoktManager {
             const { attributes } = options;
             const sandboxValue = attributes?.sandbox || null;
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
-
-            // If an identify call is in flight (e.g., during SDK initialization), poll until it completes
-            if (this.store?.identityCallInFlight) {
-                const startTime = Date.now();
-                this.logger.verbose('Rokt Manager: identity call in flight, polling until complete');
-                
-                // Poll until identity call completes or max wait time is reached
-                while (this.store?.identityCallInFlight && (Date.now() - startTime) < RoktManager.IDENTITY_CALL_MAX_WAIT_MS) {
-                    await new Promise(resolve => setTimeout(resolve, RoktManager.IDENTITY_CALL_POLL_INTERVAL_MS));
-                }
-                
-                if (this.store?.identityCallInFlight) {
-                    this.logger.warning('Rokt Manager: identity call still in flight after max wait time, proceeding anyway');
-                } else {
-                    this.logger.verbose('Rokt Manager: identity call completed');
-                }
-            }
             
             this.currentUser = this.identityService.getCurrentUser();
             const currentUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
@@ -447,6 +428,16 @@ export default class RoktManager {
         return mappedAttributes;
     }
 
+    public onIdentityComplete(): void {
+        if (this.isReady()) {
+            this.currentUser = this.identityService.getCurrentUser();
+            // Process any queued selectPlacements calls that were waiting for identity
+            if (this.messageQueue.size > 0) {
+                this.processMessageQueue();
+            }
+        }
+    }
+
     private processMessageQueue(): void {
         if (!this.isReady() || this.messageQueue.size === 0) {
             return;
@@ -454,7 +445,12 @@ export default class RoktManager {
 
         this.logger?.verbose(`RoktManager: Processing ${this.messageQueue.size} queued messages`);
 
-        this.messageQueue.forEach((message) => {
+        const messagesToProcess = Array.from(this.messageQueue.values());
+        
+        // Clear the queue immediately to prevent re-processing
+        this.messageQueue.clear();
+        
+        messagesToProcess.forEach((message) => {
             if(!(message.methodName in this) || !isFunction(this[message.methodName])) {
                 this.logger?.error(`RoktManager: Method ${message.methodName} not found`);
 
@@ -463,18 +459,32 @@ export default class RoktManager {
 
             this.logger?.verbose(`RoktManager: Processing queued message: ${message.methodName} with payload: ${JSON.stringify(message.payload)}`);
 
-            try {
-                const result = (this[message.methodName] as Function)(message.payload);
-                this.completePendingPromise(message.messageId, result);
-            } catch (error) {
+            // Capture resolve/reject functions before async processing
+            const resolve = message.resolve;
+            const reject = message.reject;
+
+            const handleError = (error: unknown) => {
                 const errorMessage = error instanceof Error ? error.message : String(error);
                 this.logger?.error(`RoktManager: Error processing message '${message.methodName}': ${errorMessage}`);
-                this.completePendingPromise(message.messageId, Promise.reject(error));
+                if (reject) {
+                    reject(error);
+                }
+            };
+
+            try {
+                const result = (this[message.methodName] as Function)(message.payload);
+                // Handle both sync and async methods
+                Promise.resolve(result)
+                    .then((resolvedResult) => {
+                        if (resolve) {
+                            resolve(resolvedResult);
+                        }
+                    })
+                    .catch(handleError);
+            } catch (error) {
+                handleError(error);
             }
         });
-
-        // Clear the queue after processing all messages
-        this.messageQueue.clear();
     }
 
     private queueMessage(message: IRoktMessage): void {
