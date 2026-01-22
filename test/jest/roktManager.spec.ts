@@ -659,7 +659,7 @@ describe('RoktManager', () => {
             await expect(promise).rejects.toThrow('Test error');
         });
 
-        it('should handle methods that return values synchronously correctly after queue is cleared', async () => {
+        it('should resolve queued promises when kit method returns a plain value (not a Promise)', async () => {
             const returnValue = 'test-result';
             kit.use = jest.fn().mockReturnValue(returnValue);
 
@@ -2186,6 +2186,7 @@ describe('RoktManager', () => {
             await selectPlacementsPromise;
 
             // Verify selectPlacements was called after processing the queue
+            expect(roktManager['messageQueue'].size).toBe(0);
             expect(kit.selectPlacements).toHaveBeenCalled();
         });
 

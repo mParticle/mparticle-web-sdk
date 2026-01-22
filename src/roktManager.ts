@@ -432,9 +432,7 @@ export default class RoktManager {
         if (this.isReady()) {
             this.currentUser = this.identityService.getCurrentUser();
             // Process any queued selectPlacements calls that were waiting for identity
-            if (this.messageQueue.size > 0) {
-                this.processMessageQueue();
-            }
+            this.processMessageQueue();
         }
     }
 
