@@ -1,0 +1,53 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Developer Guidelines
+
+## Core Principles
+
+1. **Examine Codebase First**
+   - Understand architecture before making changes
+   - Identify dependencies and component relationships
+   - Review documentation and existing tests
+   - Observe established patterns
+
+2. **Understand Requirements**
+   - Identify both explicit and implicit requirements
+   - Consider broader goals behind specific requests
+   - Interpret requests within project context
+   - Recognize unstated assumptions
+
+3. **Seek Clarity**
+   - Ask questions when requirements are ambiguous
+   - Validate assumptions before implementation
+   - Request additional context when needed
+
+4. **Assess Impact**
+   - Consider effects on related components
+   - Evaluate performance and security implications
+   - Ensure changes align with existing patterns
+   - Identify potential regression points
+
+5. **Provide Complete Solutions**
+   - Address full scope including edge cases
+   - Include necessary dependencies
+   - Explain implementation choices
+   - Consider testing approaches
+
+## Implementation Process
+
+1. Analyze relevant code through searching and reading
+2. Understand component structure
+3. Identify affected files
+4. Consider integration points
+5. Make changes while preserving existing functionality
+6. Explain integration with existing system
+
+## Documentation
+
+1. Reference existing documentation when available
+2. Explain technical decisions clearly
+3. Justify any deviations from established patterns
+4. Note areas for potential improvement

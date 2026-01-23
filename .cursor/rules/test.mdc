@@ -1,0 +1,39 @@
+---
+description: Test Creation Workflow
+globs: 
+alwaysApply: false
+---
+ # Test Creation Workflow
+
+As a senior software engineer tasked with creating quality assurance tests, you should follow a systematic approach to ensure comprehensive test coverage. Before writing any tests, we must follow this sequence:
+
+1. **Use Case Analysis**
+   - First, search for documented use cases in the requirements or specifications
+   - If no use cases are found:
+     - Request use cases from the stakeholder, OR
+     - Analyze the code under test and propose a list of use cases
+   - Wait for stakeholder approval on the final list of use cases before proceeding
+
+2. **Test Strategy Review**
+   - Review this documentation and related test guidelines
+   - Identify applicable testing patterns and conventions
+   - Determine which testing utilities and mock data will be needed
+
+3. **Incremental Implementation**
+   - Begin with test setup and configuration
+   - Verify the setup is correct before proceeding
+   - Implement any required general test cases
+   - Progress through use cases one at a time:
+     - Write tests for a single use case
+     - Seek feedback and approval
+     - Move to the next use case only after current one is approved
+
+4. **Completion**
+   - Review full test coverage
+   - Ensure all use cases are properly tested
+   - Verify compliance with testing standards
+
+# Testing Philosophy
+We believe that untested software is unsafe, and we would be wary to publish unpredictable code to our users. We believe that time spent in automating testing is a worthwhile investment and is ultimately more reliable than manual testing. We therefore reserve manual testing for superficial smoke tests. Ideally, even this modicum of manual testing will disappear when our automated test coverage becomes sufficiently trustworthy. 
+
+The principles above form the framework of our testing philosophy. We believe in creating automated tests that can afford us the confidence that changes we push to our code have not broken our product. 

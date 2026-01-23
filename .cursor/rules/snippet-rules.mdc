@@ -1,0 +1,180 @@
+---
+description: 
+globs: src/mp-instance.ts,src/mparticle-instance-manager.ts,src/roktManager.ts
+alwaysApply: false
+---
+# Rules for Snippet.js
+
+# Snippet Rules
+
+Rules for maintaining and updating the snippet.js file which serves as a shim/stub until the full SDK loads.
+
+<rule>
+name: snippet_rules
+description: Standards for updating snippet.js when modifying public methods in the SDK
+filters:
+  # Match SDK core files that might contain public methods
+  - type: file_extension
+    pattern: "\\.(js|ts)$"
+  - type: file_path
+    pattern: "(mp-instance|mparticle-instance-manager|roktManager)\\.ts$"
+  # Match the snippet file
+  - type: file_path
+    pattern: "snippet\\.js$"
+
+actions:
+  - type: suggest
+    message: |
+      When modifying SDK files that expose public methods:
+
+      1. Determine if Method Needs Stubbing:
+         - Only add methods to snippet.js if they:
+           * May be called before SDK initialization
+           * Require queuing logic to work properly after initialization
+           * Are customer-facing and part of the public API
+         - Do NOT add methods that:
+           * Are only called internally by the SDK
+           * Are only called after SDK initialization
+           * Are part of the initialization process itself
+           * Are deprecated and have a non-deprecated alternative with proper queuing
+
+      2. Method Arrays Organization:
+         ```javascript
+         // Public methods must be added to the appropriate method array in snippet.js:
+         var mainMethods = [/* core SDK methods that need queuing */];
+         var ecommerceMethods = [/* ecommerce methods that need queuing */];
+         var identityMethods = [/* identity methods that need queuing */];
+         var roktMethods = [/* Rokt methods that need queuing */];
+         ```
+
+      3. Queuing Strategies:
+         There are three main queuing strategies in the SDK:
+         a. Pre-init Queue via queueIfNotInitialized:
+            ```javascript
+            const queued = queueIfNotInitialized(function() {
+                self.methodName(args);
+            }, self);
+            if (queued) return;
+            ```
+         b. Ready Queue via mParticle.ready:
+            ```javascript
+            self.ready(function() {
+                self.methodName(args);
+            });
+            ```
+         c. Deprecated Methods with Legacy Queuing:
+            - Some deprecated methods may use direct ready queue calls
+            - Example:
+            ```javascript
+            if (!self._Store.isInitialized) {
+                self.ready(function() {
+                    self.methodName(args);
+                });
+                return;
+            }
+            ```
+            WARNING: If a deprecated method implements any queuing logic, verify that:
+            1. The method has a non-deprecated alternative
+            2. The non-deprecated alternative has proper queueIfNotInitialized logic
+            3. The deprecation notice directs users to the proper alternative
+
+      4. Method Stubbing:
+         - Methods requiring queuing must have a corresponding stub in snippet.js
+         - Use the preloadMethod function to create stubs:
+         ```javascript
+         function preloadMethod(method, base) {
+             return function() {
+                 if (base) {
+                     method = base + '.' + method;
+                 }
+                 var args = Array.prototype.slice.call(arguments);
+                 args.unshift(method);
+                 window.mParticle.config.rq.push(args);
+             };
+         }
+         ```
+
+      5. Namespace Organization:
+         - Core methods go directly on mParticle
+         - Feature-specific methods go under their respective namespaces:
+           * eCommerce -> mParticle.eCommerce
+           * Identity -> mParticle.Identity
+           * Rokt -> mParticle.Rokt
+
+      6. Method Types That Need Stubs:
+         - Customer-facing public methods that might be called pre-initialization
+         - Methods that modify state or send data
+         - Methods that require queueing to maintain order of operations
+         - Event logging or tracking methods
+
+      7. Testing Requirements:
+         - Verify stub properly queues method call
+         - Verify queued calls execute in order after SDK loads
+         - Test with both default and named instances
+         - Test all parameter combinations
+         - Verify methods work both pre and post initialization
+
+      8. Documentation:
+         ```javascript
+         /* Method Type Reference:
+          * 1. Instance Methods: Added if they need pre-init queueing
+          * 2. eCommerce Methods: Added if they affect cart/purchase state
+          * 3. Identity Methods: Added if they affect user state
+          * 4. Rokt Methods: Added if they need to work pre-initialization
+          * 5. Deprecated Methods: Should direct to non-deprecated alternatives
+          */
+         ```
+
+examples:
+  - input: |
+      // Bad: Adding all public methods to snippet
+      class RoktManager {
+          public init() { ... }            // Internal init - DON'T ADD
+          public attachKit() { ... }       // Internal setup - DON'T ADD
+          public selectPlacements() { ... } // Customer-facing - ADD
+          public hashAttributes() { ... }   // Customer-facing - ADD
+      }
+
+      // Good: Only adding methods that need queuing
+      var roktMethods = [
+          'selectPlacements',  // Needs queuing - customer might call before init
+          'hashAttributes'     // Needs queuing - customer might call before init
+      ];
+    output: "Correctly identified methods needing stubs"
+
+  - input: |
+      // Bad: Deprecated method with legacy queuing but no alternative
+      logCheckout: function(step, option, attrs, customFlags) {
+          if (!self._Store.isInitialized) {
+              self.ready(function() {
+                  self.eCommerce.logCheckout(step, option, attrs, customFlags);
+              });
+              return;
+          }
+          // ... rest of method
+      }
+
+      // Good: Deprecated method with proper alternative
+      logCheckout: function(step, option, attrs, customFlags) {
+          self.Logger.warning('mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead');
+          // ... rest of method using legacy queuing
+      }
+
+      // Good: Non-deprecated alternative with proper queuing
+      logProductAction: function(productActionType, product, attrs, customFlags) {
+          const queued = queueIfNotInitialized(function() {
+              self.eCommerce.logProductAction(productActionType, product, attrs, customFlags);
+          }, self);
+          if (queued) return;
+          // ... rest of method
+      }
+    output: "Correctly handled deprecated method with queuing"
+
+metadata:
+  priority: high
+  version: 1.0
+</rule>
+
+@version "1.0.0"
+@last_updated "2025-03-05"
+
