@@ -3,12 +3,12 @@ import { UserAttributeFilters  } from "./forwarders.interfaces";
 import { IMParticleUser } from "./identity-user-interfaces";
 import KitFilterHelper from "./kitFilterHelper";
 import {
-   Dictionary,
-   parseSettingsString,
-   generateUniqueId,
-   isFunction,
-   AttributeValue,
-   isEmpty,
+    Dictionary,
+    parseSettingsString,
+    generateUniqueId,
+    isFunction,
+    AttributeValue,
+    isEmpty,
 } from "./utils";
 import { SDKIdentityApi } from "./identity.interfaces";
 import { SDKLoggerApi } from "./sdkRuntimeModels";
@@ -23,58 +23,58 @@ export type RoktAttributeValue = RoktAttributeValueType | RoktAttributeValueArra
 export type RoktAttributes = Record<string, RoktAttributeValue>;
 
 export interface IRoktPartnerExtensionData<T> {
-   [extensionName: string]: T;
+    [extensionName: string]: T;
 }
 
 // https://docs.rokt.com/developers/integration-guides/web/library/select-placements-options
 export interface IRoktSelectPlacementsOptions {
-   attributes: RoktAttributes;
-   identifier?: string;
+    attributes: RoktAttributes;
+    identifier?: string;
 }
 
 interface IRoktPlacement {}
 
 export interface IRoktSelection {
-   close: () => void;
-   getPlacements: () => Promise<IRoktPlacement[]>;
+    close: () => void;
+    getPlacements: () => Promise<IRoktPlacement[]>;
 }
 
 export interface IRoktLauncher {
-   selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
-   hashAttributes: (attributes: RoktAttributes) => Promise<Record<string, string>>;
-   use: <T>(name: string) => Promise<T>;
+    selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
+    hashAttributes: (attributes: RoktAttributes) => Promise<Record<string, string>>;
+    use: <T>(name: string) => Promise<T>;
 }
 
 export interface IRoktMessage {
-   messageId: string;
-   methodName: string;
-   payload: any;
-   resolve?: Function;
-   reject?: Function;
+    messageId: string;
+    methodName: string;
+    payload: any;
+    resolve?: Function;
+    reject?: Function;
 }
 
 export interface RoktKitFilterSettings {
-   userAttributeFilters?: UserAttributeFilters;
-   filterUserAttributes?: (userAttributes: Dictionary<string>, filterList: number[]) => Dictionary<string>;
-   filteredUser?: IMParticleUser | null;
+    userAttributeFilters?: UserAttributeFilters;
+    filterUserAttributes?: (userAttributes: Dictionary<string>, filterList: number[]) => Dictionary<string>;
+    filteredUser?: IMParticleUser | null;
 }
 
 export interface IRoktKit {
-   filters: RoktKitFilterSettings;
-   filteredUser: IMParticleUser | null;
-   launcher: IRoktLauncher | null;
-   userAttributes: Dictionary<string>;
-   hashAttributes: (attributes: RoktAttributes) => Promise<RoktAttributes>;
-   selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
-   setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void;
-   use: <T>(name: string) => Promise<T>;
-   launcherOptions?: Dictionary<any>;
+    filters: RoktKitFilterSettings;
+    filteredUser: IMParticleUser | null;
+    launcher: IRoktLauncher | null;
+    userAttributes: Dictionary<string>;
+    hashAttributes: (attributes: RoktAttributes) => Promise<RoktAttributes>;
+    selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
+    setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void;
+    use: <T>(name: string) => Promise<T>;
+    launcherOptions?: Dictionary<any>;
 }
 
 export interface IRoktOptions {
-   sandbox?: boolean;
-   launcherOptions?: IRoktLauncherOptions;
-   domain?: string;
+    sandbox?: boolean;
+    launcherOptions?: IRoktLauncherOptions;
+    domain?: string;
 }
 
 export type IRoktLauncherOptions = Dictionary<any>;
@@ -89,437 +89,437 @@ export type IRoktLauncherOptions = Dictionary<any>;
 //
 // https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt
 export default class RoktManager {
-   public kit: IRoktKit = null;
-   public filters: RoktKitFilterSettings = {};
-   private currentUser: IMParticleUser | null = null;
-   private messageQueue: Map<string, IRoktMessage> = new Map();
-   private sandbox: boolean | null = null;
-   private placementAttributesMapping: Dictionary<string>[] = [];
-   private identityService: SDKIdentityApi;
-   private store: IStore;
-   private launcherOptions?: IRoktLauncherOptions;
-   private logger: SDKLoggerApi;
-   private domain?: string;
-   private mappedEmailShaIdentityType?: string | null;
-   private captureTiming?: (metricsName: string) => void;
-   /**
-    * Initializes the RoktManager with configuration settings and user data.
-    *
-    * @param {IKitConfigs} roktConfig - Configuration object containing user attribute filters and settings
-    * @param {IMParticleUser} filteredUser - User object with filtered attributes
-    * @param {SDKIdentityApi} identityService - The mParticle Identity instance
-    * @param {SDKLoggerApi} logger - The mParticle Logger instance
-    * @param {IRoktOptions} options - Options for the RoktManager
-    * @param {Function} captureTiming - Function to capture performance timing marks
-    *
-    * @throws Logs error to console if placementAttributesMapping parsing fails
-    */
-   public init(
-       roktConfig: IKitConfigs,
-       filteredUser: IMParticleUser,
-       identityService: SDKIdentityApi,
-       store: IStore,
-       logger?: SDKLoggerApi,
-       options?: IRoktOptions,
-       captureTiming?: (metricsName: string) => void
-   ): void {
-       const { userAttributeFilters, settings } = roktConfig || {};
-       const { placementAttributesMapping, hashedEmailUserIdentityType } = settings || {};
-       this.mappedEmailShaIdentityType = hashedEmailUserIdentityType?.toLowerCase() ?? null;
+    public kit: IRoktKit = null;
+    public filters: RoktKitFilterSettings = {};
+    private currentUser: IMParticleUser | null = null;
+    private messageQueue: Map<string, IRoktMessage> = new Map();
+    private sandbox: boolean | null = null;
+    private placementAttributesMapping: Dictionary<string>[] = [];
+    private identityService: SDKIdentityApi;
+    private store: IStore;
+    private launcherOptions?: IRoktLauncherOptions;
+    private logger: SDKLoggerApi;
+    private domain?: string;
+    private mappedEmailShaIdentityType?: string | null;
+    private captureTiming?: (metricsName: string) => void;
+    /**
+     * Initializes the RoktManager with configuration settings and user data.
+     * 
+     * @param {IKitConfigs} roktConfig - Configuration object containing user attribute filters and settings
+     * @param {IMParticleUser} filteredUser - User object with filtered attributes
+     * @param {SDKIdentityApi} identityService - The mParticle Identity instance
+     * @param {SDKLoggerApi} logger - The mParticle Logger instance
+     * @param {IRoktOptions} options - Options for the RoktManager
+     * @param {Function} captureTiming - Function to capture performance timing marks
+     * 
+     * @throws Logs error to console if placementAttributesMapping parsing fails
+     */
+    public init(
+        roktConfig: IKitConfigs, 
+        filteredUser: IMParticleUser, 
+        identityService: SDKIdentityApi,
+        store: IStore,
+        logger?: SDKLoggerApi,
+        options?: IRoktOptions,
+        captureTiming?: (metricsName: string) => void
+    ): void {
+        const { userAttributeFilters, settings } = roktConfig || {};
+        const { placementAttributesMapping, hashedEmailUserIdentityType } = settings || {};
+        this.mappedEmailShaIdentityType = hashedEmailUserIdentityType?.toLowerCase() ?? null;
 
-       this.identityService = identityService;
-       this.store = store;
-       this.logger = logger;
-       this.captureTiming = captureTiming;
+        this.identityService = identityService;
+        this.store = store;
+        this.logger = logger;
+        this.captureTiming = captureTiming;
 
-       this.filters = {
-           userAttributeFilters,
-           filterUserAttributes: KitFilterHelper.filterUserAttributes,
-           filteredUser: filteredUser,
-       };
+        this.filters = {
+            userAttributeFilters,
+            filterUserAttributes: KitFilterHelper.filterUserAttributes,
+            filteredUser: filteredUser,
+        };
 
-       try {
-           this.placementAttributesMapping = parseSettingsString(placementAttributesMapping);
-       } catch (error) {
-           this.logger.error('Error parsing placement attributes mapping from config: ' + error);
-       }
+        try {
+            this.placementAttributesMapping = parseSettingsString(placementAttributesMapping);
+        } catch (error) {
+            this.logger.error('Error parsing placement attributes mapping from config: ' + error);
+        }
 
-       // This is the global setting for sandbox mode
-       // It is set here and passed in to the createLauncher method in the Rokt Kit
-       // This is not to be confused for the `sandbox` flag in the selectPlacements attributes
-       // as that is independent of this setting, though they share the same name.
-       const sandbox = options?.sandbox || false;
+        // This is the global setting for sandbox mode
+        // It is set here and passed in to the createLauncher method in the Rokt Kit
+        // This is not to be confused for the `sandbox` flag in the selectPlacements attributes
+        // as that is independent of this setting, though they share the same name.
+        const sandbox = options?.sandbox || false;
 
-       // Launcher options are set here for the kit to pick up and pass through
-       // to the Rokt Launcher.
-       this.launcherOptions = { sandbox, ...options?.launcherOptions };
+        // Launcher options are set here for the kit to pick up and pass through
+        // to the Rokt Launcher.
+        this.launcherOptions = { sandbox, ...options?.launcherOptions };
 
-       if (options?.domain) {
-           this.domain = options.domain;
-       }
-   }
+        if (options?.domain) {
+            this.domain = options.domain;
+        }
+    }
 
-   public attachKit(kit: IRoktKit): void {
-       this.kit = kit;
-       this.processMessageQueue();
-   }
+    public attachKit(kit: IRoktKit): void {
+        this.kit = kit;
+        this.processMessageQueue();
+    }
 
-   /**
-    * Renders ads based on the options provided
-    *
-    * @param {IRoktSelectPlacementsOptions} options - The options for selecting placements, including attributes and optional identifier
-    * @returns {Promise<IRoktSelection>} A promise that resolves to the selection
-    *
-    * @example
-    * // Correct usage with await
-    * await window.mParticle.Rokt.selectPlacements({
-    *   attributes: {
-    *     email: 'user@example.com',
-    *     customAttr: 'value'
-    *   }
-    * });
-    */
-   public async selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
-       if (this.captureTiming) {
-           this.captureTiming(PerformanceMarkType.JointSdkSelectPlacements);
-       }
+    /**
+     * Renders ads based on the options provided
+     * 
+     * @param {IRoktSelectPlacementsOptions} options - The options for selecting placements, including attributes and optional identifier
+     * @returns {Promise<IRoktSelection>} A promise that resolves to the selection
+     * 
+     * @example
+     * // Correct usage with await
+     * await window.mParticle.Rokt.selectPlacements({
+     *   attributes: {
+     *     email: 'user@example.com',
+     *     customAttr: 'value'
+     *   }
+     * });
+     */
+    public async selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
+        if (this.captureTiming) {
+            this.captureTiming(PerformanceMarkType.JointSdkSelectPlacements);
+        }
+        
+        if (!this.isReady()) {
+            return this.deferredCall<IRoktSelection>('selectPlacements', options);
+        }
 
-       if (!this.isReady()) {
-           return this.deferredCall<IRoktSelection>('selectPlacements', options);
-       }
+        try {
+            const { attributes } = options;
+            const sandboxValue = attributes?.sandbox || null;
+            const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
 
-       try {
-           const { attributes } = options;
-           const sandboxValue = attributes?.sandbox || null;
-           const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
+            // Get current user identities
+            this.currentUser = this.identityService.getCurrentUser();
+            const currentUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
 
-           // Get current user identities
-           this.currentUser = this.identityService.getCurrentUser();
-           const currentUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
+            const currentEmail = currentUserIdentities.email;
+            const newEmail = mappedAttributes.email as string;
 
-           const currentEmail = currentUserIdentities.email;
-           const newEmail = mappedAttributes.email as string;
+            let currentHashedEmail: string | undefined;
+            let newHashedEmail: string | undefined;
+            
+            // Hashed email identity is valid if it is set to Other-Other10
+            if(this.mappedEmailShaIdentityType && IdentityType.getIdentityType(this.mappedEmailShaIdentityType) !== false) {
+                currentHashedEmail = currentUserIdentities[this.mappedEmailShaIdentityType];
+                newHashedEmail = mappedAttributes['emailsha256'] as string || mappedAttributes[this.mappedEmailShaIdentityType] as string || undefined;
+            }
 
-           let currentHashedEmail: string | undefined;
-           let newHashedEmail: string | undefined;
-          
-           // Hashed email identity is valid if it is set to Other-Other10
-           if(this.mappedEmailShaIdentityType && IdentityType.getIdentityType(this.mappedEmailShaIdentityType) !== false) {
-               currentHashedEmail = currentUserIdentities[this.mappedEmailShaIdentityType];
-               newHashedEmail = mappedAttributes['emailsha256'] as string || mappedAttributes[this.mappedEmailShaIdentityType] as string || undefined;
-           }
+            const emailChanged = this.hasIdentityChanged(currentEmail, newEmail);
+            const hashedEmailChanged = this.hasIdentityChanged(currentHashedEmail, newHashedEmail);
 
-           const emailChanged = this.hasIdentityChanged(currentEmail, newEmail);
-           const hashedEmailChanged = this.hasIdentityChanged(currentHashedEmail, newHashedEmail);
+            const newIdentities: UserIdentities = {};
+            if (emailChanged) {
+                newIdentities.email = newEmail;
+                if (newEmail) {
+                    this.logger.warning(`Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.`);
+                }
+            }
 
-           const newIdentities: UserIdentities = {};
-           if (emailChanged) {
-               newIdentities.email = newEmail;
-               if (newEmail) {
-                   this.logger.warning(`Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.`);
-               }
-           }
+            if (hashedEmailChanged) {
+                newIdentities[this.mappedEmailShaIdentityType] = newHashedEmail;
+                this.logger.warning(`emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.`);
+            }
 
-           if (hashedEmailChanged) {
-               newIdentities[this.mappedEmailShaIdentityType] = newHashedEmail;
-               this.logger.warning(`emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.`);
-           }
+            if (!isEmpty(newIdentities)) {
+                // Call identify with the new user identities
+                try {
+                    await new Promise<void>((resolve, reject) => {
+                        this.identityService.identify({
+                            userIdentities: {
+                                ...currentUserIdentities,
+                                ...newIdentities
+                            }
+                        }, () => {
+                            resolve();
+                        });
+                    });
+                } catch (error) {
+                    this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error));
+                }
+            }
 
-           if (!isEmpty(newIdentities)) {
-               // Call identify with the new user identities
-               try {
-                   await new Promise<void>((resolve, reject) => {
-                       this.identityService.identify({
-                           userIdentities: {
-                               ...currentUserIdentities,
-                               ...newIdentities
-                           }
-                       }, () => {
-                           resolve();
-                       });
-                   });
-               } catch (error) {
-                   this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error));
-               }
-           }
+            this.setUserAttributes(mappedAttributes);
 
-           this.setUserAttributes(mappedAttributes);
+            const enrichedAttributes = {
+                ...mappedAttributes,
+                ...(sandboxValue !== null ? { sandbox: sandboxValue } : {}),
+            };
 
-           const enrichedAttributes = {
-               ...mappedAttributes,
-               ...(sandboxValue !== null ? { sandbox: sandboxValue } : {}),
-           };
+            const enrichedOptions = {
+                ...options,
+                attributes: enrichedAttributes,
+            };
 
-           const enrichedOptions = {
-               ...options,
-               attributes: enrichedAttributes,
-           };
+            return this.kit.selectPlacements(enrichedOptions);
+        } catch (error) {
+            return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
+        }
+    }
 
-           return this.kit.selectPlacements(enrichedOptions);
-       } catch (error) {
-           return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
-       }
-   }
+    /**
+     * Hashes attributes and returns both original and hashed versions
+     * with Rokt-compatible key names (like emailsha256, mobilesha256)
+     * 
+     * 
+     * @param {RoktAttributes} attributes - Attributes to hash
+     * @returns {Promise<RoktAttributes>} Object with both original and hashed attributes
+     * 
+     */
+    public async hashAttributes(attributes: RoktAttributes): Promise<RoktAttributes> {
+        try {
+            if (!attributes || typeof attributes !== 'object') {
+                return {};
+            }
+            
+            // Get own property keys only
+            const keys = Object.keys(attributes);
+            
+            if (keys.length === 0) {
+                return {};
+            }
+            
+            // Hash all attributes in parallel
+            const hashPromises = keys.map(async (key) => {
+                const attributeValue = attributes[key] as RoktAttributeValueType;
+                const hashedValue = await this.hashSha256(attributeValue);
+                return { key, attributeValue, hashedValue };
+            });
+            
+            const results = await Promise.all(hashPromises);
+            
+            // Build the result object
+            const hashedAttributes: RoktAttributes = {};
+            for (const { key, attributeValue, hashedValue } of results) {
+                hashedAttributes[key] = attributeValue;
+                if (hashedValue) {
+                    hashedAttributes[`${key}sha256`] = hashedValue;
+                }
+            }
+            return hashedAttributes;
+            
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger.error(`Failed to hashAttributes, returning an empty object: ${errorMessage}`);
+            return {};
+        }
+    }
 
-   /**
-    * Hashes attributes and returns both original and hashed versions
-    * with Rokt-compatible key names (like emailsha256, mobilesha256)
-    *
-    *
-    * @param {RoktAttributes} attributes - Attributes to hash
-    * @returns {Promise<RoktAttributes>} Object with both original and hashed attributes
-    *
-    */
-   public async hashAttributes(attributes: RoktAttributes): Promise<RoktAttributes> {
-       try {
-           if (!attributes || typeof attributes !== 'object') {
-               return {};
-           }
-          
-           // Get own property keys only
-           const keys = Object.keys(attributes);
-          
-           if (keys.length === 0) {
-               return {};
-           }
-          
-           // Hash all attributes in parallel
-           const hashPromises = keys.map(async (key) => {
-               const attributeValue = attributes[key] as RoktAttributeValueType;
-               const hashedValue = await this.hashSha256(attributeValue);
-               return { key, attributeValue, hashedValue };
-           });
-          
-           const results = await Promise.all(hashPromises);
-          
-           // Build the result object
-           const hashedAttributes: RoktAttributes = {};
-           for (const { key, attributeValue, hashedValue } of results) {
-               hashedAttributes[key] = attributeValue;
-               if (hashedValue) {
-                   hashedAttributes[`${key}sha256`] = hashedValue;
-               }
-           }
-           return hashedAttributes;
-          
-       } catch (error) {
-           const errorMessage = error instanceof Error ? error.message : String(error);
-           this.logger.error(`Failed to hashAttributes, returning an empty object: ${errorMessage}`);
-           return {};
-       }
-   }
+    public setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void {
+        if (!this.isReady()) {
+            this.deferredCall<void>('setExtensionData', extensionData);
+            return;
+        }
 
-   public setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void {
-       if (!this.isReady()) {
-           this.deferredCall<void>('setExtensionData', extensionData);
-           return;
-       }
+        try {
+            this.kit.setExtensionData<T>(extensionData);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            throw new Error('Error setting extension data: ' + errorMessage);
+        }
+    }
 
-       try {
-           this.kit.setExtensionData<T>(extensionData);
-       } catch (error) {
-           const errorMessage = error instanceof Error ? error.message : String(error);
-           throw new Error('Error setting extension data: ' + errorMessage);
-       }
-   }
+    public use<T>(name: string): Promise<T> {
+        if (!this.isReady()) {
+            return this.deferredCall<T>('use', name);
+        }
 
-   public use<T>(name: string): Promise<T> {
-       if (!this.isReady()) {
-           return this.deferredCall<T>('use', name);
-       }
+        try {
+            return this.kit.use<T>(name);
+        } catch (error) {
+            return Promise.reject(error instanceof Error ? error : new Error('Error using extension: ' + name));
+        }
+    }
 
-       try {
-           return this.kit.use<T>(name);
-       } catch (error) {
-           return Promise.reject(error instanceof Error ? error : new Error('Error using extension: ' + name));
-       }
-   }
+    /**
+     * Hashes an attribute using SHA-256
+     * 
+     * @param {string | number | boolean | undefined | null} attribute - The value to hash
+     * @returns {Promise<string | undefined | null>} SHA-256 hashed value or undefined/null
+     * 
+     */
+    public async hashSha256(attribute: RoktAttributeValueType): Promise<string | undefined | null> {
+        if (attribute === null || attribute === undefined) {
+            this.logger.warning(`hashSha256 received null/undefined as input`);
+            return attribute as null | undefined;
+        }
+        
+        try {
+            const normalizedValue = String(attribute).trim().toLocaleLowerCase();
+            return await this.sha256Hex(normalizedValue);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger.error(`Failed to hashSha256, returning undefined: ${errorMessage}`);
+            return undefined;
+        }
+    }
 
-   /**
-    * Hashes an attribute using SHA-256
-    *
-    * @param {string | number | boolean | undefined | null} attribute - The value to hash
-    * @returns {Promise<string | undefined | null>} SHA-256 hashed value or undefined/null
-    *
-    */
-   public async hashSha256(attribute: RoktAttributeValueType): Promise<string | undefined | null> {
-       if (attribute === null || attribute === undefined) {
-           this.logger.warning(`hashSha256 received null/undefined as input`);
-           return attribute as null | undefined;
-       }
+    public getLocalSessionAttributes(): LocalSessionAttributes {
+        return this.store.getLocalSessionAttributes();
+    }
 
-       try {
-           const normalizedValue = String(attribute).trim().toLocaleLowerCase();
-           return await this.sha256Hex(normalizedValue);
-       } catch (error) {
-           const errorMessage = error instanceof Error ? error.message : String(error);
-           this.logger.error(`Failed to hashSha256, returning undefined: ${errorMessage}`);
-           return undefined;
-       }
-   }
+    public setLocalSessionAttribute(key: string, value: AttributeValue): void {
+        this.store.setLocalSessionAttribute(key, value);
+    }
 
-   public getLocalSessionAttributes(): LocalSessionAttributes {
-       return this.store.getLocalSessionAttributes();
-   }
+    private isReady(): boolean {
+        // The Rokt Manager is ready when a kit is attached and has a launcher
+        return Boolean(this.kit && this.kit.launcher);
+    }
 
-   public setLocalSessionAttribute(key: string, value: AttributeValue): void {
-       this.store.setLocalSessionAttribute(key, value);
-   }
+    private setUserAttributes(attributes: RoktAttributes): void {
+        const reservedAttributes = ['sandbox'];
+        const filteredAttributes = {};
+        
+        for (const key in attributes) {
+            if (attributes.hasOwnProperty(key) && reservedAttributes.indexOf(key) === -1) {
+                const value = attributes[key];
+                filteredAttributes[key] = Array.isArray(value) ? JSON.stringify(value) : value;
+            }
+        }
 
-   private isReady(): boolean {
-       // The Rokt Manager is ready when a kit is attached and has a launcher
-       return Boolean(this.kit && this.kit.launcher);
-   }
+        try {
+            this.currentUser.setUserAttributes(filteredAttributes);
+        } catch (error) {
+            this.logger.error('Error setting user attributes: ' + error);
+        }
+    }
 
-   private setUserAttributes(attributes: RoktAttributes): void {
-       const reservedAttributes = ['sandbox'];
-       const filteredAttributes = {};
+    private mapPlacementAttributes(attributes: RoktAttributes, placementAttributesMapping: Dictionary<string>[]): RoktAttributes {
+        const mappingLookup: { [key: string]: string } = {};
+        for (const mapping of placementAttributesMapping) {
+            mappingLookup[mapping.map] = mapping.value;
+        }
+    
+        const mappedAttributes: RoktAttributes = {};
+        for (const key in attributes) {
+            if (attributes.hasOwnProperty(key)) {
+                const newKey = mappingLookup[key] || key;
+                mappedAttributes[newKey] = attributes[key];
+            }
+        }
+        return mappedAttributes;
+    }
 
-       for (const key in attributes) {
-           if (attributes.hasOwnProperty(key) && reservedAttributes.indexOf(key) === -1) {
-               const value = attributes[key];
-               filteredAttributes[key] = Array.isArray(value) ? JSON.stringify(value) : value;
-           }
-       }
+    private processMessageQueue(): void {
+        if (!this.isReady() || this.messageQueue.size === 0) {
+            return;
+        }
 
-       try {
-           this.currentUser.setUserAttributes(filteredAttributes);
-       } catch (error) {
-           this.logger.error('Error setting user attributes: ' + error);
-       }
-   }
+        this.logger?.verbose(`RoktManager: Processing ${this.messageQueue.size} queued messages`);
 
-   private mapPlacementAttributes(attributes: RoktAttributes, placementAttributesMapping: Dictionary<string>[]): RoktAttributes {
-       const mappingLookup: { [key: string]: string } = {};
-       for (const mapping of placementAttributesMapping) {
-           mappingLookup[mapping.map] = mapping.value;
-       }
+        this.messageQueue.forEach((message) => {
+            if(!(message.methodName in this) || !isFunction(this[message.methodName])) {
+                this.logger?.error(`RoktManager: Method ${message.methodName} not found`);
 
-       const mappedAttributes: RoktAttributes = {};
-       for (const key in attributes) {
-           if (attributes.hasOwnProperty(key)) {
-               const newKey = mappingLookup[key] || key;
-               mappedAttributes[newKey] = attributes[key];
-           }
-       }
-       return mappedAttributes;
-   }
+                return;
+            }
 
-   private processMessageQueue(): void {
-       if (!this.isReady() || this.messageQueue.size === 0) {
-           return;
-       }
+            this.logger?.verbose(`RoktManager: Processing queued message: ${message.methodName} with payload: ${JSON.stringify(message.payload)}`);
 
-       this.logger?.verbose(`RoktManager: Processing ${this.messageQueue.size} queued messages`);
+            try {
+                const result = (this[message.methodName] as Function)(message.payload);
+                this.completePendingPromise(message.messageId, result);
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                this.logger?.error(`RoktManager: Error processing message '${message.methodName}': ${errorMessage}`);
+                this.completePendingPromise(message.messageId, Promise.reject(error));
+            }
+        });
 
-       this.messageQueue.forEach((message) => {
-           if(!(message.methodName in this) || !isFunction(this[message.methodName])) {
-               this.logger?.error(`RoktManager: Method ${message.methodName} not found`);
+        // Clear the queue after processing all messages
+        this.messageQueue.clear();
+    }
 
-               return;
-           }
+    private queueMessage(message: IRoktMessage): void {
+        this.messageQueue.set(message.messageId, message);
+    }
 
-           this.logger?.verbose(`RoktManager: Processing queued message: ${message.methodName} with payload: ${JSON.stringify(message.payload)}`);
+    private deferredCall<T>(methodName: string, payload: any): Promise<T> {
+        return new Promise<T>((resolve, reject) => {
+            const messageId = `${methodName}_${generateUniqueId()}`;
+            
+            this.queueMessage({
+                messageId,
+                methodName,
+                payload,
+                resolve,
+                reject,
+            });
+        });
+    }
 
-           try {
-               const result = (this[message.methodName] as Function)(message.payload);
-               this.completePendingPromise(message.messageId, result);
-           } catch (error) {
-               const errorMessage = error instanceof Error ? error.message : String(error);
-               this.logger?.error(`RoktManager: Error processing message '${message.methodName}': ${errorMessage}`);
-               this.completePendingPromise(message.messageId, Promise.reject(error));
-           }
-       });
+    private completePendingPromise(messageId: string | undefined, resultOrError: any): void {
+        if (!messageId || !this.messageQueue.has(messageId)) {
+            return;
+        }
 
-       // Clear the queue after processing all messages
-       this.messageQueue.clear();
-   }
+        const message = this.messageQueue.get(messageId)!;
+        
+        if (message.resolve) {
+            Promise.resolve(resultOrError)
+                .then((result) => message.resolve!(result))
+                .catch((error) => message.reject!(error));
+        }
+        
+        this.messageQueue.delete(messageId);
+    }
 
-   private queueMessage(message: IRoktMessage): void {
-       this.messageQueue.set(message.messageId, message);
-   }
+    /**
+     * Hashes a string input using SHA-256 and returns the hex digest
+     * Uses the Web Crypto API for secure hashing
+     * 
+     * @param {string} input - The string to hash
+     * @returns {Promise<string>} The SHA-256 hash as a hexadecimal string
+     */
+    private async sha256Hex(input: string): Promise<string> {
+        const encoder = new TextEncoder();
+        const encodedInput = encoder.encode(input);
+        const digest = await crypto.subtle.digest('SHA-256', encodedInput);
+        return this.arrayBufferToHex(digest);
+    }
 
-   private deferredCall<T>(methodName: string, payload: any): Promise<T> {
-       return new Promise<T>((resolve, reject) => {
-           const messageId = `${methodName}_${generateUniqueId()}`;
+    /**
+     * Converts an ArrayBuffer to a hexadecimal string representation
+     * Each byte is converted to a 2-character hex string with leading zeros
+     * 
+     * @param {ArrayBuffer} buffer - The buffer to convert
+     * @returns {string} The hexadecimal string representation
+     */
+    private arrayBufferToHex(buffer: ArrayBuffer): string {
+        const bytes = new Uint8Array(buffer);
+        let hexString = '';
+        for (let i = 0; i < bytes.length; i++) {
+            const hexByte = bytes[i].toString(16).padStart(2, '0');
+            hexString += hexByte;
+        }
+        return hexString;
+    }
 
-           this.queueMessage({
-               messageId,
-               methodName,
-               payload,
-               resolve,
-               reject,
-           });
-       });
-   }
-
-   private completePendingPromise(messageId: string | undefined, resultOrError: any): void {
-       if (!messageId || !this.messageQueue.has(messageId)) {
-           return;
-       }
-
-       const message = this.messageQueue.get(messageId)!;
-
-       if (message.resolve) {
-           Promise.resolve(resultOrError)
-               .then((result) => message.resolve!(result))
-               .catch((error) => message.reject!(error));
-       }
-
-       this.messageQueue.delete(messageId);
-   }
-
-   /**
-    * Hashes a string input using SHA-256 and returns the hex digest
-    * Uses the Web Crypto API for secure hashing
-    *
-    * @param {string} input - The string to hash
-    * @returns {Promise<string>} The SHA-256 hash as a hexadecimal string
-    */
-   private async sha256Hex(input: string): Promise<string> {
-       const encoder = new TextEncoder();
-       const encodedInput = encoder.encode(input);
-       const digest = await crypto.subtle.digest('SHA-256', encodedInput);
-       return this.arrayBufferToHex(digest);
-   }
-
-   /**
-    * Converts an ArrayBuffer to a hexadecimal string representation
-    * Each byte is converted to a 2-character hex string with leading zeros
-    *
-    * @param {ArrayBuffer} buffer - The buffer to convert
-    * @returns {string} The hexadecimal string representation
-    */
-   private arrayBufferToHex(buffer: ArrayBuffer): string {
-       const bytes = new Uint8Array(buffer);
-       let hexString = '';
-       for (let i = 0; i < bytes.length; i++) {
-           const hexByte = bytes[i].toString(16).padStart(2, '0');
-           hexString += hexByte;
-       }
-       return hexString;
-   }
-
-   /**
-    * Checks if an identity value has changed by comparing current and new values
-    *
-    * @param {string | undefined} currentValue - The current identity value
-    * @param {string | undefined} newValue - The new identity value to compare against
-    * @returns {boolean} True if the identity has changed (new value exists and differs from current), false otherwise
-    */
-   private hasIdentityChanged(currentValue: string | undefined, newValue: string | undefined): boolean {
-       if (!newValue) {
-           return false;
-       }
-
-       if (!currentValue) {
-           return true; // New value exists but no current value
-       }
-
-       if (currentValue !== newValue) {
-           return true; // Values are different
-       }
-
-       return false; // Values are the same
-   }
+    /**
+     * Checks if an identity value has changed by comparing current and new values
+     * 
+     * @param {string | undefined} currentValue - The current identity value
+     * @param {string | undefined} newValue - The new identity value to compare against
+     * @returns {boolean} True if the identity has changed (new value exists and differs from current), false otherwise
+     */
+    private hasIdentityChanged(currentValue: string | undefined, newValue: string | undefined): boolean {
+        if (!newValue) {
+            return false;
+        }
+        
+        if (!currentValue) {
+            return true; // New value exists but no current value
+        }
+        
+        if (currentValue !== newValue) {
+            return true; // Values are different
+        }
+        
+        return false; // Values are the same
+    }
 }
