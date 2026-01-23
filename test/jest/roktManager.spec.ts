@@ -4,6 +4,7 @@ import { SDKIdentityApi } from "../../src/identity.interfaces";
 import { IMParticleWebSDKInstance } from "../../src/mp-instance";
 import RoktManager, { IRoktKit, IRoktSelectPlacementsOptions } from "../../src/roktManager";
 import { testMPID } from '../src/config/constants';
+import { PerformanceMarkType } from "../../src/types";
 
 const resolvePromise = () => new Promise(resolve => setTimeout(resolve, 0));
 
@@ -634,6 +635,66 @@ describe('RoktManager', () => {
             roktManager['currentUser'] = currentUser;
             jest.clearAllMocks();
         });
+
+        it('should capture jointSdkSelectPlacements timing when selectPlacements is called', () => {
+            const mockCaptureTiming = jest.fn();
+            roktManager.init(
+                {} as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+                undefined,
+                mockCaptureTiming
+            );
+ 
+            const kit: IRoktKit = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                filters: undefined,
+                filteredUser: undefined,
+                userAttributes: undefined,
+                selectPlacements: jest.fn(),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+            };
+ 
+            roktManager.attachKit(kit);
+ 
+            const options = {
+                attributes: {}
+            } as IRoktSelectPlacementsOptions;
+ 
+            roktManager.selectPlacements(options);
+            expect(mockCaptureTiming).toHaveBeenCalledWith(PerformanceMarkType.JointSdkSelectPlacements);
+            expect(mockCaptureTiming).toHaveBeenCalledTimes(1);
+        });
+ 
+        it('should capture jointSdkSelectPlacements timing even when kit is not ready (deferred call)', () => {
+            const mockCaptureTiming = jest.fn();
+            roktManager.init(
+                {} as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+                undefined,
+                mockCaptureTiming
+            );
+ 
+            const options = {
+                attributes: {}
+            } as IRoktSelectPlacementsOptions;
+ 
+            roktManager.selectPlacements(options);
+            expect(mockCaptureTiming).toHaveBeenCalledWith(PerformanceMarkType.JointSdkSelectPlacements);
+            expect(mockCaptureTiming).toHaveBeenCalledTimes(1);
+        });
+ 
 
         it('should call kit.selectPlacements with empty attributes', () => {
             const kit: IRoktKit = {
