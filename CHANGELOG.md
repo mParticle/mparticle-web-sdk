@@ -1,3 +1,10 @@
+## [2.54.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.54.0...v2.54.1) (2026-01-26)
+
+
+### Bug Fixes
+
+* SDKE-846 - User Identity through selectPlacements ([#1146](https://github.com/mParticle/mparticle-web-sdk/issues/1146)) ([60c1ca6](https://github.com/mParticle/mparticle-web-sdk/commit/60c1ca6742e3edb23e9fef4c87d9b4af378eb25f))
+
 # [2.54.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.53.1...v2.54.0) (2026-01-26)
 
 
