@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.53.1";
+    var version = "2.54.0";
 
     var Constants = {
       sdkVersion: version,
@@ -1213,7 +1213,8 @@ var mParticle = (function () {
       AppInit: 1
     };
     var PerformanceMarkType = {
-      SdkStart: 'mp:sdkStart'
+      SdkStart: 'mp:sdkStart',
+      JointSdkSelectPlacements: 'mp:jointSdkSelectPlacements'
     };
     var Types = {
       MessageType: MessageType$1,
@@ -9703,10 +9704,11 @@ var mParticle = (function () {
        * @param {SDKIdentityApi} identityService - The mParticle Identity instance
        * @param {SDKLoggerApi} logger - The mParticle Logger instance
        * @param {IRoktOptions} options - Options for the RoktManager
+       * @param {Function} captureTiming - Function to capture performance timing marks
        *
        * @throws Logs error to console if placementAttributesMapping parsing fails
        */
-      RoktManager.prototype.init = function (roktConfig, filteredUser, identityService, store, logger, options) {
+      RoktManager.prototype.init = function (roktConfig, filteredUser, identityService, store, logger, options, captureTiming) {
         var _a;
         var _b = roktConfig || {},
           userAttributeFilters = _b.userAttributeFilters,
@@ -9718,6 +9720,7 @@ var mParticle = (function () {
         this.identityService = identityService;
         this.store = store;
         this.logger = logger;
+        this.captureTiming = captureTiming;
         this.filters = {
           userAttributeFilters: userAttributeFilters,
           filterUserAttributes: KitFilterHelper.filterUserAttributes,
@@ -9769,6 +9772,9 @@ var mParticle = (function () {
           return __generator(this, function (_c) {
             switch (_c.label) {
               case 0:
+                if (this.captureTiming) {
+                  this.captureTiming(PerformanceMarkType.JointSdkSelectPlacements);
+                }
                 if (!this.isReady()) {
                   return [2 /*return*/, this.deferredCall('selectPlacements', options)];
                 }
@@ -11149,7 +11155,7 @@ var mParticle = (function () {
             domain: config === null || config === void 0 ? void 0 : config.domain
           };
           // https://go.mparticle.com/work/SQDSDKS-7339
-          mpInstance._RoktManager.init(roktConfig, roktFilteredUser, mpInstance.Identity, mpInstance._Store, mpInstance.Logger, roktOptions);
+          mpInstance._RoktManager.init(roktConfig, roktFilteredUser, mpInstance.Identity, mpInstance._Store, mpInstance.Logger, roktOptions, mpInstance.captureTiming);
         }
         mpInstance._Forwarders.processForwarders(config, mpInstance._APIClient.prepareForwardingStats);
         mpInstance._Forwarders.processPixelConfigs(config);
