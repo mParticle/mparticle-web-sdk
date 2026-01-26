@@ -1,3 +1,10 @@
+# [2.54.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.53.1...v2.54.0) (2026-01-26)
+
+
+### Features
+
+* SDKE-852 add joint sdk select placements timestamp ([#1151](https://github.com/mParticle/mparticle-web-sdk/issues/1151)) ([085ab44](https://github.com/mParticle/mparticle-web-sdk/commit/085ab442f5a0c7a2b8a45b0aa83610d1f0ba823c))
+
 ## [2.53.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.53.0...v2.53.1) (2026-01-20)
 
 
