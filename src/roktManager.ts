@@ -14,7 +14,7 @@ import { SDKIdentityApi } from "./identity.interfaces";
 import { SDKLoggerApi } from "./sdkRuntimeModels";
 import { IStore, LocalSessionAttributes } from "./store";
 import { UserIdentities } from "@mparticle/web-sdk";
-import { IdentityType } from "./types";
+import { IdentityType, PerformanceMarkType } from "./types";
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export type RoktAttributeValueArray = Array<string | number | boolean>;
@@ -101,7 +101,7 @@ export default class RoktManager {
     private logger: SDKLoggerApi;
     private domain?: string;
     private mappedEmailShaIdentityType?: string | null;
-    
+    private captureTiming?: (metricsName: string) => void;
     /**
      * Initializes the RoktManager with configuration settings and user data.
      * 
@@ -110,6 +110,7 @@ export default class RoktManager {
      * @param {SDKIdentityApi} identityService - The mParticle Identity instance
      * @param {SDKLoggerApi} logger - The mParticle Logger instance
      * @param {IRoktOptions} options - Options for the RoktManager
+     * @param {Function} captureTiming - Function to capture performance timing marks
      * 
      * @throws Logs error to console if placementAttributesMapping parsing fails
      */
@@ -119,7 +120,8 @@ export default class RoktManager {
         identityService: SDKIdentityApi,
         store: IStore,
         logger?: SDKLoggerApi,
-        options?: IRoktOptions
+        options?: IRoktOptions,
+        captureTiming?: (metricsName: string) => void
     ): void {
         const { userAttributeFilters, settings } = roktConfig || {};
         const { placementAttributesMapping, hashedEmailUserIdentityType } = settings || {};
@@ -128,6 +130,7 @@ export default class RoktManager {
         this.identityService = identityService;
         this.store = store;
         this.logger = logger;
+        this.captureTiming = captureTiming;
 
         this.filters = {
             userAttributeFilters,
@@ -177,6 +180,10 @@ export default class RoktManager {
      * });
      */
     public async selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
+        if (this.captureTiming) {
+            this.captureTiming(PerformanceMarkType.JointSdkSelectPlacements);
+        }
+        
         // Queue if kit isn't ready OR if identity is in flight
         if (!this.isReady() || this.store?.identityCallInFlight) {
             return this.deferredCall<IRoktSelection>('selectPlacements', options);

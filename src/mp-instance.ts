@@ -1438,7 +1438,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
                 mpInstance.Identity,
                 mpInstance._Store,
                 mpInstance.Logger,
-                roktOptions
+                roktOptions,
+                mpInstance.captureTiming
             );
         }
 
