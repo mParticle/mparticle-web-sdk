@@ -761,6 +761,10 @@ describe('RoktManager', () => {
                 attributes: {
                     mapped_key: 'test_value',  // This key should be mapped
                     other_attr: 'other_value'  // This key should remain unchanged
+                },
+                initialAttributes: {
+                    original_key: 'test_value',
+                    other_attr: 'other_value'
                 }
             };
 
@@ -886,7 +890,10 @@ describe('RoktManager', () => {
             } as IRoktSelectPlacementsOptions;
 
             roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith({
+                attributes: {},
+                initialAttributes: {}
+            });
         });
 
         it('should call kit.selectPlacements with passed in attributes', async () => {
@@ -918,7 +925,22 @@ describe('RoktManager', () => {
             };
 
             await roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith({
+                attributes: {
+                    age: 25,
+                    score: 100.5,
+                    isSubscribed: true,
+                    isActive: false,
+                    interests: 'sports,music,books'
+                },
+                initialAttributes: {
+                    age: 25,
+                    score: 100.5,
+                    isSubscribed: true,
+                    isActive: false,
+                    interests: 'sports,music,books'
+                }
+            });
         });
 
         it('should queue the selectPlacements method if no launcher or kit is attached', () => {
@@ -984,7 +1006,10 @@ describe('RoktManager', () => {
             
             expect(roktManager['kit']).not.toBeNull();
             expect(roktManager['messageQueue'].size).toBe(0);
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith({
+                attributes: {},
+                initialAttributes: {}
+            });
             expect(result).toEqual(expectedResult);
         });
 
@@ -1024,9 +1049,26 @@ describe('RoktManager', () => {
                 }
             };
 
+            const expectedOptions = {
+                attributes: {
+                    age: 25,
+                    score: 100.5,
+                    isSubscribed: true,
+                    isActive: false,
+                    interests: 'sports,music,books'
+                },
+                initialAttributes: {
+                    age: 25,
+                    score: 100.5,
+                    isSubscribed: true,
+                    isActive: false,
+                    interests: 'sports,music,books'
+                }
+            };
+
             roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
-            expect(kit.launcher.selectPlacements).toHaveBeenCalledWith(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith(expectedOptions);
+            expect(kit.launcher.selectPlacements).toHaveBeenCalledWith(expectedOptions);
         });
 
         it('should pass sandbox flag as an attribute through to kit.selectPlacements', () => {
@@ -1056,7 +1098,17 @@ describe('RoktManager', () => {
             };
 
             roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options); 
+            expect(kit.selectPlacements).toHaveBeenCalledWith({
+                attributes: {
+                    customAttr: 'value',
+                    sandbox: true
+                },
+                identifier: 'test-identifier',
+                initialAttributes: {
+                    customAttr: 'value',
+                    sandbox: true
+                }
+            }); 
         });
 
         it('should NOT override global sandbox in placement attributes when initialized as true', () => {
@@ -1088,7 +1140,16 @@ describe('RoktManager', () => {
             roktManager.selectPlacements(options);
 
             expect(roktManager['sandbox']).toBeTruthy();
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith({
+                attributes: {
+                    customAttr: 'value',
+                    sandbox: false
+                },
+                initialAttributes: {
+                    customAttr: 'value',
+                    sandbox: false
+                }
+            });
         });
 
         it('should set sandbox in placement attributes when not initialized globally', () => {
@@ -1119,7 +1180,17 @@ describe('RoktManager', () => {
             };
 
             roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith({
+                attributes: {
+                    customAttr: 'value',
+                    sandbox: true
+                },
+                identifier: 'test-identifier',
+                initialAttributes: {
+                    customAttr: 'value',
+                    sandbox: true
+                }
+            });
         });
 
         it('should pass mapped attributes to kit.launcher.selectPlacements', () => {
@@ -1164,6 +1235,11 @@ describe('RoktManager', () => {
                     firstname: 'John',
                     lastname: 'Doe',
                     score: 42,
+                },
+                initialAttributes: {
+                    'f.name': 'John',
+                    'last_name': 'Doe',
+                    'score': 42,
                 }
             };
 
@@ -1197,7 +1273,101 @@ describe('RoktManager', () => {
             };
 
             roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith({
+                attributes: {
+                    'f.name': 'John',
+                    'last_name': 'Doe',
+                    'score': 42,
+                    'age': 25,
+                },
+                initialAttributes: {
+                    'f.name': 'John',
+                    'last_name': 'Doe',
+                    'score': 42,
+                    'age': 25,
+                }
+            });
+        });
+
+        it('should pass initialAttributes to kit for event logging', () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                hashAttributes: jest.fn(),
+                selectPlacements: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+            roktManager['placementAttributesMapping'] = [];
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    'customAttr': 'value',
+                }
+            };
+
+            roktManager.selectPlacements(options);
+
+            expect(kit.selectPlacements).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    initialAttributes: {
+                        'customAttr': 'value',
+                    }
+                })
+            );
+        });
+
+        it('should include original attributes in initialAttributes even after mapping', () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                hashAttributes: jest.fn(),
+                selectPlacements: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+            roktManager['placementAttributesMapping'] = [
+                {
+                    jsmap: null,
+                    map: 'f.name',
+                    maptype: 'UserAttributeClass.Name',
+                    value: 'firstname'
+                }
+            ];
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    'f.name': 'John',
+                    'userId': 'user123',
+                }
+            };
+
+            roktManager.selectPlacements(options);
+
+            // initialAttributes should contain the ORIGINAL unmapped attributes
+            expect(kit.selectPlacements).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    initialAttributes: {
+                        'f.name': 'John',
+                        'userId': 'user123',
+                    },
+                    // attributes should be mapped
+                    attributes: {
+                        'firstname': 'John',
+                        'userId': 'user123',
+                    }
+                })
+            );
         });
 
         it('should set the mapped attributes on the current user via setUserAttributes', async () => {
@@ -1287,7 +1457,17 @@ describe('RoktManager', () => {
             };
 
             await roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith({
+                attributes: {
+                    'email': 'test@example.com',
+                    'sandbox': true
+                },
+                initialAttributes: {
+                    'email': 'test@example.com',
+                    'sandbox': true,
+                }
+            });
+            
             expect(setUserAttributesSpy).not.toHaveBeenCalledWith({
                 sandbox: true
             });
