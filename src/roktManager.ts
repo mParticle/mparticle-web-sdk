@@ -184,7 +184,8 @@ export default class RoktManager {
             this.captureTiming(PerformanceMarkType.JointSdkSelectPlacements);
         }
         
-        if (!this.isReady()) {
+        // Queue if kit isn't ready OR if identity is in flight
+        if (!this.isReady() || this.store?.identityCallInFlight) {
             return this.deferredCall<IRoktSelection>('selectPlacements', options);
         }
 
@@ -192,8 +193,7 @@ export default class RoktManager {
             const { attributes } = options;
             const sandboxValue = attributes?.sandbox || null;
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
-
-            // Get current user identities
+            
             this.currentUser = this.identityService.getCurrentUser();
             const currentUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
 
@@ -204,9 +204,16 @@ export default class RoktManager {
             let newHashedEmail: string | undefined;
             
             // Hashed email identity is valid if it is set to Other-Other10
-            if(this.mappedEmailShaIdentityType && IdentityType.getIdentityType(this.mappedEmailShaIdentityType) !== false) {
+            const isValidHashedEmailIdentityType =
+                this.mappedEmailShaIdentityType &&
+                IdentityType.getIdentityType(this.mappedEmailShaIdentityType) !== false;
+
+            if (isValidHashedEmailIdentityType) {
                 currentHashedEmail = currentUserIdentities[this.mappedEmailShaIdentityType];
-                newHashedEmail = mappedAttributes['emailsha256'] as string || mappedAttributes[this.mappedEmailShaIdentityType] as string || undefined;
+                newHashedEmail =
+                    (mappedAttributes['emailsha256'] as string) ||
+                    (mappedAttributes[this.mappedEmailShaIdentityType] as string) ||
+                    undefined;
             }
 
             const emailChanged = this.hasIdentityChanged(currentEmail, newEmail);
@@ -242,13 +249,36 @@ export default class RoktManager {
                     this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error));
                 }
             }
+            
+            // Refresh current user identities to ensure we have the latest values before building enrichedAttributes
+            this.currentUser = this.identityService.getCurrentUser();
+            const finalUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
 
             this.setUserAttributes(mappedAttributes);
 
-            const enrichedAttributes = {
+            const enrichedAttributes: RoktAttributes = {
                 ...mappedAttributes,
                 ...(sandboxValue !== null ? { sandbox: sandboxValue } : {}),
             };
+
+            // Propagate email from current user identities if not already in attributes
+            if (finalUserIdentities.email && !enrichedAttributes.email) {
+                enrichedAttributes.email = finalUserIdentities.email;
+            }
+
+            // Propagate emailsha256 from current user identities if not already in attributes
+            if (isValidHashedEmailIdentityType) {
+                const hashedEmail = finalUserIdentities[this.mappedEmailShaIdentityType];
+                if (
+                    hashedEmail &&
+                    !enrichedAttributes.emailsha256 &&
+                    !enrichedAttributes[this.mappedEmailShaIdentityType]
+                ) {
+                    enrichedAttributes.emailsha256 = hashedEmail;
+                }
+            }
+
+            this.filters.filteredUser = this.currentUser || this.filters.filteredUser || null;
 
             const enrichedOptions = {
                 ...options,
@@ -405,6 +435,14 @@ export default class RoktManager {
         return mappedAttributes;
     }
 
+    public onIdentityComplete(): void {
+        if (this.isReady()) {
+            this.currentUser = this.identityService.getCurrentUser();
+            // Process any queued selectPlacements calls that were waiting for identity
+            this.processMessageQueue();
+        }
+    }
+
     private processMessageQueue(): void {
         if (!this.isReady() || this.messageQueue.size === 0) {
             return;
@@ -412,7 +450,12 @@ export default class RoktManager {
 
         this.logger?.verbose(`RoktManager: Processing ${this.messageQueue.size} queued messages`);
 
-        this.messageQueue.forEach((message) => {
+        const messagesToProcess = Array.from(this.messageQueue.values());
+        
+        // Clear the queue immediately to prevent re-processing
+        this.messageQueue.clear();
+        
+        messagesToProcess.forEach((message) => {
             if(!(message.methodName in this) || !isFunction(this[message.methodName])) {
                 this.logger?.error(`RoktManager: Method ${message.methodName} not found`);
 
@@ -421,18 +464,32 @@ export default class RoktManager {
 
             this.logger?.verbose(`RoktManager: Processing queued message: ${message.methodName} with payload: ${JSON.stringify(message.payload)}`);
 
-            try {
-                const result = (this[message.methodName] as Function)(message.payload);
-                this.completePendingPromise(message.messageId, result);
-            } catch (error) {
+            // Capture resolve/reject functions before async processing
+            const resolve = message.resolve;
+            const reject = message.reject;
+
+            const handleError = (error: unknown) => {
                 const errorMessage = error instanceof Error ? error.message : String(error);
                 this.logger?.error(`RoktManager: Error processing message '${message.methodName}': ${errorMessage}`);
-                this.completePendingPromise(message.messageId, Promise.reject(error));
+                if (reject) {
+                    reject(error);
+                }
+            };
+
+            try {
+                const result = (this[message.methodName] as Function)(message.payload);
+                // Handle both sync and async methods
+                Promise.resolve(result)
+                    .then((resolvedResult) => {
+                        if (resolve) {
+                            resolve(resolvedResult);
+                        }
+                    })
+                    .catch(handleError);
+            } catch (error) {
+                handleError(error);
             }
         });
-
-        // Clear the queue after processing all messages
-        this.messageQueue.clear();
     }
 
     private queueMessage(message: IRoktMessage): void {
@@ -451,22 +508,6 @@ export default class RoktManager {
                 reject,
             });
         });
-    }
-
-    private completePendingPromise(messageId: string | undefined, resultOrError: any): void {
-        if (!messageId || !this.messageQueue.has(messageId)) {
-            return;
-        }
-
-        const message = this.messageQueue.get(messageId)!;
-        
-        if (message.resolve) {
-            Promise.resolve(resultOrError)
-                .then((result) => message.resolve!(result))
-                .catch((error) => message.reject!(error));
-        }
-        
-        this.messageQueue.delete(messageId);
     }
 
     /**
