@@ -130,7 +130,9 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         integrationDelays: {},
         forwarderConstructors: [],
     };
-    this._RoktManager = new RoktManager();
+
+    // TODO: Refactor into a preinit class or ready queue manager
+    this._RoktManager = new RoktManager(this._preInit);
 
     // required for forwarders once they reference the mparticle instance
     this.IdentityType = IdentityType;
@@ -150,12 +152,17 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
 
     if (typeof window !== 'undefined') {
         if (window.mParticle && window.mParticle.config) {
+            // TODO: Set up test cases for this as well
             if (window.mParticle.config.hasOwnProperty('rq')) {
+                console.warn('ready queue from config', window.mParticle.config.rq);
+                console.warn('typeof ready queue from config', typeof window.mParticle.config.rq);
+                // debugger;
                 this._preInit.readyQueue = window.mParticle.config.rq;
             }
         }
     }
     this.init = function(apiKey, config) {
+        console.warn('local dev');
         if (!config) {
             console.warn(
                 'You did not pass a config object to init(). mParticle will not initialize properly'
@@ -251,7 +258,18 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
      * @param {Function} function A function to be called after mParticle is initialized
      */
     this.ready = function(f) {
-        if (self.isInitialized() && typeof f === 'function') {
+        // debugger;
+        console.warn('ready', f);
+        console.warn('typeof f', typeof f);
+        console.warn('isInitialized', self.isInitialized());
+        console.warn('identityCallFailed', self._Store?.identityCallFailed);
+        const shouldExecute = typeof f === 'function' && (
+            self._Store?.isInitialized || 
+            (self._Store?.identityCallFailed && self._RoktManager.isReady())
+        );
+        
+        console.warn('shouldExecute', shouldExecute);
+        if (shouldExecute) {
             f();
         } else {
             self._preInit.readyQueue.push(f);
@@ -1460,10 +1478,15 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
 
     // We will continue to clear out the ready queue as part of the initial init flow
     // if an identify request is unnecessary, such as if there is an existing session
+    console.warn('Checking if store can be initialized', mpInstance._Store.mpid, mpInstance._Store.identifyCalled);
+    
+    console.warn('ready queue on init complete', mpInstance._preInit.readyQueue);
+
     if (
         (mpInstance._Store.mpid && !mpInstance._Store.identifyCalled) ||
         mpInstance._Store.webviewBridgeEnabled
     ) {
+        // TODO: We may need to extract this out of the identified check above
         mpInstance._Store.isInitialized = true;
 
         mpInstance._preInit.readyQueue = processReadyQueue(
@@ -1612,9 +1635,17 @@ function processIdentityCallback(
 }
 
 function queueIfNotInitialized(func, self) {
-    if (!self.isInitialized()) {
-        self.ready(function() {
-            func();
+    // Core SDK methods must wait for Store initialization
+    // We queue directly to readyQueue (not via ready()) because:
+    // - ready() fires when either Store OR RoktManager is ready
+    // - Core SDK methods specifically need Store to be initialized
+    if (!self._Store?.isInitialized) {
+        self._preInit.readyQueue.push(function() {
+            // Double-check Store before executing - prevents execution
+            // when only RoktManager is ready
+            if (self._Store?.isInitialized) {
+                func();
+            }
         });
         return true;
     }

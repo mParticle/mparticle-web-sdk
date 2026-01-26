@@ -2,6 +2,7 @@ import { IKitConfigs } from "../../src/configAPIClient";
 import { IMParticleUser } from "../../src/identity-user-interfaces";
 import { SDKIdentityApi } from "../../src/identity.interfaces";
 import { IMParticleWebSDKInstance } from "../../src/mp-instance";
+import { IPreInit } from "../../src/pre-init-utils";
 import RoktManager, { IRoktKit, IRoktSelectPlacementsOptions } from "../../src/roktManager";
 import { testMPID } from '../src/config/constants';
 
@@ -10,6 +11,7 @@ const resolvePromise = () => new Promise(resolve => setTimeout(resolve, 0));
 describe('RoktManager', () => {
     let roktManager: RoktManager;
     let currentUser: IMParticleUser;
+    let preInit: IPreInit;
 
     const mockMPInstance = ({
         Identity: {
@@ -42,7 +44,12 @@ describe('RoktManager', () => {
     } as unknown) as IMParticleWebSDKInstance;
 
     beforeEach(() => {
-        roktManager = new RoktManager();
+        preInit = {
+            readyQueue: [],
+            integrationDelays: {},
+            forwarderConstructors: [],
+        };
+        roktManager = new RoktManager(preInit);
         currentUser = {
             setUserAttributes: jest.fn(),
             getUserIdentities: jest.fn().mockReturnValue({
@@ -440,8 +447,10 @@ describe('RoktManager', () => {
     });
 
     describe('#attachKit', () => {
-        it('should attach a kit', () => {
-            const kit: IRoktKit = {
+        let kit: IRoktKit;
+
+        beforeEach(() => {
+            kit = {
                 launcher: {
                     selectPlacements: jest.fn(),
                     hashAttributes: jest.fn(),
@@ -455,9 +464,76 @@ describe('RoktManager', () => {
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
             };
+        });
 
+        it('should attach a kit', () => {
             roktManager.attachKit(kit);
             expect(roktManager['kit']).not.toBeNull();
+        });
+
+        it('should call processMessageQueue when kit is attached', () => {
+            const processMessageQueueSpy = jest.spyOn(roktManager as any, 'processMessageQueue');
+            
+            roktManager.attachKit(kit);
+            
+            expect(processMessageQueueSpy).toHaveBeenCalledTimes(1);
+            processMessageQueueSpy.mockRestore();
+        });
+
+        it('should process ready queue when kit is attached and identity call failed', () => {
+            const readyQueueItem1 = jest.fn();
+            const readyQueueItem2 = jest.fn();
+            preInit.readyQueue = [readyQueueItem1, readyQueueItem2];
+            
+            // Set identityCallFailed to true
+            roktManager['store'].identityCallFailed = true;
+            
+            roktManager.attachKit(kit);
+            
+            expect(readyQueueItem1).toHaveBeenCalledTimes(1);
+            expect(readyQueueItem2).toHaveBeenCalledTimes(1);
+            expect(preInit.readyQueue).toEqual([]);
+        });
+
+        it('should NOT process ready queue when identity call did not fail', () => {
+            const readyQueueItem1 = jest.fn();
+            const readyQueueItem2 = jest.fn();
+            preInit.readyQueue = [readyQueueItem1, readyQueueItem2];
+            
+            // Set identityCallFailed to false
+            roktManager['store'].identityCallFailed = false;
+            
+            roktManager.attachKit(kit);
+            
+            // Ready queue items should NOT be called
+            expect(readyQueueItem1).not.toHaveBeenCalled();
+            expect(readyQueueItem2).not.toHaveBeenCalled();
+            // Ready queue should remain unchanged
+            expect(preInit.readyQueue).toEqual([readyQueueItem1, readyQueueItem2]);
+        });
+
+        it('should process message queue before processing ready queue when identity call failed', () => {
+            const processMessageQueueSpy = jest.spyOn(roktManager as any, 'processMessageQueue');
+            const processReadyQueueSpy = jest.spyOn(require('../../src/pre-init-utils'), 'processReadyQueue');
+            
+            // Set identityCallFailed to true so ready queue is processed
+            roktManager['store'].identityCallFailed = true;
+            
+            roktManager.attachKit(kit);
+            
+            // Verify both were called
+            expect(processMessageQueueSpy).toHaveBeenCalled();
+            expect(processReadyQueueSpy).toHaveBeenCalled();
+            
+            // Verify processMessageQueue was called before processReadyQueue
+            // by checking the order of calls
+            const messageQueueCallIndex = processMessageQueueSpy.mock.invocationCallOrder[0];
+            const readyQueueCallIndex = processReadyQueueSpy.mock.invocationCallOrder[0];
+            
+            expect(messageQueueCallIndex).toBeLessThan(readyQueueCallIndex);
+            
+            processMessageQueueSpy.mockRestore();
+            processReadyQueueSpy.mockRestore();
         });
     });
 

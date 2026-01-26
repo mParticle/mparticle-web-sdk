@@ -15,6 +15,7 @@ import { SDKLoggerApi } from "./sdkRuntimeModels";
 import { IStore, LocalSessionAttributes } from "./store";
 import { UserIdentities } from "@mparticle/web-sdk";
 import { IdentityType } from "./types";
+import { IPreInit, processReadyQueue } from "./pre-init-utils";
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export interface IRoktPartnerAttributes {
@@ -100,6 +101,12 @@ export default class RoktManager {
     private logger: SDKLoggerApi;
     private domain?: string;
     private mappedEmailShaIdentityType?: string  | null;
+    
+    // TODO: Refactor into a preinit class or ready queue manager
+    constructor(private _preInit: IPreInit) {
+        this._preInit = _preInit;
+    }
+    
     /**
      * Initializes the RoktManager with configuration settings and user data.
      * 
@@ -155,8 +162,15 @@ export default class RoktManager {
     }
 
     public attachKit(kit: IRoktKit): void {
+        console.warn('RoktManager: attaching kit');
         this.kit = kit;
         this.processMessageQueue();
+
+        // Process ready queue only if identity call failed
+        // This ensures queued SDK methods execute even when identity initialization fails
+        if (this.store.identityCallFailed) {
+            this._preInit.readyQueue = processReadyQueue(this._preInit.readyQueue);
+        }
     }
 
     /**
@@ -180,6 +194,7 @@ export default class RoktManager {
         }
 
         try {
+            console.warn('RoktManager: selectPlacements');
             const { attributes } = options;
             const sandboxValue = attributes?.sandbox || null;
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
@@ -357,7 +372,7 @@ export default class RoktManager {
         this.store.setLocalSessionAttribute(key, value);
     }
 
-    private isReady(): boolean {
+    public isReady(): boolean {
         // The Rokt Manager is ready when a kit is attached and has a launcher
         return Boolean(this.kit && this.kit.launcher);
     }
@@ -430,6 +445,7 @@ export default class RoktManager {
     }
 
     private deferredCall<T>(methodName: string, payload: any): Promise<T> {
+        console.warn('deferredCall', methodName, payload);
         return new Promise<T>((resolve, reject) => {
             const messageId = `${methodName}_${generateUniqueId()}`;
             

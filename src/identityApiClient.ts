@@ -288,6 +288,7 @@ export default function IdentityAPIClient(
             }
 
             mpInstance._Store.identityCallInFlight = false;
+            mpInstance._Store.identityCallFailed = false;
 
             verbose(message);
             parseIdentityResponse(
@@ -301,9 +302,14 @@ export default function IdentityAPIClient(
             );
         } catch (err) {
             mpInstance._Store.identityCallInFlight = false;
+                
+            // Marking identity call failed - ready() will fire callbacks if 
+            // RoktManager is ready, allowing Rokt methods to execute even if identity fails
+            mpInstance._Store.identityCallFailed = true;
             
             const errorMessage = (err as Error).message || err.toString();
 
+            debugger;
             error('Error sending identity request to servers' + ' - ' + errorMessage);
             invokeCallback(
                 callback,

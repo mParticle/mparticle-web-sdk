@@ -17,6 +17,7 @@ export const processReadyQueue = (readyQueue): Function[] => {
             if (isFunction(readyQueueItem)) {
                 readyQueueItem();
             } else if (Array.isArray(readyQueueItem)) {
+                // TODO:L Can we add test coverage for this?
                 processPreloadedItem(readyQueueItem);
             }
         });
