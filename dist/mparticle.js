@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.54.0";
+    var version = "2.54.1";
 
     var Constants = {
       sdkVersion: version,
@@ -8224,9 +8224,7 @@ var mParticle = (function () {
           mpInstance.Logger.error('Error parsing JSON response from Identity server: ' + e);
         }
         mpInstance._Store.isInitialized = true;
-        if (mpInstance._RoktManager.isReady()) {
-          mpInstance._RoktManager.currentUser = mpInstance.Identity.getCurrentUser();
-        }
+        mpInstance._RoktManager.onIdentityComplete();
         mpInstance._preInit.readyQueue = processReadyQueue(mpInstance._preInit.readyQueue);
       };
 
@@ -9765,34 +9763,34 @@ var mParticle = (function () {
        * });
        */
       RoktManager.prototype.selectPlacements = function (options) {
-        var _a, _b;
+        var _a, _b, _c, _d, _e;
         return __awaiter(this, void 0, void 0, function () {
-          var attributes, sandboxValue, mappedAttributes, currentUserIdentities_1, currentEmail, newEmail, currentHashedEmail, newHashedEmail, emailChanged, hashedEmailChanged, newIdentities_1, error_1, enrichedAttributes, enrichedOptions, error_2;
+          var attributes, sandboxValue, mappedAttributes, currentUserIdentities_1, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, error_1, finalUserIdentities, enrichedAttributes, hashedEmail, enrichedOptions, error_2;
           var _this = this;
-          return __generator(this, function (_c) {
-            switch (_c.label) {
+          return __generator(this, function (_f) {
+            switch (_f.label) {
               case 0:
                 if (this.captureTiming) {
                   this.captureTiming(PerformanceMarkType.JointSdkSelectPlacements);
                 }
-                if (!this.isReady()) {
+                // Queue if kit isn't ready OR if identity is in flight
+                if (!this.isReady() || ((_a = this.store) === null || _a === void 0 ? void 0 : _a.identityCallInFlight)) {
                   return [2 /*return*/, this.deferredCall('selectPlacements', options)];
                 }
-                _c.label = 1;
+                _f.label = 1;
               case 1:
-                _c.trys.push([1, 6,, 7]);
+                _f.trys.push([1, 6,, 7]);
                 attributes = options.attributes;
                 sandboxValue = (attributes === null || attributes === void 0 ? void 0 : attributes.sandbox) || null;
                 mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
-                // Get current user identities
                 this.currentUser = this.identityService.getCurrentUser();
-                currentUserIdentities_1 = ((_b = (_a = this.currentUser) === null || _a === void 0 ? void 0 : _a.getUserIdentities()) === null || _b === void 0 ? void 0 : _b.userIdentities) || {};
+                currentUserIdentities_1 = ((_c = (_b = this.currentUser) === null || _b === void 0 ? void 0 : _b.getUserIdentities()) === null || _c === void 0 ? void 0 : _c.userIdentities) || {};
                 currentEmail = currentUserIdentities_1.email;
                 newEmail = mappedAttributes.email;
                 currentHashedEmail = void 0;
                 newHashedEmail = void 0;
-                // Hashed email identity is valid if it is set to Other-Other10
-                if (this.mappedEmailShaIdentityType && IdentityType.getIdentityType(this.mappedEmailShaIdentityType) !== false) {
+                isValidHashedEmailIdentityType = this.mappedEmailShaIdentityType && IdentityType.getIdentityType(this.mappedEmailShaIdentityType) !== false;
+                if (isValidHashedEmailIdentityType) {
                   currentHashedEmail = currentUserIdentities_1[this.mappedEmailShaIdentityType];
                   newHashedEmail = mappedAttributes['emailsha256'] || mappedAttributes[this.mappedEmailShaIdentityType] || undefined;
                 }
@@ -9810,9 +9808,9 @@ var mParticle = (function () {
                   this.logger.warning("emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.");
                 }
                 if (!!isEmpty(newIdentities_1)) return [3 /*break*/, 5];
-                _c.label = 2;
+                _f.label = 2;
               case 2:
-                _c.trys.push([2, 4,, 5]);
+                _f.trys.push([2, 4,, 5]);
                 return [4 /*yield*/, new Promise(function (resolve, reject) {
                   _this.identityService.identify({
                     userIdentities: __assign(__assign({}, currentUserIdentities_1), newIdentities_1)
@@ -9821,23 +9819,38 @@ var mParticle = (function () {
                   });
                 })];
               case 3:
-                _c.sent();
+                _f.sent();
                 return [3 /*break*/, 5];
               case 4:
-                error_1 = _c.sent();
+                error_1 = _f.sent();
                 this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error_1));
                 return [3 /*break*/, 5];
               case 5:
+                // Refresh current user identities to ensure we have the latest values before building enrichedAttributes
+                this.currentUser = this.identityService.getCurrentUser();
+                finalUserIdentities = ((_e = (_d = this.currentUser) === null || _d === void 0 ? void 0 : _d.getUserIdentities()) === null || _e === void 0 ? void 0 : _e.userIdentities) || {};
                 this.setUserAttributes(mappedAttributes);
                 enrichedAttributes = __assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
                   sandbox: sandboxValue
                 } : {});
+                // Propagate email from current user identities if not already in attributes
+                if (finalUserIdentities.email && !enrichedAttributes.email) {
+                  enrichedAttributes.email = finalUserIdentities.email;
+                }
+                // Propagate emailsha256 from current user identities if not already in attributes
+                if (isValidHashedEmailIdentityType) {
+                  hashedEmail = finalUserIdentities[this.mappedEmailShaIdentityType];
+                  if (hashedEmail && !enrichedAttributes.emailsha256 && !enrichedAttributes[this.mappedEmailShaIdentityType]) {
+                    enrichedAttributes.emailsha256 = hashedEmail;
+                  }
+                }
+                this.filters.filteredUser = this.currentUser || this.filters.filteredUser || null;
                 enrichedOptions = __assign(__assign({}, options), {
                   attributes: enrichedAttributes
                 });
                 return [2 /*return*/, this.kit.selectPlacements(enrichedOptions)];
               case 6:
-                error_2 = _c.sent();
+                error_2 = _f.sent();
                 return [2 /*return*/, Promise.reject(error_2 instanceof Error ? error_2 : new Error('Unknown error occurred'))];
               case 7:
                 return [2 /*return*/];
@@ -10010,6 +10023,13 @@ var mParticle = (function () {
         }
         return mappedAttributes;
       };
+      RoktManager.prototype.onIdentityComplete = function () {
+        if (this.isReady()) {
+          this.currentUser = this.identityService.getCurrentUser();
+          // Process any queued selectPlacements calls that were waiting for identity
+          this.processMessageQueue();
+        }
+      };
       RoktManager.prototype.processMessageQueue = function () {
         var _this = this;
         var _a;
@@ -10017,24 +10037,39 @@ var mParticle = (function () {
           return;
         }
         (_a = this.logger) === null || _a === void 0 ? void 0 : _a.verbose("RoktManager: Processing ".concat(this.messageQueue.size, " queued messages"));
-        this.messageQueue.forEach(function (message) {
-          var _a, _b, _c;
+        var messagesToProcess = Array.from(this.messageQueue.values());
+        // Clear the queue immediately to prevent re-processing
+        this.messageQueue.clear();
+        messagesToProcess.forEach(function (message) {
+          var _a, _b;
           if (!(message.methodName in _this) || !isFunction(_this[message.methodName])) {
             (_a = _this.logger) === null || _a === void 0 ? void 0 : _a.error("RoktManager: Method ".concat(message.methodName, " not found"));
             return;
           }
           (_b = _this.logger) === null || _b === void 0 ? void 0 : _b.verbose("RoktManager: Processing queued message: ".concat(message.methodName, " with payload: ").concat(JSON.stringify(message.payload)));
+          // Capture resolve/reject functions before async processing
+          var resolve = message.resolve;
+          var reject = message.reject;
+          var handleError = function handleError(error) {
+            var _a;
+            var errorMessage = error instanceof Error ? error.message : String(error);
+            (_a = _this.logger) === null || _a === void 0 ? void 0 : _a.error("RoktManager: Error processing message '".concat(message.methodName, "': ").concat(errorMessage));
+            if (reject) {
+              reject(error);
+            }
+          };
           try {
             var result = _this[message.methodName](message.payload);
-            _this.completePendingPromise(message.messageId, result);
+            // Handle both sync and async methods
+            Promise.resolve(result).then(function (resolvedResult) {
+              if (resolve) {
+                resolve(resolvedResult);
+              }
+            })["catch"](handleError);
           } catch (error) {
-            var errorMessage = error instanceof Error ? error.message : String(error);
-            (_c = _this.logger) === null || _c === void 0 ? void 0 : _c.error("RoktManager: Error processing message '".concat(message.methodName, "': ").concat(errorMessage));
-            _this.completePendingPromise(message.messageId, Promise.reject(error));
+            handleError(error);
           }
         });
-        // Clear the queue after processing all messages
-        this.messageQueue.clear();
       };
       RoktManager.prototype.queueMessage = function (message) {
         this.messageQueue.set(message.messageId, message);
@@ -10051,20 +10086,6 @@ var mParticle = (function () {
             reject: reject
           });
         });
-      };
-      RoktManager.prototype.completePendingPromise = function (messageId, resultOrError) {
-        if (!messageId || !this.messageQueue.has(messageId)) {
-          return;
-        }
-        var message = this.messageQueue.get(messageId);
-        if (message.resolve) {
-          Promise.resolve(resultOrError).then(function (result) {
-            return message.resolve(result);
-          })["catch"](function (error) {
-            return message.reject(error);
-          });
-        }
-        this.messageQueue["delete"](messageId);
       };
       /**
        * Hashes a string input using SHA-256 and returns the hex digest
