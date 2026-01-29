@@ -1880,6 +1880,49 @@ describe('RoktManager', () => {
             );
         });
 
+        it('should log developer passed attributes via verbose logger', async () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                hashAttributes: jest.fn(),
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getUserIdentities: () => ({
+                        userIdentities: {
+                            email: 'test@example.com'
+                        }
+                    }),
+                    setUserAttributes: jest.fn()
+                }),
+                identify: jest.fn()
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    email: 'test@example.com',
+                    customAttr: 'value',
+                }
+            };
+
+            await roktManager.selectPlacements(options);
+
+            expect(mockMPInstance.Logger.verbose).toHaveBeenCalledWith(
+                'MParticle.Rokt selectPlacements called with attributes: {"email":"test@example.com","customAttr":"value"}'
+            );
+        });
+
         it('should propagate emailsha256 from current user identities to kit.selectPlacements when not in attributes', async () => {
             const testRoktManager = new RoktManager();
             const kit: Partial<IRoktKit> = {
