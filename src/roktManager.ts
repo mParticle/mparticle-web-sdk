@@ -193,7 +193,9 @@ export default class RoktManager {
             const { attributes } = options;
             const sandboxValue = attributes?.sandbox || null;
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
-            
+            this.logger?.verbose(`MParticle.Rokt selectPlacements called with attributes: ${JSON.stringify(attributes)}`);
+
+            // Get current user identities
             this.currentUser = this.identityService.getCurrentUser();
             const currentUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
 
@@ -283,7 +285,6 @@ export default class RoktManager {
             const enrichedOptions = {
                 ...options,
                 attributes: enrichedAttributes,
-                initialAttributes: attributes,
             };
 
             return this.kit.selectPlacements(enrichedOptions);
