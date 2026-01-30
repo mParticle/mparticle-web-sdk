@@ -802,65 +802,6 @@ describe('RoktManager', () => {
             roktManager['currentUser'] = currentUser;
             jest.clearAllMocks();
         });
-
-        it('should capture jointSdkSelectPlacements timing when selectPlacements is called', () => {
-            const mockCaptureTiming = jest.fn();
-            roktManager.init(
-                {} as IKitConfigs,
-                {} as IMParticleUser,
-                mockMPInstance.Identity,
-                mockMPInstance._Store,
-                mockMPInstance.Logger,
-                undefined,
-                mockCaptureTiming
-            );
- 
-            const kit: IRoktKit = {
-                launcher: {
-                    selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn(),
-                    use: jest.fn(),
-                },
-                filters: undefined,
-                filteredUser: undefined,
-                userAttributes: undefined,
-                selectPlacements: jest.fn(),
-                hashAttributes: jest.fn(),
-                setExtensionData: jest.fn(),
-                use: jest.fn(),
-            };
- 
-            roktManager.attachKit(kit);
- 
-            const options = {
-                attributes: {}
-            } as IRoktSelectPlacementsOptions;
- 
-            roktManager.selectPlacements(options);
-            expect(mockCaptureTiming).toHaveBeenCalledWith(PerformanceMarkType.JointSdkSelectPlacements);
-            expect(mockCaptureTiming).toHaveBeenCalledTimes(1);
-        });
- 
-        it('should capture jointSdkSelectPlacements timing even when kit is not ready (deferred call)', () => {
-            const mockCaptureTiming = jest.fn();
-            roktManager.init(
-                {} as IKitConfigs,
-                {} as IMParticleUser,
-                mockMPInstance.Identity,
-                mockMPInstance._Store,
-                mockMPInstance.Logger,
-                undefined,
-                mockCaptureTiming
-            );
- 
-            const options = {
-                attributes: {}
-            } as IRoktSelectPlacementsOptions;
- 
-            roktManager.selectPlacements(options);
-            expect(mockCaptureTiming).toHaveBeenCalledWith(PerformanceMarkType.JointSdkSelectPlacements);
-            expect(mockCaptureTiming).toHaveBeenCalledTimes(1);
-        });
  
 
         it('should capture jointSdkSelectPlacements timing when selectPlacements is called', () => {
@@ -923,7 +864,7 @@ describe('RoktManager', () => {
         });
  
 
-        it('should call kit.selectPlacements with empty attributes', () => {
+        it('should call kit.selectPlacements with empty attributes', async () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -945,7 +886,7 @@ describe('RoktManager', () => {
                 attributes: {}
             } as IRoktSelectPlacementsOptions;
 
-            roktManager.selectPlacements(options);
+            await roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
@@ -1353,8 +1294,6 @@ describe('RoktManager', () => {
                     'sandbox': true
                 },
             });
-            expect(roktManager['currentUser'].setUserAttributes).not.toHaveBeenCalledWith({
-            
             expect(setUserAttributesSpy).not.toHaveBeenCalledWith({
                 sandbox: true
             });
@@ -1877,49 +1816,6 @@ describe('RoktManager', () => {
                         lastname: 'Doe'
                     })
                 })
-            );
-        });
-
-        it('should log developer passed attributes via verbose logger', async () => {
-            const kit: Partial<IRoktKit> = {
-                launcher: {
-                    selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn(),
-                    use: jest.fn(),
-                },
-                hashAttributes: jest.fn(),
-                selectPlacements: jest.fn().mockResolvedValue({}),
-                setExtensionData: jest.fn(),
-                use: jest.fn(),
-            };
-
-            roktManager.kit = kit as IRoktKit;
-
-            const mockIdentity = {
-                getCurrentUser: jest.fn().mockReturnValue({
-                    getUserIdentities: () => ({
-                        userIdentities: {
-                            email: 'test@example.com'
-                        }
-                    }),
-                    setUserAttributes: jest.fn()
-                }),
-                identify: jest.fn()
-            } as unknown as SDKIdentityApi;
-
-            roktManager['identityService'] = mockIdentity;
-
-            const options: IRoktSelectPlacementsOptions = {
-                attributes: {
-                    email: 'test@example.com',
-                    customAttr: 'value',
-                }
-            };
-
-            await roktManager.selectPlacements(options);
-
-            expect(mockMPInstance.Logger.verbose).toHaveBeenCalledWith(
-                `mParticle.Rokt selectPlacements called with attributes:\n${JSON.stringify({ email: 'test@example.com', customAttr: 'value' }, null, 2)}`
             );
         });
 
@@ -2482,7 +2378,7 @@ describe('RoktManager', () => {
             await roktManager.selectPlacements(options);
 
             expect(mockMPInstance.Logger.verbose).toHaveBeenCalledWith(
-                'MParticle.Rokt selectPlacements called with attributes: {"email":"test@example.com","customAttr":"value"}'
+                `mParticle.Rokt selectPlacements called with attributes:\n${JSON.stringify({ email: 'test@example.com', customAttr: 'value' }, null, 2)}`
             );
         });
     });
