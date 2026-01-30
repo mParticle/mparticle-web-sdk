@@ -29,6 +29,7 @@ jobs:
                 working-directory: mparticle-android-sdk
                 api-level: 29
                 arch: x86_64
+                force-avd-creation: true
                 script: ./gradlew :android-core:cAT -Pandroid.testInstrumentationRunnerArguments.class=com.mparticle.internal.MParticleJSInterfaceITest -Pjs-sdk-file=../dist/mparticle.js
             - name: "Archive Test Results"
               if: ${{ always() }}
