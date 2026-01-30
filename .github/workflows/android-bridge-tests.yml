@@ -24,14 +24,16 @@ jobs:
                 npm ci
                 npm run build:iife
             - name: "Run Instrumented Tests"
-              uses: reactivecircus/android-emulator-runner@v2.27.0
+              uses: reactivecircus/android-emulator-runner@v2.32.0
               with:
                 working-directory: mparticle-android-sdk
                 api-level: 29
+                arch: x86_64
+                force-avd-creation: true
                 script: ./gradlew :android-core:cAT -Pandroid.testInstrumentationRunnerArguments.class=com.mparticle.internal.MParticleJSInterfaceITest -Pjs-sdk-file=../dist/mparticle.js
             - name: "Archive Test Results"
               if: ${{ always() }}
-              uses: actions/upload-artifact@v3
+              uses: actions/upload-artifact@v4
               with:
                   name: test-results
                   path: mparticle-android-sdk/android-core/build/reports/androidTests/connected/**
