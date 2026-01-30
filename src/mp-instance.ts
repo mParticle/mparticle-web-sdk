@@ -36,6 +36,7 @@ import Consent, { IConsent } from './consent';
 import KitBlocker from './kitBlocking';
 import ConfigAPIClient, { IKitConfigs } from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
+import TimingEventsClient, { ITimingEventsClient } from './timingEventsClient';
 import { isFunction, parseConfig, valueof, generateDeprecationMessage } from './utils';
 import { LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
@@ -80,6 +81,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _Helpers: SDKHelpersApi;
     _Identity: IIdentity;
     _IdentityAPIClient: typeof IdentityAPIClient;
+    _TimingEventsClient: ITimingEventsClient;
     _IntegrationCapture: IntegrationCapture;
     _NativeSdkHelpers: INativeSdkHelpers;
     _Persistence: IPersistence;
@@ -127,6 +129,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this._ForwardingStatsUploader = new ForwardingStatsUploader(this);
     this._Consent = new Consent(this);
     this._IdentityAPIClient = new IdentityAPIClient(this);
+    this._TimingEventsClient = new TimingEventsClient(this);
     this._preInit = {
         readyQueue: [],
         integrationDelays: {},
@@ -158,6 +161,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         }
     }
     this.init = function(apiKey, config) {
+        console.log("woohoo");
         if (!config) {
             console.warn(
                 'You did not pass a config object to init(). mParticle will not initialize properly'

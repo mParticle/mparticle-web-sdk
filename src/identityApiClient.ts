@@ -193,6 +193,11 @@ export default function IdentityAPIClient(
         mpid: MPID,
         knownIdentities: UserIdentities
     ) {
+        // START
+        const requestCounter = mpInstance._Store.getAndIncrementIdentityRequestCounter();
+        const startTimestamp = new Date().getTime();
+        const startEventType = `identity${requestCounter}RequestStart`;
+        mpInstance._TimingEventsClient.sendTimingEvent(startEventType, startTimestamp);
         const { invokeCallback } = mpInstance._Helpers;
         const { Logger } = mpInstance;
         Logger.verbose(Messages.InformationMessages.SendIdentityBegin);
@@ -289,6 +294,16 @@ export default function IdentityAPIClient(
             mpInstance._Store.identityCallInFlight = false;
 
             Logger.verbose(message);
+            
+            // END
+            const requestNumber = mpInstance._Store.currentIdentityRequestNumber;
+            if (requestNumber !== null) {
+                const endTimestamp = new Date().getTime();
+                const endEventType = `identity${requestNumber}RequestEnd`;
+                mpInstance._TimingEventsClient.sendTimingEvent(endEventType, endTimestamp);
+                mpInstance._Store.currentIdentityRequestNumber = null;
+            }
+            
             parseIdentityResponse(
                 identityResponse,
                 previousMPID,
@@ -300,6 +315,15 @@ export default function IdentityAPIClient(
             );
         } catch (err) {
             mpInstance._Store.identityCallInFlight = false;
+            
+            // END
+            const requestNumber = mpInstance._Store.currentIdentityRequestNumber;
+            if (requestNumber !== null) {
+                const endTimestamp = new Date().getTime();
+                const endEventType = `identity${requestNumber}RequestEnd`;
+                mpInstance._TimingEventsClient.sendTimingEvent(endEventType, endTimestamp);
+                mpInstance._Store.currentIdentityRequestNumber = null;
+            }
             
             const errorMessage = (err as Error).message || err.toString();
 
