@@ -863,8 +863,7 @@ describe('RoktManager', () => {
             expect(mockCaptureTiming).toHaveBeenCalledTimes(1);
         });
  
-
-        it('should call kit.selectPlacements with empty attributes', async () => {
+        it('should call kit.selectPlacements with empty attributes', () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -886,7 +885,7 @@ describe('RoktManager', () => {
                 attributes: {}
             } as IRoktSelectPlacementsOptions;
 
-            await roktManager.selectPlacements(options);
+            roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
@@ -1287,13 +1286,8 @@ describe('RoktManager', () => {
                 }
             };
 
-            roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith({
-                attributes: {
-                    'email': 'test@example.com',
-                    'sandbox': true
-                },
-            });
+            await roktManager.selectPlacements(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
             expect(setUserAttributesSpy).not.toHaveBeenCalledWith({
                 sandbox: true
             });
