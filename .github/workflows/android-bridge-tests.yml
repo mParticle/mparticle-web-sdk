@@ -24,7 +24,7 @@ jobs:
                 npm ci
                 npm run build:iife
             - name: "Run Instrumented Tests"
-              uses: reactivecircus/android-emulator-runner@v2.27.0
+              uses: reactivecircus/android-emulator-runner@v2.32.0
               with:
                 working-directory: mparticle-android-sdk
                 api-level: 29
