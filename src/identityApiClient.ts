@@ -193,6 +193,13 @@ export default function IdentityAPIClient(
         mpid: MPID,
         knownIdentities: UserIdentities
     ) {
+        let requestCounter: number | null = null;
+        if (mpInstance._Store.getAndIncrementIdentityRequestCounter) {
+            requestCounter = mpInstance._Store.getAndIncrementIdentityRequestCounter();
+            const startTimestamp = new Date().getTime();
+            const startEventType = `${requestCounter}-identityRequestStart`;
+            mpInstance._TimingEventsClient.sendTimingEvent(startEventType, startTimestamp);
+        }
         const { invokeCallback } = mpInstance._Helpers;
         const { Logger } = mpInstance;
         Logger.verbose(Messages.InformationMessages.SendIdentityBegin);
@@ -289,6 +296,13 @@ export default function IdentityAPIClient(
             mpInstance._Store.identityCallInFlight = false;
 
             Logger.verbose(message);
+            
+            if (requestCounter !== null) {
+                const endTimestamp = new Date().getTime();
+                const endEventType = `${requestCounter}-identityRequestEnd`;
+                mpInstance._TimingEventsClient.sendTimingEvent(endEventType, endTimestamp);
+            }
+            
             parseIdentityResponse(
                 identityResponse,
                 previousMPID,
@@ -300,6 +314,12 @@ export default function IdentityAPIClient(
             );
         } catch (err) {
             mpInstance._Store.identityCallInFlight = false;
+            
+            if (requestCounter !== null) {
+                const endTimestamp = new Date().getTime();
+                const endEventType = `${requestCounter}-identityRequestEnd`;
+                mpInstance._TimingEventsClient.sendTimingEvent(endEventType, endTimestamp);
+            }
             
             const errorMessage = (err as Error).message || err.toString();
 

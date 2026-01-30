@@ -182,6 +182,8 @@ export interface IStore {
     context: Context | null;
     configurationLoaded: boolean;
     identityCallInFlight: boolean;
+    identityRequestCounter: number; 
+    currentIdentityRequestNumber: number | null; 
     SDKConfig: Partial<SDKConfig>;
     nonCurrentUserMPIDs: Record<MPID, Dictionary>;
     identifyCalled: boolean;
@@ -225,6 +227,7 @@ export interface IStore {
     addMpidToSessionHistory?(mpid: MPID, previousMpid?: MPID): void;
     hasInvalidIdentifyRequest?: () => boolean;
     nullifySession?: () => void;
+    getAndIncrementIdentityRequestCounter?: () => number;
     processConfig(config: SDKInitConfig): void;
     syncPersistenceData?: () => void;
 }
@@ -266,6 +269,8 @@ export default function Store(
         context: null,
         configurationLoaded: false,
         identityCallInFlight: false,
+        identityRequestCounter: 0,
+        currentIdentityRequestNumber: null,
         SDKConfig: {},
         nonCurrentUserMPIDs: {},
         identifyCalled: false,
@@ -682,11 +687,21 @@ export default function Store(
 
     this.nullifySession = (): void => {
         this.sessionId = null;
+        this.identityRequestCounter = 0;
+        this.currentIdentityRequestNumber = null;
         this.dateLastEventSent = null;
         this.sessionStartDate = null;
         this.sessionAttributes = {};
         this.localSessionAttributes = {};
         mpInstance._Persistence.update();
+    };
+
+    this.getAndIncrementIdentityRequestCounter = (): number => {
+        if (this.identityRequestCounter < 99) {
+            this.identityRequestCounter++;
+        }
+        this.currentIdentityRequestNumber = this.identityRequestCounter;
+        return this.identityRequestCounter;
     };
 
     this.processConfig = (config: SDKInitConfig) => {
