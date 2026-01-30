@@ -161,7 +161,6 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         }
     }
     this.init = function(apiKey, config) {
-        console.log("woohoo");
         if (!config) {
             console.warn(
                 'You did not pass a config object to init(). mParticle will not initialize properly'
