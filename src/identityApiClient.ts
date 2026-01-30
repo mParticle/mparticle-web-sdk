@@ -193,13 +193,11 @@ export default function IdentityAPIClient(
         mpid: MPID,
         knownIdentities: UserIdentities
     ) {
-        // Track timing events - sendTimingEvent will handle checking if Rokt is present
         let requestCounter: number | null = null;
         if (mpInstance._Store.getAndIncrementIdentityRequestCounter) {
             requestCounter = mpInstance._Store.getAndIncrementIdentityRequestCounter();
             const startTimestamp = new Date().getTime();
             const startEventType = `${requestCounter}-identityRequestStart`;
-            // sendTimingEvent will return early if Rokt is not present
             mpInstance._TimingEventsClient.sendTimingEvent(startEventType, startTimestamp);
         }
         const { invokeCallback } = mpInstance._Helpers;
@@ -299,8 +297,6 @@ export default function IdentityAPIClient(
 
             Logger.verbose(message);
             
-            // Send end timing event if we have a request counter
-            // sendTimingEvent will return early if Rokt is not present
             if (requestCounter !== null) {
                 const endTimestamp = new Date().getTime();
                 const endEventType = `${requestCounter}-identityRequestEnd`;
@@ -319,8 +315,6 @@ export default function IdentityAPIClient(
         } catch (err) {
             mpInstance._Store.identityCallInFlight = false;
             
-            // Send end timing event if we have a request counter
-            // sendTimingEvent will return early if Rokt is not present
             if (requestCounter !== null) {
                 const endTimestamp = new Date().getTime();
                 const endEventType = `${requestCounter}-identityRequestEnd`;
