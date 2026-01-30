@@ -1919,7 +1919,7 @@ describe('RoktManager', () => {
             await roktManager.selectPlacements(options);
 
             expect(mockMPInstance.Logger.verbose).toHaveBeenCalledWith(
-                'MParticle.Rokt selectPlacements called with attributes: {"email":"test@example.com","customAttr":"value"}'
+                `mParticle.Rokt selectPlacements called with attributes:\n${JSON.stringify({ email: 'test@example.com', customAttr: 'value' }, null, 2)}`
             );
         });
 
