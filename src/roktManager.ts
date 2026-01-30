@@ -195,7 +195,6 @@ export default class RoktManager {
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
             this.logger?.verbose(`mParticle.Rokt selectPlacements called with attributes:\n${JSON.stringify(attributes, null, 2)}`);
 
-            // Get current user identities
             this.currentUser = this.identityService.getCurrentUser();
             const currentUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
 
