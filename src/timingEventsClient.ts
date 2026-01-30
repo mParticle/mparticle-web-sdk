@@ -106,7 +106,6 @@ export default function TimingEventsClient(
             ],
         };
 
-        
         const uploadUrl = `/v1/timings/events`;
 
         const uploader: AsyncUploader = (typeof window !== 'undefined' && window.fetch)

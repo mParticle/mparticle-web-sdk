@@ -193,11 +193,15 @@ export default function IdentityAPIClient(
         mpid: MPID,
         knownIdentities: UserIdentities
     ) {
-        // START
-        const requestCounter = mpInstance._Store.getAndIncrementIdentityRequestCounter();
-        const startTimestamp = new Date().getTime();
-        const startEventType = `identity${requestCounter}RequestStart`;
-        mpInstance._TimingEventsClient.sendTimingEvent(startEventType, startTimestamp);
+        // Track timing events - sendTimingEvent will handle checking if Rokt is present
+        let requestCounter: number | null = null;
+        if (mpInstance._Store.getAndIncrementIdentityRequestCounter) {
+            requestCounter = mpInstance._Store.getAndIncrementIdentityRequestCounter();
+            const startTimestamp = new Date().getTime();
+            const startEventType = `${requestCounter}-identityRequestStart`;
+            // sendTimingEvent will return early if Rokt is not present
+            mpInstance._TimingEventsClient.sendTimingEvent(startEventType, startTimestamp);
+        }
         const { invokeCallback } = mpInstance._Helpers;
         const { Logger } = mpInstance;
         Logger.verbose(Messages.InformationMessages.SendIdentityBegin);
@@ -295,13 +299,12 @@ export default function IdentityAPIClient(
 
             Logger.verbose(message);
             
-            // END
-            const requestNumber = mpInstance._Store.currentIdentityRequestNumber;
-            if (requestNumber !== null) {
+            // Send end timing event if we have a request counter
+            // sendTimingEvent will return early if Rokt is not present
+            if (requestCounter !== null) {
                 const endTimestamp = new Date().getTime();
-                const endEventType = `identity${requestNumber}RequestEnd`;
+                const endEventType = `${requestCounter}-identityRequestEnd`;
                 mpInstance._TimingEventsClient.sendTimingEvent(endEventType, endTimestamp);
-                mpInstance._Store.currentIdentityRequestNumber = null;
             }
             
             parseIdentityResponse(
@@ -316,13 +319,12 @@ export default function IdentityAPIClient(
         } catch (err) {
             mpInstance._Store.identityCallInFlight = false;
             
-            // END
-            const requestNumber = mpInstance._Store.currentIdentityRequestNumber;
-            if (requestNumber !== null) {
+            // Send end timing event if we have a request counter
+            // sendTimingEvent will return early if Rokt is not present
+            if (requestCounter !== null) {
                 const endTimestamp = new Date().getTime();
-                const endEventType = `identity${requestNumber}RequestEnd`;
+                const endEventType = `${requestCounter}-identityRequestEnd`;
                 mpInstance._TimingEventsClient.sendTimingEvent(endEventType, endTimestamp);
-                mpInstance._Store.currentIdentityRequestNumber = null;
             }
             
             const errorMessage = (err as Error).message || err.toString();

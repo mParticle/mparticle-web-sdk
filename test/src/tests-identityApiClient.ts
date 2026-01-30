@@ -892,4 +892,173 @@ describe('Identity Api Client', () => {
             expect(callbackArgs[0].message).deep.equal('Received HTTP Code of 500');
         });
     });
+
+    describe('identityRequestTimingEvents', () => {
+        const launcherInstanceGuid = 'test-launcher-guid-12345';
+        const roktTraceId = 'test-trace-id-67890';
+
+        const identityRequest: IIdentityAPIRequestData = {
+            client_sdk: {
+                platform: 'web',
+                sdk_vendor: 'mparticle',
+                sdk_version: '1.0.0',
+            },
+            context: 'test-context',
+            environment: 'development',
+            request_id: '123',
+            request_timestamp_unixtime_ms: Date.now(),
+            previous_mpid: null,
+            known_identities: {
+                email: 'user@mparticle.com',
+            },
+        };
+
+        const originalIdentityApiData = {
+            userIdentities: {
+                other: '123456',
+            },
+        };
+
+        const apiSuccessResponseBody = {
+            mpid: testMPID,
+            is_logged_in: false,
+            context: 'test-context',
+            is_ephemeral: false,
+            matched_identities: {},
+        };
+
+        beforeEach(() => {
+            (window as any).__rokt_li_guid__ = launcherInstanceGuid;
+            (window as any).__rokt_trace_id__ = roktTraceId;
+        });
+
+        afterEach(() => {
+            delete (window as any).__rokt_li_guid__;
+            delete (window as any).__rokt_trace_id__;
+            fetchMock.restore();
+            sinon.restore();
+        });
+
+        it('should send timing events when Rokt is configured and identity request succeeds', async () => {
+            fetchMockSuccess(urls.identify, apiSuccessResponseBody);
+            fetchMock.post('/v1/timings/events', 200);
+
+            const sendTimingEventSpy = sinon.spy();
+            const store: any = {
+                devToken: 'test_key',
+                SDKConfig: {
+                    identityUrl: '',
+                },
+                sessionId: 'test-session-id',
+                currentIdentityRequestNumber: null,
+                context: null,
+                getAndIncrementIdentityRequestCounter: function() {
+                    this.currentIdentityRequestNumber = 1;
+                    return 1;
+                },
+            };
+
+            const mpInstance: IMParticleWebSDKInstance = ({
+                Logger: {
+                    verbose: () => {},
+                    error: () => {},
+                },
+                _Helpers: {
+                    createServiceUrl: () => 'https://identity.mparticle.com/v1/',
+                    invokeCallback: () => {},
+                },
+                _Store: store,
+                _TimingEventsClient: {
+                    sendTimingEvent: sendTimingEventSpy,
+                },
+                _Persistence: {},
+            } as unknown) as IMParticleWebSDKInstance;
+
+            const identityApiClient: IIdentityApiClient = new IdentityAPIClient(mpInstance);
+            const parseIdentityResponseSpy = sinon.spy();
+
+            await identityApiClient.sendIdentityRequest(
+                identityRequest,
+                'identify',
+                sinon.spy(),
+                originalIdentityApiData,
+                parseIdentityResponseSpy,
+                testMPID,
+                identityRequest.known_identities
+            );
+
+            expect(sendTimingEventSpy.calledTwice).to.eq(true);
+            expect(sendTimingEventSpy.firstCall.args[0]).to.equal('1-identityRequestStart');
+            expect(sendTimingEventSpy.firstCall.args[1]).to.be.a('number');
+            expect(sendTimingEventSpy.secondCall.args[0]).to.equal('1-identityRequestEnd');
+            expect(sendTimingEventSpy.secondCall.args[1]).to.be.a('number');
+            expect(sendTimingEventSpy.secondCall.args[1]).to.be.at.least(sendTimingEventSpy.firstCall.args[1]);
+        });
+
+        it('should increment request counter for multiple identity requests', async () => {
+            fetchMockSuccess(urls.identify, apiSuccessResponseBody);
+
+            let requestCounter = 0;
+            const sendTimingEventSpy = sinon.spy();
+            const store: any = {
+                devToken: 'test_key',
+                SDKConfig: {
+                    identityUrl: '',
+                },
+                sessionId: 'test-session-id',
+                currentIdentityRequestNumber: null,
+                context: null,
+                getAndIncrementIdentityRequestCounter: function() {
+                    requestCounter++;
+                    this.currentIdentityRequestNumber = requestCounter;
+                    return requestCounter;
+                },
+            };
+
+            const mpInstance: IMParticleWebSDKInstance = ({
+                Logger: {
+                    verbose: () => {},
+                    error: () => {},
+                },
+                _Helpers: {
+                    createServiceUrl: () => 'https://identity.mparticle.com/v1/',
+                    invokeCallback: () => {},
+                },
+                _Store: store,
+                _TimingEventsClient: {
+                    sendTimingEvent: sendTimingEventSpy,
+                },
+                _Persistence: {},
+            } as unknown) as IMParticleWebSDKInstance;
+
+            const identityApiClient: IIdentityApiClient = new IdentityAPIClient(mpInstance);
+
+            // First request
+            await identityApiClient.sendIdentityRequest(
+                identityRequest,
+                'identify',
+                sinon.spy(),
+                originalIdentityApiData,
+                sinon.spy(),
+                testMPID,
+                identityRequest.known_identities
+            );
+
+            await identityApiClient.sendIdentityRequest(
+                identityRequest,
+                'identify',
+                sinon.spy(),
+                originalIdentityApiData,
+                sinon.spy(),
+                testMPID,
+                identityRequest.known_identities
+            );
+
+            expect(sendTimingEventSpy.callCount).to.eq(4);
+            expect(sendTimingEventSpy.getCall(0).args[0]).to.equal('1-identityRequestStart');
+            expect(sendTimingEventSpy.getCall(1).args[0]).to.equal('1-identityRequestEnd');
+            expect(sendTimingEventSpy.getCall(2).args[0]).to.equal('2-identityRequestStart');
+            expect(sendTimingEventSpy.getCall(3).args[0]).to.equal('2-identityRequestEnd');
+        });
+    });
 });
