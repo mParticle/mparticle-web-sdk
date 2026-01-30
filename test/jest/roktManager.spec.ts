@@ -801,8 +801,7 @@ describe('RoktManager', () => {
         beforeEach(() => {
             roktManager['currentUser'] = currentUser;
             jest.clearAllMocks();
-        });
- 
+        }); 
 
         it('should capture jointSdkSelectPlacements timing when selectPlacements is called', () => {
             const mockCaptureTiming = jest.fn();
@@ -862,7 +861,7 @@ describe('RoktManager', () => {
             expect(mockCaptureTiming).toHaveBeenCalledWith(PerformanceMarkType.JointSdkSelectPlacements);
             expect(mockCaptureTiming).toHaveBeenCalledTimes(1);
         });
- 
+        
         it('should call kit.selectPlacements with empty attributes', () => {
             const kit: IRoktKit = {
                 launcher: {
