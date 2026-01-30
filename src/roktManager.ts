@@ -193,7 +193,8 @@ export default class RoktManager {
             const { attributes } = options;
             const sandboxValue = attributes?.sandbox || null;
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
-            
+            this.logger?.verbose(`mParticle.Rokt selectPlacements called with attributes:\n${JSON.stringify(attributes, null, 2)}`);
+
             this.currentUser = this.identityService.getCurrentUser();
             const currentUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
 
