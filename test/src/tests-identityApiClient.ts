@@ -93,8 +93,10 @@ describe('Identity Api Client', () => {
                     SDKConfig: {
                         identityUrl: '',
                     },
+                    identifyRequestCount: 0,
                 },
                 _Persistence: {},
+                captureTiming: () => {},
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -145,8 +147,10 @@ describe('Identity Api Client', () => {
                         identityUrl: '',
                     },
                     identityCallInFlight: true,
+                    identifyRequestCount: 0,
                 },
                 _Persistence: {},
+                captureTiming: () => {},
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -202,8 +206,10 @@ describe('Identity Api Client', () => {
                         identityUrl: '',
                     },
                     identityCallInFlight: false,
+                    identifyRequestCount: 0,
                 },
                 _Persistence: {},
+                captureTiming: () => {},
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -259,8 +265,10 @@ describe('Identity Api Client', () => {
                         identityUrl: '',
                     },
                     identityCallInFlight: false,
+                    identifyRequestCount: 0,
                 },
                 _Persistence: {},
+                captureTiming: () => {},
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -318,8 +326,10 @@ describe('Identity Api Client', () => {
                     SDKConfig: {
                         identityUrl: '',
                     },
+                    identifyRequestCount: 0,
                 },
                 _Persistence: {},
+                captureTiming: () => {},
             } as unknown) as IMParticleWebSDKInstance;;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -395,8 +405,10 @@ describe('Identity Api Client', () => {
                     SDKConfig: {
                         identityUrl: '',
                     },
+                    identifyRequestCount: 0,
                 },
                 _Persistence: {},
+                captureTiming: () => {},
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -467,8 +479,10 @@ describe('Identity Api Client', () => {
                     SDKConfig: {
                         identityUrl: '',
                     },
+                    identifyRequestCount: 0,
                 },
                 _Persistence: {},
+                captureTiming: () => {},
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -528,8 +542,10 @@ describe('Identity Api Client', () => {
                     SDKConfig: {
                         identityUrl: '',
                     },
+                    identifyRequestCount: 0,
                 },
                 _Persistence: {},
+                captureTiming: () => {},
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -590,8 +606,10 @@ describe('Identity Api Client', () => {
                     SDKConfig: {
                         identityUrl: '',
                     },
+                    identifyRequestCount: 0,
                 },
                 _Persistence: {},
+                captureTiming: () => {},
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -660,8 +678,10 @@ describe('Identity Api Client', () => {
                     SDKConfig: {
                         identityUrl: '',
                     },
+                    identifyRequestCount: 0,
                 },
                 _Persistence: {},
+                captureTiming: () => {},
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(

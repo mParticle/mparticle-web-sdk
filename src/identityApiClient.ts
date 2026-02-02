@@ -193,6 +193,10 @@ export default function IdentityAPIClient(
         mpid: MPID,
         knownIdentities: UserIdentities
     ) {
+        mpInstance._Store.identifyRequestCount = (mpInstance._Store.identifyRequestCount || 0) + 1;
+        const requestCount = mpInstance._Store.identifyRequestCount;
+        mpInstance.captureTiming(`${requestCount}-identityRequestStart`);
+        
         const { invokeCallback } = mpInstance._Helpers;
         const { Logger } = mpInstance;
         Logger.verbose(Messages.InformationMessages.SendIdentityBegin);
@@ -289,6 +293,7 @@ export default function IdentityAPIClient(
             mpInstance._Store.identityCallInFlight = false;
 
             Logger.verbose(message);
+            mpInstance.captureTiming(`${requestCount}-identityRequestEnd`);
             parseIdentityResponse(
                 identityResponse,
                 previousMPID,
@@ -300,6 +305,7 @@ export default function IdentityAPIClient(
             );
         } catch (err) {
             mpInstance._Store.identityCallInFlight = false;
+            mpInstance.captureTiming(`${requestCount}-identityRequestEnd`);
             
             const errorMessage = (err as Error).message || err.toString();
 
