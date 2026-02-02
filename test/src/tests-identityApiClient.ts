@@ -943,7 +943,7 @@ describe('Identity Api Client', () => {
             fetchMockSuccess(urls.identify, apiSuccessResponseBody);
             fetchMock.post('/v1/timings/events', 200);
 
-            const sendTimingEventSpy = sinon.spy();
+            const sendTimingEventSpy = sinon.spy(() => Promise.resolve());
             const store: any = {
                 devToken: 'test_key',
                 SDKConfig: {
@@ -1001,7 +1001,7 @@ describe('Identity Api Client', () => {
             fetchMockSuccess(urls.identify, apiSuccessResponseBody);
 
             let requestCounter = 0;
-            const sendTimingEventSpy = sinon.spy();
+            const sendTimingEventSpy = sinon.spy(() => Promise.resolve());
             const store: any = {
                 devToken: 'test_key',
                 SDKConfig: {

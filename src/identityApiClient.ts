@@ -198,7 +198,8 @@ export default function IdentityAPIClient(
             requestCounter = mpInstance._Store.getAndIncrementIdentityRequestCounter();
             const startTimestamp = new Date().getTime();
             const startEventType = `${requestCounter}-identityRequestStart`;
-            mpInstance._TimingEventsClient.sendTimingEvent(startEventType, startTimestamp);
+            mpInstance._TimingEventsClient.sendTimingEvent(startEventType, startTimestamp).catch(() => {
+            });
         }
         const { invokeCallback } = mpInstance._Helpers;
         const { Logger } = mpInstance;
@@ -300,7 +301,8 @@ export default function IdentityAPIClient(
             if (requestCounter !== null) {
                 const endTimestamp = new Date().getTime();
                 const endEventType = `${requestCounter}-identityRequestEnd`;
-                mpInstance._TimingEventsClient.sendTimingEvent(endEventType, endTimestamp);
+                mpInstance._TimingEventsClient.sendTimingEvent(endEventType, endTimestamp).catch(() => {
+                });
             }
             
             parseIdentityResponse(
@@ -318,7 +320,8 @@ export default function IdentityAPIClient(
             if (requestCounter !== null) {
                 const endTimestamp = new Date().getTime();
                 const endEventType = `${requestCounter}-identityRequestEnd`;
-                mpInstance._TimingEventsClient.sendTimingEvent(endEventType, endTimestamp);
+                mpInstance._TimingEventsClient.sendTimingEvent(endEventType, endTimestamp).catch(() => {
+                });
             }
             
             const errorMessage = (err as Error).message || err.toString();
