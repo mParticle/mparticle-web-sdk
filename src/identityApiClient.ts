@@ -1,4 +1,4 @@
-import Constants, { HTTP_ACCEPTED, HTTP_BAD_REQUEST, HTTP_OK } from './constants';
+import Constants, { HTTP_ACCEPTED, HTTP_BAD_REQUEST, HTTP_OK, HTTP_SERVER_ERROR } from './constants';
 import {
     AsyncUploader,
     FetchUploader,
@@ -278,15 +278,26 @@ export default function IdentityAPIClient(
                     break;
                     
                 // Our Identity API will return:
-                // - 401 if the `x-mp-key` is incorrect or missing
-                // - 403 if the there is a permission or account issue related to the `x-mp-key`
+                // 401 if the `x-mp-key` is incorrect or missing
+                // 403 if the there is a permission or account issue related to the `x-mp-key`
                 // 401 and 403 have no response bodies and should be rejected outright
+                // 5xx server error throws error but RoktManager continues
                 default: {
-                    throw new Error('Received HTTP Code of ' + response.status);
+                    if (response.status >= HTTP_SERVER_ERROR) {
+                        throw new Error('Received HTTP Code of ' + response.status);
+                    }
+                    
+                    mpInstance._Store.identityCallInFlight = false;
+                    mpInstance._Store.identityCallFailed = false;
+                    const errorMessage = 'Received HTTP Code of ' + response.status;
+                    Logger.error('Error sending identity request to servers - ' + errorMessage);
+                    invokeCallback(callback, HTTPCodes.noHttpCoverage, errorMessage);
+                    return;
                 }
             }
 
             mpInstance._Store.identityCallInFlight = false;
+            mpInstance._Store.identityCallFailed = false;
 
             Logger.verbose(message);
             parseIdentityResponse(
@@ -300,15 +311,13 @@ export default function IdentityAPIClient(
             );
         } catch (err) {
             mpInstance._Store.identityCallInFlight = false;
+            mpInstance._Store.identityCallFailed = true;
             
             const errorMessage = (err as Error).message || err.toString();
-
-            Logger.error('Error sending identity request to servers' + ' - ' + errorMessage);
-            invokeCallback(
-                callback,
-                HTTPCodes.noHttpCoverage,
-                errorMessage,
-            );
+            Logger.error('Error sending identity request to servers - ' + errorMessage);
+            
+            mpInstance.processReadyQueueOnIdentityFailure?.();
+            invokeCallback(callback, HTTPCodes.noHttpCoverage, errorMessage);
         }
     };
 

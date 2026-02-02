@@ -102,6 +102,15 @@ export default class RoktManager {
     private domain?: string;
     private mappedEmailShaIdentityType?: string | null;
     private captureTiming?: (metricsName: string) => void;
+    private onReadyCallback: (() => void) | null = null;
+
+    /**
+     * Sets a callback to be invoked when RoktManager becomes ready
+     */
+    public setOnReadyCallback(callback: () => void): void {
+        this.onReadyCallback = callback;
+    }
+    
     /**
      * Initializes the RoktManager with configuration settings and user data.
      * 
@@ -162,6 +171,12 @@ export default class RoktManager {
     public attachKit(kit: IRoktKit): void {
         this.kit = kit;
         this.processMessageQueue();
+
+        try {
+            this.onReadyCallback?.();
+        } catch (e) {
+            this.logger?.error('RoktManager: Error in onReadyCallback: ' + e);
+        }
     }
 
     /**
@@ -396,7 +411,7 @@ export default class RoktManager {
         this.store.setLocalSessionAttribute(key, value);
     }
 
-    private isReady(): boolean {
+    public isReady(): boolean {
         // The Rokt Manager is ready when a kit is attached and has a launcher
         return Boolean(this.kit && this.kit.launcher);
     }
