@@ -132,6 +132,10 @@ export default class RoktManager {
         this.logger = logger;
         this.captureTiming = captureTiming;
 
+        if (this.captureTiming) {
+            this.captureTiming(PerformanceMarkType.JointSdkRoktKitInit);
+        }
+
         this.filters = {
             userAttributeFilters,
             filterUserAttributes: KitFilterHelper.filterUserAttributes,

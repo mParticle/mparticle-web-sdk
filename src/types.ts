@@ -394,6 +394,7 @@ export const ApplicationTransitionType = {
 export const PerformanceMarkType = {
     SdkStart: 'mp:sdkStart' as const,
     JointSdkSelectPlacements: 'mp:jointSdkSelectPlacements' as const,
+    JointSdkRoktKitInit: 'mp:jointSdkRoktKitInit' as const,
 }
 
 export default {

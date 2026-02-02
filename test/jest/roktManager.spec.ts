@@ -460,6 +460,22 @@ describe('RoktManager', () => {
             expect(roktManager['launcherOptions'].noTargeting).toBe(true);
             expect(roktManager['launcherOptions'].noFunctional).toBe(false);
         });
+
+        it('should capture jointSdkRoktKitInit timing when init is called with captureTiming', () => {
+            const mockCaptureTiming = jest.fn();
+            roktManager.init(
+                {} as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+                undefined,
+                mockCaptureTiming
+            );
+            expect(mockCaptureTiming).toHaveBeenCalledWith(PerformanceMarkType.JointSdkRoktKitInit);
+            expect(mockCaptureTiming).toHaveBeenCalledTimes(1);
+        });
+
     });
 
     describe('#attachKit', () => {
