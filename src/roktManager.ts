@@ -458,7 +458,7 @@ export default class RoktManager {
         }
     }
 
-    private processMessageQueue(): void {
+    public processMessageQueue(): void {
         if (!this.isReady() || this.messageQueue.size === 0) {
             return;
         }

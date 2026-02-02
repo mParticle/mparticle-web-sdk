@@ -93,7 +93,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _timeOnSiteTimer: ForegroundTimer; 
     setLauncherInstanceGuid: () => void;
     captureTiming(metricName: string);
-    processReadyQueueOnIdentityFailure?: () => void;
+    processQueueOnIdentityFailure?: () => void;
 }
 
 const { Messages, HTTPCodes, FeatureFlags, CaptureIntegrationSpecificIdsV2Modes } = Constants;
@@ -137,15 +137,16 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this._RoktManager = new RoktManager();
     
     this._RoktManager.setOnReadyCallback(() => {
-        self.processReadyQueueOnIdentityFailure();
+        self.processQueueOnIdentityFailure();
     });
     
-    this.processReadyQueueOnIdentityFailure = function() {
+    this.processQueueOnIdentityFailure = function() {
         if (self._Store?.isInitialized) {
             return;
         }
         
         if (self._Store?.identityCallFailed && self._RoktManager?.isReady()) {
+            self._RoktManager.processMessageQueue();
             self._preInit.readyQueue = processReadyQueue(self._preInit.readyQueue);
         }
     };

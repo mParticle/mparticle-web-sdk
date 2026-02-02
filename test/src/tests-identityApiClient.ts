@@ -700,7 +700,7 @@ describe('Identity Api Client', () => {
             expect(mpInstance._Store.identityCallFailed, 'identityCallFailed should be true').to.eq(true);
         });
 
-        it('should call processReadyQueueOnIdentityFailure when identity call fails with 5xx error', async () => {
+        it('should call processQueueOnIdentityFailure when identity call fails with 5xx error', async () => {
             fetchMock.post(urls.identify, {
                 status: HTTP_SERVER_ERROR,
                 body: null,
@@ -709,7 +709,7 @@ describe('Identity Api Client', () => {
             });
 
             const callbackSpy = sinon.spy();
-            const processReadyQueueOnIdentityFailureSpy = sinon.spy();
+            const processQueueOnIdentityFailureSpy = sinon.spy();
 
             const mpInstance: IMParticleWebSDKInstance = ({
                 Logger: {
@@ -729,7 +729,7 @@ describe('Identity Api Client', () => {
                     identityCallFailed: false,
                 },
                 _Persistence: {},
-                processReadyQueueOnIdentityFailure: processReadyQueueOnIdentityFailureSpy,
+                processQueueOnIdentityFailure: processQueueOnIdentityFailureSpy,
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -746,10 +746,10 @@ describe('Identity Api Client', () => {
                 identityRequest.known_identities
             );
 
-            expect(processReadyQueueOnIdentityFailureSpy.calledOnce, 'processReadyQueueOnIdentityFailure should be called').to.eq(true);
+            expect(processQueueOnIdentityFailureSpy.calledOnce, 'processQueueOnIdentityFailure should be called').to.eq(true);
         });
 
-        it('should NOT call processReadyQueueOnIdentityFailure when identity call fails with 4xx error', async () => {
+        it('should NOT call processQueueOnIdentityFailure when identity call fails with 4xx error', async () => {
             fetchMock.post(urls.identify, {
                 status: HTTP_UNAUTHORIZED,
                 body: null,
@@ -758,7 +758,7 @@ describe('Identity Api Client', () => {
             });
 
             const callbackSpy = sinon.spy();
-            const processReadyQueueOnIdentityFailureSpy = sinon.spy();
+            const processQueueOnIdentityFailureSpy = sinon.spy();
 
             const mpInstance: IMParticleWebSDKInstance = ({
                 Logger: {
@@ -778,7 +778,7 @@ describe('Identity Api Client', () => {
                     identityCallFailed: false,
                 },
                 _Persistence: {},
-                processReadyQueueOnIdentityFailure: processReadyQueueOnIdentityFailureSpy,
+                processQueueOnIdentityFailure: processQueueOnIdentityFailureSpy,
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -795,8 +795,8 @@ describe('Identity Api Client', () => {
                 identityRequest.known_identities
             );
 
-            // processReadyQueueOnIdentityFailure should NOT be called for 4xx errors (only 5xx/network)
-            expect(processReadyQueueOnIdentityFailureSpy.called, 'processReadyQueueOnIdentityFailure should NOT be called').to.eq(false);
+            // processQueueOnIdentityFailure should NOT be called for 4xx errors (only 5xx/network)
+            expect(processQueueOnIdentityFailureSpy.called, 'processQueueOnIdentityFailure should NOT be called').to.eq(false);
         });
     });
 

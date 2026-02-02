@@ -316,7 +316,7 @@ export default function IdentityAPIClient(
             const errorMessage = (err as Error).message || err.toString();
             Logger.error('Error sending identity request to servers - ' + errorMessage);
             
-            mpInstance.processReadyQueueOnIdentityFailure?.();
+            mpInstance.processQueueOnIdentityFailure?.();
             invokeCallback(callback, HTTPCodes.noHttpCoverage, errorMessage);
         }
     };
