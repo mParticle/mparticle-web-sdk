@@ -962,6 +962,7 @@ describe('Identity Api Client', () => {
                 Logger: {
                     verbose: () => {},
                     error: () => {},
+                    warning: () => {},
                 },
                 _Helpers: {
                     createServiceUrl: () => 'https://identity.mparticle.com/v1/',
@@ -971,6 +972,7 @@ describe('Identity Api Client', () => {
                 _TimingEventsClient: {
                     sendTimingEvent: sendTimingEventSpy,
                 },
+                _RoktManager: {},
                 _Persistence: {},
             } as unknown) as IMParticleWebSDKInstance;
 
@@ -1019,6 +1021,7 @@ describe('Identity Api Client', () => {
                 Logger: {
                     verbose: () => {},
                     error: () => {},
+                    warning: () => {},
                 },
                 _Helpers: {
                     createServiceUrl: () => 'https://identity.mparticle.com/v1/',
@@ -1028,12 +1031,12 @@ describe('Identity Api Client', () => {
                 _TimingEventsClient: {
                     sendTimingEvent: sendTimingEventSpy,
                 },
+                _RoktManager: {},
                 _Persistence: {},
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(mpInstance);
 
-            // First request
             await identityApiClient.sendIdentityRequest(
                 identityRequest,
                 'identify',

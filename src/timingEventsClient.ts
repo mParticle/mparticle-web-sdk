@@ -108,7 +108,7 @@ export default function TimingEventsClient(
 
         const uploadUrl = `/v1/timings/events`;
 
-        const uploader: AsyncUploader = (typeof window !== 'undefined' && window.fetch)
+        const uploader: AsyncUploader = window.fetch
             ? new FetchUploader(uploadUrl)
             : new XHRUploader(uploadUrl);
 
@@ -119,8 +119,28 @@ export default function TimingEventsClient(
         };
 
         try {
-            await uploader.upload(fetchPayload);
+            const response: Response = await uploader.upload(fetchPayload);
+            
+            if (response.status >= 200 && response.status < 300) {
+                if (mpInstance.Logger) {
+                    mpInstance.Logger.verbose(
+                        `Identify timing event sent successfully: ${eventType} at ${timestamp}`
+                    );
+                }
+            } else {
+                if (mpInstance.Logger) {
+                    mpInstance.Logger.warning(
+                        `Timing event request returned HTTP ${response.status} for event: ${eventType}`
+                    );
+                }
+            }
         } catch (err) {
+            const errorMessage = (err as Error).message || err.toString();
+            if (mpInstance.Logger) {
+                mpInstance.Logger.error(
+                    `Error sending identify timing event: ${errorMessage}`
+                );
+            }
         }
     };
 }
