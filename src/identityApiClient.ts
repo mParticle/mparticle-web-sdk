@@ -193,7 +193,7 @@ export default function IdentityAPIClient(
         mpid: MPID,
         knownIdentities: UserIdentities
     ) {
-        if (mpInstance._RoktManager?.getIsInitialized()) {
+        if (mpInstance._RoktManager?.isInitialized()) {
             mpInstance._Store.identifyRequestCount = (mpInstance._Store.identifyRequestCount || 0) + 1;
             const requestCount = mpInstance._Store.identifyRequestCount;
             mpInstance.captureTiming(`${requestCount}-identityRequestStart`);
