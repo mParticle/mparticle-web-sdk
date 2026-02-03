@@ -37,7 +37,7 @@ export default function NativeSdkHelpers(mpInstance) {
         if (
             window.webkit &&
             window.webkit.messageHandlers &&
-            window.webkit.messageHandlers.hasOwnProperty(iosBridgeName)
+            window.webkit.messageHandlers[iosBridgeName]
         ) {
             return true;
         }
@@ -137,10 +137,7 @@ export default function NativeSdkHelpers(mpInstance) {
     };
 
     this.sendViaBridgeV1 = function(path, value) {
-        if (
-            window.mParticleAndroid &&
-            window.mParticleAndroid.hasOwnProperty(path)
-        ) {
+        if (window.mParticleAndroid && window.mParticleAndroid[path]) {
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.SendAndroid + path
             );
@@ -189,7 +186,7 @@ export default function NativeSdkHelpers(mpInstance) {
             iOSBridgeNonMessageHandler = mpInstance[iosBridgeName];
         }
 
-        if (androidBridge && androidBridge.hasOwnProperty(path)) {
+        if (androidBridge && androidBridge[path]) {
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.SendAndroid + path
             );
