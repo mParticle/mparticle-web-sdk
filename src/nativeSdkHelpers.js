@@ -51,7 +51,7 @@ export default function NativeSdkHelpers(mpInstance) {
             return true;
         }
         // android
-        if (window.hasOwnProperty(androidBridgeName)) {
+        if (window[androidBridgeName]) {
             return true;
         }
         return false;
