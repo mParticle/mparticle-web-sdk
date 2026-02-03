@@ -163,7 +163,7 @@ export default class RoktManager {
         this.isInitialized = true;
     }
 
-    public getIsInitialized(): boolean {
+    public get isInitialized(): boolean {
         return this.isInitialized;
     }
 
