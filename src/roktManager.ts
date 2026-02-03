@@ -102,6 +102,7 @@ export default class RoktManager {
     private domain?: string;
     private mappedEmailShaIdentityType?: string | null;
     private captureTiming?: (metricsName: string) => void;
+    private initialized: boolean = false;
     /**
      * Initializes the RoktManager with configuration settings and user data.
      * 
@@ -157,6 +158,14 @@ export default class RoktManager {
         if (options?.domain) {
             this.domain = options.domain;
         }
+        // initialized indicates that init() has been called and the RoktManager has been initialized.
+        // This is different from isReady(), which only returns true once the kit has been attached 
+        // (which is asynchronous), and has a launcher.
+        this.initialized = true;
+    }
+
+    public get isInitialized(): boolean {
+        return this.initialized;
     }
 
     public attachKit(kit: IRoktKit): void {
