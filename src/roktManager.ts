@@ -164,7 +164,7 @@ export default class RoktManager {
     }
 
     public get isInitialized(): boolean {
-        return this.isInitialized;
+        return this.initialized;
     }
 
     public attachKit(kit: IRoktKit): void {
