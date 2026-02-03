@@ -160,7 +160,7 @@ export default class RoktManager {
         }
         // isInitialized indicates that init() has been called and the RoktManager has been initialized.
         // This is different from isReady(), which only returns true once the kit has been attached and has a launcher.
-        this.isInitialized = true;
+        this.initialized = true;
     }
 
     public get isInitialized(): boolean {
