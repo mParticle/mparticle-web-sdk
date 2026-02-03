@@ -782,6 +782,7 @@ describe('Identity Api Client', () => {
                 fetchMockSuccess(urls.identify, apiSuccessResponseBody);
 
                 const captureTimingSpy = sinon.spy();
+                const roktManager = new RoktManager();
 
                 const mpInstance: IMParticleWebSDKInstance = ({
                     Logger: {
@@ -802,6 +803,7 @@ describe('Identity Api Client', () => {
                         identifyRequestCount: 0,
                     },
                     _Persistence: {},
+                    _RoktManager: roktManager,
                     captureTiming: captureTimingSpy,
                 } as unknown) as IMParticleWebSDKInstance;
 
