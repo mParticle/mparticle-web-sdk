@@ -158,8 +158,9 @@ export default class RoktManager {
         if (options?.domain) {
             this.domain = options.domain;
         }
-        // isInitialized indicates that init() has been called and the RoktManager has been initialized.
-        // This is different from isReady(), which only returns true once the kit has been attached and has a launcher.
+        // initialized indicates that init() has been called and the RoktManager has been initialized.
+        // This is different from isReady(), which only returns true once the kit has been attached 
+        // (which is asynchronous), and has a launcher.
         this.initialized = true;
     }
 
