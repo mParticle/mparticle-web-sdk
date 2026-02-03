@@ -102,7 +102,7 @@ export default class RoktManager {
     private domain?: string;
     private mappedEmailShaIdentityType?: string | null;
     private captureTiming?: (metricsName: string) => void;
-    private isInitialized: boolean = false;
+    private initialized: boolean = false;
     /**
      * Initializes the RoktManager with configuration settings and user data.
      * 
