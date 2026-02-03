@@ -193,7 +193,7 @@ export default function IdentityAPIClient(
         mpid: MPID,
         knownIdentities: UserIdentities
     ) {
-        if (mpInstance._RoktManager?.isInitialized()) {
+        if (mpInstance._RoktManager?.isInitialized) {
             mpInstance._Store.identifyRequestCount = (mpInstance._Store.identifyRequestCount || 0) + 1;
             const requestCount = mpInstance._Store.identifyRequestCount;
             mpInstance.captureTiming(`${requestCount}-identityRequestStart`);
@@ -295,7 +295,7 @@ export default function IdentityAPIClient(
             mpInstance._Store.identityCallInFlight = false;
 
             Logger.verbose(message);
-            if (mpInstance._RoktManager?.getIsInitialized()) {
+            if (mpInstance._RoktManager?.isInitialized) {
                 const requestCount = mpInstance._Store.identifyRequestCount;
                 mpInstance.captureTiming(`${requestCount}-identityRequestEnd`);
             }
@@ -310,7 +310,7 @@ export default function IdentityAPIClient(
             );
         } catch (err) {
             mpInstance._Store.identityCallInFlight = false;
-            if (mpInstance._RoktManager?.isInitialized()) {
+            if (mpInstance._RoktManager?.isInitialized) {
                 const requestCount = mpInstance._Store.identifyRequestCount;
                 mpInstance.captureTiming(`${requestCount}-identityRequestEnd`);
             }
