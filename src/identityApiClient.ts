@@ -310,7 +310,7 @@ export default function IdentityAPIClient(
             );
         } catch (err) {
             mpInstance._Store.identityCallInFlight = false;
-            if (mpInstance._RoktManager?.getIsInitialized()) {
+            if (mpInstance._RoktManager?.isInitialized()) {
                 const requestCount = mpInstance._Store.identifyRequestCount;
                 mpInstance.captureTiming(`${requestCount}-identityRequestEnd`);
             }
