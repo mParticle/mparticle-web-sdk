@@ -271,7 +271,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
      * @param {Function} function A function to be called after mParticle is initialized
      */
     this.ready = function(f) {
-        const shouldExecute = typeof f === 'function' && (
+        const shouldExecute = isFunction(f) && (
             self._Store?.isInitialized || 
             (self._Store?.identityCallFailed && self._RoktManager.isReady())
         );
