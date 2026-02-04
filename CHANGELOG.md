@@ -1,3 +1,10 @@
+# [2.56.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.55.0...v2.56.0) (2026-02-04)
+
+
+### Features
+
+* add attribute logging in selectPlacements ([#1143](https://github.com/mParticle/mparticle-web-sdk/issues/1143)) ([fdaef93](https://github.com/mParticle/mparticle-web-sdk/commit/fdaef93199c46a7677beee4bbf3c52a0957979d3))
+
 # [2.55.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.54.1...v2.55.0) (2026-02-04)
 
 
