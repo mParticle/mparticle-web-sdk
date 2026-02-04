@@ -193,6 +193,12 @@ export default function IdentityAPIClient(
         mpid: MPID,
         knownIdentities: UserIdentities
     ) {
+        if (mpInstance._RoktManager?.isInitialized) {
+            mpInstance._Store.identifyRequestCount = (mpInstance._Store.identifyRequestCount || 0) + 1;
+            const requestCount = mpInstance._Store.identifyRequestCount;
+            mpInstance.captureTiming(`${requestCount}-identityRequestStart`);
+        }
+        
         const { invokeCallback } = mpInstance._Helpers;
         const { Logger } = mpInstance;
         Logger.verbose(Messages.InformationMessages.SendIdentityBegin);
@@ -300,6 +306,10 @@ export default function IdentityAPIClient(
             mpInstance._Store.identityCallFailed = false;
 
             Logger.verbose(message);
+            if (mpInstance._RoktManager?.isInitialized) {
+                const requestCount = mpInstance._Store.identifyRequestCount;
+                mpInstance.captureTiming(`${requestCount}-identityRequestEnd`);
+            }
             parseIdentityResponse(
                 identityResponse,
                 previousMPID,
@@ -312,6 +322,10 @@ export default function IdentityAPIClient(
         } catch (err) {
             mpInstance._Store.identityCallInFlight = false;
             mpInstance._Store.identityCallFailed = true;
+            if (mpInstance._RoktManager?.isInitialized) {
+                const requestCount = mpInstance._Store.identifyRequestCount;
+                mpInstance.captureTiming(`${requestCount}-identityRequestEnd`);
+            }
             
             const errorMessage = (err as Error).message || err.toString();
             Logger.error('Error sending identity request to servers - ' + errorMessage);

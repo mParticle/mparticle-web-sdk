@@ -1,3 +1,22 @@
+# [2.56.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.55.0...v2.56.0) (2026-02-04)
+
+
+### Features
+
+* add attribute logging in selectPlacements ([#1143](https://github.com/mParticle/mparticle-web-sdk/issues/1143)) ([fdaef93](https://github.com/mParticle/mparticle-web-sdk/commit/fdaef93199c46a7677beee4bbf3c52a0957979d3))
+
+# [2.55.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.54.1...v2.55.0) (2026-02-04)
+
+
+### Bug Fixes
+
+* Update Java version to 17 ([#1155](https://github.com/mParticle/mparticle-web-sdk/issues/1155)) ([8d74924](https://github.com/mParticle/mparticle-web-sdk/commit/8d749246956a1c9ab960522dc583ef30685f334c))
+
+
+### Features
+
+* SDKE-856 capture dynamic performance marks for identify requests ([#1158](https://github.com/mParticle/mparticle-web-sdk/issues/1158)) ([af04f83](https://github.com/mParticle/mparticle-web-sdk/commit/af04f83b8d4f9853109cf9e53cc4c7a5bc7dd57e))
+
 ## [2.54.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.54.0...v2.54.1) (2026-01-26)
 
 
