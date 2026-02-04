@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.54.1";
+    var version = "2.55.0";
 
     var Constants = {
       sdkVersion: version,
@@ -4461,6 +4461,7 @@ var mParticle = (function () {
         context: null,
         configurationLoaded: false,
         identityCallInFlight: false,
+        identifyRequestCount: 0,
         SDKConfig: {},
         nonCurrentUserMPIDs: {},
         identifyCalled: false,
@@ -9257,11 +9258,17 @@ var mParticle = (function () {
       };
 
       this.sendIdentityRequest = function (identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid, knownIdentities) {
+        var _a, _b, _c;
         return __awaiter(this, void 0, void 0, function () {
-          var invokeCallback, Logger, previousMPID, uploadUrl, uploader, fetchPayload, response, identityResponse, message, _a, responseBody, errorResponse, errorMessage, err_1, errorMessage;
-          return __generator(this, function (_b) {
-            switch (_b.label) {
+          var requestCount, invokeCallback, Logger, previousMPID, uploadUrl, uploader, fetchPayload, response, identityResponse, message, _d, responseBody, errorResponse, errorMessage, requestCount, err_1, requestCount, errorMessage;
+          return __generator(this, function (_e) {
+            switch (_e.label) {
               case 0:
+                if ((_a = mpInstance._RoktManager) === null || _a === void 0 ? void 0 : _a.isInitialized) {
+                  mpInstance._Store.identifyRequestCount = (mpInstance._Store.identifyRequestCount || 0) + 1;
+                  requestCount = mpInstance._Store.identifyRequestCount;
+                  mpInstance.captureTiming("".concat(requestCount, "-identityRequestStart"));
+                }
                 invokeCallback = mpInstance._Helpers.invokeCallback;
                 Logger = mpInstance.Logger;
                 Logger.verbose(Messages$1.InformationMessages.SendIdentityBegin);
@@ -9289,16 +9296,16 @@ var mParticle = (function () {
                   body: JSON.stringify(identityApiRequest)
                 };
                 mpInstance._Store.identityCallInFlight = true;
-                _b.label = 1;
+                _e.label = 1;
               case 1:
-                _b.trys.push([1, 9,, 10]);
+                _e.trys.push([1, 9,, 10]);
                 return [4 /*yield*/, uploader.upload(fetchPayload)];
               case 2:
-                response = _b.sent();
+                response = _e.sent();
                 identityResponse = void 0;
                 message = void 0;
-                _a = response.status;
-                switch (_a) {
+                _d = response.status;
+                switch (_d) {
                   case HTTP_ACCEPTED:
                     return [3 /*break*/, 3];
                   case HTTP_OK:
@@ -9311,12 +9318,12 @@ var mParticle = (function () {
                 if (!response.json) return [3 /*break*/, 5];
                 return [4 /*yield*/, response.json()];
               case 4:
-                responseBody = _b.sent();
+                responseBody = _e.sent();
                 identityResponse = this.getIdentityResponseFromFetch(response, responseBody);
                 return [3 /*break*/, 6];
               case 5:
                 identityResponse = this.getIdentityResponseFromXHR(response);
-                _b.label = 6;
+                _e.label = 6;
               case 6:
                 if (identityResponse.status === HTTP_BAD_REQUEST) {
                   errorResponse = identityResponse.responseText;
@@ -9339,11 +9346,19 @@ var mParticle = (function () {
               case 8:
                 mpInstance._Store.identityCallInFlight = false;
                 Logger.verbose(message);
+                if ((_b = mpInstance._RoktManager) === null || _b === void 0 ? void 0 : _b.isInitialized) {
+                  requestCount = mpInstance._Store.identifyRequestCount;
+                  mpInstance.captureTiming("".concat(requestCount, "-identityRequestEnd"));
+                }
                 parseIdentityResponse(identityResponse, previousMPID, callback, originalIdentityApiData, method, knownIdentities, false);
                 return [3 /*break*/, 10];
               case 9:
-                err_1 = _b.sent();
+                err_1 = _e.sent();
                 mpInstance._Store.identityCallInFlight = false;
+                if ((_c = mpInstance._RoktManager) === null || _c === void 0 ? void 0 : _c.isInitialized) {
+                  requestCount = mpInstance._Store.identifyRequestCount;
+                  mpInstance.captureTiming("".concat(requestCount, "-identityRequestEnd"));
+                }
                 errorMessage = err_1.message || err_1.toString();
                 Logger.error('Error sending identity request to servers' + ' - ' + errorMessage);
                 invokeCallback(callback, HTTPCodes$1.noHttpCoverage, errorMessage);
@@ -9693,6 +9708,7 @@ var mParticle = (function () {
         this.messageQueue = new Map();
         this.sandbox = null;
         this.placementAttributesMapping = [];
+        this.initialized = false;
       }
       /**
        * Initializes the RoktManager with configuration settings and user data.
@@ -9742,7 +9758,18 @@ var mParticle = (function () {
         if (options === null || options === void 0 ? void 0 : options.domain) {
           this.domain = options.domain;
         }
+        // initialized indicates that init() has been called and the RoktManager has been initialized.
+        // This is different from isReady(), which only returns true once the kit has been attached 
+        // (which is asynchronous), and has a launcher.
+        this.initialized = true;
       };
+      Object.defineProperty(RoktManager.prototype, "isInitialized", {
+        get: function get() {
+          return this.initialized;
+        },
+        enumerable: false,
+        configurable: true
+      });
       RoktManager.prototype.attachKit = function (kit) {
         this.kit = kit;
         this.processMessageQueue();
