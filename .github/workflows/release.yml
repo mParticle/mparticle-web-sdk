@@ -21,12 +21,12 @@ jobs:
         needs: confirm-public-repo-master-branch
         steps:
             - name: Checkout
-              uses: actions/checkout@v3
+              uses: actions/checkout@v6
               with:
                   ref: development
 
             - name: NPM install
-              uses: actions/setup-node@v3
+              uses: actions/setup-node@v6
               with:
                   node-version: latest
 
@@ -46,7 +46,7 @@ jobs:
               run: git diff --unified=3 dist/mparticle.js | npx diff-so-fancy
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v6
               if: failure()
               with:
                   name: npm-logs
@@ -59,10 +59,10 @@ jobs:
         runs-on: 'ubuntu-latest'
         steps:
             - name: Checkout
-              uses: actions/checkout@v3
+              uses: actions/checkout@v6
 
             - name: NPM install
-              uses: actions/setup-node@v3
+              uses: actions/setup-node@v6
               with:
                   node-version: latest
 
@@ -73,7 +73,7 @@ jobs:
               run: npm run test:jest
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v6
               if: failure()
               with:
                   name: npm-logs
@@ -103,10 +103,10 @@ jobs:
             - build-bundle
         steps:
             - name: Checkout
-              uses: actions/checkout@v3
+              uses: actions/checkout@v6
 
             - name: NPM install
-              uses: actions/setup-node@v3
+              uses: actions/setup-node@v6
               with:
                   node-version: latest
 
@@ -123,7 +123,7 @@ jobs:
               run: npm run test:stub
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v6
               if: failure()
               with:
                   name: npm-logs
@@ -224,7 +224,7 @@ jobs:
             - confirm-public-repo-master-branch
         steps:
             - name: Checkout development branch
-              uses: actions/checkout@v2
+              uses: actions/checkout@v6
               with:
                   repository: mparticle/mparticle-web-sdk
                   ref: development
@@ -254,7 +254,7 @@ jobs:
 
         steps:
             - name: Checkout public master branch
-              uses: actions/checkout@v3
+              uses: actions/checkout@v6
               with:
                   fetch-depth: 0
                   ref: master
@@ -272,7 +272,7 @@ jobs:
                   git pull origin release/${{ github.run_number }}
 
             - name: Setup Node.js
-              uses: actions/setup-node@v3
+              uses: actions/setup-node@v6
               with:
                   node-version: latest
                   registry-url: 'https://registry.npmjs.org'
@@ -292,7 +292,7 @@ jobs:
                   npx semantic-release
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v6
               if: failure()
               with:
                   name: npm-logs
@@ -309,7 +309,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout master branch
-              uses: actions/checkout@v3
+              uses: actions/checkout@v6
               with:
                   fetch-depth: 0
                   repository: ${{ github.repository }}
