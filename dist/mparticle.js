@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.55.0";
+    var version = "2.56.0";
 
     var Constants = {
       sdkVersion: version,
@@ -9790,12 +9790,12 @@ var mParticle = (function () {
        * });
        */
       RoktManager.prototype.selectPlacements = function (options) {
-        var _a, _b, _c, _d, _e;
+        var _a, _b, _c, _d, _e, _f;
         return __awaiter(this, void 0, void 0, function () {
           var attributes, sandboxValue, mappedAttributes, currentUserIdentities_1, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, error_1, finalUserIdentities, enrichedAttributes, hashedEmail, enrichedOptions, error_2;
           var _this = this;
-          return __generator(this, function (_f) {
-            switch (_f.label) {
+          return __generator(this, function (_g) {
+            switch (_g.label) {
               case 0:
                 if (this.captureTiming) {
                   this.captureTiming(PerformanceMarkType.JointSdkSelectPlacements);
@@ -9804,14 +9804,15 @@ var mParticle = (function () {
                 if (!this.isReady() || ((_a = this.store) === null || _a === void 0 ? void 0 : _a.identityCallInFlight)) {
                   return [2 /*return*/, this.deferredCall('selectPlacements', options)];
                 }
-                _f.label = 1;
+                _g.label = 1;
               case 1:
-                _f.trys.push([1, 6,, 7]);
+                _g.trys.push([1, 6,, 7]);
                 attributes = options.attributes;
                 sandboxValue = (attributes === null || attributes === void 0 ? void 0 : attributes.sandbox) || null;
                 mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
+                (_b = this.logger) === null || _b === void 0 ? void 0 : _b.verbose("mParticle.Rokt selectPlacements called with attributes:\n".concat(JSON.stringify(attributes, null, 2)));
                 this.currentUser = this.identityService.getCurrentUser();
-                currentUserIdentities_1 = ((_c = (_b = this.currentUser) === null || _b === void 0 ? void 0 : _b.getUserIdentities()) === null || _c === void 0 ? void 0 : _c.userIdentities) || {};
+                currentUserIdentities_1 = ((_d = (_c = this.currentUser) === null || _c === void 0 ? void 0 : _c.getUserIdentities()) === null || _d === void 0 ? void 0 : _d.userIdentities) || {};
                 currentEmail = currentUserIdentities_1.email;
                 newEmail = mappedAttributes.email;
                 currentHashedEmail = void 0;
@@ -9835,9 +9836,9 @@ var mParticle = (function () {
                   this.logger.warning("emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.");
                 }
                 if (!!isEmpty(newIdentities_1)) return [3 /*break*/, 5];
-                _f.label = 2;
+                _g.label = 2;
               case 2:
-                _f.trys.push([2, 4,, 5]);
+                _g.trys.push([2, 4,, 5]);
                 return [4 /*yield*/, new Promise(function (resolve, reject) {
                   _this.identityService.identify({
                     userIdentities: __assign(__assign({}, currentUserIdentities_1), newIdentities_1)
@@ -9846,16 +9847,16 @@ var mParticle = (function () {
                   });
                 })];
               case 3:
-                _f.sent();
+                _g.sent();
                 return [3 /*break*/, 5];
               case 4:
-                error_1 = _f.sent();
+                error_1 = _g.sent();
                 this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error_1));
                 return [3 /*break*/, 5];
               case 5:
                 // Refresh current user identities to ensure we have the latest values before building enrichedAttributes
                 this.currentUser = this.identityService.getCurrentUser();
-                finalUserIdentities = ((_e = (_d = this.currentUser) === null || _d === void 0 ? void 0 : _d.getUserIdentities()) === null || _e === void 0 ? void 0 : _e.userIdentities) || {};
+                finalUserIdentities = ((_f = (_e = this.currentUser) === null || _e === void 0 ? void 0 : _e.getUserIdentities()) === null || _f === void 0 ? void 0 : _f.userIdentities) || {};
                 this.setUserAttributes(mappedAttributes);
                 enrichedAttributes = __assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
                   sandbox: sandboxValue
@@ -9877,7 +9878,7 @@ var mParticle = (function () {
                 });
                 return [2 /*return*/, this.kit.selectPlacements(enrichedOptions)];
               case 6:
-                error_2 = _f.sent();
+                error_2 = _g.sent();
                 return [2 /*return*/, Promise.reject(error_2 instanceof Error ? error_2 : new Error('Unknown error occurred'))];
               case 7:
                 return [2 /*return*/];
