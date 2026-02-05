@@ -140,6 +140,9 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         self.processQueueOnIdentityFailure();
     });
     
+    /**
+     * Processes message and ready queue when identity requests fails but Rokt is ready.
+     */
     this.processQueueOnIdentityFailure = function() {
         if (self._Store?.isInitialized) {
             return;
@@ -266,9 +269,10 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         };
     };
     /**
-     * A callback method that is invoked after mParticle is initialized.
+     * Executes callback when the SDK is ready, or Rokt is ready but identify requests fail due to server errors.
+     * This ensures Rokt methods like selectPlacements continue to work during backend outages.
      * @method ready
-     * @param {Function} function A function to be called after mParticle is initialized
+     * @param {Function} f Callback to execute
      */
     this.ready = function(f) {
         const shouldExecute = isFunction(f) && (
