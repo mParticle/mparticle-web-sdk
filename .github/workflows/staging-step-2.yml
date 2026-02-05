@@ -25,7 +25,7 @@ jobs:
             # As a safe guard, if a valid release branch does not exist,
             # this step will fail and throw an error
             - name: Checkout Release Order (${{ github.event.inputs.releaseOrderBranch }})
-              uses: actions/checkout@v3
+              uses: actions/checkout@v6
               with:
                   ref: ${{ github.event.inputs.releaseOrderBranch }}
 
@@ -43,7 +43,7 @@ jobs:
 
         steps:
             - name: Checkout staging branch
-              uses: actions/checkout@v3
+              uses: actions/checkout@v6
               with:
                   fetch-depth: 0
                   repository: ${{ github.repository }}

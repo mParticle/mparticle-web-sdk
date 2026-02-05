@@ -20,6 +20,7 @@ import { IIdentityResponse } from '../../src/identity-user-interfaces';
 import Utils from './config/utils';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
+import RoktManager from '../../src/roktManager';
 const { fetchMockSuccess } = Utils;
 const { HTTPCodes }  = Constants;
 
@@ -93,8 +94,10 @@ describe('Identity Api Client', () => {
                     SDKConfig: {
                         identityUrl: '',
                     },
+                    identifyRequestCount: 0,
                 },
                 _Persistence: {},
+                captureTiming: () => {},
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -145,8 +148,10 @@ describe('Identity Api Client', () => {
                         identityUrl: '',
                     },
                     identityCallInFlight: true,
+                    identifyRequestCount: 0,
                 },
                 _Persistence: {},
+                captureTiming: () => {},
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -202,8 +207,10 @@ describe('Identity Api Client', () => {
                         identityUrl: '',
                     },
                     identityCallInFlight: false,
+                    identifyRequestCount: 0,
                 },
                 _Persistence: {},
+                captureTiming: () => {},
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -259,8 +266,10 @@ describe('Identity Api Client', () => {
                         identityUrl: '',
                     },
                     identityCallInFlight: false,
+                    identifyRequestCount: 0,
                 },
                 _Persistence: {},
+                captureTiming: () => {},
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -318,8 +327,10 @@ describe('Identity Api Client', () => {
                     SDKConfig: {
                         identityUrl: '',
                     },
+                    identifyRequestCount: 0,
                 },
                 _Persistence: {},
+                captureTiming: () => {},
             } as unknown) as IMParticleWebSDKInstance;;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -395,8 +406,10 @@ describe('Identity Api Client', () => {
                     SDKConfig: {
                         identityUrl: '',
                     },
+                    identifyRequestCount: 0,
                 },
                 _Persistence: {},
+                captureTiming: () => {},
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -467,8 +480,10 @@ describe('Identity Api Client', () => {
                     SDKConfig: {
                         identityUrl: '',
                     },
+                    identifyRequestCount: 0,
                 },
                 _Persistence: {},
+                captureTiming: () => {},
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -528,8 +543,10 @@ describe('Identity Api Client', () => {
                     SDKConfig: {
                         identityUrl: '',
                     },
+                    identifyRequestCount: 0,
                 },
                 _Persistence: {},
+                captureTiming: () => {},
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -590,8 +607,10 @@ describe('Identity Api Client', () => {
                     SDKConfig: {
                         identityUrl: '',
                     },
+                    identifyRequestCount: 0,
                 },
                 _Persistence: {},
+                captureTiming: () => {},
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -660,8 +679,10 @@ describe('Identity Api Client', () => {
                     SDKConfig: {
                         identityUrl: '',
                     },
+                    identifyRequestCount: 0,
                 },
                 _Persistence: {},
+                captureTiming: () => {},
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -683,6 +704,129 @@ describe('Identity Api Client', () => {
             expect(errorSpy.calledOnce, 'errorSpy called').to.eq(true);
 
             expect(errorSpy.args[0][0]).to.equal('Error sending identity request to servers - Received HTTP Code of 500');
+        });
+
+        describe('RoktManager integration', () => {
+            it('should increment identifyRequestCount correctly on multiple calls when RoktManager is initialized', async () => {
+                fetchMockSuccess(urls.identify, apiSuccessResponseBody);
+
+                const captureTimingSpy = sinon.spy();
+                const roktManager = new RoktManager();
+                roktManager.init(
+                    {} as any,
+                    {} as any,
+                    {} as any,
+                    {} as any,
+                    {} as any,
+                );
+
+                const mpInstance: IMParticleWebSDKInstance = ({
+                    Logger: {
+                        verbose: () => {},
+                        error: () => {},
+                    },
+                    _Helpers: {
+                        createServiceUrl: () =>
+                            'https://identity.mparticle.com/v1/',
+
+                        invokeCallback: () => {},
+                    },
+                    _Store: {
+                        devToken: 'test_key',
+                        SDKConfig: {
+                            identityUrl: '',
+                        },
+                        identifyRequestCount: 0,
+                    },
+                    _Persistence: {},
+                    _RoktManager: roktManager,
+                    captureTiming: captureTimingSpy,
+                } as unknown) as IMParticleWebSDKInstance;
+
+                const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
+                    mpInstance
+                );
+
+                const parseIdentityResponseSpy = sinon.spy();
+
+                await identityApiClient.sendIdentityRequest(
+                    identityRequest,
+                    'identify',
+                    sinon.spy(),
+                    originalIdentityApiData,
+                    parseIdentityResponseSpy,
+                    testMPID,
+                    identityRequest.known_identities
+                );
+
+                expect(mpInstance._Store.identifyRequestCount).to.equal(1);
+                expect(captureTimingSpy.getCall(0).args[0]).to.equal('1-identityRequestStart');
+                expect(captureTimingSpy.getCall(1).args[0]).to.equal('1-identityRequestEnd');
+
+                await identityApiClient.sendIdentityRequest(
+                    identityRequest,
+                    'identify',
+                    sinon.spy(),
+                    originalIdentityApiData,
+                    parseIdentityResponseSpy,
+                    testMPID,
+                    identityRequest.known_identities
+                );
+
+                expect(mpInstance._Store.identifyRequestCount).to.equal(2);
+                expect(captureTimingSpy.getCall(2).args[0]).to.equal('2-identityRequestStart');
+                expect(captureTimingSpy.getCall(3).args[0]).to.equal('2-identityRequestEnd');
+            });
+            
+            it('should NOT increment identifyRequestCount or call captureTiming when RoktManager is not initialized', async () => {
+                fetchMockSuccess(urls.identify, apiSuccessResponseBody);
+
+                const captureTimingSpy = sinon.spy();
+                const roktManager = new RoktManager();
+
+                const mpInstance: IMParticleWebSDKInstance = ({
+                    Logger: {
+                        verbose: () => {},
+                        error: () => {},
+                    },
+                    _Helpers: {
+                        createServiceUrl: () =>
+                            'https://identity.mparticle.com/v1/',
+
+                        invokeCallback: () => {},
+                    },
+                    _Store: {
+                        devToken: 'test_key',
+                        SDKConfig: {
+                            identityUrl: '',
+                        },
+                        identifyRequestCount: 0,
+                    },
+                    _Persistence: {},
+                    _RoktManager: roktManager,
+                    captureTiming: captureTimingSpy,
+                } as unknown) as IMParticleWebSDKInstance;
+
+                const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
+                    mpInstance
+                );
+
+                const parseIdentityResponseSpy = sinon.spy();
+
+                await identityApiClient.sendIdentityRequest(
+                    identityRequest,
+                    'identify',
+                    sinon.spy(),
+                    originalIdentityApiData,
+                    parseIdentityResponseSpy,
+                    testMPID,
+                    identityRequest.known_identities
+                );
+
+                expect(mpInstance._Store.identifyRequestCount).to.equal(0);
+                expect(captureTimingSpy.called).to.eq(false);
+            });
+
         });
     });
 

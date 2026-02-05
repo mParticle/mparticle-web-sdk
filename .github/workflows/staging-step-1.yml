@@ -16,7 +16,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Git checkout
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
 
             - name: Branch Check
               run: |
@@ -32,12 +32,12 @@ jobs:
         needs: confirm-staging-branch
         steps:
             - name: Checkout
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
               with:
                   ref: development
 
             - name: NPM install
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v6
               with:
                   node-version: 24.x
 
@@ -57,7 +57,7 @@ jobs:
               run: git diff --unified=3 dist/mparticle.js | npx diff-so-fancy
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v6
               if: failure()
               with:
                   name: npm-logs
@@ -73,10 +73,10 @@ jobs:
                 node-version: [16.x, 17.x, 18.x, 19.x, 20.x, 21.x, 22.x, 23.x, 24.x, 25.x]
         steps:
             - name: Checkout
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
 
             - name: NPM install
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v6
               with:
                   node-version: ${{ matrix.node-version }}
 
@@ -87,7 +87,7 @@ jobs:
               run: npm run test:jest
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v6
               if: failure()
               with:
                   name: npm-logs
@@ -117,10 +117,10 @@ jobs:
             - build-bundle
         steps:
             - name: Checkout
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
 
             - name: NPM install
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v6
               with:
                   node-version: 24.x
 
@@ -137,7 +137,7 @@ jobs:
               run: npm run test:stub
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v6
               if: failure()
               with:
                   name: npm-logs
@@ -238,7 +238,7 @@ jobs:
             - confirm-staging-branch
         steps:
             - name: Checkout development branch
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
               with:
                   repository: mparticle/mparticle-web-sdk
                   ref: development
@@ -270,7 +270,7 @@ jobs:
 
         steps:
             - name: Checkout staging branch
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
               with:
                   fetch-depth: 0
                   ref: staging
@@ -288,7 +288,7 @@ jobs:
                   git pull origin release/${{ github.run_number }}
 
             - name: Setup Node.js
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v6
               with:
                   node-version: 24.x
                   registry-url: 'https://registry.npmjs.org'
@@ -311,7 +311,7 @@ jobs:
                   npx semantic-release --branches staging
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v6
               if: failure()
               with:
                   name: npm-logs
