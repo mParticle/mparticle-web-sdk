@@ -830,6 +830,7 @@ describe('RoktManager', () => {
                 undefined,
                 mockCaptureTiming
             );
+            mockCaptureTiming.mockClear();
  
             const kit: IRoktKit = {
                 launcher: {
@@ -868,6 +869,7 @@ describe('RoktManager', () => {
                 undefined,
                 mockCaptureTiming
             );
+            mockCaptureTiming.mockClear();
  
             const options = {
                 attributes: {}
