@@ -133,6 +133,8 @@ export default class RoktManager {
         this.logger = logger;
         this.captureTiming = captureTiming;
 
+        this.captureTiming?.(PerformanceMarkType.JointSdkRoktKitInit);
+
         this.filters = {
             userAttributeFilters,
             filterUserAttributes: KitFilterHelper.filterUserAttributes,
@@ -189,9 +191,7 @@ export default class RoktManager {
      * });
      */
     public async selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
-        if (this.captureTiming) {
-            this.captureTiming(PerformanceMarkType.JointSdkSelectPlacements);
-        }
+        this.captureTiming?.(PerformanceMarkType.JointSdkSelectPlacements);
         
         // Queue if kit isn't ready OR if identity is in flight
         if (!this.isReady() || this.store?.identityCallInFlight) {
