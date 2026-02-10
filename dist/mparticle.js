@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.56.0";
+    var version = "2.57.0";
 
     var Constants = {
       sdkVersion: version,
@@ -413,6 +413,7 @@ var mParticle = (function () {
     var HTTP_OK = 200;
     var HTTP_ACCEPTED = 202;
     var HTTP_BAD_REQUEST = 400;
+    var HTTP_SERVER_ERROR = 500;
 
     /******************************************************************************
     Copyright (c) Microsoft Corporation.
@@ -1214,7 +1215,8 @@ var mParticle = (function () {
     };
     var PerformanceMarkType = {
       SdkStart: 'mp:sdkStart',
-      JointSdkSelectPlacements: 'mp:jointSdkSelectPlacements'
+      JointSdkSelectPlacements: 'mp:jointSdkSelectPlacements',
+      JointSdkRoktKitInit: 'mp:jointSdkRoktKitInit'
     };
     var Types = {
       MessageType: MessageType$1,
@@ -4461,6 +4463,7 @@ var mParticle = (function () {
         context: null,
         configurationLoaded: false,
         identityCallInFlight: false,
+        identityCallFailed: false,
         identifyRequestCount: 0,
         SDKConfig: {},
         nonCurrentUserMPIDs: {},
@@ -9258,11 +9261,11 @@ var mParticle = (function () {
       };
 
       this.sendIdentityRequest = function (identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid, knownIdentities) {
-        var _a, _b, _c;
+        var _a, _b, _c, _d;
         return __awaiter(this, void 0, void 0, function () {
-          var requestCount, invokeCallback, Logger, previousMPID, uploadUrl, uploader, fetchPayload, response, identityResponse, message, _d, responseBody, errorResponse, errorMessage, requestCount, err_1, requestCount, errorMessage;
-          return __generator(this, function (_e) {
-            switch (_e.label) {
+          var requestCount, invokeCallback, Logger, previousMPID, uploadUrl, uploader, fetchPayload, response, identityResponse, message, _e, responseBody, errorResponse, errorMessage, errorMessage, requestCount, err_1, requestCount, errorMessage;
+          return __generator(this, function (_f) {
+            switch (_f.label) {
               case 0:
                 if ((_a = mpInstance._RoktManager) === null || _a === void 0 ? void 0 : _a.isInitialized) {
                   mpInstance._Store.identifyRequestCount = (mpInstance._Store.identifyRequestCount || 0) + 1;
@@ -9296,16 +9299,16 @@ var mParticle = (function () {
                   body: JSON.stringify(identityApiRequest)
                 };
                 mpInstance._Store.identityCallInFlight = true;
-                _e.label = 1;
+                _f.label = 1;
               case 1:
-                _e.trys.push([1, 9,, 10]);
+                _f.trys.push([1, 9,, 10]);
                 return [4 /*yield*/, uploader.upload(fetchPayload)];
               case 2:
-                response = _e.sent();
+                response = _f.sent();
                 identityResponse = void 0;
                 message = void 0;
-                _d = response.status;
-                switch (_d) {
+                _e = response.status;
+                switch (_e) {
                   case HTTP_ACCEPTED:
                     return [3 /*break*/, 3];
                   case HTTP_OK:
@@ -9318,12 +9321,12 @@ var mParticle = (function () {
                 if (!response.json) return [3 /*break*/, 5];
                 return [4 /*yield*/, response.json()];
               case 4:
-                responseBody = _e.sent();
+                responseBody = _f.sent();
                 identityResponse = this.getIdentityResponseFromFetch(response, responseBody);
                 return [3 /*break*/, 6];
               case 5:
                 identityResponse = this.getIdentityResponseFromXHR(response);
-                _e.label = 6;
+                _f.label = 6;
               case 6:
                 if (identityResponse.status === HTTP_BAD_REQUEST) {
                   errorResponse = identityResponse.responseText;
@@ -9341,10 +9344,19 @@ var mParticle = (function () {
                 return [3 /*break*/, 8];
               case 7:
                 {
-                  throw new Error('Received HTTP Code of ' + response.status);
+                  if (response.status >= HTTP_SERVER_ERROR) {
+                    throw new Error('Received HTTP Code of ' + response.status);
+                  }
+                  mpInstance._Store.identityCallInFlight = false;
+                  mpInstance._Store.identityCallFailed = false;
+                  errorMessage = 'Received HTTP Code of ' + response.status;
+                  Logger.error('Error sending identity request to servers - ' + errorMessage);
+                  invokeCallback(callback, HTTPCodes$1.noHttpCoverage, errorMessage);
+                  return [2 /*return*/];
                 }
               case 8:
                 mpInstance._Store.identityCallInFlight = false;
+                mpInstance._Store.identityCallFailed = false;
                 Logger.verbose(message);
                 if ((_b = mpInstance._RoktManager) === null || _b === void 0 ? void 0 : _b.isInitialized) {
                   requestCount = mpInstance._Store.identifyRequestCount;
@@ -9353,14 +9365,16 @@ var mParticle = (function () {
                 parseIdentityResponse(identityResponse, previousMPID, callback, originalIdentityApiData, method, knownIdentities, false);
                 return [3 /*break*/, 10];
               case 9:
-                err_1 = _e.sent();
+                err_1 = _f.sent();
                 mpInstance._Store.identityCallInFlight = false;
+                mpInstance._Store.identityCallFailed = true;
                 if ((_c = mpInstance._RoktManager) === null || _c === void 0 ? void 0 : _c.isInitialized) {
                   requestCount = mpInstance._Store.identifyRequestCount;
                   mpInstance.captureTiming("".concat(requestCount, "-identityRequestEnd"));
                 }
                 errorMessage = err_1.message || err_1.toString();
-                Logger.error('Error sending identity request to servers' + ' - ' + errorMessage);
+                Logger.error('Error sending identity request to servers - ' + errorMessage);
+                (_d = mpInstance.processQueueOnIdentityFailure) === null || _d === void 0 ? void 0 : _d.call(mpInstance);
                 invokeCallback(callback, HTTPCodes$1.noHttpCoverage, errorMessage);
                 return [3 /*break*/, 10];
               case 10:
@@ -9708,8 +9722,15 @@ var mParticle = (function () {
         this.messageQueue = new Map();
         this.sandbox = null;
         this.placementAttributesMapping = [];
+        this.onReadyCallback = null;
         this.initialized = false;
       }
+      /**
+       * Sets a callback to be invoked when RoktManager becomes ready
+       */
+      RoktManager.prototype.setOnReadyCallback = function (callback) {
+        this.onReadyCallback = callback;
+      };
       /**
        * Initializes the RoktManager with configuration settings and user data.
        *
@@ -9723,18 +9744,19 @@ var mParticle = (function () {
        * @throws Logs error to console if placementAttributesMapping parsing fails
        */
       RoktManager.prototype.init = function (roktConfig, filteredUser, identityService, store, logger, options, captureTiming) {
-        var _a;
-        var _b = roktConfig || {},
-          userAttributeFilters = _b.userAttributeFilters,
-          settings = _b.settings;
-        var _c = settings || {},
-          placementAttributesMapping = _c.placementAttributesMapping,
-          hashedEmailUserIdentityType = _c.hashedEmailUserIdentityType;
+        var _a, _b;
+        var _c = roktConfig || {},
+          userAttributeFilters = _c.userAttributeFilters,
+          settings = _c.settings;
+        var _d = settings || {},
+          placementAttributesMapping = _d.placementAttributesMapping,
+          hashedEmailUserIdentityType = _d.hashedEmailUserIdentityType;
         this.mappedEmailShaIdentityType = (_a = hashedEmailUserIdentityType === null || hashedEmailUserIdentityType === void 0 ? void 0 : hashedEmailUserIdentityType.toLowerCase()) !== null && _a !== void 0 ? _a : null;
         this.identityService = identityService;
         this.store = store;
         this.logger = logger;
         this.captureTiming = captureTiming;
+        (_b = this.captureTiming) === null || _b === void 0 ? void 0 : _b.call(this, PerformanceMarkType.JointSdkRoktKitInit);
         this.filters = {
           userAttributeFilters: userAttributeFilters,
           filterUserAttributes: KitFilterHelper.filterUserAttributes,
@@ -9771,8 +9793,14 @@ var mParticle = (function () {
         configurable: true
       });
       RoktManager.prototype.attachKit = function (kit) {
+        var _a, _b;
         this.kit = kit;
         this.processMessageQueue();
+        try {
+          (_a = this.onReadyCallback) === null || _a === void 0 ? void 0 : _a.call(this);
+        } catch (e) {
+          (_b = this.logger) === null || _b === void 0 ? void 0 : _b.error('RoktManager: Error in onReadyCallback: ' + e);
+        }
       };
       /**
        * Renders ads based on the options provided
@@ -9790,29 +9818,27 @@ var mParticle = (function () {
        * });
        */
       RoktManager.prototype.selectPlacements = function (options) {
-        var _a, _b, _c, _d, _e, _f;
+        var _a, _b, _c, _d, _e, _f, _g;
         return __awaiter(this, void 0, void 0, function () {
           var attributes, sandboxValue, mappedAttributes, currentUserIdentities_1, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, error_1, finalUserIdentities, enrichedAttributes, hashedEmail, enrichedOptions, error_2;
           var _this = this;
-          return __generator(this, function (_g) {
-            switch (_g.label) {
+          return __generator(this, function (_h) {
+            switch (_h.label) {
               case 0:
-                if (this.captureTiming) {
-                  this.captureTiming(PerformanceMarkType.JointSdkSelectPlacements);
-                }
+                (_a = this.captureTiming) === null || _a === void 0 ? void 0 : _a.call(this, PerformanceMarkType.JointSdkSelectPlacements);
                 // Queue if kit isn't ready OR if identity is in flight
-                if (!this.isReady() || ((_a = this.store) === null || _a === void 0 ? void 0 : _a.identityCallInFlight)) {
+                if (!this.isReady() || ((_b = this.store) === null || _b === void 0 ? void 0 : _b.identityCallInFlight)) {
                   return [2 /*return*/, this.deferredCall('selectPlacements', options)];
                 }
-                _g.label = 1;
+                _h.label = 1;
               case 1:
-                _g.trys.push([1, 6,, 7]);
+                _h.trys.push([1, 6,, 7]);
                 attributes = options.attributes;
                 sandboxValue = (attributes === null || attributes === void 0 ? void 0 : attributes.sandbox) || null;
                 mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
-                (_b = this.logger) === null || _b === void 0 ? void 0 : _b.verbose("mParticle.Rokt selectPlacements called with attributes:\n".concat(JSON.stringify(attributes, null, 2)));
+                (_c = this.logger) === null || _c === void 0 ? void 0 : _c.verbose("mParticle.Rokt selectPlacements called with attributes:\n".concat(JSON.stringify(attributes, null, 2)));
                 this.currentUser = this.identityService.getCurrentUser();
-                currentUserIdentities_1 = ((_d = (_c = this.currentUser) === null || _c === void 0 ? void 0 : _c.getUserIdentities()) === null || _d === void 0 ? void 0 : _d.userIdentities) || {};
+                currentUserIdentities_1 = ((_e = (_d = this.currentUser) === null || _d === void 0 ? void 0 : _d.getUserIdentities()) === null || _e === void 0 ? void 0 : _e.userIdentities) || {};
                 currentEmail = currentUserIdentities_1.email;
                 newEmail = mappedAttributes.email;
                 currentHashedEmail = void 0;
@@ -9836,9 +9862,9 @@ var mParticle = (function () {
                   this.logger.warning("emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.");
                 }
                 if (!!isEmpty(newIdentities_1)) return [3 /*break*/, 5];
-                _g.label = 2;
+                _h.label = 2;
               case 2:
-                _g.trys.push([2, 4,, 5]);
+                _h.trys.push([2, 4,, 5]);
                 return [4 /*yield*/, new Promise(function (resolve, reject) {
                   _this.identityService.identify({
                     userIdentities: __assign(__assign({}, currentUserIdentities_1), newIdentities_1)
@@ -9847,16 +9873,16 @@ var mParticle = (function () {
                   });
                 })];
               case 3:
-                _g.sent();
+                _h.sent();
                 return [3 /*break*/, 5];
               case 4:
-                error_1 = _g.sent();
+                error_1 = _h.sent();
                 this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error_1));
                 return [3 /*break*/, 5];
               case 5:
                 // Refresh current user identities to ensure we have the latest values before building enrichedAttributes
                 this.currentUser = this.identityService.getCurrentUser();
-                finalUserIdentities = ((_f = (_e = this.currentUser) === null || _e === void 0 ? void 0 : _e.getUserIdentities()) === null || _f === void 0 ? void 0 : _f.userIdentities) || {};
+                finalUserIdentities = ((_g = (_f = this.currentUser) === null || _f === void 0 ? void 0 : _f.getUserIdentities()) === null || _g === void 0 ? void 0 : _g.userIdentities) || {};
                 this.setUserAttributes(mappedAttributes);
                 enrichedAttributes = __assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
                   sandbox: sandboxValue
@@ -9878,7 +9904,7 @@ var mParticle = (function () {
                 });
                 return [2 /*return*/, this.kit.selectPlacements(enrichedOptions)];
               case 6:
-                error_2 = _g.sent();
+                error_2 = _h.sent();
                 return [2 /*return*/, Promise.reject(error_2 instanceof Error ? error_2 : new Error('Unknown error occurred'))];
               case 7:
                 return [2 /*return*/];
@@ -10254,6 +10280,22 @@ var mParticle = (function () {
         forwarderConstructors: []
       };
       this._RoktManager = new RoktManager();
+      this._RoktManager.setOnReadyCallback(function () {
+        self.processQueueOnIdentityFailure();
+      });
+      /**
+       * Processes message and ready queue when identity requests fails but Rokt is ready.
+       */
+      this.processQueueOnIdentityFailure = function () {
+        var _a, _b, _c;
+        if ((_a = self._Store) === null || _a === void 0 ? void 0 : _a.isInitialized) {
+          return;
+        }
+        if (((_b = self._Store) === null || _b === void 0 ? void 0 : _b.identityCallFailed) && ((_c = self._RoktManager) === null || _c === void 0 ? void 0 : _c.isReady())) {
+          self._RoktManager.processMessageQueue();
+          self._preInit.readyQueue = processReadyQueue(self._preInit.readyQueue);
+        }
+      };
       // required for forwarders once they reference the mparticle instance
       this.IdentityType = IdentityType;
       this.EventType = EventType;
@@ -10343,12 +10385,15 @@ var mParticle = (function () {
         };
       };
       /**
-       * A callback method that is invoked after mParticle is initialized.
+       * Executes callback when the SDK is ready, or Rokt is ready but identify requests fail due to server errors.
+       * This ensures Rokt methods like selectPlacements continue to work during backend outages.
        * @method ready
-       * @param {Function} function A function to be called after mParticle is initialized
+       * @param {Function} f Callback to execute
        */
       this.ready = function (f) {
-        if (self.isInitialized() && typeof f === 'function') {
+        var _a, _b;
+        var shouldExecute = isFunction(f) && (((_a = self._Store) === null || _a === void 0 ? void 0 : _a.isInitialized) || ((_b = self._Store) === null || _b === void 0 ? void 0 : _b.identityCallFailed) && self._RoktManager.isReady());
+        if (shouldExecute) {
           f();
         } else {
           self._preInit.readyQueue.push(f);
@@ -11345,9 +11390,14 @@ var mParticle = (function () {
       }
     }
     function queueIfNotInitialized(func, self) {
-      if (!self.isInitialized()) {
-        self.ready(function () {
-          func();
+      var _a;
+      // Core SDK methods must wait for Store initialization
+      if (!((_a = self._Store) === null || _a === void 0 ? void 0 : _a.isInitialized)) {
+        self._preInit.readyQueue.push(function () {
+          var _a;
+          if ((_a = self._Store) === null || _a === void 0 ? void 0 : _a.isInitialized) {
+            func();
+          }
         });
         return true;
       }
