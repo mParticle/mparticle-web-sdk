@@ -15,6 +15,25 @@ describe('pre-init-utils', () => {
             expect(result).toEqual([]);
         });
 
+        it('should process mixed queue with both functions and arrays', () => {
+            const functionSpy = jest.fn();
+            const arraySpy = jest.fn();
+            (window.mParticle as any) = {
+                arrayMethod: arraySpy,
+            };
+            
+            const readyQueue = [
+                functionSpy,
+                ['arrayMethod', 'arg1'],
+                functionSpy,
+            ];
+            
+            processReadyQueue(readyQueue);
+            
+            expect(functionSpy).toHaveBeenCalledTimes(2);
+            expect(arraySpy).toHaveBeenCalledWith('arg1');
+        });
+
         it('should process functions passed as arrays', () => {
             const functionSpy = jest.fn();
             (window.mParticle as any) = {

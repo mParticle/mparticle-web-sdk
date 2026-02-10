@@ -94,6 +94,7 @@ describe('Identity Api Client', () => {
                     SDKConfig: {
                         identityUrl: '',
                     },
+                    identityCallFailed: false,
                     identifyRequestCount: 0,
                 },
                 _Persistence: {},
@@ -124,6 +125,7 @@ describe('Identity Api Client', () => {
             expect(parseIdentityResponseSpy.args[0][4]).to.equal('identify');
             expect(parseIdentityResponseSpy.args[0][5]).to.deep.equal(identityRequest.known_identities);
             expect(parseIdentityResponseSpy.args[0][6]).to.equal(false);
+            expect(mpInstance._Store.identityCallFailed, 'identityCallFailed should be false').to.eq(false);
         });
 
         it('should return early without calling parseIdentityResponse if the identity call is in flight', async () => {
@@ -207,6 +209,7 @@ describe('Identity Api Client', () => {
                         identityUrl: '',
                     },
                     identityCallInFlight: false,
+                    identityCallFailed: false,
                     identifyRequestCount: 0,
                 },
                 _Persistence: {},
@@ -234,6 +237,7 @@ describe('Identity Api Client', () => {
             expect(invokeCallbackSpy.args[0][0]).to.equal(callbackSpy);
             expect(invokeCallbackSpy.args[0][1]).to.equal(-1);
             expect(invokeCallbackSpy.args[0][2]).to.equal('server error');
+            expect(mpInstance._Store.identityCallFailed, 'identityCallFailed should be true').to.eq(true);
         });
 
         it('should use XHR if fetch is not available', async () => {
@@ -266,6 +270,7 @@ describe('Identity Api Client', () => {
                         identityUrl: '',
                     },
                     identityCallInFlight: false,
+                    identityCallFailed: false,
                     identifyRequestCount: 0,
                 },
                 _Persistence: {},
@@ -406,6 +411,7 @@ describe('Identity Api Client', () => {
                     SDKConfig: {
                         identityUrl: '',
                     },
+                    identityCallFailed: false,
                     identifyRequestCount: 0,
                 },
                 _Persistence: {},
@@ -448,6 +454,7 @@ describe('Identity Api Client', () => {
             expect(parseIdentityResponseSpy.args[0][4]).to.equal('identify');
             expect(parseIdentityResponseSpy.args[0][5]).to.deep.equal(identityRequest.known_identities);
             expect(parseIdentityResponseSpy.args[0][6]).to.equal(false);
+            expect(mpInstance._Store.identityCallFailed, 'identityCallFailed should be false for 400').to.eq(false);
         });
 
         it('should include a detailed error message if the fetch returns a 401 (Unauthorized)', async () => {
@@ -480,6 +487,7 @@ describe('Identity Api Client', () => {
                     SDKConfig: {
                         identityUrl: '',
                     },
+                    identityCallFailed: false,
                     identifyRequestCount: 0,
                 },
                 _Persistence: {},
@@ -512,6 +520,7 @@ describe('Identity Api Client', () => {
 
             // A 401 should not call parseIdentityResponse
             expect(parseIdentityResponseSpy.calledOnce, 'parseIdentityResponseSpy').to.eq(false);
+            expect(mpInstance._Store.identityCallFailed, 'identityCallFailed should be false for 4xx').to.eq(false);
         });
 
         it('should include a detailed error message if the fetch returns a 403 (Forbidden)', async () => {
@@ -543,6 +552,7 @@ describe('Identity Api Client', () => {
                     SDKConfig: {
                         identityUrl: '',
                     },
+                    identityCallFailed: false,
                     identifyRequestCount: 0,
                 },
                 _Persistence: {},
@@ -575,6 +585,7 @@ describe('Identity Api Client', () => {
 
             // A 403 should not call parseIdentityResponse
             expect(parseIdentityResponseSpy.calledOnce, 'parseIdentityResponseSpy').to.eq(false);
+            expect(mpInstance._Store.identityCallFailed, 'identityCallFailed should be false for 4xx').to.eq(false);
 
         });
 
@@ -607,6 +618,7 @@ describe('Identity Api Client', () => {
                     SDKConfig: {
                         identityUrl: '',
                     },
+                    identityCallFailed: false,
                     identifyRequestCount: 0,
                 },
                 _Persistence: {},
@@ -639,6 +651,7 @@ describe('Identity Api Client', () => {
 
             // A 404 should not call parseIdentityResponse
             expect(parseIdentityResponseSpy.calledOnce, 'parseIdentityResponseSpy').to.eq(false);
+            expect(mpInstance._Store.identityCallFailed, 'identityCallFailed should be false for 4xx').to.eq(false);
         });
 
         it('should include a detailed error message if the fetch returns a 500 (Server Error)', async () => {
@@ -679,6 +692,7 @@ describe('Identity Api Client', () => {
                     SDKConfig: {
                         identityUrl: '',
                     },
+                    identityCallFailed: false,
                     identifyRequestCount: 0,
                 },
                 _Persistence: {},
@@ -704,6 +718,106 @@ describe('Identity Api Client', () => {
             expect(errorSpy.calledOnce, 'errorSpy called').to.eq(true);
 
             expect(errorSpy.args[0][0]).to.equal('Error sending identity request to servers - Received HTTP Code of 500');
+            expect(mpInstance._Store.identityCallFailed, 'identityCallFailed should be true').to.eq(true);
+        });
+
+        it('should call processQueueOnIdentityFailure when identity call fails with 5xx error', async () => {
+            fetchMock.post(urls.identify, {
+                status: HTTP_SERVER_ERROR,
+                body: null,
+            }, {
+                overwriteRoutes: true,
+            });
+
+            const callbackSpy = sinon.spy();
+            const processQueueOnIdentityFailureSpy = sinon.spy();
+
+            const mpInstance: IMParticleWebSDKInstance = ({
+                Logger: {
+                    verbose: () => {},
+                    error: () => {},
+                },
+                _Helpers: {
+                    createServiceUrl: () =>
+                        'https://identity.mparticle.com/v1/',
+                    invokeCallback: () => {},
+                },
+                _Store: {
+                    devToken: 'test_key',
+                    SDKConfig: {
+                        identityUrl: '',
+                    },
+                    identityCallFailed: false,
+                },
+                _Persistence: {},
+                processQueueOnIdentityFailure: processQueueOnIdentityFailureSpy,
+            } as unknown) as IMParticleWebSDKInstance;
+
+            const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
+                mpInstance
+            );
+
+            await identityApiClient.sendIdentityRequest(
+                identityRequest,
+                'identify',
+                callbackSpy,
+                originalIdentityApiData,
+                sinon.spy(),
+                testMPID,
+                identityRequest.known_identities
+            );
+
+            expect(processQueueOnIdentityFailureSpy.calledOnce, 'processQueueOnIdentityFailure should be called').to.eq(true);
+        });
+
+        it('should NOT call processQueueOnIdentityFailure when identity call fails with 4xx error', async () => {
+            fetchMock.post(urls.identify, {
+                status: HTTP_UNAUTHORIZED,
+                body: null,
+            }, {
+                overwriteRoutes: true,
+            });
+
+            const callbackSpy = sinon.spy();
+            const processQueueOnIdentityFailureSpy = sinon.spy();
+
+            const mpInstance: IMParticleWebSDKInstance = ({
+                Logger: {
+                    verbose: () => {},
+                    error: () => {},
+                },
+                _Helpers: {
+                    createServiceUrl: () =>
+                        'https://identity.mparticle.com/v1/',
+                    invokeCallback: () => {},
+                },
+                _Store: {
+                    devToken: 'test_key',
+                    SDKConfig: {
+                        identityUrl: '',
+                    },
+                    identityCallFailed: false,
+                },
+                _Persistence: {},
+                processQueueOnIdentityFailure: processQueueOnIdentityFailureSpy,
+            } as unknown) as IMParticleWebSDKInstance;
+
+            const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
+                mpInstance
+            );
+
+            await identityApiClient.sendIdentityRequest(
+                identityRequest,
+                'identify',
+                callbackSpy,
+                originalIdentityApiData,
+                sinon.spy(),
+                testMPID,
+                identityRequest.known_identities
+            );
+
+            // processQueueOnIdentityFailure should NOT be called for 4xx errors (only 5xx/network)
+            expect(processQueueOnIdentityFailureSpy.called, 'processQueueOnIdentityFailure should NOT be called').to.eq(false);
         });
 
         describe('RoktManager integration', () => {

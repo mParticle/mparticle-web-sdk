@@ -479,8 +479,10 @@ describe('RoktManager', () => {
     });
 
     describe('#attachKit', () => {
-        it('should attach a kit', () => {
-            const kit: IRoktKit = {
+        let kit: IRoktKit;
+
+        beforeEach(() => {
+            kit = {
                 launcher: {
                     selectPlacements: jest.fn(),
                     hashAttributes: jest.fn(),
@@ -494,9 +496,86 @@ describe('RoktManager', () => {
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
             };
+        });
 
+        it('should attach a kit', () => {
             roktManager.attachKit(kit);
             expect(roktManager['kit']).not.toBeNull();
+        });
+
+        it('should call processMessageQueue when kit is attached', () => {
+            const processMessageQueueSpy = jest.spyOn(roktManager as any, 'processMessageQueue');
+            
+            roktManager.attachKit(kit);
+            
+            expect(processMessageQueueSpy).toHaveBeenCalledTimes(1);
+            processMessageQueueSpy.mockRestore();
+        });
+
+        it('should call onReadyCallback when kit is attached', () => {
+            const onReadyCallback = jest.fn();
+            roktManager.setOnReadyCallback(onReadyCallback);
+            
+            roktManager.attachKit(kit);
+            
+            expect(onReadyCallback).toHaveBeenCalledTimes(1);
+        });
+
+        it('should not throw if onReadyCallback is not set', () => {
+            expect(() => roktManager.attachKit(kit)).not.toThrow();
+        });
+
+        it('should call processMessageQueue before onReadyCallback', () => {
+            const callOrder: string[] = [];
+            const processMessageQueueSpy = jest.spyOn(roktManager as any, 'processMessageQueue')
+                .mockImplementation(() => callOrder.push('processMessageQueue'));
+            const onReadyCallback = jest.fn(() => callOrder.push('onReadyCallback'));
+            
+            roktManager.setOnReadyCallback(onReadyCallback);
+            roktManager.attachKit(kit);
+            
+            expect(callOrder).toEqual(['processMessageQueue', 'onReadyCallback']);
+            
+            processMessageQueueSpy.mockRestore();
+        });
+
+        it('should catch and log errors if onReadyCallback throws', () => {
+            const errorCallback = jest.fn(() => {
+                throw new Error('Callback error');
+            });
+            roktManager.setOnReadyCallback(errorCallback);
+            
+            // Should not throw
+            expect(() => roktManager.attachKit(kit)).not.toThrow();
+            
+            // Callback was called
+            expect(errorCallback).toHaveBeenCalledTimes(1);
+            
+            // Kit should still be attached
+            expect(roktManager['kit']).toBe(kit);
+        });
+
+        it('should log error when onReadyCallback throws and logger is available', () => {
+            const mockLogger = { error: jest.fn(), verbose: jest.fn(), warning: jest.fn(), setLogLevel: jest.fn() };
+            roktManager.init(
+                {} as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockLogger,
+                undefined,
+            );
+            
+            const errorCallback = jest.fn(() => {
+                throw new Error('Test error');
+            });
+            roktManager.setOnReadyCallback(errorCallback);
+            
+            roktManager.attachKit(kit);
+            
+            expect(mockLogger.error).toHaveBeenCalledWith(
+                expect.stringContaining('RoktManager: Error in onReadyCallback')
+            );
         });
     });
 

@@ -182,6 +182,7 @@ export interface IStore {
     context: Context | null;
     configurationLoaded: boolean;
     identityCallInFlight: boolean;
+    identityCallFailed: boolean;
     identifyRequestCount: number;
     SDKConfig: Partial<SDKConfig>;
     nonCurrentUserMPIDs: Record<MPID, Dictionary>;
@@ -267,6 +268,7 @@ export default function Store(
         context: null,
         configurationLoaded: false,
         identityCallInFlight: false,
+        identityCallFailed: false,
         identifyRequestCount: 0,
         SDKConfig: {},
         nonCurrentUserMPIDs: {},

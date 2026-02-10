@@ -93,6 +93,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _timeOnSiteTimer: ForegroundTimer; 
     setLauncherInstanceGuid: () => void;
     captureTiming(metricName: string);
+    processQueueOnIdentityFailure?: () => void;
 }
 
 const { Messages, HTTPCodes, FeatureFlags, CaptureIntegrationSpecificIdsV2Modes } = Constants;
@@ -132,7 +133,26 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         integrationDelays: {},
         forwarderConstructors: [],
     };
+
     this._RoktManager = new RoktManager();
+    
+    this._RoktManager.setOnReadyCallback(() => {
+        self.processQueueOnIdentityFailure();
+    });
+    
+    /**
+     * Processes message and ready queue when identity requests fails but Rokt is ready.
+     */
+    this.processQueueOnIdentityFailure = function() {
+        if (self._Store?.isInitialized) {
+            return;
+        }
+        
+        if (self._Store?.identityCallFailed && self._RoktManager?.isReady()) {
+            self._RoktManager.processMessageQueue();
+            self._preInit.readyQueue = processReadyQueue(self._preInit.readyQueue);
+        }
+    };
 
     // required for forwarders once they reference the mparticle instance
     this.IdentityType = IdentityType;
@@ -249,12 +269,18 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         };
     };
     /**
-     * A callback method that is invoked after mParticle is initialized.
+     * Executes callback when the SDK is ready, or Rokt is ready but identify requests fail due to server errors.
+     * This ensures Rokt methods like selectPlacements continue to work during backend outages.
      * @method ready
-     * @param {Function} function A function to be called after mParticle is initialized
+     * @param {Function} f Callback to execute
      */
     this.ready = function(f) {
-        if (self.isInitialized() && typeof f === 'function') {
+        const shouldExecute = isFunction(f) && (
+            self._Store?.isInitialized || 
+            (self._Store?.identityCallFailed && self._RoktManager.isReady())
+        );
+        
+        if (shouldExecute) {
             f();
         } else {
             self._preInit.readyQueue.push(f);
@@ -1620,9 +1646,12 @@ function processIdentityCallback(
 }
 
 function queueIfNotInitialized(func, self) {
-    if (!self.isInitialized()) {
-        self.ready(function() {
-            func();
+    // Core SDK methods must wait for Store initialization
+    if (!self._Store?.isInitialized) {
+        self._preInit.readyQueue.push(function() {
+            if (self._Store?.isInitialized) {
+                func();
+            }
         });
         return true;
     }
