@@ -3,7 +3,7 @@ import Constants from './constants';
 import { SDKEvent, SDKEventCustomFlags, SDKLoggerApi } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import { MessageType, EventType } from './types';
-import { getRampNumber, isEmpty } from './utils';
+import { getRampNumber, isEmpty, obfuscateData } from './utils';
 import { SessionStorageVault, LocalStorageVault } from './vault';
 import {
     AsyncUploader,
@@ -76,17 +76,11 @@ export class BatchUploader {
 
         if (this.offlineStorageEnabled) {
             this.eventVault = new SessionStorageVault<SDKEvent[]>(
-                `${mpInstance._Store.storageName}-events`,
-                {
-                    logger: mpInstance.Logger,
-                }
+                `${mpInstance._Store.storageName}-events`
             );
 
             this.batchVault = new LocalStorageVault<Batch[]>(
-                `${mpInstance._Store.storageName}-batches`,
-                {
-                    logger: mpInstance.Logger,
-                }
+                `${mpInstance._Store.storageName}-batches`
             );
 
             // Load Events from Session Storage in case we have any in storage
@@ -264,7 +258,7 @@ export class BatchUploader {
             this.eventVault.store(this.eventsQueuedForProcessing);
         }
 
-        Logger.verbose(`Queuing event: ${JSON.stringify(event)}`);
+        Logger.verbose(`Queuing event: ${JSON.stringify(obfuscateData(event))}`);
         Logger.verbose(`Queued event count: ${this.eventsQueuedForProcessing.length}`);
 
         if (this.shouldTriggerImmediateUpload(event.EventDataType)) {
@@ -454,7 +448,7 @@ export class BatchUploader {
             return null;
         }
 
-        logger.verbose(`Uploading batches: ${JSON.stringify(uploads)}`);
+        logger.verbose(`Uploading batches: ${JSON.stringify(obfuscateData(uploads))}`);
         logger.verbose(`Batch count: ${uploads.length}`);
 
         for (let i = 0; i < uploads.length; i++) {

@@ -1,15 +1,12 @@
-import { Logger } from '@mparticle/web-sdk';
 import { isEmpty, isNumber } from './utils';
 
 export interface IVaultOptions {
-    logger?: Logger;
     offlineStorageEnabled?: boolean;
 }
 
 export abstract class BaseVault<StorableItem> {
     public contents: StorableItem;
     protected readonly _storageKey: string;
-    protected logger?: Logger;
     protected storageObject: Storage;
 
     /**
@@ -25,13 +22,6 @@ export abstract class BaseVault<StorableItem> {
     ) {
         this._storageKey = storageKey;
         this.storageObject = storageObject;
-
-        // Add a fake logger in case one is not provided or needed
-        this.logger = options?.logger || {
-            verbose: () => {},
-            warning: () => {},
-            error: () => {},
-        };
 
         this.contents = this.retrieve();
     }
@@ -53,13 +43,8 @@ export abstract class BaseVault<StorableItem> {
 
         try {
             this.storageObject.setItem(this._storageKey, stringifiedItem);
-
-            this.logger.verbose(`Saving item to Storage: ${stringifiedItem}`);
         } catch (error) {
-            this.logger.error(
-                `Cannot Save items to Storage: ${stringifiedItem}`
-            );
-            this.logger.error(error as string);
+            throw new Error('Cannot Save items to Storage');
         }
     }
 
@@ -75,8 +60,6 @@ export abstract class BaseVault<StorableItem> {
 
         this.contents = item ? JSON.parse(item) : null;
 
-        this.logger.verbose(`Retrieving item from Storage: ${item}`);
-
         return this.contents;
     }
 
@@ -86,7 +69,6 @@ export abstract class BaseVault<StorableItem> {
      * @method purge
      */
     public purge(): void {
-        this.logger.verbose('Purging Storage');
         this.contents = null;
         this.storageObject.removeItem(this._storageKey);
     }

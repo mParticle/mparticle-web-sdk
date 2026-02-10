@@ -9,6 +9,7 @@ import {
     isFunction,
     AttributeValue,
     isEmpty,
+    obfuscateData,
 } from "./utils";
 import { SDKIdentityApi } from "./identity.interfaces";
 import { SDKLoggerApi } from "./sdkRuntimeModels";
@@ -234,7 +235,7 @@ export default class RoktManager {
             const { attributes } = options;
             const sandboxValue = attributes?.sandbox || null;
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
-            this.logger?.verbose(`mParticle.Rokt selectPlacements called with attributes:\n${JSON.stringify(attributes, null, 2)}`);
+            this.logger?.verbose(`mParticle.Rokt selectPlacements called with attributes:\n${JSON.stringify(obfuscateData(attributes), null, 2)}`);
 
             this.currentUser = this.identityService.getCurrentUser();
             const currentUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
@@ -273,7 +274,7 @@ export default class RoktManager {
                 newIdentities[this.mappedEmailShaIdentityType] = newHashedEmail;
                 this.logger.warning(`emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.`);
             }
-
+            
             if (!isEmpty(newIdentities)) {
                 // Call identify with the new user identities
                 try {
@@ -288,7 +289,8 @@ export default class RoktManager {
                         });
                     });
                 } catch (error) {
-                    this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error));
+                    const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+                    this.logger.error('Failed to identify user with new email: ' + errorMessage);
                 }
             }
             

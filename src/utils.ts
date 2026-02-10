@@ -426,11 +426,52 @@ const filterDictionaryWithHash = <T>(
 }
 
 const parseConfig = (config: SDKInitConfig, moduleName: string, moduleId: number): IKitConfigs | null => {
-    return config.kitConfigs?.find((kitConfig: IKitConfigs) => 
-        kitConfig.name === moduleName && 
+    return config.kitConfigs?.find((kitConfig: IKitConfigs) =>
+        kitConfig.name === moduleName &&
         kitConfig.moduleId === moduleId
     ) || null;
 }
+
+/**
+ * Obfuscates an object by replacing all primitive values with their type names,
+ * while preserving the structure of nested objects and arrays.
+ * This is useful for logging data structures without exposing PII.
+ *
+ * @param value - The value to obfuscate
+ * @returns The obfuscated value with types instead of actual values
+ *
+ * @example
+ * obfuscateData({ email: 'user@email.com', age: 30 })
+ * // Returns: { email: 'string', age: 'number' }
+ *
+ * obfuscateData({ tags: ['premium', 'verified'] })
+ * // Returns: { tags: ['string', 'string'] }
+ */
+const obfuscateData = (value: any): any => {
+    // Preserve null and undefined
+    if (value === null || value === undefined) {
+        return value;
+    }
+
+    // Handle arrays - recursively obfuscate each element
+    if (Array.isArray(value)) {
+        return value.map(item => obfuscateData(item));
+    }
+
+    // Handle objects - recursively obfuscate each property
+    if (isObject(value)) {
+        const obfuscated: Dictionary<any> = {};
+        for (const key in value) {
+            if (value.hasOwnProperty(key)) {
+                obfuscated[key] = obfuscateData(value[key]);
+            }
+        }
+        return obfuscated;
+    }
+
+    // For primitives and other types, return the type as a string
+    return typeof value;
+};
 
 export {
     createCookieString,
@@ -449,6 +490,7 @@ export {
     inArray,
     isObject,
     isStringOrNumber,
+    obfuscateData,
     parseConfig,
     parseNumber,
     parseSettingsString,
