@@ -6,7 +6,7 @@ import {
     IFetchPayload,
 } from './uploaders';
 import { CACHE_HEADER } from './identity-utils';
-import { parseNumber, valueof } from './utils';
+import { obfuscateData, parseNumber, valueof } from './utils';
 import {
     IAliasCallback,
     IAliasRequest,
@@ -277,8 +277,16 @@ export default function IdentityAPIClient(
                         }
 
                     } else {
-                        message = 'Received Identity Response from server: ';
-                        message += JSON.stringify(identityResponse.responseText);
+                        const responseText = identityResponse.responseText;
+                        const { matched_identities, ...rest } = responseText || {};
+                        const obfuscatedMatchedIdentities = obfuscateData(matched_identities);
+
+                        // Obfuscate matched_identities to prevent PII exposure
+                        const responseToLog = matched_identities
+                            ? { ...rest, matched_identities: obfuscatedMatchedIdentities }
+                            : responseText;
+
+                        message = 'Received Identity Response from server: ' + JSON.stringify(responseToLog);
                     }
 
                     break;
