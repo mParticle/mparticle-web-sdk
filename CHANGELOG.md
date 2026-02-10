@@ -1,3 +1,11 @@
+# [2.57.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.56.0...v2.57.0) (2026-02-10)
+
+
+### Features
+
+* enable Rokt fallback on identity server errors ([#1157](https://github.com/mParticle/mparticle-web-sdk/issues/1157)) ([2e0e61a](https://github.com/mParticle/mparticle-web-sdk/commit/2e0e61a5da114c39f24fdf18837005a15b4eb351))
+* SDKE-871 add Rokt kit initialization timestamp ([#1161](https://github.com/mParticle/mparticle-web-sdk/issues/1161)) ([90b655d](https://github.com/mParticle/mparticle-web-sdk/commit/90b655d511155cdf2f566ac19a89c1b578b299df))
+
 # [2.56.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.55.0...v2.56.0) (2026-02-04)
 
 
