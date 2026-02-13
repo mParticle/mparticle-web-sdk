@@ -70,7 +70,7 @@ describe('ReportingLogger', () => {
 
     it('sends warning logs with correct params', () => {
         mockStore.getRoktAccountId = jest.fn().mockReturnValue(accountId);
-        logger.warning('warn');
+        logger.warning('warn', ErrorCodes.UNHANDLED_EXCEPTION);
         expect(mockFetch).toHaveBeenCalled();
         const fetchCall = mockFetch.mock.calls[0];
         expect(fetchCall[0]).toContain('/v1/errors');
