@@ -59,6 +59,12 @@ export interface RoktKitFilterSettings {
     filteredUser?: IMParticleUser | null;
 }
 
+export interface IRoktKitSettings {
+    accountId?: string;
+    placementAttributesMapping?: string;
+    hashedEmailUserIdentityType?: string;
+}
+
 export interface IRoktKit {
     filters: RoktKitFilterSettings;
     filteredUser: IMParticleUser | null;
@@ -69,6 +75,8 @@ export interface IRoktKit {
     setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void;
     use: <T>(name: string) => Promise<T>;
     launcherOptions?: Dictionary<any>;
+    settings?: IRoktKitSettings;
+    integrationName?: string;
 }
 
 export interface IRoktOptions {
@@ -180,8 +188,16 @@ export default class RoktManager {
     }
 
     public attachKit(kit: IRoktKit): void {
-        // TODO: Pass back integrationName via kit
         this.kit = kit;
+
+        if (kit.settings?.accountId) {
+            this.store.setRoktAccountId(kit.settings.accountId);
+        }
+
+        if (kit.integrationName) {
+            this.store.setIntegrationName(kit.integrationName);
+        }
+
         this.processMessageQueue();
 
         try {

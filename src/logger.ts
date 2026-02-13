@@ -1,5 +1,5 @@
 import { LogLevelType, SDKInitConfig, SDKLoggerApi } from './sdkRuntimeModels';
-import { IReportingLogger } from './logging/reportingLogger';
+import { ReportingLogger } from './logging/reportingLogger';
 import { ErrorCodes } from './logging/errorCodes';
 
 export type ILoggerConfig = Pick<SDKInitConfig, 'logLevel' | 'logger'>;
@@ -8,10 +8,10 @@ export type IConsoleLogger = Partial<Pick<SDKLoggerApi, 'error' | 'warning' | 'v
 export class Logger {
     private logLevel: LogLevelType;
     private logger: IConsoleLogger;
-    private reportingLogger: IReportingLogger;
+    private reportingLogger: ReportingLogger;
 
     constructor(config: ILoggerConfig,
-        reportingLogger?: IReportingLogger,
+        reportingLogger?: ReportingLogger,
     ) {
         this.logLevel = config.logLevel ?? LogLevelType.Warning;
         this.logger = config.logger ?? new ConsoleLogger();
@@ -44,7 +44,7 @@ export class Logger {
 
         if (this.logger.error) {
             this.logger.error(msg);
-            this.reportingLogger.error(msg, code);
+            this.reportingLogger?.error(msg, code);
         }
     }
 

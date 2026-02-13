@@ -2,36 +2,34 @@ import { ErrorCodes } from "./errorCodes";
 import { LogRequestBody, WSDKErrorSeverity } from "./logRequest";
 import { FetchUploader, IFetchPayload } from "../uploaders";
 import { IStore, SDKConfig } from "../store";
+import { SDKInitConfig } from "../sdkRuntimeModels";
 
-// QUESTION: Should we collapse the interface with the class?
-export interface IReportingLogger {
-    error(msg: string, code?: ErrorCodes, stackTrace?: string): void;
-    warning(msg: string, code?: ErrorCodes): void;
-}
-
-export class ReportingLogger implements IReportingLogger {
+export class ReportingLogger {
     private readonly isEnabled: boolean;
     private readonly reporter: string = 'mp-wsdk';
     private readonly integration: string = 'mp-wsdk';
     private readonly rateLimiter: IRateLimiter;
-    private integrationName: string;
-    private store: IStore;
+    private store: IStore | null;
+    private readonly loggingUrl: string;
+    private readonly errorUrl: string;
+    private readonly isWebSdkLoggingEnabled: boolean;
 
     constructor(
-        private readonly config: SDKConfig,
+        config: SDKConfig | SDKInitConfig | any,
         private readonly sdkVersion: string,
+        store?: IStore,
         private readonly launcherInstanceGuid?: string,
         rateLimiter?: IRateLimiter,
     ) {
+        this.loggingUrl = config.loggingUrl || 'jssdkcdns.mparticle.com/v1/JS/logs';
+        this.errorUrl = config.errorUrl || 'jssdkcdns.mparticle.com/v1/JS/errors';
+        this.isWebSdkLoggingEnabled = config.isWebSdkLoggingEnabled || false;
+        this.store = store ?? null;
         this.isEnabled = this.isReportingEnabled();
         this.rateLimiter = rateLimiter ?? new RateLimiter();
     }
 
-    public setIntegrationName(integrationName: string) {
-        this.integrationName = integrationName;
-    }
-    
-    public setStore(store: IStore) {
+    public setStore(store: IStore): void {
         this.store = store;
     }
 
@@ -87,7 +85,7 @@ export class ReportingLogger implements IReportingLogger {
     }
 
     private getVersion(): string {
-        return this.integrationName ?? this.sdkVersion;
+        return this.store?.getIntegrationName?.() ?? `mParticle_wsdkv_${this.sdkVersion}`;
     }
     
     private isReportingEnabled(): boolean {
@@ -101,23 +99,22 @@ export class ReportingLogger implements IReportingLogger {
     }
 
     private isRoktDomainPresent(): boolean {
-        return Boolean(window['ROKT_DOMAIN']);
+        return typeof window !== 'undefined' && Boolean(window['ROKT_DOMAIN']);
     }
 
-    private isFeatureFlagEnabled(): boolean {
-        return this.config.isWebSdkLoggingEnabled;
-    }
+    private isFeatureFlagEnabled = (): boolean => this.isWebSdkLoggingEnabled;
 
     private isDebugModeEnabled(): boolean {
         return (
-            window.
+            typeof window !== 'undefined' &&
+            (window.
                 location?.
                 search?.
                 toLowerCase()?.
-                includes('mp_enable_logging=true') ?? false
+                includes('mp_enable_logging=true') ?? false)
         );
     }
-    
+
     private canSendLog(severity: WSDKErrorSeverity): boolean {
         return this.isEnabled && !this.isRateLimited(severity);
     }
@@ -126,16 +123,16 @@ export class ReportingLogger implements IReportingLogger {
         return this.rateLimiter.incrementAndCheck(severity);
     }
 
-    private getUrl(): string {
-        return window.location.href;
+    private getUrl(): string | undefined {
+        return typeof window !== 'undefined' ? window.location?.href : undefined;
     }
 
-    private getUserAgent(): string {
-        return window.navigator.userAgent;
+    private getUserAgent(): string | undefined {
+        return typeof window !== 'undefined' ? window.navigator?.userAgent : undefined;
     }
 
-    private getLoggingUrl = (): string => `https://${this.config.loggingUrl}`;
-    private getErrorUrl = (): string => `https://${this.config.errorUrl}`;
+    private getLoggingUrl = (): string => `https://${this.loggingUrl}`;
+    private getErrorUrl = (): string => `https://${this.errorUrl}`;
     
     private getHeaders(): IFetchPayload['headers'] {
         const headers: Record<string, string> = {
@@ -145,9 +142,10 @@ export class ReportingLogger implements IReportingLogger {
             'rokt-launcher-version': this.getVersion(),
             'rokt-wsdk-version': 'joint',
         };
-        
-        if (this.store?.getRoktAccountId()) {
-            headers['rokt-account-id'] = this.store.getRoktAccountId();
+
+        const accountId = this.store?.getRoktAccountId?.();
+        if (accountId) {
+            headers['rokt-account-id'] = accountId;
         }
 
         return headers as IFetchPayload['headers'];

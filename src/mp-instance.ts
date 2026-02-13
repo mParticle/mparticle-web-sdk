@@ -52,8 +52,7 @@ import ForegroundTimer from './foregroundTimeTracker';
 import RoktManager, { IRoktOptions } from './roktManager';
 import filteredMparticleUser from './filteredMparticleUser';
 import CookieConsentManager, { ICookieConsentManager } from './cookieConsentManager';
-import { IReportingLogger, ReportingLogger } from './logging/reportingLogger';
-import { SDKConfigManager } from './sdkConfigManager';
+import { ReportingLogger } from './logging/reportingLogger';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -86,14 +85,14 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _NativeSdkHelpers: INativeSdkHelpers;
     _Persistence: IPersistence;
     _CookieConsentManager: ICookieConsentManager;
-    _ReportingLogger: IReportingLogger;
+    _ReportingLogger: ReportingLogger;
     _RoktManager: RoktManager;
     _SessionManager: ISessionManager;
     _ServerModel: IServerModel;
     _Store: IStore;
     _instanceName: string;
     _preInit: IPreInit;
-    _timeOnSiteTimer: ForegroundTimer; 
+    _timeOnSiteTimer: ForegroundTimer;
     setLauncherInstanceGuid: () => void;
     getLauncherInstanceGuid: () => string;
     captureTiming(metricName: string);
@@ -249,7 +248,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         }
     };
 
-    this._resetForTests = function(config, keepPersistence, instance, reportingLogger?: IReportingLogger) {
+    this._resetForTests = function(config, keepPersistence, instance, reportingLogger?: ReportingLogger) {
         if (instance._Store) {
             delete instance._Store;
         }
@@ -1454,7 +1453,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         // Configure Rokt Manager with user and filtered user
         const roktConfig: IKitConfigs = parseConfig(config, 'Rokt', 181);
         if (roktConfig) {
-            mpInstance._Store.setRoktAccountId(roktConfig.settings?.accountId ?? undefined);
+            const accountId = roktConfig.settings?.accountId ?? undefined;
+            mpInstance._Store.setRoktAccountId(accountId);
             const { userAttributeFilters } = roktConfig;
             const roktFilteredUser = filteredMparticleUser(
                 currentUserMPID,
@@ -1588,19 +1588,14 @@ function createIdentityCache(mpInstance) {
 }
 
 function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
-    
-    const sdkConfig = new SDKConfigManager(config, apiKey).getSDKConfig();
     mpInstance._ReportingLogger = new ReportingLogger(
-        sdkConfig,
+        config,
         Constants.sdkVersion,
+        undefined,
         mpInstance.getLauncherInstanceGuid(),
     );
     mpInstance.Logger = new Logger(config, mpInstance._ReportingLogger);
-    mpInstance._Store = new Store(
-        { ...config, ...sdkConfig } as SDKInitConfig,
-        mpInstance,
-        apiKey
-    );
+    mpInstance._Store = new Store(config, mpInstance, apiKey);
     window.mParticle.Store = mpInstance._Store;
     mpInstance._ReportingLogger.setStore(mpInstance._Store);
     mpInstance.Logger.verbose(StartingInitialization);

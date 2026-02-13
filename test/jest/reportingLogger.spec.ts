@@ -1,48 +1,66 @@
 import { IRateLimiter, RateLimiter, ReportingLogger } from '../../src/logging/reportingLogger';
 import { WSDKErrorSeverity } from '../../src/logging/logRequest';
 import { ErrorCodes } from '../../src/logging/errorCodes';
-import { SDKConfig } from '../../src/store';
+import { IStore, SDKConfig } from '../../src/store';
 
 describe('ReportingLogger', () => {
     let logger: ReportingLogger;
-    const baseUrl = 'https://test-url.com';
+    const loggingUrl = 'test-url.com/v1/log';
+    const errorUrl = 'test-url.com/v1/errors';
     const sdkVersion = '1.2.3';
     let mockFetch: jest.Mock;
     const accountId = '1234567890';
+    let mockStore: Partial<IStore>;
+
     beforeEach(() => {
         mockFetch = jest.fn().mockResolvedValue({ ok: true });
         global.fetch = mockFetch;
-        
-        delete (globalThis as any).location;
-        (globalThis as any).location = {
-            href: 'https://e.com',
-            search: ''
+
+        mockStore = {
+            getRoktAccountId: jest.fn().mockReturnValue(null),
+            getIntegrationName: jest.fn().mockReturnValue(null)
         };
-        
-        Object.assign(globalThis, {
-            navigator: { userAgent: 'ua' },
-            mParticle: { config: { isWebSdkLoggingEnabled: true } },
-            ROKT_DOMAIN: 'set',
-            fetch: mockFetch
+
+        Object.defineProperty(window, 'location', {
+            writable: true,
+            value: {
+                href: 'https://e.com',
+                search: ''
+            }
         });
+
+        Object.defineProperty(window, 'navigator', {
+            writable: true,
+            value: { userAgent: 'ua' }
+        });
+
+        Object.defineProperty(window, 'mParticle', {
+            writable: true,
+            value: { config: { isWebSdkLoggingEnabled: true } }
+        });
+
+        Object.defineProperty(window, 'ROKT_DOMAIN', {
+            writable: true,
+            value: 'set'
+        });
+
         logger = new ReportingLogger(
-            { loggingUrl: baseUrl, errorUrl: baseUrl } as SDKConfig,
+            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: true } as SDKConfig,
             sdkVersion,
+            mockStore as IStore,
             'test-launcher-instance-guid'
         );
     });
 
     afterEach(() => {
         jest.clearAllMocks();
-        delete (window as any).ROKT_DOMAIN;
-        delete (window as any).mParticle;
     });
 
     it('sends error logs with correct params', () => {
         logger.error('msg', ErrorCodes.UNHANDLED_EXCEPTION, 'stack');
         expect(mockFetch).toHaveBeenCalled();
         const fetchCall = mockFetch.mock.calls[0];
-        expect(fetchCall[0]).toContain('/v1/log');
+        expect(fetchCall[0]).toContain('/v1/errors');
         const body = JSON.parse(fetchCall[1].body);
         expect(body).toMatchObject({
             severity: WSDKErrorSeverity.ERROR,
@@ -52,10 +70,11 @@ describe('ReportingLogger', () => {
     });
 
     it('sends warning logs with correct params', () => {
+        mockStore.getRoktAccountId = jest.fn().mockReturnValue(accountId);
         logger.warning('warn');
         expect(mockFetch).toHaveBeenCalled();
         const fetchCall = mockFetch.mock.calls[0];
-        expect(fetchCall[0]).toContain('/v1/log');
+        expect(fetchCall[0]).toContain('/v1/errors');
         const body = JSON.parse(fetchCall[1].body);
         expect(body).toMatchObject({
             severity: WSDKErrorSeverity.WARNING
@@ -64,10 +83,14 @@ describe('ReportingLogger', () => {
     });
 
     it('does not log if ROKT_DOMAIN missing', () => {
-        delete (globalThis as any).ROKT_DOMAIN;
+        Object.defineProperty(window, 'ROKT_DOMAIN', {
+            writable: true,
+            value: undefined
+        });
         logger = new ReportingLogger(
-            { loggingUrl: baseUrl, errorUrl: baseUrl } as SDKConfig,
+            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: true } as SDKConfig,
             sdkVersion,
+            mockStore as IStore,
             'test-launcher-instance-guid'
         );
         logger.error('x');
@@ -75,11 +98,18 @@ describe('ReportingLogger', () => {
     });
 
     it('does not log if feature flag and debug mode off', () => {
-        window.mParticle.config.isWebSdkLoggingEnabled = false;
-        window.location.search = '';
+        Object.defineProperty(window, 'mParticle', {
+            writable: true,
+            value: { config: { isWebSdkLoggingEnabled: false } }
+        });
+        Object.defineProperty(window, 'location', {
+            writable: true,
+            value: { href: 'https://e.com', search: '' }
+        });
         logger = new ReportingLogger(
-            { loggingUrl: baseUrl, errorUrl: baseUrl } as SDKConfig,
+            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: false } as SDKConfig,
             sdkVersion,
+            mockStore as IStore,
             'test-launcher-instance-guid'
         );
         logger.error('x');
@@ -87,11 +117,18 @@ describe('ReportingLogger', () => {
     });
 
     it('logs if debug mode on even if feature flag off', () => {
-        window.mParticle.config.isWebSdkLoggingEnabled = false;
-        window.location.search = '?mp_enable_logging=true';
+        Object.defineProperty(window, 'mParticle', {
+            writable: true,
+            value: { config: { isWebSdkLoggingEnabled: false } }
+        });
+        Object.defineProperty(window, 'location', {
+            writable: true,
+            value: { href: 'https://e.com', search: '?mp_enable_logging=true' }
+        });
         logger = new ReportingLogger(
-            { loggingUrl: baseUrl, errorUrl: baseUrl } as SDKConfig,
+            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: false } as SDKConfig,
             sdkVersion,
+            mockStore as IStore,
             'test-launcher-instance-guid'
         );
         logger.error('x');
@@ -106,8 +143,9 @@ describe('ReportingLogger', () => {
             }),
         };
         logger = new ReportingLogger(
-            { loggingUrl: baseUrl, errorUrl: baseUrl } as SDKConfig,
+            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: true } as SDKConfig,
             sdkVersion,
+            mockStore as IStore,
             'test-launcher-instance-guid',
             mockRateLimiter
         );
@@ -116,31 +154,57 @@ describe('ReportingLogger', () => {
         expect(mockFetch).toHaveBeenCalledTimes(3);
     });
 
-    it('uses default account id when accountId is empty', () => {
-        logger = new ReportingLogger(
-            { loggingUrl: baseUrl, errorUrl: baseUrl } as SDKConfig,
-            sdkVersion,
-            'test-launcher-instance-guid'
-        );
+    it('does not include account id header when account id is not set', () => {
         logger.error('msg');
         expect(mockFetch).toHaveBeenCalled();
         const fetchCall = mockFetch.mock.calls[0];
-        expect(fetchCall[1].headers['rokt-account-id']).toBe('0');
+        expect(fetchCall[1].headers['rokt-account-id']).toBeUndefined();
     });
 
-    it('uses default user agent when user agent is empty', () => {
+    it('omits user agent and url fields when navigator/location are undefined', () => {
+        Object.defineProperty(window, 'navigator', {
+            writable: true,
+            value: undefined
+        });
+        Object.defineProperty(window, 'location', {
+            writable: true,
+            value: undefined
+        });
         logger = new ReportingLogger(
-            { loggingUrl: baseUrl, errorUrl: baseUrl } as SDKConfig,
+            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: true } as SDKConfig,
             sdkVersion,
+            mockStore as IStore,
             'test-launcher-instance-guid'
         );
-        delete (globalThis as any).navigator;
-        delete (globalThis as any).location;
         logger.error('msg');
         expect(mockFetch).toHaveBeenCalled();
         const fetchCall = mockFetch.mock.calls[0];
         const body = JSON.parse(fetchCall[1].body);
-        expect(body).toMatchObject({ deviceInfo: 'no-user-agent-set', url: 'no-url-set' });
+        // undefined values are omitted from JSON.stringify, so these fields won't be present
+        expect(body).not.toHaveProperty('deviceInfo');
+        expect(body).not.toHaveProperty('url');
+    });
+
+    it('can set store after initialization', () => {
+        const loggerWithoutStore = new ReportingLogger(
+            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: true } as SDKConfig,
+            sdkVersion,
+            undefined,
+            'test-launcher-instance-guid'
+        );
+
+        const newMockStore: Partial<IStore> = {
+            getRoktAccountId: jest.fn().mockReturnValue(accountId),
+            getIntegrationName: jest.fn().mockReturnValue('custom-integration-name')
+        };
+
+        loggerWithoutStore.setStore(newMockStore as IStore);
+        loggerWithoutStore.error('test error');
+
+        expect(mockFetch).toHaveBeenCalled();
+        const fetchCall = mockFetch.mock.calls[0];
+        expect(fetchCall[1].headers['rokt-account-id']).toBe(accountId);
+        expect(fetchCall[1].headers['rokt-launcher-version']).toBe('custom-integration-name');
     });
 });
 

@@ -123,6 +123,9 @@ function createSDKConfig(config: SDKInitConfig): SDKConfig {
         sdkConfig[prop] = Constants.DefaultBaseUrls[prop];
     }
 
+    // Always initialize flags to at least an empty object to prevent undefined access
+    sdkConfig.flags = sdkConfig.flags || {};
+
     return sdkConfig;
 }
 
@@ -206,6 +209,7 @@ export interface IStore {
     webviewBridgeEnabled?: boolean;
     wrapperSDKInfo: WrapperSDKInfo;
     roktAccountId: string;
+    integrationName: string;
 
     persistenceData?: IPersistenceMinified;
 
@@ -229,6 +233,8 @@ export interface IStore {
     setUserIdentities?(mpid: MPID, userIdentities: UserIdentities): void;
     getRoktAccountId?(): string;
     setRoktAccountId?(accountId: string): void;
+    getIntegrationName?(): string;
+    setIntegrationName?(integrationName: string): void;
 
     addMpidToSessionHistory?(mpid: MPID, previousMpid?: MPID): void;
     hasInvalidIdentifyRequest?: () => boolean;
@@ -296,6 +302,7 @@ export default function Store(
             isInfoSet: false,
         },
         roktAccountId: null,
+        integrationName: null,
 
         // Placeholder for in-memory persistence model
         persistenceData: {
@@ -314,6 +321,33 @@ export default function Store(
     this.SDKConfig = createSDKConfig(config);
 
     if (config) {
+        if (!config.hasOwnProperty('flags')) {
+            this.SDKConfig.flags = {};
+        }
+
+        this.SDKConfig.flags = processFlags(config);
+
+        if (config.deviceId) {
+            this.deviceId = config.deviceId;
+        }
+        if (config.hasOwnProperty('isDevelopmentMode')) {
+            this.SDKConfig.isDevelopmentMode = returnConvertedBoolean(
+                config.isDevelopmentMode
+            );
+        } else {
+            this.SDKConfig.isDevelopmentMode = false;
+        }
+
+        const baseUrls: Dictionary<string> = processBaseUrls(
+            config,
+            this.SDKConfig.flags,
+            apiKey
+        );
+
+        for (const baseUrlKeys in baseUrls) {
+            this.SDKConfig[baseUrlKeys] = baseUrls[baseUrlKeys];
+        }
+
         this.SDKConfig.useNativeSdk = !!config.useNativeSdk;
 
         this.SDKConfig.kits = config.kits || {};
@@ -645,6 +679,11 @@ export default function Store(
         this.roktAccountId = accountId;
     };
 
+    this.getIntegrationName = () => this.integrationName;
+    this.setIntegrationName = (integrationName: string) => {
+        this.integrationName = integrationName;
+    };
+
     this.addMpidToSessionHistory = (mpid: MPID, previousMPID?: MPID): void => {
         const indexOfMPID = this.currentSessionMPIDs.indexOf(mpid);
 
@@ -676,7 +715,10 @@ export default function Store(
         // We should reprocess the flags and baseUrls in case they have changed when we request an updated config
         // such as if the SDK is being self-hosted and the flags are different on the server config
         // https://go.mparticle.com/work/SQDSDKS-6317
-        this.SDKConfig.flags = processFlags(config);
+        // Only update flags if the config actually has flags (don't overwrite with empty object)
+        if (config.flags) {
+            this.SDKConfig.flags = processFlags(config);
+        }
 
         const baseUrls: Dictionary<string> = processBaseUrls(
             config,
