@@ -65,7 +65,9 @@ export class ReportingLogger {
                 headers: this.getHeaders(),
                 body: JSON.stringify(logRequest),
             };
-            uploader.upload(payload);
+            uploader.upload(payload).catch((error) => {
+                console.error('ReportingLogger: Failed to send log', error);
+            });
         } catch (error) {
             console.error('ReportingLogger: Failed to send log', error);
         }

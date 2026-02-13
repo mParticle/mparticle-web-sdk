@@ -134,6 +134,25 @@ describe('ReportingLogger', () => {
         expect(mockFetch).toHaveBeenCalled();
     });
 
+    it('logs if debug mode on even without ROKT_DOMAIN', () => {
+        Object.defineProperty(window, 'ROKT_DOMAIN', {
+            writable: true,
+            value: undefined
+        });
+        Object.defineProperty(window, 'location', {
+            writable: true,
+            value: { href: 'https://e.com', search: '?mp_enable_logging=true' }
+        });
+        logger = new ReportingLogger(
+            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: false } as SDKConfig,
+            sdkVersion,
+            mockStore as IStore,
+            'test-launcher-instance-guid'
+        );
+        logger.error('x');
+        expect(mockFetch).toHaveBeenCalled();
+    });
+
     it('rate limits after 3 errors', () => {
         let count = 0;
         const mockRateLimiter: IRateLimiter = {
@@ -204,6 +223,98 @@ describe('ReportingLogger', () => {
         const fetchCall = mockFetch.mock.calls[0];
         expect(fetchCall[1].headers['rokt-account-id']).toBe(accountId);
         expect(fetchCall[1].headers['rokt-launcher-version']).toBe('custom-integration-name');
+    });
+
+    it('catches and logs errors during upload', () => {
+        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+        mockFetch.mockRejectedValueOnce(new Error('Network failure'));
+
+        logger.error('test error', ErrorCodes.UNHANDLED_EXCEPTION);
+
+        // Wait for the promise to resolve
+        return new Promise(resolve => setTimeout(resolve, 0)).then(() => {
+            expect(consoleErrorSpy).toHaveBeenCalledWith(
+                'ReportingLogger: Failed to send log',
+                expect.any(Error)
+            );
+            consoleErrorSpy.mockRestore();
+        });
+    });
+
+    it('omits rokt-launcher-instance-guid header when launcherInstanceGuid is undefined', () => {
+        logger = new ReportingLogger(
+            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: true } as SDKConfig,
+            sdkVersion,
+            mockStore as IStore,
+            undefined
+        );
+
+        logger.error('test error');
+
+        expect(mockFetch).toHaveBeenCalled();
+        const fetchCall = mockFetch.mock.calls[0];
+        expect(fetchCall[1].headers['rokt-launcher-instance-guid']).toBeUndefined();
+        expect(fetchCall[1].headers['rokt-launcher-version']).toBeDefined();
+    });
+
+    it('includes all required headers', () => {
+        mockStore.getRoktAccountId = jest.fn().mockReturnValue(accountId);
+        mockStore.getIntegrationName = jest.fn().mockReturnValue('custom-integration');
+
+        logger.error('test error');
+
+        expect(mockFetch).toHaveBeenCalled();
+        const fetchCall = mockFetch.mock.calls[0];
+        const headers = fetchCall[1].headers;
+
+        expect(headers['Accept']).toBe('text/plain;charset=UTF-8');
+        expect(headers['Content-Type']).toBe('application/json');
+        expect(headers['rokt-launcher-instance-guid']).toBe('test-launcher-instance-guid');
+        expect(headers['rokt-launcher-version']).toBe('custom-integration');
+        expect(headers['rokt-wsdk-version']).toBe('joint');
+        expect(headers['rokt-account-id']).toBe(accountId);
+    });
+
+    it('constructs full URL with https prefix', () => {
+        logger.error('test error');
+
+        expect(mockFetch).toHaveBeenCalled();
+        const fetchCall = mockFetch.mock.calls[0];
+        expect(fetchCall[0]).toBe(`https://${errorUrl}`);
+    });
+
+    it('includes all fields in log request body', () => {
+        mockStore.getIntegrationName = jest.fn().mockReturnValue('test-integration');
+
+        logger.error('error message', ErrorCodes.IDENTITY_REQUEST, 'stack trace here');
+
+        expect(mockFetch).toHaveBeenCalled();
+        const fetchCall = mockFetch.mock.calls[0];
+        const body = JSON.parse(fetchCall[1].body);
+
+        expect(body).toEqual({
+            additionalInformation: {
+                message: 'error message',
+                version: 'test-integration'
+            },
+            severity: WSDKErrorSeverity.ERROR,
+            code: ErrorCodes.IDENTITY_REQUEST,
+            url: 'https://e.com',
+            deviceInfo: 'ua',
+            stackTrace: 'stack trace here',
+            reporter: 'mp-wsdk',
+            integration: 'mp-wsdk'
+        });
+    });
+
+    it('uses default error code when code is undefined', () => {
+        logger.error('test error');
+
+        expect(mockFetch).toHaveBeenCalled();
+        const fetchCall = mockFetch.mock.calls[0];
+        const body = JSON.parse(fetchCall[1].body);
+
+        expect(body.code).toBe(ErrorCodes.UNKNOWN_ERROR);
     });
 });
 
