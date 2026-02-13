@@ -1,6 +1,5 @@
 import { IRateLimiter, RateLimiter, ReportingLogger } from '../../src/logging/reportingLogger';
-import { WSDKErrorSeverity } from '../../src/logging/logRequest';
-import { ErrorCodes } from '../../src/logging/errorCodes';
+import { WSDKErrorSeverity, ErrorCodes } from '../../src/logging/types';
 import { IStore, SDKConfig } from '../../src/store';
 
 describe('ReportingLogger', () => {

@@ -1,6 +1,6 @@
 import { LogLevelType, SDKInitConfig, SDKLoggerApi } from './sdkRuntimeModels';
 import { ReportingLogger } from './logging/reportingLogger';
-import { ErrorCodes } from './logging/errorCodes';
+import { ErrorCodes } from './logging/types';
 
 export type ILoggerConfig = Pick<SDKInitConfig, 'logLevel' | 'logger'>;
 export type IConsoleLogger = Partial<Pick<SDKLoggerApi, 'error' | 'warning' | 'verbose'>>;
@@ -27,24 +27,25 @@ export class Logger {
         }
     }
 
-    public warning(msg: string, code?: ErrorCodes): void {
-        if(this.logLevel === LogLevelType.None) 
+    public warning(msg: string): void {
+        if(this.logLevel === LogLevelType.None)
             return;
 
-        if (this.logger.warning && 
+        if (this.logger.warning &&
             (this.logLevel === LogLevelType.Verbose || this.logLevel === LogLevelType.Warning)) {
             this.logger.warning(msg);
-            this.reportingLogger?.warning(msg, code);
         }
     }
 
     public error(msg: string, code?: ErrorCodes): void {
-        if(this.logLevel === LogLevelType.None) 
+        if(this.logLevel === LogLevelType.None)
             return;
 
         if (this.logger.error) {
             this.logger.error(msg);
-            this.reportingLogger?.error(msg, code);
+            if (code) {
+                this.reportingLogger?.error(msg, code);
+            }
         }
     }
 

@@ -1,5 +1,4 @@
-import { ErrorCodes } from "./errorCodes";
-import { LogRequestBody, WSDKErrorSeverity } from "./logRequest";
+import { ErrorCodes, LogRequestBody, WSDKErrorSeverity } from "./types";
 import { FetchUploader, IFetchPayload } from "../uploaders";
 import { IStore, SDKConfig } from "../store";
 import { SDKInitConfig } from "../sdkRuntimeModels";
@@ -45,11 +44,11 @@ export class ReportingLogger {
         this.sendError(WSDKErrorSeverity.WARNING, msg, code);
     }
     
-    private sendToServer(url: string,severity: WSDKErrorSeverity, msg: string, code?: ErrorCodes, stackTrace?: string): void {
+    private sendToServer(url: string, severity: WSDKErrorSeverity, msg: string, code?: ErrorCodes, stackTrace?: string): void {
         if(!this.canSendLog(severity))
             return;
-    
-        const logRequest = this.getLogRequest(severity, msg, code, stackTrace);
+
+        const logRequest = this.buildLogRequest(severity, msg, code, stackTrace);
         const uploader = new FetchUploader(url);
         const payload: IFetchPayload = {
             method: 'POST',
@@ -68,7 +67,7 @@ export class ReportingLogger {
         this.sendToServer(url, severity, msg, code, stackTrace);
     }
     
-    private getLogRequest(severity: WSDKErrorSeverity, msg: string, code?: ErrorCodes, stackTrace?: string): LogRequestBody {
+    private buildLogRequest(severity: WSDKErrorSeverity, msg: string, code?: ErrorCodes, stackTrace?: string): LogRequestBody {
         return {
             additionalInformation: {
                 message: msg,

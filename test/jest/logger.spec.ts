@@ -1,5 +1,7 @@
 import { Logger, ConsoleLogger } from '../../src/logger';
 import { LogLevelType } from '../../src/sdkRuntimeModels';
+import { ReportingLogger } from '../../src/logging/reportingLogger';
+import { ErrorCodes } from '../../src/logging/types';
 
 describe('Logger', () => {
     let mockConsole: any;
@@ -102,6 +104,46 @@ describe('Logger', () => {
         expect(mockConsole.info).toHaveBeenCalledWith('a');
         expect(mockConsole.warn).toHaveBeenCalledWith('b');
         expect(mockConsole.error).toHaveBeenCalledWith('c');
+    });
+
+    describe('ReportingLogger integration', () => {
+        let mockReportingLogger: jest.Mocked<ReportingLogger>;
+
+        beforeEach(() => {
+            mockReportingLogger = {
+                error: jest.fn(),
+                warning: jest.fn(),
+                info: jest.fn(),
+                setStore: jest.fn(),
+            } as any;
+        });
+
+        it('should call reportingLogger.error when error is called with error code', () => {
+            logger = new Logger({ logLevel: LogLevelType.Verbose }, mockReportingLogger);
+
+            logger.error('test error', ErrorCodes.UNHANDLED_EXCEPTION);
+
+            expect(mockConsole.error).toHaveBeenCalledWith('test error');
+            expect(mockReportingLogger.error).toHaveBeenCalledWith('test error', ErrorCodes.UNHANDLED_EXCEPTION);
+        });
+
+        it('should NOT call reportingLogger.error when error is called without error code', () => {
+            logger = new Logger({ logLevel: LogLevelType.Verbose }, mockReportingLogger);
+
+            logger.error('test error');
+
+            expect(mockConsole.error).toHaveBeenCalledWith('test error');
+            expect(mockReportingLogger.error).not.toHaveBeenCalled();
+        });
+
+        it('should NOT call reportingLogger when warning is called', () => {
+            logger = new Logger({ logLevel: LogLevelType.Verbose }, mockReportingLogger);
+
+            logger.warning('test warning');
+
+            expect(mockConsole.warn).toHaveBeenCalledWith('test warning');
+            expect(mockReportingLogger.warning).not.toHaveBeenCalled();
+        });
     });
 });
 

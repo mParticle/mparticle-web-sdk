@@ -25,7 +25,7 @@ import {
     IIdentityResponse,
 } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
-import { ErrorCodes } from './logging/errorCodes';
+import { ErrorCodes } from './logging/types';
 
 const { HTTPCodes, Messages, IdentityMethods } = Constants;
 
