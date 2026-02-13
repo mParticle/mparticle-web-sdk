@@ -1453,7 +1453,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         // Configure Rokt Manager with user and filtered user
         const roktConfig: IKitConfigs = parseConfig(config, 'Rokt', 181);
         if (roktConfig) {
-            const accountId = roktConfig.settings?.accountId ?? undefined;
+            const accountId = roktConfig.settings?.accountId;
             mpInstance._Store.setRoktAccountId(accountId);
             const { userAttributeFilters } = roktConfig;
             const roktFilteredUser = filteredMparticleUser(

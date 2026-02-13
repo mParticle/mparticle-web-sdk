@@ -3,6 +3,15 @@ import { FetchUploader, IFetchPayload } from "../uploaders";
 import { IStore, SDKConfig } from "../store";
 import { SDKInitConfig } from "../sdkRuntimeModels";
 
+interface IReportingLoggerPayload extends IFetchPayload {
+    headers: IFetchPayload['headers'] & {
+        'rokt-launcher-instance-guid'?: string;
+        'rokt-launcher-version': string;
+        'rokt-wsdk-version': string;
+    };
+    body: string;
+}
+
 export class ReportingLogger {
     private readonly isEnabled: boolean;
     private readonly reporter: string = 'mp-wsdk';
@@ -20,8 +29,8 @@ export class ReportingLogger {
         private readonly launcherInstanceGuid?: string,
         rateLimiter?: IRateLimiter,
     ) {
-        this.loggingUrl = config.loggingUrl || 'jssdkcdns.mparticle.com/v1/JS/logs';
-        this.errorUrl = config.errorUrl || 'jssdkcdns.mparticle.com/v1/JS/errors';
+        this.loggingUrl = `https://${config.loggingUrl || 'jssdkcdns.mparticle.com/v1/JS/logs'}`;
+        this.errorUrl = `https://${config.errorUrl || 'jssdkcdns.mparticle.com/v1/JS/errors'}`;
         this.isWebSdkLoggingEnabled = config.isWebSdkLoggingEnabled || false;
         this.store = store ?? null;
         this.isEnabled = this.isReportingEnabled();
@@ -48,23 +57,26 @@ export class ReportingLogger {
         if(!this.canSendLog(severity))
             return;
 
-        const logRequest = this.buildLogRequest(severity, msg, code, stackTrace);
-        const uploader = new FetchUploader(url);
-        const payload: IFetchPayload = {
-            method: 'POST',
-            headers: this.getHeaders(),
-            body: JSON.stringify(logRequest),
-        };
-        uploader.upload(payload);
+        try {
+            const logRequest = this.buildLogRequest(severity, msg, code, stackTrace);
+            const uploader = new FetchUploader(url);
+            const payload: IReportingLoggerPayload = {
+                method: 'POST',
+                headers: this.getHeaders(),
+                body: JSON.stringify(logRequest),
+            };
+            uploader.upload(payload);
+        } catch (error) {
+            console.error('ReportingLogger: Failed to send log', error);
+        }
     }
 
     private sendLog(severity: WSDKErrorSeverity, msg: string, code?: ErrorCodes, stackTrace?: string): void {
-        const url = this.getLoggingUrl();
-        this.sendToServer(url, severity, msg, code, stackTrace);
+        this.sendToServer(this.loggingUrl, severity, msg, code, stackTrace);
     }
+
     private sendError(severity: WSDKErrorSeverity, msg: string, code?: ErrorCodes, stackTrace?: string): void {
-        const url = this.getErrorUrl();
-        this.sendToServer(url, severity, msg, code, stackTrace);
+        this.sendToServer(this.errorUrl, severity, msg, code, stackTrace);
     }
     
     private buildLogRequest(severity: WSDKErrorSeverity, msg: string, code?: ErrorCodes, stackTrace?: string): LogRequestBody {
@@ -88,13 +100,8 @@ export class ReportingLogger {
     }
     
     private isReportingEnabled(): boolean {
-        // QUESTION: Should isDebugModeEnabled take precedence over
-        // isFeatureFlagEnabled and rokt domain present?
-        return (
-            this.isRoktDomainPresent() && 
-            (this.isFeatureFlagEnabled() ||
-            this.isDebugModeEnabled())
-        );
+        return this.isDebugModeEnabled() ||
+               (this.isRoktDomainPresent() && this.isFeatureFlagEnabled());
     }
 
     private isRoktDomainPresent(): boolean {
@@ -130,24 +137,24 @@ export class ReportingLogger {
         return typeof window !== 'undefined' ? window.navigator?.userAgent : undefined;
     }
 
-    private getLoggingUrl = (): string => `https://${this.loggingUrl}`;
-    private getErrorUrl = (): string => `https://${this.errorUrl}`;
-    
-    private getHeaders(): IFetchPayload['headers'] {
-        const headers: Record<string, string> = {
+    private getHeaders(): IReportingLoggerPayload['headers'] {
+        const headers: IReportingLoggerPayload['headers'] = {
             Accept: 'text/plain;charset=UTF-8',
             'Content-Type': 'application/json',
-            'rokt-launcher-instance-guid': this.launcherInstanceGuid,
             'rokt-launcher-version': this.getVersion(),
             'rokt-wsdk-version': 'joint',
         };
+
+        if (this.launcherInstanceGuid) {
+            headers['rokt-launcher-instance-guid'] = this.launcherInstanceGuid;
+        }
 
         const accountId = this.store?.getRoktAccountId?.();
         if (accountId) {
             headers['rokt-account-id'] = accountId;
         }
 
-        return headers as IFetchPayload['headers'];
+        return headers;
     }
 }
 
