@@ -6,6 +6,9 @@ name: Web SDK Build & Test
 on: pull_request
 
 permissions:
+  contents: read
+  pull-requests: write
+  checks: write
   id-token: write
 
 jobs:
