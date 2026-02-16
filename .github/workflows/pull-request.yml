@@ -5,6 +5,9 @@ name: Web SDK Build & Test
 
 on: pull_request
 
+permissions:
+  id-token: write
+
 jobs:
     build-bundle:
         name: Build Distribution Bundle
