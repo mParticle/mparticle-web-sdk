@@ -2,6 +2,7 @@ import { ErrorCodes, LogRequestBody, WSDKErrorSeverity } from "./types";
 import { FetchUploader, IFetchPayload } from "../uploaders";
 import { IStore, SDKConfig } from "../store";
 import { SDKInitConfig } from "../sdkRuntimeModels";
+import Constants from "../constants";
 
 interface IReportingLoggerPayload extends IFetchPayload {
     headers: IFetchPayload['headers'] & {
@@ -29,8 +30,8 @@ export class ReportingLogger {
         private readonly launcherInstanceGuid?: string,
         rateLimiter?: IRateLimiter,
     ) {
-        this.loggingUrl = `https://${config.loggingUrl || 'jssdkcdns.mparticle.com/v1/JS/logs'}`;
-        this.errorUrl = `https://${config.errorUrl || 'jssdkcdns.mparticle.com/v1/JS/errors'}`;
+        this.loggingUrl = `https://${config.loggingUrl || Constants.DefaultBaseUrls.loggingUrl}`;
+        this.errorUrl = `https://${config.errorUrl || Constants.DefaultBaseUrls.errorUrl}`;
         this.isWebSdkLoggingEnabled = config.isWebSdkLoggingEnabled || false;
         this.store = store ?? null;
         this.isEnabled = this.isReportingEnabled();
