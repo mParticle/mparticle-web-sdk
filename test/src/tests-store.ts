@@ -1678,6 +1678,8 @@ describe('Store', () => {
                     v1SecureServiceUrl: 'jssdks.mparticle.com/v1/JS/',
                     v2SecureServiceUrl: 'jssdks.mparticle.com/v2/JS/',
                     v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
+                    loggingUrl: 'apps.rokt-api.com/v1/log',
+                    errorUrl: 'apps.rokt-api.com/v1/errors',
                 };
 
                 expect(result).to.deep.equal(expectedResult);
@@ -1703,6 +1705,8 @@ describe('Store', () => {
                     v1SecureServiceUrl: 'custom.domain.com/webevents/v1/JS/',
                     v2SecureServiceUrl: 'custom.domain.com/webevents/v2/JS/',
                     v3SecureServiceUrl: 'custom.domain.com/webevents/v3/JS/',
+                    loggingUrl: 'custom.domain.com/v1/log',
+                    errorUrl: 'custom.domain.com/v1/errors',
                 };
 
                 expect(result).to.deep.equal(expectedResult);
@@ -1735,6 +1739,8 @@ describe('Store', () => {
                     v1SecureServiceUrl: 'custom.domain.com/webevents/v1/JS/',
                     v2SecureServiceUrl: 'custom.domain.com/webevents/v2/JS/',
                     v3SecureServiceUrl: 'custom.domain.com/webevents/v3/JS/',
+                    loggingUrl: 'custom.domain.com/v1/log',
+                    errorUrl: 'custom.domain.com/v1/errors',
                 };
 
                 expect(result).to.deep.equal(expectedResult);
@@ -1799,6 +1805,8 @@ describe('Store', () => {
                     v1SecureServiceUrl: 'jssdks.us1.mparticle.com/v1/JS/',
                     v2SecureServiceUrl: 'jssdks.us1.mparticle.com/v2/JS/',
                     v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
+                    loggingUrl: 'apps.rokt-api.com/v1/log',
+                    errorUrl: 'apps.rokt-api.com/v1/errors',
                 };
 
                 expect(result).to.deep.equal(expectedResult);
