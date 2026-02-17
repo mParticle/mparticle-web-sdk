@@ -64,7 +64,11 @@ export default class ForegroundTimeTracker {
 
     public updateTimeInPersistence(): void {
         if (this.isTrackerActive) {
-            this.timerVault.store(Math.round(this.totalTime));
+            try {
+                this.timerVault.store(Math.round(this.totalTime));
+            } catch (error) {
+                // Silently fail - time tracking persistence is not critical for SDK functionality
+            }
         }
     }
 

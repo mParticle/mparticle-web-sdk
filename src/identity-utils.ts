@@ -98,7 +98,11 @@ export const cacheIdentityRequest = (
         status,
         expireTimestamp,
     };
-    idCache.store(cache);
+    try {
+        idCache.store(cache);
+    } catch (error) {
+        // Silently fail - identity caching is an optimization, not critical for functionality
+    }
 };
 
 // We need to ensure that identities are concatenated in a deterministic way, so
@@ -233,7 +237,11 @@ export const removeExpiredIdentityCacheDates = (
         }
     }
 
-    idCache.store(cache);
+    try {
+        idCache.store(cache);
+    } catch (error) {
+        // Silently fail - identity caching is an optimization, not critical for functionality
+    }
 };
 
 export const tryCacheIdentity = (
