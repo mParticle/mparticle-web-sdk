@@ -1,9 +1,5 @@
 import { isEmpty, isNumber } from './utils';
 
-export interface IVaultOptions {
-    offlineStorageEnabled?: boolean;
-}
-
 export abstract class BaseVault<StorableItem> {
     public contents: StorableItem;
     protected readonly _storageKey: string;
@@ -12,13 +8,11 @@ export abstract class BaseVault<StorableItem> {
     /**
      *
      * @param {string} storageKey the local storage key string
-     * @param {Storage} Web API Storage object that is being used
-     * @param {IVaultOptions} options A Dictionary of IVaultOptions
+     * @param {Storage} storageObject Web API Storage object that is being used
      */
     constructor(
         storageKey: string,
-        storageObject: Storage,
-        options?: IVaultOptions
+        storageObject: Storage
     ) {
         this._storageKey = storageKey;
         this.storageObject = storageObject;
@@ -75,13 +69,13 @@ export abstract class BaseVault<StorableItem> {
 }
 
 export class LocalStorageVault<StorableItem> extends BaseVault<StorableItem> {
-    constructor(storageKey: string, options?: IVaultOptions) {
-        super(storageKey, window.localStorage, options);
+    constructor(storageKey: string) {
+        super(storageKey, window.localStorage);
     }
 }
 
 export class SessionStorageVault<StorableItem> extends BaseVault<StorableItem> {
-    constructor(storageKey: string, options?: IVaultOptions) {
-        super(storageKey, window.sessionStorage, options);
+    constructor(storageKey: string) {
+        super(storageKey, window.sessionStorage);
     }
 }

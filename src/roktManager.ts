@@ -290,7 +290,7 @@ export default class RoktManager {
                     });
                 } catch (error) {
                     const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
-                    this.logger.error('Failed to identify user with new email: ' + errorMessage);
+                    this.logger.error('Failed to identify user with updated identities: ' + errorMessage);
                 }
             }
             
@@ -506,7 +506,7 @@ export default class RoktManager {
                 return;
             }
 
-            this.logger?.verbose(`RoktManager: Processing queued message: ${message.methodName} with payload: ${JSON.stringify(message.payload)}`);
+            this.logger?.verbose(`RoktManager: Processing queued message: ${message.methodName} with payload: ${JSON.stringify(obfuscateData(message.payload))}`);
 
             // Capture resolve/reject functions before async processing
             const resolve = message.resolve;
