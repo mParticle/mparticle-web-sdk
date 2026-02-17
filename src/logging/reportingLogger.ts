@@ -55,7 +55,7 @@ export class ReportingLogger {
     }
     
     private sendToServer(url: string, severity: WSDKErrorSeverity, msg: string, code?: ErrorCodes, stackTrace?: string): void {
-        if(!this.canSendLog(severity))
+        if (!this.canSendLog(severity))
             return;
 
         try {
@@ -81,7 +81,7 @@ export class ReportingLogger {
     private sendError(severity: WSDKErrorSeverity, msg: string, code?: ErrorCodes, stackTrace?: string): void {
         this.sendToServer(this.errorUrl, severity, msg, code, stackTrace);
     }
-    
+ 
     private buildLogRequest(severity: WSDKErrorSeverity, msg: string, code?: ErrorCodes, stackTrace?: string): LogRequestBody {
         return {
             additionalInformation: {
@@ -92,7 +92,7 @@ export class ReportingLogger {
             code: code ?? ErrorCodes.UNKNOWN_ERROR,
             url: this.getUrl(),
             deviceInfo: this.getUserAgent(),
-            stackTrace: stackTrace ?? '',
+            stackTrace: stackTrace,
             reporter: this.reporter,
             integration: this.integration
         };

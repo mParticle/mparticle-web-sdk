@@ -195,7 +195,7 @@ export default class RoktManager {
         }
 
         if (kit.integrationName) {
-            this.store.setIntegrationName(kit.integrationName);
+            this.store?.setIntegrationName(kit.integrationName);
         }
 
         this.processMessageQueue();

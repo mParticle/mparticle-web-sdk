@@ -208,8 +208,8 @@ export interface IStore {
     integrationDelayTimeoutStart: number; // UNIX Timestamp
     webviewBridgeEnabled?: boolean;
     wrapperSDKInfo: WrapperSDKInfo;
-    roktAccountId: string;
-    integrationName: string;
+    roktAccountId: string | null;
+    integrationName: string | null;
 
     persistenceData?: IPersistenceMinified;
 

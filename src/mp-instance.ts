@@ -1375,7 +1375,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             };
         }
     };
-    
+
     const launcherInstanceGuidKey = Constants.Rokt.LauncherInstanceGuidKey;
     this.setLauncherInstanceGuid = function() {
         if (!window[launcherInstanceGuidKey] 
@@ -1383,7 +1383,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             window[launcherInstanceGuidKey] = self._Helpers.generateUniqueId();
         }
     };
-    
+
     this.getLauncherInstanceGuid = function() {
         return window[launcherInstanceGuidKey];
     };
