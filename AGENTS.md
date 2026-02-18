@@ -167,6 +167,7 @@ Feature Flags & Kit Configs (runtime)
 ### Project Structure
 
 ```
+jest.config.js                  # Jest config for TypeScript tests
 /src/                           # Source code
   ├── mparticle-instance-manager.ts  # Global manager, creates and retrieves named SDK instances
   ├── mp-instance.ts            # Core SDK instance, initialization flow, public APIs, and private modules
@@ -197,8 +198,8 @@ Feature Flags & Kit Configs (runtime)
   └── *.interfaces.ts           # TypeScript interface definitions for public APIs
 /test/                          # Test suite
   ├── karma.config.js           # Karma test runner config
-  ├── jest.config.js            # Jest config for TypeScript tests
-  └── src/tests-*.ts            # Test files
+  ├── src/tests-*.ts            # Test files
+  └── jest/*.spec.ts            # Jest unit tests
 /dist/                          # Built output
   ├── mparticle.js              # IIFE bundle (browser <script> tag)
   ├── mparticle.common.js       # CommonJS bundle (npm)
@@ -351,21 +352,21 @@ IMParticleWebSDKInstance {
 
 When working on specific features, refer to these files:
 
-| Feature | Main Files | Line Count |
-|---------|-----------|------------|
-| Entry Point | `mparticle-instance-manager.ts` | Entry |
-| Core Instance | `mp-instance.ts` | ~61K |
-| Identity | `identity.js`, `identity-utils.ts`, `identity.interfaces.ts` | 1,749+ |
-| Events | `events.js`, `events.interfaces.ts` | Large |
-| eCommerce | `ecommerce.js`, `ecommerce.interfaces.ts` | Large |
-| Forwarders | `forwarders.js`, `forwarders.interfaces.ts`, `kitBlocking.ts` | Large |
-| Consent | `consent.ts` | Medium |
-| Session | `sessionManager.ts` | Medium |
-| Storage | `persistence.js`, `store.ts` | Medium |
-| HTTP | `apiClient.ts`, `identityApiClient.ts`, `configAPIClient.ts` | Medium |
-| Validation | `validators.ts` | Medium |
-| Constants | `constants.ts` | Reference |
-| Types | `types.ts` | Reference |
+| Feature | Main Files |
+|---------|-----------|
+| Entry Point | `mparticle-instance-manager.ts` |
+| Core Instance | `mp-instance.ts` |
+| Identity | `identity.js`, `identity-utils.ts`, `identity.interfaces.ts` |
+| Events | `events.js`, `events.interfaces.ts` |
+| eCommerce | `ecommerce.js`, `ecommerce.interfaces.ts` |
+| Forwarders | `forwarders.js`, `forwarders.interfaces.ts`, `kitBlocking.ts` |
+| Consent | `consent.ts` |
+| Session | `sessionManager.ts` |
+| Storage | `persistence.js`, `store.ts` |
+| HTTP | `apiClient.ts`, `identityApiClient.ts`, `configAPIClient.ts` |
+| Validation | `validators.ts` |
+| Constants | `constants.ts` |
+| Types | `types.ts` |
 
 ### Build System
 
@@ -406,7 +407,7 @@ npm run build:ts            # TypeScript compilation only
 ```bash
 npm run test                # Full suite (Karma + Jest)
 npm run test:debug          # Interactive Chrome debug mode
-npm run test:jest           # Jest tests only (TypeScript)
+npm run test:jest           # Jest unit tests only (TypeScript)
 npm run test:jest:watch     # Jest watch mode
 npm run test:browserstack   # BrowserStack cross-browser tests
 npm run test:integrations   # All integrations (CJS, ESM, RequireJS)
