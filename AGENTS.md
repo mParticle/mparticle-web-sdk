@@ -240,7 +240,7 @@ test/
 - Target: ES5
 - Lib: ES5, ES6, DOM
 - Module Resolution: Node
-- Strict type checking enabled
+- Strict type checking: strictNullChecks=false, noImplicitAny=false
 
 **Naming Conventions:**
 ```typescript
@@ -271,7 +271,7 @@ function setProperty() { }
 **ESLint Rules:**
 - Prettier enforcement enabled
 - No unused variables
-- No console.log in production code (use Logger)
+- Avoid console.log in production code; prefer Logger (not currently enforced by ESLint)
 
 **Linting & Code Quality Commands:**
 
