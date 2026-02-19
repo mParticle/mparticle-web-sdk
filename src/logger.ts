@@ -37,14 +37,14 @@ export class Logger {
         }
     }
 
-    public error(msg: string, code?: ErrorCodes): void {
+    public error(msg: string, codeForReporting?: ErrorCodes): void {
         if(this.logLevel === LogLevelType.None)
             return;
 
         if (this.logger.error) {
             this.logger.error(msg);
-            if (code) {
-                this.reportingLogger?.error(msg, code);
+            if (codeForReporting) {
+                this.reportingLogger?.error(msg, codeForReporting);
             }
         }
     }

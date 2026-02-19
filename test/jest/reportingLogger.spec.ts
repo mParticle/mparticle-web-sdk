@@ -81,6 +81,18 @@ describe('ReportingLogger', () => {
         expect(fetchCall[1].headers['rokt-account-id']).toBe(accountId);
     });
 
+    it('sends info logs to correct endpoint with correct params', () => {
+        logger.info('info message', ErrorCodes.UNHANDLED_EXCEPTION);
+        expect(mockFetch).toHaveBeenCalled();
+        const fetchCall = mockFetch.mock.calls[0];
+        expect(fetchCall[0]).toContain('/v1/log');
+        const body = JSON.parse(fetchCall[1].body);
+        expect(body).toMatchObject({
+            severity: WSDKErrorSeverity.INFO,
+            code: ErrorCodes.UNHANDLED_EXCEPTION
+        });
+    });
+
     it('does not log if ROKT_DOMAIN missing', () => {
         Object.defineProperty(window, 'ROKT_DOMAIN', {
             writable: true,
@@ -283,7 +295,7 @@ describe('ReportingLogger', () => {
         expect(fetchCall[0]).toBe(`https://${errorUrl}`);
     });
 
-    it('includes all fields in log request body', () => {
+    it('includes all fields in log request body with custom integration name', () => {
         mockStore.getIntegrationName = jest.fn().mockReturnValue('test-integration');
 
         logger.error('error message', ErrorCodes.IDENTITY_REQUEST, 'stack trace here');
@@ -303,8 +315,22 @@ describe('ReportingLogger', () => {
             deviceInfo: 'ua',
             stackTrace: 'stack trace here',
             reporter: 'mp-wsdk',
-            integration: 'mp-wsdk'
+            integration: 'test-integration'
         });
+    });
+
+    it('uses default mp-wsdk for integration when integration name is not set', () => {
+        mockStore.getIntegrationName = jest.fn().mockReturnValue(null);
+
+        logger.error('error message', ErrorCodes.IDENTITY_REQUEST);
+
+        expect(mockFetch).toHaveBeenCalled();
+        const fetchCall = mockFetch.mock.calls[0];
+        const body = JSON.parse(fetchCall[1].body);
+
+        expect(body.reporter).toBe('mp-wsdk');
+        expect(body.integration).toBe('mp-wsdk');
+        expect(body.additionalInformation.version).toBe(`mParticle_wsdkv_${sdkVersion}`);
     });
 
     it('uses default error code when code is undefined', () => {

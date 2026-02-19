@@ -4,11 +4,18 @@ import { IStore, SDKConfig } from "../store";
 import { SDKInitConfig } from "../sdkRuntimeModels";
 import Constants from "../constants";
 
+// Header key constants
+const HEADER_ACCEPT = 'Accept' as const;
+const HEADER_CONTENT_TYPE = 'Content-Type' as const;
+const HEADER_ROKT_LAUNCHER_VERSION = 'rokt-launcher-version' as const;
+const HEADER_ROKT_LAUNCHER_INSTANCE_GUID = 'rokt-launcher-instance-guid' as const;
+const HEADER_ROKT_WSDK_VERSION = 'rokt-wsdk-version' as const;
+
 interface IReportingLoggerPayload extends IFetchPayload {
     headers: IFetchPayload['headers'] & {
-        'rokt-launcher-instance-guid'?: string;
-        'rokt-launcher-version': string;
-        'rokt-wsdk-version': string;
+        [HEADER_ROKT_LAUNCHER_INSTANCE_GUID]?: string;
+        [HEADER_ROKT_LAUNCHER_VERSION]: string;
+        [HEADER_ROKT_WSDK_VERSION]: string;
     };
     body: string;
 }
@@ -16,7 +23,6 @@ interface IReportingLoggerPayload extends IFetchPayload {
 export class ReportingLogger {
     private readonly isEnabled: boolean;
     private readonly reporter: string = 'mp-wsdk';
-    private readonly integration: string = 'mp-wsdk';
     private readonly rateLimiter: IRateLimiter;
     private store: IStore | null;
     private readonly loggingUrl: string;
@@ -94,7 +100,8 @@ export class ReportingLogger {
             deviceInfo: this.getUserAgent(),
             stackTrace: stackTrace,
             reporter: this.reporter,
-            integration: this.integration
+            // Integration will be set to integrationName once the kit connects via RoktManager.attachKit()
+            integration: this.store?.getIntegrationName() ?? 'mp-wsdk'
         };
     }
 
@@ -142,14 +149,14 @@ export class ReportingLogger {
 
     private getHeaders(): IReportingLoggerPayload['headers'] {
         const headers: IReportingLoggerPayload['headers'] = {
-            Accept: 'text/plain;charset=UTF-8',
-            'Content-Type': 'application/json',
-            'rokt-launcher-version': this.getVersion(),
-            'rokt-wsdk-version': 'joint',
+            [HEADER_ACCEPT]: 'text/plain;charset=UTF-8',
+            [HEADER_CONTENT_TYPE]: 'application/json',
+            [HEADER_ROKT_LAUNCHER_VERSION]: this.getVersion(),
+            [HEADER_ROKT_WSDK_VERSION]: 'joint',
         };
 
         if (this.launcherInstanceGuid) {
-            headers['rokt-launcher-instance-guid'] = this.launcherInstanceGuid;
+            headers[HEADER_ROKT_LAUNCHER_INSTANCE_GUID] = this.launcherInstanceGuid;
         }
 
         const accountId = this.store?.getRoktAccountId?.();

@@ -254,6 +254,8 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         }
         instance.Logger = new Logger(config, reportingLogger);
         instance._Store = new Store(config, instance);
+        // Update ReportingLogger with the new Store reference to avoid stale data
+        reportingLogger?.setStore(instance._Store);
         instance._Store.isLocalStorageAvailable = instance._Persistence.determineLocalStorageAvailability(
             window.localStorage
         );
