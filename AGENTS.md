@@ -241,7 +241,7 @@ test/
 - Target: ES5
 - Lib: ES5, ES6, DOM
 - Module Resolution: Node
-- Strict type checking: strictNullChecks=false, noImplicitAny=false
+- TypeScript strict mode: Not enabled (strictNullChecks=false, noImplicitAny=false)
 
 **Naming Conventions:**
 ```typescript
