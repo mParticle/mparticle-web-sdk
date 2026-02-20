@@ -167,8 +167,9 @@ Feature Flags & Kit Configs (runtime)
 ### Project Structure
 
 ```
-jest.config.js                  # Jest config for TypeScript tests
-/src/                           # Source code
+/                                       # Repo root
+  jest.config.js                        # Jest config for TypeScript unit tests
+/src/                                   # Source code
   ├── mparticle-instance-manager.ts  # Global manager, creates and retrieves named SDK instances
   ├── mp-instance.ts            # Core SDK instance, initialization flow, public APIs, and private modules
   ├── apiClient.ts              # HTTP client for making requests to mParticle Events API
@@ -241,7 +242,7 @@ test/
 - Target: ES5
 - Lib: ES5, ES6, DOM
 - Module Resolution: Node
-- TypeScript strict mode: Not enabled (strictNullChecks=false, noImplicitAny=false)
+- Strict type checking: strictNullChecks=false, noImplicitAny=false
 
 **Naming Conventions:**
 ```typescript
