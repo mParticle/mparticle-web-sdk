@@ -209,33 +209,6 @@ Feature Flags & Kit Configs (runtime)
 /.github/workflows/             # CI/CD pipelines
 ```
 
-### Code Organization Pattern
-
-Features are organized with implementation and interface files:
-
-```
-src/
-├── [feature].ts                    # TypeScript implementation
-├── [feature].js                    # JavaScript implementation (legacy)
-└── [feature].interfaces.ts         # TypeScript interfaces
-
-test/
-├── src/tests-[feature].ts          # Karma tests (browser integration)
-├── src/tests-[feature].js          # Karma tests (browser integration, legacy)
-└── jest/[feature].spec.ts          # Jest tests (TypeScript unit tests)
-```
-
-**Testing Structure:**
-- **Karma tests** (`test/src/tests-*.ts` or `tests-*.js`): Browser-based integration tests with full SDK runtime
-  - `.js` files are legacy, prefer `.ts` for new tests
-- **Jest tests** (`test/jest/*.spec.ts`): Unit tests for TypeScript modules, fast isolated tests
-
-**Examples:**
-- Identity: `identity.js` + `identity.interfaces.ts` + `identity-utils.ts` + `test/src/tests-identity.ts` + `test/jest/identity.spec.ts`
-- Events: `events.js` + `events.interfaces.ts` + `test/src/tests-events.ts`
-- eCommerce: `ecommerce.js` + `ecommerce.interfaces.ts` + `test/src/tests-ecommerce.ts`
-- Forwarders: `forwarders.js` + `forwarders.interfaces.ts` + `kitBlocking.ts` + `test/src/tests-forwarders.ts`
-
 ### TypeScript & JavaScript Conventions
 
 **TypeScript Configuration:**
