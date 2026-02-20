@@ -2196,7 +2196,7 @@ describe('RoktManager', () => {
             
             // Verify error was logged
             expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
-                'Failed to identify user with new email: ' + JSON.stringify(mockError)
+                'Failed to identify user with updated identities: ' + JSON.stringify(mockError)
             );
 
             // Verify selectPlacements was still called

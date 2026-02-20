@@ -38,7 +38,7 @@ export abstract class BaseVault<StorableItem> {
         try {
             this.storageObject.setItem(this._storageKey, stringifiedItem);
         } catch (error) {
-            throw new Error('Cannot Save items to Storage');
+            console.error('Cannot Save items to Storage');
         }
     }
 
