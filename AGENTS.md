@@ -281,8 +281,6 @@ function setProperty() { }
 # Linting
 npm run lint                # ESLint check (both .js and .ts files)
 npm run prettier            # Prettier check (.js files only)
-npm run gts:check           # TypeScript style check (.ts files)
-npm run gts:fix             # Auto-fix TypeScript style issues
 
 # Bundle Analysis
 npm run bundle              # Uglify + gzip for size reporting
