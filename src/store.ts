@@ -98,7 +98,7 @@ export interface SDKConfig {
     requiredWebviewBridgeName?: string;
     loggingUrl?: string;
     errorUrl?: string;
-    isWebSdkLoggingEnabled?: boolean;
+    isLoggingEnabled?: boolean;
 }
 
 function createSDKConfig(config: SDKInitConfig): SDKConfig {

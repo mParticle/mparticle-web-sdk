@@ -339,7 +339,7 @@ export interface SDKInitConfig
     identityCallback?: IdentityCallback;
 
     launcherOptions?: IRoktLauncherOptions;
-    isWebSdkLoggingEnabled?: boolean;
+    isLoggingEnabled?: boolean;
 
     rq?: Function[] | any[];
     logger?: IConsoleLogger;

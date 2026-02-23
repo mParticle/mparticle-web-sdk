@@ -27,7 +27,7 @@ export class ReportingLogger {
     private store: IStore | null;
     private readonly loggingUrl: string;
     private readonly errorUrl: string;
-    private readonly isWebSdkLoggingEnabled: boolean;
+    private readonly isLoggingEnabled: boolean;
 
     constructor(
         config: SDKConfig | SDKInitConfig | any,
@@ -38,7 +38,7 @@ export class ReportingLogger {
     ) {
         this.loggingUrl = `https://${config.loggingUrl || Constants.DefaultBaseUrls.loggingUrl}`;
         this.errorUrl = `https://${config.errorUrl || Constants.DefaultBaseUrls.errorUrl}`;
-        this.isWebSdkLoggingEnabled = config.isWebSdkLoggingEnabled || false;
+        this.isLoggingEnabled = config.isLoggingEnabled || false;
         this.store = store ?? null;
         this.isEnabled = this.isReportingEnabled();
         this.rateLimiter = rateLimiter ?? new RateLimiter();
@@ -118,7 +118,7 @@ export class ReportingLogger {
         return typeof window !== 'undefined' && Boolean(window['ROKT_DOMAIN']);
     }
 
-    private isFeatureFlagEnabled = (): boolean => this.isWebSdkLoggingEnabled;
+    private isFeatureFlagEnabled = (): boolean => this.isLoggingEnabled;
 
     private isDebugModeEnabled(): boolean {
         return (

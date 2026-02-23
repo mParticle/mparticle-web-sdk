@@ -31,7 +31,7 @@ describe('Logging Integration', () => {
 
         Object.defineProperty(window, 'mParticle', {
             writable: true,
-            value: { config: { isWebSdkLoggingEnabled: true } }
+            value: { config: { isLoggingEnabled: true } }
         });
 
         Object.defineProperty(window, 'ROKT_DOMAIN', {
@@ -53,7 +53,7 @@ describe('Logging Integration', () => {
 
         // Create ReportingLogger with Store
         const reportingLogger = new ReportingLogger(
-            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: true } as SDKConfig,
+            { loggingUrl, errorUrl, isLoggingEnabled: true } as SDKConfig,
             sdkVersion,
             mockStore as IStore,
             'test-guid'
@@ -103,7 +103,7 @@ describe('Logging Integration', () => {
         };
 
         const reportingLogger = new ReportingLogger(
-            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: true } as SDKConfig,
+            { loggingUrl, errorUrl, isLoggingEnabled: true } as SDKConfig,
             sdkVersion,
             mockStore as IStore
         );
@@ -126,7 +126,7 @@ describe('Logging Integration', () => {
         };
 
         const reportingLogger = new ReportingLogger(
-            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: true } as SDKConfig,
+            { loggingUrl, errorUrl, isLoggingEnabled: true } as SDKConfig,
             sdkVersion,
             initialStore as IStore
         );
@@ -173,7 +173,7 @@ describe('Logging Integration', () => {
         };
 
         const reportingLogger = new ReportingLogger(
-            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: true } as SDKConfig,
+            { loggingUrl, errorUrl, isLoggingEnabled: true } as SDKConfig,
             sdkVersion,
             mockStore as IStore
         );
@@ -198,7 +198,7 @@ describe('Logging Integration', () => {
         };
 
         const reportingLogger = new ReportingLogger(
-            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: true } as SDKConfig,
+            { loggingUrl, errorUrl, isLoggingEnabled: true } as SDKConfig,
             sdkVersion,
             mockStore as IStore
         );
@@ -221,7 +221,7 @@ describe('Logging Integration', () => {
         };
 
         const reportingLogger = new ReportingLogger(
-            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: true } as SDKConfig,
+            { loggingUrl, errorUrl, isLoggingEnabled: true } as SDKConfig,
             sdkVersion,
             mockStore as IStore
         );

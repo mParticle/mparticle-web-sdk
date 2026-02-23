@@ -35,7 +35,7 @@ describe('ReportingLogger', () => {
 
         Object.defineProperty(window, 'mParticle', {
             writable: true,
-            value: { config: { isWebSdkLoggingEnabled: true } }
+            value: { config: { isLoggingEnabled: true } }
         });
 
         Object.defineProperty(window, 'ROKT_DOMAIN', {
@@ -44,7 +44,7 @@ describe('ReportingLogger', () => {
         });
 
         logger = new ReportingLogger(
-            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: true } as SDKConfig,
+            { loggingUrl, errorUrl, isLoggingEnabled: true } as SDKConfig,
             sdkVersion,
             mockStore as IStore,
             'test-launcher-instance-guid'
@@ -99,7 +99,7 @@ describe('ReportingLogger', () => {
             value: undefined
         });
         logger = new ReportingLogger(
-            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: true } as SDKConfig,
+            { loggingUrl, errorUrl, isLoggingEnabled: true } as SDKConfig,
             sdkVersion,
             mockStore as IStore,
             'test-launcher-instance-guid'
@@ -111,14 +111,14 @@ describe('ReportingLogger', () => {
     it('does not log if feature flag and debug mode off', () => {
         Object.defineProperty(window, 'mParticle', {
             writable: true,
-            value: { config: { isWebSdkLoggingEnabled: false } }
+            value: { config: { isLoggingEnabled: false } }
         });
         Object.defineProperty(window, 'location', {
             writable: true,
             value: { href: 'https://e.com', search: '' }
         });
         logger = new ReportingLogger(
-            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: false } as SDKConfig,
+            { loggingUrl, errorUrl, isLoggingEnabled: false } as SDKConfig,
             sdkVersion,
             mockStore as IStore,
             'test-launcher-instance-guid'
@@ -130,14 +130,14 @@ describe('ReportingLogger', () => {
     it('logs if debug mode on even if feature flag off', () => {
         Object.defineProperty(window, 'mParticle', {
             writable: true,
-            value: { config: { isWebSdkLoggingEnabled: false } }
+            value: { config: { isLoggingEnabled: false } }
         });
         Object.defineProperty(window, 'location', {
             writable: true,
             value: { href: 'https://e.com', search: '?mp_enable_logging=true' }
         });
         logger = new ReportingLogger(
-            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: false } as SDKConfig,
+            { loggingUrl, errorUrl, isLoggingEnabled: false } as SDKConfig,
             sdkVersion,
             mockStore as IStore,
             'test-launcher-instance-guid'
@@ -156,7 +156,7 @@ describe('ReportingLogger', () => {
             value: { href: 'https://e.com', search: '?mp_enable_logging=true' }
         });
         logger = new ReportingLogger(
-            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: false } as SDKConfig,
+            { loggingUrl, errorUrl, isLoggingEnabled: false } as SDKConfig,
             sdkVersion,
             mockStore as IStore,
             'test-launcher-instance-guid'
@@ -173,7 +173,7 @@ describe('ReportingLogger', () => {
             }),
         };
         logger = new ReportingLogger(
-            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: true } as SDKConfig,
+            { loggingUrl, errorUrl, isLoggingEnabled: true } as SDKConfig,
             sdkVersion,
             mockStore as IStore,
             'test-launcher-instance-guid',
@@ -201,7 +201,7 @@ describe('ReportingLogger', () => {
             value: undefined
         });
         logger = new ReportingLogger(
-            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: true } as SDKConfig,
+            { loggingUrl, errorUrl, isLoggingEnabled: true } as SDKConfig,
             sdkVersion,
             mockStore as IStore,
             'test-launcher-instance-guid'
@@ -217,7 +217,7 @@ describe('ReportingLogger', () => {
 
     it('can set store after initialization', () => {
         const loggerWithoutStore = new ReportingLogger(
-            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: true } as SDKConfig,
+            { loggingUrl, errorUrl, isLoggingEnabled: true } as SDKConfig,
             sdkVersion,
             undefined,
             'test-launcher-instance-guid'
@@ -255,7 +255,7 @@ describe('ReportingLogger', () => {
 
     it('omits rokt-launcher-instance-guid header when launcherInstanceGuid is undefined', () => {
         logger = new ReportingLogger(
-            { loggingUrl, errorUrl, isWebSdkLoggingEnabled: true } as SDKConfig,
+            { loggingUrl, errorUrl, isLoggingEnabled: true } as SDKConfig,
             sdkVersion,
             mockStore as IStore,
             undefined
