@@ -12,7 +12,7 @@ import {
     obfuscateData,
 } from "./utils";
 import { SDKIdentityApi } from "./identity.interfaces";
-import { SDKLoggerApi } from "./sdkRuntimeModels";
+import { LogLevelType, SDKLoggerApi } from "./sdkRuntimeModels";
 import { IStore, LocalSessionAttributes } from "./store";
 import { UserIdentities } from "@mparticle/web-sdk";
 import { IdentityType, PerformanceMarkType } from "./types";
@@ -218,7 +218,8 @@ export default class RoktManager {
             const { attributes } = options;
             const sandboxValue = attributes?.sandbox || null;
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
-            this.logger?.verbose(`mParticle.Rokt selectPlacements called with attributes:\n${JSON.stringify(obfuscateData(attributes), null, 2)}`);
+            const isDebug = this.logger?.getLogLevel?.() === LogLevelType.Debug;
+            this.logger?.verbose(`mParticle.Rokt selectPlacements called with attributes:\n${JSON.stringify(isDebug ? attributes : obfuscateData(attributes), null, 2)}`);
 
             this.currentUser = this.identityService.getCurrentUser();
             const currentUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
@@ -489,7 +490,8 @@ export default class RoktManager {
                 return;
             }
 
-            this.logger?.verbose(`RoktManager: Processing queued message: ${message.methodName} with payload: ${JSON.stringify(obfuscateData(message.payload))}`);
+            const isDebugPayload = this.logger?.getLogLevel?.() === LogLevelType.Debug;
+            this.logger?.verbose(`RoktManager: Processing queued message: ${message.methodName} with payload: ${JSON.stringify(isDebugPayload ? message.payload : obfuscateData(message.payload))}`);
 
             // Capture resolve/reject functions before async processing
             const resolve = message.resolve;

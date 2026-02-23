@@ -13,22 +13,23 @@ export class Logger {
     }
 
     public verbose(msg: string): void {
-        if(this.logLevel === LogLevelType.None) 
-            return;
-
-        if (this.logger.verbose && this.logLevel === LogLevelType.Verbose) {
+        if (this.logLevel === LogLevelType.None) return;
+        if (this.logger.verbose && (this.logLevel === LogLevelType.Verbose || this.logLevel === LogLevelType.Debug)) {
             this.logger.verbose(msg);
         }
     }
 
     public warning(msg: string): void {
-        if(this.logLevel === LogLevelType.None) 
-            return;
-
-        if (this.logger.warning && 
-            (this.logLevel === LogLevelType.Verbose || this.logLevel === LogLevelType.Warning)) {
+        if (this.logLevel === LogLevelType.None) return;
+        if (this.logger.warning &&
+            (this.logLevel === LogLevelType.Verbose || this.logLevel === LogLevelType.Debug || this.logLevel === LogLevelType.Warning)) {
             this.logger.warning(msg);
         }
+    }
+
+    /** Returns current log level. Used by payload call sites to log raw at debug, obfuscated at verbose. */
+    public getLogLevel(): LogLevelType {
+        return this.logLevel;
     }
 
     public error(msg: string): void {

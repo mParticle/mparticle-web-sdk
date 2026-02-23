@@ -266,6 +266,7 @@ export const LogLevelType = {
     Verbose: 'verbose',
     Warning: 'warning',
     Error: 'error',
+    Debug: 'debug',
 } as const;
 
 // TODO: This should eventually be moved into wherever init logic lives
@@ -365,6 +366,7 @@ export interface SDKLoggerApi {
     verbose(arg0: string): void;
     warning(arg0: string): void;
     setLogLevel(logLevel: LogLevelType): void;
+    getLogLevel?(): LogLevelType;
 }
 
 // TODO: Merge this with IStore in store.ts

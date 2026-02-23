@@ -25,6 +25,7 @@ import {
     IIdentityResponse,
 } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
+import { LogLevelType } from './sdkRuntimeModels';
 
 const { HTTPCodes, Messages, IdentityMethods } = Constants;
 
@@ -278,15 +279,17 @@ export default function IdentityAPIClient(
 
                     } else {
                         const responseText = identityResponse.responseText;
-                        const { matched_identities, ...rest } = responseText || {};
-                        const obfuscatedMatchedIdentities = obfuscateData(matched_identities);
-
-                        // Obfuscate matched_identities to prevent PII exposure
-                        const responseToLog = matched_identities
-                            ? { ...rest, matched_identities: obfuscatedMatchedIdentities }
-                            : responseText;
-
-                        message = 'Received Identity Response from server: ' + JSON.stringify(responseToLog);
+                        const isDebug = Logger.getLogLevel?.() === LogLevelType.Debug;
+                        if (isDebug) {
+                            message = 'Received Identity Response from server: ' + JSON.stringify(responseText);
+                        } else {
+                            const { matched_identities, ...rest } = responseText || {};
+                            const obfuscatedMatchedIdentities = obfuscateData(matched_identities);
+                            const responseToLog = matched_identities
+                                ? { ...rest, matched_identities: obfuscatedMatchedIdentities }
+                                : responseText;
+                            message = 'Received Identity Response from server: ' + JSON.stringify(responseToLog);
+                        }
                     }
 
                     break;

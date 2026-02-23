@@ -1,6 +1,6 @@
 import { Batch } from '@mparticle/event-models';
 import Constants from './constants';
-import { SDKEvent, SDKEventCustomFlags, SDKLoggerApi } from './sdkRuntimeModels';
+import { SDKEvent, SDKEventCustomFlags, SDKLoggerApi, LogLevelType } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import { MessageType, EventType } from './types';
 import { getRampNumber, isEmpty, obfuscateData } from './utils';
@@ -262,7 +262,8 @@ export class BatchUploader {
             }
         }
 
-        Logger.verbose(`Queuing event: ${JSON.stringify(obfuscateData(event))}`);
+        const isDebug = Logger.getLogLevel?.() === LogLevelType.Debug;
+        Logger.verbose(`Queuing event: ${JSON.stringify(isDebug ? event : obfuscateData(event))}`);
         Logger.verbose(`Queued event count: ${this.eventsQueuedForProcessing.length}`);
 
         if (this.shouldTriggerImmediateUpload(event.EventDataType)) {
@@ -459,7 +460,8 @@ export class BatchUploader {
             return null;
         }
 
-        logger.verbose(`Uploading batches: ${JSON.stringify(obfuscateData(uploads))}`);
+        const isDebug = logger.getLogLevel?.() === LogLevelType.Debug;
+        logger.verbose(`Uploading batches: ${JSON.stringify(isDebug ? uploads : obfuscateData(uploads))}`);
         logger.verbose(`Batch count: ${uploads.length}`);
 
         for (let i = 0; i < uploads.length; i++) {

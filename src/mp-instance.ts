@@ -223,7 +223,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
      * Resets the SDK to an uninitialized state and removes cookies/localStorage. You MUST call mParticle.init(apiKey, window.mParticle.config)
      * before any other mParticle methods or the SDK will not function as intended.
      * @method setLogLevel
-     * @param {String} logLevel verbose, warning, or none. By default, `warning` is chosen.
+     * @param {String} logLevel verbose, debug, warning, or none. By default, `warning` is chosen.
      */
     this.setLogLevel = function(newLogLevel) {
         self.Logger.setLogLevel(newLogLevel);

@@ -1,5 +1,6 @@
 import { BatchUploader } from '../../src/batchUploader';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
+import { LogLevelType } from '../../src/sdkRuntimeModels';
 
 describe('BatchUploader', () => {
     let batchUploader: BatchUploader;
@@ -20,7 +21,8 @@ describe('BatchUploader', () => {
             _Store: {
                 SDKConfig: {
                     flags: {}
-                }
+                },
+                deviceId: 'test-device-id'
             },
             _Helpers: {
                 getFeatureFlag: jest.fn().mockReturnValue(false),
@@ -30,6 +32,13 @@ describe('BatchUploader', () => {
                 getCurrentUser: jest.fn().mockReturnValue({
                     getMPID: () => 'test-mpid'
                 })
+            },
+            Logger: {
+                verbose: jest.fn(),
+                warning: jest.fn(),
+                error: jest.fn(),
+                setLogLevel: jest.fn(),
+                getLogLevel: jest.fn().mockReturnValue(LogLevelType.Verbose)
             }
         } as unknown as IMParticleWebSDKInstance;
 
@@ -106,6 +115,42 @@ describe('BatchUploader', () => {
             const secondCallTime = batchUploader['lastASTEventTime'];
             
             expect(secondCallTime).toBe(firstCallTime);
+        });
+    });
+
+    describe('queueEvent log level (obfuscated vs raw)', () => {
+        const eventWithName = {
+            EventName: 'TestEventName',
+            EventCategory: 1,
+            SessionId: 's1',
+            DeviceId: 'd1',
+            Timestamp: Date.now(),
+            SourceMessageId: 'mid1',
+            SDKVersion: '1.0'
+        } as any;
+
+        it('should log obfuscated event when log level is verbose', () => {
+            (mockMPInstance.Logger.getLogLevel as jest.Mock).mockReturnValue(LogLevelType.Verbose);
+            batchUploader.queueEvent(eventWithName);
+            expect(mockMPInstance.Logger.verbose).toHaveBeenCalled();
+            const verboseCall = (mockMPInstance.Logger.verbose as jest.Mock).mock.calls.find(
+                (c: string[]) => c[0].includes('Queuing event:')
+            );
+            expect(verboseCall).toBeDefined();
+            // Obfuscation replaces primitive values with type names; raw event name would not appear
+            expect(verboseCall[0]).not.toContain('TestEventName');
+            expect(verboseCall[0]).toContain('string'); // obfuscated string type
+        });
+
+        it('should log raw event when log level is debug', () => {
+            (mockMPInstance.Logger.getLogLevel as jest.Mock).mockReturnValue(LogLevelType.Debug);
+            batchUploader.queueEvent(eventWithName);
+            expect(mockMPInstance.Logger.verbose).toHaveBeenCalled();
+            const verboseCall = (mockMPInstance.Logger.verbose as jest.Mock).mock.calls.find(
+                (c: string[]) => c[0].includes('Queuing event:')
+            );
+            expect(verboseCall).toBeDefined();
+            expect(verboseCall[0]).toContain('TestEventName');
         });
     });
 }); 

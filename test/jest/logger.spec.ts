@@ -103,6 +103,32 @@ describe('Logger', () => {
         expect(mockConsole.warn).toHaveBeenCalledWith('b');
         expect(mockConsole.error).toHaveBeenCalledWith('c');
     });
+
+    it('should return current log level from getLogLevel', () => {
+        logger = new Logger({ logLevel: LogLevelType.Warning });
+        expect(logger.getLogLevel()).toBe(LogLevelType.Warning);
+
+        logger.setLogLevel(LogLevelType.Debug);
+        expect(logger.getLogLevel()).toBe(LogLevelType.Debug);
+
+        logger.setLogLevel(LogLevelType.Verbose);
+        expect(logger.getLogLevel()).toBe(LogLevelType.Verbose);
+
+        logger.setLogLevel(LogLevelType.None);
+        expect(logger.getLogLevel()).toBe(LogLevelType.None);
+    });
+
+    it('should call verbose and warning at debug log level (same as verbose, for raw payload option)', () => {
+        logger = new Logger({ logLevel: LogLevelType.Debug });
+
+        logger.verbose('debug-verbose');
+        logger.warning('debug-warning');
+        logger.error('debug-error');
+
+        expect(mockConsole.info).toHaveBeenCalledWith('debug-verbose');
+        expect(mockConsole.warn).toHaveBeenCalledWith('debug-warning');
+        expect(mockConsole.error).toHaveBeenCalledWith('debug-error');
+    });
 });
 
 describe('ConsoleLogger', () => {
