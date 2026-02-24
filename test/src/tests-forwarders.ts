@@ -1,6 +1,7 @@
 import Utils from './config/utils';
 import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
+import { IRoktKit } from '../../src/roktManager';
 
 import {
     urls,
@@ -47,9 +48,14 @@ interface IMockForwarderInstance {
     onModifyCompleteCalled?: boolean;
     onModifyCompleteFilteredUserIdentities?: UserIdentities;
     onModifyCompleteUser?: IMParticleUser;
+    onUserIdentifiedCalled?: boolean;
     onUserIdentifiedUser?: IMParticleUser;
     receivedEvent?: SDKEvent;
+    receivedEvents?: SDKEvent[];
     removeUserAttributeCalled?: boolean;
+    setUserAttributeCalled?: boolean;
+    setSessionAttributeCalled?: boolean;
+    sessionAttrData?: unknown[][];
     userAttributes?: UserAttributes;
     userIdentities?: UserIdentities;
 }
@@ -220,6 +226,413 @@ describe('forwarders', function() {
                 null
             );
         expect(enabled).to.not.be.ok;
+    });
+
+    describe('noFunctional integration', () => {
+        afterEach(() => {
+            delete window.mParticle.config.launcherOptions;
+            delete window.mParticle.config.identifyRequest;
+        });
+
+        it('should still initialize forwarders when noFunctional is true and no identity passed (when the SDK does not complete initialization)', () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.getInstance()._getActiveForwarders().length).to.equal(1);
+            window.MockForwarder1.instance.should.have.property('initCalled', true);
+            expect(mParticle.isInitialized()).to.not.equal(true);
+
+            // Events are sent to forwarders even when there is no mpid (no identity)
+            window.MockForwarder1.instance.receivedEvent = null;
+            mParticle.logEvent('NoFunctional No Identity Event', mParticle.EventType.Navigation);
+            expect(window.MockForwarder1.instance.receivedEvent).to.be.ok;
+            window.MockForwarder1.instance.receivedEvent.EventName.should.equal('NoFunctional No Identity Event');
+        });
+
+        it('should still deliver events to forwarders when noFunctional is true when explicit identity is provided', async () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = {
+                userIdentities: { email: 'nofunctional-test@example.com' },
+            };
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+
+            expect(mParticle.isInitialized()).to.equal(true);
+            expect(mParticle.getInstance()._getActiveForwarders().length).to.equal(1);
+            window.MockForwarder1.instance.receivedEvent = null;
+
+            // Event is still sent to the forwarder when noFunctional is true and explicit identity is provided
+            mParticle.logEvent('NoFunctional Test Event', mParticle.EventType.Navigation);
+
+            expect(window.MockForwarder1.instance.receivedEvent).to.be.ok;
+            window.MockForwarder1.instance.receivedEvent.EventName.should.equal('NoFunctional Test Event');
+        });
+
+        it('when noFunctional is true, after explicit Identity.identify() returns, mParticle is fully initialized', async () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.isInitialized()).to.not.equal(true);
+
+            mParticle.Identity.identify({
+                userIdentities: { email: 'explicit-identify-init@example.com' },
+            });
+
+            await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+
+            expect(mParticle.isInitialized()).to.equal(true);
+        });
+
+        it('when noFunctional and explicit identity is provided, queued events are processed after identify returns and mParticle is fully initialized', async () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.getInstance()._getActiveForwarders().length).to.equal(1);
+            expect(mParticle.isInitialized()).to.not.equal(true);
+
+            mParticle.logEvent('QueuedEvent1', mParticle.EventType.Navigation);
+            mParticle.logEvent('QueuedEvent2', mParticle.EventType.Navigation);
+
+            const store = mParticle.getInstance()._Store;
+            // Queue contains SessionStart + AST (lifecycle events now queued) + 2 custom events  
+            expect(store.eventQueue).to.have.length(4);
+
+            mParticle.Identity.identify({
+                userIdentities: { email: 'queue-then-identify@example.com' },
+            });
+            await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+
+            expect(mParticle.isInitialized()).to.equal(true);
+            expect(store.eventQueue).to.have.length(0);
+
+            const names = window.MockForwarder1.instance.receivedEvents!.map((e) => e.EventName);
+            expect(names).to.include('QueuedEvent1');
+            expect(names).to.include('QueuedEvent2');
+        });
+
+        it('should still deliver setSessionAttribute to forwarders when noFunctional is true and no identity passed', () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.getInstance()._getActiveForwarders().length).to.equal(1);
+            expect(mParticle.isInitialized()).to.not.equal(true);
+
+            window.MockForwarder1.instance.setSessionAttributeCalled = false;
+            window.MockForwarder1.instance.sessionAttrData = [];
+            mParticle.setSessionAttribute('nofunctional_session_key', 'nofunctional_session_value');
+
+            expect(window.MockForwarder1.instance.setSessionAttributeCalled).to.equal(true);
+            expect(window.MockForwarder1.instance.sessionAttrData).to.have.length(1);
+            expect(window.MockForwarder1.instance.sessionAttrData[0]).to.deep.equal([
+                'nofunctional_session_key',
+                'nofunctional_session_value',
+            ]);
+        });
+
+        it('when noFunctional and no identity, setUserAttribute/removeUserAttribute are no-ops and do not reach forwarders (getCurrentUser is null)', () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.getInstance()._getActiveForwarders().length).to.equal(1);
+            expect(mParticle.Identity.getCurrentUser()).to.equal(null);
+
+            window.MockForwarder1.instance.setUserAttributeCalled = false;
+            window.MockForwarder1.instance.removeUserAttributeCalled = false;
+            mParticle.Identity.getCurrentUser()?.setUserAttribute('key', 'value');
+            mParticle.Identity.getCurrentUser()?.removeUserAttribute('key');
+
+            expect(window.MockForwarder1.instance.setUserAttributeCalled).to.equal(false);
+            expect(window.MockForwarder1.instance.removeUserAttributeCalled).to.equal(false);
+
+            mParticle.setSessionAttribute('after_ua_call', 'ok');
+            expect(window.MockForwarder1.instance.setSessionAttributeCalled).to.equal(true);
+        });
+
+        it('when noFunctional and no identity, onUserIdentified and onIdentifyComplete are never called on forwarders (identity never completes)', () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.getInstance()._getActiveForwarders().length).to.equal(1);
+            expect(window.MockForwarder1.instance.onUserIdentifiedCalled).to.not.equal(true);
+            expect(window.MockForwarder1.instance.onIdentifyCompleteCalled).to.not.equal(true);
+        });
+
+        it('should still deliver setSessionAttribute to forwarders when noFunctional is true and explicit identity is provided', async () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = {
+                userIdentities: { email: 'nofunctional-session-test@example.com' },
+            };
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+
+            expect(mParticle.getInstance()._getActiveForwarders().length).to.equal(1);
+            window.MockForwarder1.instance.setSessionAttributeCalled = false;
+            window.MockForwarder1.instance.sessionAttrData = [];
+            mParticle.setSessionAttribute('nofunctional_with_identity_key', 'nofunctional_with_identity_value');
+
+            expect(window.MockForwarder1.instance.setSessionAttributeCalled).to.equal(true);
+            expect(window.MockForwarder1.instance.sessionAttrData[0]).to.deep.equal([
+                'nofunctional_with_identity_key',
+                'nofunctional_with_identity_value',
+            ]);
+        });
+
+        it('should still deliver setUserAttribute to forwarders when noFunctional is true and explicit identity is provided', async () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = {
+                userIdentities: { email: 'nofunctional-ua@example.com' },
+            };
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+
+            const currentUser = mParticle.Identity.getCurrentUser();
+            expect(currentUser).to.be.ok;
+            window.MockForwarder1.instance.setUserAttributeCalled = false;
+            currentUser.setUserAttribute('nofunctional_ua_key', 'nofunctional_ua_value');
+
+            expect(window.MockForwarder1.instance.setUserAttributeCalled).to.equal(true);
+            expect(window.MockForwarder1.instance.userAttributes).to.have.property('nofunctional_ua_key', 'nofunctional_ua_value');
+        });
+
+        it('should still deliver removeUserAttribute to forwarders when noFunctional is true and explicit identity is provided', async () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = {
+                userIdentities: { email: 'nofunctional-remove-ua@example.com' },
+            };
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+
+            const currentUser = mParticle.Identity.getCurrentUser();
+            expect(currentUser).to.be.ok;
+            currentUser.setUserAttribute('key_to_remove', 'value');
+            window.MockForwarder1.instance.removeUserAttributeCalled = false;
+            currentUser.removeUserAttribute('key_to_remove');
+
+            expect(window.MockForwarder1.instance.removeUserAttributeCalled).to.equal(true);
+        });
+
+        it('should still call onUserIdentified and onIdentifyComplete on forwarders when noFunctional is true and explicit identity is provided', async () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = {
+                userIdentities: { email: 'nofunctional-callbacks@example.com' },
+            };
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+
+            expect(window.MockForwarder1.instance.onIdentifyCompleteCalled).to.equal(true);
+            expect(window.MockForwarder1.instance.onIdentifyCompleteUser).to.be.ok;
+            expect(window.MockForwarder1.instance.onUserIdentifiedCalled).to.equal(true);
+            expect(window.MockForwarder1.instance.onUserIdentifiedUser).to.be.ok;
+        });
+
+        it('events pre-dispatched to forwarders before identity are NOT re-dispatched when eventQueue is flushed after identify', async () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.isInitialized()).to.not.equal(true);
+
+            // Log two events pre-MPID — they should be forwarded once each
+            mParticle.logEvent('DoubleDispatchEvent1', mParticle.EventType.Navigation);
+            mParticle.logEvent('DoubleDispatchEvent2', mParticle.EventType.Navigation);
+
+            const forwarderReceivedCountBeforeIdentify =
+                window.MockForwarder1.instance.receivedEvents!.filter(
+                    (e) => e.EventName === 'DoubleDispatchEvent1' || e.EventName === 'DoubleDispatchEvent2'
+                ).length;
+            expect(forwarderReceivedCountBeforeIdentify).to.equal(2);
+
+            // Trigger identify — SDK fully initializes and flushes the event queue
+            mParticle.Identity.identify({
+                userIdentities: { email: 'no-double-dispatch@example.com' },
+            });
+            await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+
+            expect(mParticle.isInitialized()).to.equal(true);
+            expect(mParticle.getInstance()._Store.eventQueue).to.have.length(0);
+
+            // The events must NOT have been dispatched to the forwarder a second time
+            const forwarderReceivedCountAfterIdentify =
+                window.MockForwarder1.instance.receivedEvents!.filter(
+                    (e) => e.EventName === 'DoubleDispatchEvent1' || e.EventName === 'DoubleDispatchEvent2'
+                ).length;
+            expect(forwarderReceivedCountAfterIdentify).to.equal(2);
+        });
+
+        it('queued events are uploaded to the MP server events endpoint after Identity.identify() resolves', async () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.isInitialized()).to.not.equal(true);
+
+            mParticle.logEvent('BatchUploadEvent1', mParticle.EventType.Navigation);
+            mParticle.logEvent('BatchUploadEvent2', mParticle.EventType.Navigation);
+
+            // Queue contains SessionStart + AST (lifecycle events now queued) + 2 custom events  
+            expect(mParticle.getInstance()._Store.eventQueue).to.have.length(4);
+
+            // Reset fetch history so we only inspect calls made after identify
+            fetchMock.resetHistory();
+
+            mParticle.Identity.identify({
+                userIdentities: { email: 'batch-upload-after-identify@example.com' },
+            });
+            await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+
+            expect(mParticle.isInitialized()).to.equal(true);
+            expect(mParticle.getInstance()._Store.eventQueue).to.have.length(0);
+
+            // Both queued events must appear in a POST to the events endpoint
+            const event1 = findEventFromRequest(fetchMock.calls(), 'BatchUploadEvent1');
+            const event2 = findEventFromRequest(fetchMock.calls(), 'BatchUploadEvent2');
+            expect(event1).to.be.ok;
+            expect(event2).to.be.ok;
+        });
+
+        it('mParticle.ready() fires immediately when noFunctional is true and no explicit identity is provided', () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.isInitialized()).to.not.equal(true);
+
+            let readyCalled = false;
+            mParticle.ready(function() {
+                readyCalled = true;
+            });
+
+            expect(readyCalled).to.equal(true);
+        });
+
+        it('mParticle.ready() drains callbacks queued on config.rq before init when noFunctional is true and no identity', () => {
+            // Simulates the snippet pattern where mParticle.ready() is called before the SDK
+            // loads — callbacks go onto config.rq and must be drained after init completes.
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            let readyCalled = false;
+            window.mParticle.config.rq = [function() {
+                readyCalled = true;
+            }];
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.isInitialized()).to.not.equal(true);
+            expect(readyCalled).to.equal(true);
+        });
+
     });
 
     const MockUser = function() {

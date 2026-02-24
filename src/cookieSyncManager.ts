@@ -73,6 +73,12 @@ export default function CookieSyncManager(
             return;
         }
 
+        // When noFunctional is true, persistence is not saved, so we cannot track cookie sync
+        // dates. Skip cookie sync to avoid running it on every page load.
+        if (mpInstance._CookieConsentManager?.getNoFunctional()) {
+            return;
+        }
+
         const persistence = mpInstance._Persistence.getPersistence();
 
         if (isEmpty(persistence)) {

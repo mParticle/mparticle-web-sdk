@@ -1308,13 +1308,16 @@ describe('cookie syncing', function() {
             data['newMPID'].csd.should.have.property(roktModuleId);
         });
 
-        it('should not block Rokt cookie sync when only noFunctional is true', async () => {
+        it('should block cookie sync when noFunctional is true', async () => {
             window.mParticle.config.pixelConfigs = [roktPixelSettings];
             window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
 
-            await initAndWait();
+            mParticle.init(apiKey, window.mParticle.config);
+            const spy = sinon.spy(mParticle.getInstance()._CookieSyncManager, 'performCookieSync');
+            await waitForCondition(hasConfigurationReturned);
 
-            getLocalStorageData()[testMPID].csd.should.have.property(roktModuleId);
+            expect(spy.called).to.equal(false);
+            spy.restore();
         });
     });
 });

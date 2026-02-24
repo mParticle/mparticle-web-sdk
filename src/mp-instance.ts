@@ -37,8 +37,8 @@ import KitBlocker from './kitBlocking';
 import ConfigAPIClient, { IKitConfigs } from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
 import { isFunction, parseConfig, valueof, generateDeprecationMessage } from './utils';
-import { LocalStorageVault } from './vault';
-import { removeExpiredIdentityCacheDates } from './identity-utils';
+import { DisabledVault, LocalStorageVault } from './vault';
+import { removeExpiredIdentityCacheDates, hasExplicitIdentifier } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
 import { IPreInit, processReadyQueue } from './pre-init-utils';
 import { BaseEvent, MParticleWebSDK, SDKHelpersApi } from './sdkRuntimeModels';
@@ -97,6 +97,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     getLauncherInstanceGuid: () => string;
     captureTiming(metricName: string);
     processQueueOnIdentityFailure?: () => void;
+    processQueueOnNoFunctional?: () => void;
 }
 
 const { Messages, HTTPCodes, FeatureFlags, CaptureIntegrationSpecificIdsV2Modes } = Constants;
@@ -150,9 +151,26 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         if (self._Store?.isInitialized) {
             return;
         }
-        
+
         if (self._Store?.identityCallFailed && self._RoktManager?.isReady()) {
             self._RoktManager.processMessageQueue();
+            self._preInit.readyQueue = processReadyQueue(self._preInit.readyQueue);
+        }
+    };
+
+    /**
+     * Drains the ready queue for noFunctional sessions with no explicit identity.
+     */
+    this.processQueueOnNoFunctional = function() {
+        if (self._Store?.isInitialized) {
+            return;
+        }
+
+        const noFunctionalWithoutId =
+            self._CookieConsentManager?.getNoFunctional() &&
+            !hasExplicitIdentifier(self._Store);
+
+        if (noFunctionalWithoutId) {
             self._preInit.readyQueue = processReadyQueue(self._preInit.readyQueue);
         }
     };
@@ -280,11 +298,16 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
      * @param {Function} f Callback to execute
      */
     this.ready = function(f) {
+        const noFunctionalWithoutId =
+            self._CookieConsentManager?.getNoFunctional() &&
+            !hasExplicitIdentifier(self._Store);
+
         const shouldExecute = isFunction(f) && (
-            self._Store?.isInitialized || 
-            (self._Store?.identityCallFailed && self._RoktManager.isReady())
+            self._Store?.isInitialized ||
+            (self._Store?.identityCallFailed && self._RoktManager.isReady()) ||
+            noFunctionalWithoutId
         );
-        
+
         if (shouldExecute) {
             f();
         } else {
@@ -1135,11 +1158,16 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
      * @param {String or Number} value value for session attribute
      */
     this.setSessionAttribute = function(key, value) {
-        const queued = queueIfNotInitialized(function() {
-            self.setSessionAttribute(key, value);
-        }, self);
+        const skipQueue =
+            self._CookieConsentManager?.getNoFunctional() &&
+            !hasExplicitIdentifier(self._Store);
 
-        if (queued) return;
+        if (!skipQueue) {
+            const queued = queueIfNotInitialized(function() {
+                self.setSessionAttribute(key, value);
+            }, self);
+            if (queued) return;
+        }
 
         // Logs to cookie
         // And logs to in-memory object
@@ -1512,6 +1540,10 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         );
     }
 
+    // For noFunctional sessions with no identity, drain any pre-init ready callbacks
+    // that were queued before _CookieConsentManager was available to evaluate the condition.
+    mpInstance.processQueueOnNoFunctional?.();
+
     // https://go.mparticle.com/work/SQDSDKS-6040
     if (mpInstance._Store.isFirstRun) {
         mpInstance._Store.isFirstRun = false;
@@ -1584,6 +1616,14 @@ function createKitBlocker(config, mpInstance) {
 }
 
 function createIdentityCache(mpInstance) {
+    // Identity expects mpInstance._Identity.idCache to always exist. DisabledVault
+    // ensures no identity response data is written to localStorage when noFunctional is true
+    if (mpInstance._CookieConsentManager?.getNoFunctional()) {
+        return new DisabledVault(`${mpInstance._Store.storageName}-id-cache`, {
+            logger: mpInstance.Logger,
+        });
+    }
+    
     return new LocalStorageVault(`${mpInstance._Store.storageName}-id-cache`, {
         logger: mpInstance.Logger,
     });
@@ -1664,15 +1704,21 @@ function processIdentityCallback(
 }
 
 function queueIfNotInitialized(func, self) {
-    // Core SDK methods must wait for Store initialization
-    if (!self._Store?.isInitialized) {
-        self._preInit.readyQueue.push(function() {
-            if (self._Store?.isInitialized) {
-                func();
-            }
-        });
-        return true;
+    // When noFunctional is true with no explicit identifier, the SDK will never
+    // receive an MPID. Let these calls through so events can still reach forwarders immediately.
+    // sendEventToServer handles queuing for the MP server upload path separately.
+    const noFunctionalWithoutId =
+        self._CookieConsentManager?.getNoFunctional() &&
+        !hasExplicitIdentifier(self._Store);
+
+    if (self._Store?.isInitialized || noFunctionalWithoutId) {
+        return false;
     }
-    return false;
+    self._preInit.readyQueue.push(function() {
+        if (self._Store?.isInitialized) {
+            func();
+        }
+    });
+    return true;
 }
 
