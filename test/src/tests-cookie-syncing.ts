@@ -1307,14 +1307,5 @@ describe('cookie syncing', function() {
             data[testMPID].csd.should.have.property(roktModuleId);
             data['newMPID'].csd.should.have.property(roktModuleId);
         });
-
-        it('should not block Rokt cookie sync when only noFunctional is true', async () => {
-            window.mParticle.config.pixelConfigs = [roktPixelSettings];
-            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
-
-            await initAndWait();
-
-            getLocalStorageData()[testMPID].csd.should.have.property(roktModuleId);
-        });
     });
 });

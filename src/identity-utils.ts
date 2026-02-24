@@ -298,3 +298,31 @@ export const hasIdentityRequestChanged = (
         JSON.stringify(currentUserIdentities) !== JSON.stringify(newIdentities)
     );
 };
+
+/**
+ * Checks if deviceId or other user identifiers (like email) were explicitly provided
+ * by the partner via config.deviceId or config.identifyRequest.userIdentities.
+ * When noFunctional is true and cookies are blocked, the partner must explicitly
+ * pass deviceId or other identifiers to prevent new identities from being created on each page load.
+ * 
+ * @param mpInstance - The mParticle instance to check
+ * @returns true if deviceId or other identifiers were explicitly provided in config, false otherwise
+ */
+export const hasExplicitIdentifier = (
+    mpInstance: any
+): boolean => {
+    const userIdentities = mpInstance?._Store?.SDKConfig?.identifyRequest?.userIdentities;
+    if (userIdentities && isObject(userIdentities)) {
+        for (let key in userIdentities) {
+            if (userIdentities[key]) {
+                return true;
+            }
+        }
+    }
+    
+    if (mpInstance?._Store?.deviceId) {
+        return true;
+    }
+
+    return false;
+};

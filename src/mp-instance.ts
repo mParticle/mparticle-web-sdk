@@ -1420,7 +1420,10 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             ? currentUser.getUserIdentities().userIdentities
             : {};
 
-        mpInstance._Store.SDKConfig.identifyRequest = mpInstance._Store.hasInvalidIdentifyRequest()
+        // When noFunctional is true, don't auto-populate identifyRequest from persistence
+        const shouldAutoPopulate = !mpInstance._CookieConsentManager?.getNoFunctional();
+
+        mpInstance._Store.SDKConfig.identifyRequest = mpInstance._Store.hasInvalidIdentifyRequest() && shouldAutoPopulate
             ? { userIdentities: currentUserIdentities }
             : mpInstance._Store.SDKConfig.identifyRequest;
 
@@ -1573,6 +1576,25 @@ function createKitBlocker(config, mpInstance) {
 }
 
 function createIdentityCache(mpInstance) {
+    // When noFunctional is true, create a no-op vault that doesn't store anything
+    // This prevents mprtcl-v4-id-cache from being written to localStorage
+    if (mpInstance._CookieConsentManager?.getNoFunctional()) {
+        const vault = new LocalStorageVault(`${mpInstance._Store.storageName}-id-cache`, {
+            logger: mpInstance.Logger,
+        });
+        vault.store = function() {
+            this.contents = arguments[0];
+            mpInstance.Logger.verbose(`Storage disabled: not storing id-cache when noFunctional is true`);
+        };
+        vault.retrieve = function() {
+            this.contents = null;
+            return null;
+        };
+        vault.purge = function() {
+            this.contents = null;
+        };
+        return vault;
+    }
     return new LocalStorageVault(`${mpInstance._Store.storageName}-id-cache`, {
         logger: mpInstance.Logger,
     });
