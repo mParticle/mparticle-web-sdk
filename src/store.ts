@@ -96,6 +96,9 @@ export interface SDKConfig {
     webviewBridgeName?: string;
     workspaceToken?: string;
     requiredWebviewBridgeName?: string;
+    loggingUrl?: string;
+    errorUrl?: string;
+    isLoggingEnabled?: boolean;
 }
 
 function createSDKConfig(config: SDKInitConfig): SDKConfig {
@@ -119,6 +122,9 @@ function createSDKConfig(config: SDKInitConfig): SDKConfig {
     for (const prop in Constants.DefaultBaseUrls) {
         sdkConfig[prop] = Constants.DefaultBaseUrls[prop];
     }
+
+    // Always initialize flags to at least an empty object to prevent undefined access
+    sdkConfig.flags = sdkConfig.flags || {};
 
     return sdkConfig;
 }
@@ -202,6 +208,8 @@ export interface IStore {
     integrationDelayTimeoutStart: number; // UNIX Timestamp
     webviewBridgeEnabled?: boolean;
     wrapperSDKInfo: WrapperSDKInfo;
+    roktAccountId: string | null;
+    integrationName: string | null;
 
     persistenceData?: IPersistenceMinified;
 
@@ -223,6 +231,10 @@ export interface IStore {
     setUserAttributes?(mpid: MPID, attributes: UserAttributes): void;
     getUserIdentities?(mpid: MPID): UserIdentities;
     setUserIdentities?(mpid: MPID, userIdentities: UserIdentities): void;
+    getRoktAccountId?(): string;
+    setRoktAccountId?(accountId: string): void;
+    getIntegrationName?(): string;
+    setIntegrationName?(integrationName: string): void;
 
     addMpidToSessionHistory?(mpid: MPID, previousMpid?: MPID): void;
     hasInvalidIdentifyRequest?: () => boolean;
@@ -289,6 +301,8 @@ export default function Store(
             version: null,
             isInfoSet: false,
         },
+        roktAccountId: null,
+        integrationName: null,
 
         // Placeholder for in-memory persistence model
         persistenceData: {
@@ -311,10 +325,6 @@ export default function Store(
             this.SDKConfig.flags = {};
         }
 
-        // We process the initial config that is passed via the SDK init
-        // and then we will reprocess the config within the processConfig
-        // function when the config is updated from the server
-        // https://go.mparticle.com/work/SQDSDKS-6317
         this.SDKConfig.flags = processFlags(config);
 
         if (config.deviceId) {
@@ -336,10 +346,6 @@ export default function Store(
 
         for (const baseUrlKeys in baseUrls) {
             this.SDKConfig[baseUrlKeys] = baseUrls[baseUrlKeys];
-        }
-
-        if (config.hasOwnProperty('logLevel')) {
-            this.SDKConfig.logLevel = config.logLevel;
         }
 
         this.SDKConfig.useNativeSdk = !!config.useNativeSdk;
@@ -667,6 +673,16 @@ export default function Store(
     this.setUserIdentities = (mpid: MPID, userIdentities: UserIdentities) => {
         this._setPersistence(mpid, 'ui', userIdentities);
     };
+    
+    this.getRoktAccountId = () => this.roktAccountId;
+    this.setRoktAccountId = (accountId: string) => {
+        this.roktAccountId = accountId;
+    };
+
+    this.getIntegrationName = () => this.integrationName;
+    this.setIntegrationName = (integrationName: string) => {
+        this.integrationName = integrationName;
+    };
 
     this.addMpidToSessionHistory = (mpid: MPID, previousMPID?: MPID): void => {
         const indexOfMPID = this.currentSessionMPIDs.indexOf(mpid);
@@ -699,7 +715,10 @@ export default function Store(
         // We should reprocess the flags and baseUrls in case they have changed when we request an updated config
         // such as if the SDK is being self-hosted and the flags are different on the server config
         // https://go.mparticle.com/work/SQDSDKS-6317
-        this.SDKConfig.flags = processFlags(config);
+        // Only update flags if the config actually has flags (don't overwrite with empty object)
+        if (config.flags) {
+            this.SDKConfig.flags = processFlags(config);
+        }
 
         const baseUrls: Dictionary<string> = processBaseUrls(
             config,
@@ -842,7 +861,7 @@ function processDirectBaseUrls(
     for (let baseUrlKey in defaultBaseUrls) {
         // Any custom endpoints passed to mpConfig will take priority over direct
         // mapping to the silo.  The most common use case is a customer provided CNAME.
-        if (baseUrlKey === 'configUrl') {
+        if (baseUrlKey === 'configUrl' || baseUrlKey === 'loggingUrl' || baseUrlKey === 'errorUrl') {
             directBaseUrls[baseUrlKey] =
                 config[baseUrlKey] || defaultBaseUrls[baseUrlKey];
             continue;
