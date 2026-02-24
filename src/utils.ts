@@ -473,6 +473,10 @@ const obfuscateData = (value: any): any => {
     return typeof value;
 };
 
+/** For verbose logging: returns raw data when isDevelopmentMode is true, else obfuscated data. */
+const dataForVerboseLog = <T>(data: T, isDevelopmentMode: boolean): T =>
+    isDevelopmentMode ? data : (obfuscateData(data) as T);
+
 export {
     createCookieString,
     revertCookieString,
@@ -481,6 +485,7 @@ export {
     AttributeValue,
     converted,
     decoded,
+    dataForVerboseLog,
     filterDictionaryWithHash,
     findKeyInObject,
     generateDeprecationMessage,

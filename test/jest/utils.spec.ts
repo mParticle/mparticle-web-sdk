@@ -12,6 +12,7 @@ import {
     parseConfig,
     parseSettingsString,
     obfuscateData,
+    dataForVerboseLog,
 } from '../../src/utils';
 import { deleteAllCookies } from './utils';
 
@@ -631,6 +632,42 @@ describe('Utils', () => {
 
                 expect(input).toEqual(original);
             });
+        });
+    });
+
+    describe('#dataForVerboseLog', () => {
+        it('returns data as-is when isDevelopmentMode is true', () => {
+            expect(dataForVerboseLog('sensitive', true)).toBe('sensitive');
+            expect(dataForVerboseLog(42, true)).toBe(42);
+            expect(dataForVerboseLog(null, true)).toBe(null);
+            expect(dataForVerboseLog(undefined, true)).toBe(undefined);
+
+            const obj = { email: 'user@test.com', age: 30 };
+            expect(dataForVerboseLog(obj, true)).toBe(obj);
+            expect(dataForVerboseLog(obj, true)).toEqual({ email: 'user@test.com', age: 30 });
+
+            const arr = [1, 'two', true];
+            expect(dataForVerboseLog(arr, true)).toBe(arr);
+            expect(dataForVerboseLog(arr, true)).toEqual([1, 'two', true]);
+        });
+
+        it('returns obfuscated data when isDevelopmentMode is false', () => {
+            expect(dataForVerboseLog('sensitive', false)).toBe('string');
+            expect(dataForVerboseLog(42, false)).toBe('number');
+            expect(dataForVerboseLog(null, false)).toBe(null);
+            expect(dataForVerboseLog(undefined, false)).toBe(undefined);
+
+            const obj = { email: 'user@test.com', age: 30 };
+            expect(dataForVerboseLog(obj, false)).toEqual({
+                email: 'string',
+                age: 'number',
+            });
+
+            expect(dataForVerboseLog([1, 'two', true], false)).toEqual(['number', 'string', 'boolean']);
+        });
+
+        it('treats undefined isDevelopmentMode as false and returns obfuscated data', () => {
+            expect(dataForVerboseLog({ email: 'a@b.com' }, undefined)).toEqual({ email: 'string' });
         });
     });
 });
