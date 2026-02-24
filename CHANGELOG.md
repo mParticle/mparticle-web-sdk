@@ -1,3 +1,10 @@
+# [2.58.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.57.0...v2.58.0) (2026-02-24)
+
+
+### Features
+
+*  Create logging service ([#1137](https://github.com/mParticle/mparticle-web-sdk/issues/1137)) ([ae5b87f](https://github.com/mParticle/mparticle-web-sdk/commit/ae5b87f22bfdb8aa91f2b84be0030f0d6e371912))
+
 # [2.57.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.56.0...v2.57.0) (2026-02-10)
 
 
