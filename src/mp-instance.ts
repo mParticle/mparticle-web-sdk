@@ -1577,7 +1577,6 @@ function createKitBlocker(config, mpInstance) {
 
 function createIdentityCache(mpInstance) {
     // When noFunctional is true, create a no-op vault that doesn't store anything
-    // This prevents mprtcl-v4-id-cache from being written to localStorage
     if (mpInstance._CookieConsentManager?.getNoFunctional()) {
         const vault = new LocalStorageVault(`${mpInstance._Store.storageName}-id-cache`, {
             logger: mpInstance.Logger,
