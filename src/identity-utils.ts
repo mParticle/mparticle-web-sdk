@@ -303,8 +303,8 @@ export const hasIdentityRequestChanged = (
 /**
  * Checks if deviceId or other user identifiers (like email) were explicitly provided
  * by the partner via config.deviceId or config.identifyRequest.userIdentities.
- * When noFunctional is true and cookies are blocked, the partner must explicitly
- * pass deviceId or other identifiers to prevent new identities from being created on each page load.
+ * When noFunctional is true, then cookies are blocked, so the partner must explicitly
+ * pass deviceId or other identifiers to prevent new users from being created on each page load.
  *
  * @param store - The SDK store (provides deviceId and SDKConfig.identifyRequest.userIdentities)
  * @returns true if deviceId or other identifiers were explicitly provided in config, false otherwise
