@@ -77,7 +77,7 @@ export class BatchUploader {
         // When noFunctional is true, prevent events/batches storage
         const noFunctional = mpInstance._CookieConsentManager?.getNoFunctional();
 
-        if (this.offlineStorageEnabled) {
+        if (this.offlineStorageEnabled && !noFunctional) {
             this.eventVault = new SessionStorageVault<SDKEvent[]>(
                 `${mpInstance._Store.storageName}-events`,
                 {
@@ -92,22 +92,8 @@ export class BatchUploader {
                 }
             );
 
-            // Override store methods to prevent writing when noFunctional is true
-            if (noFunctional) {
-                const logger = mpInstance.Logger;
-                this.eventVault.store = function() {
-                    this.contents = arguments[0];
-                    logger.verbose(`Storage disabled: not storing events when noFunctional is true`);
-                };
-
-                this.batchVault.store = function() {
-                    this.contents = arguments[0];
-                    logger.verbose(`Storage disabled: not storing batches when noFunctional is true`);
-                };
-            } else {
-                // Load Events from Session Storage in case we have any in storage
-                this.eventsQueuedForProcessing.push(...this.eventVault.retrieve());
-            }
+            // Load Events from Session Storage in case we have any in storage
+            this.eventsQueuedForProcessing.push(...this.eventVault.retrieve());
         }
 
         const { SDKConfig, devToken } = this.mpInstance._Store;

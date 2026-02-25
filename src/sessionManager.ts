@@ -47,7 +47,7 @@ export default function SessionManager(
 
                 const shouldSuppressIdentify = 
                     mpInstance._CookieConsentManager?.getNoFunctional() &&
-                    !hasExplicitIdentifier(mpInstance);
+                    !hasExplicitIdentifier(mpInstance._Store);
 
                 if (
                     !shouldSuppressIdentify &&
@@ -109,7 +109,7 @@ export default function SessionManager(
 
             const shouldSuppressIdentify = 
                 mpInstance._CookieConsentManager?.getNoFunctional() &&
-                !hasExplicitIdentifier(mpInstance);
+                !hasExplicitIdentifier(mpInstance._Store);
 
             if (!mpInstance._Store.identifyCalled && !shouldSuppressIdentify) {
                 mpInstance.Identity.identify(

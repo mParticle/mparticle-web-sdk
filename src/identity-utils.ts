@@ -13,6 +13,7 @@ import {
     IIdentityResponse,
     IMParticleUser,
 } from './identity-user-interfaces';
+import { IStore } from './store';
 
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 export const CACHE_HEADER = 'x-mp-max-age' as const;
@@ -304,14 +305,12 @@ export const hasIdentityRequestChanged = (
  * by the partner via config.deviceId or config.identifyRequest.userIdentities.
  * When noFunctional is true and cookies are blocked, the partner must explicitly
  * pass deviceId or other identifiers to prevent new identities from being created on each page load.
- * 
- * @param mpInstance - The mParticle instance to check
+ *
+ * @param store - The SDK store (provides deviceId and SDKConfig.identifyRequest.userIdentities)
  * @returns true if deviceId or other identifiers were explicitly provided in config, false otherwise
  */
-export const hasExplicitIdentifier = (
-    mpInstance: any
-): boolean => {
-    const userIdentities = mpInstance?._Store?.SDKConfig?.identifyRequest?.userIdentities;
+export const hasExplicitIdentifier = (store: IStore | undefined | null): boolean => {
+    const userIdentities = store?.SDKConfig?.identifyRequest?.userIdentities;
     if (userIdentities && isObject(userIdentities)) {
         for (let key in userIdentities) {
             if (userIdentities[key]) {
@@ -319,8 +318,8 @@ export const hasExplicitIdentifier = (
             }
         }
     }
-    
-    if (mpInstance?._Store?.deviceId) {
+
+    if (store?.deviceId) {
         return true;
     }
 

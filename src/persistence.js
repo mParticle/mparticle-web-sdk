@@ -403,7 +403,7 @@ export default function _Persistence(mpInstance) {
     // https://go.mparticle.com/work/SQDSDKS-5022
     // https://go.mparticle.com/work/SQDSDKS-6021
     this.setCookie = function() {
-        // Block mprtcl-v4 cookie when noFunctional is true
+        // Block mprtcl-v4 cookies when noFunctional is true
         if (mpInstance._CookieConsentManager?.getNoFunctional()) {
             return;
         }

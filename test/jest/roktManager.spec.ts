@@ -6,6 +6,7 @@ import RoktManager, { IRoktKit, IRoktSelectPlacementsOptions } from "../../src/r
 import { IStore } from "../../src/store";
 import { testMPID } from '../src/config/constants';
 import { PerformanceMarkType } from "../../src/types";
+import { MockForwarder } from './utils';
 
 const resolvePromise = () => new Promise(resolve => setTimeout(resolve, 0));
 
@@ -2774,6 +2775,73 @@ describe('RoktManager', () => {
         it('should be case sensitive', () => {
             const result = roktManager['hasIdentityChanged']('test@example.com', 'TEST@EXAMPLE.COM');
             expect(result).toBe(true);
+        });
+    });
+
+    describe('when MP SDK is not fully initialized', () => {
+        it('should allow Rokt Kit to initialize and selectPlacements', async () => {
+            const roktManagerInstance = new RoktManager();
+            const mockSelectPlacementsResult = {
+                close: jest.fn(),
+                getPlacements: jest.fn().mockResolvedValue([]),
+            };
+            const mockRoktKit = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue(mockSelectPlacementsResult),
+                filters: {},
+                filteredUser: null,
+                userAttributes: {},
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+            };
+
+            const mockIdentityService = {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getMPID: () => 'test-mpid',
+                    getUserIdentities: () => ({ userIdentities: {} }),
+                }),
+                identify: jest.fn().mockImplementation((data: any, callback: any) => {
+                    if (callback) {
+                        callback(null);
+                    }
+                }),
+            };
+
+            mockMPInstance._Store.identityCallInFlight = false;
+
+            roktManagerInstance.init(
+                {} as any,
+                null as any,
+                mockIdentityService as any,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+                {},
+                undefined
+            );
+
+            (roktManagerInstance as any).placementAttributesMapping = [];
+
+            roktManagerInstance.attachKit(mockRoktKit as any);
+
+            expect(roktManagerInstance.isReady()).toBe(true);
+
+            const options = {
+                attributes: {
+                    email: 'test@example.com',
+                },
+            };
+
+            const result = await roktManagerInstance.selectPlacements(options);
+
+            expect(mockRoktKit.selectPlacements).toHaveBeenCalled();
+            expect(result).toBeDefined();
+            expect(result.close).toBeDefined();
+            expect(result.getPlacements).toBeDefined();
         });
     });
 });

@@ -14,6 +14,8 @@ import {
     SDKIdentityTypeEnum,
     IIdentityAPIIdentityChangeData,
 } from '../../src/identity.interfaces';
+import { hasExplicitIdentifier } from '../../src/identity-utils';
+import { IStore } from '../../src/store';
 import { MessageType } from '../../src/types';
 
 describe('Identity', () => {
@@ -267,6 +269,38 @@ describe('Identity', () => {
 
                 expect(testModifyResults).toBeDefined();
             });
+        });
+    });
+
+    describe('hasExplicitIdentifier', () => {
+        it('should return true when deviceId is provided', () => {
+            const store = { deviceId: 'test-device-id', SDKConfig: {} };
+            expect(hasExplicitIdentifier(store as IStore)).toBe(true);
+        });
+
+        it('should return true when userIdentities are provided', () => {
+            const store = {
+                deviceId: null,
+                SDKConfig: {
+                    identifyRequest: {
+                        userIdentities: { email: 'test@example.com' },
+                    },
+                },
+            };
+            expect(hasExplicitIdentifier(store as IStore)).toBe(true);
+        });
+
+        it('should return false when no deviceId or userIdentities', () => {
+            const store = { deviceId: null, SDKConfig: { identifyRequest: null } };
+            expect(hasExplicitIdentifier(store as IStore)).toBe(false);
+        });
+
+        it('should return false when userIdentities object is empty', () => {
+            const store = {
+                deviceId: null,
+                SDKConfig: { identifyRequest: { userIdentities: {} } },
+            };
+            expect(hasExplicitIdentifier(store as IStore)).toBe(false);
         });
     });
 });

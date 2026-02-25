@@ -1576,7 +1576,9 @@ function createKitBlocker(config, mpInstance) {
 }
 
 function createIdentityCache(mpInstance) {
-    // When noFunctional is true, create a no-op vault that doesn't store anything
+    // When noFunctional is true, we must still return a vault-shaped object because
+    // Identity expects mpInstance._Identity.idCache to always exist. A no-op vault
+    // ensures no identity response data is written to localStorage
     if (mpInstance._CookieConsentManager?.getNoFunctional()) {
         const vault = new LocalStorageVault(`${mpInstance._Store.storageName}-id-cache`, {
             logger: mpInstance.Logger,
