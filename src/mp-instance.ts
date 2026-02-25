@@ -37,7 +37,7 @@ import KitBlocker from './kitBlocking';
 import ConfigAPIClient, { IKitConfigs } from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
 import { isFunction, parseConfig, valueof, generateDeprecationMessage } from './utils';
-import { LocalStorageVault } from './vault';
+import { DisabledVault, LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
 import { IPreInit, processReadyQueue } from './pre-init-utils';
@@ -1576,25 +1576,12 @@ function createKitBlocker(config, mpInstance) {
 }
 
 function createIdentityCache(mpInstance) {
-    // When noFunctional is true, we must still return a vault-shaped object because
-    // Identity expects mpInstance._Identity.idCache to always exist. A no-op vault
-    // ensures no identity response data is written to localStorage
+    // Identity expects mpInstance._Identity.idCache to always exist. DisabledVault
+    // ensures no identity response data is written to localStorage when noFunctional is true
     if (mpInstance._CookieConsentManager?.getNoFunctional()) {
-        const vault = new LocalStorageVault(`${mpInstance._Store.storageName}-id-cache`, {
+        return new DisabledVault(`${mpInstance._Store.storageName}-id-cache`, {
             logger: mpInstance.Logger,
         });
-        vault.store = function() {
-            this.contents = arguments[0];
-            mpInstance.Logger.verbose(`Storage disabled: not storing id-cache when noFunctional is true`);
-        };
-        vault.retrieve = function() {
-            this.contents = null;
-            return null;
-        };
-        vault.purge = function() {
-            this.contents = null;
-        };
-        return vault;
     }
     return new LocalStorageVault(`${mpInstance._Store.storageName}-id-cache`, {
         logger: mpInstance.Logger,
