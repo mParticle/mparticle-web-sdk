@@ -488,7 +488,7 @@ const obfuscateData = (value: any): any => {
  * obfuscateDevData({ email: 'user@email.com' }, false)
  * // Returns: { email: 'string' }
  */
-const obfuscateDevData = (data: any, isDevelopmentMode: boolean): any =>
+const obfuscateDevData = (data: any, isDevelopmentMode?: boolean): any =>
     isDevelopmentMode ? data : obfuscateData(data);
 
 export {
