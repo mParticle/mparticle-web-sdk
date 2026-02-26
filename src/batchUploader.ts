@@ -3,7 +3,7 @@ import Constants from './constants';
 import { SDKEvent, SDKEventCustomFlags, SDKLoggerApi } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import { MessageType, EventType } from './types';
-import { getRampNumber, isEmpty, dataForVerboseLog } from './utils';
+import { getRampNumber, isEmpty, obfuscateDevData } from './utils';
 import { SessionStorageVault, LocalStorageVault } from './vault';
 import {
     AsyncUploader,
@@ -262,7 +262,7 @@ export class BatchUploader {
             }
         }
 
-        const eventToLog = dataForVerboseLog(event, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
+        const eventToLog = obfuscateDevData(event, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
         Logger.verbose(`Queuing event: ${JSON.stringify(eventToLog)}`);
         Logger.verbose(`Queued event count: ${this.eventsQueuedForProcessing.length}`);
 
@@ -460,7 +460,7 @@ export class BatchUploader {
             return null;
         }
 
-        const uploadsToLog = dataForVerboseLog(uploads, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
+        const uploadsToLog = obfuscateDevData(uploads, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
         logger.verbose(`Uploading batches: ${JSON.stringify(uploadsToLog)}`);
         logger.verbose(`Batch count: ${uploads.length}`);
 

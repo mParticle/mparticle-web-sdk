@@ -278,18 +278,15 @@ export default function IdentityAPIClient(
 
                     } else {
                         const responseText = identityResponse.responseText;
-                        const isDevelopmentMode = mpInstance._Store.SDKConfig.isDevelopmentMode;
-                        if (isDevelopmentMode) {
-                            message = 'Received Identity Response from server: ' + JSON.stringify(responseText);
-                        } else {
-                            const { matched_identities, ...rest } = responseText || {};
-                            const obfuscatedMatchedIdentities = obfuscateData(matched_identities);
-                            // Obfuscate matched_identities to prevent PII exposure
-                            const responseToLog = matched_identities
-                                ? { ...rest, matched_identities: obfuscatedMatchedIdentities }
-                                : responseText;
-                            message = 'Received Identity Response from server: ' + JSON.stringify(responseToLog);
+                        const { isDevelopmentMode } = mpInstance._Store.SDKConfig;
+                        let responseToLog = responseText;
+                        if (!isDevelopmentMode && responseText?.matched_identities) {
+                            responseToLog = {
+                                ...responseText,
+                                matched_identities: obfuscateData(responseText.matched_identities)
+                            };
                         }
+                        message = 'Received Identity Response from server: ' + JSON.stringify(responseToLog);
                     }
 
                     break;

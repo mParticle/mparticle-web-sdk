@@ -9,7 +9,7 @@ import {
     isFunction,
     AttributeValue,
     isEmpty,
-    dataForVerboseLog,
+    obfuscateDevData,
 } from "./utils";
 import { SDKIdentityApi } from "./identity.interfaces";
 import { SDKLoggerApi } from "./sdkRuntimeModels";
@@ -218,7 +218,7 @@ export default class RoktManager {
             const { attributes } = options;
             const sandboxValue = attributes?.sandbox || null;
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
-            const attributesToLog = dataForVerboseLog(attributes, this.store?.SDKConfig?.isDevelopmentMode);
+            const attributesToLog = obfuscateDevData(attributes, this.store?.SDKConfig?.isDevelopmentMode);
             this.logger?.verbose(`mParticle.Rokt selectPlacements called with attributes:\n${JSON.stringify(attributesToLog, null, 2)}`);
 
             this.currentUser = this.identityService.getCurrentUser();
@@ -490,7 +490,7 @@ export default class RoktManager {
                 return;
             }
 
-            const payloadToLog = dataForVerboseLog(message.payload, this.store?.SDKConfig?.isDevelopmentMode);
+            const payloadToLog = obfuscateDevData(message.payload, this.store?.SDKConfig?.isDevelopmentMode);
             this.logger?.verbose(`RoktManager: Processing queued message: ${message.methodName} with payload: ${JSON.stringify(payloadToLog)}`);
 
             // Capture resolve/reject functions before async processing

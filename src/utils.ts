@@ -473,9 +473,23 @@ const obfuscateData = (value: any): any => {
     return typeof value;
 };
 
-/** For verbose logging: returns raw data when isDevelopmentMode is true, else obfuscated data. */
-const dataForVerboseLog = <T>(data: T, isDevelopmentMode: boolean): T =>
-    isDevelopmentMode ? data : (obfuscateData(data) as T);
+/**
+ * For verbose logging: returns raw data when isDevelopmentMode is true, else obfuscated data.
+ * Used when logging payloads so PII is not exposed in production.
+ *
+ * @param data - The value to log
+ * @param isDevelopmentMode - When true, returns data unchanged, when false or undefined, returns obfuscated data
+ * @returns Raw data when isDevelopmentMode is true, otherwise obfuscated structure
+ *
+ * @example
+ * obfuscateDevData({ email: 'user@email.com' }, true)
+ * // Returns: { email: 'user@email.com' }
+ *
+ * obfuscateDevData({ email: 'user@email.com' }, false)
+ * // Returns: { email: 'string' }
+ */
+const obfuscateDevData = (data: any, isDevelopmentMode: boolean): any =>
+    isDevelopmentMode ? data : obfuscateData(data);
 
 export {
     createCookieString,
@@ -485,7 +499,7 @@ export {
     AttributeValue,
     converted,
     decoded,
-    dataForVerboseLog,
+    obfuscateDevData,
     filterDictionaryWithHash,
     findKeyInObject,
     generateDeprecationMessage,
