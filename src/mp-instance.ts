@@ -1420,10 +1420,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             ? currentUser.getUserIdentities().userIdentities
             : {};
 
-        // When noFunctional is true, don't auto-populate identifyRequest from persistence
-        const shouldAutoPopulate = !mpInstance._CookieConsentManager?.getNoFunctional();
-
-        mpInstance._Store.SDKConfig.identifyRequest = mpInstance._Store.hasInvalidIdentifyRequest() && shouldAutoPopulate
+        mpInstance._Store.SDKConfig.identifyRequest = mpInstance._Store.hasInvalidIdentifyRequest()
             ? { userIdentities: currentUserIdentities }
             : mpInstance._Store.SDKConfig.identifyRequest;
 

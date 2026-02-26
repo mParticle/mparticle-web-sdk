@@ -1307,5 +1307,15 @@ describe('cookie syncing', function() {
             data[testMPID].csd.should.have.property(roktModuleId);
             data['newMPID'].csd.should.have.property(roktModuleId);
         });
+
+        it('should block cookie sync when noFunctional is true', async () => {
+            window.mParticle.config.pixelConfigs = [roktPixelSettings];
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+
+            const spy = await initWithSpy();
+
+            expect(spy.called).to.equal(false);
+            spy.restore();
+        });
     });
 });
