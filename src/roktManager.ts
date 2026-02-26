@@ -15,6 +15,7 @@ import { SDKLoggerApi } from "./sdkRuntimeModels";
 import { IStore, LocalSessionAttributes } from "./store";
 import { UserIdentities } from "@mparticle/web-sdk";
 import { IdentityType, PerformanceMarkType } from "./types";
+import { ErrorCodes } from "./logging/types";
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export type RoktAttributeValueArray = Array<string | number | boolean>;
@@ -161,7 +162,7 @@ export default class RoktManager {
         try {
             this.placementAttributesMapping = parseSettingsString(placementAttributesMapping);
         } catch (error) {
-            this.logger.error('Error parsing placement attributes mapping from config: ' + error);
+            this.logger.error('Error parsing placement attributes mapping from config: ' + error, ErrorCodes.ROKT_PLACEMENT_MAPPING_FAILED);
         }
 
         // This is the global setting for sandbox mode
@@ -203,7 +204,7 @@ export default class RoktManager {
         try {
             this.onReadyCallback?.();
         } catch (e) {
-            this.logger?.error('RoktManager: Error in onReadyCallback: ' + e);
+            this.logger?.error('RoktManager: Error in onReadyCallback: ' + e, ErrorCodes.ROKT_IDENTITY_FALLBACK_FAILED);
         }
     }
 
@@ -265,13 +266,13 @@ export default class RoktManager {
             if (emailChanged) {
                 newIdentities.email = newEmail;
                 if (newEmail) {
-                    this.logger.warning(`Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.`);
+                    this.logger.warning(`Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.`, ErrorCodes.ROKT_IDENTITY_MISMATCH);
                 }
             }
 
             if (hashedEmailChanged) {
                 newIdentities[this.mappedEmailShaIdentityType] = newHashedEmail;
-                this.logger.warning(`emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.`);
+                this.logger.warning(`emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.`, ErrorCodes.ROKT_IDENTITY_MISMATCH);
             }
 
             if (!isEmpty(newIdentities)) {
@@ -288,7 +289,7 @@ export default class RoktManager {
                         });
                     });
                 } catch (error) {
-                    this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error));
+                    this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error), ErrorCodes.IDENTITY_REQUEST);
                 }
             }
             
@@ -329,6 +330,8 @@ export default class RoktManager {
 
             return this.kit.selectPlacements(enrichedOptions);
         } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger?.error(`RoktManager: selectPlacements failed: ${errorMessage}`, ErrorCodes.ROKT_SELECT_PLACEMENTS_FAILED);
             return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
         }
     }
@@ -376,7 +379,7 @@ export default class RoktManager {
             
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            this.logger.error(`Failed to hashAttributes, returning an empty object: ${errorMessage}`);
+            this.logger.error(`Failed to hashAttributes, returning an empty object: ${errorMessage}`, ErrorCodes.ROKT_HASHING_FAILED);
             return {};
         }
     }
@@ -391,6 +394,7 @@ export default class RoktManager {
             this.kit.setExtensionData<T>(extensionData);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger?.error(`RoktManager: Error setting extension data: ${errorMessage}`, ErrorCodes.ROKT_SET_EXTENSION_DATA_FAILED);
             throw new Error('Error setting extension data: ' + errorMessage);
         }
     }
@@ -403,6 +407,8 @@ export default class RoktManager {
         try {
             return this.kit.use<T>(name);
         } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger?.error(`RoktManager: Error using extension '${name}': ${errorMessage}`, ErrorCodes.ROKT_USE_EXTENSION_FAILED);
             return Promise.reject(error instanceof Error ? error : new Error('Error using extension: ' + name));
         }
     }
@@ -416,7 +422,7 @@ export default class RoktManager {
      */
     public async hashSha256(attribute: RoktAttributeValueType): Promise<string | undefined | null> {
         if (attribute === null || attribute === undefined) {
-            this.logger.warning(`hashSha256 received null/undefined as input`);
+            this.logger.warning(`hashSha256 received null/undefined as input`, ErrorCodes.ROKT_HASHING_FAILED);
             return attribute as null | undefined;
         }
         
@@ -425,7 +431,7 @@ export default class RoktManager {
             return await this.sha256Hex(normalizedValue);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            this.logger.error(`Failed to hashSha256, returning undefined: ${errorMessage}`);
+            this.logger.error(`Failed to hashSha256, returning undefined: ${errorMessage}`, ErrorCodes.ROKT_HASHING_FAILED);
             return undefined;
         }
     }
@@ -457,7 +463,7 @@ export default class RoktManager {
         try {
             this.currentUser.setUserAttributes(filteredAttributes);
         } catch (error) {
-            this.logger.error('Error setting user attributes: ' + error);
+            this.logger.error('Error setting user attributes: ' + error, ErrorCodes.USER_ATTRIBUTE_ERROR);
         }
     }
 
@@ -499,7 +505,7 @@ export default class RoktManager {
         
         messagesToProcess.forEach((message) => {
             if(!(message.methodName in this) || !isFunction(this[message.methodName])) {
-                this.logger?.error(`RoktManager: Method ${message.methodName} not found`);
+                this.logger?.error(`RoktManager: Method ${message.methodName} not found`, ErrorCodes.ROKT_QUEUE_PROCESSING_FAILED);
 
                 return;
             }
@@ -512,7 +518,7 @@ export default class RoktManager {
 
             const handleError = (error: unknown) => {
                 const errorMessage = error instanceof Error ? error.message : String(error);
-                this.logger?.error(`RoktManager: Error processing message '${message.methodName}': ${errorMessage}`);
+                this.logger?.error(`RoktManager: Error processing message '${message.methodName}': ${errorMessage}`, ErrorCodes.ROKT_QUEUE_PROCESSING_FAILED);
                 if (reject) {
                     reject(error);
                 }

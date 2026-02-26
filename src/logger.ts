@@ -27,13 +27,16 @@ export class Logger {
         }
     }
 
-    public warning(msg: string): void {
+    public warning(msg: string, codeForReporting?: ErrorCodes): void {
         if(this.logLevel === LogLevelType.None)
             return;
 
         if (this.logger.warning &&
             (this.logLevel === LogLevelType.Verbose || this.logLevel === LogLevelType.Warning)) {
             this.logger.warning(msg);
+            if (codeForReporting) {
+                this.reportingLogger?.warning(msg, codeForReporting);
+            }
         }
     }
 
