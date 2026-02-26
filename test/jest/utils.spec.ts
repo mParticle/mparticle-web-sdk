@@ -12,6 +12,7 @@ import {
     parseConfig,
     parseSettingsString,
     obfuscateData,
+    obfuscateDevData,
 } from '../../src/utils';
 import { deleteAllCookies } from './utils';
 
@@ -631,6 +632,42 @@ describe('Utils', () => {
 
                 expect(input).toEqual(original);
             });
+        });
+    });
+
+    describe('#obfuscateDevData', () => {
+        it('returns data as-is when isDevelopmentMode is true', () => {
+            expect(obfuscateDevData('sensitive', true)).toBe('sensitive');
+            expect(obfuscateDevData(42, true)).toBe(42);
+            expect(obfuscateDevData(null, true)).toBe(null);
+            expect(obfuscateDevData(undefined, true)).toBe(undefined);
+
+            const obj = { email: 'user@test.com', age: 30 };
+            expect(obfuscateDevData(obj, true)).toBe(obj);
+            expect(obfuscateDevData(obj, true)).toEqual({ email: 'user@test.com', age: 30 });
+
+            const arr = [1, 'two', true];
+            expect(obfuscateDevData(arr, true)).toBe(arr);
+            expect(obfuscateDevData(arr, true)).toEqual([1, 'two', true]);
+        });
+
+        it('returns obfuscated data when isDevelopmentMode is false', () => {
+            expect(obfuscateDevData('sensitive', false)).toBe('string');
+            expect(obfuscateDevData(42, false)).toBe('number');
+            expect(obfuscateDevData(null, false)).toBe(null);
+            expect(obfuscateDevData(undefined, false)).toBe(undefined);
+
+            const obj = { email: 'user@test.com', age: 30 };
+            expect(obfuscateDevData(obj, false)).toEqual({
+                email: 'string',
+                age: 'number',
+            });
+
+            expect(obfuscateDevData([1, 'two', true], false)).toEqual(['number', 'string', 'boolean']);
+        });
+
+        it('treats undefined isDevelopmentMode as false and returns obfuscated data', () => {
+            expect(obfuscateDevData({ email: 'a@b.com' }, undefined)).toEqual({ email: 'string' });
         });
     });
 });

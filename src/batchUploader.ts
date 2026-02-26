@@ -3,7 +3,7 @@ import Constants from './constants';
 import { SDKEvent, SDKEventCustomFlags, SDKLoggerApi } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import { MessageType, EventType } from './types';
-import { getRampNumber, isEmpty, obfuscateData } from './utils';
+import { getRampNumber, isEmpty, obfuscateDevData } from './utils';
 import { SessionStorageVault, LocalStorageVault } from './vault';
 import {
     AsyncUploader,
@@ -262,7 +262,8 @@ export class BatchUploader {
             }
         }
 
-        Logger.verbose(`Queuing event: ${JSON.stringify(obfuscateData(event))}`);
+        const eventToLog = obfuscateDevData(event, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
+        Logger.verbose(`Queuing event: ${JSON.stringify(eventToLog)}`);
         Logger.verbose(`Queued event count: ${this.eventsQueuedForProcessing.length}`);
 
         if (this.shouldTriggerImmediateUpload(event.EventDataType)) {
@@ -459,7 +460,8 @@ export class BatchUploader {
             return null;
         }
 
-        logger.verbose(`Uploading batches: ${JSON.stringify(obfuscateData(uploads))}`);
+        const uploadsToLog = obfuscateDevData(uploads, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
+        logger.verbose(`Uploading batches: ${JSON.stringify(uploadsToLog)}`);
         logger.verbose(`Batch count: ${uploads.length}`);
 
         for (let i = 0; i < uploads.length; i++) {
