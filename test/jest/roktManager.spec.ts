@@ -167,7 +167,8 @@ describe('RoktManager', () => {
 
             expect(result).toEqual({});
             expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
-                expect.stringContaining('Failed to hashAttributes, returning an empty object: Hashing failed')
+                expect.stringContaining('Failed to hashAttributes, returning an empty object: Hashing failed'),
+                'ROKT_HASHING_FAILED'
             );
         });
     });
@@ -217,14 +218,14 @@ describe('RoktManager', () => {
             const result = await roktManager.hashSha256(null);
             
             expect(result).toBeNull();
-            expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith('hashSha256 received null/undefined as input');
+            expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith('hashSha256 received null/undefined as input', 'ROKT_HASHING_FAILED');
         });
 
         it('should return undefined and log warning when value is undefined', async () => {
             const result = await roktManager.hashSha256(undefined);
             
             expect(result).toBeUndefined();
-            expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith('hashSha256 received null/undefined as input');
+            expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith('hashSha256 received null/undefined as input', 'ROKT_HASHING_FAILED');
         });
 
         it('should return undefined and log error when hashing fails', async () => {
@@ -234,7 +235,8 @@ describe('RoktManager', () => {
             
             expect(result).toBeUndefined();
             expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
-                expect.stringContaining('Failed to hashSha256, returning undefined: Hash failed')
+                expect.stringContaining('Failed to hashSha256, returning undefined: Hash failed'),
+                'ROKT_HASHING_FAILED'
             );
         });
 
@@ -574,7 +576,8 @@ describe('RoktManager', () => {
             roktManager.attachKit(kit);
             
             expect(mockLogger.error).toHaveBeenCalledWith(
-                expect.stringContaining('RoktManager: Error in onReadyCallback')
+                expect.stringContaining('RoktManager: Error in onReadyCallback'),
+                'ROKT_IDENTITY_FALLBACK_FAILED'
             );
         });
     });
@@ -884,7 +887,8 @@ describe('RoktManager', () => {
 
             // Verify error was logged for non-existent method
             expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
-                'RoktManager: Method nonExistentMethod not found'
+                'RoktManager: Method nonExistentMethod not found',
+                'ROKT_QUEUE_PROCESSING_FAILED'
             );
 
             // Verify message was removed from queue even though method didn't exist
@@ -1536,7 +1540,8 @@ describe('RoktManager', () => {
                 }
             }, expect.any(Function));
             expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(
-                'Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.'
+                'Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.',
+                'ROKT_IDENTITY_MISMATCH'
             );
         });
 
@@ -1723,7 +1728,8 @@ describe('RoktManager', () => {
                 }
             }, expect.any(Function));
             expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(
-                "emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation."
+                "emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.",
+                'ROKT_IDENTITY_MISMATCH'
             );
         });
 
@@ -1813,7 +1819,8 @@ describe('RoktManager', () => {
                 }
             }, expect.any(Function));
             expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(
-                "emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation."
+                "emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.",
+                'ROKT_IDENTITY_MISMATCH'
             );
         });
 
@@ -2196,7 +2203,8 @@ describe('RoktManager', () => {
             
             // Verify error was logged
             expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
-                'Failed to identify user with new email: ' + JSON.stringify(mockError)
+                'Failed to identify user with new email: ' + JSON.stringify(mockError),
+                'IDENTITY_REQUEST'
             );
 
             // Verify selectPlacements was still called
