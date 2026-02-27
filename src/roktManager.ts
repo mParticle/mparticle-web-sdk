@@ -16,6 +16,7 @@ import { IStore, LocalSessionAttributes } from "./store";
 import { UserIdentities } from "@mparticle/web-sdk";
 import { IdentityType, PerformanceMarkType } from "./types";
 import { ErrorCodes } from "./logging/types";
+import { ReportingLogger } from "./logging/reportingLogger";
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export type RoktAttributeValueArray = Array<string | number | boolean>;
@@ -108,6 +109,7 @@ export default class RoktManager {
     private store: IStore;
     private launcherOptions?: IRoktLauncherOptions;
     private logger: SDKLoggerApi;
+    private reportingLogger?: ReportingLogger;
     private domain?: string;
     private mappedEmailShaIdentityType?: string | null;
     private captureTiming?: (metricsName: string) => void;
@@ -140,7 +142,8 @@ export default class RoktManager {
         store: IStore,
         logger?: SDKLoggerApi,
         options?: IRoktOptions,
-        captureTiming?: (metricsName: string) => void
+        captureTiming?: (metricsName: string) => void,
+        reportingLogger?: ReportingLogger,
     ): void {
         const { userAttributeFilters, settings } = roktConfig || {};
         const { placementAttributesMapping, hashedEmailUserIdentityType } = settings || {};
@@ -149,6 +152,7 @@ export default class RoktManager {
         this.identityService = identityService;
         this.store = store;
         this.logger = logger;
+        this.reportingLogger = reportingLogger;
         this.captureTiming = captureTiming;
 
         this.captureTiming?.(PerformanceMarkType.JointSdkRoktKitInit);
@@ -198,6 +202,8 @@ export default class RoktManager {
         if (kit.integrationName) {
             this.store?.setIntegrationName(kit.integrationName);
         }
+
+        this.reportingLogger?.info('RoktManager: Kit attached, Rokt is ready', ErrorCodes.ROKT_KIT_ATTACHED);
 
         this.processMessageQueue();
 

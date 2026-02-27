@@ -15,6 +15,7 @@ export const ErrorCodes = {
     ROKT_USE_EXTENSION_FAILED: 'ROKT_USE_EXTENSION_FAILED',
     DEPRECATED_METHOD: 'DEPRECATED_METHOD',
     AUDIENCE_API_NOT_ENABLED: 'AUDIENCE_API_NOT_ENABLED',
+    ROKT_KIT_ATTACHED: 'ROKT_KIT_ATTACHED',
 } as const;
 
 export type ErrorCodes = valueof<typeof ErrorCodes>;
