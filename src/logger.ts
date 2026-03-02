@@ -35,7 +35,11 @@ export class Logger {
             (this.logLevel === LogLevelType.Verbose || this.logLevel === LogLevelType.Warning)) {
             this.logger.warning(msg);
             if (codeForReporting) {
-                this.reportingLogger?.warning(msg, codeForReporting);
+                try {
+                    this.reportingLogger?.warning(msg, codeForReporting);
+                } catch (e) {
+                    console.warn('ReportingLogger: Failed to send warning log', e);
+                }
             }
         }
     }
@@ -48,7 +52,11 @@ export class Logger {
             (this.logLevel === LogLevelType.Verbose || this.logLevel === LogLevelType.Warning)) {
             this.logger.info(msg);
             if (codeForReporting) {
-                this.reportingLogger?.info(msg, codeForReporting);
+                try {
+                    this.reportingLogger?.info(msg, codeForReporting);
+                } catch (e) {
+                    console.warn('ReportingLogger: Failed to send info log', e);
+                }
             }
         }
     }
@@ -60,7 +68,11 @@ export class Logger {
         if (this.logger.error) {
             this.logger.error(msg);
             if (codeForReporting) {
-                this.reportingLogger?.error(msg, codeForReporting);
+                try {
+                    this.reportingLogger?.error(msg, codeForReporting);
+                } catch (e) {
+                    console.warn('ReportingLogger: Failed to send error log', e);
+                }
             }
         }
     }

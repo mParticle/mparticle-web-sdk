@@ -213,6 +213,78 @@ describe('Logger', () => {
             expect(mockConsole.info).toHaveBeenCalledWith('test info');
             expect(mockReportingLogger.info).toHaveBeenCalledWith('test info', ErrorCodes.ROKT_KIT_ATTACHED);
         });
+
+        it('should handle error() when ReportingLogger is missing', () => {
+            logger = new Logger({ logLevel: LogLevelType.Verbose });
+
+            expect(() => logger.error('test', ErrorCodes.UNKNOWN_ERROR)).not.toThrow();
+            expect(mockConsole.error).toHaveBeenCalledWith('test');
+        });
+
+        it('should handle warning() when ReportingLogger is missing', () => {
+            logger = new Logger({ logLevel: LogLevelType.Verbose });
+
+            expect(() => logger.warning('test', ErrorCodes.IDENTITY_REQUEST)).not.toThrow();
+            expect(mockConsole.warn).toHaveBeenCalledWith('test');
+        });
+
+        it('should handle info() gracefully when ReportingLogger is missing', () => {
+            logger = new Logger({ logLevel: LogLevelType.Verbose });
+
+            expect(() => logger.info('test', ErrorCodes.ROKT_KIT_ATTACHED)).not.toThrow();
+            expect(mockConsole.info).toHaveBeenCalledWith('test');
+        });
+
+        it('should log warning if ReportingLogger.error() throws an error', () => {
+            const throwingReportingLogger = {
+                error: jest.fn().mockImplementation(() => { throw new Error('remote error'); }),
+                warning: jest.fn(),
+                info: jest.fn(),
+                setStore: jest.fn(),
+            } as any;
+            logger = new Logger({ logLevel: LogLevelType.Verbose }, throwingReportingLogger);
+
+            expect(() => logger.error('test error', ErrorCodes.UNKNOWN_ERROR)).not.toThrow();
+            expect(mockConsole.error).toHaveBeenCalledWith('test error');
+            expect(mockConsole.warn).toHaveBeenCalledWith(
+                'ReportingLogger: Failed to send error log',
+                expect.any(Error)
+            );
+        });
+
+        it('should log warning if ReportingLogger.warning() throws an error', () => {
+            const throwingReportingLogger = {
+                error: jest.fn(),
+                warning: jest.fn().mockImplementation(() => { throw new Error('remote warning'); }),
+                info: jest.fn(),
+                setStore: jest.fn(),
+            } as any;
+            logger = new Logger({ logLevel: LogLevelType.Verbose }, throwingReportingLogger);
+
+            expect(() => logger.warning('test warning', ErrorCodes.IDENTITY_REQUEST)).not.toThrow();
+            expect(mockConsole.warn).toHaveBeenCalledWith('test warning');
+            expect(mockConsole.warn).toHaveBeenCalledWith(
+                'ReportingLogger: Failed to send warning log',
+                expect.any(Error)
+            );
+        });
+
+        it('should log warning if ReportingLogger.info() throws an error', () => {
+            const throwingReportingLogger = {
+                error: jest.fn(),
+                warning: jest.fn(),
+                info: jest.fn().mockImplementation(() => { throw new Error('remote info'); }),
+                setStore: jest.fn(),
+            } as any;
+            logger = new Logger({ logLevel: LogLevelType.Verbose }, throwingReportingLogger);
+
+            expect(() => logger.info('test info', ErrorCodes.ROKT_KIT_ATTACHED)).not.toThrow();
+            expect(mockConsole.info).toHaveBeenCalledWith('test info');
+            expect(mockConsole.warn).toHaveBeenCalledWith(
+                'ReportingLogger: Failed to send info log',
+                expect.any(Error)
+            );
+        });
     });
 });
 
