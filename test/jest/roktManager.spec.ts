@@ -1,12 +1,14 @@
+import Constants from "../../src/constants";
 import { IKitConfigs } from "../../src/configAPIClient";
 import { IMParticleUser } from "../../src/identity-user-interfaces";
 import { SDKIdentityApi } from "../../src/identity.interfaces";
 import { IMParticleWebSDKInstance } from "../../src/mp-instance";
 import RoktManager, { IRoktKit, IRoktSelectPlacementsOptions } from "../../src/roktManager";
 import { IStore } from "../../src/store";
-import { testMPID } from '../src/config/constants';
+import { testMPID, apiKey, urls, workspaceToken } from '../src/config/constants';
 import { PerformanceMarkType } from "../../src/types";
 import { MockForwarder } from './utils';
+import { IMParticleInstanceManager, SDKInitConfig } from "../../src/sdkRuntimeModels";
 
 const resolvePromise = () => new Promise(resolve => setTimeout(resolve, 0));
 
@@ -2779,8 +2781,65 @@ describe('RoktManager', () => {
     });
 
     describe('when MP SDK is not fully initialized', () => {
+        let savedLocalStorage: Storage | undefined;
+
+        beforeEach(() => {
+            const win = typeof globalThis !== 'undefined' && (globalThis as any).window;
+            if (win && win.localStorage === undefined) {
+                const mockStorage: Storage = {
+                    getItem: jest.fn().mockReturnValue(null),
+                    setItem: jest.fn(),
+                    removeItem: jest.fn(),
+                    clear: jest.fn(),
+                    key: jest.fn().mockReturnValue(null),
+                    length: 0,
+                };
+                (win as any).localStorage = mockStorage;
+                savedLocalStorage = undefined;
+            }
+        });
+
+        afterEach(() => {
+            if (savedLocalStorage !== undefined && (globalThis as any).window) {
+                (globalThis as any).window.localStorage = savedLocalStorage;
+            }
+        });
+
         it('should allow Rokt Kit to initialize and selectPlacements', async () => {
-            const roktManagerInstance = new RoktManager();
+            jest.setTimeout(10000);
+            const mParticle = (globalThis as any).mParticle as IMParticleInstanceManager;
+            if (!mParticle) {
+                throw new Error('Global mParticle not available (Jest setup loads dist/mparticle.js)');
+            }
+
+            const mockFetch = jest.fn();
+            const originalFetch = (globalThis as any).fetch;
+            (globalThis as any).fetch = mockFetch;
+
+            // Do not delete the default instance so mParticle.Rokt refers to the same instance we init
+            const roktKitConfig = { name: 'Rokt', moduleId: 181 } as IKitConfigs;
+            const config: SDKInitConfig = {
+                workspaceToken,
+                requestConfig: false,
+                launcherOptions: { noFunctional: true, noTargeting: false },
+                identifyRequest: undefined,
+                kitConfigs: [roktKitConfig],
+            };
+
+            // 1. Call mParticle.init with noFunctional = true (and no identity so SDK does not complete initialization)
+            mParticle.init(apiKey, config);
+
+            // 2. Assert that the MP SDK is not initialized
+            expect(mParticle.isInitialized()).not.toBe(true);
+
+            // 3. Assert that no identity calls were made
+            const identifyCalls = mockFetch.mock.calls.filter(
+                (call: any) => typeof call[0] === 'string' && call[0].indexOf(urls.identify) !== -1
+            );
+            expect(identifyCalls.length).toBe(0);
+
+            (globalThis as any).fetch = originalFetch;
+
             const mockSelectPlacementsResult = {
                 close: jest.fn(),
                 getPlacements: jest.fn().mockResolvedValue([]),
@@ -2800,48 +2859,22 @@ describe('RoktManager', () => {
                 use: jest.fn(),
             };
 
-            const mockIdentityService = {
-                getCurrentUser: jest.fn().mockReturnValue({
-                    getMPID: () => 'test-mpid',
-                    getUserIdentities: () => ({ userIdentities: {} }),
-                }),
-                identify: jest.fn().mockImplementation((data: any, callback: any) => {
-                    if (callback) {
-                        callback(null);
-                    }
-                }),
-            };
+            mParticle.Rokt.attachKit(mockRoktKit as any);
 
-            mockMPInstance._Store.identityCallInFlight = false;
-
-            roktManagerInstance.init(
-                {} as any,
-                null as any,
-                mockIdentityService as any,
-                mockMPInstance._Store,
-                mockMPInstance.Logger,
-                {},
-                undefined
-            );
-
-            (roktManagerInstance as any).placementAttributesMapping = [];
-
-            roktManagerInstance.attachKit(mockRoktKit as any);
-
-            expect(roktManagerInstance.isReady()).toBe(true);
-
-            const options = {
-                attributes: {
-                    email: 'test@example.com',
-                },
-            };
-
-            const result = await roktManagerInstance.selectPlacements(options);
+            // 4. Call mParticle.rokt.selectPlacements and assert that the kit called selectPlacements internally
+            // Suppress expected console.error when SDK has no current user (setUserAttributes on null)
+            const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+            const result = await mParticle.Rokt.selectPlacements({ attributes: {} });
+            consoleError.mockRestore();
 
             expect(mockRoktKit.selectPlacements).toHaveBeenCalled();
             expect(result).toBeDefined();
             expect(result.close).toBeDefined();
             expect(result.getPlacements).toBeDefined();
+
+            // Flush any pending microtasks so async work from selectPlacements completes before test ends
+            await new Promise(resolve => setTimeout(resolve, 0));
+            delete mParticle._instances[Constants.DefaultInstance];
         });
     });
 });

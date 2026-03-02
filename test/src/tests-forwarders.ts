@@ -222,6 +222,55 @@ describe('forwarders', function() {
         expect(enabled).to.not.be.ok;
     });
 
+    describe('noFunctional integration', () => {
+        afterEach(() => {
+            delete window.mParticle.config.launcherOptions;
+            delete window.mParticle.config.identifyRequest;
+        });
+
+        it('should still initialize forwarders when noFunctional is true (even when SDK does not complete initialization)', () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder')
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.getInstance()._getActiveForwarders().length).to.equal(1);
+            window.MockForwarder1.instance.should.have.property('initCalled', true);
+            expect(mParticle.isInitialized()).to.not.equal(true);
+        });
+
+        it('should still deliver events to forwarders when noFunctional is true when explicit identity is provided', async () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = {
+                userIdentities: { email: 'nofunctional-test@example.com' },
+            };
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+
+            expect(mParticle.getInstance()._getActiveForwarders().length).to.equal(1);
+            window.MockForwarder1.instance.receivedEvent = null;
+
+            mParticle.logEvent('NoFunctional Test Event', mParticle.EventType.Navigation);
+
+            expect(window.MockForwarder1.instance.receivedEvent).to.be.ok;
+            window.MockForwarder1.instance.receivedEvent.EventName.should.equal('NoFunctional Test Event');
+        });
+    });
+
     const MockUser = function() {
         let consentState = null;
         return {

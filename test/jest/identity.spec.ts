@@ -306,6 +306,26 @@ describe('Identity', () => {
             expect(hasExplicitIdentifier(store as IStore)).toBe(false);
         });
 
+        it('should return false when userIdentities has invalid identity with empty string value', () => {
+            const store = {
+                deviceId: null,
+                SDKConfig: {
+                    identifyRequest: { userIdentities: { email: '' } },
+                },
+            };
+            expect(hasExplicitIdentifier(store as IStore)).toBe(false);
+        });
+
+        it('should return false when userIdentities has invalid identity with null value', () => {
+            const store = {
+                deviceId: null,
+                SDKConfig: {
+                    identifyRequest: { userIdentities: { email: null } },
+                },
+            };
+            expect(hasExplicitIdentifier(store as IStore)).toBe(false);
+        });
+
         it('should return false when store.deviceId is set but SDKConfig.deviceId is undefined (noFunctional: true on return visit)', () => {
             const store = {
                 deviceId: 'stale-device-id-from-previous-session',
