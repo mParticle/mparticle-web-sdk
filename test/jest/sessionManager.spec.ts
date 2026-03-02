@@ -82,7 +82,7 @@ describe('SessionManager', () => {
         it('should NOT suppress identify when deviceId is provided', () => {
             cookieConsentManager = new CookieConsentManager({ noFunctional: true, noTargeting: false });
             mockMPInstance._CookieConsentManager = cookieConsentManager;
-            store.deviceId = 'explicit-device-id';
+            store.SDKConfig.deviceId = 'explicit-device-id';
             store.SDKConfig.identifyRequest = { userIdentities: {} };
             sessionManager = new SessionManager(mockMPInstance);
 

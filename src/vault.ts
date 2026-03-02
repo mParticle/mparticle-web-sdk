@@ -109,6 +109,7 @@ export class DisabledVault<StorableItem> extends BaseVault<StorableItem> {
     constructor(storageKey: string, options?: IVaultOptions) {
         super(storageKey, window.localStorage, options);
         this.contents = null;
+        this.storageObject.removeItem(this._storageKey);
     }
 
     public store(_item: StorableItem): void {
@@ -121,6 +122,5 @@ export class DisabledVault<StorableItem> extends BaseVault<StorableItem> {
 
     public purge(): void {
         this.contents = null;
-        this.storageObject.removeItem(this._storageKey);
     }
 }

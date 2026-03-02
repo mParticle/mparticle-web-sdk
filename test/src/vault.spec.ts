@@ -385,9 +385,8 @@ describe('Vault', () => {
 
             it('should NOT overwrite existing localStorage value and keep contents null', () => {
                 const storageKey = 'test-disabled-store-existing';
-                window.localStorage.setItem(storageKey, 'existingItem');
-
                 const vault = new DisabledVault<string>(storageKey);
+                window.localStorage.setItem(storageKey, 'existingItem');
 
                 vault.store('newValue');
 
@@ -408,9 +407,9 @@ describe('Vault', () => {
 
             it('should return null even if localStorage has a value', () => {
                 const storageKey = 'test-disabled-retrieve-existing';
+                const vault = new DisabledVault<string>(storageKey);
                 window.localStorage.setItem(storageKey, 'existingItem');
 
-                const vault = new DisabledVault<string>(storageKey);
                 const retrievedItem = vault.retrieve();
                 expect(retrievedItem).to.equal(null);
                 expect(window.localStorage.getItem(storageKey)).to.equal(

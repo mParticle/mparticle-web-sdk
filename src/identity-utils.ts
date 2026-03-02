@@ -1,5 +1,5 @@
 import Constants, { ONE_DAY_IN_SECONDS, MILLIS_IN_ONE_SEC } from './constants';
-import { Dictionary, parseNumber, isObject, generateHash } from './utils';
+import { Dictionary, parseNumber, isObject, generateHash, isEmpty } from './utils';
 import { BaseVault } from './vault';
 import Types from './types';
 import {
@@ -306,22 +306,18 @@ export const hasIdentityRequestChanged = (
  * When noFunctional is true, then cookies are blocked, so the partner must explicitly
  * pass deviceId or other identifiers to prevent new users from being created on each page load.
  *
- * @param store - The SDK store (provides deviceId and SDKConfig.identifyRequest.userIdentities)
+ * @param store - The SDK store (provides SDKConfig.deviceId and SDKConfig.identifyRequest.userIdentities)
  * @returns true if deviceId or other identifiers were explicitly provided in config, false otherwise
  */
 export const hasExplicitIdentifier = (store: IStore | undefined | null): boolean => {
     const userIdentities = store?.SDKConfig?.identifyRequest?.userIdentities;
-    if (userIdentities && isObject(userIdentities)) {
-        for (let key in userIdentities) {
-            if (userIdentities[key]) {
-                return true;
-            }
-        }
-    }
-
-    if (store?.deviceId) {
+    if (
+        userIdentities &&
+        isObject(userIdentities) &&
+        !isEmpty(userIdentities) &&
+        Object.values(userIdentities).some(Boolean)
+    ) {
         return true;
     }
-
-    return false;
+    return !!store?.SDKConfig?.deviceId;
 };

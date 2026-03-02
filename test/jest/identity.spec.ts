@@ -273,8 +273,11 @@ describe('Identity', () => {
     });
 
     describe('hasExplicitIdentifier', () => {
-        it('should return true when deviceId is provided', () => {
-            const store = { deviceId: 'test-device-id', SDKConfig: {} };
+        it('should return true when SDKConfig.deviceId is provided (e.g. noFunctional: false and partner passed deviceId)', () => {
+            const store = {
+                deviceId: 'test-device-id',
+                SDKConfig: { deviceId: 'test-device-id' },
+            };
             expect(hasExplicitIdentifier(store as IStore)).toBe(true);
         });
 
@@ -299,6 +302,14 @@ describe('Identity', () => {
             const store = {
                 deviceId: null,
                 SDKConfig: { identifyRequest: { userIdentities: {} } },
+            };
+            expect(hasExplicitIdentifier(store as IStore)).toBe(false);
+        });
+
+        it('should return false when store.deviceId is set but SDKConfig.deviceId is undefined (noFunctional: true on return visit)', () => {
+            const store = {
+                deviceId: 'stale-device-id-from-previous-session',
+                SDKConfig: { deviceId: undefined, identifyRequest: null },
             };
             expect(hasExplicitIdentifier(store as IStore)).toBe(false);
         });

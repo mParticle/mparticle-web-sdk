@@ -1312,7 +1312,9 @@ describe('cookie syncing', function() {
             window.mParticle.config.pixelConfigs = [roktPixelSettings];
             window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
 
-            const spy = await initWithSpy();
+            mParticle.init(apiKey, window.mParticle.config);
+            const spy = sinon.spy(mParticle.getInstance()._CookieSyncManager, 'performCookieSync');
+            await waitForCondition(hasConfigurationReturned);
 
             expect(spy.called).to.equal(false);
             spy.restore();
