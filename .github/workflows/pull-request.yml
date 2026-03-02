@@ -98,6 +98,87 @@ jobs:
             build_command: npm run build:iife
             branch_name: ${{ vars.GITHUB_SHA }}
 
+    # Kit tests: build and test each kit defined in kits/matrix.json
+    load-kit-matrix:
+        name: Load Kit Matrix
+        runs-on: ubuntu-latest
+        outputs:
+            matrix: ${{ steps.set.outputs.matrix }}
+        steps:
+            - uses: actions/checkout@v6
+            - id: set
+              run: |
+                if [ -f kits/matrix.json ]; then
+                  echo "matrix=$(jq -c . kits/matrix.json)" >> "$GITHUB_OUTPUT"
+                else
+                  echo "matrix=[]" >> "$GITHUB_OUTPUT"
+                fi
+
+    build-kits:
+        name: 'Build Kit: ${{ matrix.kit.name }}'
+        needs: 
+          - load-kit-matrix
+          - build-bundle
+          - test-jest
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                kit: ${{ fromJson(needs.load-kit-matrix.outputs.matrix) }}
+        steps:
+            - uses: actions/checkout@v6
+
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: latest
+
+            - name: Install and build kit
+              run: |
+                cd ${{ matrix.kit.local_path }}
+                npm ci
+                npm run build
+
+            - name: Archive npm failure logs
+              uses: actions/upload-artifact@v6
+              if: failure()
+              with:
+                  name: npm-logs-build-kit-${{ matrix.kit.name }}
+                  path: ~/.npm/_logs
+
+    run-kit-tests:
+        name: 'Kit Tests: ${{ matrix.kit.name }}'
+        needs: 
+          - load-kit-matrix
+          - build-kits
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                kit: ${{ fromJson(needs.load-kit-matrix.outputs.matrix) }}
+        steps:
+            - uses: actions/checkout@v6
+
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: latest
+
+            - name: Install Firefox Latest
+              uses: browser-actions/setup-firefox@latest
+
+            - name: Install and test kit
+              run: |
+                cd ${{ matrix.kit.local_path }}
+                npm ci
+                npm run build
+                npm test
+
+            - name: Archive npm failure logs
+              uses: actions/upload-artifact@v6
+              if: failure()
+              with:
+                  name: npm-logs-kit-${{ matrix.kit.name }}
+                  path: ~/.npm/_logs
+
     # Test Stub can be run independent of other tests
     test-stub:
         name: 'Test Stub'
