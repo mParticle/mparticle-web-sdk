@@ -87,7 +87,7 @@ var renderSnippet = function() {
         /* eslint-enable */
 };
 
-var constructor = function () {
+var constructor = function() {
     var self = this,
         isInitialized = false,
         forwarderSettings,
@@ -366,7 +366,7 @@ var constructor = function () {
                     event.ProductAction.ProductActionType ===
                     mParticle.ProductActionType.Purchase;
                 logRevenue = isRefund || isPurchase;
-                expandedEvents.forEach(function (expandedEvt) {
+                expandedEvents.forEach(function(expandedEvt) {
                     // Exclude Totals from the attributes as we log it in the revenue call
                     var updatedAttributes = createEcommerceAttributes(
                         expandedEvt.EventAttributes
@@ -398,7 +398,7 @@ var constructor = function () {
 
         // if it is not a product action, it is an impression or promotion commerce event
         if (isNotProductAction(event)) {
-            expandedEvents.forEach(function (expandedEvt) {
+            expandedEvents.forEach(function(expandedEvt) {
                 // Exclude Totals from the attributes as we log it in the revenue call
                 var updatedAttributes = createEcommerceAttributes(
                     expandedEvt.EventAttributes
@@ -577,7 +577,7 @@ var constructor = function () {
         shouldSendSeparateAmplitudeRevenueEvent,
         isRefund
     ) {
-        expandedEvents.forEach(function (expandedEvt) {
+        expandedEvents.forEach(function(expandedEvt) {
             var updatedAttributes;
             // `Total` exists on an expanded event if it is part of a revenue/purchase event
             // but not on other commerce events. This only needs to be fired if shouldSendSeparateAmplitudeRevenueEvent === True
@@ -738,9 +738,7 @@ function getId() {
 
 function isObject(val) {
     return (
-        val != null &&
-        typeof val === 'object' &&
-        Array.isArray(val) === false
+        val != null && typeof val === 'object' && Array.isArray(val) === false
     );
 }
 
