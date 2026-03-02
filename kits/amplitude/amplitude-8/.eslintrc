@@ -1,0 +1,47 @@
+{
+    "env": {
+        "browser": true
+    },
+    "globals": {
+        "mParticle": true
+    },
+    "extends": ["plugin:prettier/recommended", "eslint:recommended"],
+    "rules": {
+        "prettier/prettier": "error",
+        "indent": [
+            "error",
+            4,
+            { "SwitchCase": 1}
+        ],
+        "linebreak-style": [
+            "error",
+            "unix"
+        ],
+        "quotes": [
+            "error",
+            "single"
+        ],
+        "semi": [
+            "error",
+            "always"
+        ],
+        "no-unneeded-ternary": [
+            "error",
+            { "defaultAssignment": false }
+        ],
+        "curly": [
+            "error",
+            "multi-line"
+        ],
+        "comma-spacing": [
+            "error",
+            { "before": false, "after": true }
+        ],
+        "quote-props": [
+            "error",
+            "as-needed",
+            { "keywords": false, "unnecessary": true, "numbers": false }
+        ],
+        "no-multi-spaces": "error"
+    }
+}
