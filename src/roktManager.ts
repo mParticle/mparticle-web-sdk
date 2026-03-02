@@ -16,7 +16,9 @@ import { IStore, LocalSessionAttributes } from "./store";
 import { UserIdentities } from "@mparticle/web-sdk";
 import { IdentityType, PerformanceMarkType } from "./types";
 import { ErrorCodes } from "./logging/types";
-import { ReportingLogger } from "./logging/reportingLogger";
+import Constants from "./constants";
+
+const { ErrorMessages } = Constants.Messages;
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export type RoktAttributeValueArray = Array<string | number | boolean>;
@@ -109,7 +111,6 @@ export default class RoktManager {
     private store: IStore;
     private launcherOptions?: IRoktLauncherOptions;
     private logger: SDKLoggerApi;
-    private reportingLogger?: ReportingLogger;
     private domain?: string;
     private mappedEmailShaIdentityType?: string | null;
     private captureTiming?: (metricsName: string) => void;
@@ -143,7 +144,6 @@ export default class RoktManager {
         logger?: SDKLoggerApi,
         options?: IRoktOptions,
         captureTiming?: (metricsName: string) => void,
-        reportingLogger?: ReportingLogger,
     ): void {
         const { userAttributeFilters, settings } = roktConfig || {};
         const { placementAttributesMapping, hashedEmailUserIdentityType } = settings || {};
@@ -152,7 +152,6 @@ export default class RoktManager {
         this.identityService = identityService;
         this.store = store;
         this.logger = logger;
-        this.reportingLogger = reportingLogger;
         this.captureTiming = captureTiming;
 
         this.captureTiming?.(PerformanceMarkType.JointSdkRoktKitInit);
@@ -203,7 +202,7 @@ export default class RoktManager {
             this.store?.setIntegrationName(kit.integrationName);
         }
 
-        this.reportingLogger?.info('RoktManager: Kit attached, Rokt is ready', ErrorCodes.ROKT_KIT_ATTACHED);
+        this.logger?.info('RoktManager: Kit attached, Rokt is ready', ErrorCodes.ROKT_KIT_ATTACHED);
 
         this.processMessageQueue();
 
@@ -272,13 +271,13 @@ export default class RoktManager {
             if (emailChanged) {
                 newIdentities.email = newEmail;
                 if (newEmail) {
-                    this.logger.warning(`Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.`, ErrorCodes.ROKT_IDENTITY_MISMATCH);
+                    this.logger.warning(ErrorMessages.EmailMismatch, ErrorCodes.ROKT_IDENTITY_MISMATCH);
                 }
             }
 
             if (hashedEmailChanged) {
                 newIdentities[this.mappedEmailShaIdentityType] = newHashedEmail;
-                this.logger.warning(`emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.`, ErrorCodes.ROKT_IDENTITY_MISMATCH);
+                this.logger.warning(ErrorMessages.HashedEmailMismatch, ErrorCodes.ROKT_IDENTITY_MISMATCH);
             }
 
             if (!isEmpty(newIdentities)) {

@@ -3,7 +3,7 @@ import { ReportingLogger } from './logging/reportingLogger';
 import { ErrorCodes } from './logging/types';
 
 export type ILoggerConfig = Pick<SDKInitConfig, 'logLevel' | 'logger'>;
-export type IConsoleLogger = Partial<Pick<SDKLoggerApi, 'error' | 'warning' | 'verbose'>>;
+export type IConsoleLogger = Partial<Pick<SDKLoggerApi, 'error' | 'warning' | 'verbose' | 'info'>>;
 
 export class Logger {
     private logLevel: LogLevelType;
@@ -40,6 +40,19 @@ export class Logger {
         }
     }
 
+    public info(msg: string, codeForReporting?: ErrorCodes): void {
+        if(this.logLevel === LogLevelType.None)
+            return;
+
+        if (this.logger.info &&
+            (this.logLevel === LogLevelType.Verbose || this.logLevel === LogLevelType.Warning)) {
+            this.logger.info(msg);
+            if (codeForReporting) {
+                this.reportingLogger?.info(msg, codeForReporting);
+            }
+        }
+    }
+
     public error(msg: string, codeForReporting?: ErrorCodes): void {
         if(this.logLevel === LogLevelType.None)
             return;
@@ -59,6 +72,12 @@ export class Logger {
 
 export class ConsoleLogger implements IConsoleLogger {
     public verbose(msg: string): void {
+        if (console && console.info) {
+            console.info(msg);
+        }
+    }
+
+    public info(msg: string): void {
         if (console && console.info) {
             console.info(msg);
         }

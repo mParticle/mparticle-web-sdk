@@ -20,28 +20,32 @@ describe('Logger', () => {
         jest.clearAllMocks();
     });
 
-    it('should call verbose, warning, and error methods on ConsoleLogger at correct log levels', () => {
+    it('should call verbose, warning, info, and error methods on ConsoleLogger at correct log levels', () => {
         logger = new Logger({ logLevel: LogLevelType.Verbose });
 
         logger.verbose('message1');
         logger.warning('message2');
         logger.error('message3');
+        logger.info('message4');
 
         expect(mockConsole.info).toHaveBeenCalledWith('message1');
         expect(mockConsole.warn).toHaveBeenCalledWith('message2');
         expect(mockConsole.error).toHaveBeenCalledWith('message3');
+        expect(mockConsole.info).toHaveBeenCalledWith('message4');
     });
 
-    it('should only call warning and error at warning log level', () => {
+    it('should only call warning, info, and error at warning log level', () => {
         logger = new Logger({ logLevel: LogLevelType.Warning });
 
         logger.verbose('message1');
         logger.warning('message2');
         logger.error('message3');
+        logger.info('message4');
 
-        expect(mockConsole.info).not.toHaveBeenCalled();
+        expect(mockConsole.info).not.toHaveBeenCalledWith('message1');
         expect(mockConsole.warn).toHaveBeenCalledWith('message2');
         expect(mockConsole.error).toHaveBeenCalledWith('message3');
+        expect(mockConsole.info).toHaveBeenCalledWith('message4');
     });
 
     it('should not call any log methods at none log level', () => {
@@ -50,6 +54,7 @@ describe('Logger', () => {
         logger.verbose('message1');
         logger.warning('message2');
         logger.error('message3');
+        logger.info('message4');
 
         expect(mockConsole.info).not.toHaveBeenCalled();
         expect(mockConsole.warn).not.toHaveBeenCalled();
@@ -62,6 +67,7 @@ describe('Logger', () => {
         logger.verbose('message1');  
         logger.warning('message2');  
         logger.error('message3');  
+        logger.info('message4');
     
         expect(mockConsole.info).not.toHaveBeenCalled();  
         expect(mockConsole.warn).not.toHaveBeenCalled();  
@@ -136,13 +142,76 @@ describe('Logger', () => {
             expect(mockReportingLogger.error).not.toHaveBeenCalled();
         });
 
-        it('should NOT call reportingLogger when warning is called', () => {
+        it('should NOT call reportingLogger.warning when warning is called without error code', () => {
             logger = new Logger({ logLevel: LogLevelType.Verbose }, mockReportingLogger);
 
             logger.warning('test warning');
 
             expect(mockConsole.warn).toHaveBeenCalledWith('test warning');
             expect(mockReportingLogger.warning).not.toHaveBeenCalled();
+        });
+
+        it('should call reportingLogger.warning when warning is called with error code', () => {
+            logger = new Logger({ logLevel: LogLevelType.Verbose }, mockReportingLogger);
+
+            logger.warning('test warning', ErrorCodes.IDENTITY_REQUEST);
+
+            expect(mockConsole.warn).toHaveBeenCalledWith('test warning');
+            expect(mockReportingLogger.warning).toHaveBeenCalledWith('test warning', ErrorCodes.IDENTITY_REQUEST);
+        });
+
+        it('should NOT call reportingLogger.warning when log level is None', () => {
+            logger = new Logger({ logLevel: LogLevelType.None }, mockReportingLogger);
+
+            logger.warning('test warning', ErrorCodes.IDENTITY_REQUEST);
+
+            expect(mockConsole.warn).not.toHaveBeenCalled();
+            expect(mockReportingLogger.warning).not.toHaveBeenCalled();
+        });
+
+        it('should call reportingLogger.warning at Warning log level', () => {
+            logger = new Logger({ logLevel: LogLevelType.Warning }, mockReportingLogger);
+
+            logger.warning('test warning', ErrorCodes.USER_ATTRIBUTE_ERROR);
+
+            expect(mockConsole.warn).toHaveBeenCalledWith('test warning');
+            expect(mockReportingLogger.warning).toHaveBeenCalledWith('test warning', ErrorCodes.USER_ATTRIBUTE_ERROR);
+        });
+
+        it('should call reportingLogger.info when info is called with error code', () => {
+            logger = new Logger({ logLevel: LogLevelType.Verbose }, mockReportingLogger);
+
+            logger.info('test info', ErrorCodes.ROKT_KIT_ATTACHED);
+
+            expect(mockConsole.info).toHaveBeenCalledWith('test info');
+            expect(mockReportingLogger.info).toHaveBeenCalledWith('test info', ErrorCodes.ROKT_KIT_ATTACHED);
+        });
+
+        it('should NOT call reportingLogger.info when info is called without error code', () => {
+            logger = new Logger({ logLevel: LogLevelType.Verbose }, mockReportingLogger);
+
+            logger.info('test info');
+
+            expect(mockConsole.info).toHaveBeenCalledWith('test info');
+            expect(mockReportingLogger.info).not.toHaveBeenCalled();
+        });
+
+        it('should NOT call reportingLogger.info when log level is None', () => {
+            logger = new Logger({ logLevel: LogLevelType.None }, mockReportingLogger);
+
+            logger.info('test info', ErrorCodes.ROKT_KIT_ATTACHED);
+
+            expect(mockConsole.info).not.toHaveBeenCalledWith('test info');
+            expect(mockReportingLogger.info).not.toHaveBeenCalled();
+        });
+
+        it('should call reportingLogger.info at Warning log level', () => {
+            logger = new Logger({ logLevel: LogLevelType.Warning }, mockReportingLogger);
+
+            logger.info('test info', ErrorCodes.ROKT_KIT_ATTACHED);
+
+            expect(mockConsole.info).toHaveBeenCalledWith('test info');
+            expect(mockReportingLogger.info).toHaveBeenCalledWith('test info', ErrorCodes.ROKT_KIT_ATTACHED);
         });
     });
 });
@@ -174,5 +243,10 @@ describe('ConsoleLogger', () => {
     it('should use console.error for error', () => {
         consoleLogger.error('err');
         expect(mockConsole.error).toHaveBeenCalledWith('err');
+    });
+
+    it('should use console.info for info', () => {
+        consoleLogger.info('info msg');
+        expect(mockConsole.info).toHaveBeenCalledWith('info msg');
     });
 });
