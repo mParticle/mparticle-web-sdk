@@ -228,14 +228,14 @@ describe('forwarders', function() {
             delete window.mParticle.config.identifyRequest;
         });
 
-        it('should still initialize forwarders when noFunctional is true (even when SDK does not complete initialization)', () => {
+        it('should still initialize forwarders when noFunctional is true and no identity passed (even when SDK does not complete initialization)', () => {
             window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
             window.mParticle.config.identifyRequest = undefined;
 
             const mockForwarder = new MockForwarder();
             mockForwarder.register(window.mParticle.config);
             window.mParticle.config.kitConfigs.push(
-                forwarderDefaultConfiguration('MockForwarder')
+                forwarderDefaultConfiguration('MockForwarder', 1)
             );
 
             mParticle.init(apiKey, window.mParticle.config);
@@ -243,6 +243,14 @@ describe('forwarders', function() {
             expect(mParticle.getInstance()._getActiveForwarders().length).to.equal(1);
             window.MockForwarder1.instance.should.have.property('initCalled', true);
             expect(mParticle.isInitialized()).to.not.equal(true);
+
+            // Events are sent to forwarders even when there is no mpid (no identity)
+            const mpInstance = mParticle.getInstance();
+            mpInstance._Store.isInitialized = true;
+            window.MockForwarder1.instance.receivedEvent = null;
+            mParticle.logEvent('NoFunctional No Identity Event', mParticle.EventType.Navigation);
+            expect(window.MockForwarder1.instance.receivedEvent).to.be.ok;
+            window.MockForwarder1.instance.receivedEvent.EventName.should.equal('NoFunctional No Identity Event');
         });
 
         it('should still deliver events to forwarders when noFunctional is true when explicit identity is provided', async () => {
@@ -264,6 +272,7 @@ describe('forwarders', function() {
             expect(mParticle.getInstance()._getActiveForwarders().length).to.equal(1);
             window.MockForwarder1.instance.receivedEvent = null;
 
+            // Event is still sent to the forwarder when noFunctional is true and explicit identity is provided
             mParticle.logEvent('NoFunctional Test Event', mParticle.EventType.Navigation);
 
             expect(window.MockForwarder1.instance.receivedEvent).to.be.ok;

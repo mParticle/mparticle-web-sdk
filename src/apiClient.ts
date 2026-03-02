@@ -123,6 +123,16 @@ export default function APIClient(
                 'Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay.'
             );
             mpInstance._Store.eventQueue.push(event);
+            // When noFunctional is true, mpid may never come (no identity), so still send to forwarders so kits receive the event.
+            if (mpInstance._CookieConsentManager?.getNoFunctional() && !isEmpty(event) && (event.EventName as unknown as number) !== Types.MessageType.AppStateTransition) {
+                let eventForForwarders = event;
+                if (kitBlocker && kitBlocker.kitBlockingEnabled) {
+                    eventForForwarders = kitBlocker.createBlockedEvent(event);
+                }
+                if (eventForForwarders) {
+                    mpInstance._Forwarders.sendEventToForwarders(eventForForwarders);
+                }
+            }
             return;
         }
 
