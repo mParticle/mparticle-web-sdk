@@ -337,6 +337,23 @@ describe('forwarders', function() {
             expect(window.MockForwarder1.instance.setSessionAttributeCalled).to.equal(true);
         });
 
+        it('when noFunctional and no identity, onUserIdentified and onIdentifyComplete are never called on forwarders (identity never completes)', () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.getInstance()._getActiveForwarders().length).to.equal(1);
+            expect(window.MockForwarder1.instance.onUserIdentifiedCalled).to.not.equal(true);
+            expect(window.MockForwarder1.instance.onIdentifyCompleteCalled).to.not.equal(true);
+        });
+
         it('should still deliver setSessionAttribute to forwarders when noFunctional is true and explicit identity is provided', async () => {
             window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
             window.mParticle.config.identifyRequest = {
