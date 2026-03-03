@@ -114,42 +114,12 @@ jobs:
                   echo "matrix=[]" >> "$GITHUB_OUTPUT"
                 fi
 
-    build-kits:
-        name: 'Build Kit: ${{ matrix.kit.name }}'
-        needs: 
-          - load-kit-matrix
-          - build-bundle
-          - test-jest
-        runs-on: ubuntu-latest
-        strategy:
-            fail-fast: false
-            matrix:
-                kit: ${{ fromJson(needs.load-kit-matrix.outputs.matrix) }}
-        steps:
-            - uses: actions/checkout@v6
-
-            - uses: actions/setup-node@v6
-              with:
-                  node-version: latest
-
-            - name: Install and build kit
-              run: |
-                cd ${{ matrix.kit.local_path }}
-                npm ci
-                npm run build
-
-            - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
-              if: failure()
-              with:
-                  name: npm-logs-build-kit-${{ matrix.kit.name }}
-                  path: ~/.npm/_logs
-
     run-kit-tests:
         name: 'Kit Tests: ${{ matrix.kit.name }}'
-        needs: 
-          - load-kit-matrix
-          - build-kits
+        needs:
+            - load-kit-matrix
+            - test-jest
+            - build-bundle
         runs-on: ubuntu-latest
         strategy:
             fail-fast: false
@@ -165,7 +135,7 @@ jobs:
             - name: Install Firefox Latest
               uses: browser-actions/setup-firefox@latest
 
-            - name: Install and test kit
+            - name: Install, build, and test kit
               run: |
                 cd ${{ matrix.kit.local_path }}
                 npm ci
@@ -417,6 +387,7 @@ jobs:
         needs:
             - test-core
             - test-stub
+            - run-kit-tests
             - test-integrations-common-js-browserfy
             - test-integrations-common-js-webpack
             - test-integrations-common-js-rollup
@@ -429,6 +400,7 @@ jobs:
         if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
         needs:
             - test-stub
+            - run-kit-tests
             - test-integrations-require-js
             - test-integrations-common-js-browserfy
             - test-integrations-common-js-webpack
