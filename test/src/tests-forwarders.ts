@@ -50,6 +50,7 @@ interface IMockForwarderInstance {
     onUserIdentifiedCalled?: boolean;
     onUserIdentifiedUser?: IMParticleUser;
     receivedEvent?: SDKEvent;
+    receivedEvents?: SDKEvent[];
     removeUserAttributeCalled?: boolean;
     setUserAttributeCalled?: boolean;
     setSessionAttributeCalled?: boolean;
@@ -273,6 +274,7 @@ describe('forwarders', function() {
 
             await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
+            expect(mParticle.isInitialized()).to.equal(true);
             expect(mParticle.getInstance()._getActiveForwarders().length).to.equal(1);
             window.MockForwarder1.instance.receivedEvent = null;
 
@@ -281,6 +283,63 @@ describe('forwarders', function() {
 
             expect(window.MockForwarder1.instance.receivedEvent).to.be.ok;
             window.MockForwarder1.instance.receivedEvent.EventName.should.equal('NoFunctional Test Event');
+        });
+
+        it('when noFunctional is true, after explicit Identity.identify() returns, mParticle is fully initialized', async () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.isInitialized()).to.not.equal(true);
+
+            mParticle.Identity.identify({
+                userIdentities: { email: 'explicit-identify-init@example.com' },
+            });
+
+            await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+
+            expect(mParticle.isInitialized()).to.equal(true);
+        });
+
+        it('when noFunctional and explicit identity is provided, queued events are processed after identify returns and mParticle is fully initialized', async () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.getInstance()._getActiveForwarders().length).to.equal(1);
+            expect(mParticle.isInitialized()).to.not.equal(true);
+
+            mParticle.logEvent('QueuedEvent1', mParticle.EventType.Navigation);
+            mParticle.logEvent('QueuedEvent2', mParticle.EventType.Navigation);
+
+            const store = mParticle.getInstance()._Store;
+            expect(store.eventQueue).to.have.length(2);
+
+            mParticle.Identity.identify({
+                userIdentities: { email: 'queue-then-identify@example.com' },
+            });
+            await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+
+            expect(mParticle.isInitialized()).to.equal(true);
+            expect(store.eventQueue).to.have.length(0);
+
+            const names = window.MockForwarder1.instance.receivedEvents!.map((e) => e.EventName);
+            expect(names).to.include('QueuedEvent1');
+            expect(names).to.include('QueuedEvent2');
         });
 
         it('should still deliver setSessionAttribute to forwarders when noFunctional is true and no identity passed', () => {

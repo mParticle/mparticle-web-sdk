@@ -382,9 +382,11 @@ var pluses = /\+/g,
                 self.testMode = testMode;
             };
 
+            this.receivedEvents = [];
             this.process = function(event) {
                 self.processCalled = true;
                 this.receivedEvent = event;
+                this.receivedEvents.push(event);
                 self.reportingService(self, event);
                 self.logger.verbose(event.EventName + ' sent');
             };
