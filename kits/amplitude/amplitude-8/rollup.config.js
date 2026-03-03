@@ -34,4 +34,19 @@ export default [
             commonjs(),
         ],
     },
+    {
+        input: 'src/Amplitude.js',
+        output: {
+            file: 'dist/Amplitude.esm.js',
+            format: 'esm',
+            exports: 'named',
+            strict: false,
+        },
+        plugins: [
+            resolve({
+                browser: true,
+            }),
+            commonjs(),
+        ],
+    },
 ];

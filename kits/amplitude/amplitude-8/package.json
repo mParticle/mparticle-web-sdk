@@ -4,8 +4,11 @@
   "author": "mParticle Developers (https://www.mparticle.com)",
   "description": "mParticle integration SDK for Amplitude",
   "main": "dist/Amplitude.common.js",
+  "module": "dist/Amplitude.esm.js",
   "files": [
-    "dist/Amplitude.common.js"
+    "dist/Amplitude.common.js",
+    "dist/Amplitude.esm.js",
+    "dist/Amplitude.iife.js"
   ],
   "homepage": "https://github.com/mParticle/mparticle-web-sdk/tree/master/kits/amplitude/amplitude-8#readme",
   "repository": {
@@ -43,5 +46,10 @@
     "rollup-plugin-node-resolve": "^5.0.1",
     "should": "^7.1.1"
   },
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "publishConfig": {
+      "access": "public",
+      "provenance": true,
+      "registry": "https://registry.npmjs.org"
+  }
 }

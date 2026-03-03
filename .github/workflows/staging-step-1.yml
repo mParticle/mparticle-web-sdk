@@ -380,7 +380,6 @@ jobs:
             - load-kit-matrix
             - release
         runs-on: ubuntu-latest
-        if: ${{ github.event.inputs.dryRun == 'false' }}
         strategy:
             fail-fast: false
             matrix:
@@ -410,17 +409,21 @@ jobs:
                   node-version: 24.x
                   registry-url: 'https://registry.npmjs.org'
 
+            - name: Install dependencies
+              run: npm ci
+
             - name: Verify npm version
               run: npm --version
 
             - name: Publish kit
+              if: ${{ github.event.inputs.dryRun == 'false' }}
               run: |
                   VERSION=$(node -p "require('./package.json').version")
                   cd ${{ matrix.kit.local_path }}
                   npm pkg set version="$VERSION"
                   npm ci
                   npm run build
-                  npm publish --access public
+                  npm publish
 
             - name: Archive npm failure logs
               uses: actions/upload-artifact@v6
