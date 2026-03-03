@@ -194,6 +194,7 @@ jobs:
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
             - test-core
+            - run-kit-tests
             - test-jest
             - build-bundle
         with:
@@ -206,6 +207,7 @@ jobs:
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
             - test-core
+            - run-kit-tests
             - test-jest
             - build-bundle
         with:
@@ -219,6 +221,7 @@ jobs:
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
             - test-core
+            - run-kit-tests
             - test-jest
             - build-bundle
         with:
@@ -232,6 +235,7 @@ jobs:
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
             - test-core
+            - run-kit-tests
             - test-jest
             - build-bundle
         with:
@@ -245,6 +249,7 @@ jobs:
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
             - test-core
+            - run-kit-tests
             - test-jest
             - build-bundle
         with:
@@ -258,6 +263,7 @@ jobs:
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
             - test-core
+            - run-kit-tests
             - test-jest
             - build-bundle
         with:
