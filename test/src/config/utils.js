@@ -454,6 +454,13 @@ var pluses = /\+/g,
                 delete this.userAttributes[key]
             };
 
+            this.setSessionAttributeCalled = false;
+            this.sessionAttrData = [];
+            this.setSessionAttribute = function(args) {
+                this.setSessionAttributeCalled = true;
+                this.sessionAttrData.push(Array.isArray(args) ? args : [args]);
+            };
+
             window[this.name + this.id] = {
                 instance: this,
             };

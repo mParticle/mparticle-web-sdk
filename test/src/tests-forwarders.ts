@@ -47,9 +47,13 @@ interface IMockForwarderInstance {
     onModifyCompleteCalled?: boolean;
     onModifyCompleteFilteredUserIdentities?: UserIdentities;
     onModifyCompleteUser?: IMParticleUser;
+    onUserIdentifiedCalled?: boolean;
     onUserIdentifiedUser?: IMParticleUser;
     receivedEvent?: SDKEvent;
     removeUserAttributeCalled?: boolean;
+    setUserAttributeCalled?: boolean;
+    setSessionAttributeCalled?: boolean;
+    sessionAttrData?: unknown[][];
     userAttributes?: UserAttributes;
     userIdentities?: UserIdentities;
 }
@@ -277,6 +281,156 @@ describe('forwarders', function() {
 
             expect(window.MockForwarder1.instance.receivedEvent).to.be.ok;
             window.MockForwarder1.instance.receivedEvent.EventName.should.equal('NoFunctional Test Event');
+        });
+
+        it('should still deliver setSessionAttribute to forwarders when noFunctional is true and no identity passed', () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.getInstance()._getActiveForwarders().length).to.equal(1);
+            expect(mParticle.isInitialized()).to.not.equal(true);
+
+            window.MockForwarder1.instance.setSessionAttributeCalled = false;
+            window.MockForwarder1.instance.sessionAttrData = [];
+            mParticle.setSessionAttribute('nofunctional_session_key', 'nofunctional_session_value');
+
+            expect(window.MockForwarder1.instance.setSessionAttributeCalled).to.equal(true);
+            expect(window.MockForwarder1.instance.sessionAttrData).to.have.length(1);
+            expect(window.MockForwarder1.instance.sessionAttrData[0]).to.deep.equal([
+                'nofunctional_session_key',
+                'nofunctional_session_value',
+            ]);
+        });
+
+        it('when noFunctional and no identity, setUserAttribute/removeUserAttribute are no-ops and do not reach forwarders (getCurrentUser is null)', () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.getInstance()._getActiveForwarders().length).to.equal(1);
+            expect(mParticle.Identity.getCurrentUser()).to.equal(null);
+
+            window.MockForwarder1.instance.setUserAttributeCalled = false;
+            window.MockForwarder1.instance.removeUserAttributeCalled = false;
+            mParticle.Identity.getCurrentUser()?.setUserAttribute('key', 'value');
+            mParticle.Identity.getCurrentUser()?.removeUserAttribute('key');
+
+            expect(window.MockForwarder1.instance.setUserAttributeCalled).to.equal(false);
+            expect(window.MockForwarder1.instance.removeUserAttributeCalled).to.equal(false);
+
+            mParticle.setSessionAttribute('after_ua_call', 'ok');
+            expect(window.MockForwarder1.instance.setSessionAttributeCalled).to.equal(true);
+        });
+
+        it('should still deliver setSessionAttribute to forwarders when noFunctional is true and explicit identity is provided', async () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = {
+                userIdentities: { email: 'nofunctional-session-test@example.com' },
+            };
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+
+            expect(mParticle.getInstance()._getActiveForwarders().length).to.equal(1);
+            window.MockForwarder1.instance.setSessionAttributeCalled = false;
+            window.MockForwarder1.instance.sessionAttrData = [];
+            mParticle.setSessionAttribute('nofunctional_with_identity_key', 'nofunctional_with_identity_value');
+
+            expect(window.MockForwarder1.instance.setSessionAttributeCalled).to.equal(true);
+            expect(window.MockForwarder1.instance.sessionAttrData[0]).to.deep.equal([
+                'nofunctional_with_identity_key',
+                'nofunctional_with_identity_value',
+            ]);
+        });
+
+        it('should still deliver setUserAttribute to forwarders when noFunctional is true and explicit identity is provided', async () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = {
+                userIdentities: { email: 'nofunctional-ua@example.com' },
+            };
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+
+            const currentUser = mParticle.Identity.getCurrentUser();
+            expect(currentUser).to.be.ok;
+            window.MockForwarder1.instance.setUserAttributeCalled = false;
+            currentUser.setUserAttribute('nofunctional_ua_key', 'nofunctional_ua_value');
+
+            expect(window.MockForwarder1.instance.setUserAttributeCalled).to.equal(true);
+            expect(window.MockForwarder1.instance.userAttributes).to.have.property('nofunctional_ua_key', 'nofunctional_ua_value');
+        });
+
+        it('should still deliver removeUserAttribute to forwarders when noFunctional is true and explicit identity is provided', async () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = {
+                userIdentities: { email: 'nofunctional-remove-ua@example.com' },
+            };
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+
+            const currentUser = mParticle.Identity.getCurrentUser();
+            expect(currentUser).to.be.ok;
+            currentUser.setUserAttribute('key_to_remove', 'value');
+            window.MockForwarder1.instance.removeUserAttributeCalled = false;
+            currentUser.removeUserAttribute('key_to_remove');
+
+            expect(window.MockForwarder1.instance.removeUserAttributeCalled).to.equal(true);
+        });
+
+        it('should still call onUserIdentified and onIdentifyComplete on forwarders when noFunctional is true and explicit identity is provided', async () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = {
+                userIdentities: { email: 'nofunctional-callbacks@example.com' },
+            };
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+
+            expect(window.MockForwarder1.instance.onIdentifyCompleteCalled).to.equal(true);
+            expect(window.MockForwarder1.instance.onIdentifyCompleteUser).to.be.ok;
+            expect(window.MockForwarder1.instance.onUserIdentifiedCalled).to.equal(true);
+            expect(window.MockForwarder1.instance.onUserIdentifiedUser).to.be.ok;
         });
     });
 

@@ -38,7 +38,7 @@ import ConfigAPIClient, { IKitConfigs } from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
 import { isFunction, parseConfig, valueof, generateDeprecationMessage } from './utils';
 import { DisabledVault, LocalStorageVault } from './vault';
-import { removeExpiredIdentityCacheDates } from './identity-utils';
+import { removeExpiredIdentityCacheDates, hasExplicitIdentifier } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
 import { IPreInit, processReadyQueue } from './pre-init-utils';
 import { BaseEvent, MParticleWebSDK, SDKHelpersApi } from './sdkRuntimeModels';
@@ -1130,11 +1130,16 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
      * @param {String or Number} value value for session attribute
      */
     this.setSessionAttribute = function(key, value) {
-        const queued = queueIfNotInitialized(function() {
-            self.setSessionAttribute(key, value);
-        }, self);
+        const skipQueue =
+            self._CookieConsentManager?.getNoFunctional() &&
+            !hasExplicitIdentifier(self._Store);
 
-        if (queued) return;
+        if (!skipQueue) {
+            const queued = queueIfNotInitialized(function() {
+                self.setSessionAttribute(key, value);
+            }, self);
+            if (queued) return;
+        }
 
         // Logs to cookie
         // And logs to in-memory object

@@ -10,6 +10,7 @@ import { IMParticleUser, ISDKUserAttributes } from './identity-user-interfaces';
 import { AsyncUploader, FetchUploader, XHRUploader } from './uploaders';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { appendUserInfo } from './user-utils';
+import { hasExplicitIdentifier } from './identity-utils';
 
 export interface IAPIClient {
     uploader: BatchUploader | null;
@@ -123,8 +124,13 @@ export default function APIClient(
                 'Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay.'
             );
             mpInstance._Store.eventQueue.push(event);
-            // When noFunctional is true, mpid may never come (no identity), so still send to forwarders so kits receive the event.
-            if (mpInstance._CookieConsentManager?.getNoFunctional() && !isEmpty(event) && (event.EventName as unknown as number) !== Types.MessageType.AppStateTransition) {
+            // When noFunctional is true and no explicit identity was provided, mpid may never come, so send to forwarders now.
+            if (
+                mpInstance._CookieConsentManager?.getNoFunctional() &&
+                !hasExplicitIdentifier(mpInstance._Store) &&
+                !isEmpty(event) &&
+                (event.EventName as unknown as number) !== Types.MessageType.AppStateTransition
+            ) {
                 let eventForForwarders = event;
                 if (kitBlocker && kitBlocker.kitBlockingEnabled) {
                     eventForForwarders = kitBlocker.createBlockedEvent(event);
