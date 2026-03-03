@@ -6,7 +6,7 @@ const files = [
     '../node_modules/should/should.js',
     'config.js',
     '../dist/Amplitude.iife.js',
-    'lib/mockhttprequest.js',
+    '../../../../test/lib/mockhttprequest.js',
     './test-bundle.js',
 ];
 
