@@ -2,12 +2,6 @@
   {
     "name": "amplitude-8",
     "local_path": "kits/amplitude/amplitude-8",
-    "npm_package": "@mparticle/web-amplitude-kit",
-    "dest_repo": "mparticle-javascript-integration-amplitude",
-    "module_id": 53,
-    "scripts": {
-      "build": "npm run build",
-      "test": "npm run test"
-    }
+    "npm_package": "@mparticle/web-amplitude-kit"
   }
 ]
