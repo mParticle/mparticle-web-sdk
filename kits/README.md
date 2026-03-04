@@ -1,70 +1,36 @@
-# mParticle Web SDK — Kits
+# mParticle Web SDK — Integration Kits
 
-This directory contains integration kits (forwarders) that are maintained alongside the core Web SDK in a monorepo structure.
+Kits forward events from the mParticle Web SDK to partner services. To use a
+partner integration, add mParticle core plus the kit that matches the partner
+SDK major version you use.
 
-## Kits
+## How to Choose a Kit
 
-| Kit | Directory | npm Package | Partner SDK | Module ID |
-|-----|-----------|-------------|-------------|-----------|
-| Amplitude | [amplitude/amplitude-8](amplitude/amplitude-8/) | `@mparticle/web-amplitude-kit` | Amplitude JS v8.x | 53 |
+Kits are versioned by the partner SDK major:
 
-## Kit Structure
+- `braze-5` -> Braze Web SDK 5.x
+- `braze-6` -> Braze Web SDK 6.x
 
-Each kit follows a consistent directory layout:
+Pick the kit that matches the partner SDK major you want in your app.
 
-```
-kits/<provider>/<provider>-<partner-major>/
-  package.json             # Kit npm package
-  rollup.config.js         # Build config (IIFE + CJS)
-  rollup.test.config.js    # Test bundle config
-  src/                     # Kit source
-  test/                    # Test suite (Karma + Mocha + Chai)
-  dist/                    # Built outputs (gitignored)
-  example/                 # Example apps (CDN + npm)
-  docs/                    # Additional documentation
-  README.md
-  CHANGELOG.md
-  LICENSE
-```
+## Important Note (Monorepo Paths)
 
-Kits are versioned by partner SDK major version (e.g., `amplitude-8` for Amplitude JS SDK v8.x), following the same convention used in the iOS monorepo.
+The `kits/<provider>/<provider>-<major>/` paths are how kits are organized in
+this repository. For your app, use the npm package (or the kit README) for
+installation and usage instructions.
 
-## Adding a New Kit
+## Setup Instructions
 
-1. Create the directory: `kits/<provider>/<provider>-<major>/`
-2. Copy the structure from an existing kit (e.g., `amplitude/amplitude-8`)
-3. Implement the kit constructor with the required API (see below)
-4. Add tests and example apps
-5. Add an entry to `matrix.json`
-6. Update the table above
+Each kit has its own README with installation and configuration steps.
 
-## Kit API Contract
+## Available Kits
 
-Each kit must export a constructor that returns an object with these methods:
+| Kit | Directory | npm Package | Partner SDK |
+| --- | --- | --- | --- |
+| Amplitude 8 | [`amplitude/amplitude-8`](amplitude/amplitude-8/) | [`@mparticle/web-amplitude-kit`](https://www.npmjs.com/package/@mparticle/web-amplitude-kit) | [Amplitude Browser SDK 8.x](https://github.com/amplitude/Amplitude-TypeScript) |
 
-```javascript
-{
-  init(settings, reportingService, testMode, trackerId, userAttributes, userIdentities, appVersion, appName),
-  process(event),
-  setUserAttribute(key, value),
-  removeUserAttribute(key),
-  setUserIdentity(id, type),
-  onUserIdentified(user),
-  setOptOut(isOptingOut)
-}
-```
+## Integrations Not in This Repository
 
-## Development
-
-```bash
-cd kits/<provider>/<provider>-<major>
-npm install
-npm run build      # Build IIFE + CJS bundles
-npm test           # Run full test suite
-npm run test:debug # Debug tests in Chrome
-```
-
-## Cross-Platform Reference
-
-The iOS SDK uses a similar monorepo kit structure. See:
-- [mparticle-apple-sdk/kits](https://github.com/mParticle/mparticle-apple-sdk/tree/master/kits)
+Integrations that are not maintained directly by mParticle are not currently
+included in this repository. These may live in separate, partner- or
+community-maintained repositories.
