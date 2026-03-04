@@ -46,6 +46,9 @@
     "rollup-plugin-node-resolve": "^5.0.1",
     "should": "^7.1.1"
   },
+  "dependencies": {
+      "@mparticle/web-sdk": "^2.11.1"
+  },
   "license": "Apache-2.0",
   "publishConfig": {
       "access": "public",
