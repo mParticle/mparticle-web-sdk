@@ -3,7 +3,7 @@ import { ReportingLogger } from './logging/reportingLogger';
 import { ErrorCodes } from './logging/types';
 
 export type ILoggerConfig = Pick<SDKInitConfig, 'logLevel' | 'logger'>;
-export type IConsoleLogger = Partial<Pick<SDKLoggerApi, 'error' | 'warning' | 'verbose'>>;
+export type IConsoleLogger = Partial<Pick<SDKLoggerApi, 'error' | 'warning' | 'verbose' | 'info'>>;
 
 export class Logger {
     private logLevel: LogLevelType;
@@ -27,13 +27,37 @@ export class Logger {
         }
     }
 
-    public warning(msg: string): void {
+    public warning(msg: string, codeForReporting?: ErrorCodes): void {
         if(this.logLevel === LogLevelType.None)
             return;
 
         if (this.logger.warning &&
             (this.logLevel === LogLevelType.Verbose || this.logLevel === LogLevelType.Warning)) {
             this.logger.warning(msg);
+            if (codeForReporting) {
+                try {
+                    this.reportingLogger?.warning(msg, codeForReporting);
+                } catch (e) {
+                    console.warn('ReportingLogger: Failed to send warning log', e);
+                }
+            }
+        }
+    }
+
+    public info(msg: string, codeForReporting?: ErrorCodes): void {
+        if(this.logLevel === LogLevelType.None)
+            return;
+
+        if (this.logger.info &&
+            (this.logLevel === LogLevelType.Verbose || this.logLevel === LogLevelType.Warning)) {
+            this.logger.info(msg);
+            if (codeForReporting) {
+                try {
+                    this.reportingLogger?.info(msg, codeForReporting);
+                } catch (e) {
+                    console.warn('ReportingLogger: Failed to send info log', e);
+                }
+            }
         }
     }
 
@@ -44,7 +68,11 @@ export class Logger {
         if (this.logger.error) {
             this.logger.error(msg);
             if (codeForReporting) {
-                this.reportingLogger?.error(msg, codeForReporting);
+                try {
+                    this.reportingLogger?.error(msg, codeForReporting);
+                } catch (e) {
+                    console.warn('ReportingLogger: Failed to send error log', e);
+                }
             }
         }
     }
@@ -56,6 +84,12 @@ export class Logger {
 
 export class ConsoleLogger implements IConsoleLogger {
     public verbose(msg: string): void {
+        if (console && console.info) {
+            console.info(msg);
+        }
+    }
+
+    public info(msg: string): void {
         if (console && console.info) {
             console.info(msg);
         }
