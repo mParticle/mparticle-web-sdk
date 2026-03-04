@@ -18,6 +18,7 @@ import {
 } from './utils';
 import { hasMPIDAndUserLoginChanged, hasMPIDChanged } from './user-utils';
 import { processReadyQueue } from './pre-init-utils';
+import { ErrorCodes } from './logging/types';
 
 export default function Identity(mpInstance) {
     const { getFeatureFlag, extend } = mpInstance._Helpers;
@@ -46,7 +47,8 @@ export default function Identity(mpInstance) {
 
             if (!identityValidationResult.valid) {
                 mpInstance.Logger.error(
-                    'ERROR: ' + identityValidationResult.error
+                    'ERROR: ' + identityValidationResult.error,
+                    ErrorCodes.IDENTITY_REQUEST
                 );
                 return {
                     valid: false,
@@ -61,7 +63,7 @@ export default function Identity(mpInstance) {
                 var error =
                     'The optional callback must be a function. You tried entering a(n) ' +
                     typeof callback;
-                mpInstance.Logger.error(error);
+                mpInstance.Logger.error(error, ErrorCodes.IDENTITY_REQUEST);
                 return {
                     valid: false,
                     error: error,
@@ -679,7 +681,7 @@ export default function Identity(mpInstance) {
                 message = Messages.ValidationMessages.AliasStartBeforeEndTime;
             }
             if (message) {
-                mpInstance.Logger.warning(message);
+                mpInstance.Logger.warning(message, ErrorCodes.IDENTITY_REQUEST);
                 mpInstance._Helpers.invokeAliasCallback(
                     callback,
                     HTTPCodes.validationIssue,
@@ -749,7 +751,8 @@ export default function Identity(mpInstance) {
             try {
                 if (!destinationUser || !sourceUser) {
                     mpInstance.Logger.error(
-                        "'destinationUser' and 'sourceUser' must both be present"
+                        "'destinationUser' and 'sourceUser' must both be present",
+                        ErrorCodes.IDENTITY_REQUEST
                     );
                     return null;
                 }
@@ -780,7 +783,8 @@ export default function Identity(mpInstance) {
                         mpInstance.Logger.warning(
                             'Source User has not been seen in the last ' +
                                 mpInstance._Store.SDKConfig.maxAliasWindow +
-                                ' days, Alias Request will likely fail'
+                                ' days, Alias Request will likely fail',
+                            ErrorCodes.IDENTITY_REQUEST
                         );
                     }
                 }
@@ -793,7 +797,8 @@ export default function Identity(mpInstance) {
                 };
             } catch (e) {
                 mpInstance.Logger.error(
-                    'There was a problem with creating an alias request: ' + e
+                    'There was a problem with creating an alias request: ' + e,
+                    ErrorCodes.IDENTITY_REQUEST
                 );
                 return null;
             }
@@ -847,7 +852,10 @@ export default function Identity(mpInstance) {
              */
             setUserTag: function(tagName) {
                 if (!mpInstance._Helpers.Validators.isValidKeyValue(tagName)) {
-                    mpInstance.Logger.error(Messages.ErrorMessages.BadKey);
+                    mpInstance.Logger.error(
+                        Messages.ErrorMessages.BadKey,
+                        ErrorCodes.USER_ATTRIBUTE_ERROR
+                    );
                     return;
                 }
 
@@ -860,7 +868,10 @@ export default function Identity(mpInstance) {
              */
             removeUserTag: function(tagName) {
                 if (!mpInstance._Helpers.Validators.isValidKeyValue(tagName)) {
-                    mpInstance.Logger.error(Messages.ErrorMessages.BadKey);
+                    mpInstance.Logger.error(
+                        Messages.ErrorMessages.BadKey,
+                        ErrorCodes.USER_ATTRIBUTE_ERROR
+                    );
                     return;
                 }
 
@@ -884,13 +895,17 @@ export default function Identity(mpInstance) {
                         )
                     ) {
                         mpInstance.Logger.error(
-                            Messages.ErrorMessages.BadAttribute
+                            Messages.ErrorMessages.BadAttribute,
+                            ErrorCodes.USER_ATTRIBUTE_ERROR
                         );
                         return;
                     }
 
                     if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
-                        mpInstance.Logger.error(Messages.ErrorMessages.BadKey);
+                        mpInstance.Logger.error(
+                            Messages.ErrorMessages.BadKey,
+                            ErrorCodes.USER_ATTRIBUTE_ERROR
+                        );
                         return;
                     }
                     if (mpInstance._Store.webviewBridgeEnabled) {
@@ -963,7 +978,8 @@ export default function Identity(mpInstance) {
                 } else {
                     mpInstance.Logger.error(
                         'Must pass an object into setUserAttributes. You passed a ' +
-                            typeof userAttributes
+                            typeof userAttributes,
+                        ErrorCodes.USER_ATTRIBUTE_ERROR
                     );
                 }
             },
@@ -977,7 +993,10 @@ export default function Identity(mpInstance) {
                 mpInstance._SessionManager.resetSessionTimer();
 
                 if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
-                    mpInstance.Logger.error(Messages.ErrorMessages.BadKey);
+                    mpInstance.Logger.error(
+                        Messages.ErrorMessages.BadKey,
+                        ErrorCodes.USER_ATTRIBUTE_ERROR
+                    );
                     return;
                 }
 
@@ -1042,14 +1061,18 @@ export default function Identity(mpInstance) {
                 mpInstance._SessionManager.resetSessionTimer();
 
                 if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
-                    mpInstance.Logger.error(Messages.ErrorMessages.BadKey);
+                    mpInstance.Logger.error(
+                        Messages.ErrorMessages.BadKey,
+                        ErrorCodes.USER_ATTRIBUTE_ERROR
+                    );
                     return;
                 }
 
                 if (!Array.isArray(newValue)) {
                     mpInstance.Logger.error(
                         'The value you passed in to setUserAttributeList must be an array. You passed in a ' +
-                            typeof value
+                            typeof value,
+                        ErrorCodes.USER_ATTRIBUTE_ERROR
                     );
                     return;
                 }
@@ -1215,7 +1238,8 @@ export default function Identity(mpInstance) {
              */
             getCart: function() {
                 mpInstance.Logger.warning(
-                    'Deprecated function Identity.getCurrentUser().getCart() will be removed in future releases'
+                    'Deprecated function Identity.getCurrentUser().getCart() will be removed in future releases',
+                    ErrorCodes.DEPRECATED_METHOD
                 );
                 return self.mParticleUserCart();
             },
@@ -1264,7 +1288,8 @@ export default function Identity(mpInstance) {
                     )
                 ) {
                     mpInstance.Logger.error(
-                        ErrorMessages.AudienceAPINotEnabled
+                        ErrorMessages.AudienceAPINotEnabled,
+                        ErrorCodes.AUDIENCE_API_NOT_ENABLED
                     );
                     return;
                 }
@@ -1302,7 +1327,8 @@ export default function Identity(mpInstance) {
                         true,
                         'eCommerce.logProductAction()',
                         'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
+                    ),
+                    ErrorCodes.DEPRECATED_METHOD
                 );
             },
             /**
@@ -1317,7 +1343,8 @@ export default function Identity(mpInstance) {
                         true,
                         'eCommerce.logProductAction()',
                         'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
+                    ),
+                    ErrorCodes.DEPRECATED_METHOD
                 );
             },
             /**
@@ -1332,7 +1359,8 @@ export default function Identity(mpInstance) {
                         true,
                         '',
                         'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
+                    ),
+                    ErrorCodes.DEPRECATED_METHOD
                 );
             },
             /**
@@ -1348,7 +1376,8 @@ export default function Identity(mpInstance) {
                         true,
                         'eCommerce.logProductAction()',
                         'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
+                    ),
+                    ErrorCodes.DEPRECATED_METHOD
                 );
                 return [];
             },
@@ -1554,7 +1583,8 @@ export default function Identity(mpInstance) {
                     'Received HTTP response code of ' +
                         identityResponse.status +
                         ' - ' +
-                        identityApiResult.errors[0].message
+                        identityApiResult.errors[0].message,
+                    ErrorCodes.IDENTITY_REQUEST
                 );
             }
 
@@ -1571,7 +1601,8 @@ export default function Identity(mpInstance) {
                 );
             }
             mpInstance.Logger.error(
-                'Error parsing JSON response from Identity server: ' + e
+                'Error parsing JSON response from Identity server: ' + e,
+                ErrorCodes.IDENTITY_REQUEST
             );
         }
         mpInstance._Store.isInitialized = true;
@@ -1735,7 +1766,10 @@ function tryOnUserAlias(previousUser, newUser, identityApiData, logger) {
         isFunction(identityApiData.onUserAlias)
     ) {
         try {
-            logger.warning(generateDeprecationMessage('onUserAlias'));
+            logger.warning(
+                generateDeprecationMessage('onUserAlias'),
+                ErrorCodes.DEPRECATED_METHOD
+            );
             identityApiData.onUserAlias(previousUser, newUser);
         } catch (e) {
             logger.error(
