@@ -42,7 +42,7 @@ module.exports = {
         [
             '@semantic-release/exec',
             {
-                prepareCmd: 'sh ./scripts/release.sh',
+                prepareCmd: 'sh ./scripts/release.sh ${nextRelease.version}',
                 publishCmd: 'npm publish',
             },
         ],
@@ -61,7 +61,7 @@ module.exports = {
         [
             '@semantic-release/git',
             {
-                assets: ['package.json', 'package-lock.json', 'CHANGELOG.md'],
+                assets: ['package.json', 'package-lock.json', 'CHANGELOG.md', 'kits/**/package.json'],
                 message:
                     'chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}',
             },
