@@ -1,7 +1,6 @@
 [
   {
-    "name": "amplitude-8",
-    "local_path": "kits/amplitude/amplitude-8",
-    "npm_package": "@mparticle/web-amplitude-kit"
+    "name": "Amplitude 8",
+    "local_path": "kits/amplitude/amplitude-8"
   }
 ]
