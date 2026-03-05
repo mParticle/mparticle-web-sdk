@@ -2,5 +2,9 @@
   {
     "name": "Amplitude 8",
     "local_path": "kits/amplitude/amplitude-8"
+  },
+  {
+    "name": "Google Tag Manager",
+    "local_path": "kits/google-tag-manager"
   }
 ]
