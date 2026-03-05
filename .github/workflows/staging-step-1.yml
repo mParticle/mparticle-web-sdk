@@ -60,7 +60,7 @@ jobs:
               uses: actions/upload-artifact@v6
               if: failure()
               with:
-                  name: npm-logs
+                  name: npm-logs-build-bundle
                   path: ~/.npm/_logs
 
     # Currently, we're only using Jest to test TypeScript modules
@@ -70,7 +70,7 @@ jobs:
         runs-on: 'ubuntu-latest'
         strategy:
             matrix:
-                node-version: [16.x, 17.x, 18.x, 19.x, 20.x, 21.x, 22.x, 23.x, 24.x, 25.x]
+                node-version: [18.x, 19.x, 20.x, 21.x, 22.x, 23.x, 24.x, 25.x]
         steps:
             - name: Checkout
               uses: actions/checkout@v6
@@ -90,7 +90,7 @@ jobs:
               uses: actions/upload-artifact@v6
               if: failure()
               with:
-                  name: npm-logs
+                  name: npm-logs-test-jest-${{ matrix.node-version }}
                   path: ~/.npm/_logs
 
     # Only Core test requires bundle, but we want to make sure
@@ -140,7 +140,7 @@ jobs:
               uses: actions/upload-artifact@v6
               if: failure()
               with:
-                  name: npm-logs
+                  name: npm-logs-test-stub
                   path: ~/.npm/_logs
 
     # Integration Tests run the same suite of tests against various build systems
@@ -416,7 +416,7 @@ jobs:
               uses: actions/upload-artifact@v6
               if: failure()
               with:
-                  name: npm-logs
+                  name: npm-logs-release
                   path: ~/.npm/_logs
 
             - name: Push automated release commits to release branch
