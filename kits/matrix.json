@@ -2,5 +2,9 @@
   {
     "name": "Amplitude 8",
     "local_path": "kits/amplitude/amplitude-8"
+  },
+  {
+    "name": "Inspectlet",
+    "local_path": "kits/inspectlet"
   }
 ]
