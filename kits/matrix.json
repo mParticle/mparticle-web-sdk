@@ -2,5 +2,9 @@
   {
     "name": "Amplitude 8",
     "local_path": "kits/amplitude/amplitude-8"
+  },
+  {
+    "name": "DoubleClick",
+    "local_path": "kits/doubleclick"
   }
 ]
