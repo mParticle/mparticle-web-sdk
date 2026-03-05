@@ -14,3 +14,4 @@ local.log
 test/cross-browser-testing/CBT-tests-es5.js
 test/cross-browser-testing/CBT-tests.js
 coverage/
+kits/**/test/test-bundle.js
