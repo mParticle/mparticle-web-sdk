@@ -17,7 +17,7 @@ var name = 'Rokt';
 var moduleId = 181;
 var EVENT_NAME_SELECT_PLACEMENTS = 'selectPlacements';
 
-var constructor = function () {
+var constructor = function() {
     var self = this;
     var PerformanceMarks = {
         RoktScriptAppended: 'mp:RoktScriptAppended',
@@ -235,14 +235,14 @@ var constructor = function () {
         var placementEventAttributeMapping = parseSettingsString(
             settings.placementEventAttributeMapping
         );
-        self.placementEventAttributeMappingLookup =
-            generateMappedEventAttributeLookup(placementEventAttributeMapping);
+        self.placementEventAttributeMappingLookup = generateMappedEventAttributeLookup(
+            placementEventAttributeMapping
+        );
 
         // Set dynamic OTHER_IDENTITY based on server settings
         // Convert to lowercase since server sends TitleCase (e.g., 'Other' -> 'other')
         if (settings.hashedEmailUserIdentityType) {
-            mappedEmailSha256Key =
-                settings.hashedEmailUserIdentityType.toLowerCase();
+            mappedEmailSha256Key = settings.hashedEmailUserIdentityType.toLowerCase();
         }
 
         var domain = window.mParticle.Rokt.domain;
@@ -262,8 +262,7 @@ var constructor = function () {
                 hashEventMessage: hashEventMessage,
                 parseSettingsString: parseSettingsString,
                 generateMappedEventLookup: generateMappedEventLookup,
-                generateMappedEventAttributeLookup:
-                    generateMappedEventAttributeLookup,
+                generateMappedEventAttributeLookup: generateMappedEventAttributeLookup,
             };
             attachLauncher(accountId, launcherOptions);
             return;
@@ -281,7 +280,7 @@ var constructor = function () {
             script.fetchPriority = 'high';
             script.id = 'rokt-launcher';
 
-            script.onload = function () {
+            script.onload = function() {
                 if (isLauncherReadyToAttach()) {
                     attachLauncher(accountId, launcherOptions);
                 } else {
@@ -291,7 +290,7 @@ var constructor = function () {
                 }
             };
 
-            script.onerror = function (error) {
+            script.onerror = function(error) {
                 console.error('Error loading Rokt launcher script:', error);
             };
 
@@ -471,7 +470,7 @@ var constructor = function () {
     }
 
     function processEventQueue() {
-        self.eventQueue.forEach(function (event) {
+        self.eventQueue.forEach(function(event) {
             processEvent(event);
         });
         self.eventQueue = [];
@@ -536,7 +535,7 @@ var constructor = function () {
         } else {
             window.Rokt.createLauncher(options)
                 .then(initRoktLauncher)
-                .catch(function (err) {
+                .catch(function(err) {
                     console.error('Error creating Rokt launcher:', err);
                 });
         }
@@ -570,7 +569,7 @@ var constructor = function () {
     function fetchOptimizely() {
         var forwarders = window.mParticle
             ._getActiveForwarders()
-            .filter(function (forwarder) {
+            .filter(function(forwarder) {
                 return forwarder.name === 'Optimizely';
             });
 
@@ -585,10 +584,9 @@ var constructor = function () {
                     return {};
                 }
                 // Get active experiment IDs
-                var activeExperimentIds =
-                    optimizelyState.getActiveExperimentIds();
+                var activeExperimentIds = optimizelyState.getActiveExperimentIds();
                 // Get variations for each active experiment
-                var activeExperiments = activeExperimentIds.reduce(function (
+                var activeExperiments = activeExperimentIds.reduce(function(
                     acc,
                     expId
                 ) {

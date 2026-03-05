@@ -13,15 +13,15 @@ const outputs = {
 };
 
 const plugins = [
-    resolve({ 
-        browser: true
+    resolve({
+        browser: true,
     }),
     commonjs(),
     json(),
     replace({
         'process.env.PACKAGE_VERSION': JSON.stringify(pkg.version),
-        preventAssignment: true
-    })
+        preventAssignment: true,
+    }),
 ];
 
 export default [
