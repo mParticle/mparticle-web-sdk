@@ -6,8 +6,8 @@ export default [
             format: 'iife',
             exports: 'named',
             name: 'mpAdWordsKit',
-            strict: false
-        }
+            strict: false,
+        },
     },
     {
         input: 'src/GoogleAdWordsEventForwarder.js',
@@ -16,7 +16,7 @@ export default [
             format: 'cjs',
             exports: 'named',
             name: 'mpAdWordsKit',
-            strict: false
-        }
-    }
-]
+            strict: false,
+        },
+    },
+];
