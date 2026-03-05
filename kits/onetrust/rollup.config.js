@@ -9,14 +9,14 @@ export default [
             format: 'iife',
             exports: 'named',
             name: 'mpOneTrustKit',
-            strict: false
+            strict: false,
         },
         plugins: [
             resolve({
-                browser: true
+                browser: true,
             }),
-            commonjs()
-        ]
+            commonjs(),
+        ],
     },
     {
         input: 'src/oneTrustWrapper.js',
@@ -25,13 +25,13 @@ export default [
             format: 'cjs',
             exports: 'named',
             name: 'mpOneTrustKit',
-            strict: false
+            strict: false,
         },
         plugins: [
             resolve({
-                browser: true
+                browser: true,
             }),
-            commonjs()
-        ]
-    }
-]
+            commonjs(),
+        ],
+    },
+];

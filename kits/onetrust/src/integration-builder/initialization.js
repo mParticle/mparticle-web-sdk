@@ -1,7 +1,7 @@
 /* eslint-disable no-undef */
 var CONSENT_REGULATIONS = {
     GDPR: 'gdpr',
-    CCPA: 'ccpa'
+    CCPA: 'ccpa',
 };
 var CCPA_PURPOSE = 'data_sale_opt_out';
 
@@ -21,14 +21,19 @@ var initialization = {
     parseConsentMapping: function(rawConsentMapping) {
         var _consentMapping = {};
         if (rawConsentMapping) {
-            var parsedMapping = JSON.parse(rawConsentMapping.replace(/&quot;/g, '\"'));
+            var parsedMapping = JSON.parse(
+                rawConsentMapping.replace(/&quot;/g, '"')
+            );
 
             // TODO: [67837] Revise this to use an actual 'regulation' mapping if UI ever returns this
             parsedMapping.forEach(function(mapping) {
                 var purpose = mapping.map;
                 _consentMapping[mapping.value] = {
                     purpose: purpose,
-                    regulation: purpose === CCPA_PURPOSE ? CONSENT_REGULATIONS.CCPA : CONSENT_REGULATIONS.GDPR
+                    regulation:
+                        purpose === CCPA_PURPOSE
+                            ? CONSENT_REGULATIONS.CCPA
+                            : CONSENT_REGULATIONS.GDPR,
                 };
             });
         }
@@ -55,7 +60,7 @@ var initialization = {
         // it for something custom so we can hijack
         var OptanonWrapperCopy = window.OptanonWrapper;
 
-        window.OptanonWrapper = function () {
+        window.OptanonWrapper = function() {
             if (window.Optanon && window.Optanon.OnConsentChanged) {
                 window.Optanon.OnConsentChanged(function() {
                     self.createConsentEvents();
@@ -67,7 +72,7 @@ var initialization = {
             OptanonWrapperCopy();
         };
     },
-    createConsentEvents: function () {
+    createConsentEvents: function() {
         var user = mParticle.Identity.getCurrentUser();
         if (!window.Optanon || !user) {
             return;
@@ -127,7 +132,10 @@ var initialization = {
                         consentPurpose,
                         location
                     );
-                    consentState.addGDPRConsentState(consentPurpose, gdprConsent);
+                    consentState.addGDPRConsentState(
+                        consentPurpose,
+                        gdprConsent
+                    );
                     break;
 
                 default:
@@ -220,9 +228,11 @@ function setGoogleVendorRequests(
 
         if (googleConsentedVendors && googleConsentedVendors.length) {
             for (var vendorId in googleVendorConsentMapping) {
-                var consentPurpose = googleVendorConsentMapping[vendorId].purpose;
+                var consentPurpose =
+                    googleVendorConsentMapping[vendorId].purpose;
                 // consent is true if the vendor id is in the array of consented IDs
-                var consentBoolean = googleConsentedVendors.indexOf(vendorId) > -1;
+                var consentBoolean =
+                    googleConsentedVendors.indexOf(vendorId) > -1;
                 var consent = mParticle.Consent.createGDPRConsent(
                     consentBoolean,
                     Date.now(),
@@ -253,7 +263,8 @@ function setIABVendorRequests(
         for (var vendorIndex in IABVendorConsentMappings) {
             var consentPurpose = IABVendorConsentMappings[vendorIndex].purpose;
             // consent is true if the (vendorIndex - 1) is 1
-            var consentBoolean = IABConsentedVendors[parseInt(vendorIndex) - 1] === '1';
+            var consentBoolean =
+                IABConsentedVendors[parseInt(vendorIndex) - 1] === '1';
             var consent = mParticle.Consent.createGDPRConsent(
                 consentBoolean,
                 Date.now(),
@@ -276,9 +287,11 @@ function setGeneralVendorRequests(
     try {
         if (window.Optanon) {
             for (var vendorId in generalVendorConsentMapping) {
-                var consentPurpose = generalVendorConsentMapping[vendorId].purpose;
+                var consentPurpose =
+                    generalVendorConsentMapping[vendorId].purpose;
                 // consent is true if the vendorId is in the oneTrustVendorConsent array
-                var consentBoolean = oneTrustVendorConsent.indexOf(vendorId) > -1;
+                var consentBoolean =
+                    oneTrustVendorConsent.indexOf(vendorId) > -1;
                 var consent = mParticle.Consent.createGDPRConsent(
                     consentBoolean,
                     Date.now(),
