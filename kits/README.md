@@ -1,8 +1,6 @@
 # mParticle Web SDK — Integration Kits
 
-Kits forward events from the mParticle Web SDK to partner services. To use a
-partner integration, add mParticle core plus the kit that matches the partner
-SDK major version you use.
+Kits forward events from the mParticle Web SDK to partner services. If you are implementing mParticle [via snippet](https://docs.mparticle.com/developers/client-sdks/web/initialization/), you can ignore the below instructions. If you implementing [via npm](https://docs.mparticle.com/developers/client-sdks/web/self-hosting/), please review that documentation and follow the below instructions if there are multiple versions of a partner that we support.
 
 ## How to Choose a Kit
 
