@@ -68,24 +68,26 @@ var initialization = {
             );
         }
 
-        common.consentPayloadDefaults =
-            common.consentHandler.getConsentSettings();
+        common.consentPayloadDefaults = common.consentHandler.getConsentSettings();
 
-        var defaultConsentPayload = common.cloneObject(common.consentPayloadDefaults);
+        var defaultConsentPayload = common.cloneObject(
+            common.consentPayloadDefaults
+        );
         var updatedConsentState = common.consentHandler.getUserConsentState();
-        var updatedDefaultConsentPayload =
-            common.consentHandler.generateConsentStatePayloadFromMappings(
-                updatedConsentState,
-                common.consentMappings
-            );
+        var updatedDefaultConsentPayload = common.consentHandler.generateConsentStatePayloadFromMappings(
+            updatedConsentState,
+            common.consentMappings
+        );
 
         // If a default consent payload exists (as selected in the mParticle UI), set it as the default
         if (!common.isEmpty(defaultConsentPayload)) {
             common.sendDefaultConsentPayloadToGoogle(defaultConsentPayload);
-        // If a default consent payload does not exist, but the user currently has updated their consent,
-        // send that as the default because a default must be sent
+            // If a default consent payload does not exist, but the user currently has updated their consent,
+            // send that as the default because a default must be sent
         } else if (!common.isEmpty(updatedDefaultConsentPayload)) {
-            common.sendDefaultConsentPayloadToGoogle(updatedDefaultConsentPayload);
+            common.sendDefaultConsentPayloadToGoogle(
+                updatedDefaultConsentPayload
+            );
         }
 
         common.maybeSendConsentUpdateToGoogle(updatedConsentState);
@@ -176,8 +178,7 @@ function sanitizeDataLayerName(_dataLayerName) {
 
 function sanitizePreviewUrl(_previewUrl) {
     var previewUrl = _previewUrl || '';
-    var regex =
-        /^(?:http(s)?:\/\/)?[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+$/gm;
+    var regex = /^(?:http(s)?:\/\/)?[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+$/gm;
     return previewUrl.trim().match(regex) ? previewUrl.trim() : '';
 }
 

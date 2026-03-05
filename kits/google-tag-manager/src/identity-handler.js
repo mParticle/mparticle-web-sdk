@@ -24,7 +24,7 @@ function IdentityHandler(common) {
 IdentityHandler.prototype.onUserIdentified = function(mParticleUser) {
     this.common.send({
         event: {
-            EventName: 'User Identified'
+            EventName: 'User Identified',
         },
         user: mParticleUser,
     });
@@ -35,7 +35,7 @@ IdentityHandler.prototype.onIdentifyComplete = function(
 ) {
     this.common.send({
         event: {
-            EventName: 'Identify Complete'
+            EventName: 'Identify Complete',
         },
         user: mParticleUser,
     });
@@ -47,7 +47,7 @@ IdentityHandler.prototype.onLoginComplete = function(
 ) {
     this.common.send({
         event: {
-            EventName: 'Login Complete'
+            EventName: 'Login Complete',
         },
         user: mParticleUser,
     });
@@ -58,7 +58,7 @@ IdentityHandler.prototype.onLogoutComplete = function(
 ) {
     this.common.send({
         event: {
-            EventName: 'Logout Complete'
+            EventName: 'Logout Complete',
         },
         user: mParticleUser,
     });
@@ -69,7 +69,7 @@ IdentityHandler.prototype.onModifyComplete = function(
 ) {
     this.common.send({
         event: {
-            EventName: 'Modify Complete'
+            EventName: 'Modify Complete',
         },
         user: mParticleUser,
     });

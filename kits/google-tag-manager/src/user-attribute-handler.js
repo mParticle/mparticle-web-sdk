@@ -16,11 +16,11 @@ UserAttributeHandler.prototype.onRemoveUserAttribute = function(
 ) {
     this.common.send({
         event: {
-            EventName: 'Remove User Attribute'
+            EventName: 'Remove User Attribute',
         },
         options: {
-            key: key
-        }
+            key: key,
+        },
     });
 };
 UserAttributeHandler.prototype.onSetUserAttribute = function(
@@ -30,12 +30,12 @@ UserAttributeHandler.prototype.onSetUserAttribute = function(
 ) {
     this.common.send({
         event: {
-            EventName: 'Set User Attribute'
+            EventName: 'Set User Attribute',
         },
         options: {
             key: key,
-            value: value
-        }
+            value: value,
+        },
     });
 };
 UserAttributeHandler.prototype.onConsentStateUpdated = function(
@@ -45,12 +45,12 @@ UserAttributeHandler.prototype.onConsentStateUpdated = function(
 ) {
     this.common.send({
         event: {
-            EventName: 'Consent State Update'
+            EventName: 'Consent State Update',
         },
         options: {
             old_state: oldState,
-            new_state: newState
-        }
+            new_state: newState,
+        },
     });
 };
 

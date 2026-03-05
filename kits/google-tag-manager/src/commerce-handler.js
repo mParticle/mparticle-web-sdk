@@ -7,12 +7,12 @@ var ProductActionTypes = {
     Purchase: 16,
     Refund: 17,
     RemoveFromCart: 11,
-    ViewDetail: 15
+    ViewDetail: 15,
 };
 
 var PromotionType = {
     PromotionClick: 19,
-    PromotionView: 18
+    PromotionView: 18,
 };
 
 function CommerceHandler(common) {
@@ -26,10 +26,12 @@ CommerceHandler.prototype.buildAddToCart = function(event) {
             ecommerce: {
                 currencyCode: event.CurrencyCode || 'USD',
                 add: {
-                    products: buildProductsList(event.ProductAction.ProductList)
-                }
-            }
-        }
+                    products: buildProductsList(
+                        event.ProductAction.ProductList
+                    ),
+                },
+            },
+        },
     };
 };
 CommerceHandler.prototype.buildCheckout = function(event) {
@@ -41,12 +43,14 @@ CommerceHandler.prototype.buildCheckout = function(event) {
                 checkout: {
                     actionField: {
                         step: event.ProductAction.CheckoutStep,
-                        option: event.ProductAction.CheckoutOptions
+                        option: event.ProductAction.CheckoutOptions,
                     },
-                    products: buildProductsList(event.ProductAction.ProductList)
-                }
-            }
-        }
+                    products: buildProductsList(
+                        event.ProductAction.ProductList
+                    ),
+                },
+            },
+        },
     };
 };
 CommerceHandler.prototype.buildCheckoutOption = function(event) {
@@ -58,12 +62,14 @@ CommerceHandler.prototype.buildCheckoutOption = function(event) {
                 checkout_option: {
                     actionField: {
                         step: event.ProductAction.CheckoutStep,
-                        option: event.ProductAction.CheckoutOptions
+                        option: event.ProductAction.CheckoutOptions,
                     },
-                    products: buildProductsList(event.ProductAction.ProductList)
-                }
-            }
-        }
+                    products: buildProductsList(
+                        event.ProductAction.ProductList
+                    ),
+                },
+            },
+        },
     };
 };
 CommerceHandler.prototype.buildRemoveFromCart = function(event) {
@@ -74,10 +80,12 @@ CommerceHandler.prototype.buildRemoveFromCart = function(event) {
             ecommerce: {
                 currencyCode: event.CurrencyCode || 'USD',
                 remove: {
-                    products: buildProductsList(event.ProductAction.ProductList)
-                }
-            }
-        }
+                    products: buildProductsList(
+                        event.ProductAction.ProductList
+                    ),
+                },
+            },
+        },
     };
 };
 CommerceHandler.prototype.buildImpression = function(event, impression) {
@@ -87,9 +95,9 @@ CommerceHandler.prototype.buildImpression = function(event, impression) {
         eventPayload: {
             ecommerce: {
                 currencyCode: event.CurrencyCode || 'USD',
-                impressions: buildProductsList(impression.ProductList)
-            }
-        }
+                impressions: buildProductsList(impression.ProductList),
+            },
+        },
     };
 };
 CommerceHandler.prototype.buildProductClick = function(event) {
@@ -106,10 +114,12 @@ CommerceHandler.prototype.buildProductClick = function(event) {
             ecommerce: {
                 click: {
                     actionField: actionField,
-                    products: buildProductsList(event.ProductAction.ProductList)
-                }
-            }
-        }
+                    products: buildProductsList(
+                        event.ProductAction.ProductList
+                    ),
+                },
+            },
+        },
     };
 };
 CommerceHandler.prototype.buildProductViewDetail = function(event) {
@@ -126,10 +136,12 @@ CommerceHandler.prototype.buildProductViewDetail = function(event) {
             ecommerce: {
                 detail: {
                     actionField: actionField,
-                    products: buildProductsList(event.ProductAction.ProductList)
-                }
-            }
-        }
+                    products: buildProductsList(
+                        event.ProductAction.ProductList
+                    ),
+                },
+            },
+        },
     };
 };
 CommerceHandler.prototype.buildPromoClick = function(event) {
@@ -141,10 +153,10 @@ CommerceHandler.prototype.buildPromoClick = function(event) {
                 promoClick: {
                     promotions: buildPromoList(
                         event.PromotionAction.PromotionList
-                    )
-                }
-            }
-        }
+                    ),
+                },
+            },
+        },
     };
 };
 CommerceHandler.prototype.buildPromoView = function(event) {
@@ -156,10 +168,10 @@ CommerceHandler.prototype.buildPromoView = function(event) {
                 promoView: {
                     promotions: buildPromoList(
                         event.PromotionAction.PromotionList
-                    )
-                }
-            }
-        }
+                    ),
+                },
+            },
+        },
     };
 };
 CommerceHandler.prototype.buildPurchase = function(event) {
@@ -176,12 +188,12 @@ CommerceHandler.prototype.buildPurchase = function(event) {
                         revenue: productAction.TotalAmount || '',
                         tax: productAction.TaxAmount || '',
                         shipping: productAction.ShippingAmount || '',
-                        coupon: productAction.CouponCode || ''
+                        coupon: productAction.CouponCode || '',
                     },
-                    products: buildProductsList(productAction.ProductList)
-                }
-            }
-        }
+                    products: buildProductsList(productAction.ProductList),
+                },
+            },
+        },
     };
 };
 CommerceHandler.prototype.buildRefund = function(event) {
@@ -194,12 +206,14 @@ CommerceHandler.prototype.buildRefund = function(event) {
             ecommerce: {
                 refund: {
                     actionField: {
-                        id: event.ProductAction.TransactionId || ''
+                        id: event.ProductAction.TransactionId || '',
                     },
-                    products: buildProductsList(event.ProductAction.ProductList)
-                }
-            }
-        }
+                    products: buildProductsList(
+                        event.ProductAction.ProductList
+                    ),
+                },
+            },
+        },
     };
 };
 CommerceHandler.prototype.logCommerceEvent = function(event) {
@@ -261,13 +275,16 @@ CommerceHandler.prototype.logCommerceEvent = function(event) {
 
 // Utility function
 function toUnderscore(string) {
-    return string.split(/(?=[A-Z])/).join('_').toLowerCase();
-};
+    return string
+        .split(/(?=[A-Z])/)
+        .join('_')
+        .toLowerCase();
+}
 
 function parseProduct(_product) {
     var product = {};
 
-    for(var key in _product) {
+    for (var key in _product) {
         if (key === 'Sku') {
             product.id = _product.Sku;
         } else {
