@@ -480,3 +480,22 @@ jobs:
               with:
                   name: npm-logs-publish-${{ matrix.kit.name }}
                   path: ~/.npm/_logs
+
+    cleanup:
+        name: Delete release branch
+        runs-on: ubuntu-latest
+        if: ${{ github.event.inputs.dryRun == 'false' }}
+        needs:
+            - release
+            - release-kits
+        env:
+            GITHUB_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
+        steps:
+            - name: Checkout staging branch
+              uses: actions/checkout@v6
+              with:
+                  ref: staging
+
+            - name: Delete release branch
+              run: |
+                  git push --delete origin release/${{ github.run_number }}
