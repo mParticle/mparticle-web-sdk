@@ -2,5 +2,9 @@
   {
     "name": "Amplitude 8",
     "local_path": "kits/amplitude/amplitude-8"
+  },
+  {
+    "name": "Optimizely",
+    "local_path": "kits/optimizely"
   }
 ]
