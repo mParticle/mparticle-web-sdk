@@ -1,0 +1,55 @@
+{
+  "name": "@mparticle/web-amplitude-kit-8",
+  "version": "2.3.0",
+  "author": "mParticle Developers (https://www.mparticle.com)",
+  "description": "mParticle integration SDK for Amplitude",
+  "main": "dist/Amplitude.common.js",
+  "module": "dist/Amplitude.esm.js",
+  "files": [
+    "dist/Amplitude.common.js",
+    "dist/Amplitude.esm.js",
+    "dist/Amplitude.iife.js"
+  ],
+  "homepage": "https://github.com/mParticle/mparticle-web-sdk/tree/master/kits/amplitude/amplitude-8#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mParticle/mparticle-web-sdk.git",
+    "directory": "kits/amplitude/amplitude-8"
+  },
+  "scripts": {
+    "build": "rollup --config rollup.config.js",
+    "build:test": "rollup --config rollup.test.config.js",
+    "test": "npm run build && npm run build:test && cross-env DEBUG=false karma start test/karma.config.js",
+    "test:debug": "npm run build && npm run build:test && cross-env DEBUG=true karma start test/karma.config.js",
+    "watch": "rollup --config rollup.config.js -w",
+    "lint": "eslint src/"
+  },
+  "peerDependencies": {
+    "@mparticle/web-sdk": "^2.0.0"
+  },
+  "devDependencies": {
+    "@mparticle/web-sdk": "^2.58.0",
+    "chai": "^4.2.0",
+    "cross-env": "^7.0.3",
+    "eslint": "^8.36.0",
+    "eslint-config-prettier": "9.0.0",
+    "eslint-plugin-prettier": "3.4.1",
+    "karma": "^6.3.2",
+    "karma-chai": "^0.1.0",
+    "karma-chrome-launcher": "^3.1.0",
+    "karma-firefox-launcher": "^2.1.2",
+    "karma-mocha": "^2.0.1",
+    "mocha": "^9.0.0",
+    "prettier": "^2.2.1",
+    "rollup": "^2.75.7",
+    "rollup-plugin-commonjs": "^10.0.0",
+    "rollup-plugin-node-resolve": "^5.0.1",
+    "should": "^7.1.1"
+  },
+  "license": "Apache-2.0",
+  "publishConfig": {
+      "access": "public",
+      "provenance": true,
+      "registry": "https://registry.npmjs.org"
+  }
+}
