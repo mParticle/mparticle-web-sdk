@@ -30,5 +30,11 @@ Each kit has its own README with installation and configuration steps.
 ## Integrations Not in This Repository
 
 Integrations that are not maintained directly by mParticle are not currently
-included in this repository. These may live in separate, partner- or
-community-maintained repositories.
+included in this repository. For installation guidance, see the
+[Web kits documentation](https://docs.mparticle.com/developers/client-sdks/web/kits/).
+
+| Kit | Repository |
+| --- | --- |
+| Branch | [BranchMetrics/mparticle-javascript-integration-branch](https://github.com/BranchMetrics/mparticle-javascript-integration-branch) |
+| Singular | [singular-labs/mparticle-javascript-integration-singular](https://github.com/singular-labs/mparticle-javascript-integration-singular) |
+| CleverTap | [CleverTap/mparticle-web-integration-clevertap](https://github.com/CleverTap/mparticle-web-integration-clevertap) |
