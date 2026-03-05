@@ -2,5 +2,9 @@
   {
     "name": "Amplitude 8",
     "local_path": "kits/amplitude/amplitude-8"
+  },
+  {
+    "name": "Facebook",
+    "local_path": "kits/facebook"
   }
 ]
