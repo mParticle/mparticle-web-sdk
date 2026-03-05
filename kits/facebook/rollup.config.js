@@ -9,14 +9,14 @@ export default [
             format: 'iife',
             exports: 'named',
             name: 'mpFacebookKit',
-            strict: false
+            strict: false,
         },
         plugins: [
             resolve({
-                browser: true
+                browser: true,
             }),
-            commonjs()
-        ]
+            commonjs(),
+        ],
     },
     {
         input: 'src/FacebookEventForwarder.js',
@@ -25,14 +25,14 @@ export default [
             format: 'cjs',
             exports: 'named',
             name: 'mpFacebookKit',
-            strict: false
+            strict: false,
         },
         plugins: [
             resolve({
-                browser: true
+                browser: true,
             }),
-            commonjs()
-        ]
+            commonjs(),
+        ],
     },
     {
         input: 'src/FacebookEventForwarder.js',
@@ -41,13 +41,13 @@ export default [
             format: 'esm',
             exports: 'named',
             name: 'mpFacebookKit',
-            strict: false
+            strict: false,
         },
         plugins: [
             resolve({
-                browser: true
+                browser: true,
             }),
-            commonjs()
-        ]
-    }
-]
+            commonjs(),
+        ],
+    },
+];

@@ -57,7 +57,7 @@ var name = 'Facebook',
     PURCHASE_EVENT_NAME = 'Purchase',
     REMOVE_FROM_CART_EVENT_NAME = 'RemoveFromCart',
     VIEW_CONTENT_EVENT_NAME = 'ViewContent',
-    constructor = function () {
+    constructor = function() {
         var self = this,
             isInitialized = false,
             reportingService = null,
@@ -66,7 +66,14 @@ var name = 'Facebook',
 
         self.name = name;
 
-        function initForwarder(forwarderSettings, service, testMode, trackerId, userAttributes, userIdentities) {
+        function initForwarder(
+            forwarderSettings,
+            service,
+            testMode,
+            trackerId,
+            userAttributes,
+            userIdentities
+        ) {
             settings = forwarderSettings;
             reportingService = service;
 
@@ -76,29 +83,55 @@ var name = 'Facebook',
                 mParticle.ProductActionType.AddToCart,
                 mParticle.ProductActionType.RemoveFromCart,
                 mParticle.ProductActionType.AddToWishlist,
-                mParticle.ProductActionType.ViewDetail
+                mParticle.ProductActionType.ViewDetail,
             ];
 
             try {
                 if (!testMode) {
-                    !function (f, b, e, v, n, t, s) {
-                        if (f.fbq) return; n = f.fbq = function () { n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments); }; if (!f._fbq) f._fbq = n;
-                        n.push = n; n.loaded = !0; n.version = '2.0'; n.queue = []; t = b.createElement(e); t.async = !0; t.src = v; s = b.getElementsByTagName(e)[0];
+                    !(function(f, b, e, v, n, t, s) {
+                        if (f.fbq) return;
+                        n = f.fbq = function() {
+                            n.callMethod
+                                ? n.callMethod.apply(n, arguments)
+                                : n.queue.push(arguments);
+                        };
+                        if (!f._fbq) f._fbq = n;
+                        n.push = n;
+                        n.loaded = !0;
+                        n.version = '2.0';
+                        n.queue = [];
+                        t = b.createElement(e);
+                        t.async = !0;
+                        t.src = v;
+                        s = b.getElementsByTagName(e)[0];
                         s.parentNode.insertBefore(t, s);
-                    } (window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
+                    })(
+                        window,
+                        document,
+                        'script',
+                        'https://connect.facebook.net/en_US/fbevents.js'
+                    );
 
                     var visitorData = {};
 
-                    if(settings.externalUserIdentityType && userIdentities && userIdentities.length > 0) {
-                        var selectedType = IdentityType[settings.externalUserIdentityType];
-                        var selectedIdentity = userIdentities.filter(function (identityElement) {
+                    if (
+                        settings.externalUserIdentityType &&
+                        userIdentities &&
+                        userIdentities.length > 0
+                    ) {
+                        var selectedType =
+                            IdentityType[settings.externalUserIdentityType];
+                        var selectedIdentity = userIdentities.filter(function(
+                            identityElement
+                        ) {
                             if (identityElement.Type === selectedType) {
                                 return identityElement.Identity;
                             }
-                        })
+                        });
 
                         if (selectedIdentity.length > 0) {
-                            visitorData['external_id'] = selectedIdentity[0].Identity;
+                            visitorData['external_id'] =
+                                selectedIdentity[0].Identity;
                         }
                     }
                 }
@@ -110,42 +143,40 @@ var name = 'Facebook',
                     fbq.disablePushState = true;
                 }
                 fbq('init', settings.pixelId, visitorData);
-                
+
                 loadMappings();
 
                 isInitialized = true;
 
                 return 'Successfully initialized: ' + name;
-
-            }
-            catch (e) {
-                return 'Can\'t initialize forwarder: ' + name + ':' + e;
+            } catch (e) {
+                return "Can't initialize forwarder: " + name + ':' + e;
             }
         }
 
         function loadMappings() {
             productAttributeMapping = settings.productAttributeMapping
-            ? JSON.parse(settings.productAttributeMapping.replace(/&quot;/g, '"'))
-            : [];
+                ? JSON.parse(
+                      settings.productAttributeMapping.replace(/&quot;/g, '"')
+                  )
+                : [];
         }
 
         function processEvent(event) {
             var reportEvent = false;
 
             if (!isInitialized) {
-                return 'Can\'t send forwarder ' + name + ', not initialized';
+                return "Can't send forwarder " + name + ', not initialized';
             }
 
             try {
                 if (event.EventDataType == MessageType.PageView) {
                     reportEvent = true;
                     logPageView(event);
-                }
-                else if (event.EventDataType == MessageType.PageEvent) {
+                } else if (event.EventDataType == MessageType.PageEvent) {
                     reportEvent = true;
                     logPageEvent(event);
-                }
-                else if (event.EventDataType == MessageType.Commerce) {
+                } else if (event.EventDataType == MessageType.Commerce) {
                     reportEvent = logCommerceEvent(event);
                 }
 
@@ -154,22 +185,26 @@ var name = 'Facebook',
                 }
 
                 return 'Successfully sent to forwarder ' + name;
-            }
-            catch (error) {
-                return 'Can\'t send to forwarder: ' + name + ' ' + error;
+            } catch (error) {
+                return "Can't send to forwarder: " + name + ' ' + error;
             }
         }
 
         function logCommerceEvent(event) {
-            if (event.ProductAction &&
+            if (
+                event.ProductAction &&
                 event.ProductAction.ProductList &&
                 event.ProductAction.ProductActionType &&
-                SupportedCommerceTypes.indexOf(event.ProductAction.ProductActionType) > -1) {
+                SupportedCommerceTypes.indexOf(
+                    event.ProductAction.ProductActionType
+                ) > -1
+            ) {
                 var eventName,
                     totalValue,
                     params = cloneEventAttributes(event),
                     eventID = createEventId(event),
-                    sendProductNamesAsContents = settings.sendProductNamesasContents || false;
+                    sendProductNamesAsContents =
+                        settings.sendProductNamesasContents || false;
 
                 params['currency'] = event.CurrencyCode || 'USD';
 
@@ -177,12 +212,15 @@ var name = 'Facebook',
                     params['content_name'] = event.EventName;
                 }
 
-                var productSkus = event.ProductAction.ProductList.reduce(function (arr, curr) {
-                    if (curr.Sku) {
-                        arr.push(curr.Sku);
-                    }
-                    return arr;
-                }, []);
+                var productSkus = event.ProductAction.ProductList.reduce(
+                    function(arr, curr) {
+                        if (curr.Sku) {
+                            arr.push(curr.Sku);
+                        }
+                        return arr;
+                    },
+                    []
+                );
 
                 if (productSkus && productSkus.length > 0) {
                     params['content_ids'] = productSkus;
@@ -190,7 +228,9 @@ var name = 'Facebook',
 
                 // Override content_name with product names array if setting enabled
                 if (sendProductNamesAsContents) {
-                    var productNames = buildProductNames(event.ProductAction.ProductList);
+                    var productNames = buildProductNames(
+                        event.ProductAction.ProductList
+                    );
                     if (productNames && productNames.length > 0) {
                         params['content_name'] = productNames;
                     }
@@ -202,64 +242,99 @@ var name = 'Facebook',
                 }
 
                 // Build contents array
-                var contents = buildProductContents(event.ProductAction.ProductList);
+                var contents = buildProductContents(
+                    event.ProductAction.ProductList
+                );
                 if (contents && contents.length > 0) {
                     params['contents'] = contents;
                 }
 
-                if (event.ProductAction.ProductActionType == mParticle.ProductActionType.AddToWishlist ||
-                    event.ProductAction.ProductActionType == mParticle.ProductActionType.Checkout) {
+                if (
+                    event.ProductAction.ProductActionType ==
+                        mParticle.ProductActionType.AddToWishlist ||
+                    event.ProductAction.ProductActionType ==
+                        mParticle.ProductActionType.Checkout
+                ) {
                     var eventCategory = getEventCategoryString(event);
                     if (eventCategory) {
                         params['content_category'] = eventCategory;
                     }
-                    if (event.ProductAction.ProductActionType == mParticle.ProductActionType.Checkout && event.ProductAction.CheckoutStep) {
-                        params['checkout_step'] = event.ProductAction.CheckoutStep;
+                    if (
+                        event.ProductAction.ProductActionType ==
+                            mParticle.ProductActionType.Checkout &&
+                        event.ProductAction.CheckoutStep
+                    ) {
+                        params['checkout_step'] =
+                            event.ProductAction.CheckoutStep;
                     }
                 }
 
-                if (event.ProductAction.ProductActionType == mParticle.ProductActionType.AddToCart ||
-                    event.ProductAction.ProductActionType == mParticle.ProductActionType.AddToWishlist ||
-                    event.ProductAction.ProductActionType == mParticle.ProductActionType.ViewDetail) {
-
-                    totalValue = event.ProductAction.ProductList.reduce(function(sum, product){
-                        if (isNumeric(product.Price) && isNumeric(product.Quantity)) {
-                            sum += product.Price * product.Quantity;
-                        }
-                        return sum;
-                    }, 0);
+                if (
+                    event.ProductAction.ProductActionType ==
+                        mParticle.ProductActionType.AddToCart ||
+                    event.ProductAction.ProductActionType ==
+                        mParticle.ProductActionType.AddToWishlist ||
+                    event.ProductAction.ProductActionType ==
+                        mParticle.ProductActionType.ViewDetail
+                ) {
+                    totalValue = event.ProductAction.ProductList.reduce(
+                        function(sum, product) {
+                            if (
+                                isNumeric(product.Price) &&
+                                isNumeric(product.Quantity)
+                            ) {
+                                sum += product.Price * product.Quantity;
+                            }
+                            return sum;
+                        },
+                        0
+                    );
 
                     params['value'] = totalValue;
 
-                    if (event.ProductAction.ProductActionType == mParticle.ProductActionType.AddToWishlist){
+                    if (
+                        event.ProductAction.ProductActionType ==
+                        mParticle.ProductActionType.AddToWishlist
+                    ) {
                         eventName = ADD_TO_WISHLIST_EVENT_NAME;
-                    }
-                    else if (event.ProductAction.ProductActionType == mParticle.ProductActionType.AddToCart){
+                    } else if (
+                        event.ProductAction.ProductActionType ==
+                        mParticle.ProductActionType.AddToCart
+                    ) {
                         eventName = ADD_TO_CART_EVENT_NAME;
-                    }
-                    else{
+                    } else {
                         eventName = VIEW_CONTENT_EVENT_NAME;
                     }
-
-                }
-                else if (event.ProductAction.ProductActionType == mParticle.ProductActionType.Checkout ||
-                        event.ProductAction.ProductActionType == mParticle.ProductActionType.Purchase) {
-
-                    eventName = event.ProductAction.ProductActionType == mParticle.ProductActionType.Checkout ? CHECKOUT_EVENT_NAME : PURCHASE_EVENT_NAME;
+                } else if (
+                    event.ProductAction.ProductActionType ==
+                        mParticle.ProductActionType.Checkout ||
+                    event.ProductAction.ProductActionType ==
+                        mParticle.ProductActionType.Purchase
+                ) {
+                    eventName =
+                        event.ProductAction.ProductActionType ==
+                        mParticle.ProductActionType.Checkout
+                            ? CHECKOUT_EVENT_NAME
+                            : PURCHASE_EVENT_NAME;
 
                     if (event.ProductAction.TotalAmount) {
                         params['value'] = event.ProductAction.TotalAmount;
                     }
 
-                    var num_items = event.ProductAction.ProductList.reduce(function(sum, product){
-                        if (isNumeric(product.Quantity)) {
-                            sum += product.Quantity;
-                        }
-                        return sum;
-                    }, 0);
+                    var num_items = event.ProductAction.ProductList.reduce(
+                        function(sum, product) {
+                            if (isNumeric(product.Quantity)) {
+                                sum += product.Quantity;
+                            }
+                            return sum;
+                        },
+                        0
+                    );
                     params['num_items'] = num_items;
-                }
-                else if (event.ProductAction.ProductActionType == mParticle.ProductActionType.RemoveFromCart) {
+                } else if (
+                    event.ProductAction.ProductActionType ==
+                    mParticle.ProductActionType.RemoveFromCart
+                ) {
                     eventName = REMOVE_FROM_CART_EVENT_NAME;
 
                     // remove from cart can be performed in 1 of 2 ways:
@@ -269,24 +344,31 @@ var name = 'Facebook',
                     if (event.ProductAction.TotalAmount) {
                         totalValue = event.ProductAction.TotalAmount;
                     } else {
-                        totalValue = event.ProductAction.ProductList.reduce(function(sum, product) {
-                            if (isNumeric(product.TotalAmount)) {
-                                sum += product.TotalAmount;
-                            }
-                            return sum;
-                        }, 0);
+                        totalValue = event.ProductAction.ProductList.reduce(
+                            function(sum, product) {
+                                if (isNumeric(product.TotalAmount)) {
+                                    sum += product.TotalAmount;
+                                }
+                                return sum;
+                            },
+                            0
+                        );
                     }
 
                     params['value'] = totalValue;
 
-                    fbq('trackCustom', eventName || 'customEvent', params, eventID);
+                    fbq(
+                        'trackCustom',
+                        eventName || 'customEvent',
+                        params,
+                        eventID
+                    );
                     return true;
                 }
 
                 if (eventName) {
                     fbq('track', eventName, params, eventID);
-                }
-                else {
+                } else {
                     return false;
                 }
 
@@ -317,8 +399,7 @@ var name = 'Facebook',
             if (event && event.EventAttributes) {
                 try {
                     attr = JSON.parse(JSON.stringify(event.EventAttributes));
-                }
-                catch (e) {
+                } catch (e) {
                     //
                 }
             }
@@ -330,20 +411,21 @@ var name = 'Facebook',
         }
 
         function getEventCategoryString(event) {
-
             var enumTypeValues;
             var enumValue;
             if (event.EventDataType == MessageType.Commerce) {
-                enumTypeValues = event.EventCategory ? mParticle.CommerceEventType : mParticle.ProductActionType;
-                enumValue = event.EventCategory || event.ProductAction.ProductActionType;
-            }
-            else {
+                enumTypeValues = event.EventCategory
+                    ? mParticle.CommerceEventType
+                    : mParticle.ProductActionType;
+                enumValue =
+                    event.EventCategory ||
+                    event.ProductAction.ProductActionType;
+            } else {
                 enumTypeValues = mParticle.EventType;
                 enumValue = event.EventCategory;
             }
 
             if (enumTypeValues && enumValue) {
-
                 for (var category in enumTypeValues) {
                     if (enumValue == enumTypeValues[category]) {
                         return category;
@@ -357,7 +439,7 @@ var name = 'Facebook',
         /**
          * Builds contents array for Facebook Pixel commerce events.
          * Creates a nested array of content items with product details.
-         * 
+         *
          * @param {Array} productList - Array of products from event.ProductAction.ProductList
          * @returns {Array} Array of content objects for Facebook Pixel
          */
@@ -365,7 +447,7 @@ var name = 'Facebook',
             if (!productList || productList.length === 0) {
                 return [];
             }
-        
+
             return productList
                 .filter(function(product) {
                     return product && product.Sku;
@@ -373,33 +455,44 @@ var name = 'Facebook',
                 .map(function(product) {
                     var contentItem = {
                         id: product.Sku,
-                        quantity: isNumeric(product.Quantity) ? product.Quantity : 1,
+                        quantity: isNumeric(product.Quantity)
+                            ? product.Quantity
+                            : 1,
                         name: product.Name,
                         brand: product.Brand,
                         category: product.Category,
                         variant: product.Variant,
-                        item_price: isNumeric(product.Price) ? product.Price : null
+                        item_price: isNumeric(product.Price)
+                            ? product.Price
+                            : null,
                     };
-        
+
                     // Apply configured mappings to custom attributes
                     productAttributeMapping.forEach(function(productMapping) {
-                        if (!isobject(productMapping) || !productMapping.map || !productMapping.value) {
+                        if (
+                            !isobject(productMapping) ||
+                            !productMapping.map ||
+                            !productMapping.value
+                        ) {
                             return;
                         }
-                        
+
                         var sourceField = productMapping.map;
                         var facebookFieldName = productMapping.value;
                         var value = null;
-                        
+
                         // Check for Product level field first
                         if (product.hasOwnProperty(sourceField)) {
                             value = product[sourceField];
                         }
                         // then check for Product.Attributes level field
-                        else if (product.Attributes && product.Attributes[sourceField]) {
+                        else if (
+                            product.Attributes &&
+                            product.Attributes[sourceField]
+                        ) {
                             value = product.Attributes[sourceField];
                         }
-                        
+
                         if (value !== null && value !== undefined) {
                             contentItem[facebookFieldName] = value;
                         }
@@ -411,8 +504,8 @@ var name = 'Facebook',
         // https://developers.facebook.com/docs/marketing-api/conversions-api/deduplicate-pixel-and-server-events#event-deduplication-options
         function createEventId(event) {
             return {
-                eventID: event.SourceMessageId || null
-            }
+                eventID: event.SourceMessageId || null,
+            };
         }
 
         /**
@@ -424,13 +517,13 @@ var name = 'Facebook',
             if (!productList || productList.length === 0) {
                 return [];
             }
-            
+
             return productList
-                .filter(function(product) { 
-                    return product && product.Name; 
+                .filter(function(product) {
+                    return product && product.Name;
                 })
-                .map(function(product) { 
-                    return product.Name; 
+                .map(function(product) {
+                    return product.Name;
                 });
         }
 
@@ -444,26 +537,32 @@ function getId() {
 
 function register(config) {
     if (!config) {
-        console.log('You must pass a config object to register the kit ' + name);
+        console.log(
+            'You must pass a config object to register the kit ' + name
+        );
         return;
     }
 
     if (!isobject(config)) {
-        console.log('\'config\' must be an object. You passed in a ' + typeof config);
+        console.log(
+            "'config' must be an object. You passed in a " + typeof config
+        );
         return;
     }
 
     if (isobject(config.kits)) {
         config.kits[name] = {
-            constructor: constructor
+            constructor: constructor,
         };
     } else {
         config.kits = {};
         config.kits[name] = {
-            constructor: constructor
+            constructor: constructor,
         };
     }
-    console.log('Successfully registered ' + name + ' to your mParticle configuration');
+    console.log(
+        'Successfully registered ' + name + ' to your mParticle configuration'
+    );
 }
 
 if (typeof window !== 'undefined') {
@@ -471,11 +570,11 @@ if (typeof window !== 'undefined') {
         window.mParticle.addForwarder({
             name: name,
             constructor: constructor,
-            getId: getId
+            getId: getId,
         });
     }
 }
 
 module.exports = {
-    register: register
+    register: register,
 };
