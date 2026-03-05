@@ -8,7 +8,7 @@ UserAttributeHandler.prototype.onRemoveUserAttribute = function(key) {
         attribute[key] = null;
         window['optimizely'].push({
             type: 'user',
-            attributes: attribute
+            attributes: attribute,
         });
     }
     if (this.common.useFullStack && window.optimizelyClientInstance) {
@@ -23,13 +23,13 @@ UserAttributeHandler.prototype.onSetUserAttribute = function(key, value) {
         attribute[key] = value;
         window['optimizely'].push({
             type: 'user',
-            attributes: attribute
+            attributes: attribute,
         });
     }
     if (this.common.useFullStack && window.optimizelyClientInstance) {
         var self = this;
         self.common.userAttributes[key] = value;
-    }    
+    }
 };
 
 module.exports = UserAttributeHandler;

@@ -2,14 +2,28 @@ var optimizelyWebXEvents = require('./optimizely-x-defined-events');
 var optimizelyFullStackEvents = require('./optimizely-fs-defined-events');
 var helpers = require('./helpers');
 
-var optimizelyFsSdkUrl = 'https://unpkg.com/@optimizely/optimizely-sdk@3.5.0/dist/optimizely.browser.umd.min.js',
+var optimizelyFsSdkUrl =
+        'https://unpkg.com/@optimizely/optimizely-sdk@3.5.0/dist/optimizely.browser.umd.min.js',
     dataFilePrefix = 'https://cdn.optimizely.com/datafiles/',
     dataFileURLending = '.json/tag.js';
 
 var initialization = {
     name: 'Optimizely',
     moduleId: 54,
-    initForwarder: function(settings, testMode, userAttributes, userIdentities, processEvent, eventQueue, isInitialized, common, appVersion, appName, customFlags, clientId) {
+    initForwarder: function(
+        settings,
+        testMode,
+        userAttributes,
+        userIdentities,
+        processEvent,
+        eventQueue,
+        isInitialized,
+        common,
+        appVersion,
+        appName,
+        customFlags,
+        clientId
+    ) {
         common.useFullStack = settings.useFullStack === 'True';
 
         if (!testMode) {
@@ -17,8 +31,14 @@ var initialization = {
                 var optimizelyScript = document.createElement('script');
                 optimizelyScript.type = 'text/javascript';
                 optimizelyScript.async = true;
-                optimizelyScript.src = 'https://cdn.optimizely.com/js/' + settings.projectId + '.js';
-                (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(optimizelyScript);
+                optimizelyScript.src =
+                    'https://cdn.optimizely.com/js/' +
+                    settings.projectId +
+                    '.js';
+                (
+                    document.getElementsByTagName('head')[0] ||
+                    document.getElementsByTagName('body')[0]
+                ).appendChild(optimizelyScript);
                 optimizelyScript.onload = function() {
                     isInitialized = true;
 
@@ -41,39 +61,40 @@ var initialization = {
                 common.userAttributes = userAttributes;
                 var errorHandler = function() {};
 
-                if (customFlags && customFlags['OptimizelyFullStack.ErrorHandler']) {
-                    errorHandler = customFlags['OptimizelyFullStack.ErrorHandler'];
+                if (
+                    customFlags &&
+                    customFlags['OptimizelyFullStack.ErrorHandler']
+                ) {
+                    errorHandler =
+                        customFlags['OptimizelyFullStack.ErrorHandler'];
                 }
 
                 var instantiateFSClient = function() {
-                    window.optimizelyClientInstance = window.optimizelySdk.createInstance({
-                        datafile: window.optimizelyDatafile,
-                        errorHandler: {handleError: errorHandler}
-                    });
+                    window.optimizelyClientInstance = window.optimizelySdk.createInstance(
+                        {
+                            datafile: window.optimizelyDatafile,
+                            errorHandler: { handleError: errorHandler },
+                        }
+                    );
 
-                    window.optimizelyClientInstance.onReady().then(function(){
+                    window.optimizelyClientInstance.onReady().then(function() {
                         isInitialized = true;
                         loadFullStackEvents();
-                    });  
-                }
+                    });
+                };
 
-                helpers.loadScript(optimizelyFsSdkUrl,
-                    function() {
-                        helpers.loadScript(
-                          dataFilePrefix +
-                            settings.projectId +
-                            dataFileURLending,
-                          instantiateFSClient
-                        );
-                    }
-                );
-
+                helpers.loadScript(optimizelyFsSdkUrl, function() {
+                    helpers.loadScript(
+                        dataFilePrefix + settings.projectId + dataFileURLending,
+                        instantiateFSClient
+                    );
+                });
             } else {
                 isInitialized = true;
                 common.userIdField = settings.userIdField;
                 common.userAttributes = userAttributes;
                 loadFullStackEvents();
-            }            
+            }
         } else {
             isInitialized = true;
             if (!common.useFullStack) {
@@ -85,7 +106,7 @@ var initialization = {
                 loadFullStackEvents();
             }
         }
-    }
+    },
 };
 
 function loadWebXEventsAndPages() {
@@ -111,11 +132,13 @@ function loadWebXEventsAndPages() {
 
 function loadFullStackEvents() {
     var fullStackData,
-    fullStackEvents = {};
-
+        fullStackEvents = {};
 
     if (window.optimizelyDatafile) {
-        fullStackData = helpers.arrayToObject(window.optimizelyDatafile.events, 'id');
+        fullStackData = helpers.arrayToObject(
+            window.optimizelyDatafile.events,
+            'id'
+        );
 
         for (var event in fullStackData) {
             fullStackEvents[fullStackData[event].key] = 1;

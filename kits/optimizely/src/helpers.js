@@ -4,7 +4,7 @@ var helpers = {
             obj[item[keyField]] = item;
             return obj;
         }, {});
-    return newObj;
+        return newObj;
     },
     loadScript: function(src, callback) {
         var script = document.createElement('script');
@@ -17,7 +17,7 @@ var helpers = {
         var identities = window.mParticle.Identity.getCurrentUser().getUserIdentities();
         var userIdentities = identities['userIdentities'];
         var userId;
-        switch(userIdField) {
+        switch (userIdField) {
             // The server returns `customerId` as part of the `userIdField` setting
             // but the API for identity requies it to be cased as `customerid`
             case 'customerId':
