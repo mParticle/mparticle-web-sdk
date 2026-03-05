@@ -3,14 +3,14 @@ var common = require('./common');
 var eventCounterTypes = {
     standard: 1,
     unique: 1,
-    per_session: 1
+    per_session: 1,
 };
 
 function EventHandler(common) {
     this.common = common || {};
 }
 
-EventHandler.prototype.logEvent = function (event) {
+EventHandler.prototype.logEvent = function(event) {
     var eventConsentState = this.common.getEventConsentState(
         event.ConsentState
     );

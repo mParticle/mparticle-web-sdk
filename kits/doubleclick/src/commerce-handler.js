@@ -1,6 +1,6 @@
 var salesCounterTypes = {
     transactions: 1,
-    items_sold: 1
+    items_sold: 1,
 };
 var ITEMS_SOLD = 'items_sold';
 

@@ -30,7 +30,7 @@ Common.prototype.setCustomFields = function(event, gtagProperties) {
         }
     }
     if (hasMappings) {
-        gtagProperties["dc_custom_params"] = dc_custom_params;
+        gtagProperties['dc_custom_params'] = dc_custom_params;
     }
 };
 Common.prototype.setSendTo = function(mapping, customFlags, gtagProperties) {
@@ -61,20 +61,20 @@ Common.prototype.sendGtag = function(type, properties, isInitialization) {
     }
 };
 
-Common.prototype.sendGtagConsent = function (type, payload) {
+Common.prototype.sendGtagConsent = function(type, payload) {
     function gtag() {
         window.dataLayer.push(arguments);
     }
     gtag('consent', type, payload);
 };
 
-Common.prototype.getEventConsentState = function (eventConsentState) {
+Common.prototype.getEventConsentState = function(eventConsentState) {
     return eventConsentState && eventConsentState.getGDPRConsentState
         ? eventConsentState.getGDPRConsentState()
         : {};
 };
 
-Common.prototype.maybeSendConsentUpdateToGoogle = function (consentState) {
+Common.prototype.maybeSendConsentUpdateToGoogle = function(consentState) {
     // If consent payload is empty,
     // we never sent an initial default consent state
     // so we shouldn't send an update.
@@ -83,11 +83,10 @@ Common.prototype.maybeSendConsentUpdateToGoogle = function (consentState) {
         this.consentMappings &&
         !this.isEmpty(consentState)
     ) {
-        var updatedConsentPayload =
-            this.consentHandler.generateConsentStatePayloadFromMappings(
-                consentState,
-                this.consentMappings
-            );
+        var updatedConsentPayload = this.consentHandler.generateConsentStatePayloadFromMappings(
+            consentState,
+            this.consentMappings
+        );
 
         var eventConsentAsString = JSON.stringify(updatedConsentPayload);
 
@@ -98,13 +97,13 @@ Common.prototype.maybeSendConsentUpdateToGoogle = function (consentState) {
     }
 };
 
-Common.prototype.sendDefaultConsentPayloadToGoogle = function (consentPayload) {
+Common.prototype.sendDefaultConsentPayloadToGoogle = function(consentPayload) {
     this.consentPayloadAsString = JSON.stringify(consentPayload);
 
     this.sendGtagConsent('default', consentPayload);
 };
 
-Common.prototype.cloneObject = function (obj) {
+Common.prototype.cloneObject = function(obj) {
     return JSON.parse(JSON.stringify(obj));
 };
 
@@ -126,14 +125,14 @@ function findValueInMapping(jsHash, mapping) {
             }
 
             return {
-                result: false
+                result: false,
             };
         });
 
         if (filteredArray && filteredArray.length > 0) {
             return {
                 result: true,
-                match: filteredArray[0]
+                match: filteredArray[0],
             };
         }
     }

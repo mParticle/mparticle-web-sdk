@@ -1,7 +1,16 @@
 var initialization = {
     name: 'DoubleclickDFP',
     moduleId: 41,
-    initForwarder: function(settings, testMode, userAttributes, userIdentities, processEvent, eventQueue, isInitialized, common) {
+    initForwarder: function(
+        settings,
+        testMode,
+        userAttributes,
+        userIdentities,
+        processEvent,
+        eventQueue,
+        isInitialized,
+        common
+    ) {
         common.settings = settings;
 
         if (common.settings.consentMappingWeb) {
@@ -18,13 +27,18 @@ var initialization = {
 
         window.dataLayer = window.dataLayer || [];
         if (!testMode) {
-            var url = 'https://www.googletagmanager.com/gtag/js?id=' + settings.advertiserId;
+            var url =
+                'https://www.googletagmanager.com/gtag/js?id=' +
+                settings.advertiserId;
 
             var gTagScript = document.createElement('script');
             gTagScript.type = 'text/javascript';
             gTagScript.async = true;
             gTagScript.src = url;
-            (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(gTagScript);
+            (
+                document.getElementsByTagName('head')[0] ||
+                document.getElementsByTagName('body')[0]
+            ).appendChild(gTagScript);
             gTagScript.onload = function() {
                 isInitialized = true;
 
@@ -35,7 +49,7 @@ var initialization = {
                     for (var i = 0; i < eventQueue.length; i++) {
                         processEvent(eventQueue[i]);
                     }
-                     // now that each queued event is processed, we empty the eventQueue
+                    // now that each queued event is processed, we empty the eventQueue
                     eventQueue = [];
                 }
             };
@@ -43,29 +57,27 @@ var initialization = {
             initializeGoogleDFP(common, settings, isInitialized);
         }
 
-        common.consentPayloadDefaults =
-            common.consentHandler.getConsentSettings();
+        common.consentPayloadDefaults = common.consentHandler.getConsentSettings();
         var defaultConsentPayload = common.cloneObject(
             common.consentPayloadDefaults
         );
         var updatedConsentState = common.consentHandler.getUserConsentState();
-        var updatedDefaultConsentPayload =
-            common.consentHandler.generateConsentStatePayloadFromMappings(
-                updatedConsentState,
-                common.consentMappings
-            );
-    
+        var updatedDefaultConsentPayload = common.consentHandler.generateConsentStatePayloadFromMappings(
+            updatedConsentState,
+            common.consentMappings
+        );
+
         // If a default consent payload exists (as selected in the mParticle UI), set it as the default
         if (!common.isEmpty(defaultConsentPayload)) {
             common.sendDefaultConsentPayloadToGoogle(defaultConsentPayload);
-        // If a default consent payload does not exist, but the user currently has updated their consent,
-        // send that as the default because a default must be sent    
+            // If a default consent payload does not exist, but the user currently has updated their consent,
+            // send that as the default because a default must be sent
         } else if (!common.isEmpty(updatedDefaultConsentPayload)) {
             common.sendDefaultConsentPayloadToGoogle(
                 updatedDefaultConsentPayload
             );
         }
-    
+
         common.maybeSendConsentUpdateToGoogle(updatedConsentState);
     },
 };
@@ -75,13 +87,13 @@ function initializeGoogleDFP(common, settings, isInitialized) {
 
     common.customVariablesMappings = parseSettingsString(
         settings.customVariables
-    ).reduce(function (a, b) {
+    ).reduce(function(a, b) {
         a[b.map] = b.value;
         return a;
     }, {});
     common.customFieldMappings = parseSettingsString(
         settings.customParams
-    ).reduce(function (a, b) {
+    ).reduce(function(a, b) {
         a[b.map] = b.value;
         return a;
     }, {});
