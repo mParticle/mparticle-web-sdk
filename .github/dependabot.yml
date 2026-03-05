@@ -12,3 +12,16 @@ updates:
           prefix: 'chore'
       allow:
           - dependency-type: 'production'
+
+    - package-ecosystem: npm
+      directory: 'kits/amplitude/amplitude-8'
+      schedule:
+          interval: weekly
+          day: 'sunday'
+      target-branch: 'chore/dependabot'
+      labels: ['dependabot', 'dependencies', 'kit']
+      open-pull-requests-limit: 5
+      commit-message:
+          prefix: 'chore'
+      allow:
+          - dependency-type: 'production'
