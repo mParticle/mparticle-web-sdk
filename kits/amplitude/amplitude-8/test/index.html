@@ -1,0 +1,133 @@
+﻿<html>
+<head>
+    <meta charset="utf-8">
+    <title>Mocha Tests</title>
+    <link rel="stylesheet" href="../node_modules/mocha/mocha.css" />
+</head>
+<body>
+    <div id="mocha"></div>
+
+    <script src="../node_modules/@mparticle/web-sdk/dist/mparticle.js"></script>
+    <script src="../node_modules/mocha/mocha.js"></script>
+    <script src="../node_modules/should/should.js"></script>
+    <script src="lib/mockhttprequest.js"></script>
+    <script>
+        window.mParticle.addForwarder = function (forwarder) {
+                window.mParticle.forwarder = new forwarder.constructor();
+        };
+
+        var amp = function () {
+            var instance,
+                self = this;
+
+            this.settings = {};
+            this.instances = {};
+
+            this.getInstance = function(instanceName) {
+                if (!instanceName) {
+                    instanceName = 'default';
+                }
+
+                if (this.instances[instanceName]) {
+                    return this.instances[instanceName];
+                } else if (instanceName === 'default') {
+                    instance = new ampClient('default');
+                } else {
+                    instance = new ampClient(instanceName);
+                }
+
+                this.instances[instanceName] = instance;
+
+                return instance;
+            };
+
+            this.Revenue = function(){
+
+                return {
+                    setPrice : function(price){
+                        this.price = price;
+                        return this;
+                    },
+
+                    setEventProperties: function(eventAttributes){
+                        this.eventAttributes = eventAttributes;
+                        return this;
+                    }
+                };
+            }
+
+            this.reset = function() {
+                self.settings = {};
+                self.instances = {};
+            };
+        };
+
+        var ampClient = function(instanceName) {
+            var self = this;
+
+            this.init = function(key, arg1, settings) {
+                self.settings = settings;
+                self.attrs = null;
+                self.amount = null;
+                self.quantity = null;
+                self.sku = null;
+                self.props = null;
+                self.isOptingOut = null;
+                self.userId = null;
+                self.events = [];
+            };
+
+            this.logRevenue = function (amount, quantity, sku) {
+                self.amount = amount;
+                self.quantity = quantity;
+                self.sku = sku;
+            };
+
+            this.logRevenueV2 = function (RevenueObj){
+                self.revenueObj = RevenueObj;
+            }
+
+            this.logEvent = function (name, attrs) {
+                self.events.push({
+                    eventName: name,
+                    attrs: attrs
+                });
+            };
+
+            this.setOptOut = function (isOptingOut) {
+                self.isOptingOut = isOptingOut;
+            };
+
+            this.setUserProperties = function (props) {
+                self.props = self.props || {};
+                for (key in props) {
+                    self.props[key] = props[key]
+                }
+            };
+
+            this.setUserId = function (id) {
+                self.userId = id;
+            };
+
+            this.reset = function() {
+                self.eventName = null;
+                self.attrs = null;
+                self.amount = null;
+                self.quantity = null;
+                self.sku = null;
+                self.props = null;
+                self.isOptingOut = null;
+                self.userId = null;
+            };
+        };
+
+        window.amplitude = new amp();
+    </script>
+    <script src="../dist/Amplitude.iife.js" data-cover></script>
+    <script>mocha.setup('bdd')</script>
+    <script src="test-bundle.js"></script>
+    <script>
+        mocha.run();
+    </script>
+</body>
+</html>
