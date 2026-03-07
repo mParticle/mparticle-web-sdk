@@ -4,6 +4,10 @@
     "local_path": "kits/amplitude/amplitude-8"
   },
   {
+    "name": "OneTrust",
+    "local_path": "kits/onetrust"
+  },
+  {
     "name": "Braze 3",
     "local_path": "kits/braze/braze-3"
   }
