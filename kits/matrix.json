@@ -4,6 +4,10 @@
     "local_path": "kits/amplitude/amplitude-8"
   },
   {
+    "name": "OneTrust",
+    "local_path": "kits/onetrust"
+  },
+  {
     "name": "Dynamic Yield",
     "local_path": "kits/dynamic-yield"
   }
