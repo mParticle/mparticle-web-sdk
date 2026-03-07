@@ -29,7 +29,7 @@ describe('Integration Capture', () => {
                 'ttclid',
                 'ScCid',
                 'epik',
-                '_epik'
+                '_epik',
                 '_scid'
             ]);
         });
