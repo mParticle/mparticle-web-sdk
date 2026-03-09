@@ -8,7 +8,7 @@ module.exports = {
     // jest.config.js; running them from the root would be missing kit setup.
     // Other kits use Karma and name their tests `tests.js` (plural), which
     // doesn't match Jest's default testMatch, so they don't need exclusion.
-    testPathIgnorePatterns: ['<rootDir>/node_modules', '<rootDir>/kits/adobe'],
+    testPathIgnorePatterns: ['<rootDir>/kits/adobe'],
     transform: {
         '^.+\\.(js)$': 'ts-jest',
     },
