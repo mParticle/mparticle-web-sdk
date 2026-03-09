@@ -8,6 +8,10 @@
     "local_path": "kits/onetrust"
   },
   {
+    "name": "Intercom",
+    "local_path": "kits/intercom"
+  },
+  {
     "name": "Braze 5",
     "local_path": "kits/braze/braze-5"
   }
