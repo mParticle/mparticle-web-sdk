@@ -10,9 +10,5 @@
   {
     "name": "Intercom",
     "local_path": "kits/intercom"
-  },
-  {
-    "name": "Optimizely",
-    "local_path": "kits/optimizely"
   }
 ]
