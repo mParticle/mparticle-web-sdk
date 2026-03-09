@@ -10,9 +10,5 @@
   {
     "name": "Intercom",
     "local_path": "kits/intercom"
-  },
-  {
-    "name": "Heap",
-    "local_path": "kits/heap"
   }
 ]
