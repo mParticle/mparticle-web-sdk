@@ -89,6 +89,44 @@ export default function APIClient(
         });
     };
 
+    // When noFunctional is set and there is no MPID yet, forward the event to kits immediately
+    // and queue it for the MP server upload path so it can be sent once an MPID is returned.
+    // Returns true if the event was handled by this path (caller should return early).
+    const handleNoFunctionalPreMpidEvent = (event: SDKEvent, mpid: string | undefined): boolean => {
+        const noFunctionalWithoutId =
+            mpInstance._CookieConsentManager?.getNoFunctional() &&
+            !hasExplicitIdentifier(mpInstance._Store);
+
+        if (!noFunctionalWithoutId || mpid || !mpInstance._Store.configurationLoaded || mpInstance._Store.requireDelay) {
+            return false;
+        }
+
+        // Skip system lifecycle events (SessionStart, SessionEnd, AppStateTransition) —
+        // they will be regenerated when the SDK fully initialises after Identity.identify() resolves.
+        const eventDataType = event.EventDataType;
+        const isSystemEvent =
+            eventDataType === Types.MessageType.SessionStart ||
+            eventDataType === Types.MessageType.SessionEnd ||
+            eventDataType === Types.MessageType.AppStateTransition;
+
+        if (!isSystemEvent) {
+            let forwarderEvent = event;
+            if (kitBlocker && kitBlocker.kitBlockingEnabled) {
+                forwarderEvent = kitBlocker.createBlockedEvent(event);
+            }
+            if (forwarderEvent) {
+                mpInstance._Forwarders.sendEventToForwarders(forwarderEvent);
+                event._forwardersAlreadySent = true;
+            }
+            mpInstance.Logger.verbose(
+                'noFunctional event forwarded to kits and queued for MP server upload when MPID is available.'
+            );
+            mpInstance._Store.eventQueue.push(event);
+        }
+
+        return true;
+    };
+
     this.sendEventToServer = function(event, _options) {
         const defaultOptions = {
             shouldUploadEvent: true,
@@ -114,35 +152,7 @@ export default function APIClient(
             Date.now()
         );
 
-        // When noFunctional is true and no explicit identifier, Send events to forwarders immediately
-        // but queue for the MP server upload path so they can be sent if an MPID is returned later.
-        const noFunctionalWithoutId =
-            mpInstance._CookieConsentManager?.getNoFunctional() &&
-            !hasExplicitIdentifier(mpInstance._Store);
-
-        if (noFunctionalWithoutId && !mpid && mpInstance._Store.configurationLoaded && !mpInstance._Store.requireDelay) {
-            // Skip system lifecycle events (SessionStart, SessionEnd, AppStateTransition) —
-            // they will be regenerated when the SDK fully initialises after Identity.identify() resolves.
-            const eventDataType = event.EventDataType;
-            const isSystemEvent =
-                eventDataType === Types.MessageType.SessionStart ||
-                eventDataType === Types.MessageType.SessionEnd ||
-                eventDataType === Types.MessageType.AppStateTransition;
-
-            if (!isSystemEvent) {
-                let forwarderEvent = event;
-                if (kitBlocker && kitBlocker.kitBlockingEnabled) {
-                    forwarderEvent = kitBlocker.createBlockedEvent(event);
-                }
-                if (forwarderEvent) {
-                    mpInstance._Forwarders.sendEventToForwarders(forwarderEvent);
-                    event._forwardersAlreadySent = true;
-                }
-                mpInstance.Logger.verbose(
-                    'noFunctional event forwarded to kits and queued for MP server upload when MPID is available.'
-                );
-                mpInstance._Store.eventQueue.push(event);
-            }
+        if (handleNoFunctionalPreMpidEvent(event, mpid)) {
             return;
         }
 
