@@ -10,9 +10,5 @@
   {
     "name": "Intercom",
     "local_path": "kits/intercom"
-  },
-  {
-    "name": "Braze 3",
-    "local_path": "kits/braze/braze-3"
   }
 ]
