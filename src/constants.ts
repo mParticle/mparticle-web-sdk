@@ -29,6 +29,10 @@ const Constants = {
                 'Transaction attributes and a product are both required to log a purchase, https://docs.mparticle.com/?javascript#measuring-transactions',
             AudienceAPINotEnabled:
                 'Your workspace is not enabled to retrieve user audiences.',
+            EmailMismatch:
+                'Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.',
+            HashedEmailMismatch:
+                'emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.',
         },
         InformationMessages: {
             CookieSearch: 'Searching for cookie',
