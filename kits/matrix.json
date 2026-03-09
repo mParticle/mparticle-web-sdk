@@ -10,9 +10,5 @@
   {
     "name": "Intercom",
     "local_path": "kits/intercom"
-  },
-  {
-    "name": "Inspectlet",
-    "local_path": "kits/inspectlet"
   }
 ]
