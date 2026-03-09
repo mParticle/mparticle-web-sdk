@@ -166,6 +166,62 @@ describe('Logging Integration', () => {
         expect(initialStore.getRoktAccountId).not.toHaveBeenCalled();
     });
 
+    it('sends warning logs to errorUrl when error code is provided', () => {
+        const mockStore: Partial<IStore> = {
+            getRoktAccountId: jest.fn().mockReturnValue(accountId),
+            getIntegrationName: jest.fn().mockReturnValue(integrationName)
+        };
+
+        const reportingLogger = new ReportingLogger(
+            { loggingUrl, errorUrl, isLoggingEnabled: true } as SDKConfig,
+            sdkVersion,
+            mockStore as IStore,
+            'test-guid'
+        );
+
+        const logger = new Logger(
+            { logLevel: LogLevelType.Warning },
+            reportingLogger
+        );
+
+        logger.warning('Test warning message', ErrorCodes.IDENTITY_REQUEST);
+
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+
+        const fetchCall = mockFetch.mock.calls[0];
+        const fetchUrl = fetchCall[0];
+        const fetchOptions = fetchCall[1];
+
+        expect(fetchUrl).toBe(`https://${errorUrl}`);
+
+        const body = JSON.parse(fetchOptions.body);
+        expect(body.additionalInformation.message).toBe('Test warning message');
+        expect(body.code).toBe(ErrorCodes.IDENTITY_REQUEST);
+        expect(body.severity).toBe('WARNING');
+    });
+
+    it('does not send warning to ReportingLogger when error code is not provided', () => {
+        const mockStore: Partial<IStore> = {
+            getRoktAccountId: jest.fn().mockReturnValue(accountId),
+            getIntegrationName: jest.fn().mockReturnValue(integrationName)
+        };
+
+        const reportingLogger = new ReportingLogger(
+            { loggingUrl, errorUrl, isLoggingEnabled: true } as SDKConfig,
+            sdkVersion,
+            mockStore as IStore
+        );
+
+        const logger = new Logger(
+            { logLevel: LogLevelType.Warning },
+            reportingLogger
+        );
+
+        logger.warning('Console only warning');
+
+        expect(mockFetch).not.toHaveBeenCalled();
+    });
+
     it('sends info logs to loggingUrl instead of errorUrl', () => {
         const mockStore: Partial<IStore> = {
             getRoktAccountId: jest.fn().mockReturnValue(accountId),
