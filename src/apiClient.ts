@@ -111,7 +111,7 @@ export default function APIClient(
 
         if (!isSystemEvent) {
             let forwarderEvent = event;
-            if (kitBlocker && kitBlocker.kitBlockingEnabled) {
+            if (kitBlocker?.kitBlockingEnabled) {
                 forwarderEvent = kitBlocker.createBlockedEvent(event);
             }
             if (forwarderEvent) {

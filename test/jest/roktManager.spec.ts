@@ -6,7 +6,6 @@ import RoktManager, { IRoktKit, IRoktSelectPlacementsOptions } from "../../src/r
 import { IStore } from "../../src/store";
 import { testMPID, apiKey, urls, workspaceToken } from '../src/config/constants';
 import { PerformanceMarkType } from "../../src/types";
-import { MockForwarder } from './utils';
 import { IMParticleInstanceManager, SDKInitConfig } from "../../src/sdkRuntimeModels";
 import Constants from "../../src/constants";
 
