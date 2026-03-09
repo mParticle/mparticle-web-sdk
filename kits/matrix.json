@@ -10,9 +10,5 @@
   {
     "name": "Intercom",
     "local_path": "kits/intercom"
-  },
-  {
-    "name": "Localytics 4",
-    "local_path": "kits/localytics/localytics-4"
   }
 ]
