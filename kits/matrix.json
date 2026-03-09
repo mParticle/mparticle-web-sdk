@@ -6,5 +6,9 @@
   {
     "name": "OneTrust",
     "local_path": "kits/onetrust"
+  },
+  {
+    "name": "Intercom",
+    "local_path": "kits/intercom"
   }
 ]
