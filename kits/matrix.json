@@ -10,9 +10,5 @@
   {
     "name": "Intercom",
     "local_path": "kits/intercom"
-  },
-  {
-    "name": "Adobe Target",
-    "local_path": "kits/adobe-target"
   }
 ]
