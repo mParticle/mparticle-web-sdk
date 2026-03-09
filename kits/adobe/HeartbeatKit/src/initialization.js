@@ -119,7 +119,7 @@ var Initialization = {
         }
 
         initHeartbeatCallback();
-    }
+    },
 };
 
 module.exports = Initialization;

@@ -18,12 +18,12 @@ var MediaEventType = {
     SegmentStart: 43,
     SegmentEnd: 44,
     SegmentSkip: 45,
-    UpdateQoS: 46
+    UpdateQoS: 46,
 };
 
 var ContentType = {
     Audio: 'Audio',
-    Video: 'Video'
+    Video: 'Video',
 };
 
 var StreamType = {
@@ -31,7 +31,7 @@ var StreamType = {
     OnDemand: 'OnDemand',
     Linear: 'Linear',
     Podcast: 'Podcast',
-    Audiobook: 'Audiobook'
+    Audiobook: 'Audiobook',
 };
 
 function EventHandler(common) {
@@ -259,7 +259,7 @@ var getAdobeMetadataKeys = function(attributes, Heartbeat) {
         content_mvpd: Heartbeat.VideoMetadataKeys.MVPD,
         content_authorized: Heartbeat.VideoMetadataKeys.AUTHORIZED,
         content_daypart: Heartbeat.VideoMetadataKeys.DAY_PART,
-        content_feed: Heartbeat.VideoMetadataKeys.FEED
+        content_feed: Heartbeat.VideoMetadataKeys.FEED,
     };
 
     var adobeMetadataKeys = {};

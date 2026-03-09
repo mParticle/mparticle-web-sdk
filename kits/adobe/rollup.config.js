@@ -8,11 +8,11 @@ const input = {
     client_iife: 'packages/AdobeClient/dist/AdobeClientSideKit.esm.js',
     client_cjs: 'packages/AdobeClient/dist/AdobeClientSideKit.esm.js',
     heartbeat_esm: 'HeartbeatKit/src/index.js',
-    heartbeat_iife: 'HeartbeatKit/src/index.js'
+    heartbeat_iife: 'HeartbeatKit/src/index.js',
 };
 
 const outputOptions = {
-    strict: false
+    strict: false,
 };
 
 const builds = {
@@ -22,8 +22,8 @@ const builds = {
             ...outputOptions,
             name: 'mParticleAdobeServer',
             file: 'packages/AdobeServer/dist/AdobeServerSideKit.iife.js',
-            format: 'iife'
-        }
+            format: 'iife',
+        },
     },
     // creates npm module for adobe server side kit
     server_cjs: {
@@ -31,8 +31,8 @@ const builds = {
             ...outputOptions,
             name: 'mParticleAdobeServer',
             file: 'packages/AdobeServer/dist/AdobeServerSideKit.common.js',
-            format: 'cjs'
-        }
+            format: 'cjs',
+        },
     },
     // for dynamic script tag loading of adobe client side kit
     client_iife: {
@@ -40,8 +40,8 @@ const builds = {
             ...outputOptions,
             name: 'mParticleAdobeClient',
             file: 'packages/AdobeClient/dist/AdobeClientSideKit.iife.js',
-            format: 'iife'
-        }
+            format: 'iife',
+        },
     },
     // creates npm module for adobe client side kit
     client_cjs: {
@@ -49,8 +49,8 @@ const builds = {
             ...outputOptions,
             name: 'mParticleAdobeClient',
             file: 'packages/AdobeClient/dist/AdobeClientSideKit.common.js',
-            format: 'cjs'
-        }
+            format: 'cjs',
+        },
     },
     // creates heartbeat esm module kit that is consumed by adobe client and server kits
     heartbeat_esm: {
@@ -59,24 +59,24 @@ const builds = {
             exports: 'named',
             name: 'mpAdobeHBKit',
             file: './HeartbeatKit/dist/AdobeHBKit.esm.js',
-            format: 'esm'
+            format: 'esm',
         },
-        plugins: [commonjs()]
+        plugins: [commonjs()],
     },
     heartbeat_iife: {
         output: {
             ...outputOptions,
             name: 'mpAdobeHBKit',
             file: './HeartbeatKit/dist/AdobeHBKit.iife.js',
-            format: 'iife'
+            format: 'iife',
         },
-        plugins: [commonjs()]
-    }
+        plugins: [commonjs()],
+    },
 };
 
 var selectedBuild = {
     input: input[BUILD],
-    ...builds[BUILD]
+    ...builds[BUILD],
 };
 
 export default selectedBuild;

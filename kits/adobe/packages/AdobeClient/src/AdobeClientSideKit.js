@@ -30,7 +30,7 @@ var name = 'Adobe',
         CrashReport: 5,
         OptOut: 6,
         Commerce: 16,
-        Media: 20
+        Media: 20,
     },
     //Custom Flag Names
     LINK_NAME = 'Adobe.LinkName',
@@ -187,14 +187,14 @@ var constructor = function() {
                 }
 
                 return {
-                    result: false
+                    result: false,
                 };
             });
 
             if (filteredArray && filteredArray.length > 0) {
                 return {
                     result: true,
-                    matches: filteredArray
+                    matches: filteredArray,
                 };
             }
         }
@@ -608,7 +608,7 @@ var constructor = function() {
             if (Object.keys(userIdentities).length) {
                 for (var identity in userIdentities) {
                     identitiesToSet[identity] = {
-                        id: userIdentities[identity]
+                        id: userIdentities[identity],
                     };
                 }
             } else {
@@ -653,7 +653,7 @@ if (window && window.mParticle && window.mParticle.addForwarder) {
     window.mParticle.addForwarder({
         name: name,
         constructor: constructor,
-        getId: getId
+        getId: getId,
     });
 }
 
@@ -674,12 +674,12 @@ function register(config) {
 
     if (isObject(config.kits)) {
         config.kits[name] = {
-            constructor: constructor
+            constructor: constructor,
         };
     } else {
         config.kits = {};
         config.kits[name] = {
-            constructor: constructor
+            constructor: constructor,
         };
     }
     window.console.log(
@@ -694,5 +694,5 @@ function isObject(val) {
 }
 
 export default {
-    register: register
+    register: register,
 };

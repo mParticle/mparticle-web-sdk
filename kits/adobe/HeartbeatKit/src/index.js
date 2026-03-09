@@ -26,7 +26,7 @@ var MessageType = {
     CrashReport: 5,
     OptOut: 6,
     Commerce: 16,
-    Media: 20
+    Media: 20,
 };
 
 function constructor() {
@@ -110,7 +110,7 @@ function constructor() {
             return true;
         } catch (e) {
             return {
-                error: 'Error logging event on forwarder ' + name + '; ' + e
+                error: 'Error logging event on forwarder ' + name + '; ' + e,
             };
         }
     }
@@ -124,5 +124,5 @@ if (window.mParticle && window.mParticle.registerHBK) {
 }
 
 module.exports = {
-    AdobeHbkConstructor: constructor
+    AdobeHbkConstructor: constructor,
 };

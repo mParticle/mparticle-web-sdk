@@ -20,7 +20,7 @@
 import { AdobeHbkConstructor } from '../../../HeartbeatKit/dist/AdobeHBKit.esm.js';
 
 var MessageType = {
-    Media: 20
+    Media: 20,
 };
 var name = 'Adobe',
     MARKETINGCLOUDIDKEY = 'mid',
@@ -104,7 +104,7 @@ if (window && window.mParticle && window.mParticle.addForwarder) {
         name: name,
         suffix: suffix,
         constructor: constructor,
-        getId: getId
+        getId: getId,
     });
 }
 
@@ -127,12 +127,12 @@ function register(config) {
 
     if (isObject(config.kits)) {
         config.kits[forwarderNameWithSuffix] = {
-            constructor: constructor
+            constructor: constructor,
         };
     } else {
         config.kits = {};
         config.kits[forwarderNameWithSuffix] = {
-            constructor: constructor
+            constructor: constructor,
         };
     }
     window.console.log(
@@ -149,5 +149,5 @@ function isObject(val) {
 }
 
 export default {
-    register: register
+    register: register,
 };
