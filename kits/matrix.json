@@ -10,9 +10,5 @@
   {
     "name": "Intercom",
     "local_path": "kits/intercom"
-  },
-  {
-    "name": "Mixpanel 2",
-    "local_path": "kits/mixpanel/mixpanel-2"
   }
 ]
