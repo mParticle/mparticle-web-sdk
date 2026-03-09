@@ -10,9 +10,5 @@
   {
     "name": "Intercom",
     "local_path": "kits/intercom"
-  },
-  {
-    "name": "Bing Ads",
-    "local_path": "kits/bingads"
   }
 ]
