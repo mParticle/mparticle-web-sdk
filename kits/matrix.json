@@ -10,9 +10,5 @@
   {
     "name": "Intercom",
     "local_path": "kits/intercom"
-  },
-  {
-    "name": "Device Match",
-    "local_path": "kits/device-match"
   }
 ]
