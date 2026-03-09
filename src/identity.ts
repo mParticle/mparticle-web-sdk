@@ -19,8 +19,7 @@ import {
 import { hasMPIDAndUserLoginChanged, hasMPIDChanged } from './user-utils';
 import { processReadyQueue } from './pre-init-utils';
 import { ErrorCodes } from './logging/types';
-
-export default function Identity(mpInstance) {
+export default function Identity(this: any, mpInstance) {
     const { getFeatureFlag, extend } = mpInstance._Helpers;
 
     var self = this;
@@ -217,6 +216,8 @@ export default function Identity(mpInstance) {
                     UserIdentities: nativeIdentityRequest,
                 };
             }
+
+            return undefined;
         },
     };
     /**
@@ -1071,7 +1072,7 @@ export default function Identity(mpInstance) {
                 if (!Array.isArray(newValue)) {
                     mpInstance.Logger.error(
                         'The value you passed in to setUserAttributeList must be an array. You passed in a ' +
-                            typeof value,
+                            typeof newValue,
                         ErrorCodes.USER_ATTRIBUTE_ERROR
                     );
                     return;
@@ -1297,8 +1298,7 @@ export default function Identity(mpInstance) {
                     self.audienceManager = new AudienceManager(
                         mpInstance._Store.SDKConfig.userAudienceUrl,
                         mpInstance._Store.devToken,
-                        mpInstance.Logger,
-                        mpid
+                        mpInstance.Logger
                     );
                 }
 

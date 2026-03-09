@@ -160,9 +160,9 @@ export interface SDKProductAction {
 }
 
 export interface SDKProduct {
-    Sku?: string;
-    Name?: string;
-    Price?: number;
+    Sku: string;
+    Name: string;
+    Price: number;
     Quantity?: number;
     Brand?: string;
     Variant?: string;

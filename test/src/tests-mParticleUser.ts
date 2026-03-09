@@ -1,6 +1,15 @@
 import Utils from './config/utils';
 import { urls, apiKey, MPConfig } from './config/constants';
 import fetchMock from 'fetch-mock/esm/client';
+import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
+
+declare global {
+    interface Window {
+        mParticle: IMParticleInstanceManager;
+    }
+}
+
+const mParticle = window.mParticle as IMParticleInstanceManager;
 
 const { waitForCondition, fetchMockSuccess } = Utils;
 
