@@ -10,9 +10,5 @@
   {
     "name": "Intercom",
     "local_path": "kits/intercom"
-  },
-  {
-    "name": "Leanplum 1",
-    "local_path": "kits/leanplum/leanplum-1"
   }
 ]
