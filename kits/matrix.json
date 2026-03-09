@@ -10,9 +10,5 @@
   {
     "name": "Intercom",
     "local_path": "kits/intercom"
-  },
-  {
-    "name": "Taplytics",
-    "local_path": "kits/taplytics"
   }
 ]
