@@ -1,0 +1,13 @@
+{
+    "extends": "../.eslintrc",
+    "env": {
+        "mocha": true
+    },
+    "parserOptions": {
+        "ecmaVersion": 2020,
+        "sourceType": "module"
+    },
+    "rules": {
+        "no-unused-expressions": "off"  // Allows chai's expect(...).to.be.true
+    }
+} 

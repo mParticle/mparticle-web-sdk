@@ -1,10 +1,114 @@
 [
   {
+    "name": "Adobe Target",
+    "local_path": "kits/adobe-target"
+  },
+  {
+    "name": "Adwords",
+    "local_path": "kits/adwords"
+  },
+  {
     "name": "Amplitude 8",
     "local_path": "kits/amplitude/amplitude-8"
   },
   {
+    "name": "Bing Ads",
+    "local_path": "kits/bingads"
+  },
+  {
+    "name": "Braze 3",
+    "local_path": "kits/braze/braze-3"
+  },
+  {
+    "name": "Braze 4",
+    "local_path": "kits/braze/braze-4"
+  },
+  {
+    "name": "Braze 5",
+    "local_path": "kits/braze/braze-5"
+  },
+  {
+    "name": "Braze 6",
+    "local_path": "kits/braze/braze-6"
+  },
+  {
+    "name": "Criteo",
+    "local_path": "kits/criteo"
+  },
+  {
+    "name": "Device Match",
+    "local_path": "kits/device-match"
+  },
+  {
+    "name": "DoubleClick",
+    "local_path": "kits/doubleclick"
+  },
+  {
+    "name": "Dynamic Yield",
+    "local_path": "kits/dynamic-yield"
+  },
+  {
+    "name": "Facebook",
+    "local_path": "kits/facebook"
+  },
+  {
+    "name": "Google Tag Manager",
+    "local_path": "kits/google-tag-manager"
+  },
+  {
+    "name": "Heap",
+    "local_path": "kits/heap"
+  },
+  {
+    "name": "ID5 1",
+    "local_path": "kits/id5/id5-1"
+  },
+  {
+    "name": "Inspectlet",
+    "local_path": "kits/inspectlet"
+  },
+  {
+    "name": "Intercom",
+    "local_path": "kits/intercom"
+  },
+  {
+    "name": "KissMetrics",
+    "local_path": "kits/kissmetrics"
+  },
+  {
+    "name": "Leanplum 1",
+    "local_path": "kits/leanplum/leanplum-1"
+  },
+  {
+    "name": "Localytics 4",
+    "local_path": "kits/localytics/localytics-4"
+  },
+  {
+    "name": "Mixpanel 2",
+    "local_path": "kits/mixpanel/mixpanel-2"
+  },
+  {
     "name": "OneTrust",
     "local_path": "kits/onetrust"
+  },
+  {
+    "name": "Optimizely",
+    "local_path": "kits/optimizely"
+  },
+  {
+    "name": "Rokt",
+    "local_path": "kits/rokt"
+  },
+  {
+    "name": "SimpleReach",
+    "local_path": "kits/simplereach"
+  },
+  {
+    "name": "Taplytics",
+    "local_path": "kits/taplytics"
+  },
+  {
+    "name": "Twitter",
+    "local_path": "kits/twitter"
   }
 ]
