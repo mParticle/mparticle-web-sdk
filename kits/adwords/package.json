@@ -1,0 +1,38 @@
+{
+    "name": "@mparticle/web-adwords-kit",
+    "version": "2.3.2",
+    "author": "mParticle Developers <developers@mparticle.com> (https://www.mparticle.com)",
+    "description": "mParticle integration sdk for Google Adwords",
+    "main": "dist/GoogleAdWordsEventForwarder.common.js",
+    "browser": "dist/GoogleAdWordsEventForwarder.common.js",
+    "files": [
+        "dist/GoogleAdWordsEventForwarder.common..js"
+    ],
+    "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-adwords",
+    "scripts": {
+        "build": "rollup --config rollup.config.js",
+        "build:test": "rollup --config rollup.test.config.js",
+        "watch": "rollup --config rollup.config.js -w",
+        "test:karma": "DEBUG=false karma start test/karma.config.js",
+        "test": "npm run build && npm run build:test && npm run test:karma"
+    },
+    "devDependencies": {
+        "chai": "^4.2.0",
+        "karma": "^5.1.0",
+        "karma-chai": "^0.1.0",
+        "karma-chrome-launcher": "^3.1.0",
+        "karma-firefox-launcher": "^1.3.0",
+        "karma-mocha": "^2.0.1",
+        "mocha": "^2.5.3",
+        "rollup": "^1.13.1",
+        "rollup-plugin-commonjs": "^10.0.0",
+        "rollup-plugin-node-resolve": "^5.0.1",
+        "shelljs": "^0.8.4",
+        "should": "^7.1.0",
+        "watchify": "^3.11.1"
+    },
+    "dependencies": {
+        "@mparticle/web-sdk": "^2.11.1"
+    },
+    "license": "Apache-2.0"
+}
