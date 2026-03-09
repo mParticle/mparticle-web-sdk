@@ -10,9 +10,5 @@
   {
     "name": "Intercom",
     "local_path": "kits/intercom"
-  },
-  {
-    "name": "Dynamic Yield",
-    "local_path": "kits/dynamic-yield"
   }
 ]
