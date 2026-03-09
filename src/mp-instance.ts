@@ -1678,6 +1678,15 @@ function processIdentityCallback(
 function queueIfNotInitialized(func, self) {
     // Core SDK methods must wait for Store initialization
     if (!self._Store?.isInitialized) {
+        // When noFunctional is true with no explicit identifier, the SDK will never
+        // receive an MPID. Let these calls through so events can still reach forwarders immediately.
+        // sendEventToServer handles queuing for the MP server upload path separately.
+        const noFunctionalWithoutId =
+            self._CookieConsentManager?.getNoFunctional() &&
+            !hasExplicitIdentifier(self._Store);
+        if (noFunctionalWithoutId) {
+            return false;
+        }
         self._preInit.readyQueue.push(function() {
             if (self._Store?.isInitialized) {
                 func();

@@ -94,7 +94,7 @@ export default function APIClient(
             shouldUploadEvent: true,
         };
         const options = mpInstance._Helpers.extend(defaultOptions, _options);
-
+ 
         if (mpInstance._Store.webviewBridgeEnabled) {
             mpInstance._NativeSdkHelpers.sendToNative(
                 Constants.NativeSdkPaths.LogEvent,
@@ -102,7 +102,7 @@ export default function APIClient(
             );
             return;
         }
-
+ 
         let mpid,
             currentUser = mpInstance.Identity.getCurrentUser();
         if (currentUser) {
@@ -113,8 +113,42 @@ export default function APIClient(
             mpInstance._Store.integrationDelayTimeoutStart,
             Date.now()
         );
-        // We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that that require this to stall because integration attributes
-        // need to be set, or if we are still fetching the config (self hosted only), and so require delaying events
+
+        // When noFunctional is true and no explicit identifier, Send events to forwarders immediately
+        // but queue for the MP server upload path so they can be sent if an MPID is returned later.
+        const noFunctionalWithoutId =
+            mpInstance._CookieConsentManager?.getNoFunctional() &&
+            !hasExplicitIdentifier(mpInstance._Store);
+
+        if (noFunctionalWithoutId && !mpid && mpInstance._Store.configurationLoaded && !mpInstance._Store.requireDelay) {
+            // Skip system lifecycle events (SessionStart, SessionEnd, AppStateTransition) —
+            // they will be regenerated when the SDK fully initialises after Identity.identify() resolves.
+            const eventDataType = event.EventName as unknown as number;
+            const isSystemEvent =
+                eventDataType === Types.MessageType.SessionStart ||
+                eventDataType === Types.MessageType.SessionEnd ||
+                eventDataType === Types.MessageType.AppStateTransition;
+
+            if (!isSystemEvent) {
+                let forwarderEvent = event;
+                if (kitBlocker && kitBlocker.kitBlockingEnabled) {
+                    forwarderEvent = kitBlocker.createBlockedEvent(event);
+                }
+                if (forwarderEvent) {
+                    mpInstance._Forwarders.sendEventToForwarders(forwarderEvent);
+                    event._forwardersAlreadySent = true;
+                }
+                mpInstance.Logger.verbose(
+                    'noFunctional event forwarded to kits and queued for MP server upload when MPID is available.'
+                );
+                mpInstance._Store.eventQueue.push(event);
+            }
+            return;
+        }
+
+        // We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that
+        // require this to stall because integration attributes need to be set, or if we are still
+        // fetching the config (self hosted only), and so require delaying events
         if (
             !mpid ||
             mpInstance._Store.requireDelay ||
@@ -124,21 +158,6 @@ export default function APIClient(
                 'Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay.'
             );
             mpInstance._Store.eventQueue.push(event);
-            // When noFunctional is true and no explicit identity was provided, mpid may never come, so send to forwarders now.
-            if (
-                mpInstance._CookieConsentManager?.getNoFunctional() &&
-                !hasExplicitIdentifier(mpInstance._Store) &&
-                !isEmpty(event) &&
-                (event.EventName as unknown as number) !== Types.MessageType.AppStateTransition
-            ) {
-                let eventForForwarders = event;
-                if (kitBlocker && kitBlocker.kitBlockingEnabled) {
-                    eventForForwarders = kitBlocker.createBlockedEvent(event);
-                }
-                if (eventForForwarders) {
-                    mpInstance._Forwarders.sendEventToForwarders(eventForForwarders);
-                }
-            }
             return;
         }
 
@@ -162,13 +181,15 @@ export default function APIClient(
             }
 
             // We need to check event again, because kitblocking
-            // can nullify the event
-            if (event) {
+            // can nullify the event.
+            // Skip if forwarders were already called in the noFunctional pre-MPID path
+            // to prevent double-sending when the event queue is later flushed.
+            if (event && !event._forwardersAlreadySent) {
                 mpInstance._Forwarders.sendEventToForwarders(event);
             }
         }
     };
-
+ 
     this.sendBatchForwardingStatsToServer = function(forwardingStatsData, xhr) {
         let url;
         let data;

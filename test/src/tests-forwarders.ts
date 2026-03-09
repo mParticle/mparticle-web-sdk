@@ -250,8 +250,6 @@ describe('forwarders', function() {
             expect(mParticle.isInitialized()).to.not.equal(true);
 
             // Events are sent to forwarders even when there is no mpid (no identity)
-            const mpInstance = mParticle.getInstance();
-            mpInstance._Store.isInitialized = true;
             window.MockForwarder1.instance.receivedEvent = null;
             mParticle.logEvent('NoFunctional No Identity Event', mParticle.EventType.Navigation);
             expect(window.MockForwarder1.instance.receivedEvent).to.be.ok;
