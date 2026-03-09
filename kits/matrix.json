@@ -10,9 +10,5 @@
   {
     "name": "Intercom",
     "local_path": "kits/intercom"
-  },
-  {
-    "name": "Rokt",
-    "local_path": "kits/rokt"
   }
 ]
