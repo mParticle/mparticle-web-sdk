@@ -1,0 +1,62 @@
+{
+    "name": "@mparticle/web-adobe-kit",
+    "version": "2.0.1",
+    "description": "mParticle Adobe kit integration",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mParticle/mparticle-web-sdk.git",
+        "directory": "kits/adobe"
+    },
+    "scripts": {
+        "build": "npm run build:heartbeat && npm run build:client && npm run build:server",
+        "build:heartbeat": "npm run build:heartbeat:esm && npm run build:heartbeat:iife",
+        "build:heartbeat:esm": "BUILD=heartbeat_esm rollup --config rollup.config.js",
+        "build:heartbeat:iife": "BUILD=heartbeat_iife rollup --config rollup.config.js",
+        "build:client": "npm run build:client:iife && npm run build:client:cjs",
+        "build:client:iife": "cat AdobeSDKs/VisitorAPI.js AdobeSDKs/AppMeasurement.js packages/AdobeClient/src/AdobeClientSideKit.js > packages/AdobeClient/dist/AdobeClientSideKit.esm.js; BUILD=client_iife rollup --config rollup.config.js; rm packages/AdobeClient/dist/AdobeClientSideKit.esm.js",
+        "build:client:cjs": "cat AdobeSDKs/VisitorAPI.js AdobeSDKs/AppMeasurement.js packages/AdobeClient/src/AdobeClientSideKit.js > packages/AdobeClient/dist/AdobeClientSideKit.esm.js; BUILD=client_cjs rollup --config rollup.config.js; rm packages/AdobeClient/dist/AdobeClientSideKit.esm.js",
+        "build:server": "npm run build:server:iife && npm run build:server:cjs",
+        "build:server:iife": "cat AdobeSDKs/VisitorAPI.js AdobeSDKs/AppMeasurement.js packages/AdobeServer/src/AdobeServerSideKit.js > packages/AdobeServer/dist/AdobeServerSideKit.esm.js; BUILD=server_iife rollup --config rollup.config.js; rm packages/AdobeServer/dist/AdobeServerSideKit.esm.js",
+        "build:server:cjs": "cat AdobeSDKs/VisitorAPI.js AdobeSDKs/AppMeasurement.js packages/AdobeServer/src/AdobeServerSideKit.js > packages/AdobeServer/dist/AdobeServerSideKit.esm.js; BUILD=server_cjs rollup --config rollup.config.js; rm packages/AdobeServer/dist/AdobeServerSideKit.esm.js",
+        "test": "npm run test:client && npm run test:server && npm run test:heartbeat",
+        "test:client": "MODULE=client jest --config test/jest.config.js test/test.js",
+        "test:server": "MODULE=server jest --config test/jest.config.js test/server.test.js",
+        "test:heartbeat": "node HeartbeatKit/test/boilerplate/test-karma.js",
+        "test:client:debug": "MODULE=client node --inspect-brk ./node_modules/jest/bin/jest.js --runInBand --config test/jest.config.js test/test.js",
+        "test:server:debug": "MODULE=server node --inspect-brk ./node_modules/jest/bin/jest.js --runInBand --config test/jest.config.js test/server.test.js",
+        "watch:heartbeat": "BUILD=heartbeat rollup --config rollup.config.js -w"
+    },
+    "author": "Robert Ing (ring@mparticle.com)",
+    "license": "Apache",
+    "devDependencies": {
+        "@babel/core": "^7.5.5",
+        "@babel/preset-env": "^7.5.5",
+        "@mparticle/web-sdk": "^2.23.0",
+        "babel-jest": "^24.9.0",
+        "jest": "^24.9.0",
+        "lerna": "^3.16.4",
+        "rollup": "^1.20.3",
+        "rollup-plugin-commonjs": "^10.1.0",
+        "rollup-plugin-node-resolve": "^5.2.0",
+        "chai": "^4.2.0",
+        "eslint": "^6.4.0",
+        "eslint-config-prettier": "^6.3.0",
+        "eslint-plugin-prettier": "^3.1.1",
+        "karma": "^3.1.1",
+        "karma-chai": "^0.1.0",
+        "karma-chrome-launcher": "^2.2.0",
+        "karma-edge-launcher": "^0.4.2",
+        "karma-firefox-launcher": "^1.1.0",
+        "karma-ie-launcher": "^1.0.0",
+        "karma-junit-reporter": "^1.2.0",
+        "karma-mocha": "^1.3.0",
+        "karma-safari-launcher": "^1.0.0",
+        "mocha": "^5.2.0",
+        "prettier": "^1.18.2",
+        "shelljs": "0.8.3",
+        "should": "13.2.3"
+    },
+    "dependencies": {
+        "browserify": "^16.5.0"
+    }
+}
