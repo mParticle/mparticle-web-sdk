@@ -10,9 +10,5 @@
   {
     "name": "Intercom",
     "local_path": "kits/intercom"
-  },
-  {
-    "name": "Criteo",
-    "local_path": "kits/criteo"
   }
 ]
