@@ -10,9 +10,5 @@
   {
     "name": "Intercom",
     "local_path": "kits/intercom"
-  },
-  {
-    "name": "DoubleClick",
-    "local_path": "kits/doubleclick"
   }
 ]
