@@ -94,7 +94,7 @@ export default function APIClient(
             shouldUploadEvent: true,
         };
         const options = mpInstance._Helpers.extend(defaultOptions, _options);
- 
+
         if (mpInstance._Store.webviewBridgeEnabled) {
             mpInstance._NativeSdkHelpers.sendToNative(
                 Constants.NativeSdkPaths.LogEvent,
@@ -102,7 +102,7 @@ export default function APIClient(
             );
             return;
         }
- 
+        
         let mpid,
             currentUser = mpInstance.Identity.getCurrentUser();
         if (currentUser) {
