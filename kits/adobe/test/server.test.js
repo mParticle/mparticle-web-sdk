@@ -72,6 +72,7 @@ describe('AdobeServerSide Forwarder', function() {
             kitConfigs: [
                 {
                     name: 'Adobe',
+                    suffix: 'Server',
                     settings: settings,
                     eventNameFilters: [],
                     eventTypeFilters: [],
