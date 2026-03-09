@@ -1,7 +1,7 @@
 {
     "name": "@mparticle/web-google-analytics-4-kit",
     "version": "1.0.0",
-    "description": "mParticle integration sdk for Google Analytics 4",
+    "description": "mParticle Google Analytics 4 kit integration",
     "repository": {
         "type": "git",
         "url": "https://github.com/mParticle/mparticle-web-sdk.git",
