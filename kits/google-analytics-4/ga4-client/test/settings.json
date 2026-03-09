@@ -1,0 +1,12 @@
+{
+    "clientKey": "123456",
+    "appId": "abcde",
+    "userIdField": "customerId",
+    // The event for this mapping is a Navigation Event named 'Mapped Event Name' and it is mapped to 'earn_virtual_currency'
+    "eventNameMapping": "[{&quot;jsmap&quot;:&quot;-2106354334&quot;,&quot;map&quot;:&quot;1740494660027578603&quot;,&quot;maptype&quot;:&quot;EventClass.Id&quot;,&quot;value&quot;:&quot;earn_virtual_currency&quot;}]",
+    // The attributeMapping below has the following mapping:
+    // mappedEventKey1 --> virtual_currency_name
+    // mappedEventKey2 --> value
+    // mappedEventKey2 --> virtual_currency_name
+    "attributeMapping": "[{&quot;jsmap&quot;:null,&quot;map&quot;:&quot;mappedEventKey1&quot;,&quot;maptype&quot;:&quot;EventAttributeClass.Name&quot;,&quot;value&quot;:&quot;virtual_currency_name&quot;},{&quot;jsmap&quot;:null,&quot;map&quot;:&quot;mappedEventKey2&quot;,&quot;maptype&quot;:&quot;EventAttributeClass.Name&quot;,&quot;value&quot;:&quot;value&quot;},{&quot;jsmap&quot;:null,&quot;map&quot;:&quot;appName&quot;,&quot;maptype&quot;:&quot;EventAttributeClass.Name&quot;,&quot;value&quot;:&quot;virtual_currency_name&quot;}]"
+}

@@ -10,5 +10,13 @@
   {
     "name": "Intercom",
     "local_path": "kits/intercom"
+  },
+  {
+    "name": "Google Analytics 4 Client",
+    "local_path": "kits/google-analytics-4/ga4-client"
+  },
+  {
+    "name": "Google Analytics 4 Server",
+    "local_path": "kits/google-analytics-4/ga4-server"
   }
 ]
