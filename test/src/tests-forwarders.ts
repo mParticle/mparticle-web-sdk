@@ -506,6 +506,117 @@ describe('forwarders', function() {
             expect(window.MockForwarder1.instance.onUserIdentifiedCalled).to.equal(true);
             expect(window.MockForwarder1.instance.onUserIdentifiedUser).to.be.ok;
         });
+
+        it('events pre-dispatched to forwarders before identity are NOT re-dispatched when eventQueue is flushed after identify', async () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.isInitialized()).to.not.equal(true);
+
+            // Log two events pre-MPID — they should be forwarded once each
+            mParticle.logEvent('DoubleDispatchEvent1', mParticle.EventType.Navigation);
+            mParticle.logEvent('DoubleDispatchEvent2', mParticle.EventType.Navigation);
+
+            const forwarderReceivedCountBeforeIdentify =
+                window.MockForwarder1.instance.receivedEvents!.filter(
+                    (e) => e.EventName === 'DoubleDispatchEvent1' || e.EventName === 'DoubleDispatchEvent2'
+                ).length;
+            expect(forwarderReceivedCountBeforeIdentify).to.equal(2);
+
+            // Trigger identify — SDK fully initializes and flushes the event queue
+            mParticle.Identity.identify({
+                userIdentities: { email: 'no-double-dispatch@example.com' },
+            });
+            await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+
+            expect(mParticle.isInitialized()).to.equal(true);
+            expect(mParticle.getInstance()._Store.eventQueue).to.have.length(0);
+
+            // The events must NOT have been dispatched to the forwarder a second time
+            const forwarderReceivedCountAfterIdentify =
+                window.MockForwarder1.instance.receivedEvents!.filter(
+                    (e) => e.EventName === 'DoubleDispatchEvent1' || e.EventName === 'DoubleDispatchEvent2'
+                ).length;
+            expect(forwarderReceivedCountAfterIdentify).to.equal(2);
+        });
+
+        it('SessionStart and SessionEnd events are not dispatched to forwarders or queued when noFunctional is true and no identity', () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.isInitialized()).to.not.equal(true);
+
+            const store = mParticle.getInstance()._Store;
+
+            // The event queue must not contain any system lifecycle events
+            const systemEventsInQueue = store.eventQueue.filter(
+                (e) =>
+                    e.EventDataType === MessageType.SessionStart ||
+                    e.EventDataType === MessageType.SessionEnd
+            );
+            expect(systemEventsInQueue).to.have.length(0);
+
+            // Forwarders must not have received any system lifecycle events
+            const systemEventsForwarded = window.MockForwarder1.instance.receivedEvents!.filter(
+                (e) =>
+                    e.EventDataType === MessageType.SessionStart ||
+                    e.EventDataType === MessageType.SessionEnd
+            );
+            expect(systemEventsForwarded).to.have.length(0);
+        });
+
+        it('queued events are uploaded to the MP server events endpoint after Identity.identify() resolves', async () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.isInitialized()).to.not.equal(true);
+
+            mParticle.logEvent('BatchUploadEvent1', mParticle.EventType.Navigation);
+            mParticle.logEvent('BatchUploadEvent2', mParticle.EventType.Navigation);
+
+            expect(mParticle.getInstance()._Store.eventQueue).to.have.length(2);
+
+            // Reset fetch history so we only inspect calls made after identify
+            fetchMock.resetHistory();
+
+            mParticle.Identity.identify({
+                userIdentities: { email: 'batch-upload-after-identify@example.com' },
+            });
+            await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+
+            expect(mParticle.isInitialized()).to.equal(true);
+            expect(mParticle.getInstance()._Store.eventQueue).to.have.length(0);
+
+            // Both queued events must appear in a POST to the events endpoint
+            const event1 = findEventFromRequest(fetchMock.calls(), 'BatchUploadEvent1');
+            const event2 = findEventFromRequest(fetchMock.calls(), 'BatchUploadEvent2');
+            expect(event1).to.be.ok;
+            expect(event2).to.be.ok;
+        });
     });
 
     const MockUser = function() {

@@ -102,7 +102,7 @@ export default function APIClient(
             );
             return;
         }
-        
+
         let mpid,
             currentUser = mpInstance.Identity.getCurrentUser();
         if (currentUser) {
@@ -123,7 +123,7 @@ export default function APIClient(
         if (noFunctionalWithoutId && !mpid && mpInstance._Store.configurationLoaded && !mpInstance._Store.requireDelay) {
             // Skip system lifecycle events (SessionStart, SessionEnd, AppStateTransition) —
             // they will be regenerated when the SDK fully initialises after Identity.identify() resolves.
-            const eventDataType = event.EventName as unknown as number;
+            const eventDataType = event.EventDataType;
             const isSystemEvent =
                 eventDataType === Types.MessageType.SessionStart ||
                 eventDataType === Types.MessageType.SessionEnd ||
