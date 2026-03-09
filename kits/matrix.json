@@ -10,9 +10,5 @@
   {
     "name": "Intercom",
     "local_path": "kits/intercom"
-  },
-  {
-    "name": "SimpleReach",
-    "local_path": "kits/simplereach"
   }
 ]
