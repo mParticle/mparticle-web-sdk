@@ -7,7 +7,7 @@ import APIClient from './apiClient';
 
 const { Modify, Identify, Login, Logout } = Constants.IdentityMethods;
 
-export default function Forwarders(mpInstance, kitBlocker) {
+export default function Forwarders(this: any, mpInstance, kitBlocker) {
     var self = this;
     this.forwarderStatsUploader = new APIClient(
         mpInstance,
@@ -714,7 +714,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
         );
     };
 
-    this.returnConfiguredKit = function(forwarder, config = {}) {
+    this.returnConfiguredKit = function(forwarder, config: any = {}) {
         const newForwarder = new forwarder.constructor();
         newForwarder.id = config.moduleId;
 
