@@ -3,7 +3,7 @@ import Constants from './constants';
 
 var Messages = Constants.Messages;
 
-export default function Ecommerce(mpInstance) {
+export default function Ecommerce(this: any, mpInstance) {
     var self = this;
 
     // https://go.mparticle.com/work/SQDSDKS-4801

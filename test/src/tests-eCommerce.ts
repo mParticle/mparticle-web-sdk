@@ -2,6 +2,17 @@ import Utils from './config/utils';
 import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import { urls, apiKey, MPConfig, testMPID, ProductActionType, PromotionActionType } from './config/constants';
+import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
+
+declare global {
+    interface Window {
+        mParticle: IMParticleInstanceManager;
+    }
+    function Should(obj: any): any;
+}
+
+const mParticle = window.mParticle as IMParticleInstanceManager;
+
 const { waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
 
 const forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
@@ -121,7 +132,7 @@ describe('eCommerce', function() {
                 '400');
 
         mParticle.eCommerce.logProductAction(
-            mParticle.ProductActionType.Typo, // <------ will result in a null when converting the product action type as this is not a real value
+            (mParticle.ProductActionType as any).Typo, // <------ will result in a null when converting the product action type as this is not a real value
             [product]
         );
         fetchMock.calls().length.should.equal(0);
@@ -132,11 +143,11 @@ describe('eCommerce', function() {
                 'iPhone',
                 '12345',
                 Infinity,
-                '2-foo',
+                '2-foo' as any,
                 'Plus',
                 'Phones',
                 'Apple',
-                '1-foo',
+                '1-foo' as any,
                 'my-coupon-code',
                 { customkey: 'customvalue' }
             ),
@@ -144,9 +155,9 @@ describe('eCommerce', function() {
                 '12345',
                 'test-affiliation',
                 'coupon-code',
-                '44334-foo',
-                '600-foo',
-                '200-foo'
+                '44334-foo' as any,
+                '600-foo' as any,
+                '200-foo' as any
             );
 
         await waitForCondition(hasIdentifyReturned);
@@ -338,7 +349,7 @@ describe('eCommerce', function() {
         await waitForCondition(hasIdentifyReturned);
         mParticle.eCommerce.logPromotion(
             mParticle.PromotionType.PromotionClick,
-            [promotion1, promotion2]
+            [promotion1, promotion2] as any
         );
 
         const promotionEvent = findEventFromRequest(fetchMock.calls(), 'click');
@@ -369,7 +380,7 @@ describe('eCommerce', function() {
         await waitForCondition(hasIdentifyReturned);
         mParticle.eCommerce.logPromotion(
             mParticle.PromotionType.PromotionClick,
-            promotion,
+            promotion as any,
             {}, {},
             { shouldUploadEvent: false }
         );
@@ -382,7 +393,7 @@ describe('eCommerce', function() {
         const product = mParticle.eCommerce.createProduct('iPhone', '12345', 400),
             impression = mParticle.eCommerce.createImpression(
                 'impression-name',
-                product
+                product as any
             );
 
         impression.should.have.property('Name', 'impression-name');
@@ -394,11 +405,11 @@ describe('eCommerce', function() {
         const product = mParticle.eCommerce.createProduct('iPhone', '12345', 400),
             impression = mParticle.eCommerce.createImpression(
                 'impression-name',
-                product
+                product as any
             );
 
         await waitForCondition(hasIdentifyReturned);
-        mParticle.eCommerce.logImpression(impression);
+        mParticle.eCommerce.logImpression(impression as any);
         const impressionEvent = findEventFromRequest(fetchMock.calls(), 'impression');
 
         Should(impressionEvent).be.ok();
@@ -414,10 +425,10 @@ describe('eCommerce', function() {
         const product = mParticle.eCommerce.createProduct('iPhone', '12345', 400),
             impression = mParticle.eCommerce.createImpression(
                 'impression-name',
-                product
+                product as any
             );
 
-        mParticle.eCommerce.logImpression(impression, null, null, { shouldUploadEvent: false });
+        mParticle.eCommerce.logImpression(impression as any, null, null, { shouldUploadEvent: false });
 
         const impressionEvent = findEventFromRequest(fetchMock.calls(), 'impression');
 
@@ -429,7 +440,7 @@ describe('eCommerce', function() {
         const product = mParticle.eCommerce.createProduct('iPhone', '12345', 400),
             impression = mParticle.eCommerce.createImpression(
                 'impression-name1',
-                product
+                product as any
             ),
             product2 = mParticle.eCommerce.createProduct(
                 'Android',
@@ -438,10 +449,10 @@ describe('eCommerce', function() {
             ),
             impression2 = mParticle.eCommerce.createImpression(
                 'impression-name2',
-                product2
+                product2 as any
             );
 
-        mParticle.eCommerce.logImpression([impression, impression2]);
+        mParticle.eCommerce.logImpression([impression, impression2] as any);
 
         const impressionEvent = findEventFromRequest(fetchMock.calls(), 'impression');
 
@@ -624,7 +635,7 @@ describe('eCommerce', function() {
         const product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
         const product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799);
 
-        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Checkout, [product1, product2], null, null, {Step: 4, Option: 'Visa'});
+        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Checkout, [product1, product2], null, null, { Step: 4, Option: 'Visa' } as any);
 
         const checkoutEvent = findEventFromRequest(fetchMock.calls(), 'checkout');
 
@@ -645,7 +656,7 @@ describe('eCommerce', function() {
         const product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
 
         mParticle.eCommerce.logProductAction(
-            ProductActionType.CheckoutOption,
+            ProductActionType.CheckoutOption as any,
             product,
             { color: 'blue' }
         );
@@ -670,7 +681,7 @@ describe('eCommerce', function() {
         const product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
 
         mParticle.eCommerce.logProductAction(
-            ProductActionType.ViewDetail,
+            ProductActionType.ViewDetail as any,
             product
         );
 
@@ -685,11 +696,11 @@ describe('eCommerce', function() {
     });
 
     it('should fail to create product if name not a string', () => {
-        const product = mParticle.eCommerce.createProduct(null);
-        const product2 = mParticle.eCommerce.createProduct(undefined);
-        const product3 = mParticle.eCommerce.createProduct(['product']);
-        const product4 = mParticle.eCommerce.createProduct(123);
-        const product5 = mParticle.eCommerce.createProduct({ key: 'value' });
+        const product = (mParticle.eCommerce.createProduct as any)(null);
+        const product2 = (mParticle.eCommerce.createProduct as any)(undefined);
+        const product3 = (mParticle.eCommerce.createProduct as any)(['product']);
+        const product4 = (mParticle.eCommerce.createProduct as any)(123);
+        const product5 = (mParticle.eCommerce.createProduct as any)({ key: 'value' });
 
         Should(product).not.be.ok();
         Should(product2).not.be.ok();
@@ -699,12 +710,12 @@ describe('eCommerce', function() {
     });
 
     it('should fail to create product if sku not a string or a number', () => {
-        const product = mParticle.eCommerce.createProduct('test', null);
-        const product2 = mParticle.eCommerce.createProduct('test', {
+        const product = (mParticle.eCommerce.createProduct as any)('test', null);
+        const product2 = (mParticle.eCommerce.createProduct as any)('test', {
             key: 'value',
         });
-        const product3 = mParticle.eCommerce.createProduct('test', []);
-        const product4 = mParticle.eCommerce.createProduct('test', undefined);
+        const product3 = (mParticle.eCommerce.createProduct as any)('test', []);
+        const product4 = (mParticle.eCommerce.createProduct as any)('test', undefined);
 
         Should(product).not.be.ok();
         Should(product2).not.be.ok();
@@ -725,13 +736,13 @@ describe('eCommerce', function() {
     });
 
     it('should fail to create impression if name is not specified', () => {
-        const impression = mParticle.eCommerce.createImpression(null);
+        const impression = (mParticle.eCommerce.createImpression as any)(null);
 
         Should(impression).not.be.ok();
     });
 
     it('should fail to create impression if product is not specified', () => {
-        const impression = mParticle.eCommerce.createImpression('name', null);
+        const impression = (mParticle.eCommerce.createImpression as any)('name', null);
 
         Should(impression).not.be.ok();
     });
@@ -815,7 +826,7 @@ describe('eCommerce', function() {
             'ProductAction'
         );
         const expandedEvents = mParticle.eCommerce.expandCommerceEvent(
-            window.MockForwarder1.instance.receivedEvent
+            window.MockForwarder1.instance.receivedEvent as any
         );
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(2);
 
@@ -923,7 +934,7 @@ describe('eCommerce', function() {
             'ProductAction'
         );
         const expandedEvents = mParticle.eCommerce.expandCommerceEvent(
-            window.MockForwarder1.instance.receivedEvent
+            window.MockForwarder1.instance.receivedEvent as any
         );
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(2);
 
@@ -977,14 +988,14 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.logProductAction(
             mParticle.ProductActionType.RemoveFromWishlist,
-            product,
+            product as any,
             eventAttributes
         );
         window.MockForwarder1.instance.receivedEvent.should.have.property(
             'ProductAction'
         );
         const expandedEvents = mParticle.eCommerce.expandCommerceEvent(
-            window.MockForwarder1.instance.receivedEvent
+            window.MockForwarder1.instance.receivedEvent as any
         );
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(1);
 
@@ -1049,16 +1060,16 @@ describe('eCommerce', function() {
             productAttributes
         );
 
-        mParticle.eCommerce.Cart.add(product, true);
+        mParticle.eCommerce.Cart.add(product as any, true);
 
-        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Checkout, [product], eventAttributes);
+        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Checkout, [product] as any, eventAttributes);
 
         window.MockForwarder1.instance.receivedEvent.should.have.property(
             'ProductAction'
         );
 
         const expandedEvents = mParticle.eCommerce.expandCommerceEvent(
-            window.MockForwarder1.instance.receivedEvent
+            window.MockForwarder1.instance.receivedEvent as any
         );
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(1);
 
@@ -1116,14 +1127,14 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.logPromotion(
             mParticle.PromotionType.PromotionClick,
-            promotion,
+            promotion as any,
             eventAttributes
         );
         window.MockForwarder1.instance.receivedEvent.should.have.property(
             'PromotionAction'
         );
         const expandedEvents = mParticle.eCommerce.expandCommerceEvent(
-            window.MockForwarder1.instance.receivedEvent
+            window.MockForwarder1.instance.receivedEvent as any
         );
 
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(1);
@@ -1190,15 +1201,15 @@ describe('eCommerce', function() {
 
         const impression = mParticle.eCommerce.createImpression(
             'suggested products list',
-            product
+            product as any
         );
 
-        mParticle.eCommerce.logImpression(impression, eventAttributes);
+        mParticle.eCommerce.logImpression(impression as any, eventAttributes);
         window.MockForwarder1.instance.receivedEvent.should.have.property(
             'ProductImpressions'
         );
         const expandedEvents = mParticle.eCommerce.expandCommerceEvent(
-            window.MockForwarder1.instance.receivedEvent
+            window.MockForwarder1.instance.receivedEvent as any
         );
 
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(1);
@@ -1238,7 +1249,7 @@ describe('eCommerce', function() {
 
     it('should add customFlags to logCheckout events', async () => {
         await waitForCondition(hasIdentifyReturned);
-        mParticle.eCommerce.logCheckout(1, {}, {}, { interactionEvent: true });
+        mParticle.eCommerce.logCheckout(1, {} as any, {} as any, { interactionEvent: true });
 
         const checkoutEvent = findEventFromRequest(fetchMock.calls(), 'checkout');
         checkoutEvent.data.custom_flags.interactionEvent.should.equal(true);
@@ -1305,10 +1316,10 @@ describe('eCommerce', function() {
         const product = mParticle.eCommerce.createProduct('iPhone', 'sku1', 499);
         const impression = mParticle.eCommerce.createImpression(
             'iphoneImpressionName',
-            product
+            product as any
         );
         mParticle.eCommerce.logImpression(
-            impression,
+            impression as any,
             { shipping: 5 },
             { interactionEvent: true }
         );
@@ -1352,7 +1363,7 @@ describe('eCommerce', function() {
                 400
             );
 
-            mParticle.eCommerce.Cart.add(product, true);
+            mParticle.eCommerce.Cart.add(product as any, true);
 
             bond.called.should.eql(true);
             bond.getCalls()[0].args[0].should.eql(
@@ -1370,7 +1381,7 @@ describe('eCommerce', function() {
                 400
             );
 
-            mParticle.eCommerce.Cart.remove(product, true);
+            mParticle.eCommerce.Cart.remove(product as any, true);
 
             bond.called.should.eql(true);
             bond.getCalls()[0].args[0].should.eql(
@@ -1392,8 +1403,8 @@ describe('eCommerce', function() {
 
         it('should be empty when transactionAttributes is empty', () => {
             const mparticle = mParticle.getInstance()
-            const productAction = {}
-            mparticle._Ecommerce.convertTransactionAttributesToProductAction({}, productAction)
+            const productAction: any = {}
+            mparticle._Ecommerce.convertTransactionAttributesToProductAction({} as any, productAction)
             Object.keys(productAction).length.should.equal(0);
         });
 
@@ -1415,9 +1426,9 @@ describe('eCommerce', function() {
                 Revenue: "revenue",
                 Shipping: "shipping",
                 Tax: "tax"
-            };
+            } as any;
 
-            const productAction = {};
+            const productAction: any = {};
             mparticle._Ecommerce.convertTransactionAttributesToProductAction(transactionAttributes, productAction)
             productAction.TransactionId.should.equal("id")
             productAction.Affiliation.should.equal("affiliation")
@@ -1461,7 +1472,7 @@ describe('eCommerce', function() {
                 transactionAttributes,
                 {
                     sourceMessageId: 'foo-bar'
-                }
+                } as any
             );
 
             const purchaseEvent1 = findEventFromRequest(fetchMock.calls(), 'purchase');
