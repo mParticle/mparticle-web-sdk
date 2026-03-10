@@ -325,6 +325,7 @@ describe('forwarders', function() {
             mParticle.logEvent('QueuedEvent2', mParticle.EventType.Navigation);
 
             const store = mParticle.getInstance()._Store;
+            // Queue contains SessionStart + AST (lifecycle events now queued) + 2 custom events  
             expect(store.eventQueue).to.have.length(4);
 
             mParticle.Identity.identify({
@@ -565,6 +566,7 @@ describe('forwarders', function() {
             mParticle.logEvent('BatchUploadEvent1', mParticle.EventType.Navigation);
             mParticle.logEvent('BatchUploadEvent2', mParticle.EventType.Navigation);
 
+            // Queue contains SessionStart + AST (lifecycle events now queued) + 2 custom events  
             expect(mParticle.getInstance()._Store.eventQueue).to.have.length(4);
 
             // Reset fetch history so we only inspect calls made after identify
