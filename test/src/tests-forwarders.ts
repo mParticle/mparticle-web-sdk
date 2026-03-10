@@ -233,7 +233,7 @@ describe('forwarders', function() {
             delete window.mParticle.config.identifyRequest;
         });
 
-        it('should still initialize forwarders when noFunctional is true and no identity passed (even when SDK does not complete initialization)', () => {
+        it('should still initialize forwarders when noFunctional is true and no identity passed (when the SDK does not complete initialization)', () => {
             window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
             window.mParticle.config.identifyRequest = undefined;
 
