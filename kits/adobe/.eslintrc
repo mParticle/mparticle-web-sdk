@@ -1,0 +1,53 @@
+{
+    "root": true,
+    "env": {
+        "node": true
+    },
+    "parserOptions": {
+        "ecmaVersion": 6,
+        "sourceType": "module",
+        "ecmaFeatures": {
+            "modules": true
+        }
+    },
+    "globals": {
+        "window": true,
+        "document": true,
+        "Visitor": true,
+        "AppMeasurement": true,
+        "ADB": true
+    },
+    "extends": "eslint:recommended",
+    "rules": {
+        "linebreak-style": ["error", "unix"],
+        "quotes": ["error", "single"],
+        "semi": ["error", "always"],
+        "no-unneeded-ternary": [
+            "error",
+            {
+                "defaultAssignment": false
+            }
+        ],
+        "comma-dangle": ["error", "never"],
+        "curly": ["error", "multi-line"],
+        "comma-spacing": [
+            "error",
+            {
+                "before": false,
+                "after": true
+            }
+        ],
+        "quote-props": [
+            "error",
+            "as-needed",
+            {
+                "keywords": false,
+                "unnecessary": true,
+                "numbers": false
+            }
+        ],
+        "no-multi-spaces": "error",
+        "no-prototype-builtins": 0,
+        "no-implicit-globals": "error"
+    }
+}
