@@ -110,5 +110,9 @@
   {
     "name": "Twitter",
     "local_path": "kits/twitter"
+  },
+  {
+    "name": "Adobe",
+    "local_path": "kits/adobe"
   }
 ]
