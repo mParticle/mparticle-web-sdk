@@ -91,6 +91,9 @@ export default function APIClient(
 
     // When noFunctional is set and there is no MPID yet, forward the event to kits immediately
     // and queue it for the MP server upload path so it can be sent once an MPID is returned.
+    // When noFunctional is set and there are no identities passed, the SDK will not fully initialize.
+    // In this case, there will be no MPID, but we still want kits to initialize and forward the event to kits.
+    // The original event is queued for the MP server upload path so it can be sent once an MPID is returned.
     // Returns true if the event was handled by this path (caller should return early).
     const handleNoFunctionalPreMpidEvent = (event: SDKEvent, mpid: string | undefined): boolean => {
         const noFunctionalWithoutId =
@@ -116,7 +119,7 @@ export default function APIClient(
             }
             if (forwarderEvent) {
                 mpInstance._Forwarders.sendEventToForwarders(forwarderEvent);
-                event._forwardersAlreadySent = true;
+                event._AlreadySentToForwarders = true;
             }
             mpInstance.Logger.verbose(
                 'noFunctional event forwarded to kits and queued for MP server upload when MPID is available.'
@@ -199,7 +202,7 @@ export default function APIClient(
             }
         }
     };
- 
+
     this.sendBatchForwardingStatsToServer = function(forwardingStatsData, xhr) {
         let url;
         let data;
