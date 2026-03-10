@@ -89,8 +89,6 @@ export default function APIClient(
         });
     };
 
-    // When noFunctional is set and there is no MPID yet, forward the event to kits immediately
-    // and queue it for the MP server upload path so it can be sent once an MPID is returned.
     // When noFunctional is set and there are no identities passed, the SDK will not fully initialize.
     // In this case, there will be no MPID, but we still want kits to initialize and forward the event to kits.
     // The original event is queued for the MP server upload path so it can be sent once an MPID is returned.
