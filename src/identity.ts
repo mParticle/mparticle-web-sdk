@@ -272,6 +272,10 @@ export default function Identity(this: any, mpInstance) {
                     );
 
                     if (successfullyCachedIdentity) {
+                        mpInstance.Logger.info(
+                            'Using cached identity response for ' + Identify,
+                            ErrorCodes.IDENTITY_CACHE_HIT
+                        );
                         return;
                     }
                 }
@@ -458,6 +462,10 @@ export default function Identity(this: any, mpInstance) {
                     );
 
                     if (successfullyCachedIdentity) {
+                        mpInstance.Logger.info(
+                            'Using cached identity response for ' + Login,
+                            ErrorCodes.IDENTITY_CACHE_HIT
+                        );
                         return;
                     }
                 }
