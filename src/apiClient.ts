@@ -104,28 +104,18 @@ export default function APIClient(
             return false;
         }
 
-        // Skip system lifecycle events (SessionStart, SessionEnd, AppStateTransition) —
-        // they will be regenerated when the SDK fully initialises after Identity.identify() resolves.
-        const eventDataType = event.EventDataType;
-        const isSystemEvent =
-            eventDataType === Types.MessageType.SessionStart ||
-            eventDataType === Types.MessageType.SessionEnd ||
-            eventDataType === Types.MessageType.AppStateTransition;
-
-        if (!isSystemEvent) {
-            let forwarderEvent = event;
-            if (kitBlocker?.kitBlockingEnabled) {
-                forwarderEvent = kitBlocker.createBlockedEvent(event);
-            }
-            if (forwarderEvent) {
-                mpInstance._Forwarders.sendEventToForwarders(forwarderEvent);
-                event._AlreadySentToForwarders = true;
-            }
-            mpInstance.Logger.verbose(
-                'noFunctional event forwarded to kits and queued for MP server upload when MPID is available.'
-            );
-            mpInstance._Store.eventQueue.push(event);
+        let forwarderEvent = event;
+        if (kitBlocker?.kitBlockingEnabled) {
+            forwarderEvent = kitBlocker.createBlockedEvent(event);
         }
+        if (forwarderEvent) {
+            mpInstance._Forwarders.sendEventToForwarders(forwarderEvent);
+            event._forwardersAlreadySent = true;
+        }
+        mpInstance.Logger.verbose(
+            'noFunctional event forwarded to kits and queued for MP server upload when MPID is available.'
+        );
+        mpInstance._Store.eventQueue.push(event);
 
         return true;
     };

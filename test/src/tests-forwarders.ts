@@ -325,7 +325,7 @@ describe('forwarders', function() {
             mParticle.logEvent('QueuedEvent2', mParticle.EventType.Navigation);
 
             const store = mParticle.getInstance()._Store;
-            expect(store.eventQueue).to.have.length(2);
+            expect(store.eventQueue).to.have.length(4);
 
             mParticle.Identity.identify({
                 userIdentities: { email: 'queue-then-identify@example.com' },
@@ -548,39 +548,6 @@ describe('forwarders', function() {
             expect(forwarderReceivedCountAfterIdentify).to.equal(2);
         });
 
-        it('SessionStart and SessionEnd events are not dispatched to forwarders or queued when noFunctional is true and no identity', () => {
-            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
-            window.mParticle.config.identifyRequest = undefined;
-
-            const mockForwarder = new MockForwarder();
-            mockForwarder.register(window.mParticle.config);
-            window.mParticle.config.kitConfigs.push(
-                forwarderDefaultConfiguration('MockForwarder', 1)
-            );
-
-            mParticle.init(apiKey, window.mParticle.config);
-
-            expect(mParticle.isInitialized()).to.not.equal(true);
-
-            const store = mParticle.getInstance()._Store;
-
-            // The event queue must not contain any system lifecycle events
-            const systemEventsInQueue = store.eventQueue.filter(
-                (e) =>
-                    e.EventDataType === MessageType.SessionStart ||
-                    e.EventDataType === MessageType.SessionEnd
-            );
-            expect(systemEventsInQueue).to.have.length(0);
-
-            // Forwarders must not have received any system lifecycle events
-            const systemEventsForwarded = window.MockForwarder1.instance.receivedEvents!.filter(
-                (e) =>
-                    e.EventDataType === MessageType.SessionStart ||
-                    e.EventDataType === MessageType.SessionEnd
-            );
-            expect(systemEventsForwarded).to.have.length(0);
-        });
-
         it('queued events are uploaded to the MP server events endpoint after Identity.identify() resolves', async () => {
             window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
             window.mParticle.config.identifyRequest = undefined;
@@ -598,7 +565,7 @@ describe('forwarders', function() {
             mParticle.logEvent('BatchUploadEvent1', mParticle.EventType.Navigation);
             mParticle.logEvent('BatchUploadEvent2', mParticle.EventType.Navigation);
 
-            expect(mParticle.getInstance()._Store.eventQueue).to.have.length(2);
+            expect(mParticle.getInstance()._Store.eventQueue).to.have.length(4);
 
             // Reset fetch history so we only inspect calls made after identify
             fetchMock.resetHistory();
