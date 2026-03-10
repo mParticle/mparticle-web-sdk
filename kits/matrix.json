@@ -10,5 +10,9 @@
   {
     "name": "Intercom",
     "local_path": "kits/intercom"
+  },
+  {
+    "name": "Adobe",
+    "local_path": "kits/adobe"
   }
 ]
