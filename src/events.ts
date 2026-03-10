@@ -3,7 +3,7 @@ import Constants from './constants';
 
 var Messages = Constants.Messages;
 
-export default function Events(mpInstance) {
+export default function Events(this: any, mpInstance) {
     var self = this;
     this.logEvent = function(event, options) {
         mpInstance.Logger.verbose(
@@ -57,7 +57,7 @@ export default function Events(mpInstance) {
             mpInstance._Store.isTracking = false;
         }
 
-        function triggerCallback(callback, position) {
+        function triggerCallback(callback, position?) {
             if (callback) {
                 try {
                     if (position) {
@@ -367,7 +367,7 @@ export default function Events(mpInstance) {
         data,
         eventType
     ) {
-        var elements = [],
+        var elements: any[] = [],
             handler = function(e) {
                 var timeoutHandler = function() {
                     if (element.href) {
@@ -420,7 +420,7 @@ export default function Events(mpInstance) {
 
         // Handle a css selector string or a dom element
         if (typeof selector === 'string') {
-            elements = document.querySelectorAll(selector);
+            elements = Array.from(document.querySelectorAll(selector));
         } else if (selector.nodeType) {
             elements = [selector];
         }
