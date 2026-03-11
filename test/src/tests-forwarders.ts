@@ -1,6 +1,7 @@
 import Utils from './config/utils';
 import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
+import { IRoktKit } from '../../src/roktManager';
 
 import {
     urls,
@@ -585,6 +586,93 @@ describe('forwarders', function() {
             const event2 = findEventFromRequest(fetchMock.calls(), 'BatchUploadEvent2');
             expect(event1).to.be.ok;
             expect(event2).to.be.ok;
+        });
+
+        it('mParticle.ready() fires immediately when noFunctional is true, no explicit identity is provided, and Rokt kit is already ready', () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            // Simulate Rokt kit attaching a launcher so isReady() returns true
+            const roktKit = {
+                filters: { userAttributeFilters: [], filterUserAttributes: () => ({}), filteredUser: null },
+                launcher: () => {},
+            } as unknown as IRoktKit;
+            mParticle.getInstance()._RoktManager.attachKit(roktKit);
+
+            expect(mParticle.getInstance()._RoktManager.isReady()).to.equal(true);
+            expect(mParticle.isInitialized()).to.not.equal(true);
+
+            let readyCalled = false;
+            mParticle.ready(function() {
+                readyCalled = true;
+            });
+
+            expect(readyCalled).to.equal(true);
+        });
+
+        it('mParticle.ready() fires when Rokt kit becomes ready after the callback was queued (noFunctional, no identity)', () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.isInitialized()).to.not.equal(true);
+
+            // Register ready callback before Rokt is ready — should be queued
+            let readyCalled = false;
+            mParticle.ready(function() {
+                readyCalled = true;
+            });
+
+            expect(readyCalled).to.equal(false);
+
+            // Now simulate Rokt kit becoming ready
+            const roktKit = {
+                filters: { userAttributeFilters: [], filterUserAttributes: () => ({}), filteredUser: null },
+                launcher: () => {},
+            } as unknown as IRoktKit;
+            mParticle.getInstance()._RoktManager.attachKit(roktKit);
+
+            // attachKit should drain the ready queue via processQueueOnIdentityFailure
+            expect(readyCalled).to.equal(true);
+        });
+
+        it('mParticle.ready() does not fire when noFunctional is true and no identity is provided, but Rokt kit is not yet ready', () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.getInstance()._RoktManager.isReady()).to.equal(false);
+            expect(mParticle.isInitialized()).to.not.equal(true);
+
+            let readyCalled = false;
+            mParticle.ready(function() {
+                readyCalled = true;
+            });
+
+            // Rokt not ready yet — callback must remain queued
+            expect(readyCalled).to.equal(false);
         });
     });
 

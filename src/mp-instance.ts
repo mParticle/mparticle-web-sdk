@@ -150,8 +150,16 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         if (self._Store?.isInitialized) {
             return;
         }
-        
-        if (self._Store?.identityCallFailed && self._RoktManager?.isReady()) {
+
+        const noFunctionalWithoutId =
+            self._CookieConsentManager?.getNoFunctional() &&
+            !hasExplicitIdentifier(self._Store);
+
+        const shouldDrainQueue =
+            (self._Store?.identityCallFailed || noFunctionalWithoutId) &&
+            self._RoktManager?.isReady();
+
+        if (shouldDrainQueue) {
             self._RoktManager.processMessageQueue();
             self._preInit.readyQueue = processReadyQueue(self._preInit.readyQueue);
         }
@@ -280,11 +288,16 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
      * @param {Function} f Callback to execute
      */
     this.ready = function(f) {
+        const noFunctionalWithoutId =
+            self._CookieConsentManager?.getNoFunctional() &&
+            !hasExplicitIdentifier(self._Store);
+
         const shouldExecute = isFunction(f) && (
-            self._Store?.isInitialized || 
-            (self._Store?.identityCallFailed && self._RoktManager.isReady())
+            self._Store?.isInitialized ||
+            (self._Store?.identityCallFailed && self._RoktManager.isReady()) ||
+            (noFunctionalWithoutId && self._RoktManager.isReady())
         );
-        
+
         if (shouldExecute) {
             f();
         } else {
