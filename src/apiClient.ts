@@ -108,7 +108,7 @@ export default function APIClient(
         }
         if (forwarderEvent) {
             mpInstance._Forwarders.sendEventToForwarders(forwarderEvent);
-            event._forwardersAlreadySent = true;
+            event.AlreadySentToForwarders = true;
         }
         mpInstance.Logger.verbose(
             'noFunctional event forwarded to kits and queued for MP server upload when MPID is available.'
@@ -185,7 +185,7 @@ export default function APIClient(
             // can nullify the event.
             // Skip if forwarders were already called in the noFunctional pre-MPID path
             // to prevent double-sending when the event queue is later flushed.
-            if (event && !event._forwardersAlreadySent) {
+            if (event && !event.AlreadySentToForwarders) {
                 mpInstance._Forwarders.sendEventToForwarders(event);
             }
         }

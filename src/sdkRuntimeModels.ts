@@ -94,7 +94,7 @@ export interface SDKEvent {
     ExpandedEventCount: number;
     ActiveTimeOnSite: number;
     IsBackgroundAST?: boolean;
-    _forwardersAlreadySent?: boolean;
+    AlreadySentToForwarders?: boolean;
 }
 
 export interface SDKGeoLocation {

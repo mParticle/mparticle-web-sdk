@@ -150,16 +150,8 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         if (self._Store?.isInitialized) {
             return;
         }
-
-        const noFunctionalWithoutId =
-            self._CookieConsentManager?.getNoFunctional() &&
-            !hasExplicitIdentifier(self._Store);
-
-        const shouldDrainQueue =
-            (self._Store?.identityCallFailed || noFunctionalWithoutId) &&
-            self._RoktManager?.isReady();
-
-        if (shouldDrainQueue) {
+        
+        if (self._Store?.identityCallFailed && self._RoktManager?.isReady()) {
             self._RoktManager.processMessageQueue();
             self._preInit.readyQueue = processReadyQueue(self._preInit.readyQueue);
         }
@@ -295,7 +287,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         const shouldExecute = isFunction(f) && (
             self._Store?.isInitialized ||
             (self._Store?.identityCallFailed && self._RoktManager.isReady()) ||
-            (noFunctionalWithoutId && self._RoktManager.isReady())
+            noFunctionalWithoutId
         );
 
         if (shouldExecute) {
@@ -1530,6 +1522,10 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         );
     }
 
+    // For noFunctional sessions with no identity, drain any pre-init ready callbacks
+    // that were queued before _CookieConsentManager was available to evaluate the condition.
+    mpInstance.processQueueOnIdentityFailure?.();
+
     // https://go.mparticle.com/work/SQDSDKS-6040
     if (mpInstance._Store.isFirstRun) {
         mpInstance._Store.isFirstRun = false;
@@ -1689,24 +1685,21 @@ function processIdentityCallback(
 }
 
 function queueIfNotInitialized(func, self) {
-    // Core SDK methods must wait for Store initialization
-    if (!self._Store?.isInitialized) {
-        // When noFunctional is true with no explicit identifier, the SDK will never
-        // receive an MPID. Let these calls through so events can still reach forwarders immediately.
-        // sendEventToServer handles queuing for the MP server upload path separately.
-        const noFunctionalWithoutId =
-            self._CookieConsentManager?.getNoFunctional() &&
-            !hasExplicitIdentifier(self._Store);
-        if (noFunctionalWithoutId) {
-            return false;
-        }
-        self._preInit.readyQueue.push(function() {
-            if (self._Store?.isInitialized) {
-                func();
-            }
-        });
-        return true;
+    // When noFunctional is true with no explicit identifier, the SDK will never
+    // receive an MPID. Let these calls through so events can still reach forwarders immediately.
+    // sendEventToServer handles queuing for the MP server upload path separately.
+    const noFunctionalWithoutId =
+        self._CookieConsentManager?.getNoFunctional() &&
+        !hasExplicitIdentifier(self._Store);
+
+    if (self._Store?.isInitialized || noFunctionalWithoutId) {
+        return false;
     }
-    return false;
+    self._preInit.readyQueue.push(function() {
+        if (self._Store?.isInitialized) {
+            func();
+        }
+    });
+    return true;
 }
 
