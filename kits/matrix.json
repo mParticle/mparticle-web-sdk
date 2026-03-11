@@ -112,6 +112,10 @@
     "local_path": "kits/twitter"
   },
   {
+    "name": "Google Analytics 4",
+    "local_path": "kits/google-analytics-4"
+  },
+  {
     "name": "Adobe",
     "local_path": "kits/adobe"
   }
