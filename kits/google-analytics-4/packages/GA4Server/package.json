@@ -1,0 +1,49 @@
+{
+    "name": "@mparticle/web-google-analytics-4-server-kit",
+    "version": "1.0.3",
+    "description": "mParticle integration sdk for Google Analytics (server side)",
+    "main": "dist/GoogleAnalytics4EventForwarderServerSide-Kit.common.js",
+    "browser": "dist/GoogleAnalytics4EventForwarderServerSide-Kit.common.js",
+    "files": [
+        "dist/GoogleAnalytics4EventForwarderServerSide-Kit.common.js"
+    ],
+    "scripts": {
+        "build": "rollup --config rollup.config.js",
+        "build:test": "ENVIRONMENT=production rollup --config rollup.test.config.js",
+        "watch": "rollup --config rollup.config.js -w",
+        "test": "npm run build && npm run build:test && DEBUG=false karma start test/karma.config.js",
+        "test:debug": "npm run build && npm run build:test && DEBUG=true karma start test/karma.config.js"
+    },
+    "author": "mParticle Developers <developers@mparticle.com> (https://www.mparticle.com)",
+    "license": "Apache-2.0",
+    "publishConfig": {
+        "access": "public"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mParticle/mparticle-web-sdk.git",
+        "directory": "kits/google-analytics-4/packages/GA4Server"
+    },
+    "devDependencies": {
+        "@semantic-release/changelog": "^6.0.3",
+        "@semantic-release/exec": "^6.0.3",
+        "@semantic-release/git": "^10.0.1",
+        "@semantic-release/npm": "^13.1.2",
+        "semantic-release": "^24.2.0",
+        "karma": "^5.1.0",
+        "chai": "^4.2.0",
+        "karma-chai": "^0.1.0",
+        "karma-chrome-launcher": "^3.1.0",
+        "karma-firefox-launcher": "^1.3.0",
+        "karma-mocha": "^2.0.1",
+        "mocha": "^5.2.0",
+        "rollup": "^1.15.6",
+        "rollup-plugin-commonjs": "^10.0.0",
+        "rollup-plugin-node-resolve": "^5.0.3",
+        "should": "13.2.3",
+        "sinon": "^15.1.0"
+    },
+    "dependencies": {
+        "@mparticle/web-sdk": "^2.58.0"
+    }
+}
