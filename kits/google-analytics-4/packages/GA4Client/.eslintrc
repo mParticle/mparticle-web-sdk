@@ -1,0 +1,30 @@
+{
+    "root": true,
+    "env": {
+        "browser": true,
+        "node": true
+    },
+    "globals": {
+        "mParticle": true,
+        "gtag": true,
+        "describe": true,
+        "Should": true,
+        "MockHttpServer": true,
+        "it": true,
+        "sinon": true,
+        "const": true,
+        "before": true,
+        "beforeEach": true,
+        "after": true,
+        "Leanplum": true
+    },
+    "extends": ["plugin:prettier/recommended", "eslint:recommended"],
+    "plugins": ["prettier"],
+    "rules": {
+        "prettier/prettier": "error",
+        "no-prototype-builtins": "off",
+        "no-empty": "off",
+        "no-useless-escape": "off",
+        "no-unexpected-multiline": "off"
+    }
+}
