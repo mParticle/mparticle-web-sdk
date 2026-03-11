@@ -1,0 +1,16 @@
+{
+    "name": "@mparticle/web-google-analytics-4-kit",
+    "version": "1.0.0",
+    "description": "mParticle Google Analytics 4 kit integration",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mParticle/mparticle-web-sdk.git",
+        "directory": "kits/google-analytics-4"
+    },
+    "scripts": {
+        "build": "npm ci --prefix packages/GA4Client && npm run build --prefix packages/GA4Client && npm ci --prefix packages/GA4Server && npm run build --prefix packages/GA4Server",
+        "test": "npm test --prefix packages/GA4Client && npm test --prefix packages/GA4Server"
+    },
+    "author": "mParticle Developers <developers@mparticle.com> (https://www.mparticle.com)",
+    "license": "Apache-2.0"
+}
