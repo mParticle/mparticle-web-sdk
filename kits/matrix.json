@@ -28,10 +28,6 @@
     "local_path": "kits/braze/braze-5"
   },
   {
-    "name": "Braze 6",
-    "local_path": "kits/braze/braze-6"
-  },
-  {
     "name": "Criteo",
     "local_path": "kits/criteo"
   },
