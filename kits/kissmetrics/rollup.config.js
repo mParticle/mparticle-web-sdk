@@ -5,7 +5,7 @@ export default [
     {
         input: 'src/KissMetricsForwarder.js',
         output: {
-            file: 'dist/KissMetricsForwarder.iffe.js',
+            file: 'dist/KissMetricsForwarder.iife.js',
             format: 'iife',
             exports: 'named',
             name: 'mpKissMetricsKit',
