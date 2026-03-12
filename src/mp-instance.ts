@@ -97,6 +97,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     getLauncherInstanceGuid: () => string;
     captureTiming(metricName: string);
     processQueueOnIdentityFailure?: () => void;
+    processQueueOnNoFunctional?: () => void;
 }
 
 const { Messages, HTTPCodes, FeatureFlags, CaptureIntegrationSpecificIdsV2Modes } = Constants;
@@ -151,15 +152,25 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             return;
         }
 
+        if (self._Store?.identityCallFailed && self._RoktManager?.isReady()) {
+            self._RoktManager.processMessageQueue();
+            self._preInit.readyQueue = processReadyQueue(self._preInit.readyQueue);
+        }
+    };
+
+    /**
+     * Drains the ready queue for noFunctional sessions with no explicit identity.
+     */
+    this.processQueueOnNoFunctional = function() {
+        if (self._Store?.isInitialized) {
+            return;
+        }
+
         const noFunctionalWithoutId =
             self._CookieConsentManager?.getNoFunctional() &&
             !hasExplicitIdentifier(self._Store);
 
-        const shouldDrainQueue =
-            (self._Store?.identityCallFailed && self._RoktManager?.isReady()) || noFunctionalWithoutId;
-        
-            if (shouldDrainQueue) {
-            self._RoktManager.processMessageQueue();
+        if (noFunctionalWithoutId) {
             self._preInit.readyQueue = processReadyQueue(self._preInit.readyQueue);
         }
     };
@@ -1531,7 +1542,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
 
     // For noFunctional sessions with no identity, drain any pre-init ready callbacks
     // that were queued before _CookieConsentManager was available to evaluate the condition.
-    mpInstance.processQueueOnIdentityFailure?.();
+    mpInstance.processQueueOnNoFunctional?.();
 
     // https://go.mparticle.com/work/SQDSDKS-6040
     if (mpInstance._Store.isFirstRun) {
