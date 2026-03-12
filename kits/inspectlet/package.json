@@ -6,7 +6,8 @@
     "main": "dist/Inspectlet.common.js",
     "browser": "dist/Inspectlet.common.js",
     "files": [
-        "dist/Inspectlet.common.js"
+        "dist/Inspectlet.common.js",
+        "dist/Inspectlet.iife.js"
     ],
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-inspectlet",
     "scripts": {

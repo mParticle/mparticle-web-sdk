@@ -1,55 +1,56 @@
 {
-  "name": "@mparticle/web-id5-kit-1",
-  "version": "1.0.4",
-  "main": "dist/ID5Kit.common.js",
-  "files": [
-    "dist/ID5Kit.common.js"
-  ],
-  "scripts": {
-    "build": "ENVIRONMENT=production rollup --config rollup.config.js",
-    "build:test": "rollup --config rollup.test.config.js",
-    "lint": "eslint src/ test/src/",
-    "lint:fix": "eslint src/ test/src/ --fix",
-    "watch": "ENVIRONMENT=production rollup --config rollup.config.js -w",
-    "test": "npm run build && npm run build:test && DEBUG=false karma start test/karma.config.js",
-    "test:debug": "npm run build && npm run build:test && DEBUG=true karma start test/karma.config.js",
-    "testEndToEnd": "ENVIRONMENT=testEndToEnd rollup --config rollup.config.js && open http://localhost:8082/node_modules/@mparticle/web-kit-wrapper/end-to-end-testapp/index.html && node node_modules/@mparticle/web-kit-wrapper/end-to-end-testapp/server"
-  },
-  "devDependencies": {
-    "@mparticle/eslint-config-sdks": "^0.0.4",
-    "@mparticle/web-kit-wrapper": "^1.0.5",
-    "@semantic-release/changelog": "^5.0.1",
-    "@semantic-release/exec": "^5.0.0",
-    "@semantic-release/git": "^9.0.0",
-    "chai": "^4.2.0",
-    "crypto-js": "^4.2.0",
-    "eslint": "^7.25.0",
-    "eslint-config-prettier": "9.1.0",
-    "karma": "^5.1.0",
-    "karma-chai": "^0.1.0",
-    "karma-chrome-launcher": "^3.1.0",
-    "karma-firefox-launcher": "^2.1.0",
-    "karma-mocha": "^2.0.1",
-    "mocha": "^5.2.0",
-    "prettier": "^2.4.1",
-    "rollup": "^1.15.6",
-    "rollup-plugin-commonjs": "^10.0.0",
-    "rollup-plugin-node-resolve": "^5.0.3",
-    "shelljs": "0.8.3",
-    "should": "13.2.3",
-    "watchify": "^3.11.0"
-  },
-  "dependencies": {
-    "@mparticle/web-sdk": "^2.20.0"
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "license": "Apache-2.0",
-  "homepage": "https://github.com/mParticle/mparticle-web-sdk/tree/master/kits/id5/id5-1#readme",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/mParticle/mparticle-web-sdk.git",
-    "directory": "kits/id5/id5-1"
-  }
+    "name": "@mparticle/web-id5-kit-1",
+    "version": "1.0.4",
+    "main": "dist/ID5Kit.common.js",
+    "files": [
+        "dist/ID5Kit.common.js",
+        "dist/ID5Kit.iife.js"
+    ],
+    "scripts": {
+        "build": "ENVIRONMENT=production rollup --config rollup.config.js",
+        "build:test": "rollup --config rollup.test.config.js",
+        "lint": "eslint src/ test/src/",
+        "lint:fix": "eslint src/ test/src/ --fix",
+        "watch": "ENVIRONMENT=production rollup --config rollup.config.js -w",
+        "test": "npm run build && npm run build:test && DEBUG=false karma start test/karma.config.js",
+        "test:debug": "npm run build && npm run build:test && DEBUG=true karma start test/karma.config.js",
+        "testEndToEnd": "ENVIRONMENT=testEndToEnd rollup --config rollup.config.js && open http://localhost:8082/node_modules/@mparticle/web-kit-wrapper/end-to-end-testapp/index.html && node node_modules/@mparticle/web-kit-wrapper/end-to-end-testapp/server"
+    },
+    "devDependencies": {
+        "@mparticle/eslint-config-sdks": "^0.0.4",
+        "@mparticle/web-kit-wrapper": "^1.0.5",
+        "@semantic-release/changelog": "^5.0.1",
+        "@semantic-release/exec": "^5.0.0",
+        "@semantic-release/git": "^9.0.0",
+        "chai": "^4.2.0",
+        "crypto-js": "^4.2.0",
+        "eslint": "^7.25.0",
+        "eslint-config-prettier": "9.1.0",
+        "karma": "^5.1.0",
+        "karma-chai": "^0.1.0",
+        "karma-chrome-launcher": "^3.1.0",
+        "karma-firefox-launcher": "^2.1.0",
+        "karma-mocha": "^2.0.1",
+        "mocha": "^5.2.0",
+        "prettier": "^2.4.1",
+        "rollup": "^1.15.6",
+        "rollup-plugin-commonjs": "^10.0.0",
+        "rollup-plugin-node-resolve": "^5.0.3",
+        "shelljs": "0.8.3",
+        "should": "13.2.3",
+        "watchify": "^3.11.0"
+    },
+    "dependencies": {
+        "@mparticle/web-sdk": "^2.20.0"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "license": "Apache-2.0",
+    "homepage": "https://github.com/mParticle/mparticle-web-sdk/tree/master/kits/id5/id5-1#readme",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mParticle/mparticle-web-sdk.git",
+        "directory": "kits/id5/id5-1"
+    }
 }

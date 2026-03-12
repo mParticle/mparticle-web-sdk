@@ -6,7 +6,8 @@
     "main": "dist/TaplyticsKit.common.js",
     "browser": "dist/TaplyticsKit.common.js",
     "files": [
-        "dist/TaplyticsKit.common.js"
+        "dist/TaplyticsKit.common.js",
+        "dist/TaplyticsKit.iife.js"
     ],
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-taplytics",
     "scripts": {

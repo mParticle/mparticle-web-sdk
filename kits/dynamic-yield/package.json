@@ -6,7 +6,8 @@
     "main": "dist/DynamicYieldKit.common.js",
     "browser": "dist/DynamicYieldKit.common.js",
     "files": [
-        "dist/DynamicYieldKit.common.js"
+        "dist/DynamicYieldKit.common.js",
+        "dist/DynamicYieldKit.iife.js"
     ],
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-dynamic-yield",
     "scripts": {

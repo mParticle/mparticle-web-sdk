@@ -5,7 +5,8 @@
     "main": "dist/DoubleClick-Kit.common.js",
     "browser": "dist/DoubleClick-Kit.common.js",
     "files": [
-        "dist/DoubleClick-Kit.common.js"
+        "dist/DoubleClick-Kit.common.js",
+        "dist/DoubleClick-Kit.iife.js"
     ],
     "scripts": {
         "testKarma": "node test/boilerplate/test-karma.js",

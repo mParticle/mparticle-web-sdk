@@ -6,7 +6,8 @@
     "main": "dist/DeviceMatchEventForwarder.common.js",
     "browser": "dist/DeviceMatchEventForwarder.common.js",
     "files": [
-        "dist/DeviceMatchEventForwarder.common.js"
+        "dist/DeviceMatchEventForwarder.common.js",
+        "dist/DeviceMatchEventForwarder.iife.js"
     ],
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-device-match",
     "scripts": {

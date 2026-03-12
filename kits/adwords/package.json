@@ -6,7 +6,8 @@
     "main": "dist/GoogleAdWordsEventForwarder.common.js",
     "browser": "dist/GoogleAdWordsEventForwarder.common.js",
     "files": [
-        "dist/GoogleAdWordsEventForwarder.common.js"
+        "dist/GoogleAdWordsEventForwarder.common.js",
+        "dist/GoogleAdWordsEventForwarder.iife.js"
     ],
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-adwords",
     "scripts": {

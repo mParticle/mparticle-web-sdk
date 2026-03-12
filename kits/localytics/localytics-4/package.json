@@ -6,7 +6,8 @@
     "main": "dist/LocalyticsEventForwarder.common.js",
     "browser": "dist/LocalyticsEventForwarder.common.js",
     "files": [
-        "dist/LocalyticsEventForwarder.common.js"
+        "dist/LocalyticsEventForwarder.common.js",
+        "dist/LocalyticsEventForwarder.iife.js"
     ],
     "repository": {
         "type": "git",

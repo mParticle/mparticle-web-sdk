@@ -6,7 +6,8 @@
     "browser": "dist/TwitterEventForwarder.common.js",
     "main": "dist/TwitterEventForwarder.common.js",
     "files": [
-        "dist/TwitterEventForwarder.common.js"
+        "dist/TwitterEventForwarder.common.js",
+        "dist/TwitterEventForwarder.iife.js"
     ],
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-twitter",
     "scripts": {

@@ -6,7 +6,8 @@
     "main": "dist/KissMetricsForwarder.common.js",
     "browser": "dist/KissMetricsForwarder.common.js",
     "files": [
-        "dist/KissMetricsForwarder.common.js"
+        "dist/KissMetricsForwarder.common.js",
+        "dist/KissMetricsForwarder.iife.js"
     ],
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-kissmetrics",
     "scripts": {

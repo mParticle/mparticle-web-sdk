@@ -6,7 +6,8 @@
     "main": "dist/BrazeKit.common.js",
     "browser": "dist/BrazeKit.common.js",
     "files": [
-        "dist/BrazeKit.common.js"
+        "dist/BrazeKit.common.js",
+        "dist/BrazeKit.iife.js"
     ],
     "repository": {
         "type": "git",

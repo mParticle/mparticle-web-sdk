@@ -6,7 +6,8 @@
     "main": "dist/OptimizelyKit.common.js",
     "browser": "dist/OptimizelyKit.common.js",
     "files": [
-        "dist/OptimizelyKit.common.js"
+        "dist/OptimizelyKit.common.js",
+        "dist/OptimizelyKit.iife.js"
     ],
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-optimizely",
     "scripts": {

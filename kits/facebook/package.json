@@ -8,7 +8,8 @@
     "browser": "dist/FacebookEventForwarder.common.js",
     "files": [
         "dist/FacebookEventForwarder.common.js",
-        "dist/FacebookEventForwarder.esm.js"
+        "dist/FacebookEventForwarder.esm.js",
+        "dist/FacebookEventForwarder.iife.js"
     ],
     "publishConfig": {
         "access": "public",

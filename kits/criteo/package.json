@@ -6,7 +6,8 @@
     "browser": "dist/CriteoEventForwarder.common.js",
     "main": "dist/CriteoEventForwarder.common.js",
     "files": [
-        "dist/CriteoEventForwarder.common.js"
+        "dist/CriteoEventForwarder.common.js",
+        "dist/CriteoEventForwarder.iife.js"
     ],
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-criteo",
     "scripts": {

@@ -6,7 +6,8 @@
     "main": "dist/LeanplumAnalyticsEventForwarder.common.js",
     "browser": "dist/LeanplumAnalyticsEventForwarder.common.js",
     "files": [
-        "dist/LeanplumAnalyticsEventForwarder.common.js"
+        "dist/LeanplumAnalyticsEventForwarder.common.js",
+        "dist/LeanplumAnalyticsEventForwarder.iife.js"
     ],
     "repository": {
         "type": "git",

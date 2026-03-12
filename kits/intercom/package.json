@@ -6,7 +6,8 @@
     "main": "dist/IntercomEventForwarder.common.js",
     "browser": "dist/IntercomEventForwarder.common.js",
     "files": [
-        "dist/IntercomEventForwarder.common.js"
+        "dist/IntercomEventForwarder.common.js",
+        "dist/IntercomEventForwarder.iife.js"
     ],
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-intercom",
     "scripts": {

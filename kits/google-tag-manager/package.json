@@ -5,7 +5,8 @@
     "main": "dist/GoogleTagManager-Kit.common.js",
     "browser": "dist/GoogleTagManager-Kit.common.js",
     "files": [
-        "dist/GoogleTagManager-Kit.common.js"
+        "dist/GoogleTagManager-Kit.common.js",
+        "dist/GoogleTagManager-Kit.iife.js"
     ],
     "scripts": {
         "test": "npm run build && npm run test:karma",

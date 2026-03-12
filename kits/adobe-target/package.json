@@ -11,7 +11,8 @@
     "main": "dist/AdobeTarget-Kit.common.js",
     "browser": "dist/AdobeTarget-Kit.common.js",
     "files": [
-        "dist/AdobeTarget-Kit.common.js"
+        "dist/AdobeTarget-Kit.common.js",
+        "dist/AdobeTarget-Kit.iife.js"
     ],
     "devDependencies": {
         "@mparticle/web-kit-wrapper": "^1.0.5",
