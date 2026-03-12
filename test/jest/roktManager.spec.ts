@@ -6,7 +6,9 @@ import RoktManager, { IRoktKit, IRoktSelectPlacementsOptions } from "../../src/r
 import { IStore } from "../../src/store";
 import { testMPID } from '../src/config/constants';
 import { PerformanceMarkType } from "../../src/types";
+import Constants from "../../src/constants";
 
+const { ErrorMessages } = Constants.Messages;
 const resolvePromise = () => new Promise(resolve => setTimeout(resolve, 0));
 
 describe('RoktManager', () => {
@@ -41,6 +43,7 @@ describe('RoktManager', () => {
             verbose: jest.fn(),
             error: jest.fn(),
             warning: jest.fn(),
+            info: jest.fn(),
         },
     } as unknown) as IMParticleWebSDKInstance;
 
@@ -167,7 +170,8 @@ describe('RoktManager', () => {
 
             expect(result).toEqual({});
             expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
-                expect.stringContaining('Failed to hashAttributes, returning an empty object: Hashing failed')
+                expect.stringContaining('Failed to hashAttributes, returning an empty object: Hashing failed'),
+                'ROKT_HASHING_FAILED'
             );
         });
     });
@@ -217,14 +221,14 @@ describe('RoktManager', () => {
             const result = await roktManager.hashSha256(null);
             
             expect(result).toBeNull();
-            expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith('hashSha256 received null/undefined as input');
+            expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith('hashSha256 received null/undefined as input', 'ROKT_HASHING_FAILED');
         });
 
         it('should return undefined and log warning when value is undefined', async () => {
             const result = await roktManager.hashSha256(undefined);
             
             expect(result).toBeUndefined();
-            expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith('hashSha256 received null/undefined as input');
+            expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith('hashSha256 received null/undefined as input', 'ROKT_HASHING_FAILED');
         });
 
         it('should return undefined and log error when hashing fails', async () => {
@@ -234,7 +238,8 @@ describe('RoktManager', () => {
             
             expect(result).toBeUndefined();
             expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
-                expect.stringContaining('Failed to hashSha256, returning undefined: Hash failed')
+                expect.stringContaining('Failed to hashSha256, returning undefined: Hash failed'),
+                'ROKT_HASHING_FAILED'
             );
         });
 
@@ -556,7 +561,7 @@ describe('RoktManager', () => {
         });
 
         it('should log error when onReadyCallback throws and logger is available', () => {
-            const mockLogger = { error: jest.fn(), verbose: jest.fn(), warning: jest.fn(), setLogLevel: jest.fn() };
+            const mockLogger = { error: jest.fn(), verbose: jest.fn(), warning: jest.fn(), info: jest.fn(), setLogLevel: jest.fn() };
             roktManager.init(
                 {} as IKitConfigs,
                 {} as IMParticleUser,
@@ -574,7 +579,8 @@ describe('RoktManager', () => {
             roktManager.attachKit(kit);
             
             expect(mockLogger.error).toHaveBeenCalledWith(
-                expect.stringContaining('RoktManager: Error in onReadyCallback')
+                expect.stringContaining('RoktManager: Error in onReadyCallback'),
+                'ROKT_IDENTITY_FALLBACK_FAILED'
             );
         });
     });
@@ -884,7 +890,8 @@ describe('RoktManager', () => {
 
             // Verify error was logged for non-existent method
             expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
-                'RoktManager: Method nonExistentMethod not found'
+                'RoktManager: Method nonExistentMethod not found',
+                'ROKT_QUEUE_PROCESSING_FAILED'
             );
 
             // Verify message was removed from queue even though method didn't exist
@@ -1536,7 +1543,8 @@ describe('RoktManager', () => {
                 }
             }, expect.any(Function));
             expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(
-                'Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.'
+                ErrorMessages.EmailMismatch,
+                'ROKT_IDENTITY_MISMATCH'
             );
         });
 
@@ -1723,7 +1731,8 @@ describe('RoktManager', () => {
                 }
             }, expect.any(Function));
             expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(
-                "emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation."
+                ErrorMessages.HashedEmailMismatch,
+                'ROKT_IDENTITY_MISMATCH'
             );
         });
 
@@ -1813,7 +1822,8 @@ describe('RoktManager', () => {
                 }
             }, expect.any(Function));
             expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(
-                "emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation."
+                ErrorMessages.HashedEmailMismatch,
+                'ROKT_IDENTITY_MISMATCH'
             );
         });
 
@@ -2196,7 +2206,8 @@ describe('RoktManager', () => {
             
             // Verify error was logged
             expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
-                'Failed to identify user with updated identities: ' + JSON.stringify(mockError)
+                'Failed to identify user with updated identities: ' + JSON.stringify(mockError),
+                'IDENTITY_REQUEST'
             );
 
             // Verify selectPlacements was still called
