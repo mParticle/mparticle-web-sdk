@@ -3,7 +3,7 @@ import Constants from './constants';
 import { SDKEvent, SDKEventCustomFlags, SDKLoggerApi } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import { MessageType, EventType } from './types';
-import { getRampNumber, isEmpty } from './utils';
+import { getRampNumber, isEmpty, obfuscateDevData } from './utils';
 import { SessionStorageVault, LocalStorageVault } from './vault';
 import {
     AsyncUploader,
@@ -79,17 +79,11 @@ export class BatchUploader {
 
         if (this.offlineStorageEnabled && !noFunctional) {
             this.eventVault = new SessionStorageVault<SDKEvent[]>(
-                `${mpInstance._Store.storageName}-events`,
-                {
-                    logger: mpInstance.Logger,
-                }
+                `${mpInstance._Store.storageName}-events`
             );
 
             this.batchVault = new LocalStorageVault<Batch[]>(
-                `${mpInstance._Store.storageName}-batches`,
-                {
-                    logger: mpInstance.Logger,
-                }
+                `${mpInstance._Store.storageName}-batches`
             );
 
             // Load Events from Session Storage in case we have any in storage
@@ -264,10 +258,15 @@ export class BatchUploader {
 
         this.eventsQueuedForProcessing.push(event);
         if (this.offlineStorageEnabled && this.eventVault) {
-            this.eventVault.store(this.eventsQueuedForProcessing);
+            try {
+                this.eventVault.store(this.eventsQueuedForProcessing);
+            } catch (error) {
+                Logger.error('Failed to store events to offline storage. Events will remain in memory queue.');
+            }
         }
 
-        Logger.verbose(`Queuing event: ${JSON.stringify(event)}`);
+        const eventToLog = obfuscateDevData(event, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
+        Logger.verbose(`Queuing event: ${JSON.stringify(eventToLog)}`);
         Logger.verbose(`Queued event count: ${this.eventsQueuedForProcessing.length}`);
 
         if (this.shouldTriggerImmediateUpload(event.EventDataType)) {
@@ -380,7 +379,11 @@ export class BatchUploader {
 
         this.eventsQueuedForProcessing = [];
         if (this.offlineStorageEnabled && this.eventVault) {
-            this.eventVault.store([]);
+            try {
+                this.eventVault.store([]);
+            } catch (error) {
+                this.mpInstance.Logger.error('Failed to clear events from offline storage.');
+            }
         }
 
         let newBatches: Batch[] = [];
@@ -432,10 +435,13 @@ export class BatchUploader {
             // therefore NOT overwrite Offline Storage when beacon returns, so that we can retry
             // uploading saved batches at a later time. Batches should only be removed from
             // Local Storage once we can confirm they are successfully uploaded.
-            this.batchVault.store(this.batchesQueuedForProcessing);
-
-            // Clear batch queue since everything should be in Offline Storage
-            this.batchesQueuedForProcessing = [];
+            try {
+                this.batchVault.store(this.batchesQueuedForProcessing);
+                // Clear batch queue since everything should be in Offline Storage
+                this.batchesQueuedForProcessing = [];
+            } catch (error) {
+                this.mpInstance.Logger.error('Failed to store batches to offline storage. Batches will remain in memory queue.');
+            }
         }
 
         if (triggerFuture) {
@@ -457,7 +463,8 @@ export class BatchUploader {
             return null;
         }
 
-        logger.verbose(`Uploading batches: ${JSON.stringify(uploads)}`);
+        const uploadsToLog = obfuscateDevData(uploads, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
+        logger.verbose(`Uploading batches: ${JSON.stringify(uploadsToLog)}`);
         logger.verbose(`Batch count: ${uploads.length}`);
 
         for (let i = 0; i < uploads.length; i++) {
