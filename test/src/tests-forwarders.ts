@@ -610,6 +610,29 @@ describe('forwarders', function() {
             expect(readyCalled).to.equal(true);
         });
 
+        it('mParticle.ready() drains callbacks queued on config.rq before init when noFunctional is true and no identity', () => {
+            // Simulates the snippet pattern where mParticle.ready() is called before the SDK
+            // loads — callbacks go onto config.rq and must be drained after init completes.
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.config.identifyRequest = undefined;
+
+            let readyCalled = false;
+            window.mParticle.config.rq = [function() {
+                readyCalled = true;
+            }];
+
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(mParticle.isInitialized()).to.not.equal(true);
+            expect(readyCalled).to.equal(true);
+        });
+
     });
 
     const MockUser = function() {

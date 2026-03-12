@@ -150,8 +150,15 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         if (self._Store?.isInitialized) {
             return;
         }
+
+        const noFunctionalWithoutId =
+            self._CookieConsentManager?.getNoFunctional() &&
+            !hasExplicitIdentifier(self._Store);
+
+        const shouldDrainQueue =
+            (self._Store?.identityCallFailed && self._RoktManager?.isReady()) || noFunctionalWithoutId;
         
-        if (self._Store?.identityCallFailed && self._RoktManager?.isReady()) {
+            if (shouldDrainQueue) {
             self._RoktManager.processMessageQueue();
             self._preInit.readyQueue = processReadyQueue(self._preInit.readyQueue);
         }
