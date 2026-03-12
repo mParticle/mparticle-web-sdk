@@ -7,6 +7,7 @@
     "browser": "dist/LocalyticsEventForwarder.common.js",
     "files": [
         "dist/LocalyticsEventForwarder.common.js",
+        "dist/LocalyticsEventForwarder.esm.js",
         "dist/LocalyticsEventForwarder.iife.js"
     ],
     "repository": {
@@ -39,5 +40,6 @@
         "@mparticle/web-sdk": "^2.11.1"
     },
     "license": "Apache-2.0",
-    "homepage": "https://github.com/mParticle/mparticle-web-sdk/tree/master/kits/localytics/localytics-4#readme"
+    "homepage": "https://github.com/mParticle/mparticle-web-sdk/tree/master/kits/localytics/localytics-4#readme",
+    "module": "dist/LocalyticsEventForwarder.esm.js"
 }

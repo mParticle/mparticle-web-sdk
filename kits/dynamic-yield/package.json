@@ -7,6 +7,7 @@
     "browser": "dist/DynamicYieldKit.common.js",
     "files": [
         "dist/DynamicYieldKit.common.js",
+        "dist/DynamicYieldKit.esm.js",
         "dist/DynamicYieldKit.iife.js"
     ],
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-dynamic-yield",
@@ -33,5 +34,6 @@
     "dependencies": {
         "@mparticle/web-sdk": "^2.11.1"
     },
-    "license": "Apache-2.0"
+    "license": "Apache-2.0",
+    "module": "dist/DynamicYieldKit.esm.js"
 }

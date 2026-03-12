@@ -7,6 +7,7 @@
     "browser": "dist/BrazeKit.common.js",
     "files": [
         "dist/BrazeKit.common.js",
+        "dist/BrazeKit.esm.js",
         "dist/BrazeKit.iife.js"
     ],
     "repository": {
@@ -39,5 +40,6 @@
         "@mparticle/web-sdk": "^2.23.0"
     },
     "license": "Apache-2.0",
-    "homepage": "https://github.com/mParticle/mparticle-web-sdk/tree/master/kits/braze/braze-3#readme"
+    "homepage": "https://github.com/mParticle/mparticle-web-sdk/tree/master/kits/braze/braze-3#readme",
+    "module": "dist/BrazeKit.esm.js"
 }

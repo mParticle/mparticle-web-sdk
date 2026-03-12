@@ -7,6 +7,7 @@
     "browser": "dist/OptimizelyKit.common.js",
     "files": [
         "dist/OptimizelyKit.common.js",
+        "dist/OptimizelyKit.esm.js",
         "dist/OptimizelyKit.iife.js"
     ],
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-optimizely",
@@ -40,5 +41,6 @@
         "isobject": "^4.0.0",
         "@mparticle/web-sdk": "^2.11.1"
     },
-    "license": "Apache-2.0"
+    "license": "Apache-2.0",
+    "module": "dist/OptimizelyKit.esm.js"
 }

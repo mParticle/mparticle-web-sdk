@@ -4,6 +4,7 @@
     "main": "dist/ID5Kit.common.js",
     "files": [
         "dist/ID5Kit.common.js",
+        "dist/ID5Kit.esm.js",
         "dist/ID5Kit.iife.js"
     ],
     "scripts": {
@@ -52,5 +53,6 @@
         "type": "git",
         "url": "https://github.com/mParticle/mparticle-web-sdk.git",
         "directory": "kits/id5/id5-1"
-    }
+    },
+    "module": "dist/ID5Kit.esm.js"
 }

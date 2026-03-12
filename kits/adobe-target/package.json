@@ -12,6 +12,7 @@
     "browser": "dist/AdobeTarget-Kit.common.js",
     "files": [
         "dist/AdobeTarget-Kit.common.js",
+        "dist/AdobeTarget-Kit.esm.js",
         "dist/AdobeTarget-Kit.iife.js"
     ],
     "devDependencies": {
@@ -36,5 +37,6 @@
     },
     "dependencies": {
         "@mparticle/web-sdk": "^2.11.3"
-    }
+    },
+    "module": "dist/AdobeTarget-Kit.esm.js"
 }

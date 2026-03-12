@@ -7,6 +7,7 @@
     "browser": "dist/BingAdsEventForwarder.common.js",
     "files": [
         "dist/BingAdsEventForwarder.common.js",
+        "dist/BingAdsEventForwarder.esm.js",
         "dist/BingAdsEventForwarder.iife.js"
     ],
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-bingads",
@@ -49,5 +50,6 @@
     "publishConfig": {
         "access": "public"
     },
-    "license": "Apache-2.0"
+    "license": "Apache-2.0",
+    "module": "dist/BingAdsEventForwarder.esm.js"
 }

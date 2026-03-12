@@ -6,6 +6,7 @@
     "browser": "dist/MixpanelEventForwarder.common.js",
     "files": [
         "dist/MixpanelEventForwarder.common.js",
+        "dist/MixpanelEventForwarder.esm.js",
         "dist/MixpanelEventForwarder.iife.js"
     ],
     "publishConfig": {
@@ -51,5 +52,6 @@
         "watchify": "^3.11.1"
     },
     "license": "Apache-2.0",
-    "homepage": "https://github.com/mParticle/mparticle-web-sdk/tree/master/kits/mixpanel/mixpanel-2#readme"
+    "homepage": "https://github.com/mParticle/mparticle-web-sdk/tree/master/kits/mixpanel/mixpanel-2#readme",
+    "module": "dist/MixpanelEventForwarder.esm.js"
 }

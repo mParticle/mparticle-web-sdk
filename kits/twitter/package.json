@@ -7,6 +7,7 @@
     "main": "dist/TwitterEventForwarder.common.js",
     "files": [
         "dist/TwitterEventForwarder.common.js",
+        "dist/TwitterEventForwarder.esm.js",
         "dist/TwitterEventForwarder.iife.js"
     ],
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-twitter",
@@ -33,5 +34,6 @@
     "dependencies": {
         "@mparticle/web-sdk": "^2.11.0"
     },
-    "license": "Apache-2.0"
+    "license": "Apache-2.0",
+    "module": "dist/TwitterEventForwarder.esm.js"
 }

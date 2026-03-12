@@ -6,6 +6,7 @@
     "browser": "dist/GoogleTagManager-Kit.common.js",
     "files": [
         "dist/GoogleTagManager-Kit.common.js",
+        "dist/GoogleTagManager-Kit.esm.js",
         "dist/GoogleTagManager-Kit.iife.js"
     ],
     "scripts": {
@@ -41,5 +42,6 @@
         "shelljs": "0.8.3",
         "should": "13.2.3",
         "watchify": "^3.11.0"
-    }
+    },
+    "module": "dist/GoogleTagManager-Kit.esm.js"
 }

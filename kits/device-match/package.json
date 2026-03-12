@@ -7,6 +7,7 @@
     "browser": "dist/DeviceMatchEventForwarder.common.js",
     "files": [
         "dist/DeviceMatchEventForwarder.common.js",
+        "dist/DeviceMatchEventForwarder.esm.js",
         "dist/DeviceMatchEventForwarder.iife.js"
     ],
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-device-match",
@@ -34,5 +35,6 @@
         "isobject": "^4.0.0",
         "@mparticle/web-sdk": "^2.11.1"
     },
-    "license": "Apache-2.0"
+    "license": "Apache-2.0",
+    "module": "dist/DeviceMatchEventForwarder.esm.js"
 }

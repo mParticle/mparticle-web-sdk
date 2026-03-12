@@ -7,6 +7,7 @@
     "browser": "dist/GoogleAdWordsEventForwarder.common.js",
     "files": [
         "dist/GoogleAdWordsEventForwarder.common.js",
+        "dist/GoogleAdWordsEventForwarder.esm.js",
         "dist/GoogleAdWordsEventForwarder.iife.js"
     ],
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-adwords",
@@ -35,5 +36,6 @@
     "dependencies": {
         "@mparticle/web-sdk": "^2.11.1"
     },
-    "license": "Apache-2.0"
+    "license": "Apache-2.0",
+    "module": "dist/GoogleAdWordsEventForwarder.esm.js"
 }

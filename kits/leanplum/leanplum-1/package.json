@@ -7,6 +7,7 @@
     "browser": "dist/LeanplumAnalyticsEventForwarder.common.js",
     "files": [
         "dist/LeanplumAnalyticsEventForwarder.common.js",
+        "dist/LeanplumAnalyticsEventForwarder.esm.js",
         "dist/LeanplumAnalyticsEventForwarder.iife.js"
     ],
     "repository": {
@@ -44,5 +45,6 @@
         "@mparticle/web-sdk": "^2.18.0"
     },
     "license": "Apache-2.0",
-    "homepage": "https://github.com/mParticle/mparticle-web-sdk/tree/master/kits/leanplum/leanplum-1#readme"
+    "homepage": "https://github.com/mParticle/mparticle-web-sdk/tree/master/kits/leanplum/leanplum-1#readme",
+    "module": "dist/LeanplumAnalyticsEventForwarder.esm.js"
 }

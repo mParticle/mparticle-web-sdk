@@ -4,6 +4,7 @@
     "main": "dist/HeapKit.common.js",
     "files": [
         "dist/HeapKit.common.js",
+        "dist/HeapKit.esm.js",
         "dist/HeapKit.iife.js"
     ],
     "scripts": {
@@ -43,5 +44,6 @@
     "publishConfig": {
         "access": "public"
     },
-    "license": "Apache-2.0"
+    "license": "Apache-2.0",
+    "module": "dist/HeapKit.esm.js"
 }
