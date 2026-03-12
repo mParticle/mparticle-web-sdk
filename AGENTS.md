@@ -55,6 +55,12 @@ mParticle is a Customer Data Platform that collects, validates, and forwards eve
 - **No Unnecessary Features**: Don't add error handling for scenarios that can't happen
 - **Trust Internal Code**: Only validate at system boundaries (user input, external APIs)
 
+### Logging and PII Obfuscation
+
+**PII (Personally Identifiable Information)** is data that can identify a specific person, for example: email, name or phone number, and similar attributes. Logging raw payloads can expose PII in production.
+
+- **When utilizing the Logger to log payloads or data that may contain PII:** Only when `isDevelopmentMode` is true allow raw data, otherwise always obfuscate. Use `obfuscateDevData(data, isDevelopmentMode)` from `utils`. Get the flag from the store or instance (e.g. `SDKConfig?.isDevelopmentMode`).
+
 ### Testing Requirements
 
 - Run the full test suite before committing

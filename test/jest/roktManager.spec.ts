@@ -2206,7 +2206,7 @@ describe('RoktManager', () => {
             
             // Verify error was logged
             expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
-                'Failed to identify user with new email: ' + JSON.stringify(mockError),
+                'Failed to identify user with updated identities: ' + JSON.stringify(mockError),
                 'IDENTITY_REQUEST'
             );
 
@@ -2479,7 +2479,7 @@ describe('RoktManager', () => {
             await roktManager.selectPlacements(options);
 
             expect(mockMPInstance.Logger.verbose).toHaveBeenCalledWith(
-                `mParticle.Rokt selectPlacements called with attributes:\n${JSON.stringify({ email: 'test@example.com', customAttr: 'value' }, null, 2)}`
+                `mParticle.Rokt selectPlacements called with attributes:\n${JSON.stringify({ email: 'string', customAttr: 'string' }, null, 2)}`
             );
         });
     });
