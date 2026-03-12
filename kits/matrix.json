@@ -116,7 +116,11 @@
     "local_path": "kits/google-analytics-4/packages/GA4Server"
   },
   {
-    "name": "Adobe",
-    "local_path": "kits/adobe"
+    "name": "Adobe Client",
+    "local_path": "kits/adobe/packages/AdobeClient"
+  },
+  {
+    "name": "Adobe Server",
+    "local_path": "kits/adobe/packages/AdobeServer"
   }
 ]

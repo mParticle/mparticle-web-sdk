@@ -3,8 +3,14 @@
   "version": "2.1.3",
   "description": "mParticle integration sdk for Adobe (client side)",
   "main": "dist/AdobeClientSideKit.common.js",
+  "browser": "dist/AdobeClientSideKit.common.js",
+  "files": [
+    "dist/AdobeClientSideKit.common.js",
+    "dist/AdobeClientSideKit.iife.js"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "cd ../.. && npm ci && npm run build:client",
+    "test": "cd ../.. && npm ci && npm run test:client && npm run test:heartbeat"
   },
   "author": "mParticle Developers <developers@mparticle.com> (https://www.mparticle.com)",
   "license": "Apache-2.0",
