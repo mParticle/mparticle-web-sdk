@@ -10,7 +10,7 @@
         "dist/AdobeClientSideKit.iife.js"
     ],
     "scripts": {
-        "build": "cd ../.. && npm ci && npm run build:client",
+        "build": "cd ../.. && npm ci && npm run build:heartbeat && npm run build:client",
         "test": "cd ../.. && npm ci && npm run test:client && npm run test:heartbeat"
     },
     "author": "mParticle Developers <developers@mparticle.com> (https://www.mparticle.com)",
