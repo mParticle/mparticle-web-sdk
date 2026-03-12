@@ -108,8 +108,12 @@
     "local_path": "kits/twitter"
   },
   {
-    "name": "Google Analytics 4",
-    "local_path": "kits/google-analytics-4"
+    "name": "Google Analytics 4 Client",
+    "local_path": "kits/google-analytics-4/packages/GA4Client"
+  },
+  {
+    "name": "Google Analytics 4 Server",
+    "local_path": "kits/google-analytics-4/packages/GA4Server"
   },
   {
     "name": "Adobe",
