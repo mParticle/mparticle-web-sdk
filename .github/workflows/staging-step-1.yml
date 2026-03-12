@@ -56,6 +56,18 @@ jobs:
             - name: Display Bundle Diff, but Fancy!
               run: git diff --unified=3 dist/mparticle.js | npx diff-so-fancy
 
+            - name: Build CJS for kit testing
+              run: npm run build:npm
+
+            - name: Pack SDK tarball for kit tests
+              run: npm pack --pack-destination /tmp/sdk-pack/
+
+            - name: Upload SDK tarball
+              uses: actions/upload-artifact@v6
+              with:
+                  name: sdk-pack
+                  path: /tmp/sdk-pack/*.tgz
+
             - name: Archive npm failure logs
               uses: actions/upload-artifact@v6
               if: failure()
@@ -259,10 +271,17 @@ jobs:
             - name: Install Firefox Latest
               uses: browser-actions/setup-firefox@latest
 
-            - name: Install, build, and test kit
+            - name: Download SDK tarball
+              uses: actions/download-artifact@v6
+              with:
+                  name: sdk-pack
+                  path: /tmp/sdk-pack/
+
+            - name: Install, build, and test kit against local SDK
               run: |
                 cd ${{ matrix.kit.local_path }}
                 npm ci
+                npm install --no-save /tmp/sdk-pack/*.tgz
                 npm run build
                 npm test
 
@@ -407,7 +426,7 @@ jobs:
               uses: actions/checkout@v6
               with:
                   fetch-depth: 0
-                  ref: release/${{ github.run_number }}
+                  ref: staging
 
             - name: Setup Node.js
               uses: actions/setup-node@v6
@@ -433,6 +452,71 @@ jobs:
                   name: npm-logs-publish-${{ matrix.kit.name }}
                   path: ~/.npm/_logs
 
+    update-kit-lock-files:
+        name: Refresh Kit Lock Files
+        runs-on: ubuntu-latest
+        if: ${{ github.event.inputs.dryRun == 'false' }}
+        needs:
+            - release
+            - release-kits
+        env:
+            GITHUB_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
+            GIT_AUTHOR_NAME: mparticle-automation
+            GIT_AUTHOR_EMAIL: developers@mparticle.com
+            GIT_COMMITTER_NAME: mparticle-automation
+            GIT_COMMITTER_EMAIL: developers@mparticle.com
+
+        steps:
+            - name: Checkout staging branch
+              uses: actions/checkout@v6
+              with:
+                  fetch-depth: 0
+                  ref: staging
+                  token: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
+
+            - name: Import GPG Key
+              uses: crazy-max/ghaction-import-gpg@e00cb83a68c1158b29afc5217dd0582cada6d172 #v4.4.0
+              with:
+                  gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+                  passphrase: ${{ secrets.GPG_PASSPHRASE }}
+                  git_user_signingkey: true
+                  git_commit_gpgsign: true
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 24.x
+                  registry-url: 'https://registry.npmjs.org'
+
+            - name: Wait for npm registry propagation
+              run: sleep 60
+
+            - name: Refresh kit lock files
+              run: |
+                  jq -r '.[].local_path' kits/matrix.json | while read KIT_PATH; do
+                      if [ -f "$KIT_PATH/package.json" ] && [ -f "$KIT_PATH/package-lock.json" ]; then
+                          echo "Refreshing lock file for $KIT_PATH..."
+                          (cd "$KIT_PATH" && npm install --package-lock-only) || true
+                      fi
+                  done
+
+            - name: Commit and push updated lock files
+              run: |
+                  git add 'kits/**/package-lock.json'
+                  if git diff --cached --quiet; then
+                      echo "No lock file changes detected"
+                  else
+                      git commit -m 'chore(deps): refresh kit lock files post-release [skip ci]'
+                      git push origin staging
+                  fi
+
+            - name: Archive npm failure logs
+              uses: actions/upload-artifact@v6
+              if: failure()
+              with:
+                  name: npm-logs-lock-files
+                  path: ~/.npm/_logs
+
     cleanup:
         name: Delete release branch
         runs-on: ubuntu-latest
@@ -440,6 +524,7 @@ jobs:
         needs:
             - release
             - release-kits
+            - update-kit-lock-files
         env:
             GITHUB_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
         steps:
