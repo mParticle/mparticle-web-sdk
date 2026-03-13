@@ -331,19 +331,6 @@ jobs:
                   echo "|--|--|--|--|" >> $GITHUB_STEP_SUMMARY
                   echo "| mparticle.min.js.gz | ${{ needs.build-master.outputs.bundledMasterHuman }} | ${{ needs.build-local.outputs.bundledLocalHuman }} | ${{ needs.calculate-bundled.outputs.diff_percent }} |" >> $GITHUB_STEP_SUMMARY
 
-    automerge-dependabot:
-        name: 'Save PR Number for Dependabot Automerge'
-        needs:
-            - test-core
-            - test-stub
-            - test-integrations-common-js-browserfy
-            - test-integrations-common-js-webpack
-            - test-integrations-common-js-rollup
-            - test-integrations-module-js-webpack
-            - test-integrations-module-js-rollup
-            - test-integrations-require-js
-        uses: mParticle/mparticle-workflows/.github/workflows/dependabot-save-pr-number.yml@main
-
     pr-notify:
         if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
         needs:
