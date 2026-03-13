@@ -5,7 +5,7 @@ Thanks for contributing! Please read this document to follow our conventions for
 ## Setting Up
 
 -   Fork the repository and then clone down your fork
--   Commit your code per the conventions below, and PR into the mParticle SDK `master` branch
+-   Commit your code per the conventions below, and PR into the mParticle SDK `main` branch
 -   Your PR title will be checked automatically against the below convention (view the commit history to see examples of a proper commit/PR title). If it fails, you must update your title.
 -   Our engineers will work with you to get your code change implemented once a PR is up
 
