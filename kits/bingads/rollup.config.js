@@ -34,4 +34,20 @@ export default [
             commonjs(),
         ],
     },
+    {
+        input: 'src/BingAdsEventForwarder',
+        output: {
+            file: 'dist/BingAdsEventForwarder.esm.js',
+            format: 'esm',
+            exports: 'named',
+            name: 'mpBingAdsKit',
+            strict: false,
+        },
+        plugins: [
+            resolve({
+                browser: true,
+            }),
+            commonjs(),
+        ],
+    },
 ];

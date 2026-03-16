@@ -34,4 +34,20 @@ export default [
             commonjs(),
         ],
     },
+    {
+        input: 'src/TaplyticsKit.js',
+        output: {
+            file: 'dist/TaplyticsKit.esm.js',
+            format: 'esm',
+            exports: 'named',
+            name: 'mpTapylitcsKit',
+            strict: false,
+        },
+        plugins: [
+            resolve({
+                browser: true,
+            }),
+            commonjs(),
+        ],
+    },
 ];

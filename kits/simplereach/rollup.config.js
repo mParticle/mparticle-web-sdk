@@ -34,4 +34,20 @@ export default [
             commonjs(),
         ],
     },
+    {
+        input: 'src/SimpleReach.js',
+        output: {
+            file: 'dist/SimpleReach.esm.js',
+            format: 'esm',
+            exports: 'named',
+            name: 'mpSimpleReachKit',
+            strict: false,
+        },
+        plugins: [
+            resolve({
+                browser: true,
+            }),
+            commonjs(),
+        ],
+    },
 ];

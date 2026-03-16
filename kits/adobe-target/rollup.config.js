@@ -29,6 +29,16 @@ const productionBuilds = {
         },
         plugins: [...production.plugins],
     },
+    esm: {
+        input: production.input,
+        output: {
+            ...production.output,
+            format: 'esm',
+            file: `dist/${initialization.name}-Kit.esm.js`,
+            name: `${initialization.name}Kit`,
+        },
+        plugins: [...production.plugins],
+    },
 };
 
 const testEndToEndBuild = {
@@ -44,7 +54,7 @@ const testEndToEndBuild = {
 
 let selectedBuilds = [];
 if (ENVIRONMENT === 'production') {
-    selectedBuilds.push(productionBuilds.iife, productionBuilds.cjs);
+    selectedBuilds.push(productionBuilds.iife, productionBuilds.cjs, productionBuilds.esm);
 } else if (ENVIRONMENT === 'testEndToEnd') {
     selectedBuilds.push(testEndToEndBuild);
 }

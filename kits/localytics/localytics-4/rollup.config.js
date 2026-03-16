@@ -34,4 +34,20 @@ export default [
             commonjs(),
         ],
     },
+    {
+        input: 'src/LocalyticsEventForwarder.js',
+        output: {
+            file: 'dist/LocalyticsEventForwarder.esm.js',
+            format: 'esm',
+            exports: 'named',
+            name: 'mpLocalyticsKit',
+            strict: false,
+        },
+        plugins: [
+            resolve({
+                browser: true,
+            }),
+            commonjs(),
+        ],
+    },
 ];

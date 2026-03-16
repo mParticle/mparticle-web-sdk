@@ -36,4 +36,21 @@ export default [
             commonjs(),
         ],
     },
+    {
+        input: 'src/BrazeKit-dev.js',
+        output: {
+            file: 'dist/BrazeKit.esm.js',
+            format: 'esm',
+            exports: 'named',
+            name: 'mpBrazeKitV4',
+            strict: false,
+            inlineDynamicImports: true,
+        },
+        plugins: [
+            resolve({
+                browser: true,
+            }),
+            commonjs(),
+        ],
+    },
 ];

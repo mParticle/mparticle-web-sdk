@@ -34,4 +34,20 @@ export default [
             commonjs(),
         ],
     },
+    {
+        input: 'src/DynamicYieldKit.js',
+        output: {
+            file: 'dist/DynamicYieldKit.esm.js',
+            format: 'esm',
+            exports: 'named',
+            name: 'mpDynamicYieldKit',
+            strict: false,
+        },
+        plugins: [
+            resolve({
+                browser: true,
+            }),
+            commonjs(),
+        ],
+    },
 ];

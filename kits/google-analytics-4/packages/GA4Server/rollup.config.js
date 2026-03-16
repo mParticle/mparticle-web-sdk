@@ -26,6 +26,16 @@ const builds = {
             format: 'cjs',
         },
     },
+    // creates ESM module for GA4 server side kit
+    server_esm: {
+        input,
+        output: {
+            ...outputOptions,
+            name: 'mParticleGA4',
+            file: 'dist/GoogleAnalytics4EventForwarderServerSide-Kit.esm.js',
+            format: 'esm',
+        },
+    },
 };
 
-export default [builds.server_iife, builds.server_cjs];
+export default [builds.server_iife, builds.server_cjs, builds.server_esm];

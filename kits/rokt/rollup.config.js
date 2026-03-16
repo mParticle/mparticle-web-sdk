@@ -43,4 +43,13 @@ export default [
         },
         plugins,
     },
+    {
+        input: `src/${kitName}-Kit.js`,
+        output: {
+            ...outputs,
+            format: 'esm',
+            file: `dist/${kitName}-Kit.esm.js`,
+        },
+        plugins,
+    },
 ];

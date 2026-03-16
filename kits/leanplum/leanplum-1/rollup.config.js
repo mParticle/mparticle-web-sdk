@@ -34,4 +34,20 @@ export default [
             commonjs(),
         ],
     },
+    {
+        input: 'src/LeanplumAnalyticsEventForwarder.js',
+        output: {
+            file: 'dist/LeanplumAnalyticsEventForwarder.esm.js',
+            format: 'esm',
+            exports: 'named',
+            name: 'mpLeanplumKit',
+            strict: false,
+        },
+        plugins: [
+            resolve({
+                browser: true,
+            }),
+            commonjs(),
+        ],
+    },
 ];

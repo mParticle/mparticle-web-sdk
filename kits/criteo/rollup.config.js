@@ -34,4 +34,20 @@ export default [
             commonjs(),
         ],
     },
+    {
+        input: 'src/CriteoEventForwarder.js',
+        output: {
+            file: 'dist/CriteoEventForwarder.esm.js',
+            format: 'esm',
+            exports: 'named',
+            name: 'mpCriteoKit',
+            strict: false,
+        },
+        plugins: [
+            resolve({
+                browser: true,
+            }),
+            commonjs(),
+        ],
+    },
 ];
