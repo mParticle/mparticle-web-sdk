@@ -499,7 +499,79 @@ describe('identity-utils', () => {
             );
 
             expect(successfullyCachedIdentity).to.equal(true);
+            expect(callback.called).to.equal(false);
+
+            clock.tick(1);
+
             expect(callback.called).to.equal(true);
+            clock.restore();
+        });
+
+        it('defers parseIdentityResponse to prevent synchronous recursion from callbacks', () => {
+            window.mParticle._resetForTests(MPConfig);
+            const clock = sinon.useFakeTimers();
+
+            window.mParticle.config.flags = {cacheIdentity: 'True'};
+            window.mParticle.init(apiKey, window.mParticle.config);
+
+            const cacheVault = new LocalStorageVault<Dictionary>(localStorageIDKey);
+
+            const customerId = {customerid: 'id1'};
+            const knownIdentities1: IKnownIdentities = createKnownIdentities({
+                userIdentities: customerId},
+                DEVICE_ID
+            );
+
+            cacheIdentityRequest(
+                'identify',
+                knownIdentities,
+                MILLISECONDS_IN_ONE_DAY,
+                cacheVault,
+                identityResponse
+            );
+
+            const MAX_CALLS = 3;
+            let callCount = 0;
+            const parseIdentityResponseFake = sinon.spy(
+                (
+                    _cachedIdentity,
+                    _mpid,
+                    _callback,
+                    _identityApiData,
+                    _identityMethod,
+                    _knownIdentities,
+                    _fromCachedIdentity
+                ) => {
+                    callCount++;
+                    if (callCount < MAX_CALLS) {
+                        tryCacheIdentity(
+                            knownIdentities1,
+                            cacheVault,
+                            parseIdentityResponseFake,
+                            testMPID,
+                            sinon.spy(),
+                            { userIdentities: customerId },
+                            'identify'
+                        );
+                    }
+                }
+            );
+
+            tryCacheIdentity(
+                knownIdentities1,
+                cacheVault,
+                parseIdentityResponseFake,
+                testMPID,
+                sinon.spy(),
+                { userIdentities: customerId },
+                'identify'
+            );
+
+            expect(parseIdentityResponseFake.callCount).to.equal(0);
+
+            clock.tick(MAX_CALLS);
+
+            expect(parseIdentityResponseFake.callCount).to.equal(MAX_CALLS);
             clock.restore();
         });
 

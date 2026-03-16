@@ -4195,10 +4195,10 @@ describe('identity', function() {
             const callback = sinon.spy();
             mParticle.Identity.identify(identities, callback);
 
-            await waitForCondition(hasIdentifyReturned);
+            await waitForCondition(() => callback.called);
             expect(fetchMock.calls().length).to.equal(0);
 
-            // callback still gets called even if the identity call is not made`
+            // callback still gets called even if the identity call is not made
             expect(callback.called).to.equal(true);
         });
 

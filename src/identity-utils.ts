@@ -253,7 +253,6 @@ export const tryCacheIdentity = (
         idCache
     );
 
-    // If Identity is cached, then immediately parse the identity response
     if (shouldReturnCachedIdentity) {
         const cachedIdentity = getCachedIdentity(
             identityMethod,
@@ -261,15 +260,19 @@ export const tryCacheIdentity = (
             idCache
         );
 
-        parseIdentityResponse(
-            cachedIdentity,
-            mpid,
-            callback,
-            identityApiData,
-            identityMethod,
-            knownIdentities,
-            true
-        );
+        // Defer to next task to prevent synchronous recursion when
+        // a consumer calls identify() again inside their callback.
+        setTimeout(() => {
+            parseIdentityResponse(
+                cachedIdentity,
+                mpid,
+                callback,
+                identityApiData,
+                identityMethod,
+                knownIdentities,
+                true
+            );
+        }, 0);
 
         return true;
     }
