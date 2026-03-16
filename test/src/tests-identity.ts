@@ -4496,6 +4496,41 @@ describe('identity', function() {
         });
     });
 
+    describe('privacy flags', function() {
+        const idCacheStorageKey = 'mprtcl-v4_abcdef-id-cache';
+
+        beforeEach(function() {
+            mParticle._resetForTests(MPConfig);
+            mParticle.config.flags.cacheIdentity = 'True';
+            // When noFunctional is true the SDK does not auto-populate identifyRequest from persistence.
+            // Provide identifyRequest so processForwarders and other init steps receive valid config.
+            mParticle.config.identifyRequest = { userIdentities: {} };
+            localStorage.clear();
+        });
+
+        describe('#createIdentityCache', function() {
+            it('should save id cache to local storage when noFunctional is false by default', async () => {
+                mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                expect(localStorage.getItem(idCacheStorageKey)).to.be.ok;
+            });
+
+            it('should NOT save id cache to local storage when noFunctional is true', async () => {
+                mParticle.config.launcherOptions = { noFunctional: true };
+                mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                expect(localStorage.getItem(idCacheStorageKey)).not.to.be.ok;
+            });
+
+            it('should save id cache to local storage when noFunctional is false', async () => {
+                mParticle.config.launcherOptions = { noFunctional: false };
+                mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                expect(localStorage.getItem(idCacheStorageKey)).to.be.ok;
+            });
+        });
+    });
+
     describe('Rokt Manager', function() {
         let roktConfig: IKitConfigs;
         let roktKit: IRoktKit;

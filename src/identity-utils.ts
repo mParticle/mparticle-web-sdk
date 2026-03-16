@@ -1,5 +1,5 @@
 import Constants, { ONE_DAY_IN_SECONDS, MILLIS_IN_ONE_SEC } from './constants';
-import { Dictionary, parseNumber, isObject, generateHash } from './utils';
+import { Dictionary, parseNumber, isObject, generateHash, isEmpty } from './utils';
 import { BaseVault } from './vault';
 import Types from './types';
 import {
@@ -13,6 +13,7 @@ import {
     IIdentityResponse,
     IMParticleUser,
 } from './identity-user-interfaces';
+import { IStore } from './store';
 
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 export const CACHE_HEADER = 'x-mp-max-age' as const;
@@ -297,4 +298,26 @@ export const hasIdentityRequestChanged = (
     return (
         JSON.stringify(currentUserIdentities) !== JSON.stringify(newIdentities)
     );
+};
+
+/**
+ * Checks if deviceId or other user identifiers (like email) were explicitly provided
+ * by the partner via config.deviceId or config.identifyRequest.userIdentities.
+ * When noFunctional is true, then cookies are blocked, so the partner must explicitly
+ * pass deviceId or other identifiers to prevent new users from being created on each page load.
+ *
+ * @param store - The SDK store (provides SDKConfig.deviceId and SDKConfig.identifyRequest.userIdentities)
+ * @returns true if deviceId or other identifiers were explicitly provided in config, false otherwise
+ */
+export const hasExplicitIdentifier = (store: IStore | undefined | null): boolean => {
+    const userIdentities = store?.SDKConfig?.identifyRequest?.userIdentities;
+    if (
+        userIdentities &&
+        isObject(userIdentities) &&
+        !isEmpty(userIdentities) &&
+        Object.values(userIdentities).some(Boolean)
+    ) {
+        return true;
+    }
+    return !!store?.SDKConfig?.deviceId;
 };

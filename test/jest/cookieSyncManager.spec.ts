@@ -41,6 +41,7 @@ describe('CookieSyncManager', () => {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [pixelSettings],
                 },
+                _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
                 _Persistence: {
                     getPersistence: () => ({testMPID: {
                         csd: {}
@@ -76,6 +77,7 @@ describe('CookieSyncManager', () => {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [pixelSettingsWithoutPixelUrl],
                 },
+                _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
                 _Persistence: {
                     getPersistence: () => ({testMPID: {
                         csd: {}
@@ -105,6 +107,7 @@ describe('CookieSyncManager', () => {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [pixelSettings],
                 },
+                _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
                 _Persistence: {
                     getPersistence: () => ({testMPID: {
                         csd: {}
@@ -126,6 +129,7 @@ describe('CookieSyncManager', () => {
                     webviewBridgeEnabled: true,
                     pixelConfigurations: [pixelSettings],
                 },
+                _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
                 _Persistence: {
                     getPersistence: () => ({testMPID: {
                         csd: {}
@@ -156,6 +160,7 @@ describe('CookieSyncManager', () => {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [myPixelSettings],
                 },
+                _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
                 _Persistence: {
                     getPersistence: () => ({testMPID: {
                         csd: {}
@@ -195,6 +200,7 @@ describe('CookieSyncManager', () => {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [{...pixelSettings, ...myPixelSettings}],
                 },
+                _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
                 _Persistence: {
                     getPersistence: () => ({testMPID: {
                         csd: {}
@@ -229,6 +235,7 @@ describe('CookieSyncManager', () => {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [pixelSettings],
                 },
+                _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
                 _Persistence: {
                     getPersistence: () => ({testMPID: {}}),
                 },
@@ -266,6 +273,7 @@ describe('CookieSyncManager', () => {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [pixelSettings],
                 },
+                _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
                 _Persistence: {
                     getPersistence: () => ({testMPID: {
                         csd: { 5: cookieSyncDateInPast }
@@ -302,6 +310,7 @@ describe('CookieSyncManager', () => {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [pixelSettings],
                 },
+                _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
                 _Persistence: {
                     getPersistence: () => ({testMPID: {}}),
                 },
@@ -337,6 +346,7 @@ describe('CookieSyncManager', () => {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [pixelSettings],
                 },
+                _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
                 _Persistence: {
                     getPersistence: () => ({}),
                 },
@@ -365,6 +375,7 @@ describe('CookieSyncManager', () => {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [myPixelSettings],
                 },
+                _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
                 _Persistence: {
                     getPersistence: () => ({testMPID: {
                         csd: {}
@@ -408,6 +419,7 @@ describe('CookieSyncManager', () => {
                         isEnabledForUserConsent: jest.fn().mockReturnValue(true),
                     },
                     _CookieConsentManager: {
+                        getNoFunctional: jest.fn().mockReturnValue(false),
                         getNoTargeting: jest.fn().mockReturnValue(true),
                     },
                     Identity: {
@@ -437,6 +449,7 @@ describe('CookieSyncManager', () => {
                         isEnabledForUserConsent: jest.fn().mockReturnValue(true),
                     },
                     _CookieConsentManager: {
+                        getNoFunctional: jest.fn().mockReturnValue(false),
                         getNoTargeting: jest.fn().mockReturnValue(false),
                     },
                     Identity: {
@@ -496,6 +509,7 @@ describe('CookieSyncManager', () => {
                         isEnabledForUserConsent: jest.fn().mockReturnValue(true),
                     },
                     _CookieConsentManager: {
+                        getNoFunctional: jest.fn().mockReturnValue(false),
                         getNoTargeting: jest.fn().mockReturnValue(true),
                     },
                     Identity: {
@@ -529,6 +543,7 @@ describe('CookieSyncManager', () => {
                     webviewBridgeEnabled: false,
                     pixelConfigurations: [myPixelSettings], // empty values will make require consent to be true
                 },
+                _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
                 _Persistence: {
                     getPersistence: () => ({testMPID: {
                         csd: {}
@@ -584,6 +599,7 @@ describe('CookieSyncManager', () => {
                         webviewBridgeEnabled: false,
                         pixelConfigurations: [tradeDeskPixelSettings],
                     },
+                    _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
                     _Persistence: {
                         getPersistence: () => ({testMPID: {
                             csd: {}
@@ -625,6 +641,7 @@ describe('CookieSyncManager', () => {
                         webviewBridgeEnabled: false,
                         pixelConfigurations: [nonTradeDeskPixelSettings],
                     },
+                    _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
                     _Persistence: {
                         getPersistence: () => ({testMPID: {
                             csd: {}
@@ -673,6 +690,7 @@ describe('CookieSyncManager', () => {
                         webviewBridgeEnabled: false,
                         pixelConfigurations: [tradeDeskPixelSettings, appNexusPixelSettings],
                     },
+                    _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
                     _Persistence: {
                         getPersistence: () => ({testMPID: {
                             csd: {}
@@ -729,6 +747,7 @@ describe('CookieSyncManager', () => {
                         webviewBridgeEnabled: false,
                         pixelConfigurations: [tradeDeskPixelSettings],
                     },
+                    _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
                     _Persistence: {
                         getPersistence: () => ({testMPID: {
                             csd: {}

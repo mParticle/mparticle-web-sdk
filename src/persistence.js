@@ -230,6 +230,11 @@ export default function _Persistence(mpInstance) {
             return;
         }
 
+        // Block mprtcl-v4 localStorage when noFunctional is true
+        if (mpInstance._CookieConsentManager?.getNoFunctional()) {
+            return;
+        }
+
         var key = mpInstance._Store.storageName,
             localStorageData = self.getLocalStorage() || {},
             currentUser = mpInstance.Identity.getCurrentUser(),
@@ -398,6 +403,11 @@ export default function _Persistence(mpInstance) {
     // https://go.mparticle.com/work/SQDSDKS-5022
     // https://go.mparticle.com/work/SQDSDKS-6021
     this.setCookie = function() {
+        // Block mprtcl-v4 cookies when noFunctional is true
+        if (mpInstance._CookieConsentManager?.getNoFunctional()) {
+            return;
+        }
+
         var mpid,
             currentUser = mpInstance.Identity.getCurrentUser();
         if (currentUser) {
@@ -803,6 +813,11 @@ export default function _Persistence(mpInstance) {
 
     // https://go.mparticle.com/work/SQDSDKS-6021
     this.savePersistence = function(persistence) {
+        // Block mprtcl-v4 persistence when noFunctional is true
+        if (mpInstance._CookieConsentManager?.getNoFunctional()) {
+            return;
+        }
+
         var encodedPersistence = self.encodePersistence(
                 JSON.stringify(persistence)
             ),
