@@ -13,3 +13,4 @@ test/lib
 mparticle.js
 test/
 kits/adobe/AdobeSDKs/
+.claude/
