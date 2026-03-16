@@ -6,7 +6,6 @@
     "browser": "dist/AdobeClientSideKit.common.js",
     "files": [
         "dist/AdobeClientSideKit.common.js",
-        "dist/AdobeClientSideKit.esm.js",
         "dist/AdobeClientSideKit.iife.js"
     ],
     "scripts": {
@@ -22,6 +21,5 @@
         "type": "git",
         "url": "https://github.com/mParticle/mparticle-web-sdk.git",
         "directory": "kits/adobe/packages/AdobeClient"
-    },
-    "module": "dist/AdobeClientSideKit.esm.js"
+    }
 }

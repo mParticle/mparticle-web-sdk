@@ -6,7 +6,6 @@
     "browser": "dist/AdobeServerSideKit.common.js",
     "files": [
         "dist/AdobeServerSideKit.common.js",
-        "dist/AdobeServerSideKit.esm.js",
         "dist/AdobeServerSideKit.iife.js"
     ],
     "scripts": {
@@ -22,6 +21,5 @@
         "type": "git",
         "url": "https://github.com/mParticle/mparticle-web-sdk.git",
         "directory": "kits/adobe/packages/AdobeServer"
-    },
-    "module": "dist/AdobeServerSideKit.esm.js"
+    }
 }
