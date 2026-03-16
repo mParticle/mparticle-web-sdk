@@ -1,3 +1,10 @@
+# [2.59.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.58.0...v2.59.0) (2026-03-16)
+
+
+### Features
+
+* block mp cookies when noFunctional is true ([#1211](https://github.com/mParticle/mparticle-web-sdk/issues/1211)) ([eea64ca](https://github.com/mParticle/mparticle-web-sdk/commit/eea64ca623fa3b54748b6cc55b76be0e3e229844))
+
 # [2.58.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.57.0...v2.58.0) (2026-02-24)
 
 
