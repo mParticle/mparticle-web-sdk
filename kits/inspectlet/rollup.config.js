@@ -34,4 +34,20 @@ export default [
             commonjs(),
         ],
     },
+    {
+        input: 'src/Inspectlet.js',
+        output: {
+            file: 'dist/Inspectlet.esm.js',
+            format: 'esm',
+            exports: 'named',
+            name: 'mpInspectletKit',
+            strict: false,
+        },
+        plugins: [
+            resolve({
+                browser: true,
+            }),
+            commonjs(),
+        ],
+    },
 ];

@@ -496,7 +496,7 @@ jobs:
 
             - name: Refresh kit lock files
               run: |
-                  jq -r '.[].local_path' kits/matrix.json | while read KIT_PATH; do
+                  jq -r '.[].local_path' kits/matrix.json | while IFS= read -r KIT_PATH; do
                       if [ -f "$KIT_PATH/package.json" ] && [ -f "$KIT_PATH/package-lock.json" ]; then
                           echo "Refreshing lock file for $KIT_PATH..."
                           (cd "$KIT_PATH" && npm install --package-lock-only) || true

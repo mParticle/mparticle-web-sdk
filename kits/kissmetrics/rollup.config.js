@@ -34,4 +34,20 @@ export default [
             commonjs(),
         ],
     },
+    {
+        input: 'src/KissMetricsForwarder.js',
+        output: {
+            file: 'dist/KissMetricsForwarder.esm.js',
+            format: 'esm',
+            exports: 'named',
+            name: 'mpKissMetricsKit',
+            strict: false,
+        },
+        plugins: [
+            resolve({
+                browser: true,
+            }),
+            commonjs(),
+        ],
+    },
 ];
