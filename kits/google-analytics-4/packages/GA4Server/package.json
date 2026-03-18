@@ -6,7 +6,8 @@
     "browser": "dist/GoogleAnalytics4EventForwarderServerSide-Kit.common.js",
     "files": [
         "dist/GoogleAnalytics4EventForwarderServerSide-Kit.common.js",
-        "dist/GoogleAnalytics4EventForwarderServerSide-Kit.esm.js"
+        "dist/GoogleAnalytics4EventForwarderServerSide-Kit.esm.js",
+        "dist/GoogleAnalytics4EventForwarderServerSide-Kit.iife.js"
     ],
     "scripts": {
         "build": "rollup --config rollup.config.js",
