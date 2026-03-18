@@ -6,8 +6,10 @@
     "browser": "dist/AdobeClientSideKit.common.js",
     "files": [
         "dist/AdobeClientSideKit.common.js",
-        "dist/AdobeClientSideKit.iife.js"
+        "dist/AdobeClientSideKit.iife.js",
+        "dist/AdobeClientSideKit.esm.js"
     ],
+    "module": "dist/AdobeClientSideKit.esm.js",
     "scripts": {
         "build": "cd ../.. && npm ci && npm run build:heartbeat && npm run build:client",
         "test": "cd ../.. && npm ci && npm run test:client && npm run test:heartbeat"

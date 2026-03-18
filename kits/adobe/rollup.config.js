@@ -3,10 +3,12 @@ import commonjs from 'rollup-plugin-commonjs';
 const { BUILD } = process.env;
 
 const input = {
-    server_iife: 'packages/AdobeServer/dist/AdobeServerSideKit.esm.js',
-    server_cjs: 'packages/AdobeServer/dist/AdobeServerSideKit.esm.js',
-    client_iife: 'packages/AdobeClient/dist/AdobeClientSideKit.esm.js',
-    client_cjs: 'packages/AdobeClient/dist/AdobeClientSideKit.esm.js',
+    server_iife: 'packages/AdobeServer/dist/_bundle-input.js',
+    server_cjs: 'packages/AdobeServer/dist/_bundle-input.js',
+    server_esm: 'packages/AdobeServer/dist/_bundle-input.js',
+    client_iife: 'packages/AdobeClient/dist/_bundle-input.js',
+    client_cjs: 'packages/AdobeClient/dist/_bundle-input.js',
+    client_esm: 'packages/AdobeClient/dist/_bundle-input.js',
     heartbeat_esm: 'HeartbeatKit/src/index.js',
     heartbeat_iife: 'HeartbeatKit/src/index.js',
 };
@@ -50,6 +52,26 @@ const builds = {
             name: 'mParticleAdobeClient',
             file: 'packages/AdobeClient/dist/AdobeClientSideKit.common.js',
             format: 'cjs',
+        },
+    },
+    // creates esm module for adobe client side kit
+    client_esm: {
+        output: {
+            ...outputOptions,
+            exports: 'named',
+            name: 'mParticleAdobeClient',
+            file: 'packages/AdobeClient/dist/AdobeClientSideKit.esm.js',
+            format: 'esm',
+        },
+    },
+    // creates esm module for adobe server side kit
+    server_esm: {
+        output: {
+            ...outputOptions,
+            exports: 'named',
+            name: 'mParticleAdobeServer',
+            file: 'packages/AdobeServer/dist/AdobeServerSideKit.esm.js',
+            format: 'esm',
         },
     },
     // creates heartbeat esm module kit that is consumed by adobe client and server kits
