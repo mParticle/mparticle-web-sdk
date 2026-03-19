@@ -112,6 +112,7 @@ export default class RoktManager {
     private captureTiming?: (metricsName: string) => void;
     private onReadyCallback: (() => void) | null = null;
     private initialized: boolean = false;
+    private copyPlacementAttributesToUser: boolean = false;
 
     /**
      * Sets a callback to be invoked when RoktManager becomes ready
@@ -142,7 +143,8 @@ export default class RoktManager {
         captureTiming?: (metricsName: string) => void
     ): void {
         const { userAttributeFilters, settings } = roktConfig || {};
-        const { placementAttributesMapping, hashedEmailUserIdentityType } = settings || {};
+        const { placementAttributesMapping, hashedEmailUserIdentityType, copyPlacementAttributesToUser } = settings || {};
+        this.copyPlacementAttributesToUser = copyPlacementAttributesToUser === 'True';
         this.mappedEmailShaIdentityType = hashedEmailUserIdentityType?.toLowerCase() ?? null;
 
         this.identityService = identityService;
@@ -296,7 +298,9 @@ export default class RoktManager {
             this.currentUser = this.identityService.getCurrentUser();
             const finalUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
 
-            this.setUserAttributes(mappedAttributes);
+            if (this.copyPlacementAttributesToUser) {
+                this.setUserAttributes(mappedAttributes);
+            }
 
             const enrichedAttributes: RoktAttributes = {
                 ...mappedAttributes,

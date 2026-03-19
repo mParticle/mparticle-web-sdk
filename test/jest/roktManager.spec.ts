@@ -383,6 +383,53 @@ describe('RoktManager', () => {
             ]);
         });
 
+        it('should set copyPlacementAttributesToUser to true when config setting is "True"', () => {
+            const kitConfig: Partial<IKitConfigs> = {
+                name: 'Rokt',
+                moduleId: 181,
+                settings: {
+                    copyPlacementAttributesToUser: 'True',
+                },
+            };
+            roktManager.init(
+                kitConfig as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+            );
+            expect(roktManager['copyPlacementAttributesToUser']).toBe(true);
+        });
+
+        it('should set copyPlacementAttributesToUser to false when config setting is "False"', () => {
+            const kitConfig: Partial<IKitConfigs> = {
+                name: 'Rokt',
+                moduleId: 181,
+                settings: {
+                    copyPlacementAttributesToUser: 'False',
+                },
+            };
+            roktManager.init(
+                kitConfig as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+            );
+            expect(roktManager['copyPlacementAttributesToUser']).toBe(false);
+        });
+
+        it('should default copyPlacementAttributesToUser to false when setting is absent from config', () => {
+            roktManager.init(
+                {} as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+            );
+            expect(roktManager['copyPlacementAttributesToUser']).toBe(false);
+        });
+
         it('should initialize the manager with launcher options from options', () => {
             const launcherOptions = {
                 integrationName: 'customName',
@@ -838,6 +885,7 @@ describe('RoktManager', () => {
                     userIdentities: {}
                 })
             } as unknown as IMParticleUser;
+            roktManager['copyPlacementAttributesToUser'] = true;
 
             // Queue a selectPlacements call with attributes that need mapping
             const originalOptions: IRoktSelectPlacementsOptions = {
@@ -1330,6 +1378,7 @@ describe('RoktManager', () => {
                     value: 'lastname'
                 }
             ];
+            roktManager['copyPlacementAttributesToUser'] = true;
 
             const options: IRoktSelectPlacementsOptions = {
                 attributes: {
@@ -1419,6 +1468,7 @@ describe('RoktManager', () => {
             };
 
             roktManager.kit = kit as IRoktKit;
+            roktManager['copyPlacementAttributesToUser'] = true;
 
             const options: IRoktSelectPlacementsOptions = {
                 attributes: {
@@ -1470,6 +1520,7 @@ describe('RoktManager', () => {
             };
 
             roktManager.kit = kit as IRoktKit;
+            roktManager['copyPlacementAttributesToUser'] = true;
 
             const options: IRoktSelectPlacementsOptions = {
                 attributes: {
@@ -2472,6 +2523,86 @@ describe('RoktManager', () => {
             expect(mockMPInstance.Logger.verbose).toHaveBeenCalledWith(
                 `mParticle.Rokt selectPlacements called with attributes:\n${JSON.stringify({ email: 'test@example.com', customAttr: 'value' }, null, 2)}`
             );
+        });
+
+        describe('copyPlacementAttributesToUser', () => {
+            let kit: Partial<IRoktKit>;
+            let setUserAttributesSpy: jest.Mock;
+
+            beforeEach(() => {
+                setUserAttributesSpy = jest.fn();
+                mockMPInstance.Identity.getCurrentUser = jest.fn().mockReturnValue({
+                    getMPID: () => testMPID,
+                    getUserIdentities: () => ({ userIdentities: {} }),
+                    setUserAttributes: setUserAttributesSpy,
+                });
+                kit = {
+                    launcher: {
+                        selectPlacements: jest.fn(),
+                        hashAttributes: jest.fn(),
+                        use: jest.fn(),
+                    },
+                    selectPlacements: jest.fn().mockResolvedValue({}),
+                    hashAttributes: jest.fn(),
+                    setExtensionData: jest.fn(),
+                    use: jest.fn(),
+                };
+                roktManager.kit = kit as IRoktKit;
+                roktManager['placementAttributesMapping'] = [];
+            });
+
+            it('should not copy placement attributes to the user when flag is false (default)', async () => {
+                const options: IRoktSelectPlacementsOptions = {
+                    attributes: { email: 'user@example.com', age: 30 }
+                };
+
+                await roktManager.selectPlacements(options);
+
+                expect(setUserAttributesSpy).not.toHaveBeenCalled();
+            });
+
+            it('should copy placement attributes to the user when flag is true', async () => {
+                roktManager['copyPlacementAttributesToUser'] = true;
+
+                const options: IRoktSelectPlacementsOptions = {
+                    attributes: { email: 'user@example.com', age: 30 }
+                };
+
+                await roktManager.selectPlacements(options);
+
+                expect(setUserAttributesSpy).toHaveBeenCalledWith({
+                    email: 'user@example.com',
+                    age: 30,
+                });
+            });
+
+            it('should still forward mapped attributes to kit.selectPlacements when flag is false', async () => {
+                roktManager['placementAttributesMapping'] = [
+                    {
+                        jsmap: null,
+                        map: 'f.name',
+                        maptype: 'UserAttributeClass.Name',
+                        value: 'firstname'
+                    }
+                ];
+
+                const options: IRoktSelectPlacementsOptions = {
+                    attributes: { 'f.name': 'John', age: 30 }
+                };
+
+                await roktManager.selectPlacements(options);
+
+                expect(kit.selectPlacements).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        attributes: expect.objectContaining({
+                            firstname: 'John',
+                            age: 30,
+                        })
+                    })
+                );
+                expect(setUserAttributesSpy).not.toHaveBeenCalled();
+            });
+
         });
     });
 
