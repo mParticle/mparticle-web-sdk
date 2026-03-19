@@ -8,15 +8,6 @@ on:
                 required: true
                 type: boolean
                 default: true
-            bump_type:
-                description: 'Version bump type'
-                required: true
-                type: choice
-                options:
-                    - patch
-                    - minor
-                    - major
-                default: patch
 
 jobs:
     # SDK release is done from master branch.
@@ -252,7 +243,14 @@ jobs:
         # OIDC permissions for npm trusted publishing
         permissions:
             id-token: write
-            contents: write
+            contents: read
+
+        env:
+            GITHUB_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
+            GIT_AUTHOR_NAME: mparticle-automation
+            GIT_AUTHOR_EMAIL: developers@mparticle.com
+            GIT_COMMITTER_NAME: mparticle-automation
+            GIT_COMMITTER_EMAIL: developers@mparticle.com
 
         steps:
             - name: Checkout public master branch
@@ -282,44 +280,16 @@ jobs:
             - name: Install dependencies
               run: npm ci
 
-            - name: Calculate next version
-              id: get-version
+            - name: Release --dry-run
+              if: ${{ github.event.inputs.dryRun == 'true'}}
               run: |
-                  NEXT_VERSION=$(npm version ${{ github.event.inputs.bump_type }} --no-git-tag-version)
-                  NEXT_VERSION=${NEXT_VERSION#v}
-                  if [ -z "$NEXT_VERSION" ]; then
-                      echo "ERROR: Failed to calculate next version"
-                      exit 1
-                  fi
-                  echo "version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
-                  echo "Next version: $NEXT_VERSION"
+                  npx semantic-release --dry-run
 
-            - name: Commit package.json version bump
-              if: ${{ github.event.inputs.dryRun == 'false' }}
+            # NPM Publish happens here via OIDC trusted publishing
+            - name: Release
+              if: ${{ github.event.inputs.dryRun == 'false'}}
               run: |
-                  git add package.json package-lock.json
-                  git commit -m "chore(release): ${{ steps.get-version.outputs.version }} [skip ci]"
-
-            - name: Create release tag
-              if: ${{ github.event.inputs.dryRun == 'false' }}
-              run: git tag v${{ steps.get-version.outputs.version }}
-
-            - name: Publish SDK to npm
-              if: ${{ github.event.inputs.dryRun == 'false' }}
-              run: npm publish
-
-            - name: Create GitHub release
-              if: ${{ github.event.inputs.dryRun == 'false' }}
-              env:
-                  GH_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
-              run: |
-                  gh release create v${{ steps.get-version.outputs.version }} \
-                      --title "v${{ steps.get-version.outputs.version }}" \
-                      dist/mparticle.common.js \
-                      dist/mparticle.esm.js \
-                      dist/mparticle.js \
-                      snippet.js \
-                      snippet.min.js
+                  npx semantic-release
 
             - name: Archive npm failure logs
               uses: actions/upload-artifact@v6
@@ -328,11 +298,10 @@ jobs:
                   name: npm-logs
                   path: ~/.npm/_logs
 
-            - name: Push release commits and tag to release branch
+            - name: Push automated release commits to release branch
               if: ${{ github.event.inputs.dryRun == 'false' }}
               run: |
                   git push origin HEAD:release/${{ github.run_number }}
-                  git push origin v${{ steps.get-version.outputs.version }}
 
     sync-repository:
         name: Sync repositories
