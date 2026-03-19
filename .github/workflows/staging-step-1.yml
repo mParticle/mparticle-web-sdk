@@ -366,6 +366,24 @@ jobs:
                   fi
                   echo "version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
 
+            - name: Build distribution bundle
+              if: ${{ github.event.inputs.dryRun == 'false' }}
+              run: |
+                  npm run build
+                  git add dist -f
+                  git commit -m 'chore(build): Generate latest bundle [skip ci]'
+
+            - name: Update kit versions to ${{ steps.get-version.outputs.version }}
+              if: ${{ github.event.inputs.dryRun == 'false' }}
+              run: |
+                  VERSION=${{ steps.get-version.outputs.version }}
+                  jq -r '.[].local_path' kits/matrix.json | while read KIT_PATH; do
+                      npm pkg set version="$VERSION" --prefix "$KIT_PATH"
+                      echo "Updated $KIT_PATH/package.json to $VERSION"
+                  done
+                  git add kits/
+                  git commit -m "chore(release): Update kit versions to $VERSION [skip ci]"
+
             - name: Release
               if: ${{ github.event.inputs.dryRun == 'false' }}
               run: |
