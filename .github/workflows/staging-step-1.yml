@@ -35,15 +35,33 @@ jobs:
                       exit 1
                   fi
 
+    sync-staging-with-development:
+        name: Sync staging with development
+        runs-on: ubuntu-latest
+        needs: confirm-staging-branch
+        steps:
+            - name: Checkout staging branch
+              uses: actions/checkout@v6
+              with:
+                  fetch-depth: 0
+                  ref: staging
+                  token: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
+
+            - name: Merge development into staging and push
+              run: |
+                  git fetch origin development
+                  git merge origin/development --no-edit
+                  git push origin HEAD:staging
+
     build-bundle:
         name: Build Distribution Bundle
         runs-on: ubuntu-latest
-        needs: confirm-staging-branch
+        needs: sync-staging-with-development
         steps:
             - name: Checkout
               uses: actions/checkout@v6
               with:
-                  ref: development
+                  ref: staging
 
             - name: NPM install
               uses: actions/setup-node@v6
@@ -282,8 +300,8 @@ jobs:
                   name: npm-logs-kit-${{ matrix.kit.name }}
                   path: ~/.npm/_logs
 
-    create-release-branch:
-        name: Create release branch
+    release:
+        name: Determine Version and Perform Release
         runs-on: ubuntu-latest
         needs:
             - test-core
@@ -296,24 +314,7 @@ jobs:
             - test-integrations-require-js
             - load-kit-matrix
             - run-kit-tests
-            - confirm-staging-branch
-        steps:
-            - name: Checkout development branch
-              uses: actions/checkout@v6
-              with:
-                  repository: mparticle/mparticle-web-sdk
-                  ref: development
-
-            - name: Create and push release branch
-              run: |
-                  git checkout -b release/${{ github.run_number }}
-                  git push origin release/${{ github.run_number }}
-
-    release:
-        name: Determine Version and Perform Release
-        runs-on: ubuntu-latest
-        needs:
-            - create-release-branch
+            - sync-staging-with-development
         outputs:
             version: ${{ steps.get-version.outputs.version }}
 
@@ -338,10 +339,6 @@ jobs:
                   passphrase: ${{ secrets.GPG_PASSPHRASE }}
                   git_user_signingkey: true
                   git_commit_gpgsign: true
-
-            - name: Merge release branch into staging branch
-              run: |
-                  git pull origin release/${{ github.run_number }}
 
             - name: Setup Node.js
               uses: actions/setup-node@v6
@@ -419,16 +416,15 @@ jobs:
                   name: npm-logs-release
                   path: ~/.npm/_logs
 
-            - name: Push release commits and tag to release branch
+            - name: Push release commits and tag
               if: ${{ github.event.inputs.dryRun == 'false' }}
               run: |
-                  git push origin HEAD:release/${{ github.run_number }}
+                  git push origin HEAD:staging
                   git push origin v${{ steps.get-version.outputs.version }}
 
     release-kits:
         name: 'Publish Kit: ${{ matrix.kit.name }}'
         needs:
-            - create-release-branch
             - load-kit-matrix
             - release
         runs-on: ubuntu-latest
@@ -475,21 +471,3 @@ jobs:
                   name: npm-logs-publish-${{ matrix.kit.name }}
                   path: ~/.npm/_logs
 
-    cleanup:
-        name: Delete release branch
-        runs-on: ubuntu-latest
-        if: ${{ github.event.inputs.dryRun == 'false' }}
-        needs:
-            - release
-            - release-kits
-        env:
-            GITHUB_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
-        steps:
-            - name: Checkout staging branch
-              uses: actions/checkout@v6
-              with:
-                  ref: staging
-
-            - name: Delete release branch
-              run: |
-                  git push --delete origin release/${{ github.run_number }}
