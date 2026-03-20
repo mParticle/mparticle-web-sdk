@@ -1619,14 +1619,10 @@ function createIdentityCache(mpInstance) {
     // Identity expects mpInstance._Identity.idCache to always exist. DisabledVault
     // ensures no identity response data is written to localStorage when noFunctional is true
     if (mpInstance._CookieConsentManager?.getNoFunctional()) {
-        return new DisabledVault(`${mpInstance._Store.storageName}-id-cache`, {
-            logger: mpInstance.Logger,
-        });
+        return new DisabledVault(`${mpInstance._Store.storageName}-id-cache`);
     }
     
-    return new LocalStorageVault(`${mpInstance._Store.storageName}-id-cache`, {
-        logger: mpInstance.Logger,
-    });
+    return new LocalStorageVault(`${mpInstance._Store.storageName}-id-cache`);
 }
 
 function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
