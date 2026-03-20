@@ -59,7 +59,8 @@ mParticle is a Customer Data Platform that collects, validates, and forwards eve
 
 **PII (Personally Identifiable Information)** is data that can identify a specific person, for example: email, name or phone number, and similar attributes. Logging raw payloads can expose PII in production.
 
-- **When utilizing the Logger to log payloads or data that may contain PII:** Only when `isDevelopmentMode` is true allow raw data, otherwise always obfuscate. Use `obfuscateDevData(data, isDevelopmentMode)` from `utils`. Get the flag from the store or instance (e.g. `SDKConfig?.isDevelopmentMode`).
+- Use `obfuscateDevData(data, isDevelopmentMode)` from `utils` to log payloads - shows raw data in development mode, obfuscates in production.
+- Use `obfuscateData(data)` from `utils` when you need to obfuscate a specific field.
 
 ### Testing Requirements
 
