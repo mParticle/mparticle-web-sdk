@@ -8,10 +8,12 @@ export default class ForegroundTimeTracker {
     public startTime: number = 0;
     public totalTime: number = 0;
 
-    constructor(timerKey: string) {
+    constructor(timerKey: string, private noFunctional: boolean = false) {
         this.localStorageName = `mprtcl-tos-${timerKey}`;
         this.timerVault = new LocalStorageVault<number>(this.localStorageName);
-        this.loadTimeFromStorage();
+        if (!this.noFunctional) {
+            this.loadTimeFromStorage();
+        }
         this.addHandlers();
         if (document.hidden === false) {
             this.startTracking();
@@ -63,12 +65,8 @@ export default class ForegroundTimeTracker {
     }
 
     public updateTimeInPersistence(): void {
-        if (this.isTrackerActive) {
-            try {
-                this.timerVault.store(Math.round(this.totalTime));
-            } catch (error) {
-                // Silently fail - time tracking persistence is not critical for SDK functionality
-            }
+        if (this.isTrackerActive && !this.noFunctional) {
+            this.timerVault.store(Math.round(this.totalTime));
         }
     }
 

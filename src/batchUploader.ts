@@ -74,7 +74,10 @@ export class BatchUploader {
         // so that we don't have to check it every time
         this.offlineStorageEnabled = this.isOfflineStorageAvailable();
 
-        if (this.offlineStorageEnabled) {
+        // When noFunctional is true, prevent events/batches storage
+        const noFunctional = mpInstance._CookieConsentManager?.getNoFunctional();
+
+        if (this.offlineStorageEnabled && !noFunctional) {
             this.eventVault = new SessionStorageVault<SDKEvent[]>(
                 `${mpInstance._Store.storageName}-events`
             );

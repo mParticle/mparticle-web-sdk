@@ -5,7 +5,7 @@ import Types from './types';
 import { generateDeprecationMessage } from './utils';
 import { IMParticleUser } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
-import { hasIdentityRequestChanged } from './identity-utils';
+import { hasIdentityRequestChanged, hasExplicitIdentifier } from './identity-utils';
 
 const { Messages } = Constants;
 
@@ -45,7 +45,12 @@ export default function SessionManager(
                 const currentUser = mpInstance.Identity.getCurrentUser();
                 const sdkIdentityRequest = SDKConfig.identifyRequest;
 
+                const shouldSuppressIdentify = 
+                    mpInstance._CookieConsentManager?.getNoFunctional() &&
+                    !hasExplicitIdentifier(mpInstance._Store);
+
                 if (
+                    !shouldSuppressIdentify &&
                     hasIdentityRequestChanged(currentUser, sdkIdentityRequest)
                 ) {
                     mpInstance.Identity.identify(
@@ -102,7 +107,11 @@ export default function SessionManager(
 
             self.setSessionTimer();
 
-            if (!mpInstance._Store.identifyCalled) {
+            const shouldSuppressIdentify = 
+                mpInstance._CookieConsentManager?.getNoFunctional() &&
+                !hasExplicitIdentifier(mpInstance._Store);
+
+            if (!mpInstance._Store.identifyCalled && !shouldSuppressIdentify) {
                 mpInstance.Identity.identify(
                     mpInstance._Store.SDKConfig.identifyRequest,
                     mpInstance._Store.SDKConfig.identityCallback

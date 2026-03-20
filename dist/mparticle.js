@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.58.0";
+    var version = "2.59.0";
 
     var Constants = {
       sdkVersion: version,
@@ -2212,6 +2212,26 @@ var mParticle = (function () {
       }
       return SessionStorageVault;
     }(BaseVault);
+    // DisabledVault is used when persistence is disabled by privacy flags.
+    var DisabledVault = /** @class */function (_super) {
+      __extends(DisabledVault, _super);
+      function DisabledVault(storageKey, options) {
+        var _this = _super.call(this, storageKey, window.localStorage, options) || this;
+        _this.contents = null;
+        _this.storageObject.removeItem(_this._storageKey);
+        return _this;
+      }
+      DisabledVault.prototype.store = function (_item) {
+        this.contents = null;
+      };
+      DisabledVault.prototype.retrieve = function () {
+        return this.contents;
+      };
+      DisabledVault.prototype.purge = function () {
+        this.contents = null;
+      };
+      return DisabledVault;
+    }(BaseVault);
 
     var AsyncUploader = /** @class */function () {
       function AsyncUploader(url) {
@@ -2374,6 +2394,7 @@ var mParticle = (function () {
        */
       function BatchUploader(mpInstance, uploadInterval) {
         var _a;
+        var _b;
         this.offlineStorageEnabled = false;
         this.lastASTEventTime = 0;
         this.AST_DEBOUNCE_MS = 1000; // 1 second debounce
@@ -2392,7 +2413,9 @@ var mParticle = (function () {
         // Cache Offline Storage Availability boolean
         // so that we don't have to check it every time
         this.offlineStorageEnabled = this.isOfflineStorageAvailable();
-        if (this.offlineStorageEnabled) {
+        // When noFunctional is true, prevent events/batches storage
+        var noFunctional = (_b = mpInstance._CookieConsentManager) === null || _b === void 0 ? void 0 : _b.getNoFunctional();
+        if (this.offlineStorageEnabled && !noFunctional) {
           this.eventVault = new SessionStorageVault("".concat(mpInstance._Store.storageName, "-events"), {
             logger: mpInstance.Logger
           });
@@ -2402,9 +2425,9 @@ var mParticle = (function () {
           // Load Events from Session Storage in case we have any in storage
           (_a = this.eventsQueuedForProcessing).push.apply(_a, this.eventVault.retrieve());
         }
-        var _b = this.mpInstance._Store,
-          SDKConfig = _b.SDKConfig,
-          devToken = _b.devToken;
+        var _c = this.mpInstance._Store,
+          SDKConfig = _c.SDKConfig,
+          devToken = _c.devToken;
         var baseUrl = this.mpInstance._Helpers.createServiceUrl(SDKConfig.v3SecureServiceUrl, devToken);
         this.uploadUrl = "".concat(baseUrl, "/events");
         this.uploader = window.fetch ? new FetchUploader(this.uploadUrl) : new XHRUploader(this.uploadUrl);
@@ -2767,6 +2790,181 @@ var mParticle = (function () {
       return BatchUploader;
     }();
 
+    var _a = Constants.IdentityMethods,
+      Identify$2 = _a.Identify,
+      Modify$4 = _a.Modify,
+      Login$2 = _a.Login,
+      Logout$2 = _a.Logout;
+    var CACHE_HEADER = 'x-mp-max-age';
+    var cacheOrClearIdCache = function cacheOrClearIdCache(method, knownIdentities, idCache, identityResponse, parsingCachedResponse) {
+      // when parsing a response that has already been cached, simply return instead of attempting another cache
+      if (parsingCachedResponse) {
+        return;
+      }
+      // default the expire timestamp to one day in milliseconds unless a header comes back
+      var expireTimestamp = getExpireTimestamp(identityResponse === null || identityResponse === void 0 ? void 0 : identityResponse.cacheMaxAge);
+      switch (method) {
+        case Login$2:
+        case Identify$2:
+          cacheIdentityRequest(method, knownIdentities, expireTimestamp, idCache, identityResponse);
+          break;
+        case Modify$4:
+        case Logout$2:
+          idCache.purge();
+          break;
+      }
+    };
+    var cacheIdentityRequest = function cacheIdentityRequest(method, identities, expireTimestamp, idCache, identityResponse) {
+      var responseText = identityResponse.responseText,
+        status = identityResponse.status;
+      var cache = idCache.retrieve() || {};
+      var cacheKey = concatenateIdentities(method, identities);
+      var hashedKey = generateHash(cacheKey);
+      var mpid = responseText.mpid,
+        is_logged_in = responseText.is_logged_in;
+      var cachedResponseBody = {
+        mpid: mpid,
+        is_logged_in: is_logged_in
+      };
+      cache[hashedKey] = {
+        responseText: JSON.stringify(cachedResponseBody),
+        status: status,
+        expireTimestamp: expireTimestamp
+      };
+      idCache.store(cache);
+    };
+    // We need to ensure that identities are concatenated in a deterministic way, so
+    // we sort the identities based on their enum.
+    // we create an array, set the user identity at the index of the user identity type
+    var concatenateIdentities = function concatenateIdentities(method, userIdentities) {
+      var DEVICE_APPLICATION_STAMP = 'device_application_stamp';
+      // set DAS first since it is not an official identity type
+      var cacheKey = "".concat(method, ":").concat(DEVICE_APPLICATION_STAMP, "=").concat(userIdentities.device_application_stamp, ";");
+      var idLength = Object.keys(userIdentities).length;
+      var concatenatedIdentities = '';
+      if (idLength) {
+        var userIDArray = new Array();
+        // create an array where each index is equal to the user identity type
+        for (var key in userIdentities) {
+          if (key === DEVICE_APPLICATION_STAMP) {
+            continue;
+          } else {
+            userIDArray[Types.IdentityType.getIdentityType(key)] = userIdentities[key];
+          }
+        }
+        concatenatedIdentities = userIDArray.reduce(function (prevValue, currentValue, index) {
+          var idName = Types.IdentityType.getIdentityName(index);
+          return "".concat(prevValue).concat(idName, "=").concat(currentValue, ";");
+        }, cacheKey);
+      }
+      return concatenatedIdentities;
+    };
+    var hasValidCachedIdentity = function hasValidCachedIdentity(method, proposedUserIdentities, idCache) {
+      // There is an edge case where multiple identity calls are taking place
+      // before identify fires, so there may not be a cache.  See what happens when
+      // the ? in idCache is removed to the following test
+      // "queued events contain login mpid instead of identify mpid when calling
+      // login immediately after mParticle initializes"
+      var cache = idCache === null || idCache === void 0 ? void 0 : idCache.retrieve();
+      // if there is no cache, then there is no valid cached identity
+      if (!cache) {
+        return false;
+      }
+      var cacheKey = concatenateIdentities(method, proposedUserIdentities);
+      var hashedKey = generateHash(cacheKey);
+      // if cache doesn't have the cacheKey, there is no valid cached identity
+      if (!cache.hasOwnProperty(hashedKey)) {
+        return false;
+      }
+      // If there is a valid cache key, compare the expireTimestamp to the current time.
+      // If the current time is greater than the expireTimestamp, it is not a valid
+      // cached identity.
+      var expireTimestamp = cache[hashedKey].expireTimestamp;
+      if (expireTimestamp < new Date().getTime()) {
+        return false;
+      } else {
+        return true;
+      }
+    };
+    var getCachedIdentity = function getCachedIdentity(method, proposedUserIdentities, idCache) {
+      var cacheKey = concatenateIdentities(method, proposedUserIdentities);
+      var hashedKey = generateHash(cacheKey);
+      var cache = idCache.retrieve();
+      var cachedIdentity = cache ? cache[hashedKey] : null;
+      return {
+        responseText: parseIdentityResponse(cachedIdentity.responseText),
+        expireTimestamp: cachedIdentity.expireTimestamp,
+        status: cachedIdentity.status
+      };
+    };
+    // https://go.mparticle.com/work/SQDSDKS-6079
+    var createKnownIdentities = function createKnownIdentities(identityApiData, deviceId) {
+      var identitiesResult = {};
+      if (isObject(identityApiData === null || identityApiData === void 0 ? void 0 : identityApiData.userIdentities)) {
+        for (var identity in identityApiData.userIdentities) {
+          identitiesResult[identity] = identityApiData.userIdentities[identity];
+        }
+      }
+      identitiesResult.device_application_stamp = deviceId;
+      return identitiesResult;
+    };
+    var removeExpiredIdentityCacheDates = function removeExpiredIdentityCacheDates(idCache) {
+      var cache = idCache.retrieve() || {};
+      var currentTime = new Date().getTime();
+      // Iterate over the cache and remove any key/value pairs that are expired
+      for (var key in cache) {
+        if (cache[key].expireTimestamp < currentTime) {
+          delete cache[key];
+        }
+      }
+      idCache.store(cache);
+    };
+    var tryCacheIdentity = function tryCacheIdentity(knownIdentities, idCache, parseIdentityResponse, mpid, callback, identityApiData, identityMethod) {
+      // https://go.mparticle.com/work/SQDSDKS-6095
+      var shouldReturnCachedIdentity = hasValidCachedIdentity(identityMethod, knownIdentities, idCache);
+      // If Identity is cached, then immediately parse the identity response
+      if (shouldReturnCachedIdentity) {
+        var cachedIdentity = getCachedIdentity(identityMethod, knownIdentities, idCache);
+        parseIdentityResponse(cachedIdentity, mpid, callback, identityApiData, identityMethod, knownIdentities, true);
+        return true;
+      }
+      return false;
+    };
+    var getExpireTimestamp = function getExpireTimestamp(maxAge) {
+      if (maxAge === void 0) {
+        maxAge = ONE_DAY_IN_SECONDS;
+      }
+      return new Date().getTime() + maxAge * MILLIS_IN_ONE_SEC;
+    };
+    var parseIdentityResponse = function parseIdentityResponse(responseText) {
+      return responseText ? JSON.parse(responseText) : {};
+    };
+    var hasIdentityRequestChanged = function hasIdentityRequestChanged(currentUser, newIdentityRequest) {
+      if (!currentUser || !(newIdentityRequest === null || newIdentityRequest === void 0 ? void 0 : newIdentityRequest.userIdentities)) {
+        return false;
+      }
+      var currentUserIdentities = currentUser.getUserIdentities().userIdentities;
+      var newIdentities = newIdentityRequest.userIdentities;
+      return JSON.stringify(currentUserIdentities) !== JSON.stringify(newIdentities);
+    };
+    /**
+     * Checks if deviceId or other user identifiers (like email) were explicitly provided
+     * by the partner via config.deviceId or config.identifyRequest.userIdentities.
+     * When noFunctional is true, then cookies are blocked, so the partner must explicitly
+     * pass deviceId or other identifiers to prevent new users from being created on each page load.
+     *
+     * @param store - The SDK store (provides SDKConfig.deviceId and SDKConfig.identifyRequest.userIdentities)
+     * @returns true if deviceId or other identifiers were explicitly provided in config, false otherwise
+     */
+    var hasExplicitIdentifier = function hasExplicitIdentifier(store) {
+      var _a, _b, _c;
+      var userIdentities = (_b = (_a = store === null || store === void 0 ? void 0 : store.SDKConfig) === null || _a === void 0 ? void 0 : _a.identifyRequest) === null || _b === void 0 ? void 0 : _b.userIdentities;
+      if (userIdentities && isObject(userIdentities) && !isEmpty(userIdentities) && Object.values(userIdentities).some(Boolean)) {
+        return true;
+      }
+      return !!((_c = store === null || store === void 0 ? void 0 : store.SDKConfig) === null || _c === void 0 ? void 0 : _c.deviceId);
+    };
+
     function APIClient(mpInstance, kitBlocker) {
       this.uploader = null;
       var self = this;
@@ -2802,6 +3000,28 @@ var mParticle = (function () {
           }
         });
       };
+      // When noFunctional is set and there are no identities passed, the SDK will not fully initialize.
+      // In this case, there will be no MPID, but we still want kits to initialize and forward the event to kits.
+      // The original event is queued for the MP server upload path so it can be sent once an MPID is returned.
+      // Returns true if the event was handled by this path (caller should return early).
+      var handleNoFunctionalPreMpidEvent = function handleNoFunctionalPreMpidEvent(event, mpid) {
+        var _a;
+        var noFunctionalWithoutId = ((_a = mpInstance._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) && !hasExplicitIdentifier(mpInstance._Store);
+        if (!noFunctionalWithoutId || mpid || !mpInstance._Store.configurationLoaded || mpInstance._Store.requireDelay) {
+          return false;
+        }
+        var forwarderEvent = event;
+        if (kitBlocker === null || kitBlocker === void 0 ? void 0 : kitBlocker.kitBlockingEnabled) {
+          forwarderEvent = kitBlocker.createBlockedEvent(event);
+        }
+        if (forwarderEvent) {
+          mpInstance._Forwarders.sendEventToForwarders(forwarderEvent);
+          event.AlreadySentToForwarders = true;
+        }
+        mpInstance.Logger.verbose('noFunctional event forwarded to kits and queued for MP server upload when MPID is available.');
+        mpInstance._Store.eventQueue.push(event);
+        return true;
+      };
       this.sendEventToServer = function (event, _options) {
         var defaultOptions = {
           shouldUploadEvent: true
@@ -2817,8 +3037,12 @@ var mParticle = (function () {
           mpid = currentUser.getMPID();
         }
         mpInstance._Store.requireDelay = mpInstance._Helpers.isDelayedByIntegration(mpInstance._preInit.integrationDelays, mpInstance._Store.integrationDelayTimeoutStart, Date.now());
-        // We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that that require this to stall because integration attributes
-        // need to be set, or if we are still fetching the config (self hosted only), and so require delaying events
+        if (handleNoFunctionalPreMpidEvent(event, mpid)) {
+          return;
+        }
+        // We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that
+        // require this to stall because integration attributes need to be set, or if we are still
+        // fetching the config (self hosted only), and so require delaying events
         if (!mpid || mpInstance._Store.requireDelay || !mpInstance._Store.configurationLoaded) {
           mpInstance.Logger.verbose('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay.');
           mpInstance._Store.eventQueue.push(event);
@@ -2840,8 +3064,10 @@ var mParticle = (function () {
             event = kitBlocker.createBlockedEvent(event);
           }
           // We need to check event again, because kitblocking
-          // can nullify the event
-          if (event) {
+          // can nullify the event.
+          // Skip if forwarders were already called in the noFunctional pre-MPID path
+          // to prevent double-sending when the event queue is later flushed.
+          if (event && !event.AlreadySentToForwarders) {
             mpInstance._Forwarders.sendEventToForwarders(event);
           }
         }
@@ -2900,7 +3126,7 @@ var mParticle = (function () {
       };
     }
 
-    var Modify$4 = Constants.IdentityMethods.Modify;
+    var Modify$3 = Constants.IdentityMethods.Modify;
     var Validators = {
       // From ./utils
       // Utility Functions for backwards compatability
@@ -2940,7 +3166,7 @@ var mParticle = (function () {
           copyUserAttributes: 1
         };
         if (identityApiData) {
-          if (method === Modify$4) {
+          if (method === Modify$3) {
             if (isObject(identityApiData.userIdentities) && !Object.keys(identityApiData.userIdentities).length || !isObject(identityApiData.userIdentities)) {
               return {
                 valid: false,
@@ -3506,10 +3732,16 @@ var mParticle = (function () {
       var self = this;
       // Public
       this.attemptCookieSync = function (mpid, mpidIsNotInCookies) {
-        var _a = mpInstance._Store,
-          pixelConfigurations = _a.pixelConfigurations,
-          webviewBridgeEnabled = _a.webviewBridgeEnabled;
+        var _a;
+        var _b = mpInstance._Store,
+          pixelConfigurations = _b.pixelConfigurations,
+          webviewBridgeEnabled = _b.webviewBridgeEnabled;
         if (!mpid || webviewBridgeEnabled) {
+          return;
+        }
+        // When noFunctional is true, persistence is not saved, so we cannot track cookie sync
+        // dates. Skip cookie sync to avoid running it on every page load.
+        if ((_a = mpInstance._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) {
           return;
         }
         var persistence = mpInstance._Persistence.getPersistence();
@@ -3583,172 +3815,15 @@ var mParticle = (function () {
       return new Date().getTime() > new Date(lastSyncDate).getTime() + frequencyCap * DAYS_IN_MILLISECONDS;
     };
 
-    var _a = Constants.IdentityMethods,
-      Identify$2 = _a.Identify,
-      Modify$3 = _a.Modify,
-      Login$2 = _a.Login,
-      Logout$2 = _a.Logout;
-    var CACHE_HEADER = 'x-mp-max-age';
-    var cacheOrClearIdCache = function cacheOrClearIdCache(method, knownIdentities, idCache, identityResponse, parsingCachedResponse) {
-      // when parsing a response that has already been cached, simply return instead of attempting another cache
-      if (parsingCachedResponse) {
-        return;
-      }
-      // default the expire timestamp to one day in milliseconds unless a header comes back
-      var expireTimestamp = getExpireTimestamp(identityResponse === null || identityResponse === void 0 ? void 0 : identityResponse.cacheMaxAge);
-      switch (method) {
-        case Login$2:
-        case Identify$2:
-          cacheIdentityRequest(method, knownIdentities, expireTimestamp, idCache, identityResponse);
-          break;
-        case Modify$3:
-        case Logout$2:
-          idCache.purge();
-          break;
-      }
-    };
-    var cacheIdentityRequest = function cacheIdentityRequest(method, identities, expireTimestamp, idCache, identityResponse) {
-      var responseText = identityResponse.responseText,
-        status = identityResponse.status;
-      var cache = idCache.retrieve() || {};
-      var cacheKey = concatenateIdentities(method, identities);
-      var hashedKey = generateHash(cacheKey);
-      var mpid = responseText.mpid,
-        is_logged_in = responseText.is_logged_in;
-      var cachedResponseBody = {
-        mpid: mpid,
-        is_logged_in: is_logged_in
-      };
-      cache[hashedKey] = {
-        responseText: JSON.stringify(cachedResponseBody),
-        status: status,
-        expireTimestamp: expireTimestamp
-      };
-      idCache.store(cache);
-    };
-    // We need to ensure that identities are concatenated in a deterministic way, so
-    // we sort the identities based on their enum.
-    // we create an array, set the user identity at the index of the user identity type
-    var concatenateIdentities = function concatenateIdentities(method, userIdentities) {
-      var DEVICE_APPLICATION_STAMP = 'device_application_stamp';
-      // set DAS first since it is not an official identity type
-      var cacheKey = "".concat(method, ":").concat(DEVICE_APPLICATION_STAMP, "=").concat(userIdentities.device_application_stamp, ";");
-      var idLength = Object.keys(userIdentities).length;
-      var concatenatedIdentities = '';
-      if (idLength) {
-        var userIDArray = new Array();
-        // create an array where each index is equal to the user identity type
-        for (var key in userIdentities) {
-          if (key === DEVICE_APPLICATION_STAMP) {
-            continue;
-          } else {
-            userIDArray[Types.IdentityType.getIdentityType(key)] = userIdentities[key];
-          }
-        }
-        concatenatedIdentities = userIDArray.reduce(function (prevValue, currentValue, index) {
-          var idName = Types.IdentityType.getIdentityName(index);
-          return "".concat(prevValue).concat(idName, "=").concat(currentValue, ";");
-        }, cacheKey);
-      }
-      return concatenatedIdentities;
-    };
-    var hasValidCachedIdentity = function hasValidCachedIdentity(method, proposedUserIdentities, idCache) {
-      // There is an edge case where multiple identity calls are taking place
-      // before identify fires, so there may not be a cache.  See what happens when
-      // the ? in idCache is removed to the following test
-      // "queued events contain login mpid instead of identify mpid when calling
-      // login immediately after mParticle initializes"
-      var cache = idCache === null || idCache === void 0 ? void 0 : idCache.retrieve();
-      // if there is no cache, then there is no valid cached identity
-      if (!cache) {
-        return false;
-      }
-      var cacheKey = concatenateIdentities(method, proposedUserIdentities);
-      var hashedKey = generateHash(cacheKey);
-      // if cache doesn't have the cacheKey, there is no valid cached identity
-      if (!cache.hasOwnProperty(hashedKey)) {
-        return false;
-      }
-      // If there is a valid cache key, compare the expireTimestamp to the current time.
-      // If the current time is greater than the expireTimestamp, it is not a valid
-      // cached identity.
-      var expireTimestamp = cache[hashedKey].expireTimestamp;
-      if (expireTimestamp < new Date().getTime()) {
-        return false;
-      } else {
-        return true;
-      }
-    };
-    var getCachedIdentity = function getCachedIdentity(method, proposedUserIdentities, idCache) {
-      var cacheKey = concatenateIdentities(method, proposedUserIdentities);
-      var hashedKey = generateHash(cacheKey);
-      var cache = idCache.retrieve();
-      var cachedIdentity = cache ? cache[hashedKey] : null;
-      return {
-        responseText: parseIdentityResponse(cachedIdentity.responseText),
-        expireTimestamp: cachedIdentity.expireTimestamp,
-        status: cachedIdentity.status
-      };
-    };
-    // https://go.mparticle.com/work/SQDSDKS-6079
-    var createKnownIdentities = function createKnownIdentities(identityApiData, deviceId) {
-      var identitiesResult = {};
-      if (isObject(identityApiData === null || identityApiData === void 0 ? void 0 : identityApiData.userIdentities)) {
-        for (var identity in identityApiData.userIdentities) {
-          identitiesResult[identity] = identityApiData.userIdentities[identity];
-        }
-      }
-      identitiesResult.device_application_stamp = deviceId;
-      return identitiesResult;
-    };
-    var removeExpiredIdentityCacheDates = function removeExpiredIdentityCacheDates(idCache) {
-      var cache = idCache.retrieve() || {};
-      var currentTime = new Date().getTime();
-      // Iterate over the cache and remove any key/value pairs that are expired
-      for (var key in cache) {
-        if (cache[key].expireTimestamp < currentTime) {
-          delete cache[key];
-        }
-      }
-      idCache.store(cache);
-    };
-    var tryCacheIdentity = function tryCacheIdentity(knownIdentities, idCache, parseIdentityResponse, mpid, callback, identityApiData, identityMethod) {
-      // https://go.mparticle.com/work/SQDSDKS-6095
-      var shouldReturnCachedIdentity = hasValidCachedIdentity(identityMethod, knownIdentities, idCache);
-      // If Identity is cached, then immediately parse the identity response
-      if (shouldReturnCachedIdentity) {
-        var cachedIdentity = getCachedIdentity(identityMethod, knownIdentities, idCache);
-        parseIdentityResponse(cachedIdentity, mpid, callback, identityApiData, identityMethod, knownIdentities, true);
-        return true;
-      }
-      return false;
-    };
-    var getExpireTimestamp = function getExpireTimestamp(maxAge) {
-      if (maxAge === void 0) {
-        maxAge = ONE_DAY_IN_SECONDS;
-      }
-      return new Date().getTime() + maxAge * MILLIS_IN_ONE_SEC;
-    };
-    var parseIdentityResponse = function parseIdentityResponse(responseText) {
-      return responseText ? JSON.parse(responseText) : {};
-    };
-    var hasIdentityRequestChanged = function hasIdentityRequestChanged(currentUser, newIdentityRequest) {
-      if (!currentUser || !(newIdentityRequest === null || newIdentityRequest === void 0 ? void 0 : newIdentityRequest.userIdentities)) {
-        return false;
-      }
-      var currentUserIdentities = currentUser.getUserIdentities().userIdentities;
-      var newIdentities = newIdentityRequest.userIdentities;
-      return JSON.stringify(currentUserIdentities) !== JSON.stringify(newIdentities);
-    };
-
     var Messages$6 = Constants.Messages;
     function SessionManager(mpInstance) {
       var self = this;
       this.initialize = function () {
+        var _a;
         if (mpInstance._Store.sessionId) {
-          var _a = mpInstance._Store,
-            dateLastEventSent = _a.dateLastEventSent,
-            SDKConfig = _a.SDKConfig;
+          var _b = mpInstance._Store,
+            dateLastEventSent = _b.dateLastEventSent,
+            SDKConfig = _b.SDKConfig;
           var sessionTimeout = SDKConfig.sessionTimeout;
           if (hasSessionTimedOut(dateLastEventSent === null || dateLastEventSent === void 0 ? void 0 : dateLastEventSent.getTime(), sessionTimeout)) {
             self.endSession();
@@ -3758,7 +3833,8 @@ var mParticle = (function () {
             // https://go.mparticle.com/work/SQDSDKS-6323
             var currentUser = mpInstance.Identity.getCurrentUser();
             var sdkIdentityRequest = SDKConfig.identifyRequest;
-            if (hasIdentityRequestChanged(currentUser, sdkIdentityRequest)) {
+            var shouldSuppressIdentify = ((_a = mpInstance._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) && !hasExplicitIdentifier(mpInstance._Store);
+            if (!shouldSuppressIdentify && hasIdentityRequestChanged(currentUser, sdkIdentityRequest)) {
               mpInstance.Identity.identify(sdkIdentityRequest, SDKConfig.identityCallback);
               mpInstance._Store.identifyCalled = true;
               mpInstance._Store.SDKConfig.identityCallback = null;
@@ -3776,6 +3852,7 @@ var mParticle = (function () {
         return mpInstance._Store.sessionId;
       };
       this.startNewSession = function () {
+        var _a;
         mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingNewSession);
         if (mpInstance._Helpers.canLog()) {
           mpInstance._Store.sessionId = mpInstance._Helpers.generateUniqueId().toUpperCase();
@@ -3790,7 +3867,8 @@ var mParticle = (function () {
             mpInstance._Store.dateLastEventSent = date;
           }
           self.setSessionTimer();
-          if (!mpInstance._Store.identifyCalled) {
+          var shouldSuppressIdentify = ((_a = mpInstance._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) && !hasExplicitIdentifier(mpInstance._Store);
+          if (!mpInstance._Store.identifyCalled && !shouldSuppressIdentify) {
             mpInstance.Identity.identify(mpInstance._Store.SDKConfig.identifyRequest, mpInstance._Store.SDKConfig.identityCallback);
             mpInstance._Store.identifyCalled = true;
             mpInstance._Store.SDKConfig.identityCallback = null;
@@ -4316,14 +4394,20 @@ var mParticle = (function () {
     }
 
     var ForegroundTimeTracker = /** @class */function () {
-      function ForegroundTimeTracker(timerKey) {
+      function ForegroundTimeTracker(timerKey, noFunctional) {
+        if (noFunctional === void 0) {
+          noFunctional = false;
+        }
+        this.noFunctional = noFunctional;
         this.isTrackerActive = false;
         this.localStorageName = '';
         this.startTime = 0;
         this.totalTime = 0;
         this.localStorageName = "mprtcl-tos-".concat(timerKey);
         this.timerVault = new LocalStorageVault(this.localStorageName);
-        this.loadTimeFromStorage();
+        if (!this.noFunctional) {
+          this.loadTimeFromStorage();
+        }
         this.addHandlers();
         if (document.hidden === false) {
           this.startTracking();
@@ -4376,7 +4460,7 @@ var mParticle = (function () {
         }
       };
       ForegroundTimeTracker.prototype.updateTimeInPersistence = function () {
-        if (this.isTrackerActive) {
+        if (this.isTrackerActive && !this.noFunctional) {
           this.timerVault.store(Math.round(this.totalTime));
         }
       };
@@ -4774,6 +4858,7 @@ var mParticle = (function () {
         mpInstance._Persistence.update();
       };
       this.processConfig = function (config) {
+        var _a;
         var workspaceToken = config.workspaceToken,
           requiredWebviewBridgeName = config.requiredWebviewBridgeName;
         // We should reprocess the flags and baseUrls in case they have changed when we request an updated config
@@ -4789,7 +4874,8 @@ var mParticle = (function () {
         }
         if (workspaceToken) {
           _this.SDKConfig.workspaceToken = workspaceToken;
-          mpInstance._timeOnSiteTimer = new ForegroundTimeTracker(workspaceToken);
+          var noFunctional = ((_a = config === null || config === void 0 ? void 0 : config.launcherOptions) === null || _a === void 0 ? void 0 : _a.noFunctional) === true;
+          mpInstance._timeOnSiteTimer = new ForegroundTimeTracker(workspaceToken, noFunctional);
         } else {
           mpInstance.Logger.warning('You should have a workspaceToken on your config object for security purposes.');
         }
@@ -5123,7 +5209,13 @@ var mParticle = (function () {
 
       // https://go.mparticle.com/work/SQDSDKS-6021
       this.setLocalStorage = function () {
+        var _mpInstance$_CookieCo;
         if (!mpInstance._Store.isLocalStorageAvailable) {
+          return;
+        }
+
+        // Block mprtcl-v4 localStorage when noFunctional is true
+        if ((_mpInstance$_CookieCo = mpInstance._CookieConsentManager) !== null && _mpInstance$_CookieCo !== void 0 && _mpInstance$_CookieCo.getNoFunctional()) {
           return;
         }
         var key = mpInstance._Store.storageName,
@@ -5251,6 +5343,11 @@ var mParticle = (function () {
       // https://go.mparticle.com/work/SQDSDKS-5022
       // https://go.mparticle.com/work/SQDSDKS-6021
       this.setCookie = function () {
+        var _mpInstance$_CookieCo2;
+        // Block mprtcl-v4 cookies when noFunctional is true
+        if ((_mpInstance$_CookieCo2 = mpInstance._CookieConsentManager) !== null && _mpInstance$_CookieCo2 !== void 0 && _mpInstance$_CookieCo2.getNoFunctional()) {
+          return;
+        }
         var mpid,
           currentUser = mpInstance.Identity.getCurrentUser();
         if (currentUser) {
@@ -5526,6 +5623,11 @@ var mParticle = (function () {
 
       // https://go.mparticle.com/work/SQDSDKS-6021
       this.savePersistence = function (persistence) {
+        var _mpInstance$_CookieCo3;
+        // Block mprtcl-v4 persistence when noFunctional is true
+        if ((_mpInstance$_CookieCo3 = mpInstance._CookieConsentManager) !== null && _mpInstance$_CookieCo3 !== void 0 && _mpInstance$_CookieCo3.getNoFunctional()) {
+          return;
+        }
         var encodedPersistence = self.encodePersistence(JSON.stringify(persistence)),
           date = new Date(),
           key = mpInstance._Store.storageName,
@@ -10466,6 +10568,19 @@ var mParticle = (function () {
           self._preInit.readyQueue = processReadyQueue(self._preInit.readyQueue);
         }
       };
+      /**
+       * Drains the ready queue for noFunctional sessions with no explicit identity.
+       */
+      this.processQueueOnNoFunctional = function () {
+        var _a, _b;
+        if ((_a = self._Store) === null || _a === void 0 ? void 0 : _a.isInitialized) {
+          return;
+        }
+        var noFunctionalWithoutId = ((_b = self._CookieConsentManager) === null || _b === void 0 ? void 0 : _b.getNoFunctional()) && !hasExplicitIdentifier(self._Store);
+        if (noFunctionalWithoutId) {
+          self._preInit.readyQueue = processReadyQueue(self._preInit.readyQueue);
+        }
+      };
       // required for forwarders once they reference the mparticle instance
       this.IdentityType = IdentityType;
       this.EventType = EventType;
@@ -10563,8 +10678,9 @@ var mParticle = (function () {
        * @param {Function} f Callback to execute
        */
       this.ready = function (f) {
-        var _a, _b;
-        var shouldExecute = isFunction(f) && (((_a = self._Store) === null || _a === void 0 ? void 0 : _a.isInitialized) || ((_b = self._Store) === null || _b === void 0 ? void 0 : _b.identityCallFailed) && self._RoktManager.isReady());
+        var _a, _b, _c;
+        var noFunctionalWithoutId = ((_a = self._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) && !hasExplicitIdentifier(self._Store);
+        var shouldExecute = isFunction(f) && (((_b = self._Store) === null || _b === void 0 ? void 0 : _b.isInitialized) || ((_c = self._Store) === null || _c === void 0 ? void 0 : _c.identityCallFailed) && self._RoktManager.isReady() || noFunctionalWithoutId);
         if (shouldExecute) {
           f();
         } else {
@@ -11168,10 +11284,14 @@ var mParticle = (function () {
        * @param {String or Number} value value for session attribute
        */
       this.setSessionAttribute = function (key, value) {
-        var queued = queueIfNotInitialized(function () {
-          self.setSessionAttribute(key, value);
-        }, self);
-        if (queued) return;
+        var _a;
+        var skipQueue = ((_a = self._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) && !hasExplicitIdentifier(self._Store);
+        if (!skipQueue) {
+          var queued = queueIfNotInitialized(function () {
+            self.setSessionAttribute(key, value);
+          }, self);
+          if (queued) return;
+        }
         // Logs to cookie
         // And logs to in-memory object
         // Example: mParticle.setSessionAttribute('location', '33431');
@@ -11369,7 +11489,7 @@ var mParticle = (function () {
     }
     // Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment
     function completeSDKInitialization(apiKey, config, mpInstance) {
-      var _a;
+      var _a, _b;
       var kitBlocker = createKitBlocker(config, mpInstance);
       var getFeatureFlag = mpInstance._Helpers.getFeatureFlag;
       mpInstance._APIClient = new APIClient(mpInstance, kitBlocker);
@@ -11443,6 +11563,9 @@ var mParticle = (function () {
         mpInstance._Store.isInitialized = true;
         mpInstance._preInit.readyQueue = processReadyQueue(mpInstance._preInit.readyQueue);
       }
+      // For noFunctional sessions with no identity, drain any pre-init ready callbacks
+      // that were queued before _CookieConsentManager was available to evaluate the condition.
+      (_b = mpInstance.processQueueOnNoFunctional) === null || _b === void 0 ? void 0 : _b.call(mpInstance);
       // https://go.mparticle.com/work/SQDSDKS-6040
       if (mpInstance._Store.isFirstRun) {
         mpInstance._Store.isFirstRun = false;
@@ -11508,6 +11631,14 @@ var mParticle = (function () {
       return kitBlocker;
     }
     function createIdentityCache(mpInstance) {
+      var _a;
+      // Identity expects mpInstance._Identity.idCache to always exist. DisabledVault
+      // ensures no identity response data is written to localStorage when noFunctional is true
+      if ((_a = mpInstance._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) {
+        return new DisabledVault("".concat(mpInstance._Store.storageName, "-id-cache"), {
+          logger: mpInstance.Logger
+        });
+      }
       return new LocalStorageVault("".concat(mpInstance._Store.storageName, "-id-cache"), {
         logger: mpInstance.Logger
       });
@@ -11570,18 +11701,21 @@ var mParticle = (function () {
       }
     }
     function queueIfNotInitialized(func, self) {
-      var _a;
-      // Core SDK methods must wait for Store initialization
-      if (!((_a = self._Store) === null || _a === void 0 ? void 0 : _a.isInitialized)) {
-        self._preInit.readyQueue.push(function () {
-          var _a;
-          if ((_a = self._Store) === null || _a === void 0 ? void 0 : _a.isInitialized) {
-            func();
-          }
-        });
-        return true;
+      var _a, _b;
+      // When noFunctional is true with no explicit identifier, the SDK will never
+      // receive an MPID. Let these calls through so events can still reach forwarders immediately.
+      // sendEventToServer handles queuing for the MP server upload path separately.
+      var noFunctionalWithoutId = ((_a = self._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) && !hasExplicitIdentifier(self._Store);
+      if (((_b = self._Store) === null || _b === void 0 ? void 0 : _b.isInitialized) || noFunctionalWithoutId) {
+        return false;
       }
-      return false;
+      self._preInit.readyQueue.push(function () {
+        var _a;
+        if ((_a = self._Store) === null || _a === void 0 ? void 0 : _a.isInitialized) {
+          func();
+        }
+      });
+      return true;
     }
 
     // This file is used ONLY for the mParticle ESLint plugin. It should NOT be used otherwise!

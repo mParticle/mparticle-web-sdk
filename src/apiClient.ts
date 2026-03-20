@@ -10,6 +10,7 @@ import { IMParticleUser, ISDKUserAttributes } from './identity-user-interfaces';
 import { AsyncUploader, FetchUploader, XHRUploader } from './uploaders';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { appendUserInfo } from './user-utils';
+import { hasExplicitIdentifier } from './identity-utils';
 
 export interface IAPIClient {
     uploader: BatchUploader | null;
@@ -88,6 +89,35 @@ export default function APIClient(
         });
     };
 
+    // When noFunctional is set and there are no identities passed, the SDK will not fully initialize.
+    // In this case, there will be no MPID, but we still want kits to initialize and forward the event to kits.
+    // The original event is queued for the MP server upload path so it can be sent once an MPID is returned.
+    // Returns true if the event was handled by this path (caller should return early).
+    const handleNoFunctionalPreMpidEvent = (event: SDKEvent, mpid: string | undefined): boolean => {
+        const noFunctionalWithoutId =
+            mpInstance._CookieConsentManager?.getNoFunctional() &&
+            !hasExplicitIdentifier(mpInstance._Store);
+
+        if (!noFunctionalWithoutId || mpid || !mpInstance._Store.configurationLoaded || mpInstance._Store.requireDelay) {
+            return false;
+        }
+
+        let forwarderEvent = event;
+        if (kitBlocker?.kitBlockingEnabled) {
+            forwarderEvent = kitBlocker.createBlockedEvent(event);
+        }
+        if (forwarderEvent) {
+            mpInstance._Forwarders.sendEventToForwarders(forwarderEvent);
+            event.AlreadySentToForwarders = true;
+        }
+        mpInstance.Logger.verbose(
+            'noFunctional event forwarded to kits and queued for MP server upload when MPID is available.'
+        );
+        mpInstance._Store.eventQueue.push(event);
+
+        return true;
+    };
+
     this.sendEventToServer = function(event, _options) {
         const defaultOptions = {
             shouldUploadEvent: true,
@@ -112,8 +142,14 @@ export default function APIClient(
             mpInstance._Store.integrationDelayTimeoutStart,
             Date.now()
         );
-        // We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that that require this to stall because integration attributes
-        // need to be set, or if we are still fetching the config (self hosted only), and so require delaying events
+
+        if (handleNoFunctionalPreMpidEvent(event, mpid)) {
+            return;
+        }
+
+        // We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that
+        // require this to stall because integration attributes need to be set, or if we are still
+        // fetching the config (self hosted only), and so require delaying events
         if (
             !mpid ||
             mpInstance._Store.requireDelay ||
@@ -146,8 +182,10 @@ export default function APIClient(
             }
 
             // We need to check event again, because kitblocking
-            // can nullify the event
-            if (event) {
+            // can nullify the event.
+            // Skip if forwarders were already called in the noFunctional pre-MPID path
+            // to prevent double-sending when the event queue is later flushed.
+            if (event && !event.AlreadySentToForwarders) {
                 mpInstance._Forwarders.sendEventToForwarders(event);
             }
         }
