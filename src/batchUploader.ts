@@ -258,11 +258,7 @@ export class BatchUploader {
 
         this.eventsQueuedForProcessing.push(event);
         if (this.offlineStorageEnabled && this.eventVault) {
-            try {
-                this.eventVault.store(this.eventsQueuedForProcessing);
-            } catch (error) {
-                Logger.error('Failed to store events to offline storage. Events will remain in memory queue.');
-            }
+            this.eventVault.store(this.eventsQueuedForProcessing);
         }
 
         const eventToLog = obfuscateDevData(event, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
@@ -379,11 +375,7 @@ export class BatchUploader {
 
         this.eventsQueuedForProcessing = [];
         if (this.offlineStorageEnabled && this.eventVault) {
-            try {
-                this.eventVault.store([]);
-            } catch (error) {
-                this.mpInstance.Logger.error('Failed to clear events from offline storage.');
-            }
+            this.eventVault.store([]);
         }
 
         let newBatches: Batch[] = [];
@@ -435,13 +427,13 @@ export class BatchUploader {
             // therefore NOT overwrite Offline Storage when beacon returns, so that we can retry
             // uploading saved batches at a later time. Batches should only be removed from
             // Local Storage once we can confirm they are successfully uploaded.
-            try {
-                this.batchVault.store(this.batchesQueuedForProcessing);
-                // Clear batch queue since everything should be in Offline Storage
-                this.batchesQueuedForProcessing = [];
-            } catch (error) {
-                this.mpInstance.Logger.error('Failed to store batches to offline storage. Batches will remain in memory queue.');
-            }
+            
+            this.batchVault.store(this.batchesQueuedForProcessing);
+            // Clear batch queue since everything should be in Offline Storage
+            this.batchesQueuedForProcessing = [];
+            
+            
+            
         }
 
         if (triggerFuture) {
