@@ -96,8 +96,6 @@ export interface SDKConfig {
     webviewBridgeName?: string;
     workspaceToken?: string;
     requiredWebviewBridgeName?: string;
-    loggingUrl?: string;
-    errorUrl?: string;
     isLoggingEnabled?: boolean;
 }
 
@@ -862,7 +860,7 @@ function processDirectBaseUrls(
     for (let baseUrlKey in defaultBaseUrls) {
         // Any custom endpoints passed to mpConfig will take priority over direct
         // mapping to the silo.  The most common use case is a customer provided CNAME.
-        if (baseUrlKey === 'configUrl' || baseUrlKey === 'loggingUrl' || baseUrlKey === 'errorUrl') {
+        if (baseUrlKey === 'configUrl') {
             directBaseUrls[baseUrlKey] =
                 config[baseUrlKey] || defaultBaseUrls[baseUrlKey];
             continue;

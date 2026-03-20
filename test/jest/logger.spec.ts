@@ -1,7 +1,5 @@
 import { Logger, ConsoleLogger } from '../../src/logger';
 import { LogLevelType } from '../../src/sdkRuntimeModels';
-import { ReportingLogger } from '../../src/logging/reportingLogger';
-import { ErrorCodes } from '../../src/logging/types';
 
 describe('Logger', () => {
     let mockConsole: any;
@@ -56,16 +54,16 @@ describe('Logger', () => {
         expect(mockConsole.error).not.toHaveBeenCalled();
     });
 
-    it('should only call error at error log level', () => {  
-        logger = new Logger({ logLevel: LogLevelType.Error });  
-    
-        logger.verbose('message1');  
-        logger.warning('message2');  
-        logger.error('message3');  
-    
-        expect(mockConsole.info).not.toHaveBeenCalled();  
-        expect(mockConsole.warn).not.toHaveBeenCalled();  
-        expect(mockConsole.error).toHaveBeenCalledWith('message3');  
+    it('should only call error at error log level', () => {
+        logger = new Logger({ logLevel: LogLevelType.Error });
+
+        logger.verbose('message1');
+        logger.warning('message2');
+        logger.error('message3');
+
+        expect(mockConsole.info).not.toHaveBeenCalled();
+        expect(mockConsole.warn).not.toHaveBeenCalled();
+        expect(mockConsole.error).toHaveBeenCalledWith('message3');
     });
 
     it('should allow providing a custom logger', () => {
@@ -106,44 +104,18 @@ describe('Logger', () => {
         expect(mockConsole.error).toHaveBeenCalledWith('c');
     });
 
-    describe('ReportingLogger integration', () => {
-        let mockReportingLogger: jest.Mocked<ReportingLogger>;
+    it('should have no reporting side effects from error()', () => {
+        // Logger.error() should only output to console, no reporting
+        const customLogger = {
+            error: jest.fn(),
+        };
 
-        beforeEach(() => {
-            mockReportingLogger = {
-                error: jest.fn(),
-                warning: jest.fn(),
-                info: jest.fn(),
-                setStore: jest.fn(),
-            } as any;
-        });
+        logger = new Logger({ logLevel: LogLevelType.Verbose, logger: customLogger });
 
-        it('should call reportingLogger.error when error is called with error code', () => {
-            logger = new Logger({ logLevel: LogLevelType.Verbose }, mockReportingLogger);
+        logger.error('test error');
 
-            logger.error('test error', ErrorCodes.UNHANDLED_EXCEPTION);
-
-            expect(mockConsole.error).toHaveBeenCalledWith('test error');
-            expect(mockReportingLogger.error).toHaveBeenCalledWith('test error', ErrorCodes.UNHANDLED_EXCEPTION);
-        });
-
-        it('should NOT call reportingLogger.error when error is called without error code', () => {
-            logger = new Logger({ logLevel: LogLevelType.Verbose }, mockReportingLogger);
-
-            logger.error('test error');
-
-            expect(mockConsole.error).toHaveBeenCalledWith('test error');
-            expect(mockReportingLogger.error).not.toHaveBeenCalled();
-        });
-
-        it('should NOT call reportingLogger when warning is called', () => {
-            logger = new Logger({ logLevel: LogLevelType.Verbose }, mockReportingLogger);
-
-            logger.warning('test warning');
-
-            expect(mockConsole.warn).toHaveBeenCalledWith('test warning');
-            expect(mockReportingLogger.warning).not.toHaveBeenCalled();
-        });
+        expect(customLogger.error).toHaveBeenCalledWith('test error');
+        // No other side effects - Logger is purely console output
     });
 });
 

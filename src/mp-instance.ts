@@ -52,7 +52,9 @@ import ForegroundTimer from './foregroundTimeTracker';
 import RoktManager, { IRoktOptions } from './roktManager';
 import filteredMparticleUser from './filteredMparticleUser';
 import CookieConsentManager, { ICookieConsentManager } from './cookieConsentManager';
-import { ReportingLogger } from './logging/reportingLogger';
+import { ErrorReportingDispatcher } from './reporting/errorReportingDispatcher';
+import { LoggingDispatcher } from './reporting/loggingDispatcher';
+import { IErrorReportingService, ILoggingService } from './reporting/types';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -85,7 +87,8 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _NativeSdkHelpers: INativeSdkHelpers;
     _Persistence: IPersistence;
     _CookieConsentManager: ICookieConsentManager;
-    _ReportingLogger: ReportingLogger;
+    _ErrorReportingDispatcher: ErrorReportingDispatcher;
+    _LoggingDispatcher: LoggingDispatcher;
     _RoktManager: RoktManager;
     _SessionManager: ISessionManager;
     _ServerModel: IServerModel;
@@ -266,14 +269,14 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         }
     };
 
-    this._resetForTests = function(config, keepPersistence, instance, reportingLogger?: ReportingLogger) {
+    this._resetForTests = function(config, keepPersistence, instance) {
         if (instance._Store) {
             delete instance._Store;
         }
-        instance.Logger = new Logger(config, reportingLogger);
+        instance._ErrorReportingDispatcher = new ErrorReportingDispatcher();
+        instance._LoggingDispatcher = new LoggingDispatcher();
+        instance.Logger = new Logger(config);
         instance._Store = new Store(config, instance);
-        // Update ReportingLogger with the new Store reference to avoid stale data
-        reportingLogger?.setStore(instance._Store);
         instance._Store.isLocalStorageAvailable = instance._Persistence.determineLocalStorageAvailability(
             window.localStorage
         );
@@ -1406,6 +1409,14 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         }
     };
 
+    this.registerErrorReportingService = function(service: IErrorReportingService) {
+        self._ErrorReportingDispatcher.register(service);
+    };
+
+    this.registerLoggingService = function(service: ILoggingService) {
+        self._LoggingDispatcher.register(service);
+    };
+
     const launcherInstanceGuidKey = Constants.Rokt.LauncherInstanceGuidKey;
     this.setLauncherInstanceGuid = function() {
         if (!window[launcherInstanceGuidKey] 
@@ -1630,16 +1641,11 @@ function createIdentityCache(mpInstance) {
 }
 
 function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
-    mpInstance._ReportingLogger = new ReportingLogger(
-        config,
-        Constants.sdkVersion,
-        undefined,
-        mpInstance.getLauncherInstanceGuid(),
-    );
-    mpInstance.Logger = new Logger(config, mpInstance._ReportingLogger);
+    mpInstance._ErrorReportingDispatcher = new ErrorReportingDispatcher();
+    mpInstance._LoggingDispatcher = new LoggingDispatcher();
+    mpInstance.Logger = new Logger(config);
     mpInstance._Store = new Store(config, mpInstance, apiKey);
     window.mParticle.Store = mpInstance._Store;
-    mpInstance._ReportingLogger.setStore(mpInstance._Store);
     mpInstance.Logger.verbose(StartingInitialization);
 
     // Initialize CookieConsentManager with privacy flags from launcherOptions
