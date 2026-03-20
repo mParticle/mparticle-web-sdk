@@ -539,6 +539,10 @@ Core modules receive `mpInstance` as a parameter, allowing them to access other 
 4. **Inspect Storage**: Check Application tab for LocalStorage/Cookies
 5. **Use Source Maps**: Dev builds include source maps
 
+### Available Skills
+
+- **`/verify`**: Run lint, build, and Jest tests to validate your changes before committing. Use this after making code changes to ensure nothing is broken. See `.claude/skills/verify/skill.md`.
+
 ### Additional Resources
 
 - **Documentation**: https://docs.mparticle.com/developers/sdk/web/
