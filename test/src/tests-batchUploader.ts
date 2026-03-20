@@ -10,7 +10,7 @@ import Utils from './config/utils';
 import { BatchUploader } from '../../src/batchUploader';
 import { expect } from 'chai';
 import _BatchValidator from '../../src/mockBatchCreator';
-import { Logger } from '../../src/logger';
+
 import { event0, event1, event2, event3 } from '../fixtures/events';
 import fetchMock from 'fetch-mock/esm/client';
 const { 
@@ -512,8 +512,7 @@ describe('batch uploader', () => {
 
                 fetchMock.post(urls.events, 200);
 
-                const newLogger = new Logger(window.mParticle.config);
-                const mpInstance = window.mParticle.getInstance();
+                                const mpInstance = window.mParticle.getInstance();
 
                 const uploader = new BatchUploader(mpInstance, 1000);
 
@@ -532,7 +531,6 @@ describe('batch uploader', () => {
                 fetchMock.resetHistory();
                 // HACK: Directly access uploader to Force an upload
                 await (<any>uploader).uploadBatches(
-                    newLogger,
                     [actualBatch, eventlessBatch],
                     false
                 );
@@ -554,8 +552,7 @@ describe('batch uploader', () => {
 
                 fetchMock.post(urls.events, 500);
 
-                const newLogger = new Logger(window.mParticle.config);
-                const mpInstance = window.mParticle.getInstance();
+                                const mpInstance = window.mParticle.getInstance();
 
                 const uploader = new BatchUploader(mpInstance, 1000);
 
@@ -577,7 +574,6 @@ describe('batch uploader', () => {
 
                 // HACK: Directly access uploader to Force an upload
                 const batchesNotUploaded = await (<any>uploader).uploadBatches(
-                    newLogger,
                     [batch1, batch2, batch3],
                     false
                 );
@@ -605,8 +601,7 @@ describe('batch uploader', () => {
                 
                 fetchMock.post(urls.events,  429);
 
-                const newLogger = new Logger(window.mParticle.config);
-                const mpInstance = window.mParticle.getInstance();
+                                const mpInstance = window.mParticle.getInstance();
 
                 const uploader = new BatchUploader(mpInstance, 1000);
 
@@ -628,7 +623,6 @@ describe('batch uploader', () => {
 
                 // HACK: Directly access uploader to Force an upload
                 const batchesNotUploaded = await (<any>uploader).uploadBatches(
-                    newLogger,
                     [batch1, batch2, batch3],
                     false
                 );
@@ -656,8 +650,7 @@ describe('batch uploader', () => {
                 
                 fetchMock.post(urls.events, 401);
 
-                const newLogger = new Logger(window.mParticle.config);
-                const mpInstance = window.mParticle.getInstance();
+                                const mpInstance = window.mParticle.getInstance();
 
                 const uploader = new BatchUploader(mpInstance, 1000);
 
@@ -679,7 +672,6 @@ describe('batch uploader', () => {
 
                 // HACK: Directly access uploader to Force an upload
                 const batchesNotUploaded = await (<any>uploader).uploadBatches(
-                    newLogger,
                     [batch1, batch2, batch3],
                     false
                 );
@@ -708,8 +700,7 @@ describe('batch uploader', () => {
                 
                 fetchMock.post(urls.events, 400);
 
-                const newLogger = new Logger(window.mParticle.config);
-                const mpInstance = window.mParticle.getInstance();
+                                const mpInstance = window.mParticle.getInstance();
 
                 const uploader = new BatchUploader(mpInstance, 1000);
 
@@ -731,7 +722,6 @@ describe('batch uploader', () => {
 
                 // HACK: Directly access uploader to Force an upload
                 const batchesNotUploaded = await (<any>uploader).uploadBatches(
-                    newLogger,
                     [batch1, batch2, batch3],
                     false
                 );
