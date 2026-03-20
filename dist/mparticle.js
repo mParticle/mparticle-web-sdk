@@ -328,7 +328,9 @@ var mParticle = (function () {
         configUrl: 'jssdkcdns.mparticle.com/JS/v2/',
         identityUrl: 'identity.mparticle.com/v1/',
         aliasUrl: 'jssdks.mparticle.com/v1/identity/',
-        userAudienceUrl: 'nativesdks.mparticle.com/v1/'
+        userAudienceUrl: 'nativesdks.mparticle.com/v1/',
+        loggingUrl: 'apps.rokt-api.com/v1/log',
+        errorUrl: 'apps.rokt-api.com/v1/errors'
       },
       // These are the paths that are used to construct the CNAME urls
       CNAMEUrlPaths: {
@@ -337,7 +339,9 @@ var mParticle = (function () {
         v3SecureServiceUrl: '/webevents/v3/JS/',
         configUrl: '/tags/JS/v2/',
         identityUrl: '/identity/v1/',
-        aliasUrl: '/webevents/v1/identity/'
+        aliasUrl: '/webevents/v1/identity/',
+        loggingUrl: '/v1/log',
+        errorUrl: '/v1/errors'
       },
       Base64CookieKeys: {
         csm: 1,
@@ -4964,7 +4968,7 @@ var mParticle = (function () {
       for (var baseUrlKey in defaultBaseUrls) {
         // Any custom endpoints passed to mpConfig will take priority over direct
         // mapping to the silo.  The most common use case is a customer provided CNAME.
-        if (baseUrlKey === 'configUrl') {
+        if (baseUrlKey === 'configUrl' || baseUrlKey === 'loggingUrl' || baseUrlKey === 'errorUrl') {
           directBaseUrls[baseUrlKey] = config[baseUrlKey] || defaultBaseUrls[baseUrlKey];
           continue;
         }
@@ -4979,10 +4983,11 @@ var mParticle = (function () {
     }
 
     var Logger = /** @class */function () {
-      function Logger(config) {
+      function Logger(config, reportingLogger) {
         var _a, _b;
         this.logLevel = (_a = config.logLevel) !== null && _a !== void 0 ? _a : LogLevelType.Warning;
         this.logger = (_b = config.logger) !== null && _b !== void 0 ? _b : new ConsoleLogger();
+        this.reportingLogger = reportingLogger;
       }
       Logger.prototype.verbose = function (msg) {
         if (this.logLevel === LogLevelType.None) return;
@@ -4996,10 +5001,14 @@ var mParticle = (function () {
           this.logger.warning(msg);
         }
       };
-      Logger.prototype.error = function (msg) {
+      Logger.prototype.error = function (msg, codeForReporting) {
+        var _a;
         if (this.logLevel === LogLevelType.None) return;
         if (this.logger.error) {
           this.logger.error(msg);
+          if (codeForReporting) {
+            (_a = this.reportingLogger) === null || _a === void 0 ? void 0 : _a.error(msg, codeForReporting);
+          }
         }
       };
       Logger.prototype.setLogLevel = function (newLogLevel) {
@@ -9386,11 +9395,11 @@ var mParticle = (function () {
       };
 
       this.sendIdentityRequest = function (identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid, knownIdentities) {
-        var _a, _b, _c, _d, _e;
+        var _a, _b, _c, _d;
         return __awaiter(this, void 0, void 0, function () {
-          var requestCount, invokeCallback, Logger, previousMPID, uploadUrl, uploader, fetchPayload, response, identityResponse, message, _f, responseBody, errorResponse, errorMessage, errorMessage, requestCount, err_1, requestCount, errorMessage, msg;
-          return __generator(this, function (_g) {
-            switch (_g.label) {
+          var requestCount, invokeCallback, Logger, previousMPID, uploadUrl, uploader, fetchPayload, response, identityResponse, message, _e, responseBody, errorResponse, errorMessage, errorMessage, requestCount, err_1, requestCount, errorMessage;
+          return __generator(this, function (_f) {
+            switch (_f.label) {
               case 0:
                 if ((_a = mpInstance._RoktManager) === null || _a === void 0 ? void 0 : _a.isInitialized) {
                   mpInstance._Store.identifyRequestCount = (mpInstance._Store.identifyRequestCount || 0) + 1;
@@ -9424,16 +9433,16 @@ var mParticle = (function () {
                   body: JSON.stringify(identityApiRequest)
                 };
                 mpInstance._Store.identityCallInFlight = true;
-                _g.label = 1;
+                _f.label = 1;
               case 1:
-                _g.trys.push([1, 9,, 10]);
+                _f.trys.push([1, 9,, 10]);
                 return [4 /*yield*/, uploader.upload(fetchPayload)];
               case 2:
-                response = _g.sent();
+                response = _f.sent();
                 identityResponse = void 0;
                 message = void 0;
-                _f = response.status;
-                switch (_f) {
+                _e = response.status;
+                switch (_e) {
                   case HTTP_ACCEPTED:
                     return [3 /*break*/, 3];
                   case HTTP_OK:
@@ -9446,12 +9455,12 @@ var mParticle = (function () {
                 if (!response.json) return [3 /*break*/, 5];
                 return [4 /*yield*/, response.json()];
               case 4:
-                responseBody = _g.sent();
+                responseBody = _f.sent();
                 identityResponse = this.getIdentityResponseFromFetch(response, responseBody);
                 return [3 /*break*/, 6];
               case 5:
                 identityResponse = this.getIdentityResponseFromXHR(response);
-                _g.label = 6;
+                _f.label = 6;
               case 6:
                 if (identityResponse.status === HTTP_BAD_REQUEST) {
                   errorResponse = identityResponse.responseText;
@@ -9490,7 +9499,7 @@ var mParticle = (function () {
                 parseIdentityResponse(identityResponse, previousMPID, callback, originalIdentityApiData, method, knownIdentities, false);
                 return [3 /*break*/, 10];
               case 9:
-                err_1 = _g.sent();
+                err_1 = _f.sent();
                 mpInstance._Store.identityCallInFlight = false;
                 mpInstance._Store.identityCallFailed = true;
                 if ((_c = mpInstance._RoktManager) === null || _c === void 0 ? void 0 : _c.isInitialized) {
@@ -9498,14 +9507,8 @@ var mParticle = (function () {
                   mpInstance.captureTiming("".concat(requestCount, "-identityRequestEnd"));
                 }
                 errorMessage = err_1.message || err_1.toString();
-                msg = 'Error sending identity request to servers' + ' - ' + errorMessage;
-                Logger.error(msg);
-                (_d = mpInstance._ErrorReportingDispatcher) === null || _d === void 0 ? void 0 : _d.report({
-                  message: msg,
-                  code: ErrorCodes.IDENTITY_REQUEST,
-                  severity: WSDKErrorSeverity.ERROR
-                });
-                (_e = mpInstance.processQueueOnIdentityFailure) === null || _e === void 0 ? void 0 : _e.call(mpInstance);
+                Logger.error('Error sending identity request to servers' + ' - ' + errorMessage, ErrorCodes.IDENTITY_REQUEST);
+                (_d = mpInstance.processQueueOnIdentityFailure) === null || _d === void 0 ? void 0 : _d.call(mpInstance);
                 invokeCallback(callback, HTTPCodes$1.noHttpCoverage, errorMessage);
                 return [3 /*break*/, 10];
               case 10:
@@ -10376,34 +10379,136 @@ var mParticle = (function () {
       return CookieConsentManager;
     }();
 
-    var ErrorReportingDispatcher = /** @class */function () {
-      function ErrorReportingDispatcher() {
-        this.services = [];
+    // Header key constants
+    var HEADER_ACCEPT = 'Accept';
+    var HEADER_CONTENT_TYPE = 'Content-Type';
+    var HEADER_ROKT_LAUNCHER_VERSION = 'rokt-launcher-version';
+    var HEADER_ROKT_LAUNCHER_INSTANCE_GUID = 'rokt-launcher-instance-guid';
+    var HEADER_ROKT_WSDK_VERSION = 'rokt-wsdk-version';
+    var ReportingLogger = /** @class */function () {
+      function ReportingLogger(config, sdkVersion, store, launcherInstanceGuid, rateLimiter) {
+        var _this = this;
+        this.sdkVersion = sdkVersion;
+        this.launcherInstanceGuid = launcherInstanceGuid;
+        this.reporter = 'mp-wsdk';
+        this.isFeatureFlagEnabled = function () {
+          return _this.isLoggingEnabled;
+        };
+        this.loggingUrl = "https://".concat(config.loggingUrl || Constants.DefaultBaseUrls.loggingUrl);
+        this.errorUrl = "https://".concat(config.errorUrl || Constants.DefaultBaseUrls.errorUrl);
+        this.isLoggingEnabled = config.isLoggingEnabled || false;
+        this.store = store !== null && store !== void 0 ? store : null;
+        this.isEnabled = this.isReportingEnabled();
+        this.rateLimiter = rateLimiter !== null && rateLimiter !== void 0 ? rateLimiter : new RateLimiter();
       }
-      ErrorReportingDispatcher.prototype.register = function (service) {
-        this.services.push(service);
+      ReportingLogger.prototype.setStore = function (store) {
+        this.store = store;
       };
-      ErrorReportingDispatcher.prototype.report = function (error) {
-        this.services.forEach(function (s) {
-          return s.report(error);
-        });
+      ReportingLogger.prototype.info = function (msg, code) {
+        this.sendLog(WSDKErrorSeverity.INFO, msg, code);
       };
-      return ErrorReportingDispatcher;
+      ReportingLogger.prototype.error = function (msg, code, stackTrace) {
+        this.sendError(WSDKErrorSeverity.ERROR, msg, code, stackTrace);
+      };
+      ReportingLogger.prototype.warning = function (msg, code) {
+        this.sendError(WSDKErrorSeverity.WARNING, msg, code);
+      };
+      ReportingLogger.prototype.sendToServer = function (url, severity, msg, code, stackTrace) {
+        if (!this.canSendLog(severity)) return;
+        try {
+          var logRequest = this.buildLogRequest(severity, msg, code, stackTrace);
+          var uploader = new FetchUploader(url);
+          var payload = {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify(logRequest)
+          };
+          uploader.upload(payload)["catch"](function (error) {
+            console.error('ReportingLogger: Failed to send log', error);
+          });
+        } catch (error) {
+          console.error('ReportingLogger: Failed to send log', error);
+        }
+      };
+      ReportingLogger.prototype.sendLog = function (severity, msg, code, stackTrace) {
+        this.sendToServer(this.loggingUrl, severity, msg, code, stackTrace);
+      };
+      ReportingLogger.prototype.sendError = function (severity, msg, code, stackTrace) {
+        this.sendToServer(this.errorUrl, severity, msg, code, stackTrace);
+      };
+      ReportingLogger.prototype.buildLogRequest = function (severity, msg, code, stackTrace) {
+        var _a, _b;
+        return {
+          additionalInformation: {
+            message: msg,
+            version: this.getVersion()
+          },
+          severity: severity,
+          code: code !== null && code !== void 0 ? code : ErrorCodes.UNKNOWN_ERROR,
+          url: this.getUrl(),
+          deviceInfo: this.getUserAgent(),
+          stackTrace: stackTrace,
+          reporter: this.reporter,
+          // Integration will be set to integrationName once the kit connects via RoktManager.attachKit()
+          integration: (_b = (_a = this.store) === null || _a === void 0 ? void 0 : _a.getIntegrationName()) !== null && _b !== void 0 ? _b : 'mp-wsdk'
+        };
+      };
+      ReportingLogger.prototype.getVersion = function () {
+        var _a, _b, _c;
+        return (_c = (_b = (_a = this.store) === null || _a === void 0 ? void 0 : _a.getIntegrationName) === null || _b === void 0 ? void 0 : _b.call(_a)) !== null && _c !== void 0 ? _c : "mParticle_wsdkv_".concat(this.sdkVersion);
+      };
+      ReportingLogger.prototype.isReportingEnabled = function () {
+        return this.isDebugModeEnabled() || this.isRoktDomainPresent() && this.isFeatureFlagEnabled();
+      };
+      ReportingLogger.prototype.isRoktDomainPresent = function () {
+        return typeof window !== 'undefined' && Boolean(window['ROKT_DOMAIN']);
+      };
+      ReportingLogger.prototype.isDebugModeEnabled = function () {
+        var _a, _b, _c, _d;
+        return typeof window !== 'undefined' && ((_d = (_c = (_b = (_a = window.location) === null || _a === void 0 ? void 0 : _a.search) === null || _b === void 0 ? void 0 : _b.toLowerCase()) === null || _c === void 0 ? void 0 : _c.includes('mp_enable_logging=true')) !== null && _d !== void 0 ? _d : false);
+      };
+      ReportingLogger.prototype.canSendLog = function (severity) {
+        return this.isEnabled && !this.isRateLimited(severity);
+      };
+      ReportingLogger.prototype.isRateLimited = function (severity) {
+        return this.rateLimiter.incrementAndCheck(severity);
+      };
+      ReportingLogger.prototype.getUrl = function () {
+        var _a;
+        return typeof window !== 'undefined' ? (_a = window.location) === null || _a === void 0 ? void 0 : _a.href : undefined;
+      };
+      ReportingLogger.prototype.getUserAgent = function () {
+        var _a;
+        return typeof window !== 'undefined' ? (_a = window.navigator) === null || _a === void 0 ? void 0 : _a.userAgent : undefined;
+      };
+      ReportingLogger.prototype.getHeaders = function () {
+        var _a;
+        var _b, _c;
+        var headers = (_a = {}, _a[HEADER_ACCEPT] = 'text/plain;charset=UTF-8', _a[HEADER_CONTENT_TYPE] = 'application/json', _a[HEADER_ROKT_LAUNCHER_VERSION] = this.getVersion(), _a[HEADER_ROKT_WSDK_VERSION] = 'joint', _a);
+        if (this.launcherInstanceGuid) {
+          headers[HEADER_ROKT_LAUNCHER_INSTANCE_GUID] = this.launcherInstanceGuid;
+        }
+        var accountId = (_c = (_b = this.store) === null || _b === void 0 ? void 0 : _b.getRoktAccountId) === null || _c === void 0 ? void 0 : _c.call(_b);
+        if (accountId) {
+          headers['rokt-account-id'] = accountId;
+        }
+        return headers;
+      };
+      return ReportingLogger;
     }();
-
-    var LoggingDispatcher = /** @class */function () {
-      function LoggingDispatcher() {
-        this.services = [];
+    var RateLimiter = /** @class */function () {
+      function RateLimiter() {
+        this.rateLimits = new Map([[WSDKErrorSeverity.ERROR, 10], [WSDKErrorSeverity.WARNING, 10], [WSDKErrorSeverity.INFO, 10]]);
+        this.logCount = new Map();
       }
-      LoggingDispatcher.prototype.register = function (service) {
-        this.services.push(service);
+      RateLimiter.prototype.incrementAndCheck = function (severity) {
+        var count = this.logCount.get(severity) || 0;
+        var limit = this.rateLimits.get(severity) || 10;
+        var newCount = count + 1;
+        this.logCount.set(severity, newCount);
+        return newCount > limit;
       };
-      LoggingDispatcher.prototype.log = function (entry) {
-        this.services.forEach(function (s) {
-          return s.log(entry);
-        });
-      };
-      return LoggingDispatcher;
+      return RateLimiter;
     }();
 
     var Messages = Constants.Messages,
@@ -10543,14 +10648,14 @@ var mParticle = (function () {
           console.error('Cannot reset mParticle', error);
         }
       };
-      this._resetForTests = function (config, keepPersistence, instance) {
+      this._resetForTests = function (config, keepPersistence, instance, reportingLogger) {
         if (instance._Store) {
           delete instance._Store;
         }
-        instance._ErrorReportingDispatcher = new ErrorReportingDispatcher();
-        instance._LoggingDispatcher = new LoggingDispatcher();
-        instance.Logger = new Logger(config);
+        instance.Logger = new Logger(config, reportingLogger);
         instance._Store = new Store(config, instance);
+        // Update ReportingLogger with the new Store reference to avoid stale data
+        reportingLogger === null || reportingLogger === void 0 ? void 0 : reportingLogger.setStore(instance._Store);
         instance._Store.isLocalStorageAvailable = instance._Persistence.determineLocalStorageAvailability(window.localStorage);
         instance._Events.stopTracking();
         if (!keepPersistence) {
@@ -11366,12 +11471,6 @@ var mParticle = (function () {
           };
         }
       };
-      this.registerErrorReportingService = function (service) {
-        self._ErrorReportingDispatcher.register(service);
-      };
-      this.registerLoggingService = function (service) {
-        self._LoggingDispatcher.register(service);
-      };
       var launcherInstanceGuidKey = Constants.Rokt.LauncherInstanceGuidKey;
       this.setLauncherInstanceGuid = function () {
         if (!window[launcherInstanceGuidKey] || typeof window[launcherInstanceGuidKey] !== 'string') {
@@ -11546,11 +11645,11 @@ var mParticle = (function () {
     }
     function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
       var _a;
-      mpInstance._ErrorReportingDispatcher = new ErrorReportingDispatcher();
-      mpInstance._LoggingDispatcher = new LoggingDispatcher();
-      mpInstance.Logger = new Logger(config);
+      mpInstance._ReportingLogger = new ReportingLogger(config, Constants.sdkVersion, undefined, mpInstance.getLauncherInstanceGuid());
+      mpInstance.Logger = new Logger(config, mpInstance._ReportingLogger);
       mpInstance._Store = new Store(config, mpInstance, apiKey);
       window.mParticle.Store = mpInstance._Store;
+      mpInstance._ReportingLogger.setStore(mpInstance._Store);
       mpInstance.Logger.verbose(StartingInitialization);
       // Initialize CookieConsentManager with privacy flags from launcherOptions
       var _b = (_a = config === null || config === void 0 ? void 0 : config.launcherOptions) !== null && _a !== void 0 ? _a : {},
@@ -12086,12 +12185,6 @@ var mParticle = (function () {
       };
       this._setWrapperSDKInfo = function (name, version) {
         self.getInstance()._setWrapperSDKInfo(name, version);
-      };
-      this.registerErrorReportingService = function (service) {
-        self.getInstance().registerErrorReportingService(service);
-      };
-      this.registerLoggingService = function (service) {
-        self.getInstance().registerLoggingService(service);
       };
     }
     var mParticleManager = new mParticleInstanceManager();
