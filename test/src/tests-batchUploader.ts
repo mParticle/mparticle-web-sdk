@@ -512,7 +512,7 @@ describe('batch uploader', () => {
 
                 fetchMock.post(urls.events, 200);
 
-                                const mpInstance = window.mParticle.getInstance();
+                const mpInstance = window.mParticle.getInstance();
 
                 const uploader = new BatchUploader(mpInstance, 1000);
 
@@ -552,7 +552,7 @@ describe('batch uploader', () => {
 
                 fetchMock.post(urls.events, 500);
 
-                                const mpInstance = window.mParticle.getInstance();
+                const mpInstance = window.mParticle.getInstance();
 
                 const uploader = new BatchUploader(mpInstance, 1000);
 
@@ -601,7 +601,7 @@ describe('batch uploader', () => {
                 
                 fetchMock.post(urls.events,  429);
 
-                                const mpInstance = window.mParticle.getInstance();
+                const mpInstance = window.mParticle.getInstance();
 
                 const uploader = new BatchUploader(mpInstance, 1000);
 
@@ -650,7 +650,7 @@ describe('batch uploader', () => {
                 
                 fetchMock.post(urls.events, 401);
 
-                                const mpInstance = window.mParticle.getInstance();
+                const mpInstance = window.mParticle.getInstance();
 
                 const uploader = new BatchUploader(mpInstance, 1000);
 
@@ -700,7 +700,7 @@ describe('batch uploader', () => {
                 
                 fetchMock.post(urls.events, 400);
 
-                                const mpInstance = window.mParticle.getInstance();
+                const mpInstance = window.mParticle.getInstance();
 
                 const uploader = new BatchUploader(mpInstance, 1000);
 
