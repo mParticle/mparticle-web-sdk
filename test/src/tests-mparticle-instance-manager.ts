@@ -216,6 +216,8 @@ describe('mParticle instance manager', () => {
             'upload',
             'Rokt',
             'captureTiming',
+            'registerErrorReportingService',
+            'registerLoggingService',
         ]);
     });
 
