@@ -260,8 +260,8 @@ export interface MParticleWebSDK {
     ): void;
     getIntegrationAttributes(integrationModuleId: number): IntegrationAttribute;
     captureTiming(metricName: string): void;
-    registerErrorReportingService(service: IErrorReportingService): void;
-    registerLoggingService(service: ILoggingService): void;
+    _registerErrorReportingService(service: IErrorReportingService): void;
+    _registerLoggingService(service: ILoggingService): void;
 }
 
 // https://go.mparticle.com/work/SQDSDKS-4805

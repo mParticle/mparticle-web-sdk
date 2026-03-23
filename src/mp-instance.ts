@@ -1412,11 +1412,11 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         }
     };
 
-    this.registerErrorReportingService = function(service: IErrorReportingService) {
+    this._registerErrorReportingService = function(service: IErrorReportingService) {
         self._ErrorReportingDispatcher.register(service);
     };
 
-    this.registerLoggingService = function(service: ILoggingService) {
+    this._registerLoggingService = function(service: ILoggingService) {
         self._LoggingDispatcher.register(service);
     };
 
