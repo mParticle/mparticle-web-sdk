@@ -1,43 +1,36 @@
 ---
 name: verify
-description: Run lint, build, and tests to verify changes. Use when user says /verify, check my changes, validate changes, run checks, verify everything passes, pre-commit check, ready to commit, does it pass, CI check, sanity check
+description: Run lint and tests to verify changes. Use when user says /verify, check my changes, validate changes, run checks, verify everything passes, pre-commit check, ready to commit, does it pass, CI check, sanity check
 ---
 
 # Verify Skill - mParticle Web SDK
 
-Run lint, build, and tests to verify the current state of the codebase.
+Run the full lint and test battery to verify the current state of the codebase.
 
 ## Steps
 
-1. Run the following checks. Lint and build can run in parallel. Tests depend on build completing first.
+1. Run lint first:
 
-**Lint:**
 ```bash
 npm run lint
 ```
 
-**Build:**
-```bash
-npm run build
-```
+2. If lint passes, run both test suites in parallel. Each suite handles its own build internally.
 
-**Tests (after build passes):**
 ```bash
 npm run test:jest
 ```
 
-2. Report results in this format:
+```bash
+npm run test
+```
 
-| Check  | Status |
-|--------|--------|
-| Lint   | PASS / FAIL |
-| Build  | PASS / FAIL |
-| Tests  | PASS / FAIL |
+3. Report results in this format:
 
-3. If any check fails, show the relevant error output so the user can diagnose and fix the issue.
+| Check       | Status |
+|-------------|--------|
+| Lint        | PASS / FAIL |
+| Jest Tests  | PASS / FAIL |
+| Karma Tests | PASS / FAIL |
 
-## Notes
-
-- `npm run test:jest` runs Jest unit tests against the built output. It requires `npm run build` to complete first.
-- The full Karma browser test suite (`npm run test`) is slower and typically only needed for integration-level verification. Use `test:jest` for fast feedback.
-- Lint covers both ESLint (`src/` and `test/src/`) rules.
+4. If any check fails, show the relevant error output so the user can diagnose and fix the issue.
