@@ -314,7 +314,9 @@ export default function IdentityAPIClient(
             mpInstance._Store.identityCallInFlight = false;
             mpInstance._Store.identityCallFailed = false;
 
-            Logger.verbose(message);
+            if (message) {
+                Logger.verbose(message);
+            }
             if (mpInstance._RoktManager?.isInitialized) {
                 const requestCount = mpInstance._Store.identifyRequestCount;
                 mpInstance.captureTiming(`${requestCount}-identityRequestEnd`);
