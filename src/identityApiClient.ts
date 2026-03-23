@@ -277,7 +277,7 @@ export default function IdentityAPIClient(
                             message += ' - ' + errorMessage;
                         }
 
-                    } else {
+                    } else if (Logger.isVerbose()) {
                         const responseText = identityResponse.responseText;
                         const { isDevelopmentMode } = mpInstance._Store.SDKConfig;
                         let responseToLog = responseText;

@@ -263,9 +263,11 @@ export class BatchUploader {
             }
         }
 
-        const eventToLog = obfuscateDevData(event, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
-        this.mpInstance.Logger.verbose(`Queuing event: ${JSON.stringify(eventToLog)}`);
-        this.mpInstance.Logger.verbose(`Queued event count: ${this.eventsQueuedForProcessing.length}`);
+        if (this.mpInstance.Logger.isVerbose()) {
+            const eventToLog = obfuscateDevData(event, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
+            this.mpInstance.Logger.verbose(`Queuing event: ${JSON.stringify(eventToLog)}`);
+            this.mpInstance.Logger.verbose(`Queued event count: ${this.eventsQueuedForProcessing.length}`);
+        }
 
         if (this.shouldTriggerImmediateUpload(event.EventDataType)) {
             this.prepareAndUpload(false, false);
@@ -458,9 +460,11 @@ export class BatchUploader {
             return null;
         }
 
-        const uploadsToLog = obfuscateDevData(uploads, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
-        this.mpInstance.Logger.verbose(`Uploading batches: ${JSON.stringify(uploadsToLog)}`);
-        this.mpInstance.Logger.verbose(`Batch count: ${uploads.length}`);
+        if (this.mpInstance.Logger.isVerbose()) {
+            const uploadsToLog = obfuscateDevData(uploads, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
+            this.mpInstance.Logger.verbose(`Uploading batches: ${JSON.stringify(uploadsToLog)}`);
+            this.mpInstance.Logger.verbose(`Batch count: ${uploads.length}`);
+        }
 
         for (let i = 0; i < uploads.length; i++) {
             const fetchPayload: IFetchPayload = {

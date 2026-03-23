@@ -235,8 +235,10 @@ export default class RoktManager {
             const { attributes } = options;
             const sandboxValue = attributes?.sandbox || null;
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
-            const attributesToLog = obfuscateDevData(attributes, this.store?.SDKConfig?.isDevelopmentMode);
-            this.logger?.verbose(`mParticle.Rokt selectPlacements called with attributes:\n${JSON.stringify(attributesToLog, null, 2)}`);
+            if (this.logger?.isVerbose()) {
+                const attributesToLog = obfuscateDevData(attributes, this.store?.SDKConfig?.isDevelopmentMode);
+                this.logger.verbose(`mParticle.Rokt selectPlacements called with attributes:\n${JSON.stringify(attributesToLog, null, 2)}`);
+            }
 
             this.currentUser = this.identityService.getCurrentUser();
             const currentUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
@@ -507,8 +509,10 @@ export default class RoktManager {
                 return;
             }
 
-            const payloadToLog = obfuscateDevData(message.payload, this.store?.SDKConfig?.isDevelopmentMode);
-            this.logger?.verbose(`RoktManager: Processing queued message: ${message.methodName} with payload: ${JSON.stringify(payloadToLog)}`);
+            if (this.logger?.isVerbose()) {
+                const payloadToLog = obfuscateDevData(message.payload, this.store?.SDKConfig?.isDevelopmentMode);
+                this.logger.verbose(`RoktManager: Processing queued message: ${message.methodName} with payload: ${JSON.stringify(payloadToLog)}`);
+            }
 
             // Capture resolve/reject functions before async processing
             const resolve = message.resolve;

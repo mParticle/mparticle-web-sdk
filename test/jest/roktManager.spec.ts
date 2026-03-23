@@ -43,6 +43,7 @@ describe('RoktManager', () => {
             verbose: jest.fn(),
             error: jest.fn(),
             warning: jest.fn(),
+            isVerbose: jest.fn().mockReturnValue(false),
         },
     } as unknown) as IMParticleWebSDKInstance;
 
@@ -558,7 +559,7 @@ describe('RoktManager', () => {
         });
 
         it('should log error when onReadyCallback throws and logger is available', () => {
-            const mockLogger = { error: jest.fn(), verbose: jest.fn(), warning: jest.fn(), setLogLevel: jest.fn() };
+            const mockLogger = { error: jest.fn(), verbose: jest.fn(), warning: jest.fn(), isVerbose: jest.fn().mockReturnValue(false), setLogLevel: jest.fn() };
             roktManager.init(
                 {} as IKitConfigs,
                 {} as IMParticleUser,
@@ -2432,6 +2433,8 @@ describe('RoktManager', () => {
         });
 
         it('should log developer passed attributes via verbose logger', async () => {
+            (mockMPInstance.Logger.isVerbose as jest.Mock).mockReturnValue(true);
+
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
