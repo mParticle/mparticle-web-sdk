@@ -141,6 +141,9 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         forwarderConstructors: [],
     };
 
+    this._ErrorReportingDispatcher = new ErrorReportingDispatcher();
+    this._LoggingDispatcher = new LoggingDispatcher();
+
     this._RoktManager = new RoktManager();
     
     this._RoktManager.setOnReadyCallback(() => {
@@ -1641,8 +1644,6 @@ function createIdentityCache(mpInstance) {
 }
 
 function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
-    mpInstance._ErrorReportingDispatcher = new ErrorReportingDispatcher();
-    mpInstance._LoggingDispatcher = new LoggingDispatcher();
     mpInstance.Logger = new Logger(config);
     mpInstance._Store = new Store(config, mpInstance, apiKey);
     window.mParticle.Store = mpInstance._Store;

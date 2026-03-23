@@ -8,6 +8,12 @@ export class LoggingDispatcher implements ILoggingService {
     }
 
     public log(entry: ISDKLogEntry): void {
-        this.services.forEach(s => s.log(entry));
+        this.services.forEach(s => {
+            try {
+                s.log(entry);
+            } catch (e) {
+                // Prevent one service from breaking others
+            }
+        });
     }
 }

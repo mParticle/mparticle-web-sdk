@@ -8,6 +8,12 @@ export class ErrorReportingDispatcher implements IErrorReportingService {
     }
 
     public report(error: ISDKError): void {
-        this.services.forEach(s => s.report(error));
+        this.services.forEach(s => {
+            try {
+                s.report(error);
+            } catch (e) {
+                // Prevent one service from breaking others
+            }
+        });
     }
 }
