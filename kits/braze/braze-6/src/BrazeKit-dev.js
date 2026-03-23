@@ -15,7 +15,7 @@ window.braze = require('@braze/web-sdk');
 
 // This should remain Appboy and not Braze until the core SDK is able to parse the moduleID and not the name (go.mparticle.com/work/SQDSDKS-4655)
 var name = 'Appboy',
-    suffix = 'v5',
+    suffix = 'v6',
     moduleId = 28,
     version = '5.0.3',
     MessageType = {
