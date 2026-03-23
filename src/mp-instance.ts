@@ -1518,7 +1518,9 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
                 mpInstance._Store,
                 mpInstance.Logger,
                 roktOptions,
-                mpInstance.captureTiming
+                mpInstance.captureTiming,
+                mpInstance._ErrorReportingDispatcher,
+                mpInstance._LoggingDispatcher
             );
         }
 

@@ -4,6 +4,8 @@ export const ErrorCodes = {
     UNKNOWN_ERROR: 'UNKNOWN_ERROR',
     UNHANDLED_EXCEPTION: 'UNHANDLED_EXCEPTION',
     IDENTITY_REQUEST: 'IDENTITY_REQUEST',
+    IDENTITY_MISMATCH: 'IDENTITY_MISMATCH',
+    ROKT_KIT_ATTACHED: 'ROKT_KIT_ATTACHED',
 } as const;
 
 export type ErrorCodes = valueof<typeof ErrorCodes>;
