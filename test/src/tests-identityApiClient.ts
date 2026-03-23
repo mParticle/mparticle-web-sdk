@@ -21,6 +21,7 @@ import Utils from './config/utils';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 import RoktManager from '../../src/roktManager';
+import { ErrorReportingDispatcher } from '../../src/reporting/errorReportingDispatcher';
 const { fetchMockSuccess } = Utils;
 const { HTTPCodes }  = Constants;
 
@@ -99,6 +100,7 @@ describe('Identity Api Client', () => {
                 },
                 _Persistence: {},
                 captureTiming: () => {},
+                _ErrorReportingDispatcher: new ErrorReportingDispatcher(),
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -154,6 +156,7 @@ describe('Identity Api Client', () => {
                 },
                 _Persistence: {},
                 captureTiming: () => {},
+                _ErrorReportingDispatcher: new ErrorReportingDispatcher(),
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -214,6 +217,7 @@ describe('Identity Api Client', () => {
                 },
                 _Persistence: {},
                 captureTiming: () => {},
+                _ErrorReportingDispatcher: new ErrorReportingDispatcher(),
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -275,6 +279,7 @@ describe('Identity Api Client', () => {
                 },
                 _Persistence: {},
                 captureTiming: () => {},
+                _ErrorReportingDispatcher: new ErrorReportingDispatcher(),
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -336,6 +341,7 @@ describe('Identity Api Client', () => {
                 },
                 _Persistence: {},
                 captureTiming: () => {},
+                _ErrorReportingDispatcher: new ErrorReportingDispatcher(),
             } as unknown) as IMParticleWebSDKInstance;;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -416,6 +422,7 @@ describe('Identity Api Client', () => {
                 },
                 _Persistence: {},
                 captureTiming: () => {},
+                _ErrorReportingDispatcher: new ErrorReportingDispatcher(),
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -492,6 +499,7 @@ describe('Identity Api Client', () => {
                 },
                 _Persistence: {},
                 captureTiming: () => {},
+                _ErrorReportingDispatcher: new ErrorReportingDispatcher(),
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -557,6 +565,7 @@ describe('Identity Api Client', () => {
                 },
                 _Persistence: {},
                 captureTiming: () => {},
+                _ErrorReportingDispatcher: new ErrorReportingDispatcher(),
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -623,6 +632,7 @@ describe('Identity Api Client', () => {
                 },
                 _Persistence: {},
                 captureTiming: () => {},
+                _ErrorReportingDispatcher: new ErrorReportingDispatcher(),
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -697,6 +707,7 @@ describe('Identity Api Client', () => {
                 },
                 _Persistence: {},
                 captureTiming: () => {},
+                _ErrorReportingDispatcher: new ErrorReportingDispatcher(),
             } as unknown) as IMParticleWebSDKInstance;
 
             const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -855,6 +866,7 @@ describe('Identity Api Client', () => {
                     _Persistence: {},
                     _RoktManager: roktManager,
                     captureTiming: captureTimingSpy,
+                    _ErrorReportingDispatcher: new ErrorReportingDispatcher(),
                 } as unknown) as IMParticleWebSDKInstance;
 
                 const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
@@ -919,6 +931,7 @@ describe('Identity Api Client', () => {
                     _Persistence: {},
                     _RoktManager: roktManager,
                     captureTiming: captureTimingSpy,
+                    _ErrorReportingDispatcher: new ErrorReportingDispatcher(),
                 } as unknown) as IMParticleWebSDKInstance;
 
                 const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
