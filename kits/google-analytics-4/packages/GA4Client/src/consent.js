@@ -19,6 +19,9 @@ var googleConsentProperties = [
     'ad_user_data',
     'ad_personalization',
     'analytics_storage',
+    'functionality_storage',
+    'personalization_storage',
+    'security_storage',
 ];
 
 function ConsentHandler(common) {
@@ -53,6 +56,9 @@ ConsentHandler.prototype.getConsentSettings = function() {
         ad_personalization: 'defaultAdPersonalizationConsentSDK',
         ad_storage: 'defaultAdStorageConsentSDK',
         analytics_storage: 'defaultAnalyticsStorageConsentSDK',
+        functionality_storage: 'defaultFunctionalityStorageConsentSDK',
+        personalization_storage: 'defaultPersonalizationStorageConsentSDK',
+        security_storage: 'defaultSecurityStorageConsentSDK',
     };
 
     var forwarderSettings = this.common.forwarderSettings;
