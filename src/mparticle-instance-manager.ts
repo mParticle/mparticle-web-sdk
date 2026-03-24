@@ -398,7 +398,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
 
     this.sessionManager = {
         getSession: function() {
-            return self.getInstance()._SessionManager.getSession();
+            return self.getInstance()._SessionManager.getSessionId();
         },
     };
 
