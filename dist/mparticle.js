@@ -10406,11 +10406,13 @@ var mParticle = (function () {
         this.services.push(service);
       };
       ErrorReportingDispatcher.prototype.report = function (error) {
+        var _this = this;
         this.services.forEach(function (s) {
+          var _a;
           try {
             s.report(error);
           } catch (e) {
-            // Prevent one service from breaking others
+            (_a = _this.logger) === null || _a === void 0 ? void 0 : _a.error('Error in ErrorReportingService: ' + e);
           }
         });
       };
@@ -10425,11 +10427,13 @@ var mParticle = (function () {
         this.services.push(service);
       };
       LoggingDispatcher.prototype.log = function (entry) {
+        var _this = this;
         this.services.forEach(function (s) {
+          var _a;
           try {
             s.log(entry);
           } catch (e) {
-            // Prevent one service from breaking others
+            (_a = _this.logger) === null || _a === void 0 ? void 0 : _a.error('Error in LoggingService: ' + e);
           }
         });
       };
@@ -10582,6 +10586,8 @@ var mParticle = (function () {
         instance._ErrorReportingDispatcher = new ErrorReportingDispatcher();
         instance._LoggingDispatcher = new LoggingDispatcher();
         instance.Logger = new Logger(config);
+        instance._ErrorReportingDispatcher.logger = instance.Logger;
+        instance._LoggingDispatcher.logger = instance.Logger;
         instance._Store = new Store(config, instance);
         instance._Store.isLocalStorageAvailable = instance._Persistence.determineLocalStorageAvailability(window.localStorage);
         instance._Events.stopTracking();
@@ -11579,6 +11585,8 @@ var mParticle = (function () {
     function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
       var _a;
       mpInstance.Logger = new Logger(config);
+      mpInstance._ErrorReportingDispatcher.logger = mpInstance.Logger;
+      mpInstance._LoggingDispatcher.logger = mpInstance.Logger;
       mpInstance._Store = new Store(config, mpInstance, apiKey);
       window.mParticle.Store = mpInstance._Store;
       mpInstance.Logger.verbose(StartingInitialization);

@@ -279,6 +279,8 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         instance._ErrorReportingDispatcher = new ErrorReportingDispatcher();
         instance._LoggingDispatcher = new LoggingDispatcher();
         instance.Logger = new Logger(config);
+        instance._ErrorReportingDispatcher.logger = instance.Logger;
+        instance._LoggingDispatcher.logger = instance.Logger;
         instance._Store = new Store(config, instance);
         instance._Store.isLocalStorageAvailable = instance._Persistence.determineLocalStorageAvailability(
             window.localStorage
@@ -1647,6 +1649,8 @@ function createIdentityCache(mpInstance) {
 
 function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     mpInstance.Logger = new Logger(config);
+    mpInstance._ErrorReportingDispatcher.logger = mpInstance.Logger;
+    mpInstance._LoggingDispatcher.logger = mpInstance.Logger;
     mpInstance._Store = new Store(config, mpInstance, apiKey);
     window.mParticle.Store = mpInstance._Store;
     mpInstance.Logger.verbose(StartingInitialization);
