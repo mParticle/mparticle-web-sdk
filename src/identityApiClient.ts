@@ -331,7 +331,7 @@ export default function IdentityAPIClient(
             const errorMessage = (err as Error).message || err.toString();
             const msg = 'Error sending identity request to servers' + ' - ' + errorMessage;
             Logger.error(msg);
-            errorReporter.report({
+            errorReporter?.report({
                 message: msg,
                 code: ErrorCodes.IDENTITY_REQUEST,
                 severity: WSDKErrorSeverity.ERROR,

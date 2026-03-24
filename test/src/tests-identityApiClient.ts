@@ -761,6 +761,7 @@ describe('Identity Api Client', () => {
                     identityCallFailed: false,
                 },
                 _Persistence: {},
+                _ErrorReportingDispatcher: { report: () => {} },
                 processQueueOnIdentityFailure: processQueueOnIdentityFailureSpy,
             } as unknown) as IMParticleWebSDKInstance;
 
@@ -810,6 +811,7 @@ describe('Identity Api Client', () => {
                     identityCallFailed: false,
                 },
                 _Persistence: {},
+                _ErrorReportingDispatcher: { report: () => {} },
                 processQueueOnIdentityFailure: processQueueOnIdentityFailureSpy,
             } as unknown) as IMParticleWebSDKInstance;
 

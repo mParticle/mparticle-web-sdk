@@ -9502,7 +9502,7 @@ var mParticle = (function () {
                 errorMessage = err_1.message || err_1.toString();
                 msg = 'Error sending identity request to servers' + ' - ' + errorMessage;
                 Logger.error(msg);
-                errorReporter.report({
+                errorReporter === null || errorReporter === void 0 ? void 0 : errorReporter.report({
                   message: msg,
                   code: ErrorCodes.IDENTITY_REQUEST,
                   severity: WSDKErrorSeverity.ERROR
