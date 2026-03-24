@@ -6,7 +6,7 @@ import {
     IFetchPayload,
 } from './uploaders';
 import { CACHE_HEADER } from './identity-utils';
-import { parseNumber, valueof } from './utils';
+import { obfuscateData, parseNumber, valueof } from './utils';
 import {
     IAliasCallback,
     IAliasRequest,
@@ -277,9 +277,17 @@ export default function IdentityAPIClient(
                             message += ' - ' + errorMessage;
                         }
 
-                    } else {
-                        message = 'Received Identity Response from server: ';
-                        message += JSON.stringify(identityResponse.responseText);
+                    } else if (Logger.isVerbose()) {
+                        const responseText = identityResponse.responseText;
+                        const { isDevelopmentMode } = mpInstance._Store.SDKConfig;
+                        let responseToLog = responseText;
+                        if (!isDevelopmentMode && responseText?.matched_identities) {
+                            responseToLog = {
+                                ...responseText,
+                                matched_identities: obfuscateData(responseText.matched_identities)
+                            };
+                        }
+                        message = 'Received Identity Response from server: ' + JSON.stringify(responseToLog);
                     }
 
                     break;
@@ -306,7 +314,9 @@ export default function IdentityAPIClient(
             mpInstance._Store.identityCallInFlight = false;
             mpInstance._Store.identityCallFailed = false;
 
-            Logger.verbose(message);
+            if (message) {
+                Logger.verbose(message);
+            }
             if (mpInstance._RoktManager?.isInitialized) {
                 const requestCount = mpInstance._Store.identifyRequestCount;
                 mpInstance.captureTiming(`${requestCount}-identityRequestEnd`);

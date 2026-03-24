@@ -1,9 +1,9 @@
 import { Batch } from '@mparticle/event-models';
 import Constants from './constants';
-import { SDKEvent, SDKEventCustomFlags, SDKLoggerApi } from './sdkRuntimeModels';
+import { SDKEvent, SDKEventCustomFlags } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import { MessageType, EventType } from './types';
-import { getRampNumber, isEmpty } from './utils';
+import { getRampNumber, isEmpty, obfuscateDevData } from './utils';
 import { SessionStorageVault, LocalStorageVault } from './vault';
 import {
     AsyncUploader,
@@ -79,17 +79,11 @@ export class BatchUploader {
 
         if (this.offlineStorageEnabled && !noFunctional) {
             this.eventVault = new SessionStorageVault<SDKEvent[]>(
-                `${mpInstance._Store.storageName}-events`,
-                {
-                    logger: mpInstance.Logger,
-                }
+                `${mpInstance._Store.storageName}-events`
             );
 
             this.batchVault = new LocalStorageVault<Batch[]>(
-                `${mpInstance._Store.storageName}-batches`,
-                {
-                    logger: mpInstance.Logger,
-                }
+                `${mpInstance._Store.storageName}-batches`
             );
 
             // Load Events from Session Storage in case we have any in storage
@@ -260,15 +254,16 @@ export class BatchUploader {
             return;
         }
 
-        const { Logger } = this.mpInstance;
-
         this.eventsQueuedForProcessing.push(event);
         if (this.offlineStorageEnabled && this.eventVault) {
             this.eventVault.store(this.eventsQueuedForProcessing);
         }
 
-        Logger.verbose(`Queuing event: ${JSON.stringify(event)}`);
-        Logger.verbose(`Queued event count: ${this.eventsQueuedForProcessing.length}`);
+        if (this.mpInstance.Logger.isVerbose()) {
+            const eventToLog = obfuscateDevData(event, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
+            this.mpInstance.Logger.verbose(`Queuing event: ${JSON.stringify(eventToLog)}`);
+            this.mpInstance.Logger.verbose(`Queued event count: ${this.eventsQueuedForProcessing.length}`);
+        }
 
         if (this.shouldTriggerImmediateUpload(event.EventDataType)) {
             this.prepareAndUpload(false, false);
@@ -412,7 +407,6 @@ export class BatchUploader {
         this.batchesQueuedForProcessing = [];
 
         const batchesThatDidNotUpload = await this.uploadBatches(
-            this.mpInstance.Logger,
             batchesToUpload,
             useBeacon
         );
@@ -432,8 +426,8 @@ export class BatchUploader {
             // therefore NOT overwrite Offline Storage when beacon returns, so that we can retry
             // uploading saved batches at a later time. Batches should only be removed from
             // Local Storage once we can confirm they are successfully uploaded.
+            
             this.batchVault.store(this.batchesQueuedForProcessing);
-
             // Clear batch queue since everything should be in Offline Storage
             this.batchesQueuedForProcessing = [];
         }
@@ -443,10 +437,7 @@ export class BatchUploader {
         }
     }
 
-    // TODO: Refactor to use logger as a class method
-    // https://go.mparticle.com/work/SQDSDKS-5167
     private async uploadBatches(
-        logger: SDKLoggerApi,
         batches: Batch[],
         useBeacon: boolean
     ): Promise<Batch[] | null> {
@@ -457,8 +448,11 @@ export class BatchUploader {
             return null;
         }
 
-        logger.verbose(`Uploading batches: ${JSON.stringify(uploads)}`);
-        logger.verbose(`Batch count: ${uploads.length}`);
+        if (this.mpInstance.Logger.isVerbose()) {
+            const uploadsToLog = obfuscateDevData(uploads, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
+            this.mpInstance.Logger.verbose(`Uploading batches: ${JSON.stringify(uploadsToLog)}`);
+            this.mpInstance.Logger.verbose(`Batch count: ${uploads.length}`);
+        }
 
         for (let i = 0; i < uploads.length; i++) {
             const fetchPayload: IFetchPayload = {
@@ -482,20 +476,20 @@ export class BatchUploader {
                     const response = await this.uploader.upload(fetchPayload);
 
                     if (response.status >= 200 && response.status < 300) {
-                        logger.verbose(
+                        this.mpInstance.Logger.verbose(
                             `Upload success for request ID: ${uploads[i].source_request_id}`
                         );
                     } else if (
                         response.status >= 500 ||
                         response.status === 429
                     ) {
-                        logger.error(
+                        this.mpInstance.Logger.error(
                             `HTTP error status ${response.status} received`
                         );
                         // Server error, add back current batches and try again later
                         return uploads.slice(i, uploads.length);
                     } else if (response.status >= 401) {
-                        logger.error(
+                        this.mpInstance.Logger.error(
                             `HTTP error status ${response.status} while uploading - please verify your API key.`
                         );
                         //if we're getting a 401, assume we'll keep getting a 401 and clear the uploads.
@@ -512,7 +506,7 @@ export class BatchUploader {
                         );
                     }
                 } catch (e) {
-                    logger.error(
+                    this.mpInstance.Logger.error(
                         `Error sending event to mParticle servers. ${e}`
                     );
                     return uploads.slice(i, uploads.length);

@@ -49,6 +49,10 @@ export class Logger {
         }
     }
 
+    public isVerbose(): boolean {
+        return this.logLevel === LogLevelType.Verbose;
+    }
+
     public setLogLevel(newLogLevel: LogLevelType): void {
         this.logLevel = newLogLevel;
     }

@@ -43,6 +43,7 @@ describe('RoktManager', () => {
             verbose: jest.fn(),
             error: jest.fn(),
             warning: jest.fn(),
+            isVerbose: jest.fn().mockReturnValue(false),
         },
     } as unknown) as IMParticleWebSDKInstance;
 
@@ -558,7 +559,7 @@ describe('RoktManager', () => {
         });
 
         it('should log error when onReadyCallback throws and logger is available', () => {
-            const mockLogger = { error: jest.fn(), verbose: jest.fn(), warning: jest.fn(), setLogLevel: jest.fn() };
+            const mockLogger = { error: jest.fn(), verbose: jest.fn(), warning: jest.fn(), isVerbose: jest.fn().mockReturnValue(false), setLogLevel: jest.fn() };
             roktManager.init(
                 {} as IKitConfigs,
                 {} as IMParticleUser,
@@ -2198,7 +2199,7 @@ describe('RoktManager', () => {
             
             // Verify error was logged
             expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
-                'Failed to identify user with new email: ' + JSON.stringify(mockError)
+                'Failed to identify user with updated identities: ' + JSON.stringify(mockError)
             );
 
             // Verify selectPlacements was still called
@@ -2432,6 +2433,8 @@ describe('RoktManager', () => {
         });
 
         it('should log developer passed attributes via verbose logger', async () => {
+            (mockMPInstance.Logger.isVerbose as jest.Mock).mockReturnValue(true);
+
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -2470,7 +2473,7 @@ describe('RoktManager', () => {
             await roktManager.selectPlacements(options);
 
             expect(mockMPInstance.Logger.verbose).toHaveBeenCalledWith(
-                `mParticle.Rokt selectPlacements called with attributes:\n${JSON.stringify({ email: 'test@example.com', customAttr: 'value' }, null, 2)}`
+                `mParticle.Rokt selectPlacements called with attributes:\n${JSON.stringify({ email: 'string', customAttr: 'string' }, null, 2)}`
             );
         });
     });
