@@ -1,3 +1,10 @@
+# [2.60.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.59.0...v2.60.0) (2026-03-24)
+
+
+### Features
+
+* Obfuscate potential PII in logs ([#1219](https://github.com/mParticle/mparticle-web-sdk/issues/1219)) ([ccc2cd7](https://github.com/mParticle/mparticle-web-sdk/commit/ccc2cd7ae5446ae052ae30e8913e8670324a4d0d))
+
 # [2.59.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.58.0...v2.59.0) (2026-03-16)
 
 
