@@ -392,9 +392,6 @@ export interface SDKHelpersApi {
     Validators: typeof Validators;
 }
 
-/** @deprecated Use {@link ILogger} from './logger' instead */
-export type SDKLoggerApi = ILogger;
-
 // TODO: Merge this with IStore in store.ts
 export interface SDKStoreApi {
     isEnabled: boolean;
