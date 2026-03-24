@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.59.0";
+    var version = "2.60.0";
 
     var Constants = {
       sdkVersion: version,
@@ -418,6 +418,16 @@ var mParticle = (function () {
     var HTTP_ACCEPTED = 202;
     var HTTP_BAD_REQUEST = 400;
     var HTTP_SERVER_ERROR = 500;
+
+    function _typeof$1(o) {
+      "@babel/helpers - typeof";
+
+      return _typeof$1 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) {
+        return typeof o;
+      } : function (o) {
+        return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o;
+      }, _typeof$1(o);
+    }
 
     /******************************************************************************
     Copyright (c) Microsoft Corporation.
@@ -855,6 +865,63 @@ var mParticle = (function () {
         return kitConfig.name === moduleName && kitConfig.moduleId === moduleId;
       })) || null;
     };
+    /**
+     * Obfuscates an object by replacing all primitive values with their type names,
+     * while preserving the structure of nested objects and arrays.
+     * This is useful for logging data structures without exposing PII.
+     *
+     * @param value - The value to obfuscate
+     * @returns The obfuscated value with types instead of actual values
+     *
+     * @example
+     * obfuscateData({ email: 'user@email.com', age: 30 })
+     * // Returns: { email: 'string', age: 'number' }
+     *
+     * obfuscateData({ tags: ['premium', 'verified'] })
+     * // Returns: { tags: ['string', 'string'] }
+     */
+    var obfuscateData = function obfuscateData(value) {
+      // Preserve null and undefined
+      if (value === null || value === undefined) {
+        return value;
+      }
+      // Handle arrays - recursively obfuscate each element
+      if (Array.isArray(value)) {
+        return value.map(function (item) {
+          return obfuscateData(item);
+        });
+      }
+      // Handle objects - recursively obfuscate each property
+      if (isObject(value)) {
+        var obfuscated = {};
+        for (var key in value) {
+          if (value.hasOwnProperty(key)) {
+            obfuscated[key] = obfuscateData(value[key]);
+          }
+        }
+        return obfuscated;
+      }
+      // For primitives and other types, return the type as a string
+      return _typeof$1(value);
+    };
+    /**
+     * For verbose logging: returns raw data when isDevelopmentMode is true, else obfuscated data.
+     * Used when logging payloads so PII is not exposed in production.
+     *
+     * @param data - The value to log
+     * @param isDevelopmentMode - When true, returns data unchanged, when false or undefined, returns obfuscated data
+     * @returns Raw data when isDevelopmentMode is true, otherwise obfuscated structure
+     *
+     * @example
+     * obfuscateDevData({ email: 'user@email.com' }, true)
+     * // Returns: { email: 'user@email.com' }
+     *
+     * obfuscateDevData({ email: 'user@email.com' }, false)
+     * // Returns: { email: 'string' }
+     */
+    var obfuscateDevData = function obfuscateDevData(data, isDevelopmentMode) {
+      return isDevelopmentMode ? data : obfuscateData(data);
+    };
 
     var MessageType$1 = {
       SessionStart: 1,
@@ -1233,16 +1300,6 @@ var mParticle = (function () {
       PromotionActionType: PromotionActionType,
       Environment: Constants.Environment
     };
-
-    function _typeof$1(o) {
-      "@babel/helpers - typeof";
-
-      return _typeof$1 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) {
-        return typeof o;
-      } : function (o) {
-        return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o;
-      }, _typeof$1(o);
-    }
 
     var SDKProductActionType;
     (function (SDKProductActionType) {
@@ -2138,18 +2195,11 @@ var mParticle = (function () {
       /**
        *
        * @param {string} storageKey the local storage key string
-       * @param {Storage} Web API Storage object that is being used
-       * @param {IVaultOptions} options A Dictionary of IVaultOptions
+       * @param {Storage} storageObject Web API Storage object that is being used
        */
-      function BaseVault(storageKey, storageObject, options) {
+      function BaseVault(storageKey, storageObject) {
         this._storageKey = storageKey;
         this.storageObject = storageObject;
-        // Add a fake logger in case one is not provided or needed
-        this.logger = (options === null || options === void 0 ? void 0 : options.logger) || {
-          verbose: function verbose() {},
-          warning: function warning() {},
-          error: function error() {}
-        };
         this.contents = this.retrieve();
       }
       /**
@@ -2165,13 +2215,7 @@ var mParticle = (function () {
         } else {
           stringifiedItem = '';
         }
-        try {
-          this.storageObject.setItem(this._storageKey, stringifiedItem);
-          this.logger.verbose("Saving item to Storage: ".concat(stringifiedItem));
-        } catch (error) {
-          this.logger.error("Cannot Save items to Storage: ".concat(stringifiedItem));
-          this.logger.error(error);
-        }
+        this.storageObject.setItem(this._storageKey, stringifiedItem);
       };
       /**
        * Retrieve StorableItem from Storage
@@ -2183,7 +2227,6 @@ var mParticle = (function () {
         // https://go.mparticle.com/work/SQDSDKS-5022
         var item = this.storageObject.getItem(this._storageKey);
         this.contents = item ? JSON.parse(item) : null;
-        this.logger.verbose("Retrieving item from Storage: ".concat(item));
         return this.contents;
       };
       /**
@@ -2192,7 +2235,6 @@ var mParticle = (function () {
        * @method purge
        */
       BaseVault.prototype.purge = function () {
-        this.logger.verbose('Purging Storage');
         this.contents = null;
         this.storageObject.removeItem(this._storageKey);
       };
@@ -2200,23 +2242,23 @@ var mParticle = (function () {
     }();
     var LocalStorageVault = /** @class */function (_super) {
       __extends(LocalStorageVault, _super);
-      function LocalStorageVault(storageKey, options) {
-        return _super.call(this, storageKey, window.localStorage, options) || this;
+      function LocalStorageVault(storageKey) {
+        return _super.call(this, storageKey, window.localStorage) || this;
       }
       return LocalStorageVault;
     }(BaseVault);
     var SessionStorageVault = /** @class */function (_super) {
       __extends(SessionStorageVault, _super);
-      function SessionStorageVault(storageKey, options) {
-        return _super.call(this, storageKey, window.sessionStorage, options) || this;
+      function SessionStorageVault(storageKey) {
+        return _super.call(this, storageKey, window.sessionStorage) || this;
       }
       return SessionStorageVault;
     }(BaseVault);
     // DisabledVault is used when persistence is disabled by privacy flags.
     var DisabledVault = /** @class */function (_super) {
       __extends(DisabledVault, _super);
-      function DisabledVault(storageKey, options) {
-        var _this = _super.call(this, storageKey, window.localStorage, options) || this;
+      function DisabledVault(storageKey) {
+        var _this = _super.call(this, storageKey, window.localStorage) || this;
         _this.contents = null;
         _this.storageObject.removeItem(_this._storageKey);
         return _this;
@@ -2416,12 +2458,8 @@ var mParticle = (function () {
         // When noFunctional is true, prevent events/batches storage
         var noFunctional = (_b = mpInstance._CookieConsentManager) === null || _b === void 0 ? void 0 : _b.getNoFunctional();
         if (this.offlineStorageEnabled && !noFunctional) {
-          this.eventVault = new SessionStorageVault("".concat(mpInstance._Store.storageName, "-events"), {
-            logger: mpInstance.Logger
-          });
-          this.batchVault = new LocalStorageVault("".concat(mpInstance._Store.storageName, "-batches"), {
-            logger: mpInstance.Logger
-          });
+          this.eventVault = new SessionStorageVault("".concat(mpInstance._Store.storageName, "-events"));
+          this.batchVault = new LocalStorageVault("".concat(mpInstance._Store.storageName, "-batches"));
           // Load Events from Session Storage in case we have any in storage
           (_a = this.eventsQueuedForProcessing).push.apply(_a, this.eventVault.retrieve());
         }
@@ -2565,13 +2603,15 @@ var mParticle = (function () {
         if (isEmpty(event)) {
           return;
         }
-        var Logger = this.mpInstance.Logger;
         this.eventsQueuedForProcessing.push(event);
         if (this.offlineStorageEnabled && this.eventVault) {
           this.eventVault.store(this.eventsQueuedForProcessing);
         }
-        Logger.verbose("Queuing event: ".concat(JSON.stringify(event)));
-        Logger.verbose("Queued event count: ".concat(this.eventsQueuedForProcessing.length));
+        if (this.mpInstance.Logger.isVerbose()) {
+          var eventToLog = obfuscateDevData(event, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
+          this.mpInstance.Logger.verbose("Queuing event: ".concat(JSON.stringify(eventToLog)));
+          this.mpInstance.Logger.verbose("Queued event count: ".concat(this.eventsQueuedForProcessing.length));
+        }
         if (this.shouldTriggerImmediateUpload(event.EventDataType)) {
           this.prepareAndUpload(false, false);
         }
@@ -2687,7 +2727,7 @@ var mParticle = (function () {
                 }
                 batchesToUpload = this.batchesQueuedForProcessing;
                 this.batchesQueuedForProcessing = [];
-                return [4 /*yield*/, this.uploadBatches(this.mpInstance.Logger, batchesToUpload, useBeacon)];
+                return [4 /*yield*/, this.uploadBatches(batchesToUpload, useBeacon)];
               case 1:
                 batchesThatDidNotUpload = _d.sent();
                 // Batches that do not successfully upload are added back to the process queue
@@ -2716,11 +2756,10 @@ var mParticle = (function () {
           });
         });
       };
-      // TODO: Refactor to use logger as a class method
-      // https://go.mparticle.com/work/SQDSDKS-5167
-      BatchUploader.prototype.uploadBatches = function (logger, batches, useBeacon) {
+
+      BatchUploader.prototype.uploadBatches = function (batches, useBeacon) {
         return __awaiter(this, void 0, void 0, function () {
-          var uploads, i, fetchPayload, blob, response, e_1;
+          var uploads, uploadsToLog, i, fetchPayload, blob, response, e_1;
           return __generator(this, function (_a) {
             switch (_a.label) {
               case 0:
@@ -2730,8 +2769,11 @@ var mParticle = (function () {
                 if (isEmpty(uploads)) {
                   return [2 /*return*/, null];
                 }
-                logger.verbose("Uploading batches: ".concat(JSON.stringify(uploads)));
-                logger.verbose("Batch count: ".concat(uploads.length));
+                if (this.mpInstance.Logger.isVerbose()) {
+                  uploadsToLog = obfuscateDevData(uploads, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
+                  this.mpInstance.Logger.verbose("Uploading batches: ".concat(JSON.stringify(uploadsToLog)));
+                  this.mpInstance.Logger.verbose("Batch count: ".concat(uploads.length));
+                }
                 i = 0;
                 _a.label = 1;
               case 1:
@@ -2756,13 +2798,13 @@ var mParticle = (function () {
               case 3:
                 response = _a.sent();
                 if (response.status >= 200 && response.status < 300) {
-                  logger.verbose("Upload success for request ID: ".concat(uploads[i].source_request_id));
+                  this.mpInstance.Logger.verbose("Upload success for request ID: ".concat(uploads[i].source_request_id));
                 } else if (response.status >= 500 || response.status === 429) {
-                  logger.error("HTTP error status ".concat(response.status, " received"));
+                  this.mpInstance.Logger.error("HTTP error status ".concat(response.status, " received"));
                   // Server error, add back current batches and try again later
                   return [2 /*return*/, uploads.slice(i, uploads.length)];
                 } else if (response.status >= 401) {
-                  logger.error("HTTP error status ".concat(response.status, " while uploading - please verify your API key."));
+                  this.mpInstance.Logger.error("HTTP error status ".concat(response.status, " while uploading - please verify your API key."));
                   //if we're getting a 401, assume we'll keep getting a 401 and clear the uploads.
                   return [2 /*return*/, null];
                 } else {
@@ -2773,7 +2815,7 @@ var mParticle = (function () {
                 return [3 /*break*/, 5];
               case 4:
                 e_1 = _a.sent();
-                logger.error("Error sending event to mParticle servers. ".concat(e_1));
+                this.mpInstance.Logger.error("Error sending event to mParticle servers. ".concat(e_1));
                 return [2 /*return*/, uploads.slice(i, uploads.length)];
               case 5:
                 i++;
@@ -5010,6 +5052,9 @@ var mParticle = (function () {
             (_a = this.reportingLogger) === null || _a === void 0 ? void 0 : _a.error(msg, codeForReporting);
           }
         }
+      };
+      Logger.prototype.isVerbose = function () {
+        return this.logLevel === LogLevelType.Verbose;
       };
       Logger.prototype.setLogLevel = function (newLogLevel) {
         this.logLevel = newLogLevel;
@@ -9397,7 +9442,7 @@ var mParticle = (function () {
       this.sendIdentityRequest = function (identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid, knownIdentities) {
         var _a, _b, _c, _d;
         return __awaiter(this, void 0, void 0, function () {
-          var requestCount, invokeCallback, Logger, previousMPID, uploadUrl, uploader, fetchPayload, response, identityResponse, message, _e, responseBody, errorResponse, errorMessage, errorMessage, requestCount, err_1, requestCount, errorMessage;
+          var requestCount, invokeCallback, Logger, previousMPID, uploadUrl, uploader, fetchPayload, response, identityResponse, message, _e, responseBody, errorResponse, errorMessage, responseText, isDevelopmentMode, responseToLog, errorMessage, requestCount, err_1, requestCount, errorMessage;
           return __generator(this, function (_f) {
             switch (_f.label) {
               case 0:
@@ -9471,9 +9516,16 @@ var mParticle = (function () {
                     }).join(', ');
                     message += ' - ' + errorMessage;
                   }
-                } else {
-                  message = 'Received Identity Response from server: ';
-                  message += JSON.stringify(identityResponse.responseText);
+                } else if (Logger.isVerbose()) {
+                  responseText = identityResponse.responseText;
+                  isDevelopmentMode = mpInstance._Store.SDKConfig.isDevelopmentMode;
+                  responseToLog = responseText;
+                  if (!isDevelopmentMode && (responseText === null || responseText === void 0 ? void 0 : responseText.matched_identities)) {
+                    responseToLog = __assign(__assign({}, responseText), {
+                      matched_identities: obfuscateData(responseText.matched_identities)
+                    });
+                  }
+                  message = 'Received Identity Response from server: ' + JSON.stringify(responseToLog);
                 }
                 return [3 /*break*/, 8];
               case 7:
@@ -9491,7 +9543,9 @@ var mParticle = (function () {
               case 8:
                 mpInstance._Store.identityCallInFlight = false;
                 mpInstance._Store.identityCallFailed = false;
-                Logger.verbose(message);
+                if (message) {
+                  Logger.verbose(message);
+                }
                 if ((_b = mpInstance._RoktManager) === null || _b === void 0 ? void 0 : _b.isInitialized) {
                   requestCount = mpInstance._Store.identifyRequestCount;
                   mpInstance.captureTiming("".concat(requestCount, "-identityRequestEnd"));
@@ -9958,27 +10012,30 @@ var mParticle = (function () {
        * });
        */
       RoktManager.prototype.selectPlacements = function (options) {
-        var _a, _b, _c, _d, _e, _f, _g;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j;
         return __awaiter(this, void 0, void 0, function () {
-          var attributes, sandboxValue, mappedAttributes, currentUserIdentities_1, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, error_1, finalUserIdentities, enrichedAttributes, hashedEmail, enrichedOptions, error_2;
+          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities_1, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, error_1, errorMessage, finalUserIdentities, enrichedAttributes, hashedEmail, enrichedOptions, error_2;
           var _this = this;
-          return __generator(this, function (_h) {
-            switch (_h.label) {
+          return __generator(this, function (_k) {
+            switch (_k.label) {
               case 0:
                 (_a = this.captureTiming) === null || _a === void 0 ? void 0 : _a.call(this, PerformanceMarkType.JointSdkSelectPlacements);
                 // Queue if kit isn't ready OR if identity is in flight
                 if (!this.isReady() || ((_b = this.store) === null || _b === void 0 ? void 0 : _b.identityCallInFlight)) {
                   return [2 /*return*/, this.deferredCall('selectPlacements', options)];
                 }
-                _h.label = 1;
+                _k.label = 1;
               case 1:
-                _h.trys.push([1, 6,, 7]);
+                _k.trys.push([1, 6,, 7]);
                 attributes = options.attributes;
                 sandboxValue = (attributes === null || attributes === void 0 ? void 0 : attributes.sandbox) || null;
                 mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
-                (_c = this.logger) === null || _c === void 0 ? void 0 : _c.verbose("mParticle.Rokt selectPlacements called with attributes:\n".concat(JSON.stringify(attributes, null, 2)));
+                if ((_c = this.logger) === null || _c === void 0 ? void 0 : _c.isVerbose()) {
+                  attributesToLog = obfuscateDevData(attributes, (_e = (_d = this.store) === null || _d === void 0 ? void 0 : _d.SDKConfig) === null || _e === void 0 ? void 0 : _e.isDevelopmentMode);
+                  this.logger.verbose("mParticle.Rokt selectPlacements called with attributes:\n".concat(JSON.stringify(attributesToLog, null, 2)));
+                }
                 this.currentUser = this.identityService.getCurrentUser();
-                currentUserIdentities_1 = ((_e = (_d = this.currentUser) === null || _d === void 0 ? void 0 : _d.getUserIdentities()) === null || _e === void 0 ? void 0 : _e.userIdentities) || {};
+                currentUserIdentities_1 = ((_g = (_f = this.currentUser) === null || _f === void 0 ? void 0 : _f.getUserIdentities()) === null || _g === void 0 ? void 0 : _g.userIdentities) || {};
                 currentEmail = currentUserIdentities_1.email;
                 newEmail = mappedAttributes.email;
                 currentHashedEmail = void 0;
@@ -10002,9 +10059,9 @@ var mParticle = (function () {
                   this.logger.warning("emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.");
                 }
                 if (!!isEmpty(newIdentities_1)) return [3 /*break*/, 5];
-                _h.label = 2;
+                _k.label = 2;
               case 2:
-                _h.trys.push([2, 4,, 5]);
+                _k.trys.push([2, 4,, 5]);
                 return [4 /*yield*/, new Promise(function (resolve, reject) {
                   _this.identityService.identify({
                     userIdentities: __assign(__assign({}, currentUserIdentities_1), newIdentities_1)
@@ -10013,16 +10070,17 @@ var mParticle = (function () {
                   });
                 })];
               case 3:
-                _h.sent();
+                _k.sent();
                 return [3 /*break*/, 5];
               case 4:
-                error_1 = _h.sent();
-                this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error_1));
+                error_1 = _k.sent();
+                errorMessage = error_1 instanceof Error ? error_1.message : JSON.stringify(error_1);
+                this.logger.error('Failed to identify user with updated identities: ' + errorMessage);
                 return [3 /*break*/, 5];
               case 5:
                 // Refresh current user identities to ensure we have the latest values before building enrichedAttributes
                 this.currentUser = this.identityService.getCurrentUser();
-                finalUserIdentities = ((_g = (_f = this.currentUser) === null || _f === void 0 ? void 0 : _f.getUserIdentities()) === null || _g === void 0 ? void 0 : _g.userIdentities) || {};
+                finalUserIdentities = ((_j = (_h = this.currentUser) === null || _h === void 0 ? void 0 : _h.getUserIdentities()) === null || _j === void 0 ? void 0 : _j.userIdentities) || {};
                 this.setUserAttributes(mappedAttributes);
                 enrichedAttributes = __assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
                   sandbox: sandboxValue
@@ -10044,7 +10102,7 @@ var mParticle = (function () {
                 });
                 return [2 /*return*/, this.kit.selectPlacements(enrichedOptions)];
               case 6:
-                error_2 = _h.sent();
+                error_2 = _k.sent();
                 return [2 /*return*/, Promise.reject(error_2 instanceof Error ? error_2 : new Error('Unknown error occurred'))];
               case 7:
                 return [2 /*return*/];
@@ -10235,12 +10293,15 @@ var mParticle = (function () {
         // Clear the queue immediately to prevent re-processing
         this.messageQueue.clear();
         messagesToProcess.forEach(function (message) {
-          var _a, _b;
+          var _a, _b, _c, _d;
           if (!(message.methodName in _this) || !isFunction(_this[message.methodName])) {
             (_a = _this.logger) === null || _a === void 0 ? void 0 : _a.error("RoktManager: Method ".concat(message.methodName, " not found"));
             return;
           }
-          (_b = _this.logger) === null || _b === void 0 ? void 0 : _b.verbose("RoktManager: Processing queued message: ".concat(message.methodName, " with payload: ").concat(JSON.stringify(message.payload)));
+          if ((_b = _this.logger) === null || _b === void 0 ? void 0 : _b.isVerbose()) {
+            var payloadToLog = obfuscateDevData(message.payload, (_d = (_c = _this.store) === null || _c === void 0 ? void 0 : _c.SDKConfig) === null || _d === void 0 ? void 0 : _d.isDevelopmentMode);
+            _this.logger.verbose("RoktManager: Processing queued message: ".concat(message.methodName, " with payload: ").concat(JSON.stringify(payloadToLog)));
+          }
           // Capture resolve/reject functions before async processing
           var resolve = message.resolve;
           var reject = message.reject;
@@ -11635,13 +11696,9 @@ var mParticle = (function () {
       // Identity expects mpInstance._Identity.idCache to always exist. DisabledVault
       // ensures no identity response data is written to localStorage when noFunctional is true
       if ((_a = mpInstance._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) {
-        return new DisabledVault("".concat(mpInstance._Store.storageName, "-id-cache"), {
-          logger: mpInstance.Logger
-        });
+        return new DisabledVault("".concat(mpInstance._Store.storageName, "-id-cache"));
       }
-      return new LocalStorageVault("".concat(mpInstance._Store.storageName, "-id-cache"), {
-        logger: mpInstance.Logger
-      });
+      return new LocalStorageVault("".concat(mpInstance._Store.storageName, "-id-cache"));
     }
     function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
       var _a;
