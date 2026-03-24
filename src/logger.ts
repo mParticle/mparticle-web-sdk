@@ -1,9 +1,23 @@
-import { LogLevelType, SDKInitConfig, SDKLoggerApi } from './sdkRuntimeModels';
+import { LogLevelType, SDKInitConfig } from './sdkRuntimeModels';
+import { ReportingLogger } from './logging/reportingLogger';
+import { ErrorCodes } from './logging/types';
+
+export interface ILogger {
+    error(msg: string, code?: ErrorCodes): void;
+    verbose(msg: string): void;
+    warning(msg: string): void;
+    setLogLevel(logLevel: LogLevelType): void;
+}
+
+export interface IConsoleLogger {
+    error?(msg: string): void;
+    verbose?(msg: string): void;
+    warning?(msg: string): void;
+}
 
 export type ILoggerConfig = Pick<SDKInitConfig, 'logLevel' | 'logger'>;
-export type IConsoleLogger = Partial<Pick<SDKLoggerApi, 'error' | 'warning' | 'verbose'>>;
 
-export class Logger {
+export class Logger implements ILogger {
     private logLevel: LogLevelType;
     private logger: IConsoleLogger;
 

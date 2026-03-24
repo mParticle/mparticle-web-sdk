@@ -12,7 +12,7 @@ import {
     obfuscateDevData,
 } from "./utils";
 import { SDKIdentityApi } from "./identity.interfaces";
-import { SDKLoggerApi } from "./sdkRuntimeModels";
+import { ILogger } from "./logger";
 import { IStore, LocalSessionAttributes } from "./store";
 import { UserIdentities } from "@mparticle/web-sdk";
 import { IdentityType, PerformanceMarkType } from "./types";
@@ -108,7 +108,7 @@ export default class RoktManager {
     private identityService: SDKIdentityApi;
     private store: IStore;
     private launcherOptions?: IRoktLauncherOptions;
-    private logger: SDKLoggerApi;
+    private logger: ILogger;
     private errorReporter: IErrorReportingService;
     private loggingService: ILoggingService;
     private domain?: string;
@@ -130,7 +130,7 @@ export default class RoktManager {
      * @param {IKitConfigs} roktConfig - Configuration object containing user attribute filters and settings
      * @param {IMParticleUser} filteredUser - User object with filtered attributes
      * @param {SDKIdentityApi} identityService - The mParticle Identity instance
-     * @param {SDKLoggerApi} logger - The mParticle Logger instance
+     * @param {ILogger} logger - The mParticle Logger instance
      * @param {IRoktOptions} options - Options for the RoktManager
      * @param {Function} captureTiming - Function to capture performance timing marks
      * @param {IErrorReportingService} errorReporter - Dispatcher for error/warning reporting
@@ -143,7 +143,7 @@ export default class RoktManager {
         filteredUser: IMParticleUser,
         identityService: SDKIdentityApi,
         store: IStore,
-        logger?: SDKLoggerApi,
+        logger?: ILogger,
         options?: IRoktOptions,
         captureTiming?: (metricsName: string) => void,
         errorReporter?: IErrorReportingService,
