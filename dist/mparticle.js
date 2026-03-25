@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.60.0";
+    var version = "2.60.1";
 
     var Constants = {
       sdkVersion: version,
@@ -12195,7 +12195,7 @@ var mParticle = (function () {
       };
       this.sessionManager = {
         getSession: function getSession() {
-          return self.getInstance()._SessionManager.getSession();
+          return self.getInstance()._SessionManager.getSessionId();
         }
       };
       this.Consent = {
