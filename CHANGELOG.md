@@ -1,3 +1,10 @@
+## [2.60.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.60.0...v2.60.1) (2026-03-25)
+
+
+### Bug Fixes
+
+* update getSession to use non deprecated method ([#1227](https://github.com/mParticle/mparticle-web-sdk/issues/1227)) ([af259c2](https://github.com/mParticle/mparticle-web-sdk/commit/af259c254e51bccac7d61b5f4f51824659cf3d50))
+
 # [2.60.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.59.0...v2.60.0) (2026-03-24)
 
 
