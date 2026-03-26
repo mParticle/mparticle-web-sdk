@@ -10,8 +10,6 @@ export const ErrorCodes = {
 
 export type ErrorCodes = valueof<typeof ErrorCodes>;
 
-export type ErrorCode = ErrorCodes | string;
-
 export const WSDKErrorSeverity = {
     ERROR: 'ERROR',
     INFO: 'INFO',

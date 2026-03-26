@@ -2,7 +2,7 @@ import { SDKLoggerApi } from '../sdkRuntimeModels';
 import { IErrorReportingService, ISDKError } from './types';
 
 export class ErrorReportingDispatcher implements IErrorReportingService {
-    private services: IErrorReportingService[] = [];
+    private readonly services: IErrorReportingService[] = [];
     public logger?: SDKLoggerApi;
 
     public register(service: IErrorReportingService): void {
