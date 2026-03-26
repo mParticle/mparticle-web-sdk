@@ -83,6 +83,7 @@ describe('Identity Api Client', () => {
                 Logger: {
                     verbose: () => {},
                     error: () => {},
+                    isVerbose: () => false,
                 },
                 _Helpers: {
                     createServiceUrl: () =>
@@ -139,6 +140,7 @@ describe('Identity Api Client', () => {
                 Logger: {
                     verbose: () => {},
                     error: () => {},
+                    isVerbose: () => false,
                 },
                 _Helpers: {
                     createServiceUrl: () =>
@@ -199,6 +201,7 @@ describe('Identity Api Client', () => {
                 Logger: {
                     verbose: () => {},
                     error: () => {},
+                    isVerbose: () => false,
                 },
                 _Helpers: {
                     createServiceUrl: () =>
@@ -261,6 +264,7 @@ describe('Identity Api Client', () => {
                 Logger: {
                     verbose: () => {},
                     error: () => {},
+                    isVerbose: () => false,
                 },
                 _Helpers: {
                     createServiceUrl: () =>
@@ -325,6 +329,7 @@ describe('Identity Api Client', () => {
                 Logger: {
                     verbose: () => {},
                     error: () => {},
+                    isVerbose: () => false,
                 },
                 _Helpers: {
                     createServiceUrl: () =>
@@ -404,6 +409,7 @@ describe('Identity Api Client', () => {
                 Logger: {
                     verbose: (message) => verboseSpy(message),
                     error: (message) => errorSpy(message),
+                    isVerbose: () => false,
                 },
                 _Helpers: {
                     createServiceUrl: () =>
@@ -481,6 +487,7 @@ describe('Identity Api Client', () => {
                 Logger: {
                     verbose: (message) => verboseSpy(message),
                     error: (message) => errorSpy(message),
+                    isVerbose: () => false,
                 },
                 _Helpers: {
                     createServiceUrl: () =>
@@ -548,6 +555,7 @@ describe('Identity Api Client', () => {
                 Logger: {
                     verbose: (message) => verboseSpy(message),
                     error: (message) => errorSpy(message),
+                    isVerbose: () => false,
                 },
                 _Helpers: {
                     createServiceUrl: () =>
@@ -615,6 +623,7 @@ describe('Identity Api Client', () => {
                 Logger: {
                     verbose: (message) => verboseSpy(message),
                     error: (message) => errorSpy(message),
+                    isVerbose: () => false,
                 },
                 _Helpers: {
                     createServiceUrl: () =>
@@ -690,6 +699,7 @@ describe('Identity Api Client', () => {
                 Logger: {
                     verbose: (message) => verboseSpy(message),
                     error: (message) => errorSpy(message),
+                    isVerbose: () => false,
                 },
                 _Helpers: {
                     createServiceUrl: () =>
@@ -747,6 +757,7 @@ describe('Identity Api Client', () => {
                 Logger: {
                     verbose: () => {},
                     error: () => {},
+                    isVerbose: () => false,
                 },
                 _Helpers: {
                     createServiceUrl: () =>
@@ -797,6 +808,7 @@ describe('Identity Api Client', () => {
                 Logger: {
                     verbose: () => {},
                     error: () => {},
+                    isVerbose: () => false,
                 },
                 _Helpers: {
                     createServiceUrl: () =>
@@ -851,6 +863,7 @@ describe('Identity Api Client', () => {
                     Logger: {
                         verbose: () => {},
                         error: () => {},
+                        isVerbose: () => false,
                     },
                     _Helpers: {
                         createServiceUrl: () =>
@@ -916,6 +929,7 @@ describe('Identity Api Client', () => {
                     Logger: {
                         verbose: () => {},
                         error: () => {},
+                        isVerbose: () => false,
                     },
                     _Helpers: {
                         createServiceUrl: () =>

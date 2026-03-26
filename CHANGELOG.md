@@ -1,3 +1,17 @@
+## [2.60.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.60.0...v2.60.1) (2026-03-25)
+
+
+### Bug Fixes
+
+* update getSession to use non deprecated method ([#1227](https://github.com/mParticle/mparticle-web-sdk/issues/1227)) ([af259c2](https://github.com/mParticle/mparticle-web-sdk/commit/af259c254e51bccac7d61b5f4f51824659cf3d50))
+
+# [2.60.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.59.0...v2.60.0) (2026-03-24)
+
+
+### Features
+
+* Obfuscate potential PII in logs ([#1219](https://github.com/mParticle/mparticle-web-sdk/issues/1219)) ([ccc2cd7](https://github.com/mParticle/mparticle-web-sdk/commit/ccc2cd7ae5446ae052ae30e8913e8670324a4d0d))
+
 # [2.59.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.58.0...v2.59.0) (2026-03-16)
 
 

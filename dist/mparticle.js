@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.59.0";
+    var version = "2.60.1";
 
     var Constants = {
       sdkVersion: version,
@@ -328,7 +328,9 @@ var mParticle = (function () {
         configUrl: 'jssdkcdns.mparticle.com/JS/v2/',
         identityUrl: 'identity.mparticle.com/v1/',
         aliasUrl: 'jssdks.mparticle.com/v1/identity/',
-        userAudienceUrl: 'nativesdks.mparticle.com/v1/'
+        userAudienceUrl: 'nativesdks.mparticle.com/v1/',
+        loggingUrl: 'apps.rokt-api.com/v1/log',
+        errorUrl: 'apps.rokt-api.com/v1/errors'
       },
       // These are the paths that are used to construct the CNAME urls
       CNAMEUrlPaths: {
@@ -337,7 +339,9 @@ var mParticle = (function () {
         v3SecureServiceUrl: '/webevents/v3/JS/',
         configUrl: '/tags/JS/v2/',
         identityUrl: '/identity/v1/',
-        aliasUrl: '/webevents/v1/identity/'
+        aliasUrl: '/webevents/v1/identity/',
+        loggingUrl: '/v1/log',
+        errorUrl: '/v1/errors'
       },
       Base64CookieKeys: {
         csm: 1,
@@ -414,6 +418,16 @@ var mParticle = (function () {
     var HTTP_ACCEPTED = 202;
     var HTTP_BAD_REQUEST = 400;
     var HTTP_SERVER_ERROR = 500;
+
+    function _typeof$1(o) {
+      "@babel/helpers - typeof";
+
+      return _typeof$1 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) {
+        return typeof o;
+      } : function (o) {
+        return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o;
+      }, _typeof$1(o);
+    }
 
     /******************************************************************************
     Copyright (c) Microsoft Corporation.
@@ -851,6 +865,63 @@ var mParticle = (function () {
         return kitConfig.name === moduleName && kitConfig.moduleId === moduleId;
       })) || null;
     };
+    /**
+     * Obfuscates an object by replacing all primitive values with their type names,
+     * while preserving the structure of nested objects and arrays.
+     * This is useful for logging data structures without exposing PII.
+     *
+     * @param value - The value to obfuscate
+     * @returns The obfuscated value with types instead of actual values
+     *
+     * @example
+     * obfuscateData({ email: 'user@email.com', age: 30 })
+     * // Returns: { email: 'string', age: 'number' }
+     *
+     * obfuscateData({ tags: ['premium', 'verified'] })
+     * // Returns: { tags: ['string', 'string'] }
+     */
+    var obfuscateData = function obfuscateData(value) {
+      // Preserve null and undefined
+      if (value === null || value === undefined) {
+        return value;
+      }
+      // Handle arrays - recursively obfuscate each element
+      if (Array.isArray(value)) {
+        return value.map(function (item) {
+          return obfuscateData(item);
+        });
+      }
+      // Handle objects - recursively obfuscate each property
+      if (isObject(value)) {
+        var obfuscated = {};
+        for (var key in value) {
+          if (value.hasOwnProperty(key)) {
+            obfuscated[key] = obfuscateData(value[key]);
+          }
+        }
+        return obfuscated;
+      }
+      // For primitives and other types, return the type as a string
+      return _typeof$1(value);
+    };
+    /**
+     * For verbose logging: returns raw data when isDevelopmentMode is true, else obfuscated data.
+     * Used when logging payloads so PII is not exposed in production.
+     *
+     * @param data - The value to log
+     * @param isDevelopmentMode - When true, returns data unchanged, when false or undefined, returns obfuscated data
+     * @returns Raw data when isDevelopmentMode is true, otherwise obfuscated structure
+     *
+     * @example
+     * obfuscateDevData({ email: 'user@email.com' }, true)
+     * // Returns: { email: 'user@email.com' }
+     *
+     * obfuscateDevData({ email: 'user@email.com' }, false)
+     * // Returns: { email: 'string' }
+     */
+    var obfuscateDevData = function obfuscateDevData(data, isDevelopmentMode) {
+      return isDevelopmentMode ? data : obfuscateData(data);
+    };
 
     var MessageType$1 = {
       SessionStart: 1,
@@ -1229,16 +1300,6 @@ var mParticle = (function () {
       PromotionActionType: PromotionActionType,
       Environment: Constants.Environment
     };
-
-    function _typeof$1(o) {
-      "@babel/helpers - typeof";
-
-      return _typeof$1 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) {
-        return typeof o;
-      } : function (o) {
-        return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o;
-      }, _typeof$1(o);
-    }
 
     var SDKProductActionType;
     (function (SDKProductActionType) {
@@ -2134,18 +2195,11 @@ var mParticle = (function () {
       /**
        *
        * @param {string} storageKey the local storage key string
-       * @param {Storage} Web API Storage object that is being used
-       * @param {IVaultOptions} options A Dictionary of IVaultOptions
+       * @param {Storage} storageObject Web API Storage object that is being used
        */
-      function BaseVault(storageKey, storageObject, options) {
+      function BaseVault(storageKey, storageObject) {
         this._storageKey = storageKey;
         this.storageObject = storageObject;
-        // Add a fake logger in case one is not provided or needed
-        this.logger = (options === null || options === void 0 ? void 0 : options.logger) || {
-          verbose: function verbose() {},
-          warning: function warning() {},
-          error: function error() {}
-        };
         this.contents = this.retrieve();
       }
       /**
@@ -2161,13 +2215,7 @@ var mParticle = (function () {
         } else {
           stringifiedItem = '';
         }
-        try {
-          this.storageObject.setItem(this._storageKey, stringifiedItem);
-          this.logger.verbose("Saving item to Storage: ".concat(stringifiedItem));
-        } catch (error) {
-          this.logger.error("Cannot Save items to Storage: ".concat(stringifiedItem));
-          this.logger.error(error);
-        }
+        this.storageObject.setItem(this._storageKey, stringifiedItem);
       };
       /**
        * Retrieve StorableItem from Storage
@@ -2179,7 +2227,6 @@ var mParticle = (function () {
         // https://go.mparticle.com/work/SQDSDKS-5022
         var item = this.storageObject.getItem(this._storageKey);
         this.contents = item ? JSON.parse(item) : null;
-        this.logger.verbose("Retrieving item from Storage: ".concat(item));
         return this.contents;
       };
       /**
@@ -2188,7 +2235,6 @@ var mParticle = (function () {
        * @method purge
        */
       BaseVault.prototype.purge = function () {
-        this.logger.verbose('Purging Storage');
         this.contents = null;
         this.storageObject.removeItem(this._storageKey);
       };
@@ -2196,23 +2242,23 @@ var mParticle = (function () {
     }();
     var LocalStorageVault = /** @class */function (_super) {
       __extends(LocalStorageVault, _super);
-      function LocalStorageVault(storageKey, options) {
-        return _super.call(this, storageKey, window.localStorage, options) || this;
+      function LocalStorageVault(storageKey) {
+        return _super.call(this, storageKey, window.localStorage) || this;
       }
       return LocalStorageVault;
     }(BaseVault);
     var SessionStorageVault = /** @class */function (_super) {
       __extends(SessionStorageVault, _super);
-      function SessionStorageVault(storageKey, options) {
-        return _super.call(this, storageKey, window.sessionStorage, options) || this;
+      function SessionStorageVault(storageKey) {
+        return _super.call(this, storageKey, window.sessionStorage) || this;
       }
       return SessionStorageVault;
     }(BaseVault);
     // DisabledVault is used when persistence is disabled by privacy flags.
     var DisabledVault = /** @class */function (_super) {
       __extends(DisabledVault, _super);
-      function DisabledVault(storageKey, options) {
-        var _this = _super.call(this, storageKey, window.localStorage, options) || this;
+      function DisabledVault(storageKey) {
+        var _this = _super.call(this, storageKey, window.localStorage) || this;
         _this.contents = null;
         _this.storageObject.removeItem(_this._storageKey);
         return _this;
@@ -2412,12 +2458,8 @@ var mParticle = (function () {
         // When noFunctional is true, prevent events/batches storage
         var noFunctional = (_b = mpInstance._CookieConsentManager) === null || _b === void 0 ? void 0 : _b.getNoFunctional();
         if (this.offlineStorageEnabled && !noFunctional) {
-          this.eventVault = new SessionStorageVault("".concat(mpInstance._Store.storageName, "-events"), {
-            logger: mpInstance.Logger
-          });
-          this.batchVault = new LocalStorageVault("".concat(mpInstance._Store.storageName, "-batches"), {
-            logger: mpInstance.Logger
-          });
+          this.eventVault = new SessionStorageVault("".concat(mpInstance._Store.storageName, "-events"));
+          this.batchVault = new LocalStorageVault("".concat(mpInstance._Store.storageName, "-batches"));
           // Load Events from Session Storage in case we have any in storage
           (_a = this.eventsQueuedForProcessing).push.apply(_a, this.eventVault.retrieve());
         }
@@ -2561,13 +2603,15 @@ var mParticle = (function () {
         if (isEmpty(event)) {
           return;
         }
-        var Logger = this.mpInstance.Logger;
         this.eventsQueuedForProcessing.push(event);
         if (this.offlineStorageEnabled && this.eventVault) {
           this.eventVault.store(this.eventsQueuedForProcessing);
         }
-        Logger.verbose("Queuing event: ".concat(JSON.stringify(event)));
-        Logger.verbose("Queued event count: ".concat(this.eventsQueuedForProcessing.length));
+        if (this.mpInstance.Logger.isVerbose()) {
+          var eventToLog = obfuscateDevData(event, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
+          this.mpInstance.Logger.verbose("Queuing event: ".concat(JSON.stringify(eventToLog)));
+          this.mpInstance.Logger.verbose("Queued event count: ".concat(this.eventsQueuedForProcessing.length));
+        }
         if (this.shouldTriggerImmediateUpload(event.EventDataType)) {
           this.prepareAndUpload(false, false);
         }
@@ -2683,7 +2727,7 @@ var mParticle = (function () {
                 }
                 batchesToUpload = this.batchesQueuedForProcessing;
                 this.batchesQueuedForProcessing = [];
-                return [4 /*yield*/, this.uploadBatches(this.mpInstance.Logger, batchesToUpload, useBeacon)];
+                return [4 /*yield*/, this.uploadBatches(batchesToUpload, useBeacon)];
               case 1:
                 batchesThatDidNotUpload = _d.sent();
                 // Batches that do not successfully upload are added back to the process queue
@@ -2712,11 +2756,10 @@ var mParticle = (function () {
           });
         });
       };
-      // TODO: Refactor to use logger as a class method
-      // https://go.mparticle.com/work/SQDSDKS-5167
-      BatchUploader.prototype.uploadBatches = function (logger, batches, useBeacon) {
+
+      BatchUploader.prototype.uploadBatches = function (batches, useBeacon) {
         return __awaiter(this, void 0, void 0, function () {
-          var uploads, i, fetchPayload, blob, response, e_1;
+          var uploads, uploadsToLog, i, fetchPayload, blob, response, e_1;
           return __generator(this, function (_a) {
             switch (_a.label) {
               case 0:
@@ -2726,8 +2769,11 @@ var mParticle = (function () {
                 if (isEmpty(uploads)) {
                   return [2 /*return*/, null];
                 }
-                logger.verbose("Uploading batches: ".concat(JSON.stringify(uploads)));
-                logger.verbose("Batch count: ".concat(uploads.length));
+                if (this.mpInstance.Logger.isVerbose()) {
+                  uploadsToLog = obfuscateDevData(uploads, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
+                  this.mpInstance.Logger.verbose("Uploading batches: ".concat(JSON.stringify(uploadsToLog)));
+                  this.mpInstance.Logger.verbose("Batch count: ".concat(uploads.length));
+                }
                 i = 0;
                 _a.label = 1;
               case 1:
@@ -2752,13 +2798,13 @@ var mParticle = (function () {
               case 3:
                 response = _a.sent();
                 if (response.status >= 200 && response.status < 300) {
-                  logger.verbose("Upload success for request ID: ".concat(uploads[i].source_request_id));
+                  this.mpInstance.Logger.verbose("Upload success for request ID: ".concat(uploads[i].source_request_id));
                 } else if (response.status >= 500 || response.status === 429) {
-                  logger.error("HTTP error status ".concat(response.status, " received"));
+                  this.mpInstance.Logger.error("HTTP error status ".concat(response.status, " received"));
                   // Server error, add back current batches and try again later
                   return [2 /*return*/, uploads.slice(i, uploads.length)];
                 } else if (response.status >= 401) {
-                  logger.error("HTTP error status ".concat(response.status, " while uploading - please verify your API key."));
+                  this.mpInstance.Logger.error("HTTP error status ".concat(response.status, " while uploading - please verify your API key."));
                   //if we're getting a 401, assume we'll keep getting a 401 and clear the uploads.
                   return [2 /*return*/, null];
                 } else {
@@ -2769,7 +2815,7 @@ var mParticle = (function () {
                 return [3 /*break*/, 5];
               case 4:
                 e_1 = _a.sent();
-                logger.error("Error sending event to mParticle servers. ".concat(e_1));
+                this.mpInstance.Logger.error("Error sending event to mParticle servers. ".concat(e_1));
                 return [2 /*return*/, uploads.slice(i, uploads.length)];
               case 5:
                 i++;
@@ -4964,7 +5010,7 @@ var mParticle = (function () {
       for (var baseUrlKey in defaultBaseUrls) {
         // Any custom endpoints passed to mpConfig will take priority over direct
         // mapping to the silo.  The most common use case is a customer provided CNAME.
-        if (baseUrlKey === 'configUrl') {
+        if (baseUrlKey === 'configUrl' || baseUrlKey === 'loggingUrl' || baseUrlKey === 'errorUrl') {
           directBaseUrls[baseUrlKey] = config[baseUrlKey] || defaultBaseUrls[baseUrlKey];
           continue;
         }
@@ -4979,10 +5025,11 @@ var mParticle = (function () {
     }
 
     var Logger = /** @class */function () {
-      function Logger(config) {
+      function Logger(config, reportingLogger) {
         var _a, _b;
         this.logLevel = (_a = config.logLevel) !== null && _a !== void 0 ? _a : LogLevelType.Warning;
         this.logger = (_b = config.logger) !== null && _b !== void 0 ? _b : new ConsoleLogger();
+        this.reportingLogger = reportingLogger;
       }
       Logger.prototype.verbose = function (msg) {
         if (this.logLevel === LogLevelType.None) return;
@@ -4996,11 +5043,18 @@ var mParticle = (function () {
           this.logger.warning(msg);
         }
       };
-      Logger.prototype.error = function (msg) {
+      Logger.prototype.error = function (msg, codeForReporting) {
+        var _a;
         if (this.logLevel === LogLevelType.None) return;
         if (this.logger.error) {
           this.logger.error(msg);
+          if (codeForReporting) {
+            (_a = this.reportingLogger) === null || _a === void 0 ? void 0 : _a.error(msg, codeForReporting);
+          }
         }
+      };
+      Logger.prototype.isVerbose = function () {
+        return this.logLevel === LogLevelType.Verbose;
       };
       Logger.prototype.setLogLevel = function (newLogLevel) {
         this.logLevel = newLogLevel;
@@ -9278,9 +9332,7 @@ var mParticle = (function () {
     var ErrorCodes = {
       UNKNOWN_ERROR: 'UNKNOWN_ERROR',
       UNHANDLED_EXCEPTION: 'UNHANDLED_EXCEPTION',
-      IDENTITY_REQUEST: 'IDENTITY_REQUEST',
-      IDENTITY_MISMATCH: 'IDENTITY_MISMATCH',
-      ROKT_KIT_ATTACHED: 'ROKT_KIT_ATTACHED'
+      IDENTITY_REQUEST: 'IDENTITY_REQUEST'
     };
     var WSDKErrorSeverity = {
       ERROR: 'ERROR',
@@ -9390,7 +9442,7 @@ var mParticle = (function () {
       this.sendIdentityRequest = function (identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid, knownIdentities) {
         var _a, _b, _c, _d;
         return __awaiter(this, void 0, void 0, function () {
-          var requestCount, invokeCallback, Logger, errorReporter, previousMPID, uploadUrl, uploader, fetchPayload, response, identityResponse, message, _e, responseBody, errorResponse, errorMessage, errorMessage, requestCount, err_1, requestCount, errorMessage, msg;
+          var requestCount, invokeCallback, Logger, previousMPID, uploadUrl, uploader, fetchPayload, response, identityResponse, message, _e, responseBody, errorResponse, errorMessage, responseText, isDevelopmentMode, responseToLog, errorMessage, requestCount, err_1, requestCount, errorMessage;
           return __generator(this, function (_f) {
             switch (_f.label) {
               case 0:
@@ -9400,7 +9452,7 @@ var mParticle = (function () {
                   mpInstance.captureTiming("".concat(requestCount, "-identityRequestStart"));
                 }
                 invokeCallback = mpInstance._Helpers.invokeCallback;
-                Logger = mpInstance.Logger, errorReporter = mpInstance._ErrorReportingDispatcher;
+                Logger = mpInstance.Logger;
                 Logger.verbose(Messages$1.InformationMessages.SendIdentityBegin);
                 if (!identityApiRequest) {
                   Logger.error(Messages$1.ErrorMessages.APIRequestEmpty);
@@ -9464,9 +9516,16 @@ var mParticle = (function () {
                     }).join(', ');
                     message += ' - ' + errorMessage;
                   }
-                } else {
-                  message = 'Received Identity Response from server: ';
-                  message += JSON.stringify(identityResponse.responseText);
+                } else if (Logger.isVerbose()) {
+                  responseText = identityResponse.responseText;
+                  isDevelopmentMode = mpInstance._Store.SDKConfig.isDevelopmentMode;
+                  responseToLog = responseText;
+                  if (!isDevelopmentMode && (responseText === null || responseText === void 0 ? void 0 : responseText.matched_identities)) {
+                    responseToLog = __assign(__assign({}, responseText), {
+                      matched_identities: obfuscateData(responseText.matched_identities)
+                    });
+                  }
+                  message = 'Received Identity Response from server: ' + JSON.stringify(responseToLog);
                 }
                 return [3 /*break*/, 8];
               case 7:
@@ -9484,7 +9543,9 @@ var mParticle = (function () {
               case 8:
                 mpInstance._Store.identityCallInFlight = false;
                 mpInstance._Store.identityCallFailed = false;
-                Logger.verbose(message);
+                if (message) {
+                  Logger.verbose(message);
+                }
                 if ((_b = mpInstance._RoktManager) === null || _b === void 0 ? void 0 : _b.isInitialized) {
                   requestCount = mpInstance._Store.identifyRequestCount;
                   mpInstance.captureTiming("".concat(requestCount, "-identityRequestEnd"));
@@ -9500,13 +9561,7 @@ var mParticle = (function () {
                   mpInstance.captureTiming("".concat(requestCount, "-identityRequestEnd"));
                 }
                 errorMessage = err_1.message || err_1.toString();
-                msg = 'Error sending identity request to servers' + ' - ' + errorMessage;
-                Logger.error(msg);
-                errorReporter === null || errorReporter === void 0 ? void 0 : errorReporter.report({
-                  message: msg,
-                  code: ErrorCodes.IDENTITY_REQUEST,
-                  severity: WSDKErrorSeverity.ERROR
-                });
+                Logger.error('Error sending identity request to servers' + ' - ' + errorMessage, ErrorCodes.IDENTITY_REQUEST);
                 (_d = mpInstance.processQueueOnIdentityFailure) === null || _d === void 0 ? void 0 : _d.call(mpInstance);
                 invokeCallback(callback, HTTPCodes$1.noHttpCoverage, errorMessage);
                 return [3 /*break*/, 10];
@@ -9873,12 +9928,10 @@ var mParticle = (function () {
        * @param {SDKLoggerApi} logger - The mParticle Logger instance
        * @param {IRoktOptions} options - Options for the RoktManager
        * @param {Function} captureTiming - Function to capture performance timing marks
-       * @param {IErrorReportingService} errorReporter - Dispatcher for error/warning reporting
-       * @param {ILoggingService} loggingService - Dispatcher for informational logging
        *
        * @throws Logs error to console if placementAttributesMapping parsing fails
        */
-      RoktManager.prototype.init = function (roktConfig, filteredUser, identityService, store, logger, options, captureTiming, errorReporter, loggingService) {
+      RoktManager.prototype.init = function (roktConfig, filteredUser, identityService, store, logger, options, captureTiming) {
         var _a, _b;
         var _c = roktConfig || {},
           userAttributeFilters = _c.userAttributeFilters,
@@ -9890,8 +9943,6 @@ var mParticle = (function () {
         this.identityService = identityService;
         this.store = store;
         this.logger = logger;
-        this.errorReporter = errorReporter;
-        this.loggingService = loggingService;
         this.captureTiming = captureTiming;
         (_b = this.captureTiming) === null || _b === void 0 ? void 0 : _b.call(this, PerformanceMarkType.JointSdkRoktKitInit);
         this.filters = {
@@ -9930,7 +9981,7 @@ var mParticle = (function () {
         configurable: true
       });
       RoktManager.prototype.attachKit = function (kit) {
-        var _a, _b, _c, _d, _e;
+        var _a, _b, _c, _d;
         this.kit = kit;
         if ((_a = kit.settings) === null || _a === void 0 ? void 0 : _a.accountId) {
           this.store.setRoktAccountId(kit.settings.accountId);
@@ -9938,15 +9989,11 @@ var mParticle = (function () {
         if (kit.integrationName) {
           (_b = this.store) === null || _b === void 0 ? void 0 : _b.setIntegrationName(kit.integrationName);
         }
-        (_c = this.loggingService) === null || _c === void 0 ? void 0 : _c.log({
-          message: 'RoktManager: Kit attached, Rokt is ready',
-          code: ErrorCodes.ROKT_KIT_ATTACHED
-        });
         this.processMessageQueue();
         try {
-          (_d = this.onReadyCallback) === null || _d === void 0 ? void 0 : _d.call(this);
+          (_c = this.onReadyCallback) === null || _c === void 0 ? void 0 : _c.call(this);
         } catch (e) {
-          (_e = this.logger) === null || _e === void 0 ? void 0 : _e.error('RoktManager: Error in onReadyCallback: ' + e);
+          (_d = this.logger) === null || _d === void 0 ? void 0 : _d.error('RoktManager: Error in onReadyCallback: ' + e);
         }
       };
       /**
@@ -9967,7 +10014,7 @@ var mParticle = (function () {
       RoktManager.prototype.selectPlacements = function (options) {
         var _a, _b, _c, _d, _e, _f, _g, _h, _j;
         return __awaiter(this, void 0, void 0, function () {
-          var attributes, sandboxValue, mappedAttributes, currentUserIdentities_1, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, msg, msg, error_1, finalUserIdentities, enrichedAttributes, hashedEmail, enrichedOptions, error_2;
+          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities_1, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, error_1, errorMessage, finalUserIdentities, enrichedAttributes, hashedEmail, enrichedOptions, error_2;
           var _this = this;
           return __generator(this, function (_k) {
             switch (_k.label) {
@@ -9983,9 +10030,12 @@ var mParticle = (function () {
                 attributes = options.attributes;
                 sandboxValue = (attributes === null || attributes === void 0 ? void 0 : attributes.sandbox) || null;
                 mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
-                (_c = this.logger) === null || _c === void 0 ? void 0 : _c.verbose("mParticle.Rokt selectPlacements called with attributes:\n".concat(JSON.stringify(attributes, null, 2)));
+                if ((_c = this.logger) === null || _c === void 0 ? void 0 : _c.isVerbose()) {
+                  attributesToLog = obfuscateDevData(attributes, (_e = (_d = this.store) === null || _d === void 0 ? void 0 : _d.SDKConfig) === null || _e === void 0 ? void 0 : _e.isDevelopmentMode);
+                  this.logger.verbose("mParticle.Rokt selectPlacements called with attributes:\n".concat(JSON.stringify(attributesToLog, null, 2)));
+                }
                 this.currentUser = this.identityService.getCurrentUser();
-                currentUserIdentities_1 = ((_e = (_d = this.currentUser) === null || _d === void 0 ? void 0 : _d.getUserIdentities()) === null || _e === void 0 ? void 0 : _e.userIdentities) || {};
+                currentUserIdentities_1 = ((_g = (_f = this.currentUser) === null || _f === void 0 ? void 0 : _f.getUserIdentities()) === null || _g === void 0 ? void 0 : _g.userIdentities) || {};
                 currentEmail = currentUserIdentities_1.email;
                 newEmail = mappedAttributes.email;
                 currentHashedEmail = void 0;
@@ -10001,24 +10051,12 @@ var mParticle = (function () {
                 if (emailChanged) {
                   newIdentities_1.email = newEmail;
                   if (newEmail) {
-                    msg = 'Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.';
-                    this.logger.warning(msg);
-                    (_f = this.errorReporter) === null || _f === void 0 ? void 0 : _f.report({
-                      message: msg,
-                      code: ErrorCodes.IDENTITY_MISMATCH,
-                      severity: WSDKErrorSeverity.WARNING
-                    });
+                    this.logger.warning("Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.");
                   }
                 }
                 if (hashedEmailChanged) {
                   newIdentities_1[this.mappedEmailShaIdentityType] = newHashedEmail;
-                  msg = 'emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.';
-                  this.logger.warning(msg);
-                  (_g = this.errorReporter) === null || _g === void 0 ? void 0 : _g.report({
-                    message: msg,
-                    code: ErrorCodes.IDENTITY_MISMATCH,
-                    severity: WSDKErrorSeverity.WARNING
-                  });
+                  this.logger.warning("emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.");
                 }
                 if (!!isEmpty(newIdentities_1)) return [3 /*break*/, 5];
                 _k.label = 2;
@@ -10036,7 +10074,8 @@ var mParticle = (function () {
                 return [3 /*break*/, 5];
               case 4:
                 error_1 = _k.sent();
-                this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error_1));
+                errorMessage = error_1 instanceof Error ? error_1.message : JSON.stringify(error_1);
+                this.logger.error('Failed to identify user with updated identities: ' + errorMessage);
                 return [3 /*break*/, 5];
               case 5:
                 // Refresh current user identities to ensure we have the latest values before building enrichedAttributes
@@ -10254,12 +10293,15 @@ var mParticle = (function () {
         // Clear the queue immediately to prevent re-processing
         this.messageQueue.clear();
         messagesToProcess.forEach(function (message) {
-          var _a, _b;
+          var _a, _b, _c, _d;
           if (!(message.methodName in _this) || !isFunction(_this[message.methodName])) {
             (_a = _this.logger) === null || _a === void 0 ? void 0 : _a.error("RoktManager: Method ".concat(message.methodName, " not found"));
             return;
           }
-          (_b = _this.logger) === null || _b === void 0 ? void 0 : _b.verbose("RoktManager: Processing queued message: ".concat(message.methodName, " with payload: ").concat(JSON.stringify(message.payload)));
+          if ((_b = _this.logger) === null || _b === void 0 ? void 0 : _b.isVerbose()) {
+            var payloadToLog = obfuscateDevData(message.payload, (_d = (_c = _this.store) === null || _c === void 0 ? void 0 : _c.SDKConfig) === null || _d === void 0 ? void 0 : _d.isDevelopmentMode);
+            _this.logger.verbose("RoktManager: Processing queued message: ".concat(message.methodName, " with payload: ").concat(JSON.stringify(payloadToLog)));
+          }
           // Capture resolve/reject functions before async processing
           var resolve = message.resolve;
           var reject = message.reject;
@@ -10398,46 +10440,136 @@ var mParticle = (function () {
       return CookieConsentManager;
     }();
 
-    var ErrorReportingDispatcher = /** @class */function () {
-      function ErrorReportingDispatcher() {
-        this.services = [];
-      }
-      ErrorReportingDispatcher.prototype.register = function (service) {
-        this.services.push(service);
-      };
-      ErrorReportingDispatcher.prototype.report = function (error) {
+    // Header key constants
+    var HEADER_ACCEPT = 'Accept';
+    var HEADER_CONTENT_TYPE = 'Content-Type';
+    var HEADER_ROKT_LAUNCHER_VERSION = 'rokt-launcher-version';
+    var HEADER_ROKT_LAUNCHER_INSTANCE_GUID = 'rokt-launcher-instance-guid';
+    var HEADER_ROKT_WSDK_VERSION = 'rokt-wsdk-version';
+    var ReportingLogger = /** @class */function () {
+      function ReportingLogger(config, sdkVersion, store, launcherInstanceGuid, rateLimiter) {
         var _this = this;
-        this.services.forEach(function (s) {
-          var _a;
-          try {
-            s.report(error);
-          } catch (e) {
-            (_a = _this.logger) === null || _a === void 0 ? void 0 : _a.error('Error in ErrorReportingService: ' + e);
-          }
-        });
+        this.sdkVersion = sdkVersion;
+        this.launcherInstanceGuid = launcherInstanceGuid;
+        this.reporter = 'mp-wsdk';
+        this.isFeatureFlagEnabled = function () {
+          return _this.isLoggingEnabled;
+        };
+        this.loggingUrl = "https://".concat(config.loggingUrl || Constants.DefaultBaseUrls.loggingUrl);
+        this.errorUrl = "https://".concat(config.errorUrl || Constants.DefaultBaseUrls.errorUrl);
+        this.isLoggingEnabled = config.isLoggingEnabled || false;
+        this.store = store !== null && store !== void 0 ? store : null;
+        this.isEnabled = this.isReportingEnabled();
+        this.rateLimiter = rateLimiter !== null && rateLimiter !== void 0 ? rateLimiter : new RateLimiter();
+      }
+      ReportingLogger.prototype.setStore = function (store) {
+        this.store = store;
       };
-      return ErrorReportingDispatcher;
+      ReportingLogger.prototype.info = function (msg, code) {
+        this.sendLog(WSDKErrorSeverity.INFO, msg, code);
+      };
+      ReportingLogger.prototype.error = function (msg, code, stackTrace) {
+        this.sendError(WSDKErrorSeverity.ERROR, msg, code, stackTrace);
+      };
+      ReportingLogger.prototype.warning = function (msg, code) {
+        this.sendError(WSDKErrorSeverity.WARNING, msg, code);
+      };
+      ReportingLogger.prototype.sendToServer = function (url, severity, msg, code, stackTrace) {
+        if (!this.canSendLog(severity)) return;
+        try {
+          var logRequest = this.buildLogRequest(severity, msg, code, stackTrace);
+          var uploader = new FetchUploader(url);
+          var payload = {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify(logRequest)
+          };
+          uploader.upload(payload)["catch"](function (error) {
+            console.error('ReportingLogger: Failed to send log', error);
+          });
+        } catch (error) {
+          console.error('ReportingLogger: Failed to send log', error);
+        }
+      };
+      ReportingLogger.prototype.sendLog = function (severity, msg, code, stackTrace) {
+        this.sendToServer(this.loggingUrl, severity, msg, code, stackTrace);
+      };
+      ReportingLogger.prototype.sendError = function (severity, msg, code, stackTrace) {
+        this.sendToServer(this.errorUrl, severity, msg, code, stackTrace);
+      };
+      ReportingLogger.prototype.buildLogRequest = function (severity, msg, code, stackTrace) {
+        var _a, _b;
+        return {
+          additionalInformation: {
+            message: msg,
+            version: this.getVersion()
+          },
+          severity: severity,
+          code: code !== null && code !== void 0 ? code : ErrorCodes.UNKNOWN_ERROR,
+          url: this.getUrl(),
+          deviceInfo: this.getUserAgent(),
+          stackTrace: stackTrace,
+          reporter: this.reporter,
+          // Integration will be set to integrationName once the kit connects via RoktManager.attachKit()
+          integration: (_b = (_a = this.store) === null || _a === void 0 ? void 0 : _a.getIntegrationName()) !== null && _b !== void 0 ? _b : 'mp-wsdk'
+        };
+      };
+      ReportingLogger.prototype.getVersion = function () {
+        var _a, _b, _c;
+        return (_c = (_b = (_a = this.store) === null || _a === void 0 ? void 0 : _a.getIntegrationName) === null || _b === void 0 ? void 0 : _b.call(_a)) !== null && _c !== void 0 ? _c : "mParticle_wsdkv_".concat(this.sdkVersion);
+      };
+      ReportingLogger.prototype.isReportingEnabled = function () {
+        return this.isDebugModeEnabled() || this.isRoktDomainPresent() && this.isFeatureFlagEnabled();
+      };
+      ReportingLogger.prototype.isRoktDomainPresent = function () {
+        return typeof window !== 'undefined' && Boolean(window['ROKT_DOMAIN']);
+      };
+      ReportingLogger.prototype.isDebugModeEnabled = function () {
+        var _a, _b, _c, _d;
+        return typeof window !== 'undefined' && ((_d = (_c = (_b = (_a = window.location) === null || _a === void 0 ? void 0 : _a.search) === null || _b === void 0 ? void 0 : _b.toLowerCase()) === null || _c === void 0 ? void 0 : _c.includes('mp_enable_logging=true')) !== null && _d !== void 0 ? _d : false);
+      };
+      ReportingLogger.prototype.canSendLog = function (severity) {
+        return this.isEnabled && !this.isRateLimited(severity);
+      };
+      ReportingLogger.prototype.isRateLimited = function (severity) {
+        return this.rateLimiter.incrementAndCheck(severity);
+      };
+      ReportingLogger.prototype.getUrl = function () {
+        var _a;
+        return typeof window !== 'undefined' ? (_a = window.location) === null || _a === void 0 ? void 0 : _a.href : undefined;
+      };
+      ReportingLogger.prototype.getUserAgent = function () {
+        var _a;
+        return typeof window !== 'undefined' ? (_a = window.navigator) === null || _a === void 0 ? void 0 : _a.userAgent : undefined;
+      };
+      ReportingLogger.prototype.getHeaders = function () {
+        var _a;
+        var _b, _c;
+        var headers = (_a = {}, _a[HEADER_ACCEPT] = 'text/plain;charset=UTF-8', _a[HEADER_CONTENT_TYPE] = 'application/json', _a[HEADER_ROKT_LAUNCHER_VERSION] = this.getVersion(), _a[HEADER_ROKT_WSDK_VERSION] = 'joint', _a);
+        if (this.launcherInstanceGuid) {
+          headers[HEADER_ROKT_LAUNCHER_INSTANCE_GUID] = this.launcherInstanceGuid;
+        }
+        var accountId = (_c = (_b = this.store) === null || _b === void 0 ? void 0 : _b.getRoktAccountId) === null || _c === void 0 ? void 0 : _c.call(_b);
+        if (accountId) {
+          headers['rokt-account-id'] = accountId;
+        }
+        return headers;
+      };
+      return ReportingLogger;
     }();
-
-    var LoggingDispatcher = /** @class */function () {
-      function LoggingDispatcher() {
-        this.services = [];
+    var RateLimiter = /** @class */function () {
+      function RateLimiter() {
+        this.rateLimits = new Map([[WSDKErrorSeverity.ERROR, 10], [WSDKErrorSeverity.WARNING, 10], [WSDKErrorSeverity.INFO, 10]]);
+        this.logCount = new Map();
       }
-      LoggingDispatcher.prototype.register = function (service) {
-        this.services.push(service);
+      RateLimiter.prototype.incrementAndCheck = function (severity) {
+        var count = this.logCount.get(severity) || 0;
+        var limit = this.rateLimits.get(severity) || 10;
+        var newCount = count + 1;
+        this.logCount.set(severity, newCount);
+        return newCount > limit;
       };
-      LoggingDispatcher.prototype.log = function (entry) {
-        var _this = this;
-        this.services.forEach(function (s) {
-          var _a;
-          try {
-            s.log(entry);
-          } catch (e) {
-            (_a = _this.logger) === null || _a === void 0 ? void 0 : _a.error('Error in LoggingService: ' + e);
-          }
-        });
-      };
-      return LoggingDispatcher;
+      return RateLimiter;
     }();
 
     var Messages = Constants.Messages,
@@ -10480,8 +10612,6 @@ var mParticle = (function () {
         integrationDelays: {},
         forwarderConstructors: []
       };
-      this._ErrorReportingDispatcher = new ErrorReportingDispatcher();
-      this._LoggingDispatcher = new LoggingDispatcher();
       this._RoktManager = new RoktManager();
       this._RoktManager.setOnReadyCallback(function () {
         self.processQueueOnIdentityFailure();
@@ -10579,16 +10709,14 @@ var mParticle = (function () {
           console.error('Cannot reset mParticle', error);
         }
       };
-      this._resetForTests = function (config, keepPersistence, instance) {
+      this._resetForTests = function (config, keepPersistence, instance, reportingLogger) {
         if (instance._Store) {
           delete instance._Store;
         }
-        instance._ErrorReportingDispatcher = new ErrorReportingDispatcher();
-        instance._LoggingDispatcher = new LoggingDispatcher();
-        instance.Logger = new Logger(config);
-        instance._ErrorReportingDispatcher.logger = instance.Logger;
-        instance._LoggingDispatcher.logger = instance.Logger;
+        instance.Logger = new Logger(config, reportingLogger);
         instance._Store = new Store(config, instance);
+        // Update ReportingLogger with the new Store reference to avoid stale data
+        reportingLogger === null || reportingLogger === void 0 ? void 0 : reportingLogger.setStore(instance._Store);
         instance._Store.isLocalStorageAvailable = instance._Persistence.determineLocalStorageAvailability(window.localStorage);
         instance._Events.stopTracking();
         if (!keepPersistence) {
@@ -11404,12 +11532,6 @@ var mParticle = (function () {
           };
         }
       };
-      this._registerErrorReportingService = function (service) {
-        self._ErrorReportingDispatcher.register(service);
-      };
-      this._registerLoggingService = function (service) {
-        self._LoggingDispatcher.register(service);
-      };
       var launcherInstanceGuidKey = Constants.Rokt.LauncherInstanceGuidKey;
       this.setLauncherInstanceGuid = function () {
         if (!window[launcherInstanceGuidKey] || typeof window[launcherInstanceGuidKey] !== 'string') {
@@ -11486,7 +11608,7 @@ var mParticle = (function () {
             domain: config === null || config === void 0 ? void 0 : config.domain
           };
           // https://go.mparticle.com/work/SQDSDKS-7339
-          mpInstance._RoktManager.init(roktConfig, roktFilteredUser, mpInstance.Identity, mpInstance._Store, mpInstance.Logger, roktOptions, mpInstance.captureTiming, mpInstance._ErrorReportingDispatcher, mpInstance._LoggingDispatcher);
+          mpInstance._RoktManager.init(roktConfig, roktFilteredUser, mpInstance.Identity, mpInstance._Store, mpInstance.Logger, roktOptions, mpInstance.captureTiming);
         }
         mpInstance._Forwarders.processForwarders(config, mpInstance._APIClient.prepareForwardingStats);
         mpInstance._Forwarders.processPixelConfigs(config);
@@ -11574,21 +11696,17 @@ var mParticle = (function () {
       // Identity expects mpInstance._Identity.idCache to always exist. DisabledVault
       // ensures no identity response data is written to localStorage when noFunctional is true
       if ((_a = mpInstance._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) {
-        return new DisabledVault("".concat(mpInstance._Store.storageName, "-id-cache"), {
-          logger: mpInstance.Logger
-        });
+        return new DisabledVault("".concat(mpInstance._Store.storageName, "-id-cache"));
       }
-      return new LocalStorageVault("".concat(mpInstance._Store.storageName, "-id-cache"), {
-        logger: mpInstance.Logger
-      });
+      return new LocalStorageVault("".concat(mpInstance._Store.storageName, "-id-cache"));
     }
     function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
       var _a;
-      mpInstance.Logger = new Logger(config);
-      mpInstance._ErrorReportingDispatcher.logger = mpInstance.Logger;
-      mpInstance._LoggingDispatcher.logger = mpInstance.Logger;
+      mpInstance._ReportingLogger = new ReportingLogger(config, Constants.sdkVersion, undefined, mpInstance.getLauncherInstanceGuid());
+      mpInstance.Logger = new Logger(config, mpInstance._ReportingLogger);
       mpInstance._Store = new Store(config, mpInstance, apiKey);
       window.mParticle.Store = mpInstance._Store;
+      mpInstance._ReportingLogger.setStore(mpInstance._Store);
       mpInstance.Logger.verbose(StartingInitialization);
       // Initialize CookieConsentManager with privacy flags from launcherOptions
       var _b = (_a = config === null || config === void 0 ? void 0 : config.launcherOptions) !== null && _a !== void 0 ? _a : {},
@@ -12077,7 +12195,7 @@ var mParticle = (function () {
       };
       this.sessionManager = {
         getSession: function getSession() {
-          return self.getInstance()._SessionManager.getSession();
+          return self.getInstance()._SessionManager.getSessionId();
         }
       };
       this.Consent = {
@@ -12124,12 +12242,6 @@ var mParticle = (function () {
       };
       this._setWrapperSDKInfo = function (name, version) {
         self.getInstance()._setWrapperSDKInfo(name, version);
-      };
-      this._registerErrorReportingService = function (service) {
-        self.getInstance()._registerErrorReportingService(service);
-      };
-      this._registerLoggingService = function (service) {
-        self.getInstance()._registerLoggingService(service);
       };
     }
     var mParticleManager = new mParticleInstanceManager();

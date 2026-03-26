@@ -396,6 +396,7 @@ export interface SDKLoggerApi {
     error(msg: string, code?: ErrorCodes): void;
     verbose(msg: string): void;
     warning(msg: string): void;
+    isVerbose(): boolean;
     setLogLevel(logLevel: LogLevelType): void;
 }
 

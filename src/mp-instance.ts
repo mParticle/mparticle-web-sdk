@@ -1221,7 +1221,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
      * @method setOptOut
      * @param {Boolean} isOptingOut boolean to opt out or not. When set to true, opt out of logging.
      */
-    this.setOptOut = function(isOptingOut) {
+    this.setOptOut = function(isOptingOut: boolean) {
         const queued = queueIfNotInitialized(function() {
             self.setOptOut(isOptingOut);
         }, self);
@@ -1637,14 +1637,10 @@ function createIdentityCache(mpInstance) {
     // Identity expects mpInstance._Identity.idCache to always exist. DisabledVault
     // ensures no identity response data is written to localStorage when noFunctional is true
     if (mpInstance._CookieConsentManager?.getNoFunctional()) {
-        return new DisabledVault(`${mpInstance._Store.storageName}-id-cache`, {
-            logger: mpInstance.Logger,
-        });
+        return new DisabledVault(`${mpInstance._Store.storageName}-id-cache`);
     }
     
-    return new LocalStorageVault(`${mpInstance._Store.storageName}-id-cache`, {
-        logger: mpInstance.Logger,
-    });
+    return new LocalStorageVault(`${mpInstance._Store.storageName}-id-cache`);
 }
 
 function runPreConfigFetchInitialization(mpInstance, apiKey, config) {

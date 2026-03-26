@@ -55,6 +55,13 @@ mParticle is a Customer Data Platform that collects, validates, and forwards eve
 - **No Unnecessary Features**: Don't add error handling for scenarios that can't happen
 - **Trust Internal Code**: Only validate at system boundaries (user input, external APIs)
 
+### Logging and PII Obfuscation
+
+**PII (Personally Identifiable Information)** is data that can identify a specific person, for example: email, name or phone number, and similar attributes. Logging raw payloads can expose PII in production.
+
+- Use `obfuscateDevData(data, isDevelopmentMode)` from `utils` to log payloads - shows raw data in development mode, obfuscates in production.
+- Use `obfuscateData(data)` from `utils` when you need to obfuscate a specific field.
+
 ### Testing Requirements
 
 - Run the full test suite before committing
@@ -538,6 +545,10 @@ Core modules receive `mpInstance` as a parameter, allowing them to access other 
 3. **Check Network**: Inspect Network tab for API calls
 4. **Inspect Storage**: Check Application tab for LocalStorage/Cookies
 5. **Use Source Maps**: Dev builds include source maps
+
+### Available Skills
+
+- **`/verify`**: Run lint, build, and Jest tests to validate your changes before committing. Use this after making code changes to ensure nothing is broken. See `.claude/skills/verify/skill.md`.
 
 ### Additional Resources
 
