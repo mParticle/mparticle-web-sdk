@@ -19,4 +19,14 @@ export default [
             strict: false,
         },
     },
+    {
+        input: 'src/GoogleAdWordsEventForwarder.js',
+        output: {
+            file: 'dist/GoogleAdWordsEventForwarder.esm.js',
+            format: 'esm',
+            exports: 'named',
+            name: 'mpAdWordsKit',
+            strict: false,
+        },
+    },
 ];

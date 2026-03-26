@@ -5,7 +5,9 @@
     "main": "dist/DoubleClick-Kit.common.js",
     "browser": "dist/DoubleClick-Kit.common.js",
     "files": [
-        "dist/DoubleClick-Kit.common.js"
+        "dist/DoubleClick-Kit.common.js",
+        "dist/DoubleClick-Kit.esm.js",
+        "dist/DoubleClick-Kit.iife.js"
     ],
     "scripts": {
         "testKarma": "node test/boilerplate/test-karma.js",
@@ -37,5 +39,6 @@
     },
     "dependencies": {
         "@mparticle/web-kit-wrapper": "^1.0.6"
-    }
+    },
+    "module": "dist/DoubleClick-Kit.esm.js"
 }

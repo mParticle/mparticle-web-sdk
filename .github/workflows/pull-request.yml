@@ -403,6 +403,20 @@ jobs:
             - test-integrations-require-js
         uses: mParticle/mparticle-workflows/.github/workflows/dependabot-save-pr-number.yml@main
 
+    android-bridge-tests:
+        name: 'Android Bridge Tests'
+        uses: ./.github/workflows/android-bridge-tests.yml
+
+    browserstack-test:
+        name: 'BrowserStack Test'
+        uses: ./.github/workflows/cross-browser-testing.yml
+        secrets: inherit
+
+    browserstack-beta-test:
+        name: 'BrowserStack Beta Browsers Test'
+        uses: ./.github/workflows/cross-browser-testing-beta.yml
+        secrets: inherit
+
     pr-notify:
         if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
         needs:

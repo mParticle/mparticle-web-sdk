@@ -6,7 +6,9 @@
     "main": "dist/BingAdsEventForwarder.common.js",
     "browser": "dist/BingAdsEventForwarder.common.js",
     "files": [
-        "dist/BingAdsEventForwarder.common.js"
+        "dist/BingAdsEventForwarder.common.js",
+        "dist/BingAdsEventForwarder.esm.js",
+        "dist/BingAdsEventForwarder.iife.js"
     ],
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-bingads",
     "scripts": {
@@ -18,7 +20,6 @@
         "test:debug": "npm run build && npm run build:test && DEBUG=true karma start test/karma.config.js",
         "watch": "ENVIRONMENT=production rollup --config rollup.config.js -w",
         "watch:tests": "ENVIRONMENT=production rollup --config rollup.test.config.js -w"
-        
     },
     "devDependencies": {
         "@semantic-release/changelog": "^5.0.1",
@@ -49,5 +50,6 @@
     "publishConfig": {
         "access": "public"
     },
-    "license": "Apache-2.0"
+    "license": "Apache-2.0",
+    "module": "dist/BingAdsEventForwarder.esm.js"
 }

@@ -1,56 +1,58 @@
 {
-  "name": "@mparticle/web-rokt-kit",
-  "version": "1.16.0",
-  "description": "mParticle integration kit for Rokt",
-  "main": "dist/Rokt-Kit.common.js",
-  "files": [
-    "dist/Rokt-Kit.common.js",
-    "dist/Rokt-Kit.iife.js"
-  ],
-  "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt",
-  "scripts": {
-    "build": "rollup --config rollup.config.js",
-    "build:test": "rollup --config rollup.test.config.js",
-    "lint": "eslint src/ test/src/",
-    "lint:fix": "eslint src/ test/src/ --fix",
-    "watch": "rollup --config rollup.config.js -w",
-    "watch:tests": "rollup --config rollup.test.config.js -w",
-    "test": "npm run build && npm run build:test && karma start test/karma.config.js",
-    "test:debug": "npm run build && npm run build:test && DEBUG=true karma start test/karma.config.js"
-  },
-  "publishConfig": {
-    "access": "public",
-    "provenance": true,
-    "registry": "https://registry.npmjs.org"
-  },
-  "devDependencies": {
-    "@rollup/plugin-json": "^6.1.0",
-    "@semantic-release/changelog": "^6.0.3",
-    "@semantic-release/exec": "^6.0.3",
-    "@semantic-release/git": "^10.0.1",
-    "@semantic-release/npm": "^13.1.2",
-    "semantic-release": "^24.2.0",
-    "mocha": "^5.2.0",
-    "chai": "^4.2.0",
-    "eslint": "^7.25.0",
-    "eslint-config-prettier": "8.3.0",
-    "eslint-plugin-prettier": "3.4.1",
-    "karma": "^5.1.0",
-    "karma-chai": "^0.1.0",
-    "karma-chrome-launcher": "^3.1.0",
-    "karma-firefox-launcher": "^2.1.0",
-    "karma-mocha": "^2.0.1",
-    "prettier": "^2.4.1",
-    "rollup": "^1.15.6",
-    "rollup-plugin-commonjs": "^10.0.0",
-    "rollup-plugin-node-resolve": "^5.0.3",
-    "rollup-plugin-replace": "^2.2.0",
-    "shelljs": "0.8.3",
-    "should": "13.2.3",
-    "watchify": "^3.11.0"
-  },
-  "dependencies": {
-    "@mparticle/web-sdk": "^2.56.0"
-  },
-  "license": "Apache-2.0"
+    "name": "@mparticle/web-rokt-kit",
+    "version": "1.16.0",
+    "description": "mParticle integration kit for Rokt",
+    "main": "dist/Rokt-Kit.common.js",
+    "files": [
+        "dist/Rokt-Kit.common.js",
+        "dist/Rokt-Kit.esm.js",
+        "dist/Rokt-Kit.iife.js"
+    ],
+    "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt",
+    "scripts": {
+        "build": "rollup --config rollup.config.js",
+        "build:test": "rollup --config rollup.test.config.js",
+        "lint": "eslint src/ test/src/",
+        "lint:fix": "eslint src/ test/src/ --fix",
+        "watch": "rollup --config rollup.config.js -w",
+        "watch:tests": "rollup --config rollup.test.config.js -w",
+        "test": "npm run build && npm run build:test && karma start test/karma.config.js",
+        "test:debug": "npm run build && npm run build:test && DEBUG=true karma start test/karma.config.js"
+    },
+    "publishConfig": {
+        "access": "public",
+        "provenance": true,
+        "registry": "https://registry.npmjs.org"
+    },
+    "devDependencies": {
+        "@rollup/plugin-json": "^6.1.0",
+        "@semantic-release/changelog": "^6.0.3",
+        "@semantic-release/exec": "^6.0.3",
+        "@semantic-release/git": "^10.0.1",
+        "@semantic-release/npm": "^13.1.2",
+        "semantic-release": "^24.2.0",
+        "mocha": "^5.2.0",
+        "chai": "^4.2.0",
+        "eslint": "^7.25.0",
+        "eslint-config-prettier": "8.3.0",
+        "eslint-plugin-prettier": "3.4.1",
+        "karma": "^5.1.0",
+        "karma-chai": "^0.1.0",
+        "karma-chrome-launcher": "^3.1.0",
+        "karma-firefox-launcher": "^2.1.0",
+        "karma-mocha": "^2.0.1",
+        "prettier": "^2.4.1",
+        "rollup": "^1.15.6",
+        "rollup-plugin-commonjs": "^10.0.0",
+        "rollup-plugin-node-resolve": "^5.0.3",
+        "rollup-plugin-replace": "^2.2.0",
+        "shelljs": "0.8.3",
+        "should": "13.2.3",
+        "watchify": "^3.11.0"
+    },
+    "dependencies": {
+        "@mparticle/web-sdk": "^2.56.0"
+    },
+    "license": "Apache-2.0",
+    "module": "dist/Rokt-Kit.esm.js"
 }

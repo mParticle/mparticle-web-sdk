@@ -21,4 +21,14 @@ export default [
         },
         plugins: [...production.plugins],
     },
+    {
+        input: production.input,
+        output: {
+            ...production.output,
+            format: 'esm',
+            file: 'dist/DoubleClick-Kit.esm.js',
+            name: 'mpDoubleClickKit',
+        },
+        plugins: [...production.plugins],
+    },
 ];

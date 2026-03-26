@@ -34,4 +34,20 @@ export default [
             commonjs(),
         ],
     },
+    {
+        input: 'src/IntercomEventForwarder.js',
+        output: {
+            file: 'dist/IntercomEventForwarder.esm.js',
+            format: 'esm',
+            exports: 'named',
+            name: 'mpIntercomKit',
+            strict: false,
+        },
+        plugins: [
+            resolve({
+                browser: true,
+            }),
+            commonjs(),
+        ],
+    },
 ];

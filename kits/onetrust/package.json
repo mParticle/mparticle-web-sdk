@@ -6,7 +6,9 @@
     "browser": "dist/OneTrustKit.common.js",
     "main": "dist/OneTrustKit.common.js",
     "files": [
-        "dist/OneTrustKit.common.js"
+        "dist/OneTrustKit.common.js",
+        "dist/OneTrustKit.esm.js",
+        "dist/OneTrustKit.iife.js"
     ],
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-onetrust",
     "scripts": {
@@ -33,5 +35,6 @@
         "isobject": "^4.0.0",
         "@mparticle/web-sdk": "^2.11.15"
     },
-    "license": "Apache-2.0"
+    "license": "Apache-2.0",
+    "module": "dist/OneTrustKit.esm.js"
 }

@@ -34,4 +34,20 @@ export default [
             commonjs(),
         ],
     },
+    {
+        input: 'src/DeviceMatchEventForwarder.js',
+        output: {
+            file: 'dist/DeviceMatchEventForwarder.esm.js',
+            format: 'esm',
+            exports: 'named',
+            name: 'mpDeviceMatchKit',
+            strict: false,
+        },
+        plugins: [
+            resolve({
+                browser: true,
+            }),
+            commonjs(),
+        ],
+    },
 ];

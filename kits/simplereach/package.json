@@ -6,7 +6,9 @@
     "browser": "dist/SimpleReach.common.js",
     "main": "dist/SimpleReach.common.js",
     "files": [
-        "dist/SimpleReach.common.js"
+        "dist/SimpleReach.common.js",
+        "dist/SimpleReach.esm.js",
+        "dist/SimpleReach.iife.js"
     ],
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-simplereach",
     "scripts": {
@@ -33,5 +35,6 @@
         "isobject": "^4.0.0",
         "@mparticle/web-sdk": "^2.11.1"
     },
-    "license": "Apache-2.0"
+    "license": "Apache-2.0",
+    "module": "dist/SimpleReach.esm.js"
 }

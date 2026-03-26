@@ -6,7 +6,9 @@
     "main": "dist/GoogleAnalytics4EventForwarderClientSide-Kit.common.js",
     "browser": "dist/GoogleAnalytics4EventForwarderClientSide-Kit.common.js",
     "files": [
-        "dist/GoogleAnalyticsEvent4ForwarderClientSide-Kit.common.js"
+        "dist/GoogleAnalytics4EventForwarderClientSide-Kit.common.js",
+        "dist/GoogleAnalytics4EventForwarderClientSide-Kit.esm.js",
+        "dist/GoogleAnalytics4EventForwarderClientSide-Kit.iife.js"
     ],
     "scripts": {
         "build": "ENVIRONMENT=production rollup --config rollup.config.js",
@@ -55,5 +57,6 @@
     "dependencies": {
         "@mparticle/web-sdk": "^2.58.0"
     },
-    "license": "Apache-2.0"
+    "license": "Apache-2.0",
+    "module": "dist/GoogleAnalytics4EventForwarderClientSide-Kit.esm.js"
 }

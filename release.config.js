@@ -8,11 +8,13 @@ module.exports = {
             {
                 preset: 'angular',
                 releaseRules: [
+                    { breaking: true, release: 'major' },
                     { type: 'feat', release: 'minor' },
                     { type: 'ci', release: 'patch' },
                     { type: 'fix', release: 'patch' },
                     { type: 'docs', release: 'patch' },
                     { type: 'test', release: 'patch' },
+                    { type: 'perf', release: 'patch' },
                     { type: 'refactor', release: 'patch' },
                     { type: 'style', release: 'patch' },
                     { type: 'build', release: 'patch' },
@@ -42,7 +44,7 @@ module.exports = {
         [
             '@semantic-release/exec',
             {
-                prepareCmd: 'sh ./scripts/release.sh ${nextRelease.version}',
+                prepareCmd: 'bash ./scripts/release.sh ${nextRelease.version}',
                 publishCmd: 'npm publish',
             },
         ],
@@ -62,10 +64,9 @@ module.exports = {
             '@semantic-release/git',
             {
                 assets: [
-                    'package.json',
-                    'package-lock.json',
                     'CHANGELOG.md',
-                    'kits/**/package.json',
+                    '**/package.json',
+                    '**/package-lock.json',
                 ],
                 message:
                     'chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}',

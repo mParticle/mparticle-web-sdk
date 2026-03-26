@@ -56,6 +56,21 @@ jobs:
             - name: Display Bundle Diff, but Fancy!
               run: git diff --unified=3 dist/mparticle.js | npx diff-so-fancy
 
+            - name: Build CJS for kit testing
+              run: npm run build:npm
+
+            - name: Build ESM
+              run: npm run build:esm
+
+            - name: Pack SDK tarball for kit tests
+              run: npm pack --pack-destination /tmp/sdk-pack/
+
+            - name: Upload SDK tarball
+              uses: actions/upload-artifact@v6
+              with:
+                  name: sdk-pack
+                  path: /tmp/sdk-pack/*.tgz
+
             - name: Archive npm failure logs
               uses: actions/upload-artifact@v6
               if: failure()
@@ -259,10 +274,17 @@ jobs:
             - name: Install Firefox Latest
               uses: browser-actions/setup-firefox@latest
 
-            - name: Install, build, and test kit
+            - name: Download SDK tarball
+              uses: actions/download-artifact@v6
+              with:
+                  name: sdk-pack
+                  path: /tmp/sdk-pack/
+
+            - name: Install, build, and test kit against local SDK
               run: |
                 cd ${{ matrix.kit.local_path }}
                 npm ci
+                npm install --no-save /tmp/sdk-pack/*.tgz
                 npm run build
                 npm test
 

@@ -34,4 +34,20 @@ export default [
             commonjs(),
         ],
     },
+    {
+        input: 'src/TwitterEventForwarder.js',
+        output: {
+            file: 'dist/TwitterEventForwarder.esm.js',
+            format: 'esm',
+            exports: 'named',
+            name: 'mpTwitterKit',
+            strict: false,
+        },
+        plugins: [
+            resolve({
+                browser: true,
+            }),
+            commonjs(),
+        ],
+    },
 ];

@@ -34,4 +34,20 @@ export default [
             commonjs(),
         ],
     },
+    {
+        input: 'src/oneTrustWrapper.js',
+        output: {
+            file: 'dist/OneTrustKit.esm.js',
+            format: 'esm',
+            exports: 'named',
+            name: 'mpOneTrustKit',
+            strict: false,
+        },
+        plugins: [
+            resolve({
+                browser: true,
+            }),
+            commonjs(),
+        ],
+    },
 ];

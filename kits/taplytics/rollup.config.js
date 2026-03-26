@@ -8,7 +8,7 @@ export default [
             file: 'dist/TaplyticsKit.iife.js',
             format: 'iife',
             exports: 'named',
-            name: 'mpTapylitcsKit',
+            name: 'mpTaplyticsKit',
             strict: false,
         },
         plugins: [
@@ -24,7 +24,23 @@ export default [
             file: 'dist/TaplyticsKit.common.js',
             format: 'cjs',
             exports: 'named',
-            name: 'mpTapylitcsKit',
+            name: 'mpTaplyticsKit',
+            strict: false,
+        },
+        plugins: [
+            resolve({
+                browser: true,
+            }),
+            commonjs(),
+        ],
+    },
+    {
+        input: 'src/TaplyticsKit.js',
+        output: {
+            file: 'dist/TaplyticsKit.esm.js',
+            format: 'esm',
+            exports: 'named',
+            name: 'mpTaplyticsKit',
             strict: false,
         },
         plugins: [

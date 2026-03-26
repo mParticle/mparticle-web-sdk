@@ -8,7 +8,8 @@
     "module": "dist/BrazeKit.esm.js",
     "files": [
         "dist/BrazeKit.common.js",
-        "dist/BrazeKit.esm.js"
+        "dist/BrazeKit.esm.js",
+        "dist/BrazeKit.iife.js"
     ],
     "repository": {
         "type": "git",

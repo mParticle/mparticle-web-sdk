@@ -34,4 +34,20 @@ export default [
             commonjs(),
         ],
     },
+    {
+        input: 'src/MixpanelEventForwarder.js',
+        output: {
+            file: 'dist/MixpanelEventForwarder.esm.js',
+            format: 'esm',
+            exports: 'named',
+            name: 'mpMixpanelKit',
+            strict: false,
+        },
+        plugins: [
+            resolve({
+                browser: true,
+            }),
+            commonjs(),
+        ],
+    },
 ];

@@ -6,7 +6,9 @@
     "main": "dist/IntercomEventForwarder.common.js",
     "browser": "dist/IntercomEventForwarder.common.js",
     "files": [
-        "dist/IntercomEventForwarder.common.js"
+        "dist/IntercomEventForwarder.common.js",
+        "dist/IntercomEventForwarder.esm.js",
+        "dist/IntercomEventForwarder.iife.js"
     ],
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-intercom",
     "scripts": {
@@ -33,5 +35,6 @@
         "isobject": "^4.0.0",
         "@mparticle/web-sdk": "^2.11.1"
     },
-    "license": "Apache-2.0"
+    "license": "Apache-2.0",
+    "module": "dist/IntercomEventForwarder.esm.js"
 }

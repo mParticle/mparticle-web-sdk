@@ -6,7 +6,9 @@
     "main": "dist/Inspectlet.common.js",
     "browser": "dist/Inspectlet.common.js",
     "files": [
-        "dist/Inspectlet.common.js"
+        "dist/Inspectlet.common.js",
+        "dist/Inspectlet.esm.js",
+        "dist/Inspectlet.iife.js"
     ],
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-inspectlet",
     "scripts": {
@@ -33,5 +35,6 @@
         "isobject": "^4.0.0",
         "@mparticle/web-sdk": "^2.11.1"
     },
-    "license": "Apache-2.0"
+    "license": "Apache-2.0",
+    "module": "dist/Inspectlet.esm.js"
 }
