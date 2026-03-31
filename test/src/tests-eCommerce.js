@@ -39,6 +39,35 @@ describe('eCommerce', function() {
         product.should.have.property('Quantity', 2);
     });
 
+    it('should calculate product amount based on price and quantity if product total amount is not provided', () => {
+        const product = mParticle.eCommerce.createProduct(
+            'iPhone',
+            '12345',
+            400,
+            2
+        );
+
+        product.should.have.property('TotalAmount', 800);
+    });
+
+    it('should create a product with custom roduct total amount provided', () => {
+        const product = mParticle.eCommerce.createProduct(
+            'iPhone',
+            '12345',
+            '400',
+            2,
+            'Plus',
+            'Phones',
+            'Apple',
+            1,
+            'my-coupon-code',
+            1000,
+            { customkey: 'customvalue' }
+        );
+
+        product.should.have.property('TotalAmount', 1000);
+    });
+
     it('should create transaction attributes', () => {
         const transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
             '12345',

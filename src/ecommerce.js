@@ -257,6 +257,7 @@ export default function Ecommerce(mpInstance) {
         brand,
         position,
         couponCode,
+        totalAmount,
         attributes
     ) {
         attributes = mpInstance._Helpers.sanitizeAttributes(attributes, name);
@@ -295,6 +296,19 @@ export default function Ecommerce(mpInstance) {
             quantity = mpInstance._Helpers.parseNumber(quantity);
         }
 
+        if (!mpInstance._Helpers.Validators.isStringOrNumber(totalAmount)) {
+            // check the total amount if it's an object to maintain legacy code compatibility
+            if (typeof totalAmount == 'object') {
+                attributes = mpInstance._Helpers.sanitizeAttributes(
+                    totalAmount,
+                    name
+                );
+            }
+            totalAmount = quantity * price;
+        } else {
+            totalAmount = mpInstance._Helpers.parseNumber(totalAmount);
+        }
+
         return {
             Name: name,
             Sku: sku,
@@ -305,7 +319,7 @@ export default function Ecommerce(mpInstance) {
             Category: category,
             Position: position,
             CouponCode: couponCode,
-            TotalAmount: quantity * price,
+            TotalAmount: totalAmount,
             Attributes: attributes,
         };
     };
