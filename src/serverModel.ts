@@ -302,7 +302,7 @@ export default function ServerModel(
                     //  events do not have names, but are denoted by their `event_type`
                     EventName:
                         event.name ||
-                        ((event.messageType as unknown) as string),
+                        String(event.messageType),
                     EventCategory: event.eventType,
                     EventAttributes: mpInstance._Helpers.sanitizeAttributes(
                         event.data,

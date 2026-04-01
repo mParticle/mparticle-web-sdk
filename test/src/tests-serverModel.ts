@@ -468,6 +468,68 @@ describe('ServerModel', () => {
             expect(mPStore.sessionStartDate).to.eql(null);
         });
 
+        describe('EventName coercion for lifecycle events with no name', () => {
+            it('should produce a string EventName for SessionStart', async () => {
+                await waitForCondition(hasIdentifyReturned);
+
+                const event: BaseEvent = {
+                    messageType: Types.MessageType.SessionStart,
+                    eventType: Types.EventType.Other,
+                };
+
+                const actualEventObject = mParticle
+                    .getInstance()
+                    ._ServerModel.createEventObject(event) as IUploadObject;
+
+                expect(typeof actualEventObject.EventName).to.equal('string');
+                expect(actualEventObject.EventName).to.equal('1');
+            });
+
+            it('should produce a string EventName for SessionEnd', async () => {
+                await waitForCondition(hasIdentifyReturned);
+
+                const event: BaseEvent = {
+                    messageType: Types.MessageType.SessionEnd,
+                    eventType: Types.EventType.Other,
+                };
+
+                const actualEventObject = mParticle
+                    .getInstance()
+                    ._ServerModel.createEventObject(event) as IUploadObject;
+
+                expect(typeof actualEventObject.EventName).to.equal('string');
+                expect(actualEventObject.EventName).to.equal('2');
+            });
+
+            it('should produce a string EventName for AppStateTransition', () => {
+                const event: BaseEvent = {
+                    messageType: Types.MessageType.AppStateTransition,
+                    eventType: Types.EventType.Other,
+                };
+
+                const actualEventObject = mParticle
+                    .getInstance()
+                    ._ServerModel.createEventObject(event) as IUploadObject;
+
+                expect(typeof actualEventObject.EventName).to.equal('string');
+                expect(actualEventObject.EventName).to.equal('10');
+            });
+
+            it('should use the event name when provided, not the messageType', () => {
+                const event: BaseEvent = {
+                    name: 'My Custom Event',
+                    messageType: Types.MessageType.PageEvent,
+                    eventType: Types.EventType.Navigation,
+                };
+
+                const actualEventObject = mParticle
+                    .getInstance()
+                    ._ServerModel.createEventObject(event) as IUploadObject;
+
+                expect(actualEventObject.EventName).to.equal('My Custom Event');
+            });
+        });
+
         it('should set necessary attributes if MessageType is AppStateTransition', () => {
             const event: BaseEvent = {
                 name: 'Test Event',
