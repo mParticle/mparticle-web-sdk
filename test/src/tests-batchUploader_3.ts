@@ -130,8 +130,8 @@ describe('batch uploader', () => {
             let pendingEvents = window.mParticle.getInstance()._APIClient.uploader.eventsQueuedForProcessing;
 
             pendingEvents.length.should.equal(3);
-            pendingEvents[0].EventName.should.equal(1);
-            pendingEvents[1].EventName.should.equal(10);
+            pendingEvents[0].EventName.should.equal('1');
+            pendingEvents[1].EventName.should.equal('10');
             pendingEvents[2].EventName.should.equal('Test Event');
 
             fetchMock.post(urls.events, 200);
