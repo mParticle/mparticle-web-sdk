@@ -469,9 +469,11 @@ describe('ServerModel', () => {
         });
 
         describe('EventName coercion for lifecycle events with no name', () => {
-            it('should produce a string EventName for SessionStart', async () => {
+            beforeEach(async () => {
                 await waitForCondition(hasIdentifyReturned);
+            });
 
+            it('should produce a string EventName for SessionStart', () => {
                 const event: BaseEvent = {
                     messageType: Types.MessageType.SessionStart,
                     eventType: Types.EventType.Other,
@@ -485,9 +487,7 @@ describe('ServerModel', () => {
                 expect(actualEventObject.EventName).to.equal('1');
             });
 
-            it('should produce a string EventName for SessionEnd', async () => {
-                await waitForCondition(hasIdentifyReturned);
-
+            it('should produce a string EventName for SessionEnd', () => {
                 const event: BaseEvent = {
                     messageType: Types.MessageType.SessionEnd,
                     eventType: Types.EventType.Other,
