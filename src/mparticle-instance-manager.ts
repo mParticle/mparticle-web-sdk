@@ -269,14 +269,6 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
                     tax
                 );
         },
-        logCheckout: function(step, options, attrs, customFlags) {
-            self.getInstance().eCommerce.logCheckout(
-                step,
-                options,
-                attrs,
-                customFlags
-            );
-        },
         logProductAction: function(
             productActionType,
             product,
@@ -292,21 +284,6 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
                 customFlags,
                 transactionAttributes,
                 eventOptions
-            );
-        },
-        logPurchase: function(
-            transactionAttributes,
-            product,
-            clearCart,
-            attrs,
-            customFlags
-        ) {
-            self.getInstance().eCommerce.logPurchase(
-                transactionAttributes,
-                product,
-                clearCart,
-                attrs,
-                customFlags
             );
         },
         logPromotion: function(
@@ -330,21 +307,6 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
                 attrs,
                 customFlags,
                 eventOptions
-            );
-        },
-        logRefund: function(
-            transactionAttributes,
-            product,
-            clearCart,
-            attrs,
-            customFlags
-        ) {
-            self.getInstance().eCommerce.logRefund(
-                transactionAttributes,
-                product,
-                clearCart,
-                attrs,
-                customFlags
             );
         },
         expandCommerceEvent: function(event) {

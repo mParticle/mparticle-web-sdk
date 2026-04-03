@@ -25,8 +25,6 @@ const Constants = {
             PromotionIdRequired: 'Promotion ID is required',
             BadAttribute: 'Attribute value cannot be object or array',
             BadKey: 'Key value cannot be object or array',
-            BadLogPurchase:
-                'Transaction attributes and a product are both required to log a purchase, https://docs.mparticle.com/?javascript#measuring-transactions',
             AudienceAPINotEnabled:
                 'Your workspace is not enabled to retrieve user audiences.',
         },
