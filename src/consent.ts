@@ -98,8 +98,6 @@ export interface IConsentRules {
     values: IConsentRulesValues[];
 }
 
-export interface IConsentState extends ConsentState {}
-
 // Represents Actual Interface for Consent Module
 // TODO: Should eventually consolidate with SDKConsentStateApi
 export interface IConsent {
@@ -323,7 +321,7 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
     this.createConsentState = function(
         this: ConsentState,
         consentState?: ConsentState
-    ): IConsentState {
+    ): ConsentState {
         let gdpr = {};
         let ccpa = {};
 
@@ -336,7 +334,7 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
                 consentState.getCCPAConsentState()
             );
 
-            return consentStateCopy as IConsentState;
+            return consentStateCopy as ConsentState;
         }
 
         function canonicalizeForDeduplication(purpose: string): string {
