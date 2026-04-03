@@ -60,7 +60,7 @@ describe('eCommerce', function() {
         transactionAttributes.should.have.property('Tax', 200);
     });
 
-    it('should log ecommerce event', async () => {
+    it('should log ecommerce purchase event', async () => {
         await waitForCondition(hasIdentifyReturned);
         const product = mParticle.eCommerce.createProduct(
                 'iPhone',
@@ -83,7 +83,13 @@ describe('eCommerce', function() {
                 200
             );
         
-        mParticle.eCommerce.logPurchase(transactionAttributes, product);
+        mParticle.eCommerce.logProductAction(
+            mParticle.ProductActionType.Purchase,
+            product,
+            {},
+            {},
+            transactionAttributes
+        );
         
         const purchaseEvent = findEventFromRequest(fetchMock.calls(), 'purchase');
 
@@ -127,7 +133,7 @@ describe('eCommerce', function() {
         fetchMock.calls().length.should.equal(0);
     });
 
-    it('should log badly formed ecommerce event', async () => {
+    it('should log badly formed ecommerce purchase event', async () => {
         const product = mParticle.eCommerce.createProduct(
                 'iPhone',
                 '12345',
@@ -150,7 +156,13 @@ describe('eCommerce', function() {
             );
 
         await waitForCondition(hasIdentifyReturned);
-        mParticle.eCommerce.logPurchase(transactionAttributes, product);
+        mParticle.eCommerce.logProductAction(
+            mParticle.ProductActionType.Purchase,
+            product,
+            {},
+            {},
+            transactionAttributes
+        );
 
         const purchaseEvent = findEventFromRequest(fetchMock.calls(), 'purchase');
         
@@ -179,64 +191,59 @@ describe('eCommerce', function() {
         purchaseEvent.data.product_action.products[0].custom_attributes.should.have.property('customkey', 'customvalue');
     });
 
-    it('should log identical events for logPurchase and logProductAction with product action type of `purchase`', async () => {
-        const product = mParticle.eCommerce.createProduct(
-                'iPhone',
-                '12345',
-                '400',
-                2,
-                'Plus',
-                'Phones',
-                'Apple',
-                1,
-                'my-coupon-code',
-                { customkey: 'customvalue' }
-            ),
-            transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
-                '12345',
-                'test-affiliation',
-                'coupon-code',
-                44334,
-                600,
-                200
-            );
-
+    it('should log ecommerce refund event', async () => {
         await waitForCondition(hasIdentifyReturned);
-        mParticle.eCommerce.logPurchase(transactionAttributes, product);
-        const purchaseEvent1 = findEventFromRequest(fetchMock.calls(), 'purchase');
-        
-        fetchMock.resetHistory();
-        
-        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Purchase, product, null, null, transactionAttributes)
-        const purchaseEvent2 = findEventFromRequest(fetchMock.calls(), 'purchase');
+        const product = mParticle.eCommerce.createProduct(
+            'iPhone',
+            '12345',
+            400,
+            2,
+            'Apple',
+            'Plus',
+            'Phones'
+        ),
+        transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+            '12345',
+            'test-affiliation',
+            'coupon-code',
+            44334,
+            600,
+            200
+        );
 
-        const { product_action: productAction1 } = purchaseEvent1.data;
-        const { product_action: productAction2 } = purchaseEvent2.data
+        mParticle.eCommerce.logProductAction(
+            mParticle.ProductActionType.Refund,
+            product,
+            {},
+            {},
+            transactionAttributes
+        );
 
-        productAction1.action.should.equal(productAction2.action);
-        productAction1.transaction_id.should.equal(productAction2.transaction_id);
-        productAction1.affiliation.should.equal(productAction2.affiliation);
-        productAction1.coupon_code.should.equal(productAction2.coupon_code);
-        productAction1.total_amount.should.equal(productAction2.total_amount);
-        productAction1.shipping_amount.should.equal(productAction2.shipping_amount);
-        productAction1.tax_amount.should.equal(productAction2.tax_amount);
-        productAction1.products.length.should.equal(productAction2.products.length);
+        const refundEvent = findEventFromRequest(fetchMock.calls(), 'refund');
 
-        productAction1.products[0].name.should.equal(productAction2.products[0].name);
-        productAction1.products[0].id.should.equal(productAction2.products[0].id);
-        productAction1.products[0].price.should.equal(productAction2.products[0].price);
-        productAction1.products[0].quantity.should.equal(productAction2.products[0].quantity);
-        productAction1.products[0].brand.should.equal(productAction2.products[0].brand);
-        productAction1.products[0].variant.should.equal(productAction2.products[0].variant);
-        productAction1.products[0].category.should.equal(productAction2.products[0].category);
-        productAction1.products[0].position.should.equal(productAction2.products[0].position);
-        
-        productAction1.products[0].coupon_code.should.equal(productAction2.products[0].coupon_code);
-        productAction1.products[0].total_product_amount.should.equal(productAction2.products[0].total_product_amount);
-        productAction1.products[0].custom_attributes.customkey.should.equal(productAction2.products[0].custom_attributes.customkey);
+        Should(refundEvent).be.ok();
+
+        refundEvent.data.should.have.property('product_action');
+
+        refundEvent.data.product_action.should.have.property('action', 'refund');
+        refundEvent.data.product_action.should.have.property('transaction_id', '12345');
+        refundEvent.data.product_action.should.have.property('affiliation', 'test-affiliation');
+        refundEvent.data.product_action.should.have.property('coupon_code', 'coupon-code');
+        refundEvent.data.product_action.should.have.property('total_amount', 44334);
+        refundEvent.data.product_action.should.have.property('shipping_amount', 600);
+        refundEvent.data.product_action.should.have.property('tax_amount', 200);
+        refundEvent.data.product_action.products.should.have.length(1);
+        refundEvent.data.product_action.products[0].should.have.property('id', '12345');
+        refundEvent.data.product_action.products[0].should.have.property('name', 'iPhone');
+        refundEvent.data.product_action.products[0].should.have.property('price', 400);
+        refundEvent.data.product_action.products[0].should.have.property('quantity', 2);
+        refundEvent.data.product_action.products[0].should.have.property('brand', 'Phones');
+        refundEvent.data.product_action.products[0].should.have.property('variant', 'Apple');
+        refundEvent.data.product_action.products[0].should.have.property('category', 'Plus');
+        refundEvent.data.product_action.products[0].should.have.property('total_product_amount', 800);
     });
 
-    it('logPurchase should support array of products', async () => {
+    it('logProductAction should support array of products for purchase', async () => {
         const product1 = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1),
             product2 = mParticle.eCommerce.createProduct('Android', 'SKU2', 1),
             transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
@@ -244,10 +251,13 @@ describe('eCommerce', function() {
             );
 
         await waitForCondition(hasIdentifyReturned);
-        mParticle.eCommerce.logPurchase(transactionAttributes, [
-            product1,
-            product2,
-        ]);
+        mParticle.eCommerce.logProductAction(
+            mParticle.ProductActionType.Purchase,
+            [product1, product2],
+            {},
+            {},
+            transactionAttributes
+        );
 
         const purchaseEvent = findEventFromRequest(fetchMock.calls(), 'purchase');
 
@@ -257,21 +267,21 @@ describe('eCommerce', function() {
         purchaseEvent.data.product_action.products[1].should.have.property('name', 'Android');
     });
 
-    it('logRefund should support array of products', async () => {
+    it('logProductAction should support array of products for refund', async () => {
         const product1 = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1),
             product2 = mParticle.eCommerce.createProduct('Android', 'SKU2', 1),
             transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
                 '12345'
             );
-
         await waitForCondition(hasIdentifyReturned);
-        mParticle.eCommerce.logRefund(transactionAttributes, [
-            product1,
-            product2,
-        ]);
-
+        mParticle.eCommerce.logProductAction(
+            mParticle.ProductActionType.Refund,
+            [product1, product2],
+            {},
+            {},
+            transactionAttributes
+        );
         const refundEvent = findEventFromRequest(fetchMock.calls(), 'refund');
-
         refundEvent.data.should.have.property('product_action');
         refundEvent.data.product_action.should.have.property('products').with.lengthOf(2);
         refundEvent.data.product_action.products[0].should.have.property('name', 'iPhone');
@@ -458,107 +468,6 @@ describe('eCommerce', function() {
         impressionEvent.data.product_impressions[1].products[0].should.have.property('id', '23456');
     });
 
-    it('should log ecommerce refund', async () => {
-        await waitForCondition(hasIdentifyReturned);
-        const product = mParticle.eCommerce.createProduct(
-            'iPhone',
-            '12345',
-            400,
-            2,
-            'Apple',
-            'Plus',
-            'Phones'
-        ),
-        transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
-            '12345',
-            'test-affiliation',
-            'coupon-code',
-            44334,
-            600,
-            200
-        );
-
-        mParticle.eCommerce.logRefund(transactionAttributes, product);
-
-
-        const refundEvent = findEventFromRequest(fetchMock.calls(), 'refund');
-
-        Should(refundEvent).be.ok();
-
-        refundEvent.data.should.have.property('product_action');
-
-        refundEvent.data.product_action.should.have.property('action', 'refund');
-        refundEvent.data.product_action.should.have.property('transaction_id', '12345');
-        refundEvent.data.product_action.should.have.property('affiliation', 'test-affiliation');
-        refundEvent.data.product_action.should.have.property('coupon_code', 'coupon-code');
-        refundEvent.data.product_action.should.have.property('total_amount', 44334);
-        refundEvent.data.product_action.should.have.property('shipping_amount', 600);
-        refundEvent.data.product_action.should.have.property('tax_amount', 200);
-        refundEvent.data.product_action.products.should.have.length(1);
-        refundEvent.data.product_action.products[0].should.have.property('id', '12345')
-        refundEvent.data.product_action.products[0].should.have.property('name', 'iPhone')
-        refundEvent.data.product_action.products[0].should.have.property('price', 400)
-        refundEvent.data.product_action.products[0].should.have.property('quantity', 2)
-        refundEvent.data.product_action.products[0].should.have.property('brand', 'Phones')
-        refundEvent.data.product_action.products[0].should.have.property('variant', 'Apple')
-        refundEvent.data.product_action.products[0].should.have.property('category', 'Plus')
-        refundEvent.data.product_action.products[0].should.have.property('total_product_amount', 800)
-    });
-
-    it('should log identical events for logRefund and logProductAction with a product action of `refund`', async () => {
-        await waitForCondition(hasIdentifyReturned);
-        const product = mParticle.eCommerce.createProduct(
-            'iPhone',
-            '12345',
-            '400',
-            2,
-            'Plus',
-            'Phones',
-            'Apple',
-            1,
-            'my-coupon-code',
-            { customkey: 'customvalue' }
-        ),
-        transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
-            '12345',
-            'test-affiliation',
-            'coupon-code',
-            44334,
-            600,
-            200
-        );
-
-        mParticle.eCommerce.logRefund(transactionAttributes, product);
-        
-        const refundEvent1 = findEventFromRequest(fetchMock.calls(), 'refund');
-
-        fetchMock.resetHistory();
-        
-        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Refund, product, null, null, transactionAttributes)
-
-        const refundEvent2 = findEventFromRequest(fetchMock.calls(), 'refund');
-
-        Should(refundEvent1).be.ok();
-        Should(refundEvent2).be.ok();
-
-        refundEvent1.data.product_action.action.should.equal(refundEvent2.data.product_action.action);
-        refundEvent1.data.product_action.transaction_id.should.equal(refundEvent2.data.product_action.transaction_id);
-        refundEvent1.data.product_action.affiliation.should.equal(refundEvent2.data.product_action.affiliation);
-        refundEvent1.data.product_action.coupon_code.should.equal(refundEvent2.data.product_action.coupon_code);
-        refundEvent1.data.product_action.total_amount.should.equal(refundEvent2.data.product_action.total_amount);
-        refundEvent1.data.product_action.shipping_amount.should.equal(refundEvent2.data.product_action.shipping_amount);
-        refundEvent1.data.product_action.tax_amount.should.equal(refundEvent2.data.product_action.tax_amount);
-        refundEvent1.data.product_action.products.length.should.equal(refundEvent2.data.product_action.products.length)
-
-        refundEvent1.data.product_action.products[0].id.should.equal(refundEvent2.data.product_action.products[0].id)
-        refundEvent1.data.product_action.products[0].price.should.equal(refundEvent2.data.product_action.products[0].price)
-        refundEvent1.data.product_action.products[0].quantity.should.equal(refundEvent2.data.product_action.products[0].quantity)
-        refundEvent1.data.product_action.products[0].brand.should.equal(refundEvent2.data.product_action.products[0].brand)
-        refundEvent1.data.product_action.products[0].variant.should.equal(refundEvent2.data.product_action.products[0].variant)
-        refundEvent1.data.product_action.products[0].category.should.equal(refundEvent2.data.product_action.products[0].category)
-        refundEvent1.data.product_action.products[0].position.should.equal(refundEvent2.data.product_action.products[0].position)
-    });
-
     it('should allow a product action to bypass server upload', async () => {
         await waitForCondition(hasIdentifyReturned);
         const product = mParticle.eCommerce.createProduct(
@@ -596,28 +505,6 @@ describe('eCommerce', function() {
         Should(event).not.be.ok();
     });
 
-    it('should log checkout via deprecated logCheckout method', async () => {
-        await waitForCondition(hasIdentifyReturned);
-        const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
-
-        mParticle.eCommerce.logCheckout(1, 'Visa');
-
-        const checkoutEvent = findEventFromRequest(fetchMock.calls(), 'checkout');
-
-        Should(checkoutEvent).be.ok();
-
-        bond.called.should.eql(true);
-        bond.getCalls()[0].args[0].should.eql(
-            'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead'
-        );
-
-        checkoutEvent.should.have.property('event_type', 'commerce_event');
-        checkoutEvent.data.should.have.property('product_action');
-
-        checkoutEvent.data.product_action.should.have.property('action', 'checkout');
-        checkoutEvent.data.product_action.should.have.property('checkout_step', 1);
-        checkoutEvent.data.product_action.should.have.property('checkout_options', 'Visa');
-    });
 
     it('should log checkout via mParticle.logProductAction method', async () => {
         await waitForCondition(hasIdentifyReturned);
@@ -756,20 +643,25 @@ describe('eCommerce', function() {
                 200
             );
 
-        mParticle.eCommerce.logPurchase(transactionAttributes, product);
+        mParticle.eCommerce.logProductAction(
+            mParticle.ProductActionType.Purchase,
+            product,
+            {},
+            {},
+            transactionAttributes
+        );
         const purchaseEvent = findEventFromRequest(fetchMock.calls(), 'purchase');
-
         purchaseEvent.data.product_action.products[0].should.not.have.property('position');
     });
 
-    it('expand product purchase commerce event', async () => {
+    // Purchase actions generate a plus-one "Total" summary event plus per-product "Item" events
+    it('expand commerce event with summary total (purchase action)', async () => {
         await waitForCondition(hasIdentifyReturned);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         window.mParticle.config.kitConfigs.push(config1);
-        
-        
+
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => {
             return (
@@ -805,11 +697,12 @@ describe('eCommerce', function() {
             10,
             8
         );
-        mParticle.eCommerce.logPurchase(
-            transactionAttributes,
+        mParticle.eCommerce.logProductAction(
+            mParticle.ProductActionType.Purchase,
             product,
-            false,
-            eventAttributes
+            eventAttributes,
+            {},
+            transactionAttributes
         );
         window.MockForwarder1.instance.receivedEvent.should.have.property(
             'ProductAction'
@@ -870,8 +763,9 @@ describe('eCommerce', function() {
             'foo-product-attribute-value'
         );
     });
-        
-    it('expand product refund commerce event', async () => {
+
+    // Refund actions also generate a plus-one "Total" summary event plus per-product "Item" events
+    it('expand commerce event with summary total (refund action)', async () => {
         await waitForCondition(hasIdentifyReturned);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -913,11 +807,13 @@ describe('eCommerce', function() {
             10,
             8
         );
-        mParticle.eCommerce.logRefund(
-            transactionAttributes,
+
+        mParticle.eCommerce.logProductAction(
+            mParticle.ProductActionType.Refund,
             product,
-            false,
-            eventAttributes
+            eventAttributes,
+            {},
+            transactionAttributes
         );
         window.MockForwarder1.instance.receivedEvent.should.have.property(
             'ProductAction'
@@ -932,23 +828,67 @@ describe('eCommerce', function() {
             'EventName',
             'eCommerce - refund - Total'
         );
-        const attributes = plusOneEvent.EventAttributes;
+        plusOneEvent.should.have.property(
+            'EventCategory',
+            mParticle.EventType.Transaction
+        );
+        let attributes = plusOneEvent.EventAttributes;
+        attributes.should.have.property('Transaction Id', 'foo-transaction-id');
+        attributes.should.have.property('Affiliation', 'foo-affiliation');
+        attributes.should.have.property('Coupon Code', 'foo-couponcode');
+        attributes.should.have.property('Total Amount', 400);
+        attributes.should.have.property('Shipping Amount', 10);
         attributes.should.have.property('Product Count', 1);
+        attributes.should.have.property('Tax Amount', 8);
+        attributes.should.have.property(
+            'foo-event-attribute-key',
+            'foo-event-attribute-value'
+        );
 
         const productEvent = expandedEvents[1];
         productEvent.should.have.property(
             'EventName',
             'eCommerce - refund - Item'
         );
+        productEvent.should.have.property(
+            'EventCategory',
+            mParticle.EventType.Transaction
+        );
+        attributes = productEvent.EventAttributes;
+        attributes.should.not.have.property('Affiliation');
+        attributes.should.not.have.property('Total Amount');
+        attributes.should.not.have.property('Shipping Amount');
+        attributes.should.not.have.property('Tax Amount');
+        attributes.should.have.property('foo-event-attribute-key');
+        attributes.should.have.property('Coupon Code', 'foo-productcouponcode');
+        attributes.should.have.property('Brand', 'foo-brand');
+        attributes.should.have.property('Category', 'foo-category');
+        attributes.should.have.property('Name', 'Foo name');
+        attributes.should.have.property('Id', 'Foo sku');
+        attributes.should.have.property('Item Price', 100.0);
+        attributes.should.have.property('Quantity', 4);
+        attributes.should.have.property('Position', 5);
+        attributes.should.have.property(
+            'foo-attribute-key',
+            'foo-product-attribute-value'
+        );
     });
 
-    it('expand non-plus-one-product commerce event', async () => {
+
+
+
+
+    // "Plus one" (aka "Total") events are summary events generated only for Purchase and Refund
+    // product actions. They include aggregate attributes like Product Count, Total Amount, etc.
+    // All other product action types (e.g. AddToCart, RemoveFromWishlist, Checkout) only
+    // generate per-product "Item" events without a summary "Total" event.
+    it('expand commerce event without summary total (non-purchase/refund action)', async () => {
         await waitForCondition(hasIdentifyReturned);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         window.mParticle.config.kitConfigs.push(config1);
-        
+
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => {
             return (
@@ -976,87 +916,13 @@ describe('eCommerce', function() {
         );
 
         mParticle.eCommerce.logProductAction(
-            mParticle.ProductActionType.RemoveFromWishlist,
+            mParticle.ProductActionType.Checkout,
             product,
             eventAttributes
         );
         window.MockForwarder1.instance.receivedEvent.should.have.property(
             'ProductAction'
         );
-        const expandedEvents = mParticle.eCommerce.expandCommerceEvent(
-            window.MockForwarder1.instance.receivedEvent
-        );
-        expandedEvents.should.be.instanceof(Array).and.have.lengthOf(1);
-
-        const productEvent = expandedEvents[0];
-        productEvent.should.have.property(
-            'EventName',
-            'eCommerce - remove_from_wishlist - Item'
-        );
-        productEvent.should.have.property(
-            'EventCategory',
-            mParticle.EventType.Transaction
-        );
-        const attributes = productEvent.EventAttributes;
-
-        attributes.should.have.property('Coupon Code', 'foo-productcouponcode');
-        attributes.should.have.property('Brand', 'foo-brand');
-        attributes.should.have.property('Category', 'foo-category');
-        attributes.should.have.property('Name', 'Foo name');
-        attributes.should.have.property('Id', 'Foo sku');
-        attributes.should.have.property('Item Price', 100.0);
-        attributes.should.have.property('Quantity', 4);
-        attributes.should.have.property('Position', 5);
-        attributes.should.have.property(
-            'foo-attribute-key',
-            'foo-product-attribute-value'
-        );
-    });
-
-    it('expand checkout commerce event', async () => {
-        await waitForCondition(hasIdentifyReturned);
-        const mockForwarder = new MockForwarder();
-        mockForwarder.register(window.mParticle.config);
-        const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
-        window.mParticle.config.kitConfigs.push(config1);
-
-        mParticle.init(apiKey, window.mParticle.config);
-        await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
-        });
-
-        const eventAttributes = {};
-        eventAttributes['foo-event-attribute-key'] =
-            'foo-event-attribute-value';
-        eventAttributes['Checkout Step'] = 'foo-step';
-        eventAttributes['Checkout Options'] = 'foo-options';
-
-        const productAttributes = {};
-        productAttributes['foo-attribute-key'] = 'foo-product-attribute-value';
-
-        const product = mParticle.eCommerce.createProduct(
-            'Foo name',
-            'Foo sku',
-            100.0,
-            4,
-            'foo-variant',
-            'foo-category',
-            'foo-brand',
-            5,
-            'foo-productcouponcode',
-            productAttributes
-        );
-
-        mParticle.eCommerce.Cart.add(product, true);
-
-        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Checkout, [product], eventAttributes);
-
-        window.MockForwarder1.instance.receivedEvent.should.have.property(
-            'ProductAction'
-        );
-
         const expandedEvents = mParticle.eCommerce.expandCommerceEvent(
             window.MockForwarder1.instance.receivedEvent
         );
@@ -1073,8 +939,6 @@ describe('eCommerce', function() {
         );
         const attributes = productEvent.EventAttributes;
 
-        attributes.should.have.property('Checkout Step', 'foo-step');
-        attributes.should.have.property('Checkout Options', 'foo-options');
         attributes.should.have.property('Coupon Code', 'foo-productcouponcode');
         attributes.should.have.property('Brand', 'foo-brand');
         attributes.should.have.property('Category', 'foo-category');
@@ -1089,13 +953,14 @@ describe('eCommerce', function() {
         );
     });
 
+
     it('expand promotion commerce event', async () => {
         await waitForCondition(hasIdentifyReturned);
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         window.mParticle.config.kitConfigs.push(config1);
-        
+
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => {
             return (
@@ -1160,7 +1025,7 @@ describe('eCommerce', function() {
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         window.mParticle.config.kitConfigs.push(config1);
-        
+
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => {
             return (
@@ -1236,13 +1101,6 @@ describe('eCommerce', function() {
         );
     });
 
-    it('should add customFlags to logCheckout events', async () => {
-        await waitForCondition(hasIdentifyReturned);
-        mParticle.eCommerce.logCheckout(1, {}, {}, { interactionEvent: true });
-
-        const checkoutEvent = findEventFromRequest(fetchMock.calls(), 'checkout');
-        checkoutEvent.data.custom_flags.interactionEvent.should.equal(true);
-    });
 
     it('should add customFlags to logProductAction events', async () => {
         await waitForCondition(hasIdentifyReturned);
@@ -1258,7 +1116,8 @@ describe('eCommerce', function() {
         unknownEvent.data.custom_flags.interactionEvent.should.equal(true);
     });
 
-    it('should add customFlags to logPurchase events', async () => {
+
+    it('should add customFlags to purchase events', async () => {
         await waitForCondition(hasIdentifyReturned);
         const product = mParticle.eCommerce.createProduct('iPhone', 'sku1', 499);
         const transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
@@ -1266,18 +1125,18 @@ describe('eCommerce', function() {
             'affil1',
             'couponCode1'
         );
-        mParticle.eCommerce.logPurchase(
-            transactionAttributes,
+        mParticle.eCommerce.logProductAction(
+            mParticle.ProductActionType.Purchase,
             product,
-            true,
             { shipping: 5 },
-            { interactionEvent: true }
+            { interactionEvent: true },
+            transactionAttributes
         );
 
         const purchaseEvent = findEventFromRequest(fetchMock.calls(), 'purchase');
-
         purchaseEvent.data.custom_flags.interactionEvent.should.equal(true);
     });
+
 
     it('should add customFlags to logPromotion events', async () => {
         await waitForCondition(hasIdentifyReturned);
@@ -1317,25 +1176,6 @@ describe('eCommerce', function() {
         impressionEvent.data.custom_flags.interactionEvent.should.equal(true);
     });
 
-    it('should add customFlags to logRefund events', async () => {
-        await waitForCondition(hasIdentifyReturned);
-        const product = mParticle.eCommerce.createProduct('iPhone', 'sku1', 499);
-        const transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
-            'id1',
-            'affil1',
-            'couponCode1'
-        );
-        mParticle.eCommerce.logRefund(
-            transactionAttributes,
-            product,
-            true,
-            { shipping: 5 },
-            { interactionEvent: true }
-        );
-        const refundEvent = findEventFromRequest(fetchMock.calls(), 'refund');
-
-        refundEvent.data.custom_flags.interactionEvent.should.equal(true);
-    });
     describe('Cart', function() {
         afterEach(function() {
             sinon.restore();

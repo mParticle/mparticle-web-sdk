@@ -141,12 +141,9 @@ describe('mParticle instance manager', () => {
             'createPromotion',
             'createImpression',
             'createTransactionAttributes',
-            'logCheckout',
             'logProductAction',
-            'logPurchase',
             'logPromotion',
             'logImpression',
-            'logRefund',
             'expandCommerceEvent',
         ]);
         expect(mParticle.Consent, 'Consent').to.have.keys([
@@ -419,7 +416,7 @@ describe('mParticle instance manager', () => {
 
             mParticle
                 .getInstance()
-                .eCommerce.logPurchase(ta, [product1, product2]);
+                .eCommerce.logProductAction(mParticle.ProductActionType.Purchase, [product1, product2], {}, {}, ta);
 
             let instance1Event, instance2Event, instance3Event;
 
@@ -437,7 +434,7 @@ describe('mParticle instance manager', () => {
 
             mParticle
                 .getInstance('instance2')
-                .eCommerce.logPurchase(ta, [product1, product2]);
+                .eCommerce.logProductAction(mParticle.ProductActionType.Purchase, [product1, product2], {}, {}, ta);
 
             await waitForCondition(() => {
                 instance2Event = returnEventForMPInstance(fetchMock.calls(), 'apiKey2', 'purchase');
@@ -450,7 +447,7 @@ describe('mParticle instance manager', () => {
 
             mParticle
                 .getInstance('instance3')
-                .eCommerce.logPurchase(ta, [product1, product2]);
+                .eCommerce.logProductAction(mParticle.ProductActionType.Purchase, [product1, product2], {}, {}, ta);
 
             await waitForCondition(() => {
                 instance3Event = returnEventForMPInstance(fetchMock.calls(), 'apiKey3', 'purchase');

@@ -27,17 +27,6 @@ export interface IEvents {
         eventType: valueof<typeof EventType>
     ): void;
     logAST(): void;
-    logCheckoutEvent(
-        step: number,
-
-        // User options specified during the checkout process
-        // e.g., FedEx, DHL, UPS for delivery options;
-        // Visa, MasterCard, AmEx for payment options.
-        option?: string,
-
-        attrs?: SDKEventAttrs,
-        customFlags?: SDKEventCustomFlags
-    ): void;
     logCommerceEvent(
         commerceEvent: SDKEvent,
         attrs?: SDKEventAttrs,
@@ -65,18 +54,6 @@ export interface IEvents {
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions
-    ): void;
-    logPurchaseEvent(
-        transactionAttributes: TransactionAttributes,
-        product: SDKProduct | SDKProduct[],
-        attrs?: SDKEventAttrs,
-        customFlags?: SDKEventCustomFlags
-    ): void;
-    logRefundEvent(
-        transactionAttributes: TransactionAttributes,
-        product: SDKProduct | SDKProduct[],
-        attrs?: SDKEventAttrs,
-        customFlags?: SDKEventCustomFlags
     ): void;
     startTracking(callback: Callback): void;
     stopTracking(): void;

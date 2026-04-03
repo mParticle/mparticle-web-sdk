@@ -64,12 +64,6 @@ export interface SDKCart {
 
 // Used for the public `eCommerce` namespace
 export interface SDKECommerceAPI extends IECommerceShared {
-    logCheckout(
-        step: number,
-        option?: string,
-        attrs?: SDKEventAttrs,
-        customFlags?: SDKEventCustomFlags
-    ): void;
     logImpression(
         impression: SDKProductImpression,
         attrs?: SDKEventAttrs,
@@ -98,27 +92,6 @@ export interface SDKECommerceAPI extends IECommerceShared {
      */
     Cart: SDKCart;
 
-    /*
-     * @deprecated
-     */
-    logPurchase(
-        transactionAttributes: TransactionAttributes,
-        product: SDKProduct | SDKProduct[],
-        clearCart?: boolean,
-        attrs?: SDKEventAttrs,
-        customFlags?: SDKEventCustomFlags
-    ): void;
-
-    /*
-     * @deprecated
-     */
-    logRefund(
-        transactionAttributes: TransactionAttributes,
-        product: SDKProduct | SDKProduct[],
-        clearCart?: boolean,
-        attrs?: SDKEventAttrs,
-        customFlags?: SDKEventCustomFlags
-    ): void;
 }
 
 interface ExtractedActionAttributes {

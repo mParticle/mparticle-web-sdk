@@ -103,19 +103,8 @@ describe('snippet', function() {
 
     it('mParticle object should proxy eCommerce methods', function(done) {
         mParticle.eCommerce.setCurrencyCode('usd');
-        mParticle.eCommerce.logCheckout(
-            1,
-            { optionFoo: 'optionBar' },
-            { attrFoo: 'attrBar' },
-            { customFoo: 'customBar' }
-        );
         mParticle.config.rq[0][0].should.equal('eCommerce.setCurrencyCode');
         mParticle.config.rq[0][1].should.equal('usd');
-        mParticle.config.rq[1][0].should.equal('eCommerce.logCheckout');
-        mParticle.config.rq[1][1].should.equal(1);
-        mParticle.config.rq[1][2].optionFoo.should.equal('optionBar');
-        mParticle.config.rq[1][3].attrFoo.should.equal('attrBar');
-        mParticle.config.rq[1][4].customFoo.should.equal('customBar');
 
         done();
     });

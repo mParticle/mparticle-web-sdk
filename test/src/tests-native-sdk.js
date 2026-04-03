@@ -726,7 +726,7 @@ describe('native-sdk methods', function() {
                 ).EventName.should.equal('test');
             });
 
-            it('should send an event with a product list when calling logPurchase', () => {
+            it('should send an event with a product list when calling logProductAction with Purchase', () => {
                 const product = mParticle.eCommerce.createProduct(
                     'product1',
                     'sku',
@@ -740,8 +740,6 @@ describe('native-sdk methods', function() {
                     1
                 );
 
-                mParticle.eCommerce.Cart.add([product, product2]);
-
                 const transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
                     'TAid1',
                     'aff1',
@@ -750,16 +748,15 @@ describe('native-sdk methods', function() {
                     10,
                     5
                 );
-                const clearCartBoolean = true;
                 const customAttributes = { value: 10 };
                 const customFlags = { foo: 'bar' };
                 mParticleAndroidV2Bridge.data = [];
-                mParticle.eCommerce.logPurchase(
-                    transactionAttributes,
+                mParticle.eCommerce.logProductAction(
+                    mParticle.ProductActionType.Purchase,
                     [product, product2],
-                    clearCartBoolean,
                     customAttributes,
-                    customFlags
+                    customFlags,
+                    transactionAttributes
                 );
 
                 JSON.parse(
@@ -1071,7 +1068,7 @@ describe('native-sdk methods', function() {
 
             });
 
-            it('should send an event with a product list when calling logPurchase', () => {
+            it('should send an event with a product list when calling logProductAction with Purchase', () => {
                 const product = mParticle.eCommerce.createProduct(
                     'product1',
                     'sku',
@@ -1084,7 +1081,6 @@ describe('native-sdk methods', function() {
                     10,
                     1
                 );
-                mParticle.eCommerce.logProductAction(mParticle.ProductActionType.AddToCart, [product, product2]);
 
                 const transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
                     'TAid1',
@@ -1094,16 +1090,15 @@ describe('native-sdk methods', function() {
                     10,
                     5
                 );
-                const clearCartBoolean = true;
                 const customAttributes = { value: 10 };
                 const customFlags = { foo: 'bar' };
                 mParticleIOSV2Bridge.data = [];
-                mParticle.eCommerce.logPurchase(
-                    transactionAttributes,
+                mParticle.eCommerce.logProductAction(
+                    mParticle.ProductActionType.Purchase,
                     [product, product2],
-                    clearCartBoolean,
                     customAttributes,
-                    customFlags
+                    customFlags,
+                    transactionAttributes
                 );
 
                 JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal(
