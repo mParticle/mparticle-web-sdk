@@ -338,8 +338,7 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
                 consentState.getCCPAConsentState()
             );
 
-            // TODO: Remove casting once `removeCCPAState` is removed;
-            return consentStateCopy as IConsentState;
+            return consentStateCopy;
         }
 
         function canonicalizeForDeduplication(purpose: string): string {
