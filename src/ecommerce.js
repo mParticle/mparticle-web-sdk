@@ -235,18 +235,6 @@ export default function Ecommerce(mpInstance) {
         }
     };
 
-    this.buildProductList = function(event, product) {
-        if (product) {
-            if (Array.isArray(product)) {
-                return product;
-            }
-
-            return [product];
-        }
-
-        return [];
-    };
-
     this.createProduct = function(
         name,
         sku,

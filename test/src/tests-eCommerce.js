@@ -1176,85 +1176,81 @@ describe('eCommerce', function() {
         impressionEvent.data.custom_flags.interactionEvent.should.equal(true);
     });
 
+    it('should be empty when transactionAttributes is empty', () => {
+        const mparticle = mParticle.getInstance()
+        const productAction = {}
+        mparticle._Ecommerce.convertTransactionAttributesToProductAction({}, productAction)
+        Object.keys(productAction).length.should.equal(0);
+    });
 
+    it('should sanitize certain ecommerce amounts from strings to 0', () => {
+        mParticle.getInstance()._Ecommerce.sanitizeAmount('$42', 'Price').should.equal(0);
+        mParticle.getInstance()._Ecommerce.sanitizeAmount('$100', 'TotalAmount').should.equal(0);
+        mParticle.getInstance()._Ecommerce.sanitizeAmount('first', 'Position').should.equal(0);
+        mParticle.getInstance()._Ecommerce.sanitizeAmount('two', 'Quantity').should.equal(0);
+        mParticle.getInstance()._Ecommerce.sanitizeAmount('string', 'Shipping').should.equal(0);
+        mParticle.getInstance()._Ecommerce.sanitizeAmount('$5.80', 'Tax').should.equal(0);
+    });
+
+    it('should convert transactionAttributes strings to numbers or zero', () => {
+        const mparticle = mParticle.getInstance()
+        const transactionAttributes = {
+            Id: "id",
+            Affiliation: "affiliation",
+            CouponCode: "couponCode",
+            Revenue: "revenue",
+            Shipping: "shipping",
+            Tax: "tax"
+        };
+
+        const productAction = {};
+        mparticle._Ecommerce.convertTransactionAttributesToProductAction(transactionAttributes, productAction)
+        productAction.TransactionId.should.equal("id")
+        productAction.Affiliation.should.equal("affiliation")
+        productAction.CouponCode.should.equal("couponCode")
+
+        // convert strings to 0 
+        productAction.TotalAmount.should.equal(0)
+        productAction.ShippingAmount.should.equal(0)
+        productAction.TaxAmount.should.equal(0)
+    });
+
+    it('should allow a user to pass in a source_message_id to a commerce event', async () => {
+        await waitForCondition(hasIdentifyReturned);
+            const product = mParticle.eCommerce.createProduct(
+            'iPhone',
+            '12345',
+            '400',
+            2,
+            'Plus',
+            'Phones',
+            'Apple',
+            1,
+            'my-coupon-code',
+            { customkey: 'customvalue' }
+        ),
+
+        transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+            '12345',
+            'test-affiliation',
+            'coupon-code',
+            44334,
+            600,
+            200
+        );
         
+        mParticle.eCommerce.logProductAction(
+            mParticle.ProductActionType.Purchase,
+            product,
+            null,
+            null,
+            transactionAttributes,
+            {
+                sourceMessageId: 'foo-bar'
+            }
+        );
 
-
-        it('should be empty when transactionAttributes is empty', () => {
-            const mparticle = mParticle.getInstance()
-            const productAction = {}
-            mparticle._Ecommerce.convertTransactionAttributesToProductAction({}, productAction)
-            Object.keys(productAction).length.should.equal(0);
-        });
-
-        it('should sanitize certain ecommerce amounts from strings to 0', () => {
-            mParticle.getInstance()._Ecommerce.sanitizeAmount('$42', 'Price').should.equal(0);
-            mParticle.getInstance()._Ecommerce.sanitizeAmount('$100', 'TotalAmount').should.equal(0);
-            mParticle.getInstance()._Ecommerce.sanitizeAmount('first', 'Position').should.equal(0);
-            mParticle.getInstance()._Ecommerce.sanitizeAmount('two', 'Quantity').should.equal(0);
-            mParticle.getInstance()._Ecommerce.sanitizeAmount('string', 'Shipping').should.equal(0);
-            mParticle.getInstance()._Ecommerce.sanitizeAmount('$5.80', 'Tax').should.equal(0);
-        });
-
-        it('should convert transactionAttributes strings to numbers or zero', () => {
-            const mparticle = mParticle.getInstance()
-            const transactionAttributes = {
-                Id: "id",
-                Affiliation: "affiliation",
-                CouponCode: "couponCode",
-                Revenue: "revenue",
-                Shipping: "shipping",
-                Tax: "tax"
-            };
-
-            const productAction = {};
-            mparticle._Ecommerce.convertTransactionAttributesToProductAction(transactionAttributes, productAction)
-            productAction.TransactionId.should.equal("id")
-            productAction.Affiliation.should.equal("affiliation")
-            productAction.CouponCode.should.equal("couponCode")
-
-            // convert strings to 0 
-            productAction.TotalAmount.should.equal(0)
-            productAction.ShippingAmount.should.equal(0)
-            productAction.TaxAmount.should.equal(0)
-        });
-
-        it('should allow a user to pass in a source_message_id to a commerce event', async () => {
-            await waitForCondition(hasIdentifyReturned);
-             const product = mParticle.eCommerce.createProduct(
-                'iPhone',
-                '12345',
-                '400',
-                2,
-                'Plus',
-                'Phones',
-                'Apple',
-                1,
-                'my-coupon-code',
-                { customkey: 'customvalue' }
-            ),
-
-            transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
-                '12345',
-                'test-affiliation',
-                'coupon-code',
-                44334,
-                600,
-                200
-            );
-            
-            mParticle.eCommerce.logProductAction(
-                mParticle.ProductActionType.Purchase,
-                product,
-                null,
-                null,
-                transactionAttributes,
-                {
-                    sourceMessageId: 'foo-bar'
-                }
-            );
-
-            const purchaseEvent1 = findEventFromRequest(fetchMock.calls(), 'purchase');
-            purchaseEvent1.data.source_message_id.should.equal('foo-bar');
+        const purchaseEvent1 = findEventFromRequest(fetchMock.calls(), 'purchase');
+        purchaseEvent1.data.source_message_id.should.equal('foo-bar');
     });
 });

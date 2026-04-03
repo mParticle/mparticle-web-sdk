@@ -58,14 +58,6 @@ describe('mParticle stubs', function() {
         mParticle.eCommerce.logPromotion();
         mParticle.eCommerce.setCurrencyCode();
 
-        var product1 = mParticle.eCommerce.createProduct(
-            'iphone',
-            'iphoneSKU',
-            999
-        );
-
-        checkProduct(products[0]);
-
         done();
     });
 
@@ -142,8 +134,6 @@ describe('mParticle stubs', function() {
         user.removeAllUserAttributes();
         (typeof user.getUserAttributesLists()).should.equal('object');
         (typeof user.getAllUserAttributes()).should.equal('object');
-        (typeof userCart).should.equal('object');
-        checkProduct(cartProducts[0]);
 
         user.setConsentState();
 

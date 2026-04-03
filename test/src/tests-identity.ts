@@ -2704,26 +2704,6 @@ describe('identity', function() {
     });
     });
 
-    it('should return an empty array when no cart products exist', async () => {
-        mParticle.init(apiKey, window.mParticle.config);
-        await waitForCondition(hasIdentifyReturned);
-        const user1 = {
-            userIdentities: {
-                customerid: 'customerId1',
-            },
-        };
-
-        fetchMockSuccess(urls.login, {
-            mpid: testMPID,
-            is_logged_in: true,
-        });
-
-        mParticle.Identity.login(user1);
-
-        await waitForCondition(hasIdentityCallInflightReturned);
-
-    });
-
     it('should make a request when copyUserAttributes is included on the identity request', async () => {
         mParticle.init(apiKey, window.mParticle.config);
 
