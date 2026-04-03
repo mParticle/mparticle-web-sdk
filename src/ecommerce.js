@@ -235,18 +235,6 @@ export default function Ecommerce(mpInstance) {
         }
     };
 
-    this.buildProductList = function(event, product) {
-        if (product) {
-            if (Array.isArray(product)) {
-                return product;
-            }
-
-            return [product];
-        }
-
-        return event.ShoppingCart.ProductList;
-    };
-
     this.createProduct = function(
         name,
         sku,
@@ -549,7 +537,6 @@ export default function Ecommerce(mpInstance) {
             baseEvent.EventName = 'eCommerce - ';
 
             baseEvent.CurrencyCode = mpInstance._Store.currencyCode;
-            baseEvent.ShoppingCart = [];
             baseEvent.CustomFlags = extend(baseEvent.CustomFlags, customFlags);
 
             return baseEvent;

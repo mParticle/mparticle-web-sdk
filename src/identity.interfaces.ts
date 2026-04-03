@@ -9,7 +9,6 @@ import {
     IUserAttributeChangeEvent,
     IUserIdentityChangeEvent,
     IMParticleUser,
-    mParticleUserCart,
     IIdentityResponse,
 } from './identity-user-interfaces';
 const { platform, sdkVendor, sdkVersion, HTTPCodes } = Constants;
@@ -205,9 +204,4 @@ export interface IIdentity {
         mpid: MPID,
         prevUserIdentities: UserIdentities
     ): void;
-
-    /**
-     * @deprecated
-     */
-    mParticleUserCart(): mParticleUserCart;
 }

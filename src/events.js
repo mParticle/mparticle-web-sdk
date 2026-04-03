@@ -250,11 +250,6 @@ export default function Events(mpInstance) {
         );
 
         if (mpInstance._Helpers.canLog()) {
-            if (mpInstance._Store.webviewBridgeEnabled) {
-                // Don't send shopping cart to parent sdks
-                commerceEvent.ShoppingCart = {};
-            }
-
             if (attrs) {
                 commerceEvent.EventAttributes = attrs;
             }

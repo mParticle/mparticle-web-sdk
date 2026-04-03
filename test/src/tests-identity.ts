@@ -2527,7 +2527,6 @@ describe('identity', function() {
         const product1 = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1),
             product2 = mParticle.eCommerce.createProduct('Android', 'SKU2', 1);
 
-        mParticle.eCommerce.Cart.add([product1, product2]);
 
         fetchMockSuccess(urls.login, {
             mpid: testMPID,
@@ -2703,31 +2702,6 @@ describe('identity', function() {
             .ok;
         expect(user3UserAttributeListsAfterAdding.list.length).to.equal(5);
     });
-    });
-
-    it('should return an empty array when no cart products exist', async () => {
-        mParticle.init(apiKey, window.mParticle.config);
-        await waitForCondition(hasIdentifyReturned);
-        const user1 = {
-            userIdentities: {
-                customerid: 'customerId1',
-            },
-        };
-
-        fetchMockSuccess(urls.login, {
-            mpid: testMPID,
-            is_logged_in: true,
-        });
-
-        mParticle.Identity.login(user1);
-
-        await waitForCondition(hasIdentityCallInflightReturned);
-
-        const products = mParticle.Identity.getCurrentUser()
-            .getCart()
-            .getCartProducts();
-
-        expect(products.length).to.not.be.ok;
     });
 
     it('should make a request when copyUserAttributes is included on the identity request', async () => {
@@ -4671,130 +4645,4 @@ describe('identity', function() {
         })
     });
 
-    describe('Deprecate Cart', function() {
-        afterEach(function() {
-            sinon.restore();
-        });
-
-        it("should deprecate the user's cart", async () => {
-            mParticle.init(apiKey, window.mParticle.config);
-            const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
-            await waitForCondition(hasIdentifyReturned);
-            mParticle
-                .getInstance()
-                .Identity.getCurrentUser()
-                .getCart();
-            mParticle.Identity.getCurrentUser().getCart();
-
-            bond.called.should.eql(true);
-            bond.callCount.should.equal(2);
-
-            bond.getCalls()[0].args[0].should.eql(
-                'Deprecated function Identity.getCurrentUser().getCart() will be removed in future releases'
-            );
-        });
-
-        it('should deprecate add', async () => {
-            mParticle.init(apiKey, window.mParticle.config);
-            const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
-
-            await waitForCondition(hasIdentifyReturned);
-
-            const product: SDKProduct = mParticle.eCommerce.createProduct(
-                'iPhone',
-                '12345',
-                400
-            );
-            mParticle
-                .getInstance()
-                .Identity.getCurrentUser()
-                .getCart()
-                .add(product);
-
-            mParticle.Identity.getCurrentUser()
-                .getCart()
-                .add(product);
-
-            bond.called.should.eql(true);
-            // deprecates on both .getCart, then .add
-            bond.callCount.should.equal(4);
-            bond.getCalls()[1].args[0].should.eql(
-                'Identity.getCurrentUser().getCart().add() has been deprecated. Please use the alternate method: eCommerce.logProductAction(). See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-            );
-        });
-
-        it('should deprecate remove', async () => {
-            mParticle.init(apiKey, window.mParticle.config);
-            const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
-
-            await waitForCondition(hasIdentifyReturned);
-
-            const product: SDKProduct = mParticle.eCommerce.createProduct(
-                'iPhone',
-                '12345',
-                400
-            );
-
-            mParticle
-                .getInstance()
-                .Identity.getCurrentUser()
-                .getCart()
-                .remove(product, true);
-            mParticle.Identity.getCurrentUser()
-                .getCart()
-                .remove(product, true);
-
-            bond.called.should.eql(true);
-            // deprecates on both .getCart, then .add
-            bond.callCount.should.equal(4);
-            bond.getCalls()[1].args[0].should.eql(
-                'Identity.getCurrentUser().getCart().remove() has been deprecated. Please use the alternate method: eCommerce.logProductAction(). See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-            );
-        });
-
-        it('should deprecate clear', async () => {
-            mParticle.init(apiKey, window.mParticle.config);
-            const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
-            await waitForCondition(hasIdentifyReturned);
-            mParticle
-                .getInstance()
-                .Identity.getCurrentUser()
-                .getCart()
-                .clear();
-            mParticle
-                .Identity.getCurrentUser()
-                .getCart()
-                .clear();
-
-            bond.called.should.eql(true);
-            // deprecates on both .getCart, then .add
-            bond.callCount.should.equal(4);
-            bond.getCalls()[1].args[0].should.eql(
-                'Identity.getCurrentUser().getCart().clear() has been deprecated. See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-            );
-        });
-        
-        it('should deprecate getCartProducts', async () => {
-            mParticle.init(apiKey, window.mParticle.config);
-            const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
-
-            await waitForCondition(hasIdentifyReturned);
-
-            mParticle
-                .getInstance()
-                .Identity.getCurrentUser()
-                .getCart()
-                .getCartProducts();
-            mParticle.Identity.getCurrentUser()
-                .getCart()
-                .getCartProducts();
-
-                    bond.called.should.eql(true);
-                    // deprecates on both .getCart, then .add
-                    bond.callCount.should.equal(4);
-                    bond.getCalls()[1].args[0].should.eql(
-                        'Identity.getCurrentUser().getCart().getCartProducts() has been deprecated. Please use the alternate method: eCommerce.logProductAction(). See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    );
-        });
-    });
 });

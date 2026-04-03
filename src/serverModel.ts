@@ -441,15 +441,6 @@ export default function ServerModel(
         if (event.EventDataType === MessageType.Commerce) {
             dto.cu = event.CurrencyCode;
 
-            // TODO: If Cart is deprecated, we should deprecate this too
-            if (event.ShoppingCart) {
-                dto.sc = {
-                    pl: convertProductListToV2DTO(
-                        event.ShoppingCart.ProductList
-                    ),
-                };
-            }
-
             if (event.ProductAction) {
                 dto.pd = {
                     an: event.ProductAction.ProductActionType,
