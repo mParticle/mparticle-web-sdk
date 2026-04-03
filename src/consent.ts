@@ -98,10 +98,7 @@ export interface IConsentRules {
     values: IConsentRulesValues[];
 }
 
-// TODO: Remove this if we can safely deprecate `removeCCPAState`
-export interface IConsentState extends ConsentState {
-    removeCCPAState: () => ConsentState;
-}
+export interface IConsentState extends ConsentState {}
 
 // Represents Actual Interface for Consent Module
 // TODO: Should eventually consolidate with SDKConsentStateApi
@@ -339,7 +336,6 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
                 consentState.getCCPAConsentState()
             );
 
-            // TODO: Remove casting once `removeCCPAState` is removed;
             return consentStateCopy as IConsentState;
         }
 
@@ -504,20 +500,6 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
             return this;
         }
 
-        // TODO: Can we remove this? It is deprecated.
-        function removeCCPAState(this: ConsentState) {
-            logDeprecatedMethodUsage(
-                {
-                    methodName: 'Consent.removeCCPAState',
-                    warningMessage: 'removeCCPAState is deprecated and will be removed in a future release; use removeCCPAConsentState instead',
-                },
-                mpInstance.Logger,
-                mpInstance._ErrorReportingDispatcher
-            );
-            // @ts-ignore
-            return removeCCPAConsentState();
-        }
-
         return {
             setGDPRConsentState,
             addGDPRConsentState,
@@ -525,7 +507,6 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
             getCCPAConsentState,
             getGDPRConsentState,
             removeGDPRConsentState,
-            removeCCPAState, // TODO: Can we remove? This is deprecated
             removeCCPAConsentState,
         };
     };
