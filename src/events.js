@@ -99,27 +99,6 @@ export default function Events(mpInstance) {
         self.logEvent({ messageType: Types.MessageType.AppStateTransition });
     };
 
-    this.logCheckoutEvent = function(step, option, attrs, customFlags) {
-        var event = mpInstance._Ecommerce.createCommerceEventObject(
-            customFlags
-        );
-
-        if (event) {
-            event.EventName += mpInstance._Ecommerce.getProductActionEventName(
-                Types.ProductActionType.Checkout
-            );
-            event.EventCategory = Types.CommerceEventType.ProductCheckout;
-            event.ProductAction = {
-                ProductActionType: Types.ProductActionType.Checkout,
-                CheckoutStep: step,
-                CheckoutOptions: option,
-                ProductList: [],
-            };
-
-            self.logCommerceEvent(event, attrs);
-        }
-    };
-
     this.logProductActionEvent = function(
         productActionType,
         product,
@@ -182,75 +161,6 @@ export default function Events(mpInstance) {
             }
 
             self.logCommerceEvent(event, customAttrs, options);
-        }
-    };
-
-    this.logPurchaseEvent = function(
-        transactionAttributes,
-        product,
-        attrs,
-        customFlags
-    ) {
-        var event = mpInstance._Ecommerce.createCommerceEventObject(
-            customFlags
-        );
-
-        if (event) {
-            event.EventName += mpInstance._Ecommerce.getProductActionEventName(
-                Types.ProductActionType.Purchase
-            );
-            event.EventCategory = Types.CommerceEventType.ProductPurchase;
-            event.ProductAction = {
-                ProductActionType: Types.ProductActionType.Purchase,
-            };
-            event.ProductAction.ProductList = mpInstance._Ecommerce.buildProductList(
-                event,
-                product
-            );
-
-            mpInstance._Ecommerce.convertTransactionAttributesToProductAction(
-                transactionAttributes,
-                event.ProductAction
-            );
-
-            self.logCommerceEvent(event, attrs);
-        }
-    };
-
-    this.logRefundEvent = function(
-        transactionAttributes,
-        product,
-        attrs,
-        customFlags
-    ) {
-        if (!transactionAttributes) {
-            mpInstance.Logger.error(Messages.ErrorMessages.TransactionRequired);
-            return;
-        }
-
-        var event = mpInstance._Ecommerce.createCommerceEventObject(
-            customFlags
-        );
-
-        if (event) {
-            event.EventName += mpInstance._Ecommerce.getProductActionEventName(
-                Types.ProductActionType.Refund
-            );
-            event.EventCategory = Types.CommerceEventType.ProductRefund;
-            event.ProductAction = {
-                ProductActionType: Types.ProductActionType.Refund,
-            };
-            event.ProductAction.ProductList = mpInstance._Ecommerce.buildProductList(
-                event,
-                product
-            );
-
-            mpInstance._Ecommerce.convertTransactionAttributesToProductAction(
-                transactionAttributes,
-                event.ProductAction
-            );
-
-            self.logCommerceEvent(event, attrs);
         }
     };
 

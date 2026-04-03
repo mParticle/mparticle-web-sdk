@@ -53,12 +53,9 @@ describe('mParticle stubs', function() {
         transactionAttributes.Shipping.should.equal('shipping');
         transactionAttributes.Tax.should.equal(0);
 
-        mParticle.eCommerce.logCheckout();
         mParticle.eCommerce.logImpression();
         mParticle.eCommerce.logProductAction();
         mParticle.eCommerce.logPromotion();
-        mParticle.eCommerce.logPurchase();
-        mParticle.eCommerce.logRefund();
         mParticle.eCommerce.setCurrencyCode();
 
         var product1 = mParticle.eCommerce.createProduct(

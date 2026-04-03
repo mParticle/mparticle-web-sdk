@@ -43,7 +43,7 @@
         'startTrackingLocation',
         'stopTrackingLocation',
     ];
-    var ecommerceMethods = ['setCurrencyCode', 'logCheckout'];
+    var ecommerceMethods = ['setCurrencyCode'];
     var identityMethods = ['identify', 'login', 'logout', 'modify'];
     var roktMethods = [
         'selectPlacements',

@@ -278,39 +278,11 @@ describe('core SDK', function() {
         product.Attributes.should.not.have.property('invalid');
         product.Attributes.should.have.property('valid');
 
-        fetchMock.resetHistory();
-        mParticle.eCommerce.logCheckout(1, 'visa', attrs);
-        const checkoutEvent = findEventFromRequest(fetchMock.calls(), 'checkout');
-
-        checkoutEvent.data.custom_attributes.should.not.have.property('invalid');
-        checkoutEvent.data.custom_attributes.should.have.property('valid');
-
         mParticle.eCommerce.logProductAction(mParticle.ProductActionType.AddToCart, product, attrs);
         const addToCartEvent = findEventFromRequest(fetchMock.calls(), 'add_to_cart');
 
         addToCartEvent.data.custom_attributes.should.not.have.property('invalid');
         addToCartEvent.data.custom_attributes.should.have.property('valid');
-
-        const transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
-            '12345',
-            'test-affiliation',
-            'coupon-code',
-            44334,
-            600,
-            200
-        );
-
-        fetchMock.resetHistory();
-
-        mParticle.eCommerce.logPurchase(
-            transactionAttributes,
-            product,
-            false,
-            attrs
-        );
-        const purchaseEvent = findEventFromRequest(fetchMock.calls(), 'purchase');
-        purchaseEvent.data.custom_attributes.should.not.have.property('invalid');
-        purchaseEvent.data.custom_attributes.should.have.property('valid');
 
         const promotion = mParticle.eCommerce.createPromotion(
             'id',
@@ -326,18 +298,6 @@ describe('core SDK', function() {
         promotionViewEvent.data.custom_attributes.should.not.have.property('invalid');
         promotionViewEvent.data.custom_attributes.should.have.property('valid');
 
-        fetchMock.resetHistory();
-
-        mParticle.eCommerce.logRefund(
-            transactionAttributes,
-            product,
-            false,
-            attrs
-        );
-        const refundEvent = findEventFromRequest(fetchMock.calls(), 'refund');
-
-        refundEvent.data.custom_attributes.should.not.have.property('invalid');
-        refundEvent.data.custom_attributes.should.have.property('valid');
     });
 
     it('should not generate a new device ID if a deviceId exists in localStorage', async () => {
