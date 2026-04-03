@@ -334,7 +334,7 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
                 consentState.getCCPAConsentState()
             );
 
-            return consentStateCopy as ConsentState;
+            return consentStateCopy;
         }
 
         function canonicalizeForDeduplication(purpose: string): string {
