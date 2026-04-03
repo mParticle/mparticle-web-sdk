@@ -726,6 +726,46 @@ describe('native-sdk methods', function() {
                 ).EventName.should.equal('test');
             });
 
+            it('should send an event with a product list when calling logProductAction with Purchase', () => {
+                const product = mParticle.eCommerce.createProduct(
+                    'product1',
+                    'sku',
+                    10,
+                    1
+                );
+                const product2 = mParticle.eCommerce.createProduct(
+                    'product2',
+                    'sku',
+                    10,
+                    1
+                );
+
+                const transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+                    'TAid1',
+                    'aff1',
+                    'coupon',
+                    1798,
+                    10,
+                    5
+                );
+                const customAttributes = { value: 10 };
+                const customFlags = { foo: 'bar' };
+                mParticleAndroidV2Bridge.data = [];
+                mParticle.eCommerce.logProductAction(
+                    mParticle.ProductActionType.Purchase,
+                    [product, product2],
+                    customAttributes,
+                    customFlags,
+                    transactionAttributes
+                );
+
+                JSON.parse(
+                    mParticleAndroidV2Bridge.event
+                ).ProductAction.ProductList[0].Name.should.equal('product1');
+                JSON.parse(
+                    mParticleAndroidV2Bridge.event
+                ).ProductAction.ProductList[1].Name.should.equal('product2');
+            });
 
             it('should invoke upload on native SDK', () => {
                 mParticle.upload();
@@ -1028,6 +1068,56 @@ describe('native-sdk methods', function() {
 
             });
 
+            it('should send an event with a product list when calling logProductAction with Purchase', () => {
+                const product = mParticle.eCommerce.createProduct(
+                    'product1',
+                    'sku',
+                    10,
+                    1
+                );
+                const product2 = mParticle.eCommerce.createProduct(
+                    'product2',
+                    'sku',
+                    10,
+                    1
+                );
+
+                const transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+                    'TAid1',
+                    'aff1',
+                    'coupon',
+                    1798,
+                    10,
+                    5
+                );
+                const customAttributes = { value: 10 };
+                const customFlags = { foo: 'bar' };
+                mParticleIOSV2Bridge.data = [];
+                mParticle.eCommerce.logProductAction(
+                    mParticle.ProductActionType.Purchase,
+                    [product, product2],
+                    customAttributes,
+                    customFlags,
+                    transactionAttributes
+                );
+
+                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal(
+                    'logEvent'
+                );
+                JSON.parse(
+                    mParticleIOSV2Bridge.data[0]
+                ).value.ProductAction.ProductList.length.should.equal(2);
+                JSON.parse(
+                    mParticleIOSV2Bridge.data[0]
+                ).value.ProductAction.ProductList[0].Name.should.equal(
+                    'product1'
+                );
+                JSON.parse(
+                    mParticleIOSV2Bridge.data[0]
+                ).value.ProductAction.ProductList[1].Name.should.equal(
+                    'product2'
+                );
+            });
 
             it('should invoke upload on iOS SDK', () => {
                 mParticle.upload();
