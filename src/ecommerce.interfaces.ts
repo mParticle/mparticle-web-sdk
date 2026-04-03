@@ -56,11 +56,6 @@ interface IECommerceShared {
     expandCommerceEvent(event: CommerceEvent): SDKEvent[] | null;
 }
 
-export interface SDKCart {
-    add(product: SDKProduct | SDKProduct[], logEvent?: boolean): void;
-    remove(product: SDKProduct | SDKProduct[], logEvent?: boolean): void;
-    clear(): void;
-}
 
 // Used for the public `eCommerce` namespace
 export interface SDKECommerceAPI extends IECommerceShared {
@@ -90,8 +85,6 @@ export interface SDKECommerceAPI extends IECommerceShared {
     /*
      * @deprecated
      */
-    Cart: SDKCart;
-
 }
 
 interface ExtractedActionAttributes {

@@ -135,7 +135,6 @@ describe('mParticle instance manager', () => {
             'tooManyRequests',
         ]);
         expect(mParticle.eCommerce, 'eCommerce').to.have.keys([
-            'Cart',
             'setCurrencyCode',
             'createProduct',
             'createPromotion',

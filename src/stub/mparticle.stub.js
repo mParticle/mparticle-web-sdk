@@ -37,7 +37,6 @@ let mParticle = {
         logProductAction: voidFunction,
         logPromotion: voidFunction,
         setCurrencyCode: voidFunction,
-        Cart: new Cart(),
     },
     Consent: {
         createConsentState: createConsentState,
@@ -83,7 +82,6 @@ function returnUser() {
         removeAllUserAttributes: voidFunction,
         getUserAttributesLists: returnObject,
         getAllUserAttributes: returnObject,
-        getCart: Cart,
         getConsentState: createConsentState,
         setConsentState: voidFunction,
     };
@@ -91,17 +89,6 @@ function returnUser() {
 
 function returnUsers() {
     return [returnUser()];
-}
-
-function Cart() {
-    return {
-        add: voidFunction,
-        clear: voidFunction,
-        remove: voidFunction,
-        getCartProducts: function() {
-            return [returnProduct()];
-        },
-    };
 }
 
 function returnImpression() {

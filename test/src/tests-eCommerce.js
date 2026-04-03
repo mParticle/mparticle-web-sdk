@@ -1176,59 +1176,9 @@ describe('eCommerce', function() {
         impressionEvent.data.custom_flags.interactionEvent.should.equal(true);
     });
 
-    describe('Cart', function() {
-        afterEach(function() {
-            sinon.restore();
-        });
 
-        it('should deprecate add', async () => {
-            await waitForCondition(hasIdentifyReturned);
-            mParticle._resetForTests(MPConfig);
-            const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
-
-            const product = mParticle.eCommerce.createProduct(
-                'iPhone',
-                '12345',
-                400
-            );
-
-            mParticle.eCommerce.Cart.add(product, true);
-
-            bond.called.should.eql(true);
-            bond.getCalls()[0].args[0].should.eql(
-                'eCommerce.Cart.add() has been deprecated. Please use the alternate method: eCommerce.logProductAction(). See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-            );
-        });
         
-        it('should deprecate remove', async () => {
-            await waitForCondition(hasIdentifyReturned);
-            const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
-            const product = mParticle.eCommerce.createProduct(
-                'iPhone',
-                '12345',
-                400
-            );
-
-            mParticle.eCommerce.Cart.remove(product, true);
-
-            bond.called.should.eql(true);
-            bond.getCalls()[0].args[0].should.eql(
-                'eCommerce.Cart.remove() has been deprecated. Please use the alternate method: eCommerce.logProductAction(). See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-            );
-        });
-
-        it('should deprecate clear', async () => {
-            await waitForCondition(hasIdentifyReturned);
-            const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
-
-            mParticle.eCommerce.Cart.clear();
-
-            bond.called.should.eql(true);
-            bond.getCalls()[0].args[0].should.eql(
-                'eCommerce.Cart.clear() has been deprecated. See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-            );
-        });
 
         it('should be empty when transactionAttributes is empty', () => {
             const mparticle = mParticle.getInstance()
@@ -1306,6 +1256,5 @@ describe('eCommerce', function() {
 
             const purchaseEvent1 = findEventFromRequest(fetchMock.calls(), 'purchase');
             purchaseEvent1.data.source_message_id.should.equal('foo-bar');
-        });
     });
 });
