@@ -36,7 +36,7 @@ import Consent, { IConsent } from './consent';
 import KitBlocker from './kitBlocking';
 import ConfigAPIClient, { IKitConfigs } from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
-import { isFunction, parseConfig, valueof, generateDeprecationMessage, extend } from './utils';
+import { isFunction, parseConfig, valueof, extend } from './utils';
 import { DisabledVault, LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates, hasExplicitIdentifier } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
@@ -55,7 +55,6 @@ import CookieConsentManager, { ICookieConsentManager } from './cookieConsentMana
 import { ErrorReportingDispatcher } from './reporting/errorReportingDispatcher';
 import { LoggingDispatcher } from './reporting/loggingDispatcher';
 import { IErrorReportingService, ILoggingService } from './reporting/types';
-import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
 import { normalizeRoktLauncherOptions } from './roktLauncherOptions';
 
 export interface IErrorLogMessage {
@@ -766,78 +765,6 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
      * @class mParticle.eCommerce
      */
     this.eCommerce = {
-        /**
-         * Invoke these methods on the mParticle.eCommerce.Cart object.
-         * Example: mParticle.eCommerce.Cart.add(...)
-         * @class mParticle.eCommerce.Cart
-         * @deprecated
-         */
-        Cart: {
-            /**
-             * Adds a product to the cart
-             * @method add
-             * @param {Object} product The product you want to add to the cart
-             * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
-             * @deprecated
-             */
-            add: function(product, logEventBoolean) {
-                logDeprecatedMethodUsage(
-                    {
-                        methodName: 'mPInstance.eCommerce.Cart.add()',
-                        warningMessage: generateDeprecationMessage(
-                            'eCommerce.Cart.add()',
-                            true,
-                            'eCommerce.logProductAction()',
-                            'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                        ),
-                    },
-                    self.Logger,
-                    self._ErrorReportingDispatcher
-                );
-            },
-            /**
-             * Removes a product from the cart
-             * @method remove
-             * @param {Object} product The product you want to add to the cart
-             * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
-             * @deprecated
-             */
-            remove: function(product, logEventBoolean) {
-                logDeprecatedMethodUsage(
-                    {
-                        methodName: 'mPInstance.eCommerce.Cart.remove()',
-                        warningMessage: generateDeprecationMessage(
-                            'eCommerce.Cart.remove()',
-                            true,
-                            'eCommerce.logProductAction()',
-                            'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                        ),
-                    },
-                    self.Logger,
-                    self._ErrorReportingDispatcher
-                );
-            },
-            /**
-             * Clears the cart
-             * @method clear
-             * @deprecated
-             */
-            clear: function() {
-                logDeprecatedMethodUsage(
-                    {
-                        methodName: 'mPInstance.eCommerce.Cart.clear()',
-                        warningMessage: generateDeprecationMessage(
-                            'eCommerce.Cart.clear()',
-                            true,
-                            '',
-                            'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                        ),
-                    },
-                    self.Logger,
-                    self._ErrorReportingDispatcher
-                );
-            },
-        },
         /**
          * Sets the currency code
          * @for mParticle.eCommerce

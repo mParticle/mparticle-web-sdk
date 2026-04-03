@@ -300,7 +300,7 @@ export default function Ecommerce(mpInstance) {
             return [product];
         }
 
-        return event.ShoppingCart.ProductList;
+        return [];
     };
 
     this.createProduct = function(
@@ -597,7 +597,6 @@ export default function Ecommerce(mpInstance) {
             baseEvent.EventName = 'eCommerce - ';
 
             baseEvent.CurrencyCode = mpInstance._Store.currencyCode;
-            baseEvent.ShoppingCart = [];
             baseEvent.CustomFlags = extend(baseEvent.CustomFlags, customFlags);
 
             return baseEvent;
