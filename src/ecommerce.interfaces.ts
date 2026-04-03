@@ -117,7 +117,6 @@ interface ExtractedTransactionId {
 
 // Used for the private `_Ecommerce` namespace
 export interface IECommerce extends IECommerceShared {
-    buildProductList(event: SDKEvent, product: Product | Product[]): Product[];
     convertProductActionToEventType(
         productActionType: valueof<typeof ProductActionType>
     ): // https://go.mparticle.com/work/SQDSDKS-4801
