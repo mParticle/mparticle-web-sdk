@@ -139,8 +139,6 @@ const Constants = {
         identityUrl: 'identity.mparticle.com/v1/',
         aliasUrl: 'jssdks.mparticle.com/v1/identity/',
         userAudienceUrl: 'nativesdks.mparticle.com/v1/',
-        loggingUrl: 'apps.rokt-api.com/v1/log',
-        errorUrl: 'apps.rokt-api.com/v1/errors',
     },
     // These are the paths that are used to construct the CNAME urls
     CNAMEUrlPaths: {
@@ -150,8 +148,6 @@ const Constants = {
         configUrl: '/tags/JS/v2/',
         identityUrl: '/identity/v1/',
         aliasUrl: '/webevents/v1/identity/',
-        loggingUrl: '/v1/log',
-        errorUrl: '/v1/errors',
     },
     Base64CookieKeys: {
         csm: 1,

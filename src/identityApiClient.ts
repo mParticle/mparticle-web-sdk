@@ -25,7 +25,7 @@ import {
     IIdentityResponse,
 } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
-import { ErrorCodes } from './logging/types';
+import { ErrorCodes, WSDKErrorSeverity } from './reporting/types';
 
 const { HTTPCodes, Messages, IdentityMethods } = Constants;
 
@@ -201,7 +201,7 @@ export default function IdentityAPIClient(
         }
         
         const { invokeCallback } = mpInstance._Helpers;
-        const { Logger } = mpInstance;
+        const { Logger, _ErrorReportingDispatcher: errorReporter } = mpInstance;
         Logger.verbose(Messages.InformationMessages.SendIdentityBegin);
         if (!identityApiRequest) {
             Logger.error(Messages.ErrorMessages.APIRequestEmpty);
@@ -339,10 +339,13 @@ export default function IdentityAPIClient(
             }
 
             const errorMessage = (err as Error).message || err.toString();
-            Logger.error(
-                'Error sending identity request to servers' + ' - ' + errorMessage,
-                ErrorCodes.IDENTITY_REQUEST
-            );
+            const msg = 'Error sending identity request to servers' + ' - ' + errorMessage;
+            Logger.error(msg);
+            errorReporter?.report({
+                message: msg,
+                code: ErrorCodes.IDENTITY_REQUEST,
+                severity: WSDKErrorSeverity.ERROR,
+            });
 
             mpInstance.processQueueOnIdentityFailure?.();
             invokeCallback(callback, HTTPCodes.noHttpCoverage, errorMessage);

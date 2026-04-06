@@ -51,7 +51,7 @@ import {
 import Constants from './constants';
 import RoktManager, { IRoktLauncherOptions } from './roktManager';
 import { IConsoleLogger } from './logger';
-import { ErrorCodes } from './logging/types';
+import { ErrorCodes, IErrorReportingService, ILoggingService } from './reporting/types';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -260,6 +260,8 @@ export interface MParticleWebSDK {
     ): void;
     getIntegrationAttributes(integrationModuleId: number): IntegrationAttribute;
     captureTiming(metricName: string): void;
+    _registerErrorReportingService(service: IErrorReportingService): void;
+    _registerLoggingService(service: ILoggingService): void;
 }
 
 // https://go.mparticle.com/work/SQDSDKS-4805

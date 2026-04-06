@@ -487,6 +487,12 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
     this._setWrapperSDKInfo = function(name, version) {
         self.getInstance()._setWrapperSDKInfo(name, version);
     };
+    this._registerErrorReportingService = function(service) {
+        self.getInstance()._registerErrorReportingService(service);
+    };
+    this._registerLoggingService = function(service) {
+        self.getInstance()._registerLoggingService(service);
+    };
 }
 
 const mParticleManager = new mParticleInstanceManager();

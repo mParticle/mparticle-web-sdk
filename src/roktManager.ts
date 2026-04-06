@@ -16,6 +16,7 @@ import { SDKLoggerApi } from "./sdkRuntimeModels";
 import { IStore, LocalSessionAttributes } from "./store";
 import { UserIdentities } from "@mparticle/web-sdk";
 import { IdentityType, PerformanceMarkType } from "./types";
+import { ErrorCodes, IErrorReportingService, ILoggingService, WSDKErrorSeverity } from "./reporting/types";
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export type RoktAttributeValueArray = Array<string | number | boolean>;
@@ -108,6 +109,8 @@ export default class RoktManager {
     private store: IStore;
     private launcherOptions?: IRoktLauncherOptions;
     private logger: SDKLoggerApi;
+    private errorReporter: IErrorReportingService;
+    private loggingService: ILoggingService;
     private domain?: string;
     private mappedEmailShaIdentityType?: string | null;
     private captureTiming?: (metricsName: string) => void;
@@ -130,17 +133,21 @@ export default class RoktManager {
      * @param {SDKLoggerApi} logger - The mParticle Logger instance
      * @param {IRoktOptions} options - Options for the RoktManager
      * @param {Function} captureTiming - Function to capture performance timing marks
-     * 
+     * @param {IErrorReportingService} errorReporter - Dispatcher for error/warning reporting
+     * @param {ILoggingService} loggingService - Dispatcher for informational logging
+     *
      * @throws Logs error to console if placementAttributesMapping parsing fails
      */
     public init(
-        roktConfig: IKitConfigs, 
-        filteredUser: IMParticleUser, 
+        roktConfig: IKitConfigs,
+        filteredUser: IMParticleUser,
         identityService: SDKIdentityApi,
         store: IStore,
         logger?: SDKLoggerApi,
         options?: IRoktOptions,
-        captureTiming?: (metricsName: string) => void
+        captureTiming?: (metricsName: string) => void,
+        errorReporter?: IErrorReportingService,
+        loggingService?: ILoggingService
     ): void {
         const { userAttributeFilters, settings } = roktConfig || {};
         const { placementAttributesMapping, hashedEmailUserIdentityType } = settings || {};
@@ -149,6 +156,8 @@ export default class RoktManager {
         this.identityService = identityService;
         this.store = store;
         this.logger = logger;
+        this.errorReporter = errorReporter;
+        this.loggingService = loggingService;
         this.captureTiming = captureTiming;
 
         this.captureTiming?.(PerformanceMarkType.JointSdkRoktKitInit);
@@ -198,6 +207,11 @@ export default class RoktManager {
         if (kit.integrationName) {
             this.store?.setIntegrationName(kit.integrationName);
         }
+
+        this.loggingService?.log({
+            message: 'RoktManager: Kit attached, Rokt is ready',
+            code: ErrorCodes.ROKT_KIT_ATTACHED,
+        });
 
         this.processMessageQueue();
 
@@ -269,13 +283,25 @@ export default class RoktManager {
             if (emailChanged) {
                 newIdentities.email = newEmail;
                 if (newEmail) {
-                    this.logger.warning(`Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.`);
+                    const msg = 'Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.';
+                    this.logger.warning(msg);
+                    this.errorReporter?.report({
+                        message: msg,
+                        code: ErrorCodes.IDENTITY_MISMATCH,
+                        severity: WSDKErrorSeverity.WARNING,
+                    });
                 }
             }
 
             if (hashedEmailChanged) {
                 newIdentities[this.mappedEmailShaIdentityType] = newHashedEmail;
-                this.logger.warning(`emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.`);
+                const msg = 'emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.';
+                this.logger.warning(msg);
+                this.errorReporter?.report({
+                    message: msg,
+                    code: ErrorCodes.IDENTITY_MISMATCH,
+                    severity: WSDKErrorSeverity.WARNING,
+                });
             }
             
             if (!isEmpty(newIdentities)) {
