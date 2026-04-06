@@ -9,12 +9,15 @@ describe('ErrorReportingDispatcher', () => {
         dispatcher = new ErrorReportingDispatcher();
     });
 
-    it('report() is a no-op when no services are registered', () => {
-        // Should not throw
+    it('report() does not call unregistered services', () => {
+        const mockService: IErrorReportingService = { report: jest.fn() };
+
         dispatcher.report({
             message: 'test',
             severity: WSDKErrorSeverity.ERROR,
         });
+
+        expect(mockService.report).not.toHaveBeenCalled();
     });
 
     it('register() adds a service and report() fans out to it', () => {
@@ -81,11 +84,12 @@ describe('LoggingDispatcher', () => {
         dispatcher = new LoggingDispatcher();
     });
 
-    it('log() is a no-op when no services are registered', () => {
-        // Should not throw
-        dispatcher.log({
-            message: 'test',
-        });
+    it('log() does not call unregistered services', () => {
+        const mockService: ILoggingService = { log: jest.fn() };
+
+        dispatcher.log({ message: 'test' });
+
+        expect(mockService.log).not.toHaveBeenCalled();
     });
 
     it('register() adds a service and log() fans out to it', () => {

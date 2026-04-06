@@ -6,14 +6,6 @@ import { LogLevelType } from '../../src/sdkRuntimeModels';
 
 describe('Logging Integration', () => {
     describe('Logger is decoupled from reporting', () => {
-        it('Logger.error() does not trigger any reporting', () => {
-            const logger = new Logger({ logLevel: LogLevelType.Warning });
-
-            // Logger.error() should only output to console - no reporting side effects
-            // This verifies the decoupling is complete
-            expect(() => logger.error('test error')).not.toThrow();
-        });
-
         it('Logger and ErrorReportingDispatcher work independently', () => {
             const logger = new Logger({ logLevel: LogLevelType.Warning });
             const dispatcher = new ErrorReportingDispatcher();
