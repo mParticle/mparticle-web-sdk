@@ -2236,7 +2236,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
 
-        window.MockForwarder1.instance.receivedEvent.EventName.should.equal(1);
+        window.MockForwarder1.instance.receivedEvent.EventName.should.equal('1');
         window.MockForwarder1.instance.receivedEvent = null;
 
         mParticle.logEvent(
@@ -2271,7 +2271,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
 
-        window.MockForwarder1.instance.receivedEvent.EventName.should.equal(1);
+        window.MockForwarder1.instance.receivedEvent.EventName.should.equal('1');
         window.MockForwarder1.instance.receivedEvent = null;
 
         mParticle.logEvent(
