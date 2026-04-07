@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.60.1";
+    var version = "2.61.0";
 
     var Constants = {
       sdkVersion: version,
@@ -328,9 +328,7 @@ var mParticle = (function () {
         configUrl: 'jssdkcdns.mparticle.com/JS/v2/',
         identityUrl: 'identity.mparticle.com/v1/',
         aliasUrl: 'jssdks.mparticle.com/v1/identity/',
-        userAudienceUrl: 'nativesdks.mparticle.com/v1/',
-        loggingUrl: 'apps.rokt-api.com/v1/log',
-        errorUrl: 'apps.rokt-api.com/v1/errors'
+        userAudienceUrl: 'nativesdks.mparticle.com/v1/'
       },
       // These are the paths that are used to construct the CNAME urls
       CNAMEUrlPaths: {
@@ -339,9 +337,7 @@ var mParticle = (function () {
         v3SecureServiceUrl: '/webevents/v3/JS/',
         configUrl: '/tags/JS/v2/',
         identityUrl: '/identity/v1/',
-        aliasUrl: '/webevents/v1/identity/',
-        loggingUrl: '/v1/log',
-        errorUrl: '/v1/errors'
+        aliasUrl: '/webevents/v1/identity/'
       },
       Base64CookieKeys: {
         csm: 1,
@@ -3101,7 +3097,7 @@ var mParticle = (function () {
         // https://go.mparticle.com/work/SQDSDKS-6935
         // While Event Name is 'usually' a string, there are some cases where it is a number
         // in that it could be a type of MessageType Enum
-        if (event.EventName !== Types.MessageType.AppStateTransition) {
+        if (event.EventName !== String(Types.MessageType.AppStateTransition)) {
           if (kitBlocker && kitBlocker.kitBlockingEnabled) {
             event = kitBlocker.createBlockedEvent(event);
           }
@@ -5010,7 +5006,7 @@ var mParticle = (function () {
       for (var baseUrlKey in defaultBaseUrls) {
         // Any custom endpoints passed to mpConfig will take priority over direct
         // mapping to the silo.  The most common use case is a customer provided CNAME.
-        if (baseUrlKey === 'configUrl' || baseUrlKey === 'loggingUrl' || baseUrlKey === 'errorUrl') {
+        if (baseUrlKey === 'configUrl') {
           directBaseUrls[baseUrlKey] = config[baseUrlKey] || defaultBaseUrls[baseUrlKey];
           continue;
         }
@@ -5025,11 +5021,10 @@ var mParticle = (function () {
     }
 
     var Logger = /** @class */function () {
-      function Logger(config, reportingLogger) {
+      function Logger(config) {
         var _a, _b;
         this.logLevel = (_a = config.logLevel) !== null && _a !== void 0 ? _a : LogLevelType.Warning;
         this.logger = (_b = config.logger) !== null && _b !== void 0 ? _b : new ConsoleLogger();
-        this.reportingLogger = reportingLogger;
       }
       Logger.prototype.verbose = function (msg) {
         if (this.logLevel === LogLevelType.None) return;
@@ -5043,14 +5038,10 @@ var mParticle = (function () {
           this.logger.warning(msg);
         }
       };
-      Logger.prototype.error = function (msg, codeForReporting) {
-        var _a;
+      Logger.prototype.error = function (msg) {
         if (this.logLevel === LogLevelType.None) return;
         if (this.logger.error) {
           this.logger.error(msg);
-          if (codeForReporting) {
-            (_a = this.reportingLogger) === null || _a === void 0 ? void 0 : _a.error(msg, codeForReporting);
-          }
         }
       };
       Logger.prototype.isVerbose = function () {
@@ -7154,7 +7145,7 @@ var mParticle = (function () {
               // This is an artifact from v2 events where SessionStart/End and AST event
               //  names are numbers (1, 2, or 10), but going forward with v3, these lifecycle
               //  events do not have names, but are denoted by their `event_type`
-              EventName: event.name || event.messageType,
+              EventName: event.name || String(event.messageType),
               EventCategory: event.eventType,
               EventAttributes: mpInstance._Helpers.sanitizeAttributes(event.data, event.name),
               ActiveTimeOnSite: (_a = mpInstance._timeOnSiteTimer) === null || _a === void 0 ? void 0 : _a.getTimeInForeground(),
@@ -9332,7 +9323,9 @@ var mParticle = (function () {
     var ErrorCodes = {
       UNKNOWN_ERROR: 'UNKNOWN_ERROR',
       UNHANDLED_EXCEPTION: 'UNHANDLED_EXCEPTION',
-      IDENTITY_REQUEST: 'IDENTITY_REQUEST'
+      IDENTITY_REQUEST: 'IDENTITY_REQUEST',
+      IDENTITY_MISMATCH: 'IDENTITY_MISMATCH',
+      ROKT_KIT_ATTACHED: 'ROKT_KIT_ATTACHED'
     };
     var WSDKErrorSeverity = {
       ERROR: 'ERROR',
@@ -9442,7 +9435,7 @@ var mParticle = (function () {
       this.sendIdentityRequest = function (identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid, knownIdentities) {
         var _a, _b, _c, _d;
         return __awaiter(this, void 0, void 0, function () {
-          var requestCount, invokeCallback, Logger, previousMPID, uploadUrl, uploader, fetchPayload, response, identityResponse, message, _e, responseBody, errorResponse, errorMessage, responseText, isDevelopmentMode, responseToLog, errorMessage, requestCount, err_1, requestCount, errorMessage;
+          var requestCount, invokeCallback, Logger, errorReporter, previousMPID, uploadUrl, uploader, fetchPayload, response, identityResponse, message, _e, responseBody, errorResponse, errorMessage, responseText, isDevelopmentMode, responseToLog, errorMessage, requestCount, err_1, requestCount, errorMessage, msg;
           return __generator(this, function (_f) {
             switch (_f.label) {
               case 0:
@@ -9452,7 +9445,7 @@ var mParticle = (function () {
                   mpInstance.captureTiming("".concat(requestCount, "-identityRequestStart"));
                 }
                 invokeCallback = mpInstance._Helpers.invokeCallback;
-                Logger = mpInstance.Logger;
+                Logger = mpInstance.Logger, errorReporter = mpInstance._ErrorReportingDispatcher;
                 Logger.verbose(Messages$1.InformationMessages.SendIdentityBegin);
                 if (!identityApiRequest) {
                   Logger.error(Messages$1.ErrorMessages.APIRequestEmpty);
@@ -9561,7 +9554,13 @@ var mParticle = (function () {
                   mpInstance.captureTiming("".concat(requestCount, "-identityRequestEnd"));
                 }
                 errorMessage = err_1.message || err_1.toString();
-                Logger.error('Error sending identity request to servers' + ' - ' + errorMessage, ErrorCodes.IDENTITY_REQUEST);
+                msg = 'Error sending identity request to servers' + ' - ' + errorMessage;
+                Logger.error(msg);
+                errorReporter === null || errorReporter === void 0 ? void 0 : errorReporter.report({
+                  message: msg,
+                  code: ErrorCodes.IDENTITY_REQUEST,
+                  severity: WSDKErrorSeverity.ERROR
+                });
                 (_d = mpInstance.processQueueOnIdentityFailure) === null || _d === void 0 ? void 0 : _d.call(mpInstance);
                 invokeCallback(callback, HTTPCodes$1.noHttpCoverage, errorMessage);
                 return [3 /*break*/, 10];
@@ -9928,10 +9927,12 @@ var mParticle = (function () {
        * @param {SDKLoggerApi} logger - The mParticle Logger instance
        * @param {IRoktOptions} options - Options for the RoktManager
        * @param {Function} captureTiming - Function to capture performance timing marks
+       * @param {IErrorReportingService} errorReporter - Dispatcher for error/warning reporting
+       * @param {ILoggingService} loggingService - Dispatcher for informational logging
        *
        * @throws Logs error to console if placementAttributesMapping parsing fails
        */
-      RoktManager.prototype.init = function (roktConfig, filteredUser, identityService, store, logger, options, captureTiming) {
+      RoktManager.prototype.init = function (roktConfig, filteredUser, identityService, store, logger, options, captureTiming, errorReporter, loggingService) {
         var _a, _b;
         var _c = roktConfig || {},
           userAttributeFilters = _c.userAttributeFilters,
@@ -9943,6 +9944,8 @@ var mParticle = (function () {
         this.identityService = identityService;
         this.store = store;
         this.logger = logger;
+        this.errorReporter = errorReporter;
+        this.loggingService = loggingService;
         this.captureTiming = captureTiming;
         (_b = this.captureTiming) === null || _b === void 0 ? void 0 : _b.call(this, PerformanceMarkType.JointSdkRoktKitInit);
         this.filters = {
@@ -9981,7 +9984,7 @@ var mParticle = (function () {
         configurable: true
       });
       RoktManager.prototype.attachKit = function (kit) {
-        var _a, _b, _c, _d;
+        var _a, _b, _c, _d, _e;
         this.kit = kit;
         if ((_a = kit.settings) === null || _a === void 0 ? void 0 : _a.accountId) {
           this.store.setRoktAccountId(kit.settings.accountId);
@@ -9989,11 +9992,15 @@ var mParticle = (function () {
         if (kit.integrationName) {
           (_b = this.store) === null || _b === void 0 ? void 0 : _b.setIntegrationName(kit.integrationName);
         }
+        (_c = this.loggingService) === null || _c === void 0 ? void 0 : _c.log({
+          message: 'RoktManager: Kit attached, Rokt is ready',
+          code: ErrorCodes.ROKT_KIT_ATTACHED
+        });
         this.processMessageQueue();
         try {
-          (_c = this.onReadyCallback) === null || _c === void 0 ? void 0 : _c.call(this);
+          (_d = this.onReadyCallback) === null || _d === void 0 ? void 0 : _d.call(this);
         } catch (e) {
-          (_d = this.logger) === null || _d === void 0 ? void 0 : _d.error('RoktManager: Error in onReadyCallback: ' + e);
+          (_e = this.logger) === null || _e === void 0 ? void 0 : _e.error('RoktManager: Error in onReadyCallback: ' + e);
         }
       };
       /**
@@ -10012,21 +10019,21 @@ var mParticle = (function () {
        * });
        */
       RoktManager.prototype.selectPlacements = function (options) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
         return __awaiter(this, void 0, void 0, function () {
-          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities_1, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, error_1, errorMessage, finalUserIdentities, enrichedAttributes, hashedEmail, enrichedOptions, error_2;
+          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities_1, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, msg, msg, error_1, errorMessage, finalUserIdentities, enrichedAttributes, hashedEmail, enrichedOptions, error_2;
           var _this = this;
-          return __generator(this, function (_k) {
-            switch (_k.label) {
+          return __generator(this, function (_m) {
+            switch (_m.label) {
               case 0:
                 (_a = this.captureTiming) === null || _a === void 0 ? void 0 : _a.call(this, PerformanceMarkType.JointSdkSelectPlacements);
                 // Queue if kit isn't ready OR if identity is in flight
                 if (!this.isReady() || ((_b = this.store) === null || _b === void 0 ? void 0 : _b.identityCallInFlight)) {
                   return [2 /*return*/, this.deferredCall('selectPlacements', options)];
                 }
-                _k.label = 1;
+                _m.label = 1;
               case 1:
-                _k.trys.push([1, 6,, 7]);
+                _m.trys.push([1, 6,, 7]);
                 attributes = options.attributes;
                 sandboxValue = (attributes === null || attributes === void 0 ? void 0 : attributes.sandbox) || null;
                 mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
@@ -10051,17 +10058,29 @@ var mParticle = (function () {
                 if (emailChanged) {
                   newIdentities_1.email = newEmail;
                   if (newEmail) {
-                    this.logger.warning("Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.");
+                    msg = 'Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.';
+                    this.logger.warning(msg);
+                    (_h = this.errorReporter) === null || _h === void 0 ? void 0 : _h.report({
+                      message: msg,
+                      code: ErrorCodes.IDENTITY_MISMATCH,
+                      severity: WSDKErrorSeverity.WARNING
+                    });
                   }
                 }
                 if (hashedEmailChanged) {
                   newIdentities_1[this.mappedEmailShaIdentityType] = newHashedEmail;
-                  this.logger.warning("emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.");
+                  msg = 'emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.';
+                  this.logger.warning(msg);
+                  (_j = this.errorReporter) === null || _j === void 0 ? void 0 : _j.report({
+                    message: msg,
+                    code: ErrorCodes.IDENTITY_MISMATCH,
+                    severity: WSDKErrorSeverity.WARNING
+                  });
                 }
                 if (!!isEmpty(newIdentities_1)) return [3 /*break*/, 5];
-                _k.label = 2;
+                _m.label = 2;
               case 2:
-                _k.trys.push([2, 4,, 5]);
+                _m.trys.push([2, 4,, 5]);
                 return [4 /*yield*/, new Promise(function (resolve, reject) {
                   _this.identityService.identify({
                     userIdentities: __assign(__assign({}, currentUserIdentities_1), newIdentities_1)
@@ -10070,17 +10089,17 @@ var mParticle = (function () {
                   });
                 })];
               case 3:
-                _k.sent();
+                _m.sent();
                 return [3 /*break*/, 5];
               case 4:
-                error_1 = _k.sent();
+                error_1 = _m.sent();
                 errorMessage = error_1 instanceof Error ? error_1.message : JSON.stringify(error_1);
                 this.logger.error('Failed to identify user with updated identities: ' + errorMessage);
                 return [3 /*break*/, 5];
               case 5:
                 // Refresh current user identities to ensure we have the latest values before building enrichedAttributes
                 this.currentUser = this.identityService.getCurrentUser();
-                finalUserIdentities = ((_j = (_h = this.currentUser) === null || _h === void 0 ? void 0 : _h.getUserIdentities()) === null || _j === void 0 ? void 0 : _j.userIdentities) || {};
+                finalUserIdentities = ((_l = (_k = this.currentUser) === null || _k === void 0 ? void 0 : _k.getUserIdentities()) === null || _l === void 0 ? void 0 : _l.userIdentities) || {};
                 this.setUserAttributes(mappedAttributes);
                 enrichedAttributes = __assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
                   sandbox: sandboxValue
@@ -10102,7 +10121,7 @@ var mParticle = (function () {
                 });
                 return [2 /*return*/, this.kit.selectPlacements(enrichedOptions)];
               case 6:
-                error_2 = _k.sent();
+                error_2 = _m.sent();
                 return [2 /*return*/, Promise.reject(error_2 instanceof Error ? error_2 : new Error('Unknown error occurred'))];
               case 7:
                 return [2 /*return*/];
@@ -10440,136 +10459,46 @@ var mParticle = (function () {
       return CookieConsentManager;
     }();
 
-    // Header key constants
-    var HEADER_ACCEPT = 'Accept';
-    var HEADER_CONTENT_TYPE = 'Content-Type';
-    var HEADER_ROKT_LAUNCHER_VERSION = 'rokt-launcher-version';
-    var HEADER_ROKT_LAUNCHER_INSTANCE_GUID = 'rokt-launcher-instance-guid';
-    var HEADER_ROKT_WSDK_VERSION = 'rokt-wsdk-version';
-    var ReportingLogger = /** @class */function () {
-      function ReportingLogger(config, sdkVersion, store, launcherInstanceGuid, rateLimiter) {
+    var ErrorReportingDispatcher = /** @class */function () {
+      function ErrorReportingDispatcher() {
+        this.services = [];
+      }
+      ErrorReportingDispatcher.prototype.register = function (service) {
+        this.services.push(service);
+      };
+      ErrorReportingDispatcher.prototype.report = function (error) {
         var _this = this;
-        this.sdkVersion = sdkVersion;
-        this.launcherInstanceGuid = launcherInstanceGuid;
-        this.reporter = 'mp-wsdk';
-        this.isFeatureFlagEnabled = function () {
-          return _this.isLoggingEnabled;
-        };
-        this.loggingUrl = "https://".concat(config.loggingUrl || Constants.DefaultBaseUrls.loggingUrl);
-        this.errorUrl = "https://".concat(config.errorUrl || Constants.DefaultBaseUrls.errorUrl);
-        this.isLoggingEnabled = config.isLoggingEnabled || false;
-        this.store = store !== null && store !== void 0 ? store : null;
-        this.isEnabled = this.isReportingEnabled();
-        this.rateLimiter = rateLimiter !== null && rateLimiter !== void 0 ? rateLimiter : new RateLimiter();
-      }
-      ReportingLogger.prototype.setStore = function (store) {
-        this.store = store;
+        this.services.forEach(function (s) {
+          var _a;
+          try {
+            s.report(error);
+          } catch (e) {
+            (_a = _this.logger) === null || _a === void 0 ? void 0 : _a.error('Error in ErrorReportingService: ' + e);
+          }
+        });
       };
-      ReportingLogger.prototype.info = function (msg, code) {
-        this.sendLog(WSDKErrorSeverity.INFO, msg, code);
-      };
-      ReportingLogger.prototype.error = function (msg, code, stackTrace) {
-        this.sendError(WSDKErrorSeverity.ERROR, msg, code, stackTrace);
-      };
-      ReportingLogger.prototype.warning = function (msg, code) {
-        this.sendError(WSDKErrorSeverity.WARNING, msg, code);
-      };
-      ReportingLogger.prototype.sendToServer = function (url, severity, msg, code, stackTrace) {
-        if (!this.canSendLog(severity)) return;
-        try {
-          var logRequest = this.buildLogRequest(severity, msg, code, stackTrace);
-          var uploader = new FetchUploader(url);
-          var payload = {
-            method: 'POST',
-            headers: this.getHeaders(),
-            body: JSON.stringify(logRequest)
-          };
-          uploader.upload(payload)["catch"](function (error) {
-            console.error('ReportingLogger: Failed to send log', error);
-          });
-        } catch (error) {
-          console.error('ReportingLogger: Failed to send log', error);
-        }
-      };
-      ReportingLogger.prototype.sendLog = function (severity, msg, code, stackTrace) {
-        this.sendToServer(this.loggingUrl, severity, msg, code, stackTrace);
-      };
-      ReportingLogger.prototype.sendError = function (severity, msg, code, stackTrace) {
-        this.sendToServer(this.errorUrl, severity, msg, code, stackTrace);
-      };
-      ReportingLogger.prototype.buildLogRequest = function (severity, msg, code, stackTrace) {
-        var _a, _b;
-        return {
-          additionalInformation: {
-            message: msg,
-            version: this.getVersion()
-          },
-          severity: severity,
-          code: code !== null && code !== void 0 ? code : ErrorCodes.UNKNOWN_ERROR,
-          url: this.getUrl(),
-          deviceInfo: this.getUserAgent(),
-          stackTrace: stackTrace,
-          reporter: this.reporter,
-          // Integration will be set to integrationName once the kit connects via RoktManager.attachKit()
-          integration: (_b = (_a = this.store) === null || _a === void 0 ? void 0 : _a.getIntegrationName()) !== null && _b !== void 0 ? _b : 'mp-wsdk'
-        };
-      };
-      ReportingLogger.prototype.getVersion = function () {
-        var _a, _b, _c;
-        return (_c = (_b = (_a = this.store) === null || _a === void 0 ? void 0 : _a.getIntegrationName) === null || _b === void 0 ? void 0 : _b.call(_a)) !== null && _c !== void 0 ? _c : "mParticle_wsdkv_".concat(this.sdkVersion);
-      };
-      ReportingLogger.prototype.isReportingEnabled = function () {
-        return this.isDebugModeEnabled() || this.isRoktDomainPresent() && this.isFeatureFlagEnabled();
-      };
-      ReportingLogger.prototype.isRoktDomainPresent = function () {
-        return typeof window !== 'undefined' && Boolean(window['ROKT_DOMAIN']);
-      };
-      ReportingLogger.prototype.isDebugModeEnabled = function () {
-        var _a, _b, _c, _d;
-        return typeof window !== 'undefined' && ((_d = (_c = (_b = (_a = window.location) === null || _a === void 0 ? void 0 : _a.search) === null || _b === void 0 ? void 0 : _b.toLowerCase()) === null || _c === void 0 ? void 0 : _c.includes('mp_enable_logging=true')) !== null && _d !== void 0 ? _d : false);
-      };
-      ReportingLogger.prototype.canSendLog = function (severity) {
-        return this.isEnabled && !this.isRateLimited(severity);
-      };
-      ReportingLogger.prototype.isRateLimited = function (severity) {
-        return this.rateLimiter.incrementAndCheck(severity);
-      };
-      ReportingLogger.prototype.getUrl = function () {
-        var _a;
-        return typeof window !== 'undefined' ? (_a = window.location) === null || _a === void 0 ? void 0 : _a.href : undefined;
-      };
-      ReportingLogger.prototype.getUserAgent = function () {
-        var _a;
-        return typeof window !== 'undefined' ? (_a = window.navigator) === null || _a === void 0 ? void 0 : _a.userAgent : undefined;
-      };
-      ReportingLogger.prototype.getHeaders = function () {
-        var _a;
-        var _b, _c;
-        var headers = (_a = {}, _a[HEADER_ACCEPT] = 'text/plain;charset=UTF-8', _a[HEADER_CONTENT_TYPE] = 'application/json', _a[HEADER_ROKT_LAUNCHER_VERSION] = this.getVersion(), _a[HEADER_ROKT_WSDK_VERSION] = 'joint', _a);
-        if (this.launcherInstanceGuid) {
-          headers[HEADER_ROKT_LAUNCHER_INSTANCE_GUID] = this.launcherInstanceGuid;
-        }
-        var accountId = (_c = (_b = this.store) === null || _b === void 0 ? void 0 : _b.getRoktAccountId) === null || _c === void 0 ? void 0 : _c.call(_b);
-        if (accountId) {
-          headers['rokt-account-id'] = accountId;
-        }
-        return headers;
-      };
-      return ReportingLogger;
+      return ErrorReportingDispatcher;
     }();
-    var RateLimiter = /** @class */function () {
-      function RateLimiter() {
-        this.rateLimits = new Map([[WSDKErrorSeverity.ERROR, 10], [WSDKErrorSeverity.WARNING, 10], [WSDKErrorSeverity.INFO, 10]]);
-        this.logCount = new Map();
+
+    var LoggingDispatcher = /** @class */function () {
+      function LoggingDispatcher() {
+        this.services = [];
       }
-      RateLimiter.prototype.incrementAndCheck = function (severity) {
-        var count = this.logCount.get(severity) || 0;
-        var limit = this.rateLimits.get(severity) || 10;
-        var newCount = count + 1;
-        this.logCount.set(severity, newCount);
-        return newCount > limit;
+      LoggingDispatcher.prototype.register = function (service) {
+        this.services.push(service);
       };
-      return RateLimiter;
+      LoggingDispatcher.prototype.log = function (entry) {
+        var _this = this;
+        this.services.forEach(function (s) {
+          var _a;
+          try {
+            s.log(entry);
+          } catch (e) {
+            (_a = _this.logger) === null || _a === void 0 ? void 0 : _a.error('Error in LoggingService: ' + e);
+          }
+        });
+      };
+      return LoggingDispatcher;
     }();
 
     var Messages = Constants.Messages,
@@ -10612,6 +10541,8 @@ var mParticle = (function () {
         integrationDelays: {},
         forwarderConstructors: []
       };
+      this._ErrorReportingDispatcher = new ErrorReportingDispatcher();
+      this._LoggingDispatcher = new LoggingDispatcher();
       this._RoktManager = new RoktManager();
       this._RoktManager.setOnReadyCallback(function () {
         self.processQueueOnIdentityFailure();
@@ -10709,14 +10640,16 @@ var mParticle = (function () {
           console.error('Cannot reset mParticle', error);
         }
       };
-      this._resetForTests = function (config, keepPersistence, instance, reportingLogger) {
+      this._resetForTests = function (config, keepPersistence, instance) {
         if (instance._Store) {
           delete instance._Store;
         }
-        instance.Logger = new Logger(config, reportingLogger);
+        instance._ErrorReportingDispatcher = new ErrorReportingDispatcher();
+        instance._LoggingDispatcher = new LoggingDispatcher();
+        instance.Logger = new Logger(config);
+        instance._ErrorReportingDispatcher.logger = instance.Logger;
+        instance._LoggingDispatcher.logger = instance.Logger;
         instance._Store = new Store(config, instance);
-        // Update ReportingLogger with the new Store reference to avoid stale data
-        reportingLogger === null || reportingLogger === void 0 ? void 0 : reportingLogger.setStore(instance._Store);
         instance._Store.isLocalStorageAvailable = instance._Persistence.determineLocalStorageAvailability(window.localStorage);
         instance._Events.stopTracking();
         if (!keepPersistence) {
@@ -11532,6 +11465,12 @@ var mParticle = (function () {
           };
         }
       };
+      this._registerErrorReportingService = function (service) {
+        self._ErrorReportingDispatcher.register(service);
+      };
+      this._registerLoggingService = function (service) {
+        self._LoggingDispatcher.register(service);
+      };
       var launcherInstanceGuidKey = Constants.Rokt.LauncherInstanceGuidKey;
       this.setLauncherInstanceGuid = function () {
         if (!window[launcherInstanceGuidKey] || typeof window[launcherInstanceGuidKey] !== 'string') {
@@ -11608,7 +11547,7 @@ var mParticle = (function () {
             domain: config === null || config === void 0 ? void 0 : config.domain
           };
           // https://go.mparticle.com/work/SQDSDKS-7339
-          mpInstance._RoktManager.init(roktConfig, roktFilteredUser, mpInstance.Identity, mpInstance._Store, mpInstance.Logger, roktOptions, mpInstance.captureTiming);
+          mpInstance._RoktManager.init(roktConfig, roktFilteredUser, mpInstance.Identity, mpInstance._Store, mpInstance.Logger, roktOptions, mpInstance.captureTiming, mpInstance._ErrorReportingDispatcher, mpInstance._LoggingDispatcher);
         }
         mpInstance._Forwarders.processForwarders(config, mpInstance._APIClient.prepareForwardingStats);
         mpInstance._Forwarders.processPixelConfigs(config);
@@ -11702,11 +11641,11 @@ var mParticle = (function () {
     }
     function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
       var _a;
-      mpInstance._ReportingLogger = new ReportingLogger(config, Constants.sdkVersion, undefined, mpInstance.getLauncherInstanceGuid());
-      mpInstance.Logger = new Logger(config, mpInstance._ReportingLogger);
+      mpInstance.Logger = new Logger(config);
+      mpInstance._ErrorReportingDispatcher.logger = mpInstance.Logger;
+      mpInstance._LoggingDispatcher.logger = mpInstance.Logger;
       mpInstance._Store = new Store(config, mpInstance, apiKey);
       window.mParticle.Store = mpInstance._Store;
-      mpInstance._ReportingLogger.setStore(mpInstance._Store);
       mpInstance.Logger.verbose(StartingInitialization);
       // Initialize CookieConsentManager with privacy flags from launcherOptions
       var _b = (_a = config === null || config === void 0 ? void 0 : config.launcherOptions) !== null && _a !== void 0 ? _a : {},
@@ -12242,6 +12181,12 @@ var mParticle = (function () {
       };
       this._setWrapperSDKInfo = function (name, version) {
         self.getInstance()._setWrapperSDKInfo(name, version);
+      };
+      this._registerErrorReportingService = function (service) {
+        self.getInstance()._registerErrorReportingService(service);
+      };
+      this._registerLoggingService = function (service) {
+        self.getInstance()._registerLoggingService(service);
       };
     }
     var mParticleManager = new mParticleInstanceManager();
