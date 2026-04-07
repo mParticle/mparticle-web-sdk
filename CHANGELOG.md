@@ -1,3 +1,16 @@
+# [2.61.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.60.1...v2.61.0) (2026-04-07)
+
+
+### Bug Fixes
+
+* Coerce event name to string ([#1234](https://github.com/mParticle/mparticle-web-sdk/issues/1234)) ([fc40e4b](https://github.com/mParticle/mparticle-web-sdk/commit/fc40e4ba704aa4f0d65724315b62e668b469855e))
+
+
+### Features
+
+* add /verify skill for lint, build, and test validation ([#1222](https://github.com/mParticle/mparticle-web-sdk/issues/1222)) ([fc744e8](https://github.com/mParticle/mparticle-web-sdk/commit/fc744e88ad047f80b660c3a1f210d533072c3364))
+* define reporting service contracts and dispatchers ([#1224](https://github.com/mParticle/mparticle-web-sdk/issues/1224)) ([79184e0](https://github.com/mParticle/mparticle-web-sdk/commit/79184e026f3af22d049a3148e5f07f818f6ba7db))
+
 ## [2.60.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.60.0...v2.60.1) (2026-03-25)
 
 
