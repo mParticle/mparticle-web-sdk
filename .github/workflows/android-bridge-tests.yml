@@ -23,6 +23,13 @@ jobs:
               run: |
                 npm ci
                 npm run build:iife
+            - name: "Downgrade platform-tools to 36.0.2"
+              run: |
+                rm -rf $ANDROID_HOME/platform-tools
+                curl -sL https://dl.google.com/android/repository/platform-tools_r36.0.2-linux.zip -o /tmp/platform-tools.zip
+                unzip -q /tmp/platform-tools.zip -d $ANDROID_HOME
+                echo "Platform-tools version:"
+                $ANDROID_HOME/platform-tools/adb --version
             - name: "Run Instrumented Tests"
               uses: reactivecircus/android-emulator-runner@v2.35.0
               with:
