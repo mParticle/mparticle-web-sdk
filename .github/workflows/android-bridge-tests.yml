@@ -3,7 +3,7 @@ on: push
 jobs:
     test:
         timeout-minutes: 15
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04@20260302.42
         steps:
             - name: "Checkout internal"
               uses: actions/checkout@v6
@@ -30,18 +30,7 @@ jobs:
                 api-level: 29
                 arch: x86_64
                 force-avd-creation: true
-                script: |
-                  echo "=== Before downgrade ==="
-                  $ANDROID_HOME/platform-tools/adb --version
-                  rm -rf $ANDROID_HOME/platform-tools
-                  curl -sL https://dl.google.com/android/repository/platform-tools_r36.0.2-linux.zip -o /tmp/platform-tools.zip
-                  unzip -q /tmp/platform-tools.zip -d $ANDROID_HOME
-                  echo "=== After downgrade ==="
-                  $ANDROID_HOME/platform-tools/adb --version
-                  $ANDROID_HOME/platform-tools/adb kill-server
-                  $ANDROID_HOME/platform-tools/adb start-server
-                  $ANDROID_HOME/platform-tools/adb devices
-                  ./gradlew :android-core:cAT -Pandroid.testInstrumentationRunnerArguments.class=com.mparticle.internal.MParticleJSInterfaceITest -Pjs-sdk-file=${{ github.workspace }}/dist/mparticle.js
+                script: ./gradlew :android-core:cAT -Pandroid.testInstrumentationRunnerArguments.class=com.mparticle.internal.MParticleJSInterfaceITest -Pjs-sdk-file=${{ github.workspace }}/dist/mparticle.js
             - name: "Archive Test Results"
               if: ${{ always() }}
               uses: actions/upload-artifact@v6
