@@ -1,11 +1,11 @@
 import { LogLevelType, SDKInitConfig } from './sdkRuntimeModels';
-import { ReportingLogger } from './logging/reportingLogger';
-import { ErrorCodes } from './logging/types';
+import { ErrorCodes } from './reporting/types';
 
 export interface ILogger {
     error(msg: string, code?: ErrorCodes): void;
     verbose(msg: string): void;
     warning(msg: string): void;
+    isVerbose(): boolean;
     setLogLevel(logLevel: LogLevelType): void;
 }
 

@@ -1,9 +1,9 @@
-import { SDKLoggerApi } from '../sdkRuntimeModels';
+import { ILogger } from '../logger';
 import { ILoggingService, ISDKLogEntry } from './types';
 
 export class LoggingDispatcher implements ILoggingService {
     private readonly services: ILoggingService[] = [];
-    public logger?: SDKLoggerApi;
+    public logger?: ILogger;
 
     public register(service: ILoggingService): void {
         this.services.push(service);
