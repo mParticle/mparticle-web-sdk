@@ -12,7 +12,7 @@ jobs:
               uses: actions/checkout@v6
               with:
                 repository: mParticle/mparticle-android-sdk
-                ref: main
+                ref: fix/increase-mplatch-timeout
                 path: mparticle-android-sdk
             - name: "Install JDK 17"
               uses: actions/setup-java@v5
@@ -27,7 +27,7 @@ jobs:
               uses: reactivecircus/android-emulator-runner@v2.35.0
               with:
                 working-directory: mparticle-android-sdk
-                api-level: 34
+                api-level: 29
                 arch: x86_64
                 force-avd-creation: true
                 script: ./gradlew :android-core:cAT -Pandroid.testInstrumentationRunnerArguments.class=com.mparticle.internal.MParticleJSInterfaceITest -Pjs-sdk-file=${{ github.workspace }}/dist/mparticle.js
