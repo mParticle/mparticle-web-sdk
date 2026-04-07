@@ -315,7 +315,7 @@ export default class RoktManager {
                             },
                         },
                         (result) => {
-                            const httpCode = result?.httpCode as unknown as number;
+                            const httpCode = Number(result?.httpCode);
                             if (httpCode && httpCode >= 400) {
                                 this.logger.error(
                                     'Background identify failed with HTTP ' + httpCode
@@ -331,6 +331,8 @@ export default class RoktManager {
 
             // Optimistic merge: apply the pending identity changes locally so
             // enrichedAttributes are correct without waiting for the identify round-trip.
+            // The next call to selectPlacements re-fetches currentUser (see line above),
+            // so stale identity state does not persist beyond this invocation.
             const finalUserIdentities = { ...currentUserIdentities, ...newIdentities };
 
             this.setUserAttributes(mappedAttributes);
