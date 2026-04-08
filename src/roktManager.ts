@@ -316,11 +316,15 @@ export default class RoktManager {
                         },
                         (result) => {
                             const httpCode = Number(result?.httpCode);
-                            if (httpCode && httpCode >= 400) {
+                            if (httpCode && (httpCode >= 400 || httpCode < 0)) {
                                 this.logger.error(
                                     'Background identify failed with HTTP ' + httpCode
                                 );
                             }
+                            // Drain any selectPlacements calls that were deferred while
+                            // identify was in-flight. By the time this callback fires,
+                            // identityCallInFlight has already been reset to false.
+                            this.processMessageQueue();
                         }
                     );
                 } catch (error) {
