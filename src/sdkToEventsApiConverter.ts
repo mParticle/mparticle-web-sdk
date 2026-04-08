@@ -17,25 +17,22 @@ import { ISDKUserIdentity } from './identity-user-interfaces';
 import { SDKIdentityTypeEnum } from './identity.interfaces';
 import Constants from './constants';
 import { IMParticleWebSDKInstance } from './mp-instance';
+// Import to activate module augmentation (schema alignment)
+import './event-models-extensions';
 
 const { FeatureFlags } = Constants;
 const {
-    CaptureIntegrationSpecificIds, 
+    CaptureIntegrationSpecificIds,
     CaptureIntegrationSpecificIdsV2,
 } = FeatureFlags;
 
 type PartnerIdentities = Dictionary<string>;
 
-// https://go.mparticle.com/work/SQDSDKS-6964
-interface Batch extends EventsApi.Batch {
-    partner_identities?: PartnerIdentities;
-}
-
 export function convertEvents(
     mpid: string,
     sdkEvents: SDKEvent[],
     mpInstance: IMParticleWebSDKInstance
-): Batch | null {
+): EventsApi.Batch | null {
     if (!mpid) {
         return null;
     }
@@ -80,7 +77,7 @@ export function convertEvents(
         currentConsentState = user.getConsentState();
     }
 
-    const upload: Batch = {
+    const upload: EventsApi.Batch = {
         source_request_id: mpInstance._Helpers.generateUniqueId(),
         mpid,
         timestamp_unixtime_ms: new Date().getTime(),
