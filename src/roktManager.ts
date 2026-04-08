@@ -305,27 +305,39 @@ export default class RoktManager {
             }
             
             if (!isEmpty(newIdentities)) {
-                // Call identify with the new user identities
+                // Fire-and-forget identify — best-effort, does not block selectPlacements
                 try {
-                    await new Promise<void>((resolve, reject) => {
-                        this.identityService.identify({
+                    this.identityService.identify(
+                        {
                             userIdentities: {
                                 ...currentUserIdentities,
-                                ...newIdentities
+                                ...newIdentities,
+                            },
+                        },
+                        (result) => {
+                            const httpCode = Number(result?.httpCode);
+                            if (httpCode && (httpCode >= 400 || httpCode < 0)) {
+                                this.logger.error(
+                                    'Background identify failed with HTTP ' + httpCode
+                                );
                             }
-                        }, () => {
-                            resolve();
-                        });
-                    });
+                            // Drain any selectPlacements calls that were deferred while
+                            // identify was in-flight. By the time this callback fires,
+                            // identityCallInFlight has already been reset to false.
+                            this.processMessageQueue();
+                        }
+                    );
                 } catch (error) {
                     const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
-                    this.logger.error('Failed to identify user with updated identities: ' + errorMessage);
+                    this.logger.error('Background identify threw an error: ' + errorMessage);
                 }
             }
-            
-            // Refresh current user identities to ensure we have the latest values before building enrichedAttributes
-            this.currentUser = this.identityService.getCurrentUser();
-            const finalUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
+
+            // Optimistic merge: apply the pending identity changes locally so
+            // enrichedAttributes are correct without waiting for the identify round-trip.
+            // The next call to selectPlacements re-fetches currentUser (see line above),
+            // so stale identity state does not persist beyond this invocation.
+            const finalUserIdentities = { ...currentUserIdentities, ...newIdentities };
 
             this.setUserAttributes(mappedAttributes);
 

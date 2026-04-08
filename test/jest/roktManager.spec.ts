@@ -2156,7 +2156,7 @@ describe('RoktManager', () => {
             );
         });
 
-        it('should log error when identify fails with a 500 but continue execution', async () => {
+        it('should log error when identify callback reports an error but continue execution', async () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -2171,7 +2171,57 @@ describe('RoktManager', () => {
 
             roktManager.kit = kit as IRoktKit;
 
-            const mockError = { error: 'Identity service error', code: 500 };
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getUserIdentities: () => ({
+                        userIdentities: {
+                            email: 'old@example.com'
+                        }
+                    }),
+                    setUserAttributes: jest.fn()
+                }),
+                identify: jest.fn().mockImplementation((data, callback) => {
+                    // Simulate identify completing with an HTTP 500 error via the callback
+                    callback({ httpCode: 500 });
+                })
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    email: 'new@example.com'
+                }
+            };
+
+            // Should not reject since identify is fire-and-forget
+            await expect(roktManager.selectPlacements(options)).resolves.toBeDefined();
+            
+            // Verify error was logged from the background callback
+            expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
+                'Background identify failed with HTTP 500'
+            );
+
+            // Verify selectPlacements was still called
+            expect(kit.selectPlacements).toHaveBeenCalled();
+        });
+
+        it('should log error and continue when identify throws synchronously', async () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+
+            const mockError = new Error('Identity service unavailable');
             const mockIdentity = {
                 getCurrentUser: jest.fn().mockReturnValue({
                     getUserIdentities: () => ({
@@ -2194,12 +2244,12 @@ describe('RoktManager', () => {
                 }
             };
 
-            // Should not reject since we're catching and logging the error
+            // Should not reject — the try/catch absorbs the synchronous throw
             await expect(roktManager.selectPlacements(options)).resolves.toBeDefined();
-            
-            // Verify error was logged
+
+            // Verify the synchronous throw was logged
             expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
-                'Failed to identify user with updated identities: ' + JSON.stringify(mockError)
+                'Background identify threw an error: ' + mockError.message
             );
 
             // Verify selectPlacements was still called
@@ -2358,21 +2408,11 @@ describe('RoktManager', () => {
             expect(kit.selectPlacements).toHaveBeenCalled();
         });
 
-        it('should update filters.filteredUser with newly identified user when anonymous user is identified through selectPlacements', async () => {
+        it('should set filters.filteredUser with the current user at call time when identify is fired in background', async () => {
             const anonymousUser = {
                 getMPID: () => 'anonymous-mpid',
                 getUserIdentities: () => ({
                     userIdentities: {}
-                }),
-                setUserAttributes: jest.fn()
-            } as unknown as IMParticleUser;
-
-            const identifiedUser = {
-                getMPID: () => testMPID,
-                getUserIdentities: () => ({
-                    userIdentities: {
-                        email: 'user@example.com'
-                    }
                 }),
                 setUserAttributes: jest.fn()
             } as unknown as IMParticleUser;
@@ -2395,13 +2435,9 @@ describe('RoktManager', () => {
             roktManager.filters.filteredUser = anonymousUser;
 
             const mockIdentity = {
-                getCurrentUser: jest.fn()
-                    // First call: anonymous user (before identify)
-                    .mockReturnValueOnce(anonymousUser)
-                    // Second call: identified user (after identify completes)
-                    .mockReturnValue(identifiedUser),
+                getCurrentUser: jest.fn().mockReturnValue(anonymousUser),
                 identify: jest.fn().mockImplementation((data, callback) => {
-                    // Simulate identify completing and updating the user
+                    // Simulate identify completing in background
                     callback();
                 })
             } as unknown as SDKIdentityApi;
@@ -2416,19 +2452,18 @@ describe('RoktManager', () => {
 
             await roktManager.selectPlacements(options);
 
-            // Verify identify was called
+            // Verify identify was fired
             expect(mockIdentity.identify).toHaveBeenCalledWith({
                 userIdentities: {
                     email: 'user@example.com'
                 }
             }, expect.any(Function));
 
-            // Verify filters.filteredUser was updated with the newly identified user
-            expect(roktManager.filters.filteredUser).toBe(identifiedUser);
-            expect(roktManager.filters.filteredUser).not.toBe(anonymousUser);
-            expect(roktManager.filters.filteredUser?.getMPID()).toBe(testMPID);
+            // filters.filteredUser reflects the user at call time (before identify completes)
+            expect(roktManager.filters.filteredUser).toBe(anonymousUser);
+            expect(roktManager.filters.filteredUser?.getMPID()).toBe('anonymous-mpid');
 
-            // Verify kit was called
+            // Verify kit was still called
             expect(kit.selectPlacements).toHaveBeenCalled();
         });
 
