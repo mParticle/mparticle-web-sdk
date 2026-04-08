@@ -22,15 +22,9 @@
     },
     "main": "dist/mparticle.common.js",
     "module": "dist/mparticle.esm.js",
-    "types": "dist/types/src/public-types.d.ts",
-    "exports": {
-        ".": {
-            "types": "./dist/types/src/public-types.d.ts",
-            "import": "./dist/mparticle.esm.js",
-            "require": "./dist/mparticle.common.js"
-        },
-        "./internal": {
-            "types": "./dist/types/src/internal-types.d.ts"
+    "typesVersions": {
+        "*": {
+            "internal": ["dist/types/src/internal-types.d.ts"]
         }
     },
     "repository": "https://github.com/mParticle/mparticle-web-sdk",

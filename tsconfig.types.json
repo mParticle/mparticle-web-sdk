@@ -5,6 +5,7 @@
         "emitDeclarationOnly": true,
         "skipLibCheck": true,
         "noEmitOnError": false,
+        "allowJs": true,
         "lib": ["es5", "es6", "dom"],
         "rootDir": ".",
         "sourceMap": false,
@@ -16,6 +17,6 @@
         "allowSyntheticDefaultImports": true,
         "strict": false
     },
-    "include": ["src/**/*.ts"],
+    "include": ["src/**/*.ts", "src/**/*.js"],
     "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts"]
 }

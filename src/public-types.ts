@@ -5,27 +5,13 @@
  * to import. Only add types here that are intended for external consumption.
  *
  * Usage:
- *   import type { MPConfiguration, EventType } from '@mparticle/web-sdk';
+ *   import type { SDKInitConfig, EventType } from '@mparticle/web-sdk';
+ *
+ * Note: Types from @types/mparticle__web-sdk (e.g., MPConfiguration, MPID,
+ * ConsentState) are NOT re-exported here to avoid circular references.
+ * Consumers get those automatically via DefinitelyTyped until they are
+ * natively defined in this SDK and the DT package is deprecated.
  */
-
-// Re-export types from @mparticle/web-sdk (DefinitelyTyped)
-// These will eventually be defined natively once the DT package is deprecated
-export type {
-    AllUserAttributes,
-    Callback,
-    CCPAConsentState,
-    ConsentState,
-    GDPRConsentState,
-    IdentityApiData,
-    MPConfiguration,
-    MPID,
-    PrivacyConsentState,
-    SDKEventAttrs,
-    SDKEventOptions,
-    TransactionAttributes,
-    User,
-    UserIdentities,
-} from '@mparticle/web-sdk';
 
 // Re-export types from @mparticle/event-models
 // Consumers should not need to install @mparticle/event-models directly
