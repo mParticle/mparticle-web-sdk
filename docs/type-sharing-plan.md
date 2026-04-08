@@ -27,16 +27,24 @@ The Rollup entry point is `src/mparticle-instance-manager.ts` — already TypeSc
 
 ```
 @mparticle/web-sdk (source of truth — fully TypeScript)
-  ├── dist/mparticle.common.js     (CJS bundle)
-  ├── dist/mparticle.esm.js        (ESM bundle)
-  ├── dist/types/                   (generated .d.ts files)
-  │   └── index.d.ts               (public API declarations)
+  ├── dist/mparticle.common.js        (CJS bundle)
+  ├── dist/mparticle.esm.js           (ESM bundle)
+  ├── dist/types/
+  │   ├── public-types.d.ts           (customer-facing types)
+  │   └── internal-types.d.ts         (shared internal types)
   └── package.json
-        types: "dist/types/index.d.ts"
+        exports:
+          ".":          → public-types.d.ts + JS bundles
+          "./internal": → internal-types.d.ts (types only)
 
-rokt/sdk-web
-  └── devDependencies: "@mparticle/web-sdk"
-      import type { MPConfiguration } from '@mparticle/web-sdk'
+Customers (e.g. mParticle integrators)
+  └── import type { MPConfiguration } from '@mparticle/web-sdk'
+      (only sees public types in autocomplete)
+
+Rokt SDKs (rokt/sdk-web, rokt-kit, etc.)
+  └── import type { MPConfiguration } from '@mparticle/web-sdk'
+      import type { KitFilterSettings } from '@mparticle/web-sdk/internal'
+      (access to both public and internal types)
 ```
 
 ---
@@ -75,11 +83,11 @@ All remaining `.js` files in `src/` must be converted to TypeScript before enabl
 
 **Package:** `@mparticle/web-sdk`
 
-### 1.1 — Create a public types barrel file
+### 1.1 — Create public and internal types barrel files
 
-Create `src/public-types.ts` (or similar) that explicitly re-exports only the types intended for external consumers. This serves as a stable public contract separate from internal types.
+Create two barrel files that define explicit export boundaries:
 
-**Types to export (based on DefinitelyTyped surface + consumer usage):**
+**`src/public-types.ts`** — Customer-facing types (autocomplete-safe, stable API contract):
 
 | Category | Types |
 |----------|-------|
@@ -90,7 +98,17 @@ Create `src/public-types.ts` (or similar) that explicitly re-exports only the ty
 | eCommerce | `Product`, `TransactionAttributes`, `Impression`, `Promotion` |
 | Consent | `ConsentState`, `GDPRConsentState`, `CCPAConsentState` |
 | Utilities | `Dictionary<V>` |
-| Rokt-specific | `RoktAttributes`, `IRoktLauncher`, `IRoktKit`, `IRoktSelectPlacementsOptions` |
+
+**`src/internal-types.ts`** — Types shared between mParticle/Rokt SDKs, not intended for customers:
+
+| Category | Types |
+|----------|-------|
+| Kit/Forwarder | `KitFilterSettings`, `IForwarder`, `IForwarderFilter`, `IKitConfigs` |
+| Rokt integration | `RoktAttributes`, `IRoktLauncher`, `IRoktKit`, `IRoktSelectPlacementsOptions`, `IRoktPartnerExtensionData` |
+| Reporting internals | `ErrorCodes`, `WSDKErrorSeverity`, `ISDKError`, `ISDKLogEntry`, `IErrorReportingService`, `ILoggingService` |
+| Runtime internals | `SDKEvent`, `SDKProduct`, `SDKPromotion`, `SDKProductAction` |
+
+> These barrel files re-export from existing source files — no type definitions are moved or duplicated.
 
 ### 1.2 — Update `tsconfig.json`
 
@@ -125,12 +143,24 @@ Add a declaration generation step. Two options:
 **Option B — Rollup plugin:**
 Use `rollup-plugin-dts` or `@rollup/plugin-typescript` with declaration options. This bundles all declarations into a single `.d.ts` file, which is cleaner for consumers but adds build complexity.
 
-### 1.4 — Update `package.json`
+### 1.4 — Update `package.json` with dual entry points
+
+Configure `exports` so customers importing `@mparticle/web-sdk` only see public types, while Rokt SDKs can import internal types via `@mparticle/web-sdk/internal`:
 
 ```diff
 {
   "name": "@mparticle/web-sdk",
-+ "types": "dist/types/mparticle-instance-manager.d.ts",
++ "types": "dist/types/public-types.d.ts",
++ "exports": {
++   ".": {
++     "types": "./dist/types/public-types.d.ts",
++     "import": "./dist/mparticle.esm.js",
++     "require": "./dist/mparticle.common.js"
++   },
++   "./internal": {
++     "types": "./dist/types/internal-types.d.ts"
++   }
++ },
   "files": [
     "dist/mparticle.common.js",
     "dist/mparticle.esm.js",
@@ -141,7 +171,10 @@ Use `rollup-plugin-dts` or `@rollup/plugin-typescript` with declaration options.
 }
 ```
 
-> If using a barrel file, point `"types"` at the barrel's declaration output instead.
+The `./internal` entry point is types-only — no JS bundle. This means:
+- **Customers** using `import { EventType } from '@mparticle/web-sdk'` see only public types in autocomplete
+- **Rokt SDKs** using `import type { KitFilterSettings } from '@mparticle/web-sdk/internal'` get access to shared internal types
+- The `/internal` path is a convention boundary — technically accessible to anyone, but clearly signals "not part of the public API"
 
 ### 1.5 — Validate declaration output
 
@@ -174,12 +207,15 @@ Publish a new minor version of `@mparticle/web-sdk` (e.g., `2.62.0`) with the de
 
 ### 2.2 — Update imports
 
-Current import in `extension-vnext-initialization.ts`:
+Public types (e.g. `MPConfiguration`) keep the same import path — no code changes needed:
 ```ts
 import type { MPConfiguration } from '@mparticle/web-sdk';
 ```
 
-This import path stays the same — only the resolution source changes (from `@types/` to the SDK's own declarations). **No code changes needed** if the type names match.
+For internal types previously duplicated or hand-typed in the Rokt SDK, switch to the `/internal` entry point:
+```ts
+import type { KitFilterSettings, IRoktKit } from '@mparticle/web-sdk/internal';
+```
 
 ### 2.3 — Handle `RoktExtensions` on `MPConfiguration`
 
@@ -239,7 +275,8 @@ Or submit a PR to deprecate the package entirely.
 | JS → TS migration introduces regressions | Incremental migration with test suite passing at each step; no declaration output until all files are converted |
 | Breaking change for existing `@types/mparticle__web-sdk` consumers | Phase 3 re-export bridge ensures gradual migration; keep DefinitelyTyped updated until consumer migration is complete |
 | Build time increase from `tsc` declaration step | Declaration generation is fast (~seconds) — negligible impact |
-| Accidental exposure of internal types | Barrel file (Phase 1.1) acts as explicit public API boundary; review declarations in CI |
+| Accidental exposure of internal types | Dual barrel files (Phase 1.1) with `exports` map in `package.json` ensures customers only see `public-types.d.ts`; the `/internal` path is accessible by convention but clearly signals non-public API |
+| Internal types path used by external customers | Document the `/internal` path as unstable/unsupported; consider adding a `@internal` JSDoc tag and a note in the barrel file |
 
 ---
 
