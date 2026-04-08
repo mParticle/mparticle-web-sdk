@@ -17,9 +17,6 @@
 // Consumers should not need to install @mparticle/event-models directly
 export type {
     Batch,
-    CommerceEvent,
-    CustomEvent,
-    ScreenViewEvent,
 } from '@mparticle/event-models';
 
 // Re-export types from @mparticle/data-planning-models

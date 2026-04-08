@@ -16,27 +16,9 @@
 // Re-export all public types so internal consumers have a single import path
 export * from './public-types';
 
-// Kit / Forwarder types
 export type {
-    IKitConfigs,
-    IKitFilterSettings,
-    IFilteringEventAttributeValue,
-    IFilteringUserAttributeValue,
-    IFilteringConsentRuleValues,
-    IConsentRuleValue,
-} from './configAPIClient';
-
-export type {
-    UnregisteredKit,
-    RegisteredKit,
-    KitRegistrationConfig,
     ConfiguredKit,
-    MPForwarder,
-    UserIdentityId,
-    UserIdentityType,
-    UserAttributeFilters,
-    UserIdentityFilters,
-    forwardingStatsCallback,
+    KitInterface,
 } from './forwarders.interfaces';
 
 // Rokt integration types
@@ -86,28 +68,3 @@ export type {
     KitBlockerOptions,
     IMParticleInstanceManager,
 } from './sdkRuntimeModels';
-
-// Events interface (kit forwarding contract)
-export type { IEvents } from './events.interfaces';
-
-// eCommerce internals
-export type { IECommerce } from './ecommerce.interfaces';
-
-// Identity internals
-export type {
-    IIdentity,
-    IIdentityRequest,
-    IIdentityAPIRequestData,
-    IIdentityAPIModifyRequestData,
-    IdentityAPIMethod,
-} from './identity.interfaces';
-
-// Consent internals
-export type {
-    IConsentRules,
-    IConsentRulesValues,
-    IConsentSerialization,
-    IMinifiedConsentJSONObject,
-    IConsentState,
-    IConsent,
-} from './consent';
