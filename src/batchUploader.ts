@@ -333,6 +333,19 @@ export class BatchUploader {
                     entry[1],
                     mpInstance
                 );
+
+                if (uploadBatchObject) {
+                    try {
+                        mpInstance._Forwarders.sendBatchToForwarders(
+                            uploadBatchObject
+                        );
+                    } catch (e) {
+                        mpInstance.Logger.error(
+                            `Error forwarding batch to kits. ${e}`
+                        );
+                    }
+                }
+
                 const onCreateBatchCallback =
                     mpInstance._Store.SDKConfig.onCreateBatch;
 

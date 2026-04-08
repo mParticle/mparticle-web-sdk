@@ -50,6 +50,8 @@ interface IMockForwarderInstance {
     onModifyCompleteUser?: IMParticleUser;
     onUserIdentifiedCalled?: boolean;
     onUserIdentifiedUser?: IMParticleUser;
+    processBatch?: (batch: unknown) => void;
+    processCalled?: boolean;
     receivedEvent?: SDKEvent;
     receivedEvents?: SDKEvent[];
     removeUserAttributeCalled?: boolean;
@@ -4014,6 +4016,149 @@ describe('forwarders', function() {
                     true
                 );
             });
+        });
+    });
+
+    describe('batch forwarding', () => {
+        it('should call processBatch on forwarders that implement it', async () => {
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder')
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const forwarderInstance = window.MockForwarder1.instance;
+            let receivedBatch = null;
+            forwarderInstance.processBatch = function(batch) {
+                receivedBatch = batch;
+            };
+
+            const fakeBatch = {
+                events: [{ event_type: 'custom_event' }],
+                mpid: testMPID,
+            };
+
+            mParticle
+                .getInstance()
+                ._Forwarders.sendBatchToForwarders(fakeBatch);
+
+            expect(receivedBatch).to.be.ok;
+            expect(receivedBatch.events.length).to.equal(1);
+            expect(receivedBatch.events[0].event_type).to.equal(
+                'custom_event'
+            );
+        });
+
+        it('should not call processBatch on forwarders that do not implement it', async () => {
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder')
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const fakeBatch = {
+                events: [{ event_type: 'custom_event' }],
+                mpid: testMPID,
+            };
+
+            // Should not throw when forwarder lacks processBatch
+            mParticle
+                .getInstance()
+                ._Forwarders.sendBatchToForwarders(fakeBatch);
+
+            // process() should not have been called by sendBatchToForwarders
+            const forwarderInstance = window.MockForwarder1.instance;
+            expect(forwarderInstance.receivedEvent).to.equal(null);
+        });
+
+        it('should still send individual events via process() regardless of processBatch', async () => {
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder')
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const forwarderInstance = window.MockForwarder1.instance;
+            let batchReceived = false;
+            forwarderInstance.processBatch = function() {
+                batchReceived = true;
+            };
+
+            mParticle.logEvent('Test Event');
+
+            // Individual event should still arrive via process()
+            expect(forwarderInstance.processCalled).to.equal(true);
+            expect(forwarderInstance.receivedEvent).to.be.ok;
+            expect(forwarderInstance.receivedEvent.EventName).to.equal(
+                'Test Event'
+            );
+        });
+
+        it('should not send batches to forwarders when webviewBridgeEnabled is true', async () => {
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder')
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const forwarderInstance = window.MockForwarder1.instance;
+            let batchReceived = false;
+            forwarderInstance.processBatch = function() {
+                batchReceived = true;
+            };
+
+            mParticle.getInstance()._Store.webviewBridgeEnabled = true;
+
+            const fakeBatch = {
+                events: [{ event_type: 'custom_event' }],
+                mpid: testMPID,
+            };
+
+            mParticle
+                .getInstance()
+                ._Forwarders.sendBatchToForwarders(fakeBatch);
+
+            expect(batchReceived).to.equal(false);
+
+            mParticle.getInstance()._Store.webviewBridgeEnabled = false;
+        });
+
+        it('should handle errors in processBatch gracefully', async () => {
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder')
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const forwarderInstance = window.MockForwarder1.instance;
+            forwarderInstance.processBatch = function() {
+                throw new Error('Kit error');
+            };
+
+            const fakeBatch = {
+                events: [{ event_type: 'custom_event' }],
+                mpid: testMPID,
+            };
+
+            // Should not throw
+            mParticle
+                .getInstance()
+                ._Forwarders.sendBatchToForwarders(fakeBatch);
         });
     });
 });
