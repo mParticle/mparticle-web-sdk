@@ -413,13 +413,15 @@ export default function Forwarders(mpInstance, kitBlocker) {
             return;
         }
 
-        for (var i = 0; i < mpInstance._Store.activeForwarders.length; i++) {
-            var forwarder = mpInstance._Store.activeForwarders[i];
-
+        for (const forwarder of mpInstance._Store.activeForwarders) {
             if (forwarder.processBatch) {
                 try {
-                    var batchCopy = mpInstance._Helpers.extend(true, {}, batch);
-                    var result = forwarder.processBatch(batchCopy);
+                    const batchCopy = mpInstance._Helpers.extend(
+                        true,
+                        {},
+                        batch
+                    );
+                    const result = forwarder.processBatch(batchCopy);
 
                     if (result) {
                         mpInstance.Logger.verbose(result);
