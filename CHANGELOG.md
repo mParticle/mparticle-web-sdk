@@ -1,3 +1,10 @@
+# [2.62.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.61.0...v2.62.0) (2026-04-08)
+
+
+### Features
+
+* Enable TypeScript declaration output with dual public/internal entry points ([#1243](https://github.com/mParticle/mparticle-web-sdk/issues/1243)) ([c21436a](https://github.com/mParticle/mparticle-web-sdk/commit/c21436a968e322ab2be3971391588ccd22c68cf3))
+
 # [2.61.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.60.1...v2.61.0) (2026-04-07)
 
 
