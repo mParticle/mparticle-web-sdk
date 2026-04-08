@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+        "declaration": true,
+        "declarationDir": "dist/types",
+        "emitDeclarationOnly": true,
+        "skipLibCheck": true,
+        "noEmitOnError": false,
+        "lib": ["es5", "es6", "dom"],
+        "rootDir": ".",
+        "sourceMap": false,
+        "noImplicitAny": false,
+        "strictNullChecks": false,
+        "target": "es5",
+        "moduleResolution": "Node",
+        "resolveJsonModule": true,
+        "allowSyntheticDefaultImports": true,
+        "strict": false
+    },
+    "include": ["src/**/*.ts"],
+    "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts"]
+}

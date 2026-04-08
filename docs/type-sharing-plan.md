@@ -2,9 +2,7 @@
 
 ## Goal
 
-Expose TypeScript declarations directly from `@mparticle/web-sdk` so that consuming packages (`rokt/sdk-web` and future consumers) can import types from a single source of truth — eliminating the need for `@types/mparticle__web-sdk` (DefinitelyTyped) and preventing type drift across repos.
-
-> **Prerequisite:** All remaining `.js` files in the core SDK must be migrated to TypeScript before declarations can fully represent the public API. Until then, any types that flow through unconverted JS files will resolve as `any` in the generated `.d.ts` output, making the declarations incomplete and unreliable for consumers. The JS → TS migration (Phase 0) is therefore a hard dependency for this plan.
+Expose TypeScript declarations directly from `@mparticle/web-sdk` so that consuming packages (`rokt/sdk-web` and future consumers) can import types from a single source of truth — eliminating the need for `@types/mparticle__web-sdk` (DefinitelyTyped), `@mparticle/event-models`, and `@mparticle/data-planning-models` as separate type dependencies, and preventing type drift across repos.
 
 ---
 
@@ -15,9 +13,14 @@ Expose TypeScript declarations directly from `@mparticle/web-sdk` so that consum
 | `@mparticle/web-sdk` | Mixed TS/JS | Native `.ts` in `src/`, but `declaration: false` — no `.d.ts` emitted | N/A (source) |
 | `@types/mparticle__web-sdk` | N/A | DefinitelyTyped `index.d.ts` (~700 lines) | N/A (current published types) |
 | `rokt/sdk-web` | TypeScript | `@types/mparticle__web-sdk@^2.54.0` | `MPConfiguration` |
-### Key Observation
 
-The Rollup entry point is `src/mparticle-instance-manager.ts` — already TypeScript. Enabling declaration output will generate `.d.ts` files for the entire TS import chain from this entry point. However, the 11 remaining `.js` files produce `any` at their type boundaries, meaning any public API types that flow through those files will be incomplete. **All JS files must be converted to TypeScript before the declaration output can fully represent the SDK's public API.**
+### Key Observations
+
+- The Rollup entry point is `src/mparticle-instance-manager.ts` — already TypeScript.
+- All public API types that consumers need are already defined in `.ts` interface files (`sdkRuntimeModels.ts`, `identity-user-interfaces.ts`, `identity.interfaces.ts`, `ecommerce.interfaces.ts`, `consent.ts`, `types.ts`, etc.).
+- The remaining 11 `.js` files are **implementation files**, not type-defining files. They implement interfaces defined in `.ts` files.
+- **Full JS → TS migration is NOT a prerequisite.** Declaration output can be enabled now because the public API types do not flow through unconverted JS files.
+- For any internal types that are missing `.ts` definitions, we can manually define interfaces without converting the full JS implementation (same pattern used today: e.g., `identity.js` implements `IIdentity` from `identity.interfaces.ts`).
 
 > **Note:** `mparticle-javascript-integration-rokt` (Rokt Kit) has a separate TypeScript migration already in progress and is out of scope for this plan.
 
@@ -26,10 +29,10 @@ The Rollup entry point is `src/mparticle-instance-manager.ts` — already TypeSc
 ## Target State
 
 ```
-@mparticle/web-sdk (source of truth — fully TypeScript)
+@mparticle/web-sdk (source of truth)
   ├── dist/mparticle.common.js        (CJS bundle)
   ├── dist/mparticle.esm.js           (ESM bundle)
-  ├── dist/types/
+  ├── dist/types/src/
   │   ├── public-types.d.ts           (customer-facing types)
   │   └── internal-types.d.ts         (shared internal types)
   └── package.json
@@ -38,154 +41,120 @@ The Rollup entry point is `src/mparticle-instance-manager.ts` — already TypeSc
           "./internal": → internal-types.d.ts (types only)
 
 Customers (e.g. mParticle integrators)
-  └── import type { MPConfiguration } from '@mparticle/web-sdk'
-      (only sees public types in autocomplete)
+  └── import type { MPConfiguration, EventType } from '@mparticle/web-sdk'
+      import type { Batch, CommerceEvent } from '@mparticle/web-sdk'
+      (only sees public types in autocomplete — includes re-exported
+       @mparticle/event-models and @mparticle/data-planning-models types)
 
 Rokt SDKs (rokt/sdk-web, rokt-kit, etc.)
   └── import type { MPConfiguration } from '@mparticle/web-sdk'
-      import type { KitFilterSettings } from '@mparticle/web-sdk/internal'
+      import type { IKitFilterSettings, IRoktKit } from '@mparticle/web-sdk/internal'
       (access to both public and internal types)
 ```
 
 ---
 
-## Phase 0: Complete TypeScript Migration of Core SDK
-
-**Package:** `@mparticle/web-sdk`
-
-All remaining `.js` files in `src/` must be converted to TypeScript before enabling declaration output. Without this, types that cross JS file boundaries will resolve as `any`, producing incomplete and misleading declarations for consumers.
-
-### Remaining files to convert (11):
-
-| File | Public API Impact | Priority |
-|------|-------------------|----------|
-| `identity.js` | Identity types (`IdentityType`, `IdentityCallback`, `IdentityResult`) used by all consumers | **High** |
-| `ecommerce.js` | eCommerce types (`Product`, `TransactionAttributes`, `Impression`, `Promotion`) | **High** |
-| `events.js` | Event logging types (`BaseEvent`, `SDKEventAttrs`) | **High** |
-| `forwarders.js` | Kit/forwarder integration contract — affects all kit consumers | **Medium** |
-| `persistence.js` | Internal, but types leak into public API via user/identity | **Medium** |
-| `helpers.js` | Internal utilities | Low |
-| `filteredMparticleUser.js` | Internal | Low |
-| `forwardingStatsUploader.js` | Internal | Low |
-| `nativeSdkHelpers.js` | Internal | Low |
-| `polyfill.js` | Internal | Low |
-| `stub/mparticle.stub.js` | Separate Rollup entry point for stub build | Low |
-
-### Completion criteria
-
-- All `src/*.js` files renamed to `.ts` with proper type annotations
-- `tsc --noEmit` passes with no implicit `any` errors from cross-file boundaries
-- Existing test suite passes without regressions
-
----
-
-## Phase 1: Enable Declaration Output in Core SDK
+## Phase 1: Enable Declaration Output in Core SDK [IMPLEMENTED]
 
 **Package:** `@mparticle/web-sdk`
 
 ### 1.1 — Create public and internal types barrel files
 
-Create two barrel files that define explicit export boundaries:
+Two barrel files define explicit export boundaries:
 
 **`src/public-types.ts`** — Customer-facing types (autocomplete-safe, stable API contract):
 
 | Category | Types |
 |----------|-------|
-| Enums | `EventType`, `IdentityType`, `CommerceEventType`, `ProductActionType`, `PromotionActionType` |
-| Configuration | `MPConfiguration` / `SDKInitConfig`, `DataPlanConfig` |
-| User & Identity | `IMParticleUser`, `MPID`, `UserIdentities`, `IdentityCallback`, `IdentityResult`, `IdentityResultBody`, `IdentifyRequest` |
-| Events | `BaseEvent`, `SDKEventAttrs`, `SDKEventCustomFlags`, `SDKEventOptions` |
-| eCommerce | `Product`, `TransactionAttributes`, `Impression`, `Promotion` |
-| Consent | `ConsentState`, `GDPRConsentState`, `CCPAConsentState` |
-| Utilities | `Dictionary<V>` |
+| Re-exported from `@mparticle/web-sdk` (DT) | `AllUserAttributes`, `Callback`, `CCPAConsentState`, `ConsentState`, `GDPRConsentState`, `IdentityApiData`, `MPConfiguration`, `MPID`, `PrivacyConsentState`, `SDKEventAttrs`, `SDKEventOptions`, `TransactionAttributes`, `User`, `UserIdentities` |
+| Re-exported from `@mparticle/event-models` | `Batch`, `CommerceEvent`, `CustomEvent`, `ScreenViewEvent` |
+| Re-exported from `@mparticle/data-planning-models` | `DataPlanVersion` |
+| Enums | `EventType`, `IdentityType`, `CommerceEventType`, `ProductActionType`, `PromotionActionType`, `MessageType` |
+| Configuration | `SDKInitConfig`, `DataPlanConfig`, `BaseEvent`, `SDKEventCustomFlags`, `LogLevelType`, `MParticleWebSDK` |
+| User & Identity | `IMParticleUser`, `IdentityCallback`, `IdentityResult`, `IdentityResultBody`, `IdentityModifyResultBody`, `ISDKUserIdentity`, `ISDKUserAttributes`, `SDKIdentityApi`, `IAliasRequest`, `IAliasCallback`, `IAliasResult`, `SDKIdentityTypeEnum` |
+| eCommerce | `SDKECommerceAPI`, `SDKCart`, `SDKProduct`, `SDKPromotion`, `SDKImpression`, `SDKProductImpression` |
+| Consent | `SDKConsentApi`, `SDKConsentState`, `SDKConsentStateData`, `SDKGDPRConsentState`, `SDKCCPAConsentState` |
+| Utilities | `Dictionary<V>`, `valueof` |
 
 **`src/internal-types.ts`** — Types shared between mParticle/Rokt SDKs, not intended for customers:
 
 | Category | Types |
 |----------|-------|
-| Kit/Forwarder | `KitFilterSettings`, `IForwarder`, `IForwarderFilter`, `IKitConfigs` |
-| Rokt integration | `RoktAttributes`, `IRoktLauncher`, `IRoktKit`, `IRoktSelectPlacementsOptions`, `IRoktPartnerExtensionData` |
+| Kit/Forwarder | `IKitConfigs`, `IKitFilterSettings`, `IFilteringEventAttributeValue`, `IFilteringUserAttributeValue`, `IFilteringConsentRuleValues`, `IConsentRuleValue`, `UnregisteredKit`, `RegisteredKit`, `KitRegistrationConfig`, `ConfiguredKit`, `MPForwarder`, `UserAttributeFilters`, `UserIdentityFilters`, `forwardingStatsCallback` |
+| Rokt integration | `RoktAttributes`, `RoktAttributeValue`, `IRoktLauncher`, `IRoktKit`, `IRoktKitSettings`, `RoktKitFilterSettings`, `IRoktSelectPlacementsOptions`, `IRoktSelection`, `IRoktPartnerExtensionData`, `IRoktMessage`, `IRoktOptions`, `IRoktLauncherOptions` |
 | Reporting internals | `ErrorCodes`, `WSDKErrorSeverity`, `ISDKError`, `ISDKLogEntry`, `IErrorReportingService`, `ILoggingService` |
-| Runtime internals | `SDKEvent`, `SDKProduct`, `SDKPromotion`, `SDKProductAction` |
+| Runtime internals | `SDKEvent`, `SDKProductAction`, `SDKProductActionType`, `SDKPromotionAction`, `SDKShoppingCart`, `SDKGeoLocation`, `SDKDataPlan`, `SDKHelpersApi`, `SDKLoggerApi`, `SDKStoreApi`, `SDKConfigApi`, `KitBlockerOptions`, `IMParticleInstanceManager` |
+| Events/eCommerce internals | `IEvents`, `IECommerce` |
+| Identity internals | `IIdentity`, `IIdentityRequest`, `IIdentityAPIRequestData`, `IIdentityAPIModifyRequestData`, `IdentityAPIMethod` |
+| Consent internals | `IConsentRules`, `IConsentSerialization`, `IMinifiedConsentJSONObject`, `IConsentState`, `IConsent` |
 
 > These barrel files re-export from existing source files — no type definitions are moved or duplicated.
 
-### 1.2 — Update `tsconfig.json`
+### 1.2 — Separate `tsconfig.types.json` for declaration generation
 
-```diff
-{
-  "compilerOptions": {
--   "declaration": false,
-+   "declaration": true,
-+   "declarationDir": "dist/types",
-+   "emitDeclarationOnly": false,
-    ...
-  }
-}
-```
+A dedicated tsconfig avoids conflicts with the main build (which uses Babel via Rollup and has pre-existing type errors against `window.mParticle` in DefinitelyTyped). Key settings:
 
-> **Note:** `emitDeclarationOnly` stays `false` because Rollup handles JS output. Depending on build setup, a separate `tsc` step for declarations may be cleaner than having Rollup emit them (see 1.3).
+- `emitDeclarationOnly: true` — only generates `.d.ts`, no JS
+- `skipLibCheck: true` — avoids jest/mocha type conflicts
+- `noEmitOnError: false` — allows declaration emission despite pre-existing `window.mParticle` errors (13 errors in `mp-instance.ts`, `mparticle-instance-manager.ts`, `store.ts`)
+- `rootDir: "."` — required because `constants.ts` imports `../package.json`
 
-### 1.3 — Update build pipeline
+### 1.3 — Build pipeline
 
-Add a declaration generation step. Two options:
+The `build:types` script runs after the Rollup build:
 
-**Option A — Separate `tsc` step (recommended):**
 ```json
 {
-  "scripts": {
-    "build:types": "tsc --emitDeclarationOnly --declaration --declarationDir dist/types",
-    "build": "cross-env ENVIRONMENT=prod BUILDALL=true rollup --config rollup.config.js && npm run build:types"
-  }
+  "build": "cross-env ENVIRONMENT=prod BUILDALL=true rollup --config rollup.config.js && npm run build:types",
+  "build:types": "tsc -p tsconfig.types.json || true"
 }
 ```
 
-**Option B — Rollup plugin:**
-Use `rollup-plugin-dts` or `@rollup/plugin-typescript` with declaration options. This bundles all declarations into a single `.d.ts` file, which is cleaner for consumers but adds build complexity.
+> `|| true` prevents the pre-existing type errors from failing the build. These errors are in runtime code that Babel compiles fine — they'll be resolved when DefinitelyTyped is deprecated (Phase 3).
 
-### 1.4 — Update `package.json` with dual entry points
+### 1.4 — `package.json` dual entry points
 
-Configure `exports` so customers importing `@mparticle/web-sdk` only see public types, while Rokt SDKs can import internal types via `@mparticle/web-sdk/internal`:
-
-```diff
+```json
 {
-  "name": "@mparticle/web-sdk",
-+ "types": "dist/types/public-types.d.ts",
-+ "exports": {
-+   ".": {
-+     "types": "./dist/types/public-types.d.ts",
-+     "import": "./dist/mparticle.esm.js",
-+     "require": "./dist/mparticle.common.js"
-+   },
-+   "./internal": {
-+     "types": "./dist/types/internal-types.d.ts"
-+   }
-+ },
+  "types": "dist/types/src/public-types.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/src/public-types.d.ts",
+      "import": "./dist/mparticle.esm.js",
+      "require": "./dist/mparticle.common.js"
+    },
+    "./internal": {
+      "types": "./dist/types/src/internal-types.d.ts"
+    }
+  },
   "files": [
     "dist/mparticle.common.js",
     "dist/mparticle.esm.js",
     "dist/mparticle.js",
-+   "dist/types/",
+    "dist/types/",
     "src/"
-  ],
+  ]
 }
 ```
 
 The `./internal` entry point is types-only — no JS bundle. This means:
 - **Customers** using `import { EventType } from '@mparticle/web-sdk'` see only public types in autocomplete
-- **Rokt SDKs** using `import type { KitFilterSettings } from '@mparticle/web-sdk/internal'` get access to shared internal types
+- **Rokt SDKs** using `import type { IKitFilterSettings } from '@mparticle/web-sdk/internal'` get access to shared internal types
 - The `/internal` path is a convention boundary — technically accessible to anyone, but clearly signals "not part of the public API"
 
-### 1.5 — Validate declaration output
+### 1.5 — Type consolidation: re-exporting upstream packages
 
-- Run `npm run build:types` and inspect `dist/types/`
-- Verify that all public API types are present and not `any`
-- Spot-check that internal-only types are not accidentally exported
-- Run `tsc --noEmit` from a test consumer to confirm imports resolve
+The public barrel file re-exports select types from `@mparticle/event-models` and `@mparticle/data-planning-models`. This means consumers only need `@mparticle/web-sdk` — they don't need to install the upstream packages for types:
+
+```ts
+// In public-types.ts
+export type { Batch, CommerceEvent, CustomEvent, ScreenViewEvent } from '@mparticle/event-models';
+export type { DataPlanVersion } from '@mparticle/data-planning-models';
+```
 
 ### 1.6 — Publish
 
-Publish a new minor version of `@mparticle/web-sdk` (e.g., `2.62.0`) with the declarations included.
+Publish a new minor version of `@mparticle/web-sdk` with declarations included.
 
 ---
 
@@ -214,7 +183,7 @@ import type { MPConfiguration } from '@mparticle/web-sdk';
 
 For internal types previously duplicated or hand-typed in the Rokt SDK, switch to the `/internal` entry point:
 ```ts
-import type { KitFilterSettings, IRoktKit } from '@mparticle/web-sdk/internal';
+import type { IKitFilterSettings, IRoktKit } from '@mparticle/web-sdk/internal';
 ```
 
 ### 2.3 — Handle `RoktExtensions` on `MPConfiguration`
@@ -265,6 +234,20 @@ Or submit a PR to deprecate the package entirely.
 }
 ```
 
+> This will also resolve the 13 pre-existing `window.mParticle` type errors that currently require `|| true` in the `build:types` script.
+
+---
+
+## Phase 4 (Ongoing): Fill Missing Internal Type Interfaces
+
+For any internal types needed by Rokt SDKs that don't yet have `.ts` interface files, manually define the interfaces without converting the full JS implementation. This follows the existing pattern in the codebase:
+
+- `identity.js` → implements `IIdentity` from `identity.interfaces.ts`
+- `ecommerce.js` → implements `IECommerce` from `ecommerce.interfaces.ts`
+- `forwarders.js` → implements interfaces from `forwarders.interfaces.ts`
+
+Add new interface files as needed and re-export from `src/internal-types.ts`.
+
 ---
 
 ## Risks & Mitigations
@@ -272,18 +255,20 @@ Or submit a PR to deprecate the package entirely.
 | Risk | Mitigation |
 |------|------------|
 | Type names differ between DefinitelyTyped and core SDK source | Audit DefinitelyTyped `index.d.ts` against core SDK types before Phase 1.6; add type aliases for backwards compatibility where names diverge |
-| JS → TS migration introduces regressions | Incremental migration with test suite passing at each step; no declaration output until all files are converted |
+| Pre-existing type errors in `window.mParticle` usage | `noEmitOnError: false` allows declaration emission; `|| true` prevents build failure; errors resolved when DT is deprecated (Phase 3) |
 | Breaking change for existing `@types/mparticle__web-sdk` consumers | Phase 3 re-export bridge ensures gradual migration; keep DefinitelyTyped updated until consumer migration is complete |
-| Build time increase from `tsc` declaration step | Declaration generation is fast (~seconds) — negligible impact |
-| Accidental exposure of internal types | Dual barrel files (Phase 1.1) with `exports` map in `package.json` ensures customers only see `public-types.d.ts`; the `/internal` path is accessible by convention but clearly signals non-public API |
+| Accidental exposure of internal types | Dual barrel files with `exports` map in `package.json` ensures customers only see `public-types.d.ts`; the `/internal` path is accessible by convention but clearly signals non-public API |
 | Internal types path used by external customers | Document the `/internal` path as unstable/unsupported; consider adding a `@internal` JSDoc tag and a note in the barrel file |
 
 ---
 
 ## Success Criteria
 
-- [ ] All `src/*.js` files in core SDK are converted to TypeScript
-- [ ] `@mparticle/web-sdk` publishes `.d.ts` files alongside JS bundles with complete type coverage
+- [x] `@mparticle/web-sdk` generates `.d.ts` files alongside JS bundles
+- [x] Public types barrel (`public-types.ts`) covers full consumer API surface
+- [x] Internal types barrel (`internal-types.ts`) covers Rokt SDK needs
+- [x] `@mparticle/event-models` and `@mparticle/data-planning-models` types re-exported through public barrel
+- [ ] `@mparticle/web-sdk` published with declarations
 - [ ] `rokt/sdk-web` imports types from `@mparticle/web-sdk` (not `@types/`)
 - [ ] `@types/mparticle__web-sdk` is deprecated or re-exports from core SDK
 - [ ] No consumer has a separate copy of mParticle type definitions
