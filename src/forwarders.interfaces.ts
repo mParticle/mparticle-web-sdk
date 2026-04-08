@@ -1,4 +1,3 @@
-import { Batch } from '@mparticle/event-models';
 import { SDKEvent, SDKEventCustomFlags } from './sdkRuntimeModels';
 import { Dictionary } from './utils';
 import { IKitConfigs, IKitFilterSettings } from './configAPIClient';
@@ -82,7 +81,6 @@ export interface ConfiguredKit
     ): string;
     onUserIdentified(user: IMParticleUser): string;
     process(event: SDKEvent): string;
-    processBatch?(batch: Batch): string;
     setOptOut(isOptingOut: boolean): string;
     removeUserAttribute(key: string): string;
     setUserAttribute(key: string, value: string): string;

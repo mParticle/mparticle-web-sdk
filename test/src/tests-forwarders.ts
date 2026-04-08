@@ -4155,10 +4155,11 @@ describe('forwarders', function() {
                 mpid: testMPID,
             };
 
-            // Should not throw
-            mParticle
-                .getInstance()
-                ._Forwarders.sendBatchToForwarders(fakeBatch);
+            expect(() => {
+                mParticle
+                    .getInstance()
+                    ._Forwarders.sendBatchToForwarders(fakeBatch);
+            }).to.not.throw();
         });
 
         it('should deep-clone the batch so kit mutations do not corrupt the original', async () => {

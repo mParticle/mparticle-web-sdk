@@ -170,7 +170,7 @@ describe('BatchUploader', () => {
                 mockMPInstance
             );
 
-            expect(forwardedEventCount).toBeGreaterThan(0);
+            expect(forwardedEventCount).toBe(1);
         });
 
         it('should forward batch even when onCreateBatch drops it', () => {
