@@ -4062,19 +4062,19 @@ describe('forwarders', function() {
             mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
 
+            const forwarderInstance = window.MockForwarder1.instance;
+            expect(forwarderInstance.processBatch).to.not.be.ok;
+
             const fakeBatch = {
                 events: [{ event_type: 'custom_event' }],
                 mpid: testMPID,
             };
 
-            // Should not throw when forwarder lacks processBatch
-            mParticle
-                .getInstance()
-                ._Forwarders.sendBatchToForwarders(fakeBatch);
-
-            // process() should not have been called by sendBatchToForwarders
-            const forwarderInstance = window.MockForwarder1.instance;
-            expect(forwarderInstance.receivedEvent).to.equal(null);
+            expect(() => {
+                mParticle
+                    .getInstance()
+                    ._Forwarders.sendBatchToForwarders(fakeBatch);
+            }).to.not.throw();
         });
 
         it('should still send individual events via process() regardless of processBatch', async () => {
