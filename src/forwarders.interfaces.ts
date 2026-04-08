@@ -124,7 +124,7 @@ export interface KitInterface {
     ): string;
     onUserIdentified?(user: IMParticleUser): string;
     process?(event: SDKEvent): string;
-    processBatch?(batch: Batch): boolean;
+    processBatch?(batch: Batch): string;
     setOptOut?(isOptingOut: boolean): string;
     removeUserAttribute?(key: string): string;
     setUserAttribute?(key: string, value: string): string;
