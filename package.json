@@ -12,6 +12,7 @@
         "dist/mparticle.common.js",
         "dist/mparticle.esm.js",
         "dist/mparticle.js",
+        "dist/types/",
         "src/"
     ],
     "publishConfig": {
@@ -21,9 +22,16 @@
     },
     "main": "dist/mparticle.common.js",
     "module": "dist/mparticle.esm.js",
+    "types": "dist/types/src/public-types.d.ts",
+    "typesVersions": {
+        "*": {
+            "internal": ["dist/types/src/internal-types.d.ts"]
+        }
+    },
     "repository": "https://github.com/mParticle/mparticle-web-sdk",
     "scripts": {
-        "build": "cross-env ENVIRONMENT=prod BUILDALL=true rollup --config rollup.config.js",
+        "build": "cross-env ENVIRONMENT=prod BUILDALL=true rollup --config rollup.config.js && npm run build:types",
+        "build:types": "rm -rf dist/types && (tsc -p tsconfig.types.json || true) && test -f dist/types/src/public-types.d.ts && test -f dist/types/src/internal-types.d.ts",
         "build:cbt": "rollup --config test/cross-browser-testing/rollup.CBT.config.js",
         "build:dev": "cross-env ENVIRONMENT=dev BUILD=iife rollup --config rollup.config.js",
         "build:iife": "cross-env ENVIRONMENT=prod BUILD=iife rollup --config rollup.config.js",
@@ -147,6 +155,9 @@
         "uglify-js": "^3.4.9",
         "webpack": "^5.36.2",
         "webpack-cli": "^5.0.2"
+    },
+    "peerDependencies": {
+        "@mparticle/event-models": "^1.1.9"
     },
     "dependencies": {
         "@babel/runtime": "^7.23.2"
