@@ -2,7 +2,9 @@
 
 ## Goal
 
-Expose TypeScript declarations directly from `@mparticle/web-sdk` so that consuming packages (`rokt/sdk-web`, `mparticle-javascript-integration-rokt`, and future consumers) can import types from a single source of truth — eliminating the need for `@types/mparticle__web-sdk` (DefinitelyTyped) and preventing type drift across repos.
+Expose TypeScript declarations directly from `@mparticle/web-sdk` so that consuming packages (`rokt/sdk-web` and future consumers) can import types from a single source of truth — eliminating the need for `@types/mparticle__web-sdk` (DefinitelyTyped) and preventing type drift across repos.
+
+> **Prerequisite:** All remaining `.js` files in the core SDK must be migrated to TypeScript before declarations can fully represent the public API. Until then, any types that flow through unconverted JS files will resolve as `any` in the generated `.d.ts` output, making the declarations incomplete and unreliable for consumers. The JS → TS migration (Phase 0) is therefore a hard dependency for this plan.
 
 ---
 
@@ -13,18 +15,18 @@ Expose TypeScript declarations directly from `@mparticle/web-sdk` so that consum
 | `@mparticle/web-sdk` | Mixed TS/JS | Native `.ts` in `src/`, but `declaration: false` — no `.d.ts` emitted | N/A (source) |
 | `@types/mparticle__web-sdk` | N/A | DefinitelyTyped `index.d.ts` (~700 lines) | N/A (current published types) |
 | `rokt/sdk-web` | TypeScript | `@types/mparticle__web-sdk@^2.54.0` | `MPConfiguration` |
-| `mparticle-javascript-integration-rokt` | JavaScript | Runtime `@mparticle/web-sdk@^2.20.0` (no types) | `IdentityType`, `EventType`, `ProductActionType` (runtime access via `window.mParticle`) |
-
 ### Key Observation
 
-The Rollup entry point is `src/mparticle-instance-manager.ts` — already TypeScript. Enabling declaration output will generate `.d.ts` files for the entire TS import chain from this entry point. The 11 remaining `.js` files are internal modules; they won't block declaration generation but will appear as `any` at their boundaries until converted.
+The Rollup entry point is `src/mparticle-instance-manager.ts` — already TypeScript. Enabling declaration output will generate `.d.ts` files for the entire TS import chain from this entry point. However, the 11 remaining `.js` files produce `any` at their type boundaries, meaning any public API types that flow through those files will be incomplete. **All JS files must be converted to TypeScript before the declaration output can fully represent the SDK's public API.**
+
+> **Note:** `mparticle-javascript-integration-rokt` (Rokt Kit) has a separate TypeScript migration already in progress and is out of scope for this plan.
 
 ---
 
 ## Target State
 
 ```
-@mparticle/web-sdk (source of truth)
+@mparticle/web-sdk (source of truth — fully TypeScript)
   ├── dist/mparticle.common.js     (CJS bundle)
   ├── dist/mparticle.esm.js        (ESM bundle)
   ├── dist/types/                   (generated .d.ts files)
@@ -35,11 +37,37 @@ The Rollup entry point is `src/mparticle-instance-manager.ts` — already TypeSc
 rokt/sdk-web
   └── devDependencies: "@mparticle/web-sdk"
       import type { MPConfiguration } from '@mparticle/web-sdk'
-
-mparticle-javascript-integration-rokt
-  └── devDependencies: "@mparticle/web-sdk"
-      (JSDoc types or future TS migration)
 ```
+
+---
+
+## Phase 0: Complete TypeScript Migration of Core SDK
+
+**Package:** `@mparticle/web-sdk`
+
+All remaining `.js` files in `src/` must be converted to TypeScript before enabling declaration output. Without this, types that cross JS file boundaries will resolve as `any`, producing incomplete and misleading declarations for consumers.
+
+### Remaining files to convert (11):
+
+| File | Public API Impact | Priority |
+|------|-------------------|----------|
+| `identity.js` | Identity types (`IdentityType`, `IdentityCallback`, `IdentityResult`) used by all consumers | **High** |
+| `ecommerce.js` | eCommerce types (`Product`, `TransactionAttributes`, `Impression`, `Promotion`) | **High** |
+| `events.js` | Event logging types (`BaseEvent`, `SDKEventAttrs`) | **High** |
+| `forwarders.js` | Kit/forwarder integration contract — affects all kit consumers | **Medium** |
+| `persistence.js` | Internal, but types leak into public API via user/identity | **Medium** |
+| `helpers.js` | Internal utilities | Low |
+| `filteredMparticleUser.js` | Internal | Low |
+| `forwardingStatsUploader.js` | Internal | Low |
+| `nativeSdkHelpers.js` | Internal | Low |
+| `polyfill.js` | Internal | Low |
+| `stub/mparticle.stub.js` | Separate Rollup entry point for stub build | Low |
+
+### Completion criteria
+
+- All `src/*.js` files renamed to `.ts` with proper type annotations
+- `tsc --noEmit` passes with no implicit `any` errors from cross-file boundaries
+- Existing test suite passes without regressions
 
 ---
 
@@ -177,55 +205,9 @@ declare module '@mparticle/web-sdk' {
 
 ---
 
-## Phase 3: Migrate `mparticle-javascript-integration-rokt`
+## Phase 3: Deprecate DefinitelyTyped
 
-**Package:** `mparticle-javascript-integration-rokt`
-
-This package is plain JavaScript today. Two options depending on timeline:
-
-### Option A — JSDoc types (no TS migration required)
-
-Add `@mparticle/web-sdk` as a devDependency and use JSDoc type annotations:
-
-```js
-/** @typedef {import('@mparticle/web-sdk').IdentityType} IdentityType */
-```
-
-Enable type checking in `jsconfig.json`:
-```json
-{
-  "compilerOptions": {
-    "checkJs": true,
-    "noEmit": true
-  }
-}
-```
-
-### Option B — TypeScript migration (if planned)
-
-Add `@mparticle/web-sdk` as a devDependency, rename `.js` → `.ts`, and import types directly. This is the better long-term path but a larger effort.
-
-### Either option:
-
-```diff
-# package.json
-{
-  "devDependencies": {
-+   "@mparticle/web-sdk": "^2.62.0"
-  },
-  "dependencies": {
--   "@mparticle/web-sdk": "^2.20.0"
-  }
-}
-```
-
-> **Note:** If this package needs `@mparticle/web-sdk` at runtime (not just for types), keep it as a regular dependency. If it only accesses mParticle via `window.mParticle` at runtime, a devDependency suffices.
-
----
-
-## Phase 4: Deprecate DefinitelyTyped
-
-### 4.1 — Update DefinitelyTyped entry
+### 3.1 — Update DefinitelyTyped entry
 
 Once consumers have migrated, update the DefinitelyTyped `index.d.ts` to re-export from the SDK:
 
@@ -236,7 +218,7 @@ export * from '@mparticle/web-sdk';
 
 Or submit a PR to deprecate the package entirely.
 
-### 4.2 — Remove `@types/mparticle__web-sdk` from core SDK devDependencies
+### 3.2 — Remove `@types/mparticle__web-sdk` from core SDK devDependencies
 
 ```diff
 # mparticle-web-sdk/package.json
@@ -249,33 +231,13 @@ Or submit a PR to deprecate the package entirely.
 
 ---
 
-## Phase 5: Ongoing — Convert Remaining JS Files
-
-As the remaining 11 `.js` files in `mparticle-web-sdk/src/` are converted to TypeScript, the declaration output automatically improves. Priority order based on consumer impact:
-
-| File | Consumer Impact | Priority |
-|------|----------------|----------|
-| `identity.js` | Identity types used by all consumers | High |
-| `ecommerce.js` | Product/transaction types used by Rokt kit | High |
-| `events.js` | Event logging types | Medium |
-| `persistence.js` | Internal | Low |
-| `forwarders.js` | Kit integration contract | Medium |
-| `helpers.js` | Internal utilities | Low |
-| `filteredMparticleUser.js` | Internal | Low |
-| `forwardingStatsUploader.js` | Internal | Low |
-| `nativeSdkHelpers.js` | Internal | Low |
-| `polyfill.js` | Internal | Low |
-| `stub/mparticle.stub.js` | Stub entry (separate Rollup input) | Low |
-
----
-
 ## Risks & Mitigations
 
 | Risk | Mitigation |
 |------|------------|
 | Type names differ between DefinitelyTyped and core SDK source | Audit DefinitelyTyped `index.d.ts` against core SDK types before Phase 1.6; add type aliases for backwards compatibility where names diverge |
-| Remaining JS files produce `any` at type boundaries | Document known `any` gaps; prioritize converting high-impact JS files (Phase 5) |
-| Breaking change for existing `@types/mparticle__web-sdk` consumers | Phase 4 re-export bridge ensures gradual migration; keep DefinitelyTyped updated until consumer migration is complete |
+| JS → TS migration introduces regressions | Incremental migration with test suite passing at each step; no declaration output until all files are converted |
+| Breaking change for existing `@types/mparticle__web-sdk` consumers | Phase 3 re-export bridge ensures gradual migration; keep DefinitelyTyped updated until consumer migration is complete |
 | Build time increase from `tsc` declaration step | Declaration generation is fast (~seconds) — negligible impact |
 | Accidental exposure of internal types | Barrel file (Phase 1.1) acts as explicit public API boundary; review declarations in CI |
 
@@ -283,8 +245,8 @@ As the remaining 11 `.js` files in `mparticle-web-sdk/src/` are converted to Typ
 
 ## Success Criteria
 
-- [ ] `@mparticle/web-sdk` publishes `.d.ts` files alongside JS bundles
+- [ ] All `src/*.js` files in core SDK are converted to TypeScript
+- [ ] `@mparticle/web-sdk` publishes `.d.ts` files alongside JS bundles with complete type coverage
 - [ ] `rokt/sdk-web` imports types from `@mparticle/web-sdk` (not `@types/`)
-- [ ] `mparticle-javascript-integration-rokt` has type coverage via JSDoc or TS
 - [ ] `@types/mparticle__web-sdk` is deprecated or re-exports from core SDK
 - [ ] No consumer has a separate copy of mParticle type definitions
