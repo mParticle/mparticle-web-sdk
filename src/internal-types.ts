@@ -5,10 +5,16 @@
  * the public API. They may change without notice between minor versions.
  *
  * Usage:
- *   import type { IKitFilterSettings, IRoktKit } from '@mparticle/web-sdk/internal';
+ *   import type { IKitFilterSettings, IRoktKit, SDKProduct } from '@mparticle/web-sdk/internal';
+ *
+ * This entry point re-exports all public types so that internal consumers
+ * only need a single import path.
  *
  * Customers should NOT import from this path.
  */
+
+// Re-export all public types so internal consumers have a single import path
+export * from './public-types';
 
 // Kit / Forwarder types
 export type {

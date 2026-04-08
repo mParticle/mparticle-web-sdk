@@ -22,6 +22,7 @@
     },
     "main": "dist/mparticle.common.js",
     "module": "dist/mparticle.esm.js",
+    "types": "dist/types/src/public-types.d.ts",
     "typesVersions": {
         "*": {
             "internal": ["dist/types/src/internal-types.d.ts"]
