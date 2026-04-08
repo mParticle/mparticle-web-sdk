@@ -38,8 +38,8 @@ export type {
     IRoktLauncherOptions,
 } from './roktManager';
 
-// Reporting / Error types
-export {
+// Reporting / Error types (type-only to avoid runtime mismatch with entry point)
+export type {
     ErrorCodes,
     WSDKErrorSeverity,
 } from './reporting/types';

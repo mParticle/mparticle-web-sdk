@@ -19,11 +19,8 @@ export type {
     Batch,
 } from '@mparticle/event-models';
 
-// Re-export types from @mparticle/data-planning-models
-export type { DataPlanVersion } from '@mparticle/data-planning-models';
-
-// Enums / Constants
-export {
+// Enums / Constants (type-only to avoid runtime mismatch with entry point)
+export type {
     EventType,
     CommerceEventType,
     IdentityType,
