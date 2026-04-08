@@ -4160,5 +4160,34 @@ describe('forwarders', function() {
                 .getInstance()
                 ._Forwarders.sendBatchToForwarders(fakeBatch);
         });
+
+        it('should deep-clone the batch so kit mutations do not corrupt the original', async () => {
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder')
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const forwarderInstance = window.MockForwarder1.instance;
+            forwarderInstance.processBatch = function(batch: any) {
+                batch.events = [];
+                batch.mpid = 'mutated';
+            };
+
+            const fakeBatch = {
+                events: [{ event_type: 'custom_event' }],
+                mpid: testMPID,
+            };
+
+            mParticle
+                .getInstance()
+                ._Forwarders.sendBatchToForwarders(fakeBatch);
+
+            expect(fakeBatch.events.length).to.equal(1);
+            expect(fakeBatch.mpid).to.equal(testMPID);
+        });
     });
 });

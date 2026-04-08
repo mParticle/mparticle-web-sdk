@@ -418,7 +418,8 @@ export default function Forwarders(mpInstance, kitBlocker) {
 
             if (forwarder.processBatch) {
                 try {
-                    var result = forwarder.processBatch(batch);
+                    var batchCopy = mpInstance._Helpers.extend(true, {}, batch);
+                    var result = forwarder.processBatch(batchCopy);
 
                     if (result) {
                         mpInstance.Logger.verbose(result);
