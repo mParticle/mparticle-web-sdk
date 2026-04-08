@@ -17,7 +17,6 @@
 export * from './public-types';
 
 export type {
-    ConfiguredKit,
     KitInterface,
 } from './forwarders.interfaces';
 
@@ -61,10 +60,7 @@ export type {
     SDKShoppingCart,
     SDKGeoLocation,
     SDKDataPlan,
-    SDKHelpersApi,
     SDKLoggerApi,
-    SDKStoreApi,
     SDKConfigApi,
-    KitBlockerOptions,
     IMParticleInstanceManager,
 } from './sdkRuntimeModels';
