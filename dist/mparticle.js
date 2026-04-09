@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.62.0";
+    var version = "2.63.0";
 
     var Constants = {
       sdkVersion: version,
@@ -2664,6 +2664,13 @@ var mParticle = (function () {
           for (var _d = 0, _e = Array.from(eventsBySession.entries()); _d < _e.length; _d++) {
             var entry_1 = _e[_d];
             var uploadBatchObject = convertEvents(mpid, entry_1[1], mpInstance);
+            if (uploadBatchObject) {
+              try {
+                mpInstance._Forwarders.sendBatchToForwarders(uploadBatchObject);
+              } catch (e) {
+                mpInstance.Logger.error("Error forwarding batch to kits. ".concat(e));
+              }
+            }
             var onCreateBatchCallback = mpInstance._Store.SDKConfig.onCreateBatch;
             if (onCreateBatchCallback) {
               uploadBatchObject = onCreateBatchCallback(uploadBatchObject);
@@ -6498,6 +6505,9 @@ var mParticle = (function () {
       };
     }
 
+    function _createForOfIteratorHelper(o, allowArrayLike) { var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"]; if (!it) { if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = it.call(o); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
+    function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
+    function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) arr2[i] = arr[i]; return arr2; }
     var _Constants$IdentityMe = Constants.IdentityMethods,
       Modify$2 = _Constants$IdentityMe.Modify,
       Identify$1 = _Constants$IdentityMe.Identify,
@@ -6709,6 +6719,33 @@ var mParticle = (function () {
               }
             }
           }
+        }
+      };
+      this.sendBatchToForwarders = function (batch) {
+        if (mpInstance._Store.webviewBridgeEnabled || !mpInstance._Store.activeForwarders) {
+          return;
+        }
+        var _iterator = _createForOfIteratorHelper(mpInstance._Store.activeForwarders),
+          _step;
+        try {
+          for (_iterator.s(); !(_step = _iterator.n()).done;) {
+            var forwarder = _step.value;
+            if (forwarder.processBatch) {
+              try {
+                var batchCopy = mpInstance._Helpers.extend(true, {}, batch);
+                var result = forwarder.processBatch(batchCopy);
+                if (result) {
+                  mpInstance.Logger.verbose(result);
+                }
+              } catch (e) {
+                mpInstance.Logger.verbose(e);
+              }
+            }
+          }
+        } catch (err) {
+          _iterator.e(err);
+        } finally {
+          _iterator.f();
         }
       };
       this.handleForwarderUserAttributes = function (functionNameKey, key, value) {
@@ -10019,113 +10056,105 @@ var mParticle = (function () {
        * });
        */
       RoktManager.prototype.selectPlacements = function (options) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j;
         return __awaiter(this, void 0, void 0, function () {
-          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities_1, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, msg, msg, error_1, errorMessage, finalUserIdentities, enrichedAttributes, hashedEmail, enrichedOptions, error_2;
+          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities, msg, msg, errorMessage, finalUserIdentities, enrichedAttributes, hashedEmail, enrichedOptions;
           var _this = this;
-          return __generator(this, function (_m) {
-            switch (_m.label) {
-              case 0:
-                (_a = this.captureTiming) === null || _a === void 0 ? void 0 : _a.call(this, PerformanceMarkType.JointSdkSelectPlacements);
-                // Queue if kit isn't ready OR if identity is in flight
-                if (!this.isReady() || ((_b = this.store) === null || _b === void 0 ? void 0 : _b.identityCallInFlight)) {
-                  return [2 /*return*/, this.deferredCall('selectPlacements', options)];
-                }
-                _m.label = 1;
-              case 1:
-                _m.trys.push([1, 6,, 7]);
-                attributes = options.attributes;
-                sandboxValue = (attributes === null || attributes === void 0 ? void 0 : attributes.sandbox) || null;
-                mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
-                if ((_c = this.logger) === null || _c === void 0 ? void 0 : _c.isVerbose()) {
-                  attributesToLog = obfuscateDevData(attributes, (_e = (_d = this.store) === null || _d === void 0 ? void 0 : _d.SDKConfig) === null || _e === void 0 ? void 0 : _e.isDevelopmentMode);
-                  this.logger.verbose("mParticle.Rokt selectPlacements called with attributes:\n".concat(JSON.stringify(attributesToLog, null, 2)));
-                }
-                this.currentUser = this.identityService.getCurrentUser();
-                currentUserIdentities_1 = ((_g = (_f = this.currentUser) === null || _f === void 0 ? void 0 : _f.getUserIdentities()) === null || _g === void 0 ? void 0 : _g.userIdentities) || {};
-                currentEmail = currentUserIdentities_1.email;
-                newEmail = mappedAttributes.email;
-                currentHashedEmail = void 0;
-                newHashedEmail = void 0;
-                isValidHashedEmailIdentityType = this.mappedEmailShaIdentityType && IdentityType.getIdentityType(this.mappedEmailShaIdentityType) !== false;
-                if (isValidHashedEmailIdentityType) {
-                  currentHashedEmail = currentUserIdentities_1[this.mappedEmailShaIdentityType];
-                  newHashedEmail = mappedAttributes['emailsha256'] || mappedAttributes[this.mappedEmailShaIdentityType] || undefined;
-                }
-                emailChanged = this.hasIdentityChanged(currentEmail, newEmail);
-                hashedEmailChanged = this.hasIdentityChanged(currentHashedEmail, newHashedEmail);
-                newIdentities_1 = {};
-                if (emailChanged) {
-                  newIdentities_1.email = newEmail;
-                  if (newEmail) {
-                    msg = 'Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.';
-                    this.logger.warning(msg);
-                    (_h = this.errorReporter) === null || _h === void 0 ? void 0 : _h.report({
-                      message: msg,
-                      code: ErrorCodes.IDENTITY_MISMATCH,
-                      severity: WSDKErrorSeverity.WARNING
-                    });
-                  }
-                }
-                if (hashedEmailChanged) {
-                  newIdentities_1[this.mappedEmailShaIdentityType] = newHashedEmail;
-                  msg = 'emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.';
+          return __generator(this, function (_k) {
+            (_a = this.captureTiming) === null || _a === void 0 ? void 0 : _a.call(this, PerformanceMarkType.JointSdkSelectPlacements);
+            // Queue if kit isn't ready OR if identity is in flight
+            if (!this.isReady() || ((_b = this.store) === null || _b === void 0 ? void 0 : _b.identityCallInFlight)) {
+              return [2 /*return*/, this.deferredCall('selectPlacements', options)];
+            }
+            try {
+              attributes = options.attributes;
+              sandboxValue = (attributes === null || attributes === void 0 ? void 0 : attributes.sandbox) || null;
+              mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
+              if ((_c = this.logger) === null || _c === void 0 ? void 0 : _c.isVerbose()) {
+                attributesToLog = obfuscateDevData(attributes, (_e = (_d = this.store) === null || _d === void 0 ? void 0 : _d.SDKConfig) === null || _e === void 0 ? void 0 : _e.isDevelopmentMode);
+                this.logger.verbose("mParticle.Rokt selectPlacements called with attributes:\n".concat(JSON.stringify(attributesToLog, null, 2)));
+              }
+              this.currentUser = this.identityService.getCurrentUser();
+              currentUserIdentities = ((_g = (_f = this.currentUser) === null || _f === void 0 ? void 0 : _f.getUserIdentities()) === null || _g === void 0 ? void 0 : _g.userIdentities) || {};
+              currentEmail = currentUserIdentities.email;
+              newEmail = mappedAttributes.email;
+              currentHashedEmail = void 0;
+              newHashedEmail = void 0;
+              isValidHashedEmailIdentityType = this.mappedEmailShaIdentityType && IdentityType.getIdentityType(this.mappedEmailShaIdentityType) !== false;
+              if (isValidHashedEmailIdentityType) {
+                currentHashedEmail = currentUserIdentities[this.mappedEmailShaIdentityType];
+                newHashedEmail = mappedAttributes['emailsha256'] || mappedAttributes[this.mappedEmailShaIdentityType] || undefined;
+              }
+              emailChanged = this.hasIdentityChanged(currentEmail, newEmail);
+              hashedEmailChanged = this.hasIdentityChanged(currentHashedEmail, newHashedEmail);
+              newIdentities = {};
+              if (emailChanged) {
+                newIdentities.email = newEmail;
+                if (newEmail) {
+                  msg = 'Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.';
                   this.logger.warning(msg);
-                  (_j = this.errorReporter) === null || _j === void 0 ? void 0 : _j.report({
+                  (_h = this.errorReporter) === null || _h === void 0 ? void 0 : _h.report({
                     message: msg,
                     code: ErrorCodes.IDENTITY_MISMATCH,
                     severity: WSDKErrorSeverity.WARNING
                   });
                 }
-                if (!!isEmpty(newIdentities_1)) return [3 /*break*/, 5];
-                _m.label = 2;
-              case 2:
-                _m.trys.push([2, 4,, 5]);
-                return [4 /*yield*/, new Promise(function (resolve, reject) {
-                  _this.identityService.identify({
-                    userIdentities: __assign(__assign({}, currentUserIdentities_1), newIdentities_1)
-                  }, function () {
-                    resolve();
-                  });
-                })];
-              case 3:
-                _m.sent();
-                return [3 /*break*/, 5];
-              case 4:
-                error_1 = _m.sent();
-                errorMessage = error_1 instanceof Error ? error_1.message : JSON.stringify(error_1);
-                this.logger.error('Failed to identify user with updated identities: ' + errorMessage);
-                return [3 /*break*/, 5];
-              case 5:
-                // Refresh current user identities to ensure we have the latest values before building enrichedAttributes
-                this.currentUser = this.identityService.getCurrentUser();
-                finalUserIdentities = ((_l = (_k = this.currentUser) === null || _k === void 0 ? void 0 : _k.getUserIdentities()) === null || _l === void 0 ? void 0 : _l.userIdentities) || {};
-                this.setUserAttributes(mappedAttributes);
-                enrichedAttributes = __assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
-                  sandbox: sandboxValue
-                } : {});
-                // Propagate email from current user identities if not already in attributes
-                if (finalUserIdentities.email && !enrichedAttributes.email) {
-                  enrichedAttributes.email = finalUserIdentities.email;
-                }
-                // Propagate emailsha256 from current user identities if not already in attributes
-                if (isValidHashedEmailIdentityType) {
-                  hashedEmail = finalUserIdentities[this.mappedEmailShaIdentityType];
-                  if (hashedEmail && !enrichedAttributes.emailsha256 && !enrichedAttributes[this.mappedEmailShaIdentityType]) {
-                    enrichedAttributes.emailsha256 = hashedEmail;
-                  }
-                }
-                this.filters.filteredUser = this.currentUser || this.filters.filteredUser || null;
-                enrichedOptions = __assign(__assign({}, options), {
-                  attributes: enrichedAttributes
+              }
+              if (hashedEmailChanged) {
+                newIdentities[this.mappedEmailShaIdentityType] = newHashedEmail;
+                msg = 'emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.';
+                this.logger.warning(msg);
+                (_j = this.errorReporter) === null || _j === void 0 ? void 0 : _j.report({
+                  message: msg,
+                  code: ErrorCodes.IDENTITY_MISMATCH,
+                  severity: WSDKErrorSeverity.WARNING
                 });
-                return [2 /*return*/, this.kit.selectPlacements(enrichedOptions)];
-              case 6:
-                error_2 = _m.sent();
-                return [2 /*return*/, Promise.reject(error_2 instanceof Error ? error_2 : new Error('Unknown error occurred'))];
-              case 7:
-                return [2 /*return*/];
+              }
+              if (!isEmpty(newIdentities)) {
+                // Fire-and-forget identify — best-effort, does not block selectPlacements
+                try {
+                  this.identityService.identify({
+                    userIdentities: __assign(__assign({}, currentUserIdentities), newIdentities)
+                  }, function (result) {
+                    var httpCode = Number(result === null || result === void 0 ? void 0 : result.httpCode);
+                    if (httpCode && (httpCode >= 400 || httpCode < 0)) {
+                      _this.logger.error('Background identify failed with HTTP ' + httpCode);
+                    }
+                    // Drain any selectPlacements calls that were deferred while
+                    // identify was in-flight. By the time this callback fires,
+                    // identityCallInFlight has already been reset to false.
+                    _this.processMessageQueue();
+                  });
+                } catch (error) {
+                  errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+                  this.logger.error('Background identify threw an error: ' + errorMessage);
+                }
+              }
+              finalUserIdentities = __assign(__assign({}, currentUserIdentities), newIdentities);
+              this.setUserAttributes(mappedAttributes);
+              enrichedAttributes = __assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
+                sandbox: sandboxValue
+              } : {});
+              // Propagate email from current user identities if not already in attributes
+              if (finalUserIdentities.email && !enrichedAttributes.email) {
+                enrichedAttributes.email = finalUserIdentities.email;
+              }
+              // Propagate emailsha256 from current user identities if not already in attributes
+              if (isValidHashedEmailIdentityType) {
+                hashedEmail = finalUserIdentities[this.mappedEmailShaIdentityType];
+                if (hashedEmail && !enrichedAttributes.emailsha256 && !enrichedAttributes[this.mappedEmailShaIdentityType]) {
+                  enrichedAttributes.emailsha256 = hashedEmail;
+                }
+              }
+              this.filters.filteredUser = this.currentUser || this.filters.filteredUser || null;
+              enrichedOptions = __assign(__assign({}, options), {
+                attributes: enrichedAttributes
+              });
+              return [2 /*return*/, this.kit.selectPlacements(enrichedOptions)];
+            } catch (error) {
+              return [2 /*return*/, Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'))];
             }
+            return [2 /*return*/];
           });
         });
       };
@@ -10140,7 +10169,7 @@ var mParticle = (function () {
        */
       RoktManager.prototype.hashAttributes = function (attributes) {
         return __awaiter(this, void 0, void 0, function () {
-          var keys, hashPromises, results, hashedAttributes, _i, results_1, _a, key, attributeValue, hashedValue, error_3, errorMessage;
+          var keys, hashPromises, results, hashedAttributes, _i, results_1, _a, key, attributeValue, hashedValue, error_1, errorMessage;
           var _this = this;
           return __generator(this, function (_b) {
             switch (_b.label) {
@@ -10185,8 +10214,8 @@ var mParticle = (function () {
                 }
                 return [2 /*return*/, hashedAttributes];
               case 2:
-                error_3 = _b.sent();
-                errorMessage = error_3 instanceof Error ? error_3.message : String(error_3);
+                error_1 = _b.sent();
+                errorMessage = error_1 instanceof Error ? error_1.message : String(error_1);
                 this.logger.error("Failed to hashAttributes, returning an empty object: ".concat(errorMessage));
                 return [2 /*return*/, {}];
               case 3:
@@ -10227,7 +10256,7 @@ var mParticle = (function () {
        */
       RoktManager.prototype.hashSha256 = function (attribute) {
         return __awaiter(this, void 0, void 0, function () {
-          var normalizedValue, error_4, errorMessage;
+          var normalizedValue, error_2, errorMessage;
           return __generator(this, function (_a) {
             switch (_a.label) {
               case 0:
@@ -10243,8 +10272,8 @@ var mParticle = (function () {
               case 2:
                 return [2 /*return*/, _a.sent()];
               case 3:
-                error_4 = _a.sent();
-                errorMessage = error_4 instanceof Error ? error_4.message : String(error_4);
+                error_2 = _a.sent();
+                errorMessage = error_2 instanceof Error ? error_2.message : String(error_2);
                 this.logger.error("Failed to hashSha256, returning undefined: ".concat(errorMessage));
                 return [2 /*return*/, undefined];
               case 4:
