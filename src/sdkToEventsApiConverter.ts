@@ -870,6 +870,7 @@ export function getEventCategoryFromCustomEventType(
         case 'add_to_wishlist':
             return Types.CommerceEventType.ProductAddToWishlist;
         case 'remove_from_wishlist':
+        case 'remove_from_wish_list':
             return Types.CommerceEventType.ProductRemoveFromWishlist;
         case 'impression':
             return Types.CommerceEventType.ProductImpression;
