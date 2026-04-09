@@ -405,6 +405,34 @@ export default function Forwarders(mpInstance, kitBlocker) {
         }
     };
 
+    this.sendBatchToForwarders = function(batch) {
+        if (
+            mpInstance._Store.webviewBridgeEnabled ||
+            !mpInstance._Store.activeForwarders
+        ) {
+            return;
+        }
+
+        for (const forwarder of mpInstance._Store.activeForwarders) {
+            if (forwarder.processBatch) {
+                try {
+                    const batchCopy = mpInstance._Helpers.extend(
+                        true,
+                        {},
+                        batch
+                    );
+                    const result = forwarder.processBatch(batchCopy);
+
+                    if (result) {
+                        mpInstance.Logger.verbose(result);
+                    }
+                } catch (e) {
+                    mpInstance.Logger.verbose(e);
+                }
+            }
+        }
+    };
+
     this.handleForwarderUserAttributes = function(functionNameKey, key, value) {
         if (
             (kitBlocker && kitBlocker.isAttributeKeyBlocked(key)) ||
@@ -747,7 +775,6 @@ export default function Forwarders(mpInstance, kitBlocker) {
             config.filteringConsentRuleValues || {};
         newForwarder.excludeAnonymousUser =
             config.excludeAnonymousUser || false;
-
         return newForwarder;
     };
 
