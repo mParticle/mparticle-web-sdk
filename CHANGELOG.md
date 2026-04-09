@@ -1,3 +1,11 @@
+# [2.63.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.62.0...v2.63.0) (2026-04-09)
+
+
+### Features
+
+* Remove blocking identity call in selectPlacements ([#1241](https://github.com/mParticle/mparticle-web-sdk/issues/1241)) ([fd62adb](https://github.com/mParticle/mparticle-web-sdk/commit/fd62adb7c194ce5c3a31506db168983d7319de3a))
+* support batch forwarding in kits ([#1244](https://github.com/mParticle/mparticle-web-sdk/issues/1244)) ([0126522](https://github.com/mParticle/mparticle-web-sdk/commit/012652228e9f438a38f2d7f60660fe58c7e71afc))
+
 # [2.62.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.61.0...v2.62.0) (2026-04-08)
 
 
