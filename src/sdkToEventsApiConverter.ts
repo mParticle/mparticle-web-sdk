@@ -956,22 +956,29 @@ export function getEventCategoryFromBatchEvent(
     }
 
     if ((batchEvent as any).event_type === 'commerce_event') {
-        if (data.product_action && data.product_action.action) {
-            return getEventCategoryFromCustomEventType(
-                data.product_action.action
-            );
-        }
-        if (data.promotion_action && data.promotion_action.action) {
-            if (data.promotion_action.action === 'view') {
-                return Types.CommerceEventType.PromotionView;
-            }
-            if (data.promotion_action.action === 'click') {
-                return Types.CommerceEventType.PromotionClick;
-            }
-        }
-        if (data.product_impressions) {
-            return Types.CommerceEventType.ProductImpression;
-        }
+        return getCommerceEventCategory(data);
+    }
+
+    return Types.EventType.Unknown;
+}
+
+function getCommerceEventCategory(data: any): number {
+    if (data.product_action && data.product_action.action) {
+        return getEventCategoryFromCustomEventType(
+            data.product_action.action
+        );
+    }
+
+    const promoAction = data.promotion_action && data.promotion_action.action;
+    if (promoAction === 'view') {
+        return Types.CommerceEventType.PromotionView;
+    }
+    if (promoAction === 'click') {
+        return Types.CommerceEventType.PromotionClick;
+    }
+
+    if (data.product_impressions) {
+        return Types.CommerceEventType.ProductImpression;
     }
 
     return Types.EventType.Unknown;
