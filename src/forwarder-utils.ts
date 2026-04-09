@@ -126,9 +126,9 @@ export function filterEventAttributes(
     eventName: string,
     attributes: Record<string, unknown> | null,
     forwarder: ForwarderFilterConfig
-): void {
+): Record<string, unknown> | null {
     if (!attributes) {
-        return;
+        return attributes;
     }
 
     let filterList: number[] | undefined;
@@ -139,9 +139,10 @@ export function filterEventAttributes(
     }
 
     if (!filterList) {
-        return;
+        return attributes;
     }
 
+    const filtered: Record<string, unknown> = {};
     for (const attrName in attributes) {
         if (attributes.hasOwnProperty(attrName)) {
             const hash = KitFilterHelper.hashEventAttributeKey(
@@ -150,11 +151,12 @@ export function filterEventAttributes(
                 attrName
             );
 
-            if (inArray(filterList, hash)) {
-                delete attributes[attrName];
+            if (!inArray(filterList, hash)) {
+                filtered[attrName] = attributes[attrName];
             }
         }
     }
+    return filtered;
 }
 
 export function filterUserIdentities(
@@ -225,7 +227,7 @@ export function isBatchEventAllowed(
         return false;
     }
 
-    filterEventAttributes(
+    (batchEvent as any).data.custom_attributes = filterEventAttributes(
         messageType,
         eventCategory,
         eventName,
@@ -237,25 +239,25 @@ export function isBatchEventAllowed(
 }
 
 export function filterBatchIdentities(
-    batchCopy: EventsApi.Batch,
-    forwarder: ForwarderFilterConfig
-): void {
-    if (!batchCopy.user_identities || !forwarder.userIdentityFilters) {
-        return;
+    userIdentities: Record<string, unknown> | undefined,
+    filterList: number[] | undefined
+): Record<string, unknown> | undefined {
+    if (!userIdentities || !filterList) {
+        return userIdentities;
     }
 
-    const identities = batchCopy.user_identities as Record<string, unknown>;
-
-    for (const key in identities) {
-        if (identities.hasOwnProperty(key)) {
+    const filtered: Record<string, unknown> = {};
+    for (const key in userIdentities) {
+        if (userIdentities.hasOwnProperty(key)) {
             const identityType = getIdentityTypeFromBatchKey(key);
 
             if (
-                identityType !== -1 &&
-                inArray(forwarder.userIdentityFilters, identityType)
+                identityType === -1 ||
+                !inArray(filterList, identityType)
             ) {
-                delete identities[key];
+                filtered[key] = userIdentities[key];
             }
         }
     }
+    return filtered;
 }

@@ -236,7 +236,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     continue;
                 }
 
-                filterEventAttributes(
+                clonedEvent.EventAttributes = filterEventAttributes(
                     event.EventDataType,
                     event.EventCategory,
                     event.EventName,
@@ -294,7 +294,10 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     });
                 }
 
-                filterBatchIdentities(batchCopy, forwarder);
+                batchCopy.user_identities = filterBatchIdentities(
+                    batchCopy.user_identities,
+                    forwarder.userIdentityFilters
+                );
 
                 if (batchCopy.user_attributes) {
                     batchCopy.user_attributes = mpInstance._Helpers.filterUserAttributes(
