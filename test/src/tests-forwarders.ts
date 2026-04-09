@@ -13,7 +13,7 @@ import {
 import { expect } from 'chai';
 import { IMParticleInstanceManager, SDKEvent, SDKInitConfig } from '../../src/sdkRuntimeModels';
 import { IMParticleUser, UserAttributes } from '../../src/identity-user-interfaces';
-import { IdentityType } from '../../src/types';
+import { IdentityType, CommerceEventType } from '../../src/types';
 import { IntegrationAttribute } from '../../src/store';
 import { IConsentRules } from '../../src/consent';
 import { UserIdentities } from '@mparticle/web-sdk';
@@ -4245,6 +4245,80 @@ describe('forwarders', function() {
             expect(receivedBatch.events[0].data.event_name).to.equal(
                 'allowed event'
             );
+        });
+
+        it('should filter commerce events from the batch by event type', async () => {
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            const config1 = forwarderDefaultConfiguration(
+                'MockForwarder',
+                1
+            );
+            config1.eventTypeFilters = [
+                mParticle.generateHash(
+                    String(CommerceEventType.ProductViewDetail)
+                ) as unknown as number,
+            ];
+            window.mParticle.config.kitConfigs.push(config1);
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const forwarderInstance = window.MockForwarder1.instance;
+            let receivedBatch: any = null;
+            forwarderInstance.processBatch = function(batch: any) {
+                receivedBatch = batch;
+            };
+
+            const fakeBatch = {
+                events: [
+                    {
+                        event_type: 'commerce_event',
+                        data: {
+                            product_action: {
+                                action: 'view_detail',
+                                products: [
+                                    {
+                                        id: 'SKU-123',
+                                        name: 'Test Product',
+                                        price: 19.99,
+                                        quantity: 1,
+                                    },
+                                ],
+                            },
+                            custom_attributes: {},
+                        },
+                    },
+                    {
+                        event_type: 'commerce_event',
+                        data: {
+                            product_action: {
+                                action: 'purchase',
+                                products: [
+                                    {
+                                        id: 'SKU-456',
+                                        name: 'Other Product',
+                                        price: 9.99,
+                                        quantity: 2,
+                                    },
+                                ],
+                            },
+                            custom_attributes: {},
+                        },
+                    },
+                ],
+                mpid: testMPID,
+            };
+
+            mParticle
+                .getInstance()
+                ._Forwarders.sendBatchToForwarders(fakeBatch);
+
+            expect(receivedBatch).to.be.ok;
+            expect(receivedBatch.events.length).to.equal(1);
+            expect(
+                receivedBatch.events[0].data.product_action.action
+            ).to.equal('purchase');
         });
 
         it('should strip filtered user attributes from the batch', async () => {
