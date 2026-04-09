@@ -4247,6 +4247,60 @@ describe('forwarders', function() {
             );
         });
 
+        it('should filter screen_view events from the batch by screen name', async () => {
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            const config1 = forwarderDefaultConfiguration(
+                'MockForwarder',
+                1
+            );
+            config1.screenNameFilters = [
+                mParticle.generateHash(
+                    mParticle.EventType.Unknown + 'blocked page'
+                ) as unknown as number,
+            ];
+            window.mParticle.config.kitConfigs.push(config1);
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const forwarderInstance = window.MockForwarder1.instance;
+            let receivedBatch: any = null;
+            forwarderInstance.processBatch = function(batch: any) {
+                receivedBatch = batch;
+            };
+
+            const fakeBatch = {
+                events: [
+                    {
+                        event_type: 'screen_view',
+                        data: {
+                            screen_name: 'blocked page',
+                            custom_attributes: {},
+                        },
+                    },
+                    {
+                        event_type: 'screen_view',
+                        data: {
+                            screen_name: 'allowed page',
+                            custom_attributes: {},
+                        },
+                    },
+                ],
+                mpid: testMPID,
+            };
+
+            mParticle
+                .getInstance()
+                ._Forwarders.sendBatchToForwarders(fakeBatch);
+
+            expect(receivedBatch).to.be.ok;
+            expect(receivedBatch.events.length).to.equal(1);
+            expect(receivedBatch.events[0].data.screen_name).to.equal(
+                'allowed page'
+            );
+        });
+
         it('should filter commerce events from the batch by event type', async () => {
             const mockForwarder = new MockForwarder();
             mockForwarder.register(window.mParticle.config);

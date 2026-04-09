@@ -1,15 +1,16 @@
-import Types from './types';
 import filteredMparticleUser from './filteredMparticleUser';
-import { isEmpty, inArray } from './utils';
+import { isEmpty } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
 import APIClient from './apiClient';
 import {
-    getMessageTypeFromEventType,
-    getIdentityTypeFromBatchKey,
-    getEventNameFromBatchEvent,
-    getEventCategoryFromBatchEvent,
-} from './sdkToEventsApiConverter';
+    isBlockedByForwardingRule,
+    isBlockedByEventFilter,
+    filterEventAttributes,
+    filterUserIdentities,
+    isBatchEventAllowed,
+    filterBatchIdentities,
+} from './forwarder-utils';
 
 const { Modify, Identify, Login, Logout } = Constants.IdentityMethods;
 
@@ -183,7 +184,9 @@ export default function Forwarders(mpInstance, kitBlocker) {
     };
 
     this.sendEventToForwarders = function(event) {
-        let clonedEvent, hashedEventName, hashedEventType;
+        let clonedEvent;
+        let hashedEventName;
+        let hashedEventType;
 
         if (
             !mpInstance._Store.webviewBridgeEnabled &&
@@ -712,215 +715,4 @@ export default function Forwarders(mpInstance, kitBlocker) {
 
         mpInstance?.Logger?.verbose(message);
     };
-}
-
-function inFilteredList(filterList, hash) {
-    if (filterList && filterList.length) {
-        if (inArray(filterList, hash)) {
-            return true;
-        }
-    }
-    return false;
-}
-
-const forwardingRuleMessageTypes = [
-    Types.MessageType.PageEvent,
-    Types.MessageType.PageView,
-    Types.MessageType.Commerce,
-];
-
-function isBlockedByForwardingRule(messageType, attributes, forwarder) {
-    if (
-        forwardingRuleMessageTypes.indexOf(messageType) === -1 ||
-        !forwarder.filteringEventAttributeValue ||
-        !forwarder.filteringEventAttributeValue.eventAttributeName ||
-        !forwarder.filteringEventAttributeValue.eventAttributeValue
-    ) {
-        return false;
-    }
-
-    let foundProp = null;
-
-    if (attributes) {
-        for (const prop in attributes) {
-            if (attributes.hasOwnProperty(prop)) {
-                const hashedName = KitFilterHelper.hashAttributeConditionalForwarding(
-                    prop
-                );
-
-                if (
-                    hashedName ===
-                    forwarder.filteringEventAttributeValue.eventAttributeName
-                ) {
-                    foundProp = {
-                        name: hashedName,
-                        value: KitFilterHelper.hashAttributeConditionalForwarding(
-                            attributes[prop]
-                        ),
-                    };
-                    break;
-                }
-            }
-        }
-    }
-
-    const isMatch =
-        foundProp !== null &&
-        foundProp.value ===
-            forwarder.filteringEventAttributeValue.eventAttributeValue;
-
-    const shouldInclude =
-        forwarder.filteringEventAttributeValue.includeOnMatch === true
-            ? isMatch
-            : !isMatch;
-
-    return !shouldInclude;
-}
-
-function isBlockedByEventFilter(
-    messageType,
-    hashedEventName,
-    hashedEventType,
-    forwarder
-) {
-    if (
-        messageType === Types.MessageType.PageEvent &&
-        (inFilteredList(forwarder.eventNameFilters, hashedEventName) ||
-            inFilteredList(forwarder.eventTypeFilters, hashedEventType))
-    ) {
-        return true;
-    } else if (
-        messageType === Types.MessageType.Commerce &&
-        inFilteredList(forwarder.eventTypeFilters, hashedEventType)
-    ) {
-        return true;
-    } else if (
-        messageType === Types.MessageType.PageView &&
-        inFilteredList(forwarder.screenNameFilters, hashedEventName)
-    ) {
-        return true;
-    }
-    return false;
-}
-
-function filterEventAttributes(
-    messageType,
-    eventCategory,
-    eventName,
-    attributes,
-    forwarder
-) {
-    if (!attributes) {
-        return;
-    }
-
-    let filterList;
-    if (messageType === Types.MessageType.PageEvent) {
-        filterList = forwarder.attributeFilters;
-    } else if (messageType === Types.MessageType.PageView) {
-        filterList = forwarder.screenAttributeFilters;
-    }
-
-    if (!filterList) {
-        return;
-    }
-
-    for (const attrName in attributes) {
-        if (attributes.hasOwnProperty(attrName)) {
-            const hash = KitFilterHelper.hashEventAttributeKey(
-                eventCategory,
-                eventName,
-                attrName
-            );
-
-            if (inArray(filterList, hash)) {
-                delete attributes[attrName];
-            }
-        }
-    }
-}
-
-function filterUserIdentities(event, filterList) {
-    if (event.UserIdentities && event.UserIdentities.length) {
-        event.UserIdentities.forEach(function(userIdentity, i) {
-            if (
-                inArray(
-                    filterList,
-                    KitFilterHelper.hashUserIdentity(userIdentity.Type)
-                )
-            ) {
-                event.UserIdentities.splice(i, 1);
-
-                if (i > 0) {
-                    i--;
-                }
-            }
-        });
-    }
-}
-
-function isBatchEventAllowed(batchEvent, forwarder) {
-    if (!batchEvent || !batchEvent.data) {
-        return true;
-    }
-
-    const messageType = getMessageTypeFromEventType(batchEvent.event_type);
-    const eventName = getEventNameFromBatchEvent(batchEvent);
-    const eventCategory = getEventCategoryFromBatchEvent(batchEvent);
-
-    if (
-        isBlockedByForwardingRule(
-            messageType,
-            batchEvent.data.custom_attributes,
-            forwarder
-        )
-    ) {
-        return false;
-    }
-
-    const hashedEventName = KitFilterHelper.hashEventName(
-        eventName,
-        eventCategory
-    );
-    const hashedEventType = KitFilterHelper.hashEventType(eventCategory);
-
-    if (
-        isBlockedByEventFilter(
-            messageType,
-            hashedEventName,
-            hashedEventType,
-            forwarder
-        )
-    ) {
-        return false;
-    }
-
-    filterEventAttributes(
-        messageType,
-        eventCategory,
-        eventName,
-        batchEvent.data.custom_attributes,
-        forwarder
-    );
-
-    return true;
-}
-
-function filterBatchIdentities(batchCopy, forwarder) {
-    if (!batchCopy.user_identities || !forwarder.userIdentityFilters) {
-        return;
-    }
-
-    for (const key in batchCopy.user_identities) {
-        if (batchCopy.user_identities.hasOwnProperty(key)) {
-            const identityType = getIdentityTypeFromBatchKey(key);
-
-            if (
-                identityType !== -1 &&
-                inArray(forwarder.userIdentityFilters, identityType)
-            ) {
-                delete batchCopy.user_identities[key];
-            }
-        }
-    }
 }

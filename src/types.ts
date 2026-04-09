@@ -397,6 +397,140 @@ export const PerformanceMarkType = {
     JointSdkRoktKitInit: 'mp:jointSdkRoktKitInit' as const,
 }
 
+export function getMessageTypeFromEventType(
+    eventType: string
+): number {
+    switch (eventType) {
+        case 'custom_event':
+            return MessageType.PageEvent;
+        case 'screen_view':
+            return MessageType.PageView;
+        case 'commerce_event':
+            return MessageType.Commerce;
+        case 'session_start':
+            return MessageType.SessionStart;
+        case 'session_end':
+            return MessageType.SessionEnd;
+        case 'crash_report':
+            return MessageType.CrashReport;
+        case 'opt_out':
+            return MessageType.OptOut;
+        case 'application_state_transition':
+            return MessageType.AppStateTransition;
+        case 'user_attribute_change':
+            return MessageType.UserAttributeChange;
+        case 'user_identity_change':
+            return MessageType.UserIdentityChange;
+        default:
+            return -1;
+    }
+}
+
+export function getEventCategoryFromCustomEventType(
+    customEventType: string
+): number {
+    switch (customEventType) {
+        case 'navigation':
+            return EventType.Navigation;
+        case 'location':
+            return EventType.Location;
+        case 'search':
+            return EventType.Search;
+        case 'transaction':
+            return EventType.Transaction;
+        case 'user_content':
+            return EventType.UserContent;
+        case 'user_preference':
+            return EventType.UserPreference;
+        case 'social':
+            return EventType.Social;
+        case 'other':
+            return EventType.Other;
+        case 'media':
+            return EventType.Media;
+        case 'add_to_cart':
+            return CommerceEventType.ProductAddToCart;
+        case 'remove_from_cart':
+            return CommerceEventType.ProductRemoveFromCart;
+        case 'checkout':
+            return CommerceEventType.ProductCheckout;
+        case 'checkout_option':
+            return CommerceEventType.ProductCheckoutOption;
+        case 'click':
+            return CommerceEventType.ProductClick;
+        case 'view_detail':
+            return CommerceEventType.ProductViewDetail;
+        case 'purchase':
+            return CommerceEventType.ProductPurchase;
+        case 'refund':
+            return CommerceEventType.ProductRefund;
+        case 'promotion_view':
+            return CommerceEventType.PromotionView;
+        case 'promotion_click':
+            return CommerceEventType.PromotionClick;
+        case 'add_to_wishlist':
+            return CommerceEventType.ProductAddToWishlist;
+        case 'remove_from_wishlist':
+        case 'remove_from_wish_list':
+            return CommerceEventType.ProductRemoveFromWishlist;
+        case 'impression':
+            return CommerceEventType.ProductImpression;
+        default:
+            return EventType.Unknown;
+    }
+}
+
+export function getIdentityTypeFromBatchKey(
+    key: string
+): number {
+    switch (key) {
+        case 'other':
+            return IdentityType.Other;
+        case 'customer_id':
+            return IdentityType.CustomerId;
+        case 'facebook':
+            return IdentityType.Facebook;
+        case 'twitter':
+            return IdentityType.Twitter;
+        case 'google':
+            return IdentityType.Google;
+        case 'microsoft':
+            return IdentityType.Microsoft;
+        case 'yahoo':
+            return IdentityType.Yahoo;
+        case 'email':
+            return IdentityType.Email;
+        case 'facebook_custom_audience_id':
+            return IdentityType.FacebookCustomAudienceId;
+        case 'other_id_2':
+            return IdentityType.Other2;
+        case 'other_id_3':
+            return IdentityType.Other3;
+        case 'other_id_4':
+            return IdentityType.Other4;
+        case 'other_id_5':
+            return IdentityType.Other5;
+        case 'other_id_6':
+            return IdentityType.Other6;
+        case 'other_id_7':
+            return IdentityType.Other7;
+        case 'other_id_8':
+            return IdentityType.Other8;
+        case 'other_id_9':
+            return IdentityType.Other9;
+        case 'other_id_10':
+            return IdentityType.Other10;
+        case 'mobile_number':
+            return IdentityType.MobileNumber;
+        case 'phone_number_2':
+            return IdentityType.PhoneNumber2;
+        case 'phone_number_3':
+            return IdentityType.PhoneNumber3;
+        default:
+            return -1;
+    }
+}
+
 export default {
     MessageType,
     EventType,
