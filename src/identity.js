@@ -1581,6 +1581,11 @@ export default function Identity(mpInstance) {
         mpInstance._preInit.readyQueue = processReadyQueue(
             mpInstance._preInit.readyQueue
         );
+
+        var noTargeting = mpInstance._CookieConsentManager?.getNoTargeting();
+        if (newUser && noTargeting) {
+            newUser.setUserAttribute('$NoTargeting', noTargeting);
+        }
     };
 
     // send a user identity change request on identify, login, logout, modify when any values change.

@@ -4529,6 +4529,101 @@ describe('identity', function() {
                 expect(localStorage.getItem(idCacheStorageKey)).to.be.ok;
             });
         });
+
+        describe('#noTargeting user attribute', function() {
+            afterEach(() => {
+                delete window.mParticle.config.launcherOptions;
+            });
+
+            it('should set $NoTargeting user attribute after identify when noTargeting is true', async () => {
+                await waitForCondition(hasIdentityCallInflightReturned);
+                mParticle._resetForTests(MPConfig);
+                loggerSpy = setupLoggerSpy();
+                fetchMockSuccess(urls.events);
+                fetchMockSuccess(urls.identify, {
+                    mpid: testMPID,
+                    is_logged_in: false,
+                });
+
+                mParticle.config.launcherOptions = { noTargeting: true };
+                mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+
+                const currentUser = mParticle.Identity.getCurrentUser();
+                expect(currentUser).to.be.ok;
+                expect(currentUser.getAllUserAttributes()).to.have.property('$NoTargeting', true);
+            });
+
+            it('should not set $NoTargeting user attribute when noTargeting is false', async () => {
+                await waitForCondition(hasIdentityCallInflightReturned);
+                mParticle._resetForTests(MPConfig);
+                loggerSpy = setupLoggerSpy();
+                fetchMockSuccess(urls.events);
+                fetchMockSuccess(urls.identify, {
+                    mpid: testMPID,
+                    is_logged_in: false,
+                });
+
+                mParticle.config.launcherOptions = { noTargeting: false };
+                mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+
+                const currentUser = mParticle.Identity.getCurrentUser();
+                expect(currentUser.getAllUserAttributes()).to.not.have.property('$NoTargeting');
+            });
+
+            it('should not set $NoTargeting user attribute when launcherOptions is not provided', async () => {
+                await waitForCondition(hasIdentityCallInflightReturned);
+                mParticle._resetForTests(MPConfig);
+                loggerSpy = setupLoggerSpy();
+                fetchMockSuccess(urls.events);
+                fetchMockSuccess(urls.identify, {
+                    mpid: testMPID,
+                    is_logged_in: false,
+                });
+
+                mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+
+                const currentUser = mParticle.Identity.getCurrentUser();
+                expect(currentUser.getAllUserAttributes()).to.not.have.property('$NoTargeting');
+            });
+
+            it('should set $NoTargeting user attribute after login when noTargeting is true', async () => {
+                await waitForCondition(hasIdentityCallInflightReturned);
+                mParticle._resetForTests(MPConfig);
+                loggerSpy = setupLoggerSpy();
+                fetchMockSuccess(urls.events);
+                fetchMockSuccess(urls.identify, {
+                    mpid: testMPID,
+                    is_logged_in: false,
+                });
+
+                mParticle.config.launcherOptions = { noTargeting: true };
+                mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+
+                // Verify attribute set on initial identify
+                expect(mParticle.Identity.getCurrentUser().getAllUserAttributes()).to.have.property('$NoTargeting', true);
+
+                // Now login as a different user
+                const loginMPID = 'login-mpid';
+                fetchMockSuccess(urls.login, {
+                    mpid: loginMPID,
+                    is_logged_in: true,
+                });
+
+                loggerSpy.verbose.resetHistory();
+                mParticle.Identity.login({
+                    userIdentities: { email: 'test@example.com' },
+                });
+                await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+
+                const loginUser = mParticle.Identity.getCurrentUser();
+                expect(loginUser.getMPID()).to.equal(loginMPID);
+                expect(loginUser.getAllUserAttributes()).to.have.property('$NoTargeting', true);
+            });
+        });
     });
 
     describe('Rokt Manager', function() {
