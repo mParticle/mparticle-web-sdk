@@ -7,7 +7,6 @@ import { inArray, valueof } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import * as EventsApi from '@mparticle/event-models';
 import { IKitFilterSettings } from './configAPIClient';
-import { SDKEvent } from './sdkRuntimeModels';
 import {
     getEventNameFromBatchEvent,
     getEventCategoryFromBatchEvent,

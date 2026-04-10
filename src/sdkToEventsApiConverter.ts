@@ -11,7 +11,7 @@ import {
     SDKGDPRConsentState,
     SDKCCPAConsentState,
 } from './consent';
-import Types from './types';
+import Types, { getEventCategoryFromCustomEventType } from './types';
 import { Dictionary, isEmpty } from './utils';
 import { ISDKUserIdentity } from './identity-user-interfaces';
 import { SDKIdentityTypeEnum } from './identity.interfaces';
@@ -795,8 +795,6 @@ export function convertUserIdentityTypeToServerIdentityType(
             return EventsApi.IdentityTypeEnum.phoneNumber3;
     }
 }
-
-import { getEventCategoryFromCustomEventType } from './types';
 
 export function getEventNameFromBatchEvent(
     batchEvent: EventsApi.BaseEvent
