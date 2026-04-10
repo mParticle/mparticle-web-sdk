@@ -286,6 +286,8 @@ export default function Forwarders(mpInstance, kitBlocker) {
 
             try {
                 const batchCopy = mpInstance._Helpers.extend(true, {}, batch);
+                const hadEvents =
+                    batchCopy.events && batchCopy.events.length > 0;
 
                 if (batchCopy.events) {
                     batchCopy.events = batchCopy.events.filter(function(
@@ -311,7 +313,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     );
                 }
 
-                if (!batchCopy.events || batchCopy.events.length === 0) {
+                if (hadEvents && batchCopy.events.length === 0) {
                     continue;
                 }
 

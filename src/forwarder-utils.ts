@@ -30,7 +30,7 @@ const FORWARDING_RULE_MESSAGE_TYPES: number[] = [
     Types.MessageType.Commerce,
 ];
 
-export function inFilteredList(
+function inFilteredList(
     filterList: number[] | undefined,
     hash: number
 ): boolean {
