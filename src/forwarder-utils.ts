@@ -34,9 +34,7 @@ function inFilteredList(
     hash: number
 ): boolean {
     if (filterList && filterList.length) {
-        if (inArray(filterList, hash)) {
-            return true;
-        }
+        return inArray(filterList, hash);
     }
     return false;
 }
@@ -47,7 +45,7 @@ export function isBlockedByForwardingRule(
     forwarder: ForwarderFilterConfig
 ): boolean {
     if (
-        FORWARDING_RULE_MESSAGE_TYPES.indexOf(messageType) === -1 ||
+        !FORWARDING_RULE_MESSAGE_TYPES.includes(messageType) ||
         !forwarder.filteringEventAttributeValue ||
         !forwarder.filteringEventAttributeValue.eventAttributeName ||
         !forwarder.filteringEventAttributeValue.eventAttributeValue
