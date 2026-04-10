@@ -246,8 +246,8 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 );
 
                 // Check user identity filtering rules
-                filterUserIdentities(
-                    clonedEvent,
+                clonedEvent.UserIdentities = filterUserIdentities(
+                    clonedEvent.UserIdentities,
                     forwarder.userIdentityFilters
                 );
 

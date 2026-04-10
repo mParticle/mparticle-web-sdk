@@ -160,28 +160,19 @@ export function filterEventAttributes(
 }
 
 export function filterUserIdentities(
-    event: SDKEvent,
+    userIdentities: Array<{ Type: number }> | undefined,
     filterList: number[]
-): void {
-    if (event.UserIdentities && event.UserIdentities.length) {
-        event.UserIdentities.forEach(function(
-            userIdentity: { Type: number },
-            i: number
-        ) {
-            if (
-                inArray(
-                    filterList,
-                    KitFilterHelper.hashUserIdentity(userIdentity.Type)
-                )
-            ) {
-                event.UserIdentities.splice(i, 1);
-
-                if (i > 0) {
-                    i--;
-                }
-            }
-        });
+): Array<{ Type: number }> {
+    if (!userIdentities || !userIdentities.length) {
+        return userIdentities || [];
     }
+
+    return userIdentities.filter(function(userIdentity) {
+        return !inArray(
+            filterList,
+            KitFilterHelper.hashUserIdentity(userIdentity.Type)
+        );
+    });
 }
 
 export function isBatchEventAllowed(
