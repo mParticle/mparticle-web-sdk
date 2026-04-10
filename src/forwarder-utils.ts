@@ -216,16 +216,27 @@ export function isBatchEventAllowed(
         eventCategory as valueof<typeof EventType>
     );
 
-    if (
-        isBlockedByEventFilter(
-            messageType,
-            hashedEventName,
-            hashedEventType,
-            forwarder
-        )
-    ) {
-        return false;
+    return !isBlockedByEventFilter(
+        messageType,
+        hashedEventName,
+        hashedEventType,
+        forwarder
+    );
+}
+
+export function filterBatchEventAttributes(
+    batchEvent: EventsApi.BaseEvent,
+    forwarder: ForwarderFilterConfig
+): void {
+    if (!batchEvent || !(batchEvent as any).data) {
+        return;
     }
+
+    const messageType = getMessageTypeFromEventType(
+        (batchEvent as any).event_type
+    );
+    const eventName = getEventNameFromBatchEvent(batchEvent);
+    const eventCategory = getEventCategoryFromBatchEvent(batchEvent);
 
     (batchEvent as any).data.custom_attributes = filterEventAttributes(
         messageType,
@@ -234,8 +245,6 @@ export function isBatchEventAllowed(
         (batchEvent as any).data.custom_attributes,
         forwarder
     );
-
-    return true;
 }
 
 export function filterBatchIdentities(

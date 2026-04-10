@@ -9,6 +9,7 @@ import {
     filterEventAttributes,
     filterUserIdentities,
     isBatchEventAllowed,
+    filterBatchEventAttributes,
     filterBatchIdentities,
 } from './forwarder-utils';
 
@@ -291,6 +292,10 @@ export default function Forwarders(mpInstance, kitBlocker) {
                         batchEvent
                     ) {
                         return isBatchEventAllowed(batchEvent, forwarder);
+                    });
+
+                    batchCopy.events.forEach(function(batchEvent) {
+                        filterBatchEventAttributes(batchEvent, forwarder);
                     });
                 }
 

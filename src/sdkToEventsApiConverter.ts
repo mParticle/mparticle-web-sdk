@@ -798,12 +798,6 @@ export function convertUserIdentityTypeToServerIdentityType(
 
 import { getEventCategoryFromCustomEventType } from './types';
 
-export {
-    getMessageTypeFromEventType,
-    getEventCategoryFromCustomEventType,
-    getIdentityTypeFromBatchKey,
-} from './types';
-
 export function getEventNameFromBatchEvent(
     batchEvent: EventsApi.BaseEvent
 ): string {
