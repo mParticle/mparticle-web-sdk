@@ -1582,7 +1582,7 @@ export default function Identity(mpInstance) {
             mpInstance._preInit.readyQueue
         );
 
-        var noTargeting = mpInstance._CookieConsentManager?.getNoTargeting();
+        const noTargeting = mpInstance._CookieConsentManager?.getNoTargeting();
         if (newUser && noTargeting) {
             newUser.setUserAttribute('$NoTargeting', noTargeting);
         }
