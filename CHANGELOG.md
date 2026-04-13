@@ -1,3 +1,10 @@
+# [2.64.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.63.0...v2.64.0) (2026-04-13)
+
+
+### Features
+
+* enable data filtering for batches ([#1245](https://github.com/mParticle/mparticle-web-sdk/issues/1245)) ([ce56ddb](https://github.com/mParticle/mparticle-web-sdk/commit/ce56ddbbd182f08f2ed292677c21f15ec87851e9))
+
 # [2.63.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.62.0...v2.63.0) (2026-04-09)
 
 
