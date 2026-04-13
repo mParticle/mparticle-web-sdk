@@ -379,13 +379,13 @@ export default function Ecommerce(mpInstance) {
         commerceEvent.ProductImpressions.forEach(function(productImpression) {
             if (productImpression.ProductList) {
                 productImpression.ProductList.forEach(function(product) {
-                    var attributes = extend(
+                    let attributes = extend(
                         false,
                         {},
                         commerceEvent.EventAttributes
                     );
                     if (product.Attributes) {
-                        for (var attribute in product.Attributes) {
+                        for (const attribute in product.Attributes) {
                             attributes[attribute] =
                                 product.Attributes[attribute];
                         }
@@ -426,7 +426,7 @@ export default function Ecommerce(mpInstance) {
         }
         var promotions = commerceEvent.PromotionAction.PromotionList;
         promotions.forEach(function(promotion) {
-            var attributes = extend(false, {}, commerceEvent.EventAttributes);
+            let attributes = extend(false, {}, commerceEvent.EventAttributes);
             self.extractPromotionAttributes(attributes, promotion);
 
             var appEvent = mpInstance._ServerModel.createEventObject({
@@ -491,7 +491,7 @@ export default function Ecommerce(mpInstance) {
         }
 
         products.forEach(function(product) {
-            var attributes = extend(
+            let attributes = extend(
                 false,
                 commerceEvent.EventAttributes,
                 product.Attributes

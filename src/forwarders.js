@@ -73,7 +73,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                         userIdentities,
                         forwarder.userIdentityFilters
                     );
-                    var filteredUserAttributes = KitFilterHelper.filterUserAttributes(
+                    const filteredUserAttributes = KitFilterHelper.filterUserAttributes(
                         user ? user.getAllUserAttributes() : {},
                         forwarder.userAttributeFilters
                     );
