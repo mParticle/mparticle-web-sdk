@@ -5,7 +5,7 @@ export default class Helpers {
     getFeatureFlag: (feature: any) => any;
     invokeCallback: (callback: any, code: any, body: any, mParticleUser: any, previousMpid: any) => void;
     invokeAliasCallback: (callback: any, code: any, message: any) => void;
-    extend: (...args: any[]) => any;
+    extend: typeof utils.extend;
     createServiceUrl: (secureServiceUrl: any, devToken: any) => string;
     createXHR: (cb: any) => any;
     filterUserIdentities: (userIdentitiesObject: any, filterList: any) => {

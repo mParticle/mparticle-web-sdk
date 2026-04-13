@@ -40,4 +40,6 @@ export declare function convertSDKLocation(sdkEventLocation: SDKGeoLocation): Ev
 export declare function convertUserAttributeChangeEvent(sdkEvent: SDKEvent): EventsApi.UserAttributeChangeEvent | null;
 export declare function convertUserIdentityChangeEvent(sdkEvent: SDKEvent): EventsApi.UserIdentityChangeEvent | null;
 export declare function convertUserIdentityTypeToServerIdentityType(identityType: SDKIdentityTypeEnum): EventsApi.IdentityType;
+export declare function getEventNameFromBatchEvent(batchEvent: EventsApi.BaseEvent): string;
+export declare function getEventCategoryFromBatchEvent(batchEvent: EventsApi.BaseEvent): number;
 export {};

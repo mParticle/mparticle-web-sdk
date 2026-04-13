@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.63.0";
+    var version = "2.64.0";
 
     var Constants = {
       sdkVersion: version,
@@ -918,6 +918,96 @@ var mParticle = (function () {
     var obfuscateDevData = function obfuscateDevData(data, isDevelopmentMode) {
       return isDevelopmentMode ? data : obfuscateData(data);
     };
+    // Standalone version of jQuery.extend, from https://github.com/dansdom/extend
+    // https://go.mparticle.com/work/SQDSDKS-6047
+    function extend() {
+      var args = [];
+      for (var _i = 0; _i < arguments.length; _i++) {
+        args[_i] = arguments[_i];
+      }
+      var objectHelper = {
+        hasOwn: Object.prototype.hasOwnProperty,
+        class2type: {},
+        type: function type(obj) {
+          return obj == null ? String(obj) : objectHelper.class2type[Object.prototype.toString.call(obj)] || 'object';
+        },
+        isPlainObject: function isPlainObject(obj) {
+          if (!obj || objectHelper.type(obj) !== 'object' || obj.nodeType || objectHelper.isWindow(obj)) {
+            return false;
+          }
+          try {
+            if (obj.constructor && !objectHelper.hasOwn.call(obj, 'constructor') && !objectHelper.hasOwn.call(obj.constructor.prototype, 'isPrototypeOf')) {
+              return false;
+            }
+          } catch (e) {
+            return false;
+          }
+          var key;
+          for (key in obj) {} // eslint-disable-line no-empty
+          return key === undefined || objectHelper.hasOwn.call(obj, key);
+        },
+        isArray: Array.isArray || function (obj) {
+          return objectHelper.type(obj) === 'array';
+        },
+        isFunction: function isFunction(obj) {
+          return objectHelper.type(obj) === 'function';
+        },
+        isWindow: function isWindow(obj) {
+          return obj != null && obj == obj.window;
+        }
+      };
+      var options,
+        name,
+        src,
+        copy,
+        copyIsArray,
+        clone,
+        target = args[0] || {},
+        i = 1,
+        deep = false;
+      var length = args.length;
+      if (typeof target === 'boolean') {
+        deep = target;
+        target = args[1] || {};
+        i = 2;
+      }
+      if (_typeof$1(target) !== 'object' && !objectHelper.isFunction(target)) {
+        target = {};
+      }
+      if (length === i) {
+        target = {};
+        --i;
+      }
+      for (; i < length; i++) {
+        if ((options = args[i]) != null) {
+          for (name in options) {
+            if (name === '__proto__' || name === 'constructor' || name === 'prototype') {
+              continue;
+            }
+            if (!Object.prototype.hasOwnProperty.call(options, name)) {
+              continue;
+            }
+            src = target[name];
+            copy = options[name];
+            if (target === copy) {
+              continue;
+            }
+            if (deep && copy && (objectHelper.isPlainObject(copy) || (copyIsArray = objectHelper.isArray(copy)))) {
+              if (copyIsArray) {
+                copyIsArray = false;
+                clone = src && objectHelper.isArray(src) ? src : [];
+              } else {
+                clone = src && objectHelper.isPlainObject(src) ? src : {};
+              }
+              target[name] = extend(deep, clone, copy);
+            } else if (copy !== undefined) {
+              target[name] = copy;
+            }
+          }
+        }
+      }
+      return target;
+    }
 
     var MessageType$1 = {
       SessionStart: 1,
@@ -1285,6 +1375,131 @@ var mParticle = (function () {
       JointSdkSelectPlacements: 'mp:jointSdkSelectPlacements',
       JointSdkRoktKitInit: 'mp:jointSdkRoktKitInit'
     };
+    function getMessageTypeFromEventType(eventType) {
+      switch (eventType) {
+        case 'custom_event':
+          return MessageType$1.PageEvent;
+        case 'screen_view':
+          return MessageType$1.PageView;
+        case 'commerce_event':
+          return MessageType$1.Commerce;
+        case 'session_start':
+          return MessageType$1.SessionStart;
+        case 'session_end':
+          return MessageType$1.SessionEnd;
+        case 'crash_report':
+          return MessageType$1.CrashReport;
+        case 'opt_out':
+          return MessageType$1.OptOut;
+        case 'application_state_transition':
+          return MessageType$1.AppStateTransition;
+        case 'user_attribute_change':
+          return MessageType$1.UserAttributeChange;
+        case 'user_identity_change':
+          return MessageType$1.UserIdentityChange;
+        default:
+          return -1;
+      }
+    }
+    function getEventCategoryFromCustomEventType(customEventType) {
+      switch (customEventType) {
+        case 'navigation':
+          return EventType.Navigation;
+        case 'location':
+          return EventType.Location;
+        case 'search':
+          return EventType.Search;
+        case 'transaction':
+          return EventType.Transaction;
+        case 'user_content':
+          return EventType.UserContent;
+        case 'user_preference':
+          return EventType.UserPreference;
+        case 'social':
+          return EventType.Social;
+        case 'other':
+          return EventType.Other;
+        case 'media':
+          return EventType.Media;
+        case 'add_to_cart':
+          return CommerceEventType.ProductAddToCart;
+        case 'remove_from_cart':
+          return CommerceEventType.ProductRemoveFromCart;
+        case 'checkout':
+          return CommerceEventType.ProductCheckout;
+        case 'checkout_option':
+          return CommerceEventType.ProductCheckoutOption;
+        case 'click':
+          return CommerceEventType.ProductClick;
+        case 'view_detail':
+          return CommerceEventType.ProductViewDetail;
+        case 'purchase':
+          return CommerceEventType.ProductPurchase;
+        case 'refund':
+          return CommerceEventType.ProductRefund;
+        case 'promotion_view':
+          return CommerceEventType.PromotionView;
+        case 'promotion_click':
+          return CommerceEventType.PromotionClick;
+        case 'add_to_wishlist':
+          return CommerceEventType.ProductAddToWishlist;
+        case 'remove_from_wishlist':
+        case 'remove_from_wish_list':
+          return CommerceEventType.ProductRemoveFromWishlist;
+        case 'impression':
+          return CommerceEventType.ProductImpression;
+        default:
+          return EventType.Unknown;
+      }
+    }
+    function getIdentityTypeFromBatchKey(key) {
+      switch (key) {
+        case 'other':
+          return IdentityType.Other;
+        case 'customer_id':
+          return IdentityType.CustomerId;
+        case 'facebook':
+          return IdentityType.Facebook;
+        case 'twitter':
+          return IdentityType.Twitter;
+        case 'google':
+          return IdentityType.Google;
+        case 'microsoft':
+          return IdentityType.Microsoft;
+        case 'yahoo':
+          return IdentityType.Yahoo;
+        case 'email':
+          return IdentityType.Email;
+        case 'facebook_custom_audience_id':
+          return IdentityType.FacebookCustomAudienceId;
+        case 'other_id_2':
+          return IdentityType.Other2;
+        case 'other_id_3':
+          return IdentityType.Other3;
+        case 'other_id_4':
+          return IdentityType.Other4;
+        case 'other_id_5':
+          return IdentityType.Other5;
+        case 'other_id_6':
+          return IdentityType.Other6;
+        case 'other_id_7':
+          return IdentityType.Other7;
+        case 'other_id_8':
+          return IdentityType.Other8;
+        case 'other_id_9':
+          return IdentityType.Other9;
+        case 'other_id_10':
+          return IdentityType.Other10;
+        case 'mobile_number':
+          return IdentityType.MobileNumber;
+        case 'phone_number_2':
+          return IdentityType.PhoneNumber2;
+        case 'phone_number_3':
+          return IdentityType.PhoneNumber3;
+        default:
+          return -1;
+      }
+    }
     var Types = {
       MessageType: MessageType$1,
       EventType: EventType,
@@ -2186,6 +2401,44 @@ var mParticle = (function () {
           return dist.IdentityTypeEnum.phoneNumber3;
       }
     }
+    function getEventNameFromBatchEvent(batchEvent) {
+      if (!batchEvent || !batchEvent.data) {
+        return '';
+      }
+      if (batchEvent.event_type === 'screen_view') {
+        return batchEvent.data.screen_name || '';
+      }
+      return batchEvent.data.event_name || '';
+    }
+    function getEventCategoryFromBatchEvent(batchEvent) {
+      if (!batchEvent || !batchEvent.data) {
+        return Types.EventType.Unknown;
+      }
+      var data = batchEvent.data;
+      if (data.custom_event_type) {
+        return getEventCategoryFromCustomEventType(data.custom_event_type);
+      }
+      if (batchEvent.event_type === 'commerce_event') {
+        return getCommerceEventCategory(data);
+      }
+      return Types.EventType.Unknown;
+    }
+    function getCommerceEventCategory(data) {
+      if (data.product_action && data.product_action.action) {
+        return getEventCategoryFromCustomEventType(data.product_action.action);
+      }
+      var promoAction = data.promotion_action && data.promotion_action.action;
+      if (promoAction === 'view') {
+        return Types.CommerceEventType.PromotionView;
+      }
+      if (promoAction === 'click') {
+        return Types.CommerceEventType.PromotionClick;
+      }
+      if (data.product_impressions) {
+        return Types.CommerceEventType.ProductImpression;
+      }
+      return Types.EventType.Unknown;
+    }
 
     var BaseVault = /** @class */function () {
       /**
@@ -3071,7 +3324,7 @@ var mParticle = (function () {
         var defaultOptions = {
           shouldUploadEvent: true
         };
-        var options = mpInstance._Helpers.extend(defaultOptions, _options);
+        var options = extend(defaultOptions, _options);
         if (mpInstance._Store.webviewBridgeEnabled) {
           mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.LogEvent, JSON.stringify(event));
           return;
@@ -3400,118 +3653,7 @@ var mParticle = (function () {
           mpInstance.Logger.error('There was an error with your callback: ' + e);
         }
       };
-
-      // https://go.mparticle.com/work/SQDSDKS-6047
-      // Standalone version of jQuery.extend, from https://github.com/dansdom/extend
-      this.extend = function () {
-        var options,
-          name,
-          src,
-          copy,
-          copyIsArray,
-          clone,
-          target = arguments[0] || {},
-          i = 1,
-          length = arguments.length,
-          deep = false,
-          // helper which replicates the jquery internal functions
-          objectHelper = {
-            hasOwn: Object.prototype.hasOwnProperty,
-            class2type: {},
-            type: function type(obj) {
-              return obj == null ? String(obj) : objectHelper.class2type[Object.prototype.toString.call(obj)] || 'object';
-            },
-            isPlainObject: function isPlainObject(obj) {
-              if (!obj || objectHelper.type(obj) !== 'object' || obj.nodeType || objectHelper.isWindow(obj)) {
-                return false;
-              }
-              try {
-                if (obj.constructor && !objectHelper.hasOwn.call(obj, 'constructor') && !objectHelper.hasOwn.call(obj.constructor.prototype, 'isPrototypeOf')) {
-                  return false;
-                }
-              } catch (e) {
-                return false;
-              }
-              var key;
-              for (key in obj) {} // eslint-disable-line no-empty
-
-              return key === undefined || objectHelper.hasOwn.call(obj, key);
-            },
-            isArray: Array.isArray || function (obj) {
-              return objectHelper.type(obj) === 'array';
-            },
-            isFunction: function isFunction(obj) {
-              return objectHelper.type(obj) === 'function';
-            },
-            isWindow: function isWindow(obj) {
-              return obj != null && obj == obj.window;
-            }
-          }; // end of objectHelper
-
-        // Handle a deep copy situation
-        if (typeof target === 'boolean') {
-          deep = target;
-          target = arguments[1] || {};
-          // skip the boolean and the target
-          i = 2;
-        }
-
-        // Handle case when target is a string or something (possible in deep copy)
-        if (_typeof$1(target) !== 'object' && !objectHelper.isFunction(target)) {
-          target = {};
-        }
-
-        // If no second argument is used then this can extend an object that is using this method
-        if (length === i) {
-          target = this;
-          --i;
-        }
-        for (; i < length; i++) {
-          // Only deal with non-null/undefined values
-          if ((options = arguments[i]) != null) {
-            // Extend the base object
-            for (name in options) {
-              // Prevent prototype pollution
-              // https://github.com/advisories/GHSA-jf85-cpcp-j695
-              if (name === '__proto__' || name === 'constructor' || name === 'prototype') {
-                continue;
-              }
-
-              // Only copy own properties
-              if (!Object.prototype.hasOwnProperty.call(options, name)) {
-                continue;
-              }
-              src = target[name];
-              copy = options[name];
-
-              // Prevent never-ending loop
-              if (target === copy) {
-                continue;
-              }
-
-              // Recurse if we're merging plain objects or arrays
-              if (deep && copy && (objectHelper.isPlainObject(copy) || (copyIsArray = objectHelper.isArray(copy)))) {
-                if (copyIsArray) {
-                  copyIsArray = false;
-                  clone = src && objectHelper.isArray(src) ? src : [];
-                } else {
-                  clone = src && objectHelper.isPlainObject(src) ? src : {};
-                }
-
-                // Never move original objects, clone them
-                target[name] = self.extend(deep, clone, copy);
-
-                // Don't bring in undefined values
-              } else if (copy !== undefined) {
-                target[name] = copy;
-              }
-            }
-          }
-        }
-
-        // Return the modified object
-        return target;
-      };
+      this.extend = extend;
       this.createServiceUrl = function (secureServiceUrl, devToken) {
         var serviceScheme = window.mParticle && mpInstance._Store.SDKConfig.forceHttps ? 'https://' : window.location.protocol + '//';
         var baseUrl;
@@ -4312,7 +4454,7 @@ var mParticle = (function () {
         commerceEvent.ProductImpressions.forEach(function (productImpression) {
           if (productImpression.ProductList) {
             productImpression.ProductList.forEach(function (product) {
-              var attributes = mpInstance._Helpers.extend(false, {}, commerceEvent.EventAttributes);
+              var attributes = extend(false, {}, commerceEvent.EventAttributes);
               if (product.Attributes) {
                 for (var attribute in product.Attributes) {
                   attributes[attribute] = product.Attributes[attribute];
@@ -4347,7 +4489,7 @@ var mParticle = (function () {
         }
         var promotions = commerceEvent.PromotionAction.PromotionList;
         promotions.forEach(function (promotion) {
-          var attributes = mpInstance._Helpers.extend(false, {}, commerceEvent.EventAttributes);
+          var attributes = extend(false, {}, commerceEvent.EventAttributes);
           self.extractPromotionAttributes(attributes, promotion);
           var appEvent = mpInstance._ServerModel.createEventObject({
             messageType: Types.MessageType.PageEvent,
@@ -4366,7 +4508,7 @@ var mParticle = (function () {
         }
         var shouldExtractActionAttributes = false;
         if (commerceEvent.ProductAction.ProductActionType === Types.ProductActionType.Purchase || commerceEvent.ProductAction.ProductActionType === Types.ProductActionType.Refund) {
-          var attributes = mpInstance._Helpers.extend(false, {}, commerceEvent.EventAttributes);
+          var attributes = extend(false, {}, commerceEvent.EventAttributes);
           attributes['Product Count'] = commerceEvent.ProductAction.ProductList ? commerceEvent.ProductAction.ProductList.length : 0;
           self.extractActionAttributes(attributes, commerceEvent.ProductAction);
           if (commerceEvent.CurrencyCode) {
@@ -4387,7 +4529,7 @@ var mParticle = (function () {
           return appEvents;
         }
         products.forEach(function (product) {
-          var attributes = mpInstance._Helpers.extend(false, commerceEvent.EventAttributes, product.Attributes);
+          var attributes = extend(false, commerceEvent.EventAttributes, product.Attributes);
           if (shouldExtractActionAttributes) {
             self.extractActionAttributes(attributes, commerceEvent.ProductAction);
           } else {
@@ -4858,7 +5000,7 @@ var mParticle = (function () {
       };
       this.syncPersistenceData = function () {
         var persistenceData = mpInstance._Persistence.getPersistence();
-        _this.persistenceData = mpInstance._Helpers.extend({}, _this.persistenceData, persistenceData);
+        _this.persistenceData = extend({}, _this.persistenceData, persistenceData);
       };
       this.getUserAttributes = function (mpid) {
         return _this._getFromPersistence(mpid, 'ua') || {};
@@ -5121,7 +5263,7 @@ var mParticle = (function () {
               if (localStorageData) {
                 if (cookies) {
                   // https://go.mparticle.com/work/SQDSDKS-6047
-                  allData = mpInstance._Helpers.extend(false, localStorageData, cookies);
+                  allData = extend(false, localStorageData, cookies);
                 } else {
                   allData = localStorageData;
                 }
@@ -5136,7 +5278,7 @@ var mParticle = (function () {
               if (cookies) {
                 if (localStorageData) {
                   // https://go.mparticle.com/work/SQDSDKS-6047
-                  allData = mpInstance._Helpers.extend(false, localStorageData, cookies);
+                  allData = extend(false, localStorageData, cookies);
                 } else {
                   allData = cookies;
                 }
@@ -5276,7 +5418,7 @@ var mParticle = (function () {
             localStorageData.cu = mpid;
           }
           if (Object.keys(mpInstance._Store.nonCurrentUserMPIDs).length) {
-            localStorageData = mpInstance._Helpers.extend({}, localStorageData, mpInstance._Store.nonCurrentUserMPIDs);
+            localStorageData = extend({}, localStorageData, mpInstance._Store.nonCurrentUserMPIDs);
             mpInstance._Store.nonCurrentUserMPIDs = {};
           }
           localStorageData = setGlobalStorageAttributes(localStorageData);
@@ -5419,7 +5561,7 @@ var mParticle = (function () {
         cookies.l = mpInstance._Store.isLoggedIn ? 1 : 0;
         cookies = setGlobalStorageAttributes(cookies);
         if (Object.keys(mpInstance._Store.nonCurrentUserMPIDs).length) {
-          cookies = mpInstance._Helpers.extend({}, cookies, mpInstance._Store.nonCurrentUserMPIDs);
+          cookies = extend({}, cookies, mpInstance._Store.nonCurrentUserMPIDs);
           mpInstance._Store.nonCurrentUserMPIDs = {};
         }
         encodedCookiesWithExpirationAndPath = self.reduceAndEncodePersistence(cookies, expires, domain, mpInstance._Store.SDKConfig.maxCookieSize);
@@ -6505,6 +6647,117 @@ var mParticle = (function () {
       };
     }
 
+    var FORWARDING_RULE_MESSAGE_TYPES = [Types.MessageType.PageEvent, Types.MessageType.PageView, Types.MessageType.Commerce];
+    function inFilteredList(filterList, hash) {
+      if (filterList && filterList.length) {
+        return inArray(filterList, hash);
+      }
+      return false;
+    }
+    function isBlockedByForwardingRule(messageType, attributes, forwarder) {
+      if (!FORWARDING_RULE_MESSAGE_TYPES.includes(messageType) || !forwarder.filteringEventAttributeValue || !forwarder.filteringEventAttributeValue.eventAttributeName || !forwarder.filteringEventAttributeValue.eventAttributeValue) {
+        return false;
+      }
+      var foundProp = null;
+      if (attributes) {
+        for (var prop in attributes) {
+          if (attributes.hasOwnProperty(prop)) {
+            var hashedName = KitFilterHelper.hashAttributeConditionalForwarding(prop);
+            if (hashedName === forwarder.filteringEventAttributeValue.eventAttributeName) {
+              foundProp = {
+                name: hashedName,
+                value: KitFilterHelper.hashAttributeConditionalForwarding(attributes[prop])
+              };
+              break;
+            }
+          }
+        }
+      }
+      var isMatch = foundProp !== null && foundProp.value === forwarder.filteringEventAttributeValue.eventAttributeValue;
+      var shouldInclude = forwarder.filteringEventAttributeValue.includeOnMatch === true ? isMatch : !isMatch;
+      return !shouldInclude;
+    }
+    function isBlockedByEventFilter(messageType, hashedEventName, hashedEventType, forwarder) {
+      if (messageType === Types.MessageType.PageEvent && (inFilteredList(forwarder.eventNameFilters, hashedEventName) || inFilteredList(forwarder.eventTypeFilters, hashedEventType))) {
+        return true;
+      } else if (messageType === Types.MessageType.Commerce && inFilteredList(forwarder.eventTypeFilters, hashedEventType)) {
+        return true;
+      } else if (messageType === Types.MessageType.PageView && inFilteredList(forwarder.screenNameFilters, hashedEventName)) {
+        return true;
+      }
+      return false;
+    }
+    function filterEventAttributes(messageType, eventCategory, eventName, attributes, forwarder) {
+      if (!attributes) {
+        return attributes;
+      }
+      var filterList;
+      if (messageType === Types.MessageType.PageEvent) {
+        filterList = forwarder.attributeFilters;
+      } else if (messageType === Types.MessageType.PageView) {
+        filterList = forwarder.screenAttributeFilters;
+      }
+      if (!filterList) {
+        return attributes;
+      }
+      var filtered = {};
+      for (var attrName in attributes) {
+        if (attributes.hasOwnProperty(attrName)) {
+          var hash = KitFilterHelper.hashEventAttributeKey(eventCategory, eventName, attrName);
+          if (!inArray(filterList, hash)) {
+            filtered[attrName] = attributes[attrName];
+          }
+        }
+      }
+      return filtered;
+    }
+    function filterUserIdentities(userIdentities, filterList) {
+      if (!userIdentities || !userIdentities.length) {
+        return userIdentities || [];
+      }
+      return userIdentities.filter(function (userIdentity) {
+        return !inArray(filterList, KitFilterHelper.hashUserIdentity(userIdentity.Type));
+      });
+    }
+    function isBatchEventAllowed(batchEvent, forwarder) {
+      if (!batchEvent || !batchEvent.data) {
+        return true;
+      }
+      var messageType = getMessageTypeFromEventType(batchEvent.event_type);
+      var eventName = getEventNameFromBatchEvent(batchEvent);
+      var eventCategory = getEventCategoryFromBatchEvent(batchEvent);
+      if (isBlockedByForwardingRule(messageType, batchEvent.data.custom_attributes, forwarder)) {
+        return false;
+      }
+      var hashedEventName = KitFilterHelper.hashEventName(eventName, eventCategory);
+      var hashedEventType = KitFilterHelper.hashEventType(eventCategory);
+      return !isBlockedByEventFilter(messageType, hashedEventName, hashedEventType, forwarder);
+    }
+    function filterBatchEventAttributes(batchEvent, forwarder) {
+      if (!batchEvent || !batchEvent.data) {
+        return;
+      }
+      var messageType = getMessageTypeFromEventType(batchEvent.event_type);
+      var eventName = getEventNameFromBatchEvent(batchEvent);
+      var eventCategory = getEventCategoryFromBatchEvent(batchEvent);
+      batchEvent.data.custom_attributes = filterEventAttributes(messageType, eventCategory, eventName, batchEvent.data.custom_attributes, forwarder);
+    }
+    function filterBatchIdentities(userIdentities, filterList) {
+      if (!userIdentities || !filterList) {
+        return userIdentities;
+      }
+      var filtered = {};
+      for (var key in userIdentities) {
+        if (userIdentities.hasOwnProperty(key)) {
+          var identityType = getIdentityTypeFromBatchKey(key);
+          if (identityType === -1 || !inArray(filterList, identityType)) {
+            filtered[key] = userIdentities[key];
+          }
+        }
+      }
+      return filtered;
+    }
+
     function _createForOfIteratorHelper(o, allowArrayLike) { var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"]; if (!it) { if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = it.call(o); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
     function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
     function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) arr2[i] = arr[i]; return arr2; }
@@ -6541,7 +6794,7 @@ var mParticle = (function () {
               return false;
             }
             var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(userIdentities, forwarder.userIdentityFilters);
-            var filteredUserAttributes = mpInstance._Helpers.filterUserAttributes(user ? user.getAllUserAttributes() : {}, forwarder.userAttributeFilters);
+            var filteredUserAttributes = KitFilterHelper.filterUserAttributes(user ? user.getAllUserAttributes() : {}, forwarder.userAttributeFilters);
             if (!forwarder.initialized) {
               forwarder.logger = mpInstance.Logger;
               forwarder.init(forwarder.settings, forwardingStatsCallback, false, null, filteredUserAttributes, filteredUserIdentities, mpInstance._Store.SDKConfig.appVersion, mpInstance._Store.SDKConfig.appName, mpInstance._Store.SDKConfig.customFlags, mpInstance._Store.clientId);
@@ -6611,109 +6864,33 @@ var mParticle = (function () {
         }
       };
       this.sendEventToForwarders = function (event) {
-        var clonedEvent,
-          hashedEventName,
-          hashedEventType,
-          filterUserIdentities = function filterUserIdentities(event, filterList) {
-            if (event.UserIdentities && event.UserIdentities.length) {
-              event.UserIdentities.forEach(function (userIdentity, i) {
-                if (mpInstance._Helpers.inArray(filterList, KitFilterHelper.hashUserIdentity(userIdentity.Type))) {
-                  event.UserIdentities.splice(i, 1);
-                  if (i > 0) {
-                    i--;
-                  }
-                }
-              });
-            }
-          },
-          filterAttributes = function filterAttributes(event, filterList) {
-            var hash;
-            if (!filterList) {
-              return;
-            }
-            for (var attrName in event.EventAttributes) {
-              if (event.EventAttributes.hasOwnProperty(attrName)) {
-                hash = KitFilterHelper.hashEventAttributeKey(event.EventCategory, event.EventName, attrName);
-                if (mpInstance._Helpers.inArray(filterList, hash)) {
-                  delete event.EventAttributes[attrName];
-                }
-              }
-            }
-          },
-          inFilteredList = function inFilteredList(filterList, hash) {
-            if (filterList && filterList.length) {
-              if (mpInstance._Helpers.inArray(filterList, hash)) {
-                return true;
-              }
-            }
-            return false;
-          },
-          forwardingRuleMessageTypes = [Types.MessageType.PageEvent, Types.MessageType.PageView, Types.MessageType.Commerce];
+        var clonedEvent;
+        var hashedEventName;
+        var hashedEventType;
         if (!mpInstance._Store.webviewBridgeEnabled && mpInstance._Store.activeForwarders) {
           hashedEventName = KitFilterHelper.hashEventName(event.EventName, event.EventCategory);
           hashedEventType = KitFilterHelper.hashEventType(event.EventCategory);
           for (var i = 0; i < mpInstance._Store.activeForwarders.length; i++) {
-            // Check attribute forwarding rule. This rule allows users to only forward an event if a
-            // specific attribute exists and has a specific value. Alternatively, they can specify
-            // that an event not be forwarded if the specified attribute name and value exists.
-            // The two cases are controlled by the "includeOnMatch" boolean value.
-            // Supported message types for attribute forwarding rules are defined in the forwardingRuleMessageTypes array
-
-            if (forwardingRuleMessageTypes.indexOf(event.EventDataType) > -1 && mpInstance._Store.activeForwarders[i].filteringEventAttributeValue && mpInstance._Store.activeForwarders[i].filteringEventAttributeValue.eventAttributeName && mpInstance._Store.activeForwarders[i].filteringEventAttributeValue.eventAttributeValue) {
-              var foundProp = null;
-
-              // Attempt to find the attribute in the collection of event attributes
-              if (event.EventAttributes) {
-                for (var prop in event.EventAttributes) {
-                  var hashedEventAttributeName;
-                  hashedEventAttributeName = KitFilterHelper.hashAttributeConditionalForwarding(prop);
-                  if (hashedEventAttributeName === mpInstance._Store.activeForwarders[i].filteringEventAttributeValue.eventAttributeName) {
-                    foundProp = {
-                      name: hashedEventAttributeName,
-                      value: KitFilterHelper.hashAttributeConditionalForwarding(event.EventAttributes[prop])
-                    };
-                  }
-                  if (foundProp) {
-                    break;
-                  }
-                }
-              }
-              var isMatch = foundProp !== null && foundProp.value === mpInstance._Store.activeForwarders[i].filteringEventAttributeValue.eventAttributeValue;
-              var shouldInclude = mpInstance._Store.activeForwarders[i].filteringEventAttributeValue.includeOnMatch === true ? isMatch : !isMatch;
-              if (!shouldInclude) {
-                continue;
-              }
+            var forwarder = mpInstance._Store.activeForwarders[i];
+            if (isBlockedByForwardingRule(event.EventDataType, event.EventAttributes, forwarder)) {
+              continue;
             }
 
             // Clone the event object, as we could be sending different attributes to each forwarder
-            clonedEvent = {};
-            clonedEvent = mpInstance._Helpers.extend(true, clonedEvent, event);
-            // Check event filtering rules
-            if (event.EventDataType === Types.MessageType.PageEvent && (inFilteredList(mpInstance._Store.activeForwarders[i].eventNameFilters, hashedEventName) || inFilteredList(mpInstance._Store.activeForwarders[i].eventTypeFilters, hashedEventType))) {
-              continue;
-            } else if (event.EventDataType === Types.MessageType.Commerce && inFilteredList(mpInstance._Store.activeForwarders[i].eventTypeFilters, hashedEventType)) {
-              continue;
-            } else if (event.EventDataType === Types.MessageType.PageView && inFilteredList(mpInstance._Store.activeForwarders[i].screenNameFilters, hashedEventName)) {
+            clonedEvent = extend(true, {}, event);
+            if (isBlockedByEventFilter(event.EventDataType, hashedEventName, hashedEventType, forwarder)) {
               continue;
             }
-
-            // Check attribute filtering rules
-            if (clonedEvent.EventAttributes) {
-              if (event.EventDataType === Types.MessageType.PageEvent) {
-                filterAttributes(clonedEvent, mpInstance._Store.activeForwarders[i].attributeFilters);
-              } else if (event.EventDataType === Types.MessageType.PageView) {
-                filterAttributes(clonedEvent, mpInstance._Store.activeForwarders[i].screenAttributeFilters);
-              }
-            }
+            clonedEvent.EventAttributes = filterEventAttributes(event.EventDataType, event.EventCategory, event.EventName, clonedEvent.EventAttributes, forwarder);
 
             // Check user identity filtering rules
-            filterUserIdentities(clonedEvent, mpInstance._Store.activeForwarders[i].userIdentityFilters);
+            clonedEvent.UserIdentities = filterUserIdentities(clonedEvent.UserIdentities, forwarder.userIdentityFilters);
 
             // Check user attribute filtering rules
-            clonedEvent.UserAttributes = mpInstance._Helpers.filterUserAttributes(clonedEvent.UserAttributes, mpInstance._Store.activeForwarders[i].userAttributeFilters);
-            if (mpInstance._Store.activeForwarders[i].process) {
-              mpInstance.Logger.verbose('Sending message to forwarder: ' + mpInstance._Store.activeForwarders[i].name);
-              var result = mpInstance._Store.activeForwarders[i].process(clonedEvent);
+            clonedEvent.UserAttributes = KitFilterHelper.filterUserAttributes(clonedEvent.UserAttributes, forwarder.userAttributeFilters);
+            if (forwarder.process) {
+              mpInstance.Logger.verbose('Sending message to forwarder: ' + forwarder.name);
+              var result = forwarder.process(clonedEvent);
               if (result) {
                 mpInstance.Logger.verbose(result);
               }
@@ -6728,11 +6905,28 @@ var mParticle = (function () {
         var _iterator = _createForOfIteratorHelper(mpInstance._Store.activeForwarders),
           _step;
         try {
-          for (_iterator.s(); !(_step = _iterator.n()).done;) {
-            var forwarder = _step.value;
-            if (forwarder.processBatch) {
+          var _loop = function _loop() {
+              var forwarder = _step.value;
+              if (!forwarder.processBatch) {
+                return 0; // continue
+              }
               try {
-                var batchCopy = mpInstance._Helpers.extend(true, {}, batch);
+                var batchCopy = extend(true, {}, batch);
+                if (batchCopy.events) {
+                  batchCopy.events = batchCopy.events.filter(function (batchEvent) {
+                    return isBatchEventAllowed(batchEvent, forwarder);
+                  });
+                  batchCopy.events.forEach(function (batchEvent) {
+                    filterBatchEventAttributes(batchEvent, forwarder);
+                  });
+                }
+                batchCopy.user_identities = filterBatchIdentities(batchCopy.user_identities, forwarder.userIdentityFilters);
+                if (batchCopy.user_attributes) {
+                  batchCopy.user_attributes = KitFilterHelper.filterUserAttributes(batchCopy.user_attributes, forwarder.userAttributeFilters);
+                }
+                if (!batchCopy.events || batchCopy.events.length === 0) {
+                  return 0; // continue
+                }
                 var result = forwarder.processBatch(batchCopy);
                 if (result) {
                   mpInstance.Logger.verbose(result);
@@ -6740,7 +6934,11 @@ var mParticle = (function () {
               } catch (e) {
                 mpInstance.Logger.verbose(e);
               }
-            }
+            },
+            _ret;
+          for (_iterator.s(); !(_step = _iterator.n()).done;) {
+            _ret = _loop();
+            if (_ret === 0) continue;
           }
         } catch (err) {
           _iterator.e(err);
@@ -7237,7 +7435,7 @@ var mParticle = (function () {
             mpInstance._Store.sessionStartDate = null;
           }
           uploadObject.Timestamp = mpInstance._Store.dateLastEventSent.getTime();
-          return mpInstance._Helpers.extend({}, eventObject, uploadObject);
+          return extend({}, eventObject, uploadObject);
         }
         return null;
       };
@@ -10634,7 +10832,7 @@ var mParticle = (function () {
           if (!config.hasOwnProperty('requestConfig') || config.requestConfig) {
             var configApiClient = new ConfigAPIClient(apiKey, config, this);
             configApiClient.getSDKConfiguration().then(function (result) {
-              var mergedConfig = _this._Helpers.extend({}, config, result);
+              var mergedConfig = extend({}, config, result);
               completeSDKInitialization(apiKey, mergedConfig, _this);
             });
           } else {
@@ -11760,7 +11958,7 @@ var mParticle = (function () {
             generateUniqueId: function generateUniqueId() {
               return 'mockId';
             },
-            extend: window.mParticle.getInstance()._Helpers.extend,
+            extend: extend,
             createServiceUrl: mockFunction,
             parseNumber: mockFunction,
             isObject: mockFunction,
