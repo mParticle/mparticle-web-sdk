@@ -476,7 +476,7 @@ export default function ServerModel(
                 };
             } else if (event.PromotionAction) {
                 dto.pm = {
-                    an: event.PromotionAction.PromotionActionType,
+                    an: event.PromotionAction.PromotionActionType as string,
                     pl: event.PromotionAction.PromotionList.map(function(
                         promotion
                     ) {

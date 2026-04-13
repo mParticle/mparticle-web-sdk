@@ -96,6 +96,7 @@ export interface SDKConfig {
     workspaceToken?: string;
     requiredWebviewBridgeName?: string;
     isLoggingEnabled?: boolean;
+    timeout?: number;
 }
 
 function createSDKConfig(config: SDKInitConfig): SDKConfig {
