@@ -120,6 +120,17 @@ const integrationMappingExternal: IntegrationIdMapping = {
         mappedKey: 'SnapchatConversions.ClickId',
         output: IntegrationOutputs.CUSTOM_FLAGS,
     },
+
+    // Pinterest
+    // https://developers.pinterest.com/docs/track-conversions/track-conversions-in-the-api/
+    // https://help.pinterest.com/en/business/article/pinterest-tag-parameters-and-cookies
+    epik: {
+        mappedKey: 'Pinterest.click_id',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
+    },
+    _epik: {
+        mappedKey: 'Pinterest.click_id',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
     // Snapchat
     // https://developers.snap.com/api/marketing-api/Conversions-API/UsingTheAPI#sending-click-id
     _scid: {
