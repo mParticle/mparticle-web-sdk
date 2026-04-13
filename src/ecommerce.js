@@ -456,7 +456,7 @@ export default function Ecommerce(mpInstance) {
             commerceEvent.ProductAction.ProductActionType ===
                 Types.ProductActionType.Refund
         ) {
-            var attributes = extend(false, {}, commerceEvent.EventAttributes);
+            let attributes = extend(false, {}, commerceEvent.EventAttributes);
             attributes['Product Count'] = commerceEvent.ProductAction
                 .ProductList
                 ? commerceEvent.ProductAction.ProductList.length

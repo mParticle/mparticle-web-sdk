@@ -529,7 +529,7 @@ function extend(...args: any[]): any {
                 return false;
             }
 
-            var key;
+            let key;
             for (key in obj) {
             } // eslint-disable-line no-empty
 
@@ -550,7 +550,7 @@ function extend(...args: any[]): any {
         },
     };
 
-    var options: any,
+    let options: any,
         name: string,
         src: any,
         copy: any,
@@ -558,8 +558,8 @@ function extend(...args: any[]): any {
         clone: any,
         target = args[0] || {},
         i = 1,
-        length = args.length,
         deep = false;
+    const length = args.length;
 
     if (typeof target === 'boolean') {
         deep = target;
