@@ -16,6 +16,7 @@ import {
     parseStringOrNumber,
     Dictionary,
     isValidCustomFlagProperty,
+    extend,
 } from './utils';
 import { IntegrationAttributes, ServerSettings } from './store';
 import { MPID } from '@mparticle/web-sdk';
@@ -379,7 +380,7 @@ export default function ServerModel(
 
             uploadObject.Timestamp = mpInstance._Store.dateLastEventSent.getTime();
 
-            return mpInstance._Helpers.extend({}, eventObject, uploadObject);
+            return extend({}, eventObject, uploadObject);
         }
 
         return null;

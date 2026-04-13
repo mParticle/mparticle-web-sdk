@@ -1,5 +1,6 @@
 import Types from './types';
 import Constants from './constants';
+import { extend } from './utils';
 
 var Messages = Constants.Messages;
 
@@ -378,7 +379,7 @@ export default function Ecommerce(mpInstance) {
         commerceEvent.ProductImpressions.forEach(function(productImpression) {
             if (productImpression.ProductList) {
                 productImpression.ProductList.forEach(function(product) {
-                    var attributes = mpInstance._Helpers.extend(
+                    var attributes = extend(
                         false,
                         {},
                         commerceEvent.EventAttributes
@@ -425,11 +426,7 @@ export default function Ecommerce(mpInstance) {
         }
         var promotions = commerceEvent.PromotionAction.PromotionList;
         promotions.forEach(function(promotion) {
-            var attributes = mpInstance._Helpers.extend(
-                false,
-                {},
-                commerceEvent.EventAttributes
-            );
+            var attributes = extend(false, {}, commerceEvent.EventAttributes);
             self.extractPromotionAttributes(attributes, promotion);
 
             var appEvent = mpInstance._ServerModel.createEventObject({
@@ -459,11 +456,7 @@ export default function Ecommerce(mpInstance) {
             commerceEvent.ProductAction.ProductActionType ===
                 Types.ProductActionType.Refund
         ) {
-            var attributes = mpInstance._Helpers.extend(
-                false,
-                {},
-                commerceEvent.EventAttributes
-            );
+            var attributes = extend(false, {}, commerceEvent.EventAttributes);
             attributes['Product Count'] = commerceEvent.ProductAction
                 .ProductList
                 ? commerceEvent.ProductAction.ProductList.length
@@ -498,7 +491,7 @@ export default function Ecommerce(mpInstance) {
         }
 
         products.forEach(function(product) {
-            var attributes = mpInstance._Helpers.extend(
+            var attributes = extend(
                 false,
                 commerceEvent.EventAttributes,
                 product.Attributes

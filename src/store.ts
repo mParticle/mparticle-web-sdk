@@ -28,9 +28,8 @@ import {
     moveElementToEnd,
     parseNumber,
     returnConvertedBoolean,
-    isValidAttributeValue,
-    findKeyInObject,
     AttributeValue,
+    extend,
 } from './utils';
 import { IMinifiedConsentJSONObject, SDKConsentState } from './consent';
 import { ConfiguredKit, MPForwarder, UnregisteredKit } from './forwarders.interfaces';
@@ -650,7 +649,7 @@ export default function Store(
     this.syncPersistenceData = () => {
         const persistenceData = mpInstance._Persistence.getPersistence();
 
-        this.persistenceData = mpInstance._Helpers.extend(
+        this.persistenceData = extend(
             {},
             this.persistenceData,
             persistenceData,

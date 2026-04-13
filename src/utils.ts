@@ -491,6 +491,140 @@ const obfuscateData = (value: any): any => {
 const obfuscateDevData = (data: any, isDevelopmentMode?: boolean): any =>
     isDevelopmentMode ? data : obfuscateData(data);
 
+// Standalone version of jQuery.extend, from https://github.com/dansdom/extend
+// https://go.mparticle.com/work/SQDSDKS-6047
+function extend(...args: any[]): any {
+    const objectHelper = {
+        hasOwn: Object.prototype.hasOwnProperty,
+        class2type: {} as Record<string, string>,
+        type(obj: any): string {
+            return obj == null
+                ? String(obj)
+                : objectHelper.class2type[
+                      Object.prototype.toString.call(obj)
+                  ] || 'object';
+        },
+        isPlainObject(obj: any): boolean {
+            if (
+                !obj ||
+                objectHelper.type(obj) !== 'object' ||
+                obj.nodeType ||
+                objectHelper.isWindow(obj)
+            ) {
+                return false;
+            }
+
+            try {
+                if (
+                    obj.constructor &&
+                    !objectHelper.hasOwn.call(obj, 'constructor') &&
+                    !objectHelper.hasOwn.call(
+                        obj.constructor.prototype,
+                        'isPrototypeOf'
+                    )
+                ) {
+                    return false;
+                }
+            } catch (e) {
+                return false;
+            }
+
+            var key;
+            for (key in obj) {
+            } // eslint-disable-line no-empty
+
+            return (
+                key === undefined || objectHelper.hasOwn.call(obj, key)
+            );
+        },
+        isArray:
+            Array.isArray ||
+            function(obj: any): boolean {
+                return objectHelper.type(obj) === 'array';
+            },
+        isFunction(obj: any): boolean {
+            return objectHelper.type(obj) === 'function';
+        },
+        isWindow(obj: any): boolean {
+            return obj != null && obj == obj.window;
+        },
+    };
+
+    var options: any,
+        name: string,
+        src: any,
+        copy: any,
+        copyIsArray: boolean,
+        clone: any,
+        target = args[0] || {},
+        i = 1,
+        length = args.length,
+        deep = false;
+
+    if (typeof target === 'boolean') {
+        deep = target;
+        target = args[1] || {};
+        i = 2;
+    }
+
+    if (typeof target !== 'object' && !objectHelper.isFunction(target)) {
+        target = {};
+    }
+
+    if (length === i) {
+        target = {};
+        --i;
+    }
+
+    for (; i < length; i++) {
+        if ((options = args[i]) != null) {
+            for (name in options) {
+                if (
+                    name === '__proto__' ||
+                    name === 'constructor' ||
+                    name === 'prototype'
+                ) {
+                    continue;
+                }
+
+                if (!Object.prototype.hasOwnProperty.call(options, name)) {
+                    continue;
+                }
+
+                src = target[name];
+                copy = options[name];
+
+                if (target === copy) {
+                    continue;
+                }
+
+                if (
+                    deep &&
+                    copy &&
+                    (objectHelper.isPlainObject(copy) ||
+                        (copyIsArray = objectHelper.isArray(copy)))
+                ) {
+                    if (copyIsArray) {
+                        copyIsArray = false;
+                        clone = src && objectHelper.isArray(src) ? src : [];
+                    } else {
+                        clone =
+                            src && objectHelper.isPlainObject(src)
+                                ? src
+                                : {};
+                    }
+
+                    target[name] = extend(deep, clone, copy);
+                } else if (copy !== undefined) {
+                    target[name] = copy;
+                }
+            }
+        }
+    }
+
+    return target;
+}
+
 export {
     createCookieString,
     revertCookieString,
@@ -534,4 +668,5 @@ export {
     getHref,
     replaceMPID,
     replaceAmpWithAmpersand,
+    extend,
 };

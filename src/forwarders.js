@@ -1,5 +1,5 @@
 import filteredMparticleUser from './filteredMparticleUser';
-import { isEmpty } from './utils';
+import { isEmpty, extend } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
 import APIClient from './apiClient';
@@ -73,7 +73,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                         userIdentities,
                         forwarder.userIdentityFilters
                     );
-                    var filteredUserAttributes = mpInstance._Helpers.filterUserAttributes(
+                    var filteredUserAttributes = KitFilterHelper.filterUserAttributes(
                         user ? user.getAllUserAttributes() : {},
                         forwarder.userAttributeFilters
                     );
@@ -219,12 +219,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 }
 
                 // Clone the event object, as we could be sending different attributes to each forwarder
-                clonedEvent = {};
-                clonedEvent = mpInstance._Helpers.extend(
-                    true,
-                    clonedEvent,
-                    event
-                );
+                clonedEvent = extend(true, {}, event);
 
                 if (
                     isBlockedByEventFilter(
@@ -252,7 +247,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 );
 
                 // Check user attribute filtering rules
-                clonedEvent.UserAttributes = mpInstance._Helpers.filterUserAttributes(
+                clonedEvent.UserAttributes = KitFilterHelper.filterUserAttributes(
                     clonedEvent.UserAttributes,
                     forwarder.userAttributeFilters
                 );
@@ -285,9 +280,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
             }
 
             try {
-                const batchCopy = mpInstance._Helpers.extend(true, {}, batch);
-                const hadEvents =
-                    batchCopy.events && batchCopy.events.length > 0;
+                const batchCopy = extend(true, {}, batch);
 
                 if (batchCopy.events) {
                     batchCopy.events = batchCopy.events.filter(function(
@@ -307,13 +300,13 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 );
 
                 if (batchCopy.user_attributes) {
-                    batchCopy.user_attributes = mpInstance._Helpers.filterUserAttributes(
+                    batchCopy.user_attributes = KitFilterHelper.filterUserAttributes(
                         batchCopy.user_attributes,
                         forwarder.userAttributeFilters
                     );
                 }
 
-                if (hadEvents && batchCopy.events.length === 0) {
+                if (!batchCopy.events || batchCopy.events.length === 0) {
                     continue;
                 }
 
