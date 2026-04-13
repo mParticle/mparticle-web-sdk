@@ -13,7 +13,7 @@ import {
 import { expect } from 'chai';
 import { IMParticleInstanceManager, SDKEvent, SDKInitConfig } from '../../src/sdkRuntimeModels';
 import { IMParticleUser, UserAttributes } from '../../src/identity-user-interfaces';
-import { IdentityType } from '../../src/types';
+import { IdentityType, CommerceEventType } from '../../src/types';
 import { IntegrationAttribute } from '../../src/store';
 import { IConsentRules } from '../../src/consent';
 import { UserIdentities } from '@mparticle/web-sdk';
@@ -4189,6 +4189,719 @@ describe('forwarders', function() {
 
             expect(fakeBatch.events.length).to.equal(1);
             expect(fakeBatch.mpid).to.equal(testMPID);
+        });
+
+        it('should filter blocked events from the batch by event name', async () => {
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            const config1 = forwarderDefaultConfiguration(
+                'MockForwarder',
+                1
+            );
+            config1.eventNameFilters = [
+                mParticle.generateHash(
+                    mParticle.EventType.Navigation + 'blocked event'
+                ) as unknown as number,
+            ];
+            window.mParticle.config.kitConfigs.push(config1);
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const forwarderInstance = window.MockForwarder1.instance;
+            let receivedBatch: any = null;
+            forwarderInstance.processBatch = function(batch: any) {
+                receivedBatch = batch;
+            };
+
+            const fakeBatch = {
+                events: [
+                    {
+                        event_type: 'custom_event',
+                        data: {
+                            event_name: 'blocked event',
+                            custom_event_type: 'navigation',
+                            custom_attributes: {},
+                        },
+                    },
+                    {
+                        event_type: 'custom_event',
+                        data: {
+                            event_name: 'allowed event',
+                            custom_event_type: 'navigation',
+                            custom_attributes: {},
+                        },
+                    },
+                ],
+                mpid: testMPID,
+            };
+
+            mParticle
+                .getInstance()
+                ._Forwarders.sendBatchToForwarders(fakeBatch);
+
+            expect(receivedBatch).to.be.ok;
+            expect(receivedBatch.events.length).to.equal(1);
+            expect(receivedBatch.events[0].data.event_name).to.equal(
+                'allowed event'
+            );
+        });
+
+        it('should filter screen_view events from the batch by screen name', async () => {
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            const config1 = forwarderDefaultConfiguration(
+                'MockForwarder',
+                1
+            );
+            config1.screenNameFilters = [
+                mParticle.generateHash(
+                    mParticle.EventType.Unknown + 'blocked page'
+                ) as unknown as number,
+            ];
+            window.mParticle.config.kitConfigs.push(config1);
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const forwarderInstance = window.MockForwarder1.instance;
+            let receivedBatch: any = null;
+            forwarderInstance.processBatch = function(batch: any) {
+                receivedBatch = batch;
+            };
+
+            const fakeBatch = {
+                events: [
+                    {
+                        event_type: 'screen_view',
+                        data: {
+                            screen_name: 'blocked page',
+                            custom_attributes: {},
+                        },
+                    },
+                    {
+                        event_type: 'screen_view',
+                        data: {
+                            screen_name: 'allowed page',
+                            custom_attributes: {},
+                        },
+                    },
+                ],
+                mpid: testMPID,
+            };
+
+            mParticle
+                .getInstance()
+                ._Forwarders.sendBatchToForwarders(fakeBatch);
+
+            expect(receivedBatch).to.be.ok;
+            expect(receivedBatch.events.length).to.equal(1);
+            expect(receivedBatch.events[0].data.screen_name).to.equal(
+                'allowed page'
+            );
+        });
+
+        it('should filter commerce events from the batch by event type', async () => {
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            const config1 = forwarderDefaultConfiguration(
+                'MockForwarder',
+                1
+            );
+            config1.eventTypeFilters = [
+                mParticle.generateHash(
+                    String(CommerceEventType.ProductViewDetail)
+                ) as unknown as number,
+            ];
+            window.mParticle.config.kitConfigs.push(config1);
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const forwarderInstance = window.MockForwarder1.instance;
+            let receivedBatch: any = null;
+            forwarderInstance.processBatch = function(batch: any) {
+                receivedBatch = batch;
+            };
+
+            const fakeBatch = {
+                events: [
+                    {
+                        event_type: 'commerce_event',
+                        data: {
+                            product_action: {
+                                action: 'view_detail',
+                                products: [
+                                    {
+                                        id: 'SKU-123',
+                                        name: 'Test Product',
+                                        price: 19.99,
+                                        quantity: 1,
+                                    },
+                                ],
+                            },
+                            custom_attributes: {},
+                        },
+                    },
+                    {
+                        event_type: 'commerce_event',
+                        data: {
+                            product_action: {
+                                action: 'purchase',
+                                products: [
+                                    {
+                                        id: 'SKU-456',
+                                        name: 'Other Product',
+                                        price: 9.99,
+                                        quantity: 2,
+                                    },
+                                ],
+                            },
+                            custom_attributes: {},
+                        },
+                    },
+                ],
+                mpid: testMPID,
+            };
+
+            mParticle
+                .getInstance()
+                ._Forwarders.sendBatchToForwarders(fakeBatch);
+
+            expect(receivedBatch).to.be.ok;
+            expect(receivedBatch.events.length).to.equal(1);
+            expect(
+                receivedBatch.events[0].data.product_action.action
+            ).to.equal('purchase');
+        });
+
+        it('should strip filtered user attributes from the batch', async () => {
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            const config1 = forwarderDefaultConfiguration(
+                'MockForwarder',
+                1
+            );
+            config1.userAttributeFilters = [
+                mParticle.generateHash('gender') as unknown as number,
+            ];
+            window.mParticle.config.kitConfigs.push(config1);
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const forwarderInstance = window.MockForwarder1.instance;
+            let receivedBatch: any = null;
+            forwarderInstance.processBatch = function(batch: any) {
+                receivedBatch = batch;
+            };
+
+            const fakeBatch = {
+                events: [
+                    {
+                        event_type: 'custom_event',
+                        data: {
+                            event_name: 'test event',
+                            custom_event_type: 'other',
+                        },
+                    },
+                ],
+                mpid: testMPID,
+                user_attributes: { gender: 'male', age: '25' },
+            };
+
+            mParticle
+                .getInstance()
+                ._Forwarders.sendBatchToForwarders(fakeBatch);
+
+            expect(receivedBatch).to.be.ok;
+            expect(receivedBatch.user_attributes).to.not.have.property(
+                'gender'
+            );
+            expect(receivedBatch.user_attributes).to.have.property(
+                'age',
+                '25'
+            );
+        });
+
+        it('should strip filtered user identities from the batch', async () => {
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            const config1 = forwarderDefaultConfiguration(
+                'MockForwarder',
+                1
+            );
+            config1.userIdentityFilters = [
+                IdentityType.Email as unknown as number,
+            ];
+            window.mParticle.config.kitConfigs.push(config1);
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const forwarderInstance = window.MockForwarder1.instance;
+            let receivedBatch: any = null;
+            forwarderInstance.processBatch = function(batch: any) {
+                receivedBatch = batch;
+            };
+
+            const fakeBatch = {
+                events: [
+                    {
+                        event_type: 'custom_event',
+                        data: {
+                            event_name: 'test event',
+                            custom_event_type: 'other',
+                        },
+                    },
+                ],
+                mpid: testMPID,
+                user_identities: {
+                    email: 'user@test.com',
+                    customer_id: 'cust-123',
+                },
+            };
+
+            mParticle
+                .getInstance()
+                ._Forwarders.sendBatchToForwarders(fakeBatch);
+
+            expect(receivedBatch).to.be.ok;
+            expect(receivedBatch.user_identities).to.not.have.property(
+                'email'
+            );
+            expect(receivedBatch.user_identities).to.have.property(
+                'customer_id',
+                'cust-123'
+            );
+        });
+
+        it('should strip filtered event attributes from batch events', async () => {
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            const config1 = forwarderDefaultConfiguration(
+                'MockForwarder',
+                1
+            );
+            config1.attributeFilters = [
+                mParticle.generateHash(
+                    mParticle.EventType.Navigation +
+                        'test event' +
+                        'secret'
+                ) as unknown as number,
+            ];
+            window.mParticle.config.kitConfigs.push(config1);
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const forwarderInstance = window.MockForwarder1.instance;
+            let receivedBatch: any = null;
+            forwarderInstance.processBatch = function(batch: any) {
+                receivedBatch = batch;
+            };
+
+            const fakeBatch = {
+                events: [
+                    {
+                        event_type: 'custom_event',
+                        data: {
+                            event_name: 'test event',
+                            custom_event_type: 'navigation',
+                            custom_attributes: {
+                                secret: 'hidden',
+                                color: 'blue',
+                            },
+                        },
+                    },
+                ],
+                mpid: testMPID,
+            };
+
+            mParticle
+                .getInstance()
+                ._Forwarders.sendBatchToForwarders(fakeBatch);
+
+            expect(receivedBatch).to.be.ok;
+            expect(
+                receivedBatch.events[0].data.custom_attributes
+            ).to.not.have.property('secret');
+            expect(
+                receivedBatch.events[0].data.custom_attributes
+            ).to.have.property('color', 'blue');
+        });
+
+        it('should skip processBatch when all events are filtered out', async () => {
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            const config1 = forwarderDefaultConfiguration(
+                'MockForwarder',
+                1
+            );
+            config1.eventNameFilters = [
+                mParticle.generateHash(
+                    mParticle.EventType.Other + 'only event'
+                ) as unknown as number,
+            ];
+            window.mParticle.config.kitConfigs.push(config1);
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const forwarderInstance = window.MockForwarder1.instance;
+            let processBatchCalled = false;
+            forwarderInstance.processBatch = function() {
+                processBatchCalled = true;
+            };
+
+            const fakeBatch = {
+                events: [
+                    {
+                        event_type: 'custom_event',
+                        data: {
+                            event_name: 'only event',
+                            custom_event_type: 'other',
+                        },
+                    },
+                ],
+                mpid: testMPID,
+            };
+
+            mParticle
+                .getInstance()
+                ._Forwarders.sendBatchToForwarders(fakeBatch);
+
+            expect(processBatchCalled).to.equal(false);
+        });
+
+        it('should block batch event when attribute forwarding rule matches and includeOnMatch is false', async () => {
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            const config1 = forwarderDefaultConfiguration(
+                'MockForwarder',
+                1
+            );
+            config1.filteringEventAttributeValue = {
+                eventAttributeName: mParticle
+                    .generateHash('ForwardingRule')
+                    .toString(),
+                eventAttributeValue: mParticle
+                    .generateHash('Block')
+                    .toString(),
+                includeOnMatch: false,
+            };
+            window.mParticle.config.kitConfigs.push(config1);
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const forwarderInstance = window.MockForwarder1.instance;
+            let receivedBatch: any = null;
+            forwarderInstance.processBatch = function(batch: any) {
+                receivedBatch = batch;
+            };
+
+            const fakeBatch = {
+                events: [
+                    {
+                        event_type: 'custom_event',
+                        data: {
+                            event_name: 'blocked event',
+                            custom_event_type: 'navigation',
+                            custom_attributes: {
+                                ForwardingRule: 'Block',
+                            },
+                        },
+                    },
+                    {
+                        event_type: 'custom_event',
+                        data: {
+                            event_name: 'allowed event',
+                            custom_event_type: 'navigation',
+                            custom_attributes: {
+                                ForwardingRule: 'NoMatch',
+                            },
+                        },
+                    },
+                ],
+                mpid: testMPID,
+            };
+
+            mParticle
+                .getInstance()
+                ._Forwarders.sendBatchToForwarders(fakeBatch);
+
+            expect(receivedBatch).to.be.ok;
+            expect(receivedBatch.events.length).to.equal(1);
+            expect(receivedBatch.events[0].data.event_name).to.equal(
+                'allowed event'
+            );
+        });
+
+        it('should allow batch event when attribute forwarding rule matches and includeOnMatch is true', async () => {
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            const config1 = forwarderDefaultConfiguration(
+                'MockForwarder',
+                1
+            );
+            config1.filteringEventAttributeValue = {
+                eventAttributeName: mParticle
+                    .generateHash('ForwardingRule')
+                    .toString(),
+                eventAttributeValue: mParticle
+                    .generateHash('Allow')
+                    .toString(),
+                includeOnMatch: true,
+            };
+            window.mParticle.config.kitConfigs.push(config1);
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const forwarderInstance = window.MockForwarder1.instance;
+            let receivedBatch: any = null;
+            forwarderInstance.processBatch = function(batch: any) {
+                receivedBatch = batch;
+            };
+
+            const fakeBatch = {
+                events: [
+                    {
+                        event_type: 'custom_event',
+                        data: {
+                            event_name: 'matching event',
+                            custom_event_type: 'navigation',
+                            custom_attributes: {
+                                ForwardingRule: 'Allow',
+                            },
+                        },
+                    },
+                    {
+                        event_type: 'custom_event',
+                        data: {
+                            event_name: 'non-matching event',
+                            custom_event_type: 'navigation',
+                            custom_attributes: {
+                                ForwardingRule: 'Other',
+                            },
+                        },
+                    },
+                ],
+                mpid: testMPID,
+            };
+
+            mParticle
+                .getInstance()
+                ._Forwarders.sendBatchToForwarders(fakeBatch);
+
+            expect(receivedBatch).to.be.ok;
+            expect(receivedBatch.events.length).to.equal(1);
+            expect(receivedBatch.events[0].data.event_name).to.equal(
+                'matching event'
+            );
+        });
+
+        it('should apply the same event name filter to both individual events and batch events', async () => {
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            const config1 = forwarderDefaultConfiguration(
+                'MockForwarder',
+                1
+            );
+            config1.eventNameFilters = [
+                mParticle.generateHash(
+                    mParticle.EventType.Navigation + 'blocked event'
+                ) as unknown as number,
+            ];
+            window.mParticle.config.kitConfigs.push(config1);
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const forwarderInstance = window.MockForwarder1.instance;
+
+            // --- Event path: logEvent should be blocked ---
+            forwarderInstance.receivedEvent = null;
+            mParticle.logEvent(
+                'blocked event',
+                mParticle.EventType.Navigation
+            );
+            expect(forwarderInstance.receivedEvent).to.not.be.ok;
+
+            // --- Batch path: same event should be blocked ---
+            let receivedBatch: any = null;
+            forwarderInstance.processBatch = function(batch: any) {
+                receivedBatch = batch;
+            };
+
+            const fakeBatch = {
+                events: [
+                    {
+                        event_type: 'custom_event',
+                        data: {
+                            event_name: 'blocked event',
+                            custom_event_type: 'navigation',
+                            custom_attributes: {},
+                        },
+                    },
+                    {
+                        event_type: 'custom_event',
+                        data: {
+                            event_name: 'allowed event',
+                            custom_event_type: 'navigation',
+                            custom_attributes: {},
+                        },
+                    },
+                ],
+                mpid: testMPID,
+            };
+
+            mParticle
+                .getInstance()
+                ._Forwarders.sendBatchToForwarders(fakeBatch);
+
+            expect(receivedBatch).to.be.ok;
+            expect(receivedBatch.events.length).to.equal(1);
+            expect(receivedBatch.events[0].data.event_name).to.equal(
+                'allowed event'
+            );
+        });
+
+        it('should apply the same user identity filter to both individual events and batch events', async () => {
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            const config1 = forwarderDefaultConfiguration(
+                'MockForwarder',
+                1
+            );
+            config1.userIdentityFilters = [
+                IdentityType.Email as unknown as number,
+            ];
+            window.mParticle.config.kitConfigs.push(config1);
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const forwarderInstance = window.MockForwarder1.instance;
+
+            // --- Event path: email identity should be stripped ---
+            forwarderInstance.receivedEvent = null;
+            mParticle.logEvent('test event', mParticle.EventType.Other);
+            const eventResult = forwarderInstance.receivedEvent;
+            expect(eventResult).to.be.ok;
+            expect(eventResult.UserIdentities).to.be.ok;
+            const hasEmail = eventResult.UserIdentities.some(
+                (id: any) => id.Type === IdentityType.Email
+            );
+            expect(hasEmail).to.equal(false);
+
+            // --- Batch path: email identity should be stripped ---
+            let receivedBatch: any = null;
+            forwarderInstance.processBatch = function(batch: any) {
+                receivedBatch = batch;
+            };
+
+            const fakeBatch = {
+                events: [
+                    {
+                        event_type: 'custom_event',
+                        data: {
+                            event_name: 'test event',
+                            custom_event_type: 'other',
+                        },
+                    },
+                ],
+                mpid: testMPID,
+                user_identities: {
+                    email: 'user@test.com',
+                    customer_id: 'cust-123',
+                },
+            };
+
+            mParticle
+                .getInstance()
+                ._Forwarders.sendBatchToForwarders(fakeBatch);
+
+            expect(receivedBatch).to.be.ok;
+            expect(receivedBatch.user_identities).to.not.have.property(
+                'email'
+            );
+            expect(receivedBatch.user_identities).to.have.property(
+                'customer_id',
+                'cust-123'
+            );
+        });
+
+        it('should apply the same user attribute filter to both individual events and batch events', async () => {
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(window.mParticle.config);
+            const config1 = forwarderDefaultConfiguration(
+                'MockForwarder',
+                1
+            );
+            config1.userAttributeFilters = [
+                mParticle.generateHash('secret') as unknown as number,
+            ];
+            window.mParticle.config.kitConfigs.push(config1);
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const forwarderInstance = window.MockForwarder1.instance;
+
+            // --- Event path: 'secret' attribute should be stripped ---
+            mParticle
+                .Identity.getCurrentUser()
+                .setUserAttribute('secret', 'hidden');
+            mParticle
+                .Identity.getCurrentUser()
+                .setUserAttribute('color', 'blue');
+            forwarderInstance.receivedEvent = null;
+            mParticle.logEvent('test event', mParticle.EventType.Other);
+            const eventResult = forwarderInstance.receivedEvent;
+            expect(eventResult).to.be.ok;
+            expect(eventResult.UserAttributes).to.be.ok;
+            expect(eventResult.UserAttributes).to.not.have.property(
+                'secret'
+            );
+            expect(eventResult.UserAttributes).to.have.property(
+                'color',
+                'blue'
+            );
+
+            // --- Batch path: 'secret' attribute should be stripped ---
+            let receivedBatch: any = null;
+            forwarderInstance.processBatch = function(batch: any) {
+                receivedBatch = batch;
+            };
+
+            const fakeBatch = {
+                events: [
+                    {
+                        event_type: 'custom_event',
+                        data: {
+                            event_name: 'test event',
+                            custom_event_type: 'other',
+                        },
+                    },
+                ],
+                mpid: testMPID,
+                user_attributes: { secret: 'hidden', color: 'blue' },
+            };
+
+            mParticle
+                .getInstance()
+                ._Forwarders.sendBatchToForwarders(fakeBatch);
+
+            expect(receivedBatch).to.be.ok;
+            expect(receivedBatch.user_attributes).to.not.have.property(
+                'secret'
+            );
+            expect(receivedBatch.user_attributes).to.have.property(
+                'color',
+                'blue'
+            );
         });
     });
 });

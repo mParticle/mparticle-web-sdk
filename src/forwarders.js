@@ -1,9 +1,17 @@
-import Types from './types';
 import filteredMparticleUser from './filteredMparticleUser';
-import { isEmpty } from './utils';
+import { isEmpty, extend } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
 import APIClient from './apiClient';
+import {
+    isBlockedByForwardingRule,
+    isBlockedByEventFilter,
+    filterEventAttributes,
+    filterUserIdentities,
+    isBatchEventAllowed,
+    filterBatchEventAttributes,
+    filterBatchIdentities,
+} from './forwarder-utils';
 
 const { Modify, Identify, Login, Logout } = Constants.IdentityMethods;
 
@@ -65,7 +73,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                         userIdentities,
                         forwarder.userIdentityFilters
                     );
-                    var filteredUserAttributes = mpInstance._Helpers.filterUserAttributes(
+                    const filteredUserAttributes = KitFilterHelper.filterUserAttributes(
                         user ? user.getAllUserAttributes() : {},
                         forwarder.userAttributeFilters
                     );
@@ -177,64 +185,9 @@ export default function Forwarders(mpInstance, kitBlocker) {
     };
 
     this.sendEventToForwarders = function(event) {
-        var clonedEvent,
-            hashedEventName,
-            hashedEventType,
-            filterUserIdentities = function(event, filterList) {
-                if (event.UserIdentities && event.UserIdentities.length) {
-                    event.UserIdentities.forEach(function(userIdentity, i) {
-                        if (
-                            mpInstance._Helpers.inArray(
-                                filterList,
-                                KitFilterHelper.hashUserIdentity(
-                                    userIdentity.Type
-                                )
-                            )
-                        ) {
-                            event.UserIdentities.splice(i, 1);
-
-                            if (i > 0) {
-                                i--;
-                            }
-                        }
-                    });
-                }
-            },
-            filterAttributes = function(event, filterList) {
-                var hash;
-
-                if (!filterList) {
-                    return;
-                }
-
-                for (var attrName in event.EventAttributes) {
-                    if (event.EventAttributes.hasOwnProperty(attrName)) {
-                        hash = KitFilterHelper.hashEventAttributeKey(
-                            event.EventCategory,
-                            event.EventName,
-                            attrName
-                        );
-
-                        if (mpInstance._Helpers.inArray(filterList, hash)) {
-                            delete event.EventAttributes[attrName];
-                        }
-                    }
-                }
-            },
-            inFilteredList = function(filterList, hash) {
-                if (filterList && filterList.length) {
-                    if (mpInstance._Helpers.inArray(filterList, hash)) {
-                        return true;
-                    }
-                }
-
-                return false;
-            },
-            forwardingRuleMessageTypes = [
-                Types.MessageType.PageEvent,
-                Types.MessageType.PageView,
-                Types.MessageType.Commerce,
-            ];
+        let clonedEvent;
+        let hashedEventName;
+        let hashedEventType;
 
         if (
             !mpInstance._Store.webviewBridgeEnabled &&
@@ -249,153 +202,61 @@ export default function Forwarders(mpInstance, kitBlocker) {
             );
 
             for (
-                var i = 0;
+                let i = 0;
                 i < mpInstance._Store.activeForwarders.length;
                 i++
             ) {
-                // Check attribute forwarding rule. This rule allows users to only forward an event if a
-                // specific attribute exists and has a specific value. Alternatively, they can specify
-                // that an event not be forwarded if the specified attribute name and value exists.
-                // The two cases are controlled by the "includeOnMatch" boolean value.
-                // Supported message types for attribute forwarding rules are defined in the forwardingRuleMessageTypes array
+                const forwarder = mpInstance._Store.activeForwarders[i];
 
                 if (
-                    forwardingRuleMessageTypes.indexOf(event.EventDataType) >
-                        -1 &&
-                    mpInstance._Store.activeForwarders[i]
-                        .filteringEventAttributeValue &&
-                    mpInstance._Store.activeForwarders[i]
-                        .filteringEventAttributeValue.eventAttributeName &&
-                    mpInstance._Store.activeForwarders[i]
-                        .filteringEventAttributeValue.eventAttributeValue
+                    isBlockedByForwardingRule(
+                        event.EventDataType,
+                        event.EventAttributes,
+                        forwarder
+                    )
                 ) {
-                    var foundProp = null;
-
-                    // Attempt to find the attribute in the collection of event attributes
-                    if (event.EventAttributes) {
-                        for (var prop in event.EventAttributes) {
-                            var hashedEventAttributeName;
-                            hashedEventAttributeName = KitFilterHelper.hashAttributeConditionalForwarding(
-                                prop
-                            );
-
-                            if (
-                                hashedEventAttributeName ===
-                                mpInstance._Store.activeForwarders[i]
-                                    .filteringEventAttributeValue
-                                    .eventAttributeName
-                            ) {
-                                foundProp = {
-                                    name: hashedEventAttributeName,
-                                    value: KitFilterHelper.hashAttributeConditionalForwarding(
-                                        event.EventAttributes[prop]
-                                    ),
-                                };
-                            }
-
-                            if (foundProp) {
-                                break;
-                            }
-                        }
-                    }
-
-                    var isMatch =
-                        foundProp !== null &&
-                        foundProp.value ===
-                            mpInstance._Store.activeForwarders[i]
-                                .filteringEventAttributeValue
-                                .eventAttributeValue;
-
-                    var shouldInclude =
-                        mpInstance._Store.activeForwarders[i]
-                            .filteringEventAttributeValue.includeOnMatch ===
-                        true
-                            ? isMatch
-                            : !isMatch;
-
-                    if (!shouldInclude) {
-                        continue;
-                    }
+                    continue;
                 }
 
                 // Clone the event object, as we could be sending different attributes to each forwarder
-                clonedEvent = {};
-                clonedEvent = mpInstance._Helpers.extend(
-                    true,
-                    clonedEvent,
-                    event
-                );
-                // Check event filtering rules
+                clonedEvent = extend(true, {}, event);
+
                 if (
-                    event.EventDataType === Types.MessageType.PageEvent &&
-                    (inFilteredList(
-                        mpInstance._Store.activeForwarders[i].eventNameFilters,
-                        hashedEventName
-                    ) ||
-                        inFilteredList(
-                            mpInstance._Store.activeForwarders[i]
-                                .eventTypeFilters,
-                            hashedEventType
-                        ))
-                ) {
-                    continue;
-                } else if (
-                    event.EventDataType === Types.MessageType.Commerce &&
-                    inFilteredList(
-                        mpInstance._Store.activeForwarders[i].eventTypeFilters,
-                        hashedEventType
-                    )
-                ) {
-                    continue;
-                } else if (
-                    event.EventDataType === Types.MessageType.PageView &&
-                    inFilteredList(
-                        mpInstance._Store.activeForwarders[i].screenNameFilters,
-                        hashedEventName
+                    isBlockedByEventFilter(
+                        event.EventDataType,
+                        hashedEventName,
+                        hashedEventType,
+                        forwarder
                     )
                 ) {
                     continue;
                 }
 
-                // Check attribute filtering rules
-                if (clonedEvent.EventAttributes) {
-                    if (event.EventDataType === Types.MessageType.PageEvent) {
-                        filterAttributes(
-                            clonedEvent,
-                            mpInstance._Store.activeForwarders[i]
-                                .attributeFilters
-                        );
-                    } else if (
-                        event.EventDataType === Types.MessageType.PageView
-                    ) {
-                        filterAttributes(
-                            clonedEvent,
-                            mpInstance._Store.activeForwarders[i]
-                                .screenAttributeFilters
-                        );
-                    }
-                }
+                clonedEvent.EventAttributes = filterEventAttributes(
+                    event.EventDataType,
+                    event.EventCategory,
+                    event.EventName,
+                    clonedEvent.EventAttributes,
+                    forwarder
+                );
 
                 // Check user identity filtering rules
-                filterUserIdentities(
-                    clonedEvent,
-                    mpInstance._Store.activeForwarders[i].userIdentityFilters
+                clonedEvent.UserIdentities = filterUserIdentities(
+                    clonedEvent.UserIdentities,
+                    forwarder.userIdentityFilters
                 );
 
                 // Check user attribute filtering rules
-                clonedEvent.UserAttributes = mpInstance._Helpers.filterUserAttributes(
+                clonedEvent.UserAttributes = KitFilterHelper.filterUserAttributes(
                     clonedEvent.UserAttributes,
-                    mpInstance._Store.activeForwarders[i].userAttributeFilters
+                    forwarder.userAttributeFilters
                 );
 
-                if (mpInstance._Store.activeForwarders[i].process) {
+                if (forwarder.process) {
                     mpInstance.Logger.verbose(
-                        'Sending message to forwarder: ' +
-                            mpInstance._Store.activeForwarders[i].name
+                        'Sending message to forwarder: ' + forwarder.name
                     );
-                    var result = mpInstance._Store.activeForwarders[i].process(
-                        clonedEvent
-                    );
+                    const result = forwarder.process(clonedEvent);
 
                     if (result) {
                         mpInstance.Logger.verbose(result);
@@ -414,21 +275,48 @@ export default function Forwarders(mpInstance, kitBlocker) {
         }
 
         for (const forwarder of mpInstance._Store.activeForwarders) {
-            if (forwarder.processBatch) {
-                try {
-                    const batchCopy = mpInstance._Helpers.extend(
-                        true,
-                        {},
-                        batch
-                    );
-                    const result = forwarder.processBatch(batchCopy);
+            if (!forwarder.processBatch) {
+                continue;
+            }
 
-                    if (result) {
-                        mpInstance.Logger.verbose(result);
-                    }
-                } catch (e) {
-                    mpInstance.Logger.verbose(e);
+            try {
+                const batchCopy = extend(true, {}, batch);
+
+                if (batchCopy.events) {
+                    batchCopy.events = batchCopy.events.filter(function(
+                        batchEvent
+                    ) {
+                        return isBatchEventAllowed(batchEvent, forwarder);
+                    });
+
+                    batchCopy.events.forEach(function(batchEvent) {
+                        filterBatchEventAttributes(batchEvent, forwarder);
+                    });
                 }
+
+                batchCopy.user_identities = filterBatchIdentities(
+                    batchCopy.user_identities,
+                    forwarder.userIdentityFilters
+                );
+
+                if (batchCopy.user_attributes) {
+                    batchCopy.user_attributes = KitFilterHelper.filterUserAttributes(
+                        batchCopy.user_attributes,
+                        forwarder.userAttributeFilters
+                    );
+                }
+
+                if (!batchCopy.events || batchCopy.events.length === 0) {
+                    continue;
+                }
+
+                const result = forwarder.processBatch(batchCopy);
+
+                if (result) {
+                    mpInstance.Logger.verbose(result);
+                }
+            } catch (e) {
+                mpInstance.Logger.verbose(e);
             }
         }
     };

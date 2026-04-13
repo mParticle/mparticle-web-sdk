@@ -49,7 +49,7 @@ export default function _Persistence(mpInstance) {
                     if (localStorageData) {
                         if (cookies) {
                             // https://go.mparticle.com/work/SQDSDKS-6047
-                            allData = mpInstance._Helpers.extend(
+                            allData = Utils.extend(
                                 false,
                                 localStorageData,
                                 cookies
@@ -68,7 +68,7 @@ export default function _Persistence(mpInstance) {
                     if (cookies) {
                         if (localStorageData) {
                             // https://go.mparticle.com/work/SQDSDKS-6047
-                            allData = mpInstance._Helpers.extend(
+                            allData = Utils.extend(
                                 false,
                                 localStorageData,
                                 cookies
@@ -255,7 +255,7 @@ export default function _Persistence(mpInstance) {
             }
 
             if (Object.keys(mpInstance._Store.nonCurrentUserMPIDs).length) {
-                localStorageData = mpInstance._Helpers.extend(
+                localStorageData = Utils.extend(
                     {},
                     localStorageData,
                     mpInstance._Store.nonCurrentUserMPIDs
@@ -451,7 +451,7 @@ export default function _Persistence(mpInstance) {
         cookies = setGlobalStorageAttributes(cookies);
 
         if (Object.keys(mpInstance._Store.nonCurrentUserMPIDs).length) {
-            cookies = mpInstance._Helpers.extend(
+            cookies = Utils.extend(
                 {},
                 cookies,
                 mpInstance._Store.nonCurrentUserMPIDs

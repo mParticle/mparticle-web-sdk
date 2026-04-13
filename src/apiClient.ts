@@ -3,7 +3,7 @@ import Types from './types';
 import { BatchUploader } from './batchUploader';
 import { SDKEvent, SDKDataPlan } from './sdkRuntimeModels';
 import KitBlocker from './kitBlocking';
-import { Dictionary, isEmpty, parseNumber } from './utils';
+import { Dictionary, isEmpty, parseNumber, extend } from './utils';
 import { IUploadObject } from './serverModel';
 import { MPForwarder } from './forwarders.interfaces';
 import { IMParticleUser, ISDKUserAttributes } from './identity-user-interfaces';
@@ -122,7 +122,7 @@ export default function APIClient(
         const defaultOptions = {
             shouldUploadEvent: true,
         };
-        const options = mpInstance._Helpers.extend(defaultOptions, _options);
+        const options = extend(defaultOptions, _options);
 
         if (mpInstance._Store.webviewBridgeEnabled) {
             mpInstance._NativeSdkHelpers.sendToNative(

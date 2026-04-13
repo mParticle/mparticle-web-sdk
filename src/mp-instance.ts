@@ -36,7 +36,7 @@ import Consent, { IConsent } from './consent';
 import KitBlocker from './kitBlocking';
 import ConfigAPIClient, { IKitConfigs } from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
-import { isFunction, parseConfig, valueof, generateDeprecationMessage } from './utils';
+import { isFunction, parseConfig, valueof, generateDeprecationMessage, extend } from './utils';
 import { DisabledVault, LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates, hasExplicitIdentifier } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
@@ -228,7 +228,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 );
 
                 configApiClient.getSDKConfiguration().then(result => {
-                    const mergedConfig = this._Helpers.extend(
+                    const mergedConfig = extend(
                         {},
                         config,
                         result

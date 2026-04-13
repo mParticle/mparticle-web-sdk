@@ -5,6 +5,7 @@ import { SDKEvent, BaseEvent } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import { Batch } from '@mparticle/event-models';
 import { IMParticleWebSDKInstance } from './mp-instance';
+import { extend } from './utils';
 
 const mockFunction = function() {
     return null;
@@ -22,7 +23,7 @@ export default class _BatchValidator {
                 generateUniqueId: function() {
                     return 'mockId';
                 },
-                extend: (window.mParticle.getInstance() as unknown as IMParticleWebSDKInstance)._Helpers.extend,
+                extend,
                 createServiceUrl: mockFunction,
                 parseNumber: mockFunction,
                 isObject: mockFunction,

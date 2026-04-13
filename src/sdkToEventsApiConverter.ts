@@ -11,7 +11,7 @@ import {
     SDKGDPRConsentState,
     SDKCCPAConsentState,
 } from './consent';
-import Types from './types';
+import Types, { getEventCategoryFromCustomEventType } from './types';
 import { Dictionary, isEmpty } from './utils';
 import { ISDKUserIdentity } from './identity-user-interfaces';
 import { SDKIdentityTypeEnum } from './identity.interfaces';
@@ -794,4 +794,58 @@ export function convertUserIdentityTypeToServerIdentityType(
         case SDKIdentityTypeEnum.phoneNumber3:
             return EventsApi.IdentityTypeEnum.phoneNumber3;
     }
+}
+
+export function getEventNameFromBatchEvent(
+    batchEvent: EventsApi.BaseEvent
+): string {
+    if (!batchEvent || !(batchEvent as any).data) {
+        return '';
+    }
+    if ((batchEvent as any).event_type === 'screen_view') {
+        return (batchEvent as any).data.screen_name || '';
+    }
+    return (batchEvent as any).data.event_name || '';
+}
+
+export function getEventCategoryFromBatchEvent(
+    batchEvent: EventsApi.BaseEvent
+): number {
+    if (!batchEvent || !(batchEvent as any).data) {
+        return Types.EventType.Unknown;
+    }
+
+    const data = (batchEvent as any).data;
+
+    if (data.custom_event_type) {
+        return getEventCategoryFromCustomEventType(data.custom_event_type);
+    }
+
+    if ((batchEvent as any).event_type === 'commerce_event') {
+        return getCommerceEventCategory(data);
+    }
+
+    return Types.EventType.Unknown;
+}
+
+function getCommerceEventCategory(data: any): number {
+    if (data.product_action && data.product_action.action) {
+        return getEventCategoryFromCustomEventType(
+            data.product_action.action
+        );
+    }
+
+    const promoAction = data.promotion_action && data.promotion_action.action;
+    if (promoAction === 'view') {
+        return Types.CommerceEventType.PromotionView;
+    }
+    if (promoAction === 'click') {
+        return Types.CommerceEventType.PromotionClick;
+    }
+
+    if (data.product_impressions) {
+        return Types.CommerceEventType.ProductImpression;
+    }
+
+    return Types.EventType.Unknown;
 }
