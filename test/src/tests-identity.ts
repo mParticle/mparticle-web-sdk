@@ -15,6 +15,7 @@ import {
     IdentityApiData,
     UserIdentities,
 } from '@mparticle/web-sdk';
+import { Context } from '@mparticle/event-models';
 import { IdentityCache } from '../../src/identity-utils';
 import {
     IAliasRequest,
@@ -1597,7 +1598,7 @@ describe('identity', function() {
                 'test-platform',
                 'test-sdk-vendor',
                 'test-sdk-version',
-                'test-context'
+                'test-context' as unknown as Context
             );
 
         expect(identityRequest.identity_changes[0]).to.have.all.keys([
@@ -1648,7 +1649,7 @@ describe('identity', function() {
                 'test-platform',
                 'test-sdk-vendor',
                 'test-sdk-version',
-                'test-context'
+                'test-context' as unknown as Context
             );
 
         expect(identityRequest.identity_changes[0]).to.have.all.keys([

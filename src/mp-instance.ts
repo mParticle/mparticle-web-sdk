@@ -35,7 +35,7 @@ import Identity from './identity';
 import Consent, { IConsent } from './consent';
 import KitBlocker from './kitBlocking';
 import ConfigAPIClient, { IKitConfigs } from './configAPIClient';
-import IdentityAPIClient from './identityApiClient';
+import IdentityAPIClient, { IIdentityApiClient } from './identityApiClient';
 import { isFunction, parseConfig, valueof, generateDeprecationMessage, extend } from './utils';
 import { DisabledVault, LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates, hasExplicitIdentifier } from './identity-utils';
@@ -82,7 +82,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _ForwardingStatsUploader: ForwardingStatsUploader;
     _Helpers: SDKHelpersApi;
     _Identity: IIdentity;
-    _IdentityAPIClient: typeof IdentityAPIClient;
+    _IdentityAPIClient: IIdentityApiClient;
     _IntegrationCapture: IntegrationCapture;
     _NativeSdkHelpers: INativeSdkHelpers;
     _Persistence: IPersistence;

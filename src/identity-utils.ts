@@ -27,7 +27,7 @@ export type IParseCachedIdentityResponse = (
     callback: IdentityCallback,
     identityApiData: IdentityApiData,
     identityMethod: string,
-    knownIdentities: IKnownIdentities,
+    knownIdentities: IKnownIdentities | UserIdentities,
     fromCachedIdentity: boolean
 ) => void;
 
