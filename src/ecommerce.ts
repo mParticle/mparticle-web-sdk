@@ -1,19 +1,48 @@
 import Types from './types';
 import Constants from './constants';
 import { extend } from './utils';
+import { IECommerce } from './ecommerce.interfaces';
+import { IMParticleWebSDKInstance } from './mp-instance';
+import {
+    ProductAction,
+    Product,
+    Promotion,
+    CommerceEvent,
+} from '@mparticle/event-models';
+import {
+    SDKEventAttrs,
+    SDKEventOptions,
+    TransactionAttributes,
+} from '@mparticle/web-sdk';
+import {
+    SDKEvent,
+    SDKEventCustomFlags,
+    SDKProduct,
+    SDKProductAction,
+    SDKProductImpression,
+    SDKPromotion,
+    SDKShoppingCart,
+} from './sdkRuntimeModels';
+import { valueof } from './utils';
+import { ProductActionType, PromotionActionType } from './types';
 
-var Messages = Constants.Messages;
+const Messages = Constants.Messages;
 
-export default function Ecommerce(mpInstance) {
-    var self = this;
+export default function Ecommerce(
+    this: IECommerce,
+    mpInstance: IMParticleWebSDKInstance
+): void {
+    const self = this;
+    const _self = self as { [K in keyof IECommerce]: Function };
 
     // https://go.mparticle.com/work/SQDSDKS-4801
-    this.convertTransactionAttributesToProductAction = function(
-        transactionAttributes,
-        productAction
-    ) {
+    _self.convertTransactionAttributesToProductAction = function(
+        this: IECommerce,
+        transactionAttributes: TransactionAttributes & { Step?: number; Option?: string },
+        productAction: ProductAction & SDKProductAction
+    ): void {
         if (transactionAttributes.hasOwnProperty('Id')) {
-            productAction.TransactionId = transactionAttributes.Id;
+            productAction.TransactionId = transactionAttributes.Id as string;
         }
         if (transactionAttributes.hasOwnProperty('Affiliation')) {
             productAction.Affiliation = transactionAttributes.Affiliation;
@@ -23,19 +52,19 @@ export default function Ecommerce(mpInstance) {
         }
         if (transactionAttributes.hasOwnProperty('Revenue')) {
             productAction.TotalAmount = this.sanitizeAmount(
-                transactionAttributes.Revenue,
+                transactionAttributes.Revenue as number,
                 'Revenue'
             );
         }
         if (transactionAttributes.hasOwnProperty('Shipping')) {
             productAction.ShippingAmount = this.sanitizeAmount(
-                transactionAttributes.Shipping,
+                transactionAttributes.Shipping as string,
                 'Shipping'
             );
         }
         if (transactionAttributes.hasOwnProperty('Tax')) {
             productAction.TaxAmount = this.sanitizeAmount(
-                transactionAttributes.Tax,
+                transactionAttributes.Tax as number,
                 'Tax'
             );
         }
@@ -47,7 +76,9 @@ export default function Ecommerce(mpInstance) {
         }
     };
 
-    this.getProductActionEventName = function(productActionType) {
+    this.getProductActionEventName = function(
+        productActionType: valueof<typeof ProductActionType>
+    ): string {
         switch (productActionType) {
             case Types.ProductActionType.AddToCart:
                 return 'AddToCart';
@@ -75,7 +106,9 @@ export default function Ecommerce(mpInstance) {
         }
     };
 
-    this.getPromotionActionEventName = function(promotionActionType) {
+    this.getPromotionActionEventName = function(
+        promotionActionType: valueof<typeof PromotionActionType>
+    ): string {
         switch (promotionActionType) {
             case Types.PromotionActionType.PromotionClick:
                 return 'PromotionClick';
@@ -86,7 +119,9 @@ export default function Ecommerce(mpInstance) {
         }
     };
 
-    this.convertProductActionToEventType = function(productActionType) {
+    _self.convertProductActionToEventType = function(
+        productActionType: valueof<typeof ProductActionType>
+    ): number | null {
         switch (productActionType) {
             case Types.ProductActionType.AddToCart:
                 return Types.CommerceEventType.ProductAddToCart;
@@ -123,7 +158,9 @@ export default function Ecommerce(mpInstance) {
         }
     };
 
-    this.convertPromotionActionToEventType = function(promotionActionType) {
+    _self.convertPromotionActionToEventType = function(
+        promotionActionType: valueof<typeof PromotionActionType>
+    ): number | null {
         switch (promotionActionType) {
             case Types.PromotionActionType.PromotionClick:
                 return Types.CommerceEventType.PromotionClick;
@@ -139,14 +176,20 @@ export default function Ecommerce(mpInstance) {
         }
     };
 
-    this.generateExpandedEcommerceName = function(eventName, plusOne) {
+    this.generateExpandedEcommerceName = function(
+        eventName: string,
+        plusOne: boolean
+    ): string {
         return (
             'eCommerce - ' + eventName + ' - ' + (plusOne ? 'Total' : 'Item')
         );
     };
 
     // https://go.mparticle.com/work/SQDSDKS-4801
-    this.extractProductAttributes = function(attributes, product) {
+    _self.extractProductAttributes = function(
+        attributes: Record<string, string | number>,
+        product: Product & SDKProduct
+    ): void {
         if (product.CouponCode) {
             attributes['Coupon Code'] = product.CouponCode;
         }
@@ -178,15 +221,21 @@ export default function Ecommerce(mpInstance) {
     };
 
     // https://go.mparticle.com/work/SQDSDKS-4801
-    this.extractTransactionId = function(attributes, productAction) {
+    _self.extractTransactionId = function(
+        attributes: Record<string, string | number>,
+        productAction: ProductAction & SDKProductAction
+    ): void {
         if (productAction.TransactionId) {
             attributes['Transaction Id'] = productAction.TransactionId;
         }
     };
 
     // https://go.mparticle.com/work/SQDSDKS-4801
-    this.extractActionAttributes = function(attributes, productAction) {
-        self.extractTransactionId(attributes, productAction);
+    _self.extractActionAttributes = function(
+        attributes: Record<string, string | number>,
+        productAction: ProductAction & SDKProductAction
+    ): void {
+        (self.extractTransactionId as Function)(attributes, productAction);
 
         if (productAction.Affiliation) {
             attributes['Affiliation'] = productAction.Affiliation;
@@ -218,7 +267,10 @@ export default function Ecommerce(mpInstance) {
     };
 
     // https://go.mparticle.com/work/SQDSDKS-4801
-    this.extractPromotionAttributes = function(attributes, promotion) {
+    _self.extractPromotionAttributes = function(
+        attributes: Record<string, string | number>,
+        promotion: Promotion & SDKPromotion
+    ): void {
         if (promotion.Id) {
             attributes['Id'] = promotion.Id;
         }
@@ -236,7 +288,10 @@ export default function Ecommerce(mpInstance) {
         }
     };
 
-    this.buildProductList = function(event, product) {
+    _self.buildProductList = function(
+        event: SDKEvent,
+        product: (Product & SDKProduct) | (Product & SDKProduct)[]
+    ): (Product & SDKProduct)[] {
         if (product) {
             if (Array.isArray(product)) {
                 return product;
@@ -245,21 +300,21 @@ export default function Ecommerce(mpInstance) {
             return [product];
         }
 
-        return event.ShoppingCart.ProductList;
+        return event.ShoppingCart.ProductList as (Product & SDKProduct)[];
     };
 
     this.createProduct = function(
-        name,
-        sku,
-        price,
-        quantity,
-        variant,
-        category,
-        brand,
-        position,
-        couponCode,
-        attributes
-    ) {
+        name: string,
+        sku: string | number,
+        price: string | number,
+        quantity?: string | number,
+        variant?: string,
+        category?: string,
+        brand?: string,
+        position?: number,
+        couponCode?: string,
+        attributes?: SDKEventAttrs
+    ): SDKProduct | null {
         attributes = mpInstance._Helpers.sanitizeAttributes(attributes, name);
 
         if (typeof name !== 'string') {
@@ -298,34 +353,42 @@ export default function Ecommerce(mpInstance) {
 
         return {
             Name: name,
-            Sku: sku,
-            Price: price,
-            Quantity: quantity,
+            Sku: sku as string,
+            Price: price as number,
+            Quantity: quantity as number,
             Brand: brand,
             Variant: variant,
             Category: category,
             Position: position,
             CouponCode: couponCode,
-            TotalAmount: quantity * price,
+            TotalAmount: (quantity as number) * (price as number),
             Attributes: attributes,
         };
     };
 
-    this.createPromotion = function(id, creative, name, position) {
+    _self.createPromotion = function(
+        id: string | number,
+        creative?: string,
+        name?: string,
+        position?: number
+    ) {
         if (!mpInstance._Helpers.Validators.isStringOrNumber(id)) {
             mpInstance.Logger.error(Messages.ErrorMessages.PromotionIdRequired);
             return null;
         }
 
         return {
-            Id: id,
+            Id: id as string,
             Creative: creative,
             Name: name,
             Position: position,
         };
     };
 
-    this.createImpression = function(name, product) {
+    _self.createImpression = function(
+        name: string,
+        product: Product
+    ): { Name: string; Product: Product } | null {
         if (typeof name !== 'string') {
             mpInstance.Logger.error(
                 'Name is required when creating an impression.'
@@ -347,13 +410,13 @@ export default function Ecommerce(mpInstance) {
     };
 
     this.createTransactionAttributes = function(
-        id,
-        affiliation,
-        couponCode,
-        revenue,
-        shipping,
-        tax
-    ) {
+        id: string | number,
+        affiliation?: string,
+        couponCode?: string,
+        revenue?: string | number,
+        shipping?: string | number,
+        tax?: number
+    ): TransactionAttributes | null {
         if (!mpInstance._Helpers.Validators.isStringOrNumber(id)) {
             mpInstance.Logger.error(
                 Messages.ErrorMessages.TransactionIdRequired
@@ -365,20 +428,26 @@ export default function Ecommerce(mpInstance) {
             Id: id,
             Affiliation: affiliation,
             CouponCode: couponCode,
-            Revenue: revenue,
-            Shipping: shipping,
+            Revenue: revenue as number,
+            Shipping: shipping as string,
             Tax: tax,
         };
     };
 
-    this.expandProductImpression = function(commerceEvent) {
-        var appEvents = [];
+    _self.expandProductImpression = function(
+        commerceEvent: CommerceEvent & SDKEvent
+    ): SDKEvent[] {
+        const appEvents: SDKEvent[] = [];
         if (!commerceEvent.ProductImpressions) {
             return appEvents;
         }
-        commerceEvent.ProductImpressions.forEach(function(productImpression) {
+        commerceEvent.ProductImpressions.forEach(function(
+            productImpression: SDKProductImpression
+        ) {
             if (productImpression.ProductList) {
-                productImpression.ProductList.forEach(function(product) {
+                productImpression.ProductList.forEach(function(
+                    product: SDKProduct
+                ) {
                     let attributes = extend(
                         false,
                         {},
@@ -390,14 +459,19 @@ export default function Ecommerce(mpInstance) {
                                 product.Attributes[attribute];
                         }
                     }
-                    self.extractProductAttributes(attributes, product);
+                    (self.extractProductAttributes as Function)(
+                        attributes,
+                        product
+                    );
                     if (productImpression.ProductImpressionList) {
                         attributes['Product Impression List'] =
                             productImpression.ProductImpressionList;
                     }
-                    var appEvent = mpInstance._ServerModel.createEventObject({
+                    const appEvent = mpInstance._ServerModel.createEventObject({
                         messageType: Types.MessageType.PageEvent,
-                        name: self.generateExpandedEcommerceName('Impression'),
+                        name: (self.generateExpandedEcommerceName as Function)(
+                            'Impression'
+                        ),
                         data: attributes,
                         eventType: Types.EventType.Transaction,
                     });
@@ -409,30 +483,36 @@ export default function Ecommerce(mpInstance) {
         return appEvents;
     };
 
-    this.expandCommerceEvent = function(event) {
+    _self.expandCommerceEvent = function(
+        event: CommerceEvent & SDKEvent
+    ): SDKEvent[] | null {
         if (!event) {
             return null;
         }
-        return self
-            .expandProductAction(event)
-            .concat(self.expandPromotionAction(event))
-            .concat(self.expandProductImpression(event));
+        return (self.expandProductAction as Function)(event)
+            .concat((self.expandPromotionAction as Function)(event))
+            .concat((self.expandProductImpression as Function)(event));
     };
 
-    this.expandPromotionAction = function(commerceEvent) {
-        var appEvents = [];
+    _self.expandPromotionAction = function(
+        commerceEvent: CommerceEvent & SDKEvent
+    ): SDKEvent[] {
+        const appEvents: SDKEvent[] = [];
         if (!commerceEvent.PromotionAction) {
             return appEvents;
         }
-        var promotions = commerceEvent.PromotionAction.PromotionList;
-        promotions.forEach(function(promotion) {
+        const promotions = commerceEvent.PromotionAction.PromotionList;
+        promotions.forEach(function(promotion: SDKPromotion) {
             let attributes = extend(false, {}, commerceEvent.EventAttributes);
-            self.extractPromotionAttributes(attributes, promotion);
+            (self.extractPromotionAttributes as Function)(
+                attributes,
+                promotion
+            );
 
-            var appEvent = mpInstance._ServerModel.createEventObject({
+            const appEvent = mpInstance._ServerModel.createEventObject({
                 messageType: Types.MessageType.PageEvent,
-                name: self.generateExpandedEcommerceName(
-                    Types.PromotionActionType.getExpansionName(
+                name: (self.generateExpandedEcommerceName as Function)(
+                    (Types.PromotionActionType.getExpansionName as Function)(
                         commerceEvent.PromotionAction.PromotionActionType
                     )
                 ),
@@ -444,12 +524,14 @@ export default function Ecommerce(mpInstance) {
         return appEvents;
     };
 
-    this.expandProductAction = function(commerceEvent) {
-        var appEvents = [];
+    _self.expandProductAction = function(
+        commerceEvent: CommerceEvent & SDKEvent
+    ): SDKEvent[] {
+        const appEvents: SDKEvent[] = [];
         if (!commerceEvent.ProductAction) {
             return appEvents;
         }
-        var shouldExtractActionAttributes = false;
+        let shouldExtractActionAttributes = false;
         if (
             commerceEvent.ProductAction.ProductActionType ===
                 Types.ProductActionType.Purchase ||
@@ -461,14 +543,14 @@ export default function Ecommerce(mpInstance) {
                 .ProductList
                 ? commerceEvent.ProductAction.ProductList.length
                 : 0;
-            self.extractActionAttributes(
+            (self.extractActionAttributes as Function)(
                 attributes,
                 commerceEvent.ProductAction
             );
             if (commerceEvent.CurrencyCode) {
                 attributes['Currency Code'] = commerceEvent.CurrencyCode;
             }
-            var plusOneEvent = mpInstance._ServerModel.createEventObject({
+            const plusOneEvent = mpInstance._ServerModel.createEventObject({
                 messageType: Types.MessageType.PageEvent,
                 name: self.generateExpandedEcommerceName(
                     Types.ProductActionType.getExpansionName(
@@ -484,34 +566,34 @@ export default function Ecommerce(mpInstance) {
             shouldExtractActionAttributes = true;
         }
 
-        var products = commerceEvent.ProductAction.ProductList;
+        const products = commerceEvent.ProductAction.ProductList;
 
         if (!products) {
             return appEvents;
         }
 
-        products.forEach(function(product) {
+        products.forEach(function(product: SDKProduct) {
             let attributes = extend(
                 false,
                 commerceEvent.EventAttributes,
                 product.Attributes
             );
             if (shouldExtractActionAttributes) {
-                self.extractActionAttributes(
+                (self.extractActionAttributes as Function)(
                     attributes,
                     commerceEvent.ProductAction
                 );
             } else {
-                self.extractTransactionId(
+                (self.extractTransactionId as Function)(
                     attributes,
                     commerceEvent.ProductAction
                 );
             }
-            self.extractProductAttributes(attributes, product);
+            (self.extractProductAttributes as Function)(attributes, product);
 
-            var productEvent = mpInstance._ServerModel.createEventObject({
+            const productEvent = mpInstance._ServerModel.createEventObject({
                 messageType: Types.MessageType.PageEvent,
-                name: self.generateExpandedEcommerceName(
+                name: (self.generateExpandedEcommerceName as Function)(
                     Types.ProductActionType.getExpansionName(
                         commerceEvent.ProductAction.ProductActionType
                     )
@@ -525,10 +607,13 @@ export default function Ecommerce(mpInstance) {
         return appEvents;
     };
 
-    this.createCommerceEventObject = function(customFlags, options) {
-        var baseEvent;
+    this.createCommerceEventObject = function(
+        customFlags: SDKEventCustomFlags,
+        options?: SDKEventOptions
+    ): SDKEvent | null {
+        let baseEvent: SDKEvent;
         // https://go.mparticle.com/work/SQDSDKS-4801
-        var { extend } = mpInstance._Helpers;
+        const { extend } = mpInstance._Helpers;
 
         mpInstance.Logger.verbose(
             Messages.InformationMessages.StartingLogCommerceEvent
@@ -537,12 +622,13 @@ export default function Ecommerce(mpInstance) {
         if (mpInstance._Helpers.canLog()) {
             baseEvent = mpInstance._ServerModel.createEventObject({
                 messageType: Types.MessageType.Commerce,
-                sourceMessageId: options?.sourceMessageId,
+                sourceMessageId: (options as { sourceMessageId?: string })
+                    ?.sourceMessageId,
             });
             baseEvent.EventName = 'eCommerce - ';
 
             baseEvent.CurrencyCode = mpInstance._Store.currencyCode;
-            baseEvent.ShoppingCart = [];
+            baseEvent.ShoppingCart = {} as SDKShoppingCart;
             baseEvent.CustomFlags = extend(baseEvent.CustomFlags, customFlags);
 
             return baseEvent;
@@ -556,9 +642,12 @@ export default function Ecommerce(mpInstance) {
     };
 
     // sanitizes any non number, non string value to 0
-    this.sanitizeAmount = function(amount, category) {
+    this.sanitizeAmount = function(
+        amount: string | number,
+        category: string
+    ): number {
         if (!mpInstance._Helpers.Validators.isStringOrNumber(amount)) {
-            var message = [
+            const message = [
                 category,
                 'must be of type number. A',
                 typeof amount,
