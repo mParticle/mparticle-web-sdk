@@ -4722,15 +4722,12 @@ describe('forwarders', function() {
             const forwarderInstance = window.MockForwarder1.instance;
 
             // --- Event path: logEvent should be blocked ---
+            forwarderInstance.receivedEvent = null;
             mParticle.logEvent(
                 'blocked event',
                 mParticle.EventType.Navigation
             );
-            const eventResult = forwarderInstance.receivedEvent;
-            expect(
-                !eventResult ||
-                    eventResult.EventName !== 'blocked event'
-            ).to.equal(true);
+            expect(forwarderInstance.receivedEvent).to.not.be.ok;
 
             // --- Batch path: same event should be blocked ---
             let receivedBatch: any = null;
@@ -4789,18 +4786,15 @@ describe('forwarders', function() {
             const forwarderInstance = window.MockForwarder1.instance;
 
             // --- Event path: email identity should be stripped ---
+            forwarderInstance.receivedEvent = null;
             mParticle.logEvent('test event', mParticle.EventType.Other);
             const eventResult = forwarderInstance.receivedEvent;
-            if (
-                eventResult &&
-                eventResult.UserIdentities &&
-                eventResult.UserIdentities.length
-            ) {
-                const hasEmail = eventResult.UserIdentities.some(
-                    (id: any) => id.Type === IdentityType.Email
-                );
-                expect(hasEmail).to.equal(false);
-            }
+            expect(eventResult).to.be.ok;
+            expect(eventResult.UserIdentities).to.be.ok;
+            const hasEmail = eventResult.UserIdentities.some(
+                (id: any) => id.Type === IdentityType.Email
+            );
+            expect(hasEmail).to.equal(false);
 
             // --- Batch path: email identity should be stripped ---
             let receivedBatch: any = null;
@@ -4863,17 +4857,18 @@ describe('forwarders', function() {
             mParticle
                 .Identity.getCurrentUser()
                 .setUserAttribute('color', 'blue');
+            forwarderInstance.receivedEvent = null;
             mParticle.logEvent('test event', mParticle.EventType.Other);
             const eventResult = forwarderInstance.receivedEvent;
-            if (eventResult && eventResult.UserAttributes) {
-                expect(eventResult.UserAttributes).to.not.have.property(
-                    'secret'
-                );
-                expect(eventResult.UserAttributes).to.have.property(
-                    'color',
-                    'blue'
-                );
-            }
+            expect(eventResult).to.be.ok;
+            expect(eventResult.UserAttributes).to.be.ok;
+            expect(eventResult.UserAttributes).to.not.have.property(
+                'secret'
+            );
+            expect(eventResult.UserAttributes).to.have.property(
+                'color',
+                'blue'
+            );
 
             // --- Batch path: 'secret' attribute should be stripped ---
             let receivedBatch: any = null;
