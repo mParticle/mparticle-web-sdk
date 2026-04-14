@@ -1,10 +1,5 @@
 import { NO_TARGETING_ATTRIBUTE } from './constants';
-
-export interface IConsentUser {
-    setUserAttribute: (key: string, value: any) => void;
-    removeUserAttribute: (key: string) => void;
-    getAllUserAttributes: () => Record<string, any>;
-}
+import { IMParticleUser } from './identity-user-interfaces';
 
 /**
  * Cookie consent flags control SDK behavior based on user consent preferences for Rokt integration.
@@ -40,7 +35,7 @@ export interface ICookieConsentManager {
      * Syncs the $NoTargeting user attribute based on the current noTargeting flag.
      * Sets the attribute when noTargeting is true, removes it when false.
      */
-    syncNoTargetingAttribute: (user: IConsentUser | null) => void;
+    syncNoTargetingAttribute: (user: IMParticleUser | null) => void;
 }
 
 /**
@@ -76,7 +71,7 @@ export default class CookieConsentManager implements ICookieConsentManager {
         return this.flags.noFunctional;
     }
 
-    syncNoTargetingAttribute(user: IConsentUser | null): void {
+    syncNoTargetingAttribute(user: IMParticleUser | null): void {
         if (!user) return;
 
         if (this.flags.noTargeting) {

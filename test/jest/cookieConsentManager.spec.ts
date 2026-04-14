@@ -1,4 +1,5 @@
 import CookieConsentManager from '../../src/cookieConsentManager';
+import { IMParticleUser } from '../../src/identity-user-interfaces';
 
 describe('CookieConsentManager', () => {
     describe('#constructor', () => {
@@ -50,7 +51,7 @@ describe('CookieConsentManager', () => {
                 setUserAttribute: jest.fn((key, value) => { attrs[key] = value; }),
                 removeUserAttribute: jest.fn((key) => { delete attrs[key]; }),
                 getAllUserAttributes: jest.fn(() => attrs),
-            };
+            } as unknown as IMParticleUser;
         }
 
         it('should set $NoTargeting when noTargeting is true', () => {
