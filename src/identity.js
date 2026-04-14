@@ -1,4 +1,4 @@
-import Constants, { HTTP_OK } from './constants';
+import Constants, { HTTP_OK, NO_TARGETING_ATTRIBUTE } from './constants';
 import Types, { IdentityType } from './types';
 import {
     cacheOrClearIdCache,
@@ -1584,7 +1584,14 @@ export default function Identity(mpInstance) {
 
         const noTargeting = mpInstance._CookieConsentManager?.getNoTargeting();
         if (newUser && noTargeting) {
-            newUser.setUserAttribute('$NoTargeting', noTargeting);
+            newUser.setUserAttribute(NO_TARGETING_ATTRIBUTE, noTargeting);
+        } else if (
+            newUser &&
+            newUser
+                .getAllUserAttributes()
+                .hasOwnProperty(NO_TARGETING_ATTRIBUTE)
+        ) {
+            newUser.removeUserAttribute(NO_TARGETING_ATTRIBUTE);
         }
     };
 

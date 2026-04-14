@@ -17,7 +17,7 @@
 //  jQuery v1.10.2 | (c) 2005, 2013 jQuery Foundation, Inc. | jquery.org/license
 
 import { EventType, IdentityType, CommerceEventType, PromotionActionType, ProductActionType, MessageType } from './types';
-import Constants from './constants';
+import Constants, { NO_TARGETING_ATTRIBUTE } from './constants';
 import APIClient, { IAPIClient } from './apiClient';
 import Helpers from './helpers';
 import NativeSdkHelpers from './nativeSdkHelpers';
@@ -1552,6 +1552,16 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         mpInstance._Store.webviewBridgeEnabled
     ) {
         mpInstance._Store.isInitialized = true;
+
+        // Sync $NoTargeting user attribute on re-init when no identity call is made
+        // if for some reason there was a change in boolean between init calls
+        const noTargeting = mpInstance._CookieConsentManager?.getNoTargeting();
+        const existingUser = mpInstance.Identity.getCurrentUser();
+        if (existingUser && noTargeting) {
+            existingUser.setUserAttribute(NO_TARGETING_ATTRIBUTE, noTargeting);
+        } else if (existingUser && existingUser.getAllUserAttributes().hasOwnProperty(NO_TARGETING_ATTRIBUTE)) {
+            existingUser.removeUserAttribute(NO_TARGETING_ATTRIBUTE);
+        }
 
         mpInstance._preInit.readyQueue = processReadyQueue(
             mpInstance._preInit.readyQueue

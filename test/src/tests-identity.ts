@@ -4623,6 +4623,42 @@ describe('identity', function() {
                 expect(loginUser.getMPID()).to.equal(loginMPID);
                 expect(loginUser.getAllUserAttributes()).to.have.property('$NoTargeting', true);
             });
+
+            it('should remove $NoTargeting user attribute when noTargeting becomes false on re-init', async () => {
+                await waitForCondition(hasIdentityCallInflightReturned);
+                mParticle._resetForTests(MPConfig);
+                loggerSpy = setupLoggerSpy();
+                fetchMockSuccess(urls.events);
+                fetchMockSuccess(urls.identify, {
+                    mpid: testMPID,
+                    is_logged_in: false,
+                });
+
+                // First init with noTargeting true
+                mParticle.config.launcherOptions = { noTargeting: true };
+                mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+
+                // Verify attribute is set
+                expect(mParticle.Identity.getCurrentUser().getAllUserAttributes()).to.have.property('$NoTargeting', true);
+
+                // Re-init with noTargeting false
+                // On re-init with an existing MPID, no identity call is made,
+                // so we wait on isInitialized instead of hasIdentityResponseParsed
+                mParticle.config.launcherOptions = { noTargeting: false };
+                fetchMockSuccess(urls.events);
+                fetchMockSuccess(urls.identify, {
+                    mpid: testMPID,
+                    is_logged_in: false,
+                });
+
+                mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(() => mParticle.getInstance()?._Store?.isInitialized);
+
+                const currentUser = mParticle.Identity.getCurrentUser();
+                expect(currentUser.getMPID()).to.equal(testMPID);
+                expect(currentUser.getAllUserAttributes()).to.not.have.property('$NoTargeting');
+            });
         });
     });
 
