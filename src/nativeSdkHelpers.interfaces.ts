@@ -9,5 +9,5 @@ export interface INativeSdkHelpers {
     sendToNative: (path: string, value?: string) => void;
     sendViaBridgeV1: (path: string, value: string) => void;
     sendViaIframeToIOS: (path: string, value: string) => void;
-    sendViaBridgeV2: (path: string, value: string, requiredWebviewBridgeName: boolean) => void;
+    sendViaBridgeV2: (path: string, value: string, requiredWebviewBridgeName: string) => void;
 }

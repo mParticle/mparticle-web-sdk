@@ -253,7 +253,7 @@ export interface MParticleWebSDK {
     startTrackingLocation(callback?: Callback): void;
 
     stopTrackingLocation(): void;
-    generateHash(value: string): string;
+    generateHash(value: string): number;
     setIntegrationAttribute(
         integrationModuleId: number,
         attrs: IntegrationAttribute
@@ -363,9 +363,21 @@ export interface SDKHelpersApi {
     findKeyInObject?(obj: any, key: string): string;
     parseNumber?(value: string | number): number;
     generateUniqueId();
-    generateHash?(value: string): string;
+    generateHash?(value: string): number;
     // https://go.mparticle.com/work/SQDSDKS-6317
     getFeatureFlag?(feature: string): boolean | string; // TODO: Feature Constants should be converted to enum
+    decoded?(s: string): string;
+    parseStringOrNumber?(value: string): string | number;
+    inArray?(items: number[], value: number): boolean;
+    converted?(s: string): string;
+    filterUserIdentitiesForForwarders?(
+        userIdentities: Dictionary,
+        filterList: number[]
+    ): Dictionary;
+    filterUserAttributes?(
+        userAttributes: Dictionary,
+        filterList: number[]
+    ): Dictionary;
     invokeAliasCallback(
         aliasCallback: IAliasCallback,
         number: number,
@@ -376,8 +388,12 @@ export interface SDKHelpersApi {
         timeoutStart: number,
         now: number
     ): boolean;
-    isEventType?(type: valueof<typeof EventType>): boolean;
+    isEventType?(type: number | valueof<typeof EventType>): boolean;
     isObject?(item: any);
+    filterUserIdentities?(
+        userIdentitiesObject: Dictionary<string>,
+        filterList: number[]
+    ): Array<{ Type: number; Identity: string }>;
     invokeCallback?(
         callback: IdentityCallback,
         code: number,

@@ -30,7 +30,7 @@ import Persistence from './persistence';
 import Events from './events';
 import Forwarders from './forwarders';
 import ServerModel, { IServerModel } from './serverModel';
-import ForwardingStatsUploader from './forwardingStatsUploader';
+import ForwardingStatsUploader, { IForwardingStatsUploader } from './forwardingStatsUploader';
 import Identity from './identity';
 import Consent, { IConsent } from './consent';
 import KitBlocker from './kitBlocking';
@@ -79,7 +79,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _Ecommerce: IECommerce;
     _Events: IEvents;
     _Forwarders: any; // https://go.mparticle.com/work/SQDSDKS-5767
-    _ForwardingStatsUploader: ForwardingStatsUploader;
+    _ForwardingStatsUploader: IForwardingStatsUploader;
     _Helpers: SDKHelpersApi;
     _Identity: IIdentity;
     _IdentityAPIClient: typeof IdentityAPIClient;
