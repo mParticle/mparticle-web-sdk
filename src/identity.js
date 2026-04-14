@@ -1,4 +1,4 @@
-import Constants, { HTTP_OK, NO_TARGETING_ATTRIBUTE } from './constants';
+import Constants, { HTTP_OK } from './constants';
 import Types, { IdentityType } from './types';
 import {
     cacheOrClearIdCache,
@@ -1582,17 +1582,7 @@ export default function Identity(mpInstance) {
             mpInstance._preInit.readyQueue
         );
 
-        const noTargeting = mpInstance._CookieConsentManager?.getNoTargeting();
-        if (newUser && noTargeting) {
-            newUser.setUserAttribute(NO_TARGETING_ATTRIBUTE, noTargeting);
-        } else if (
-            newUser &&
-            newUser
-                .getAllUserAttributes()
-                .hasOwnProperty(NO_TARGETING_ATTRIBUTE)
-        ) {
-            newUser.removeUserAttribute(NO_TARGETING_ATTRIBUTE);
-        }
+        mpInstance._CookieConsentManager?.syncNoTargetingAttribute(newUser);
     };
 
     // send a user identity change request on identify, login, logout, modify when any values change.
