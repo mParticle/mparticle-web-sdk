@@ -1578,11 +1578,11 @@ export default function Identity(mpInstance) {
 
         mpInstance._RoktManager.onIdentityComplete();
 
+        mpInstance._CookieConsentManager?.syncNoTargetingAttribute(newUser);
+
         mpInstance._preInit.readyQueue = processReadyQueue(
             mpInstance._preInit.readyQueue
         );
-
-        mpInstance._CookieConsentManager?.syncNoTargetingAttribute(newUser);
     };
 
     // send a user identity change request on identify, login, logout, modify when any values change.
