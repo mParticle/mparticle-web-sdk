@@ -4532,7 +4532,7 @@ describe('identity', function() {
 
         describe('#noTargeting user attribute', function() {
             afterEach(() => {
-                delete window.mParticle.config.launcherOptions;
+                delete mParticle.config.launcherOptions;
             });
 
             it('should set $NoTargeting user attribute after identify when noTargeting is true', async () => {
@@ -4546,7 +4546,7 @@ describe('identity', function() {
                 });
 
                 mParticle.config.launcherOptions = { noTargeting: true };
-                mParticle.init(apiKey, window.mParticle.config);
+                mParticle.init(apiKey, mParticle.config);
                 await waitForCondition(hasIdentityResponseParsed(loggerSpy));
 
                 const currentUser = mParticle.Identity.getCurrentUser();
@@ -4568,7 +4568,7 @@ describe('identity', function() {
                 });
 
                 mParticle.config.launcherOptions = { noTargeting: true };
-                mParticle.init(apiKey, window.mParticle.config);
+                mParticle.init(apiKey, mParticle.config);
                 await waitForCondition(hasIdentityResponseParsed(loggerSpy));
 
                 mParticle.upload();
@@ -4593,7 +4593,7 @@ describe('identity', function() {
                 });
 
                 mParticle.config.launcherOptions = { noTargeting: false };
-                mParticle.init(apiKey, window.mParticle.config);
+                mParticle.init(apiKey, mParticle.config);
                 await waitForCondition(hasIdentityResponseParsed(loggerSpy));
 
                 const currentUser = mParticle.Identity.getCurrentUser();
@@ -4610,7 +4610,7 @@ describe('identity', function() {
                     is_logged_in: false,
                 });
 
-                mParticle.init(apiKey, window.mParticle.config);
+                mParticle.init(apiKey, mParticle.config);
                 await waitForCondition(hasIdentityResponseParsed(loggerSpy));
 
                 const currentUser = mParticle.Identity.getCurrentUser();
@@ -4628,7 +4628,7 @@ describe('identity', function() {
                 });
 
                 mParticle.config.launcherOptions = { noTargeting: true };
-                mParticle.init(apiKey, window.mParticle.config);
+                mParticle.init(apiKey, mParticle.config);
                 await waitForCondition(hasIdentityResponseParsed(loggerSpy));
 
                 // Verify attribute set on initial identify
@@ -4664,7 +4664,7 @@ describe('identity', function() {
 
                 // First init with noTargeting true
                 mParticle.config.launcherOptions = { noTargeting: true };
-                mParticle.init(apiKey, window.mParticle.config);
+                mParticle.init(apiKey, mParticle.config);
                 await waitForCondition(hasIdentityResponseParsed(loggerSpy));
 
                 // Verify attribute is set
@@ -4680,7 +4680,7 @@ describe('identity', function() {
                     is_logged_in: false,
                 });
 
-                mParticle.init(apiKey, window.mParticle.config);
+                mParticle.init(apiKey, mParticle.config);
                 await waitForCondition(() => mParticle.getInstance()?._Store?.isInitialized);
 
                 const currentUser = mParticle.Identity.getCurrentUser();
