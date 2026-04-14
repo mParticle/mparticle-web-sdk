@@ -3,12 +3,13 @@ import Store, { IStore } from '../../src/store';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 import { SDKInitConfig } from '../../src/sdkRuntimeModels';
 import Persistence from '../../src/persistence';
+import { IPersistence } from '../../src/persistence.interfaces';
 import { isObject } from '../../src/utils';
 
 describe('Persistence', () => {
     let store: IStore;
     let mockMPInstance: IMParticleWebSDKInstance;
-    let persistence: Persistence;
+    let persistence: IPersistence;
 
     beforeEach(() => {
         store = {} as IStore;

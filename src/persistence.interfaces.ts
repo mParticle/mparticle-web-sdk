@@ -99,7 +99,7 @@ export interface IPersistence {
     useLocalStorage(): boolean;
     initializeStorage(): void;
     update(): void;
-    storeDataInMemory(obj: IPersistenceMinified, currentMPID: MPID): void;
+    storeDataInMemory(obj: IPersistenceMinified, currentMPID?: MPID): void;
     determineLocalStorageAvailability(storage: Storage): boolean;
     setLocalStorage(): void;
     getLocalStorage(): IPersistenceMinified | null;
@@ -113,17 +113,17 @@ export interface IPersistence {
         maxCookieSize: number
     ): string;
     findPrevCookiesBasedOnUI(identityApiData: IdentityApiData): void;
-    encodePersistence(persistence: IPersistenceMinified): string;
-    decodePersistence(persistenceString: string): string;
+    encodePersistence(persistence: string): string;
+    decodePersistence(persistenceString: string): string | null;
     getCookieDomain(): string;
-    getDomain(doc: string, locationHostname: string): string;
+    getDomain(doc: Document, locationHostname: string): string;
     saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDates): void;
     savePersistence(persistance: IPersistenceMinified): void;
-    getPersistence(): IPersistenceMinified;
-    getFirstSeenTime(mpid: MPID): string | null;
-    setFirstSeenTime(mpid: MPID, time: number): void;
+    getPersistence(): IPersistenceMinified | null;
+    getFirstSeenTime(mpid: MPID): number | null;
+    setFirstSeenTime(mpid: MPID, time?: number): void;
     getLastSeenTime(mpid: MPID): number | null;
-    setLastSeenTime(mpid: MPID, time: number): void;
+    setLastSeenTime(mpid: MPID, time?: number): void;
     getDeviceId(): string;
     setDeviceId(guid: string): void;
     resetPersistence(): void;
