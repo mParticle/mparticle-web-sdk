@@ -1,8 +1,16 @@
 import { SDKEvent, SDKEventCustomFlags } from './sdkRuntimeModels';
 import { Dictionary } from './utils';
-import { IKitConfigs, IKitFilterSettings } from './configAPIClient';
+import {
+    IKitConfigs,
+    IKitFilterSettings,
+    IConfigResponse,
+    IFilteringUserAttributeValue,
+} from './configAPIClient';
+import { IForwardingStatsData } from './apiClient';
 import { IdentityApiData, IdentityType } from '@mparticle/web-sdk';
 import { Batch } from '@mparticle/event-models';
+import { AsyncUploader } from './uploaders';
+import { IPixelConfiguration } from './cookieSyncManager';
 
 import {
     IMParticleUser,
@@ -81,6 +89,7 @@ export interface ConfiguredKit
     ): string;
     onUserIdentified(user: IMParticleUser): string;
     process(event: SDKEvent): string;
+    processBatch?(batch: Batch): string;
     setOptOut(isOptingOut: boolean): string;
     removeUserAttribute(key: string): string;
     setUserAttribute(key: string, value: string): string;
@@ -140,3 +149,57 @@ export type forwardingStatsCallback = (
     forwarder: ConfiguredKit,
     event: SDKEvent
 ) => void;
+
+export interface IForwarders {
+    forwarderStatsUploader: AsyncUploader;
+    initForwarders(
+        userIdentities: ISDKUserIdentity[],
+        forwardingStatsCallback: forwardingStatsCallback
+    ): void;
+    isEnabledForUserAttributes(
+        filterObject: IFilteringUserAttributeValue,
+        user: IMParticleUser
+    ): boolean;
+    isEnabledForUnknownUser(
+        excludeAnonymousUserBoolean: boolean,
+        user: IMParticleUser
+    ): boolean;
+    applyToForwarders(functionName: string, functionArgs: unknown): void;
+    sendEventToForwarders(event: SDKEvent): void;
+    sendBatchToForwarders(batch: Batch): void;
+    handleForwarderUserAttributes(
+        functionNameKey: string,
+        key: string,
+        value: string
+    ): void;
+    setForwarderUserIdentities(userIdentities: ISDKUserIdentity[]): void;
+    setForwarderOnUserIdentified(user: IMParticleUser): void;
+    setForwarderOnIdentityComplete(
+        user: IMParticleUser,
+        identityMethod: string
+    ): void;
+    getForwarderStatsQueue(): IForwardingStatsData[];
+    setForwarderStatsQueue(queue: IForwardingStatsData[]): void;
+    processForwarders(
+        config: IConfigResponse,
+        forwardingStatsCallback: forwardingStatsCallback
+    ): void;
+    processUIEnabledKits(config: IConfigResponse): void;
+    returnKitConstructors(): Dictionary<RegisteredKit>;
+    configureUIEnabledKit(
+        configuration: IKitConfigs,
+        kits: Dictionary<RegisteredKit>
+    ): void;
+    processSideloadedKits(mpConfig: IConfigResponse): void;
+    configureSideloadedKit(kitConstructor: RegisteredKit): void;
+    returnConfiguredKit(
+        forwarder: RegisteredKit,
+        config: Partial<IKitConfigs>
+    ): MPForwarder;
+    configurePixel(settings: IPixelConfiguration): void;
+    processPixelConfigs(config: IConfigResponse): void;
+    sendSingleForwardingStatsToServer(
+        forwardingStatsData: IForwardingStatsData
+    ): Promise<void>;
+}
+

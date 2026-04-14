@@ -197,7 +197,7 @@ export interface IStore {
     requireDelay: boolean;
     isLocalStorageAvailable: boolean | null;
     storageName: string | null;
-    activeForwarders: ConfiguredKit[];
+    activeForwarders: MPForwarder[];
     kits: Dictionary<MPForwarder>;
     sideloadedKits: MPForwarder[];
     configuredForwarders: MPForwarder[];

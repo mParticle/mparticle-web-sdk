@@ -195,7 +195,7 @@ export interface MParticleWebSDK {
     configurePixel(config: IPixelConfiguration): void;
     endSession(): void;
     init(apiKey: string, config: SDKInitConfig, instanceName?: string): void;
-    _getActiveForwarders(): ConfiguredKit[];
+    _getActiveForwarders(): MPForwarder[];
     _getIntegrationDelays(): IntegrationDelays;
     _setIntegrationDelay(module: number, shouldDelayIntegration: boolean): void;
     _setWrapperSDKInfo(name: WrapperSDKTypes, version: string): void;
@@ -389,6 +389,10 @@ export interface SDKHelpersApi {
         attrs: SDKEventAttrs,
         name: string
     ): Dictionary<string> | null;
+    filterUserIdentities?(
+        userIdentitiesObject: Record<string, string>,
+        filterList: number[]
+    ): ISDKUserIdentity[];
     Validators: typeof Validators;
 }
 
