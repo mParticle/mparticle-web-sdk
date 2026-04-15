@@ -207,7 +207,8 @@ const createCookieSyncUrl = (
     mpid: MPID,
     pixelUrl: string,
     redirectUrl?: string,
-    domain?: string
+    domain?: string,
+    base64Mpid?: string
 ): string => {
     const modifiedPixelUrl = replaceAmpWithAmpersand(pixelUrl);
     const modifiedDirectUrl = redirectUrl
@@ -215,18 +216,23 @@ const createCookieSyncUrl = (
         : null;
 
     let url = replaceMPID(modifiedPixelUrl, mpid);
-    
+
     const redirect = modifiedDirectUrl
         ? replaceMPID(modifiedDirectUrl, mpid)
         : '';
-    
+
     let fullUrl = url + encodeURIComponent(redirect);
-    
+
     if (domain) {
         const separator = fullUrl.includes('?') ? '&' : '?';
         fullUrl += `${separator}domain=${domain}`;
     }
-    
+
+    if (base64Mpid) {
+        const separator = fullUrl.includes('?') ? '&' : '?';
+        fullUrl += `${separator}google_hm=${base64Mpid}`;
+    }
+
     return fullUrl;
 };
 
