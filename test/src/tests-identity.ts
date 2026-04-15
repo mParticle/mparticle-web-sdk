@@ -42,6 +42,8 @@ const {
     hasIdentityCallInflightReturned,
     setupLoggerSpy,
     hasIdentityResponseParsed,
+    getBeaconBatch,
+    triggerVisibilityHidden,
 } = Utils;
 
 const { HTTPCodes } = Constants;
@@ -4582,6 +4584,49 @@ describe('identity', function() {
 
                 expect(batch).to.be.ok;
                 expect(batch.user_attributes).to.have.property('$NoTargeting', true);
+            });
+
+            it('should include $NoTargeting in beacon batch when user leaves the page', async () => {
+                await waitForCondition(hasIdentityCallInflightReturned);
+                mParticle._resetForTests(MPConfig);
+                loggerSpy = setupLoggerSpy();
+
+                fetchMock.resetHistory();
+
+                fetchMockSuccess(urls.events);
+                fetchMockSuccess(urls.identify, {
+                    mpid: testMPID,
+                    is_logged_in: false,
+                });
+
+                // Enable batching so events accumulate in the queue
+                // rather than being uploaded immediately, ensuring the
+                // beacon flush has events to send when the page goes hidden.
+                mParticle.config.flags = {
+                    eventBatchingIntervalMillis: 5000,
+                };
+                mParticle.config.launcherOptions = { noTargeting: true };
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+
+                const beaconSpy = sinon.spy(navigator, 'sendBeacon');
+
+                // Flush stale beacon calls from prior tests' BatchUploader
+                // instances whose event listeners are still attached.
+                triggerVisibilityHidden();
+                beaconSpy.resetHistory();
+
+                // Log an event and trigger the page exit.
+                mParticle.logEvent('Pre-Exit Event');
+                triggerVisibilityHidden();
+
+                expect(beaconSpy.called).to.be.true;
+
+                const beaconBatch = await getBeaconBatch(beaconSpy);
+                expect(beaconBatch).to.be.ok;
+                expect(beaconBatch.user_attributes).to.have.property('$NoTargeting', true);
+
+                beaconSpy.restore();
             });
 
             it('should not set $NoTargeting user attribute when noTargeting is false', async () => {
