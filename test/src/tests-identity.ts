@@ -4571,15 +4571,17 @@ describe('identity', function() {
                 mParticle.init(apiKey, mParticle.config);
                 await waitForCondition(hasIdentityResponseParsed(loggerSpy));
 
+                // Log an event after init to verify $NoTargeting is
+                // included in event batches going forward.
+                mParticle.logEvent('Test Event');
                 mParticle.upload();
 
-                const sessionStartBatch = findBatch(
-                    fetchMock.calls(),
-                    'session_start'
-                );
+                await waitForCondition(() => findBatch(fetchMock.calls(), 'Test Event'));
 
-                expect(sessionStartBatch).to.be.ok;
-                expect(sessionStartBatch.user_attributes).to.have.property('$NoTargeting', true);
+                const batch = findBatch(fetchMock.calls(), 'Test Event');
+
+                expect(batch).to.be.ok;
+                expect(batch.user_attributes).to.have.property('$NoTargeting', true);
             });
 
             it('should not set $NoTargeting user attribute when noTargeting is false', async () => {

@@ -1524,6 +1524,15 @@ export default function Identity(mpInstance) {
                 const uiByName =
                     method === Modify ? previousUIByName : incomingUIByName;
 
+                // Sync $NoTargeting before sendUserIdentityChangeEvent
+                // because UIC events call sendEventToServer which triggers
+                // processQueuedEvents, draining the event queue. The
+                // attribute must be in the store before that happens so
+                // appendUserInfo picks it up.
+                mpInstance._CookieConsentManager?.syncNoTargetingAttribute(
+                    newUser
+                );
+
                 // https://go.mparticle.com/work/SQDSDKS-6501
                 self.sendUserIdentityChangeEvent(
                     newIdentitiesByName,
@@ -1559,10 +1568,6 @@ export default function Identity(mpInstance) {
             }
 
             mpInstance.Logger.verbose('Successfully parsed Identity Response');
-
-            // Sync $NoTargeting user attribute before processing queued events
-            // so that events in the queue pick up the attribute via appendUserInfo
-            mpInstance._CookieConsentManager?.syncNoTargetingAttribute(newUser);
 
             // https://go.mparticle.com/work/SQDSDKS-6654
             mpInstance._APIClient?.processQueuedEvents();
