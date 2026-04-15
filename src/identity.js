@@ -1560,6 +1560,10 @@ export default function Identity(mpInstance) {
 
             mpInstance.Logger.verbose('Successfully parsed Identity Response');
 
+            // Sync $NoTargeting user attribute before processing queued events
+            // so that events in the queue pick up the attribute via appendUserInfo
+            mpInstance._CookieConsentManager?.syncNoTargetingAttribute(newUser);
+
             // https://go.mparticle.com/work/SQDSDKS-6654
             mpInstance._APIClient?.processQueuedEvents();
         } catch (e) {
@@ -1577,8 +1581,6 @@ export default function Identity(mpInstance) {
         mpInstance._Store.isInitialized = true;
 
         mpInstance._RoktManager.onIdentityComplete();
-
-        mpInstance._CookieConsentManager?.syncNoTargetingAttribute(newUser);
 
         mpInstance._preInit.readyQueue = processReadyQueue(
             mpInstance._preInit.readyQueue
