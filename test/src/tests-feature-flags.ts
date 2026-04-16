@@ -119,7 +119,7 @@ describe('feature-flags', () => {
         it('should capture click ids when feature flag is true', async () => {
             window.mParticle.config.flags = {
                 captureIntegrationSpecificIds: 'True',
-                captureIntegrationSpecificIdsV2: 'all'
+                'captureIntegrationSpecificIds.V2': 'all'
             };
 
             // initialize mParticle with feature flag 
@@ -149,7 +149,7 @@ describe('feature-flags', () => {
         it('should NOT capture click ids when feature flag is false', async () => {
             window.mParticle.config.flags = {
                 captureIntegrationSpecificIds: 'False',
-                captureIntegrationSpecificIdsV2: 'none'
+                'captureIntegrationSpecificIds.V2': 'none'
             };
 
             // initialize mParticle with feature flag 
