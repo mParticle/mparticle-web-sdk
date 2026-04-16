@@ -1,3 +1,10 @@
+## [2.64.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.64.0...v2.64.1) (2026-04-16)
+
+
+### Bug Fixes
+
+* correct CaptureIntegrationSpecificIds.V2 feature flag string ([#1250](https://github.com/mParticle/mparticle-web-sdk/issues/1250)) ([50c2e29](https://github.com/mParticle/mparticle-web-sdk/commit/50c2e29515a923c70cbfcb2b519dd6451573fc5e))
+
 # [2.64.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.63.0...v2.64.0) (2026-04-13)
 
 
