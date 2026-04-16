@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.64.0";
+    var version = "2.64.1";
 
     var Constants = {
       sdkVersion: version,
@@ -382,7 +382,7 @@ var mParticle = (function () {
         //   - 'all'      → capture all IDs
         //   - 'none'     → capture none
         //   - 'roktonly' → capture only Rokt-related IDs
-        CaptureIntegrationSpecificIdsV2: 'captureIntegrationSpecificIdsV2',
+        CaptureIntegrationSpecificIdsV2: 'captureIntegrationSpecificIds.V2',
         AstBackgroundEvents: 'astBackgroundEvents'
       },
       DefaultInstance: 'default_instance',

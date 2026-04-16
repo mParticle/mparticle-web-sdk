@@ -165,7 +165,7 @@ declare const Constants: {
         readonly CacheIdentity: "cacheIdentity";
         readonly AudienceAPI: "audienceAPI";
         readonly CaptureIntegrationSpecificIds: "captureIntegrationSpecificIds";
-        readonly CaptureIntegrationSpecificIdsV2: "captureIntegrationSpecificIdsV2";
+        readonly CaptureIntegrationSpecificIdsV2: "captureIntegrationSpecificIds.V2";
         readonly AstBackgroundEvents: "astBackgroundEvents";
     };
     readonly DefaultInstance: "default_instance";
