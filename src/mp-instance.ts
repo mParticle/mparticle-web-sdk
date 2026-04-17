@@ -1446,6 +1446,11 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     const kitBlocker = createKitBlocker(config, mpInstance);
     const { getFeatureFlag } = mpInstance._Helpers;
 
+    // Destroy previous batch uploader to prevent leaked timers and event listeners
+    if (mpInstance._APIClient?.uploader) {
+        mpInstance._APIClient.uploader.destroy();
+    }
+
     mpInstance._APIClient = new APIClient(mpInstance, kitBlocker);
     mpInstance._Forwarders = new Forwarders(mpInstance, kitBlocker);
     mpInstance._Store.processConfig(config);

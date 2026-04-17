@@ -30,6 +30,13 @@ beforeEach(function() {
         clearInterval(forwardingStatsTimer);
         mParticleSDK._forwardingStatsTimer = 0;
     }
+
+    // Destroy the batch uploader to prevent leaked timers and event listeners
+    // from accumulating across tests
+    const uploader = mpInstance?._APIClient?.uploader;
+    if (uploader) {
+        uploader.destroy();
+    }
     
     // mocha can't clean up after itself, so this lets
     // tests mock the current user and restores in between runs.
