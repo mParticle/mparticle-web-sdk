@@ -53,6 +53,7 @@ describe('BatchUploader', () => {
     });
 
     afterEach(() => {
+        batchUploader.destroy();
         jest.useRealTimers();
         global.fetch = originalFetch;
     });
