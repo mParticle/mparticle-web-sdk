@@ -47,6 +47,9 @@ export class BatchUploader {
     private uploader: AsyncUploader;
     private lastASTEventTime: number = 0;
     private readonly AST_DEBOUNCE_MS: number = 1000; // 1 second debounce
+    private uploadIntervalTimerId: ReturnType<typeof setTimeout> | null = null;
+    private exitHandler: (() => void) | null = null;
+    private visibilityChangeHandler: (() => void) | null = null;
 
     /**
      * Creates an instance of a BatchUploader
@@ -103,6 +106,29 @@ export class BatchUploader {
 
         this.triggerUploadInterval(true, false);
         this.addEventListeners();
+    }
+
+    /**
+     * Cleans up timers and event listeners to prevent leaks when the SDK
+     * is re-initialized (e.g. between tests or on repeated init calls).
+     */
+    public destroy(): void {
+        if (this.uploadIntervalTimerId !== null) {
+            clearTimeout(this.uploadIntervalTimerId);
+            this.uploadIntervalTimerId = null;
+        }
+
+        if (this.visibilityChangeHandler) {
+            document.removeEventListener('visibilitychange', this.visibilityChangeHandler);
+        }
+
+        if (this.exitHandler) {
+            window.removeEventListener('beforeunload', this.exitHandler);
+            window.removeEventListener('pagehide', this.exitHandler);
+        }
+
+        this.exitHandler = null;
+        this.visibilityChangeHandler = null;
     }
 
     private isOfflineStorageAvailable(): boolean {
@@ -218,12 +244,17 @@ export class BatchUploader {
             // Then trigger the upload with beacon
             _this.prepareAndUpload(false, _this.isBeaconAvailable());
         };
-        // visibility change is a document property, not window
-        document.addEventListener('visibilitychange', () => {
+
+        this.exitHandler = handleExit;
+
+        this.visibilityChangeHandler = () => {
             if (document.visibilityState === 'hidden') {
                 handleExit();
             }
-        });
+        };
+
+        // visibility change is a document property, not window
+        document.addEventListener('visibilitychange', this.visibilityChangeHandler);
         window.addEventListener('beforeunload', handleExit);
         window.addEventListener('pagehide', handleExit);
     }
@@ -240,7 +271,7 @@ export class BatchUploader {
         triggerFuture: boolean = false,
         useBeacon: boolean = false
     ): void {
-        setTimeout(() => {
+        this.uploadIntervalTimerId = setTimeout(() => {
             this.prepareAndUpload(triggerFuture, useBeacon);
         }, this.uploadIntervalMillis);
     }
