@@ -50,6 +50,7 @@ export class BatchUploader {
     private uploadIntervalTimerId: ReturnType<typeof setTimeout> | null = null;
     private exitHandler: (() => void) | null = null;
     private visibilityChangeHandler: (() => void) | null = null;
+    private destroyed = false;
 
     /**
      * Creates an instance of a BatchUploader
@@ -113,6 +114,8 @@ export class BatchUploader {
      * is re-initialized (e.g. between tests or on repeated init calls).
      */
     public destroy(): void {
+        this.destroyed = true;
+
         if (this.uploadIntervalTimerId !== null) {
             clearTimeout(this.uploadIntervalTimerId);
             this.uploadIntervalTimerId = null;
@@ -476,7 +479,7 @@ export class BatchUploader {
             this.batchesQueuedForProcessing = [];
         }
 
-        if (triggerFuture) {
+        if (triggerFuture && !this.destroyed) {
             this.triggerUploadInterval(triggerFuture, false);
         }
     }
