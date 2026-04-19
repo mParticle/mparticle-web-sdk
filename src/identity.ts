@@ -3,14 +3,17 @@ import Types, { IdentityType } from './types';
 import {
     cacheOrClearIdCache,
     createKnownIdentities,
+    IKnownIdentities,
+    IParseCachedIdentityResponse,
     tryCacheIdentity,
 } from './identity-utils';
-import AudienceManager from './audienceManager';
+import AudienceManager, { IAudienceMemberships } from './audienceManager';
 const { Messages, HTTPCodes, FeatureFlags, IdentityMethods } = Constants;
 const { ErrorMessages } = Messages;
 const { CacheIdentity } = FeatureFlags;
 const { Identify, Modify, Login, Logout } = IdentityMethods;
 import {
+    Environment,
     generateDeprecationMessage,
     isEmpty,
     isFunction,
@@ -18,17 +21,39 @@ import {
 } from './utils';
 import { hasMPIDAndUserLoginChanged, hasMPIDChanged } from './user-utils';
 import { processReadyQueue } from './pre-init-utils';
+import {
+    IdentityCallback,
+    IIdentityResponse,
+    IMParticleUser,
+    mParticleUserCart,
+} from './identity-user-interfaces';
+import {
+    IIdentity,
+    IIdentityAPIRequestData,
+    IdentityAPIMethod,
+    IAliasRequest,
+    IAliasCallback,
+    AliasRequestScope,
+    SDKIdentityTypeEnum,
+} from './identity.interfaces';
+import { IMParticleWebSDKInstance } from './mp-instance';
+import { IdentityApiData, UserIdentities, MPID, ConsentState, UserAttributesValue } from '@mparticle/web-sdk';
+import { Context } from '@mparticle/event-models';
+import { BaseEvent, SDKEvent, SDKLoggerApi } from './sdkRuntimeModels';
 
-export default function Identity(mpInstance) {
+export default function Identity(
+    this: IIdentity,
+    mpInstance: IMParticleWebSDKInstance
+) {
     const { getFeatureFlag, extend } = mpInstance._Helpers;
 
-    var self = this;
+    const self: IIdentity = this;
     this.idCache = null;
     this.audienceManager = null;
 
     // https://go.mparticle.com/work/SQDSDKS-6353
     this.IdentityRequest = {
-        preProcessIdentityRequest: function(identityApiData, callback, method) {
+        preProcessIdentityRequest: function(identityApiData: IdentityApiData, callback: IdentityCallback, method: IdentityAPIMethod) {
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.StartingLogEvent + ': ' + method
             );
@@ -75,24 +100,24 @@ export default function Identity(mpInstance) {
         },
 
         createIdentityRequest: function(
-            identityApiData,
-            platform,
-            sdkVendor,
-            sdkVersion,
-            deviceId,
-            context,
-            mpid
+            identityApiData: IdentityApiData,
+            platform: string,
+            sdkVendor: string,
+            sdkVersion: string,
+            deviceId: string,
+            context: Context | null,
+            mpid: MPID
         ) {
-            var APIRequest = {
+            var APIRequest: IIdentityAPIRequestData = {
                 client_sdk: {
                     platform: platform,
                     sdk_vendor: sdkVendor,
                     sdk_version: sdkVersion,
                 },
                 context: context,
-                environment: mpInstance._Store.SDKConfig.isDevelopmentMode
+                environment: (mpInstance._Store.SDKConfig.isDevelopmentMode
                     ? 'development'
-                    : 'production',
+                    : 'production') as Environment,
                 request_id: mpInstance._Helpers.generateUniqueId(),
                 request_timestamp_ms: new Date().getTime(),
                 previous_mpid: mpid || null,
@@ -106,12 +131,12 @@ export default function Identity(mpInstance) {
         },
 
         createModifyIdentityRequest: function(
-            currentUserIdentities,
-            newUserIdentities,
-            platform,
-            sdkVendor,
-            sdkVersion,
-            context
+            currentUserIdentities: UserIdentities,
+            newUserIdentities: UserIdentities,
+            platform: string,
+            sdkVendor: string,
+            sdkVersion: string,
+            context: Context | null
         ) {
             return {
                 client_sdk: {
@@ -120,9 +145,9 @@ export default function Identity(mpInstance) {
                     sdk_version: sdkVersion,
                 },
                 context: context,
-                environment: mpInstance._Store.SDKConfig.isDevelopmentMode
+                environment: (mpInstance._Store.SDKConfig.isDevelopmentMode
                     ? 'development'
-                    : 'production',
+                    : 'production') as Environment,
                 request_id: mpInstance._Helpers.generateUniqueId(),
                 request_timestamp_ms: new Date().getTime(),
                 identity_changes: this.createIdentityChanges(
@@ -132,7 +157,7 @@ export default function Identity(mpInstance) {
             };
         },
 
-        createIdentityChanges: function(previousIdentities, newIdentities) {
+        createIdentityChanges: function(previousIdentities: UserIdentities, newIdentities: UserIdentities) {
             var identityChanges = [];
             var key;
             if (
@@ -154,7 +179,7 @@ export default function Identity(mpInstance) {
         },
 
         // takes 2 UI objects keyed by name, combines them, returns them keyed by type
-        combineUserIdentities: function(previousUIByName, newUIByName) {
+        combineUserIdentities: function(previousUIByName: UserIdentities, newUIByName: UserIdentities) {
             var combinedUIByType = {};
             var combinedUIByName = extend({}, previousUIByName, newUIByName);
 
@@ -170,7 +195,7 @@ export default function Identity(mpInstance) {
             return combinedUIByType;
         },
 
-        createAliasNetworkRequest: function(aliasRequest) {
+        createAliasNetworkRequest: function(aliasRequest: IAliasRequest) {
             return {
                 request_id: mpInstance._Helpers.generateUniqueId(),
                 request_type: 'alias',
@@ -189,7 +214,7 @@ export default function Identity(mpInstance) {
             };
         },
 
-        convertAliasToNative: function(aliasRequest) {
+        convertAliasToNative: function(aliasRequest: IAliasRequest) {
             return {
                 DestinationMpid: aliasRequest.destinationMpid,
                 SourceMpid: aliasRequest.sourceMpid,
@@ -199,7 +224,7 @@ export default function Identity(mpInstance) {
             };
         },
 
-        convertToNative: function(identityApiData) {
+        convertToNative: function(identityApiData: IdentityApiData) {
             var nativeIdentityRequest = [];
             if (identityApiData && identityApiData.userIdentities) {
                 for (var key in identityApiData.userIdentities) {
@@ -215,6 +240,7 @@ export default function Identity(mpInstance) {
                     UserIdentities: nativeIdentityRequest,
                 };
             }
+            return undefined;
         },
     };
     /**
@@ -230,7 +256,7 @@ export default function Identity(mpInstance) {
          * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
          * @param {Function} [callback] A callback function that is called when the identify request completes
          */
-        identify: function(identityApiData, callback) {
+        identify: function(identityApiData: IdentityApiData, callback: IdentityCallback) {
             // https://go.mparticle.com/work/SQDSDKS-6337
             var mpid,
                 currentUser = mpInstance.Identity.getCurrentUser(),
@@ -261,7 +287,7 @@ export default function Identity(mpInstance) {
                     const successfullyCachedIdentity = tryCacheIdentity(
                         identityApiRequest.known_identities,
                         self.idCache,
-                        self.parseIdentityResponse,
+                        self.parseIdentityResponse as IParseCachedIdentityResponse,
                         mpid,
                         callback,
                         identityApiData,
@@ -315,7 +341,9 @@ export default function Identity(mpInstance) {
                     HTTPCodes.validationIssue,
                     preProcessResult.error
                 );
-                mpInstance.Logger.verbose(preProcessResult);
+                mpInstance.Logger.verbose(
+                    preProcessResult.error ?? JSON.stringify(preProcessResult)
+                );
             }
         },
         /**
@@ -324,7 +352,7 @@ export default function Identity(mpInstance) {
          * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
          * @param {Function} [callback] A callback function that is called when the logout request completes
          */
-        logout: function(identityApiData, callback) {
+        logout: function(identityApiData: IdentityApiData, callback: IdentityCallback) {
             // https://go.mparticle.com/work/SQDSDKS-6337
             var mpid,
                 currentUser = mpInstance.Identity.getCurrentUser(),
@@ -383,8 +411,9 @@ export default function Identity(mpInstance) {
                             mpInstance._Store.activeForwarders.forEach(function(
                                 forwarder
                             ) {
-                                if (forwarder.logOut) {
-                                    forwarder.logOut(evt);
+                                const fwd = forwarder as unknown as Record<string, Function>;
+                                if (typeof fwd.logOut === 'function') {
+                                    fwd.logOut(evt);
                                 }
                             });
                         }
@@ -405,7 +434,9 @@ export default function Identity(mpInstance) {
                     HTTPCodes.validationIssue,
                     preProcessResult.error
                 );
-                mpInstance.Logger.verbose(preProcessResult);
+                mpInstance.Logger.verbose(
+                    preProcessResult.error ?? JSON.stringify(preProcessResult)
+                );
             }
         },
         /**
@@ -414,7 +445,7 @@ export default function Identity(mpInstance) {
          * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
          * @param {Function} [callback] A callback function that is called when the login request completes
          */
-        login: function(identityApiData, callback) {
+        login: function(identityApiData: IdentityApiData, callback: IdentityCallback) {
             // https://go.mparticle.com/work/SQDSDKS-6337
             var mpid,
                 currentUser = mpInstance.Identity.getCurrentUser(),
@@ -447,7 +478,7 @@ export default function Identity(mpInstance) {
                     const successfullyCachedIdentity = tryCacheIdentity(
                         identityApiRequest.known_identities,
                         self.idCache,
-                        self.parseIdentityResponse,
+                        self.parseIdentityResponse as IParseCachedIdentityResponse,
                         mpid,
                         callback,
                         identityApiData,
@@ -501,7 +532,9 @@ export default function Identity(mpInstance) {
                     HTTPCodes.validationIssue,
                     preProcessResult.error
                 );
-                mpInstance.Logger.verbose(preProcessResult);
+                mpInstance.Logger.verbose(
+                    preProcessResult.error ?? JSON.stringify(preProcessResult)
+                );
             }
         },
         /**
@@ -510,7 +543,7 @@ export default function Identity(mpInstance) {
          * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
          * @param {Function} [callback] A callback function that is called when the modify request completes
          */
-        modify: function(identityApiData, callback) {
+        modify: function(identityApiData: IdentityApiData, callback: IdentityCallback) {
             // https://go.mparticle.com/work/SQDSDKS-6337
             var mpid,
                 currentUser = mpInstance.Identity.getCurrentUser(),
@@ -560,8 +593,7 @@ export default function Identity(mpInstance) {
                             callback,
                             identityApiData,
                             self.parseIdentityResponse,
-                            mpid,
-                            identityApiRequest.known_identities
+                            mpid
                         );
                     }
                 } else {
@@ -580,7 +612,9 @@ export default function Identity(mpInstance) {
                     HTTPCodes.validationIssue,
                     preProcessResult.error
                 );
-                mpInstance.Logger.verbose(preProcessResult);
+                mpInstance.Logger.verbose(
+                    preProcessResult.error ?? JSON.stringify(preProcessResult)
+                );
             }
         },
         /**
@@ -615,7 +649,7 @@ export default function Identity(mpInstance) {
          * @param {String} mpid of the desired user
          * @return {Object} the user for  mpid
          */
-        getUser: function(mpid) {
+        getUser: function(mpid: MPID) {
             var persistence = mpInstance._Persistence.getPersistence();
             if (persistence) {
                 if (
@@ -664,7 +698,7 @@ export default function Identity(mpInstance) {
          * @param {Object} aliasRequest  object representing an AliasRequest
          * @param {Function} [callback] A callback function that is called when the aliasUsers request completes
          */
-        aliasUsers: function(aliasRequest, callback) {
+        aliasUsers: function(aliasRequest: IAliasRequest, callback: IAliasCallback) {
             var message;
             if (!aliasRequest.destinationMpid || !aliasRequest.sourceMpid) {
                 message = Messages.ValidationMessages.AliasMissingMpid;
@@ -712,7 +746,7 @@ export default function Identity(mpInstance) {
                     );
                     var aliasRequestMessage = mpInstance._Identity.IdentityRequest.createAliasNetworkRequest(
                         aliasRequest
-                    );
+                    ) as IAliasRequest;
                     mpInstance._IdentityAPIClient.sendAliasRequest(
                         aliasRequestMessage,
                         callback
@@ -745,7 +779,7 @@ export default function Identity(mpInstance) {
         after applying this adjustment it will be impossible to create an aliasRequest passes the aliasUsers() 
         validation that the startTime must be less than the endTime 
         */
-        createAliasRequest: function(sourceUser, destinationUser, scope) {
+        createAliasRequest: function(sourceUser: IMParticleUser, destinationUser: IMParticleUser, scope: AliasRequestScope) {
             try {
                 if (!destinationUser || !sourceUser) {
                     mpInstance.Logger.error(
@@ -806,7 +840,7 @@ export default function Identity(mpInstance) {
      * Example: mParticle.Identity.getCurrentUser().getAllUserAttributes()
      * @class mParticle.Identity.getCurrentUser()
      */
-    this.mParticleUser = function(mpid, isLoggedIn) {
+    this.mParticleUser = function(mpid?: MPID, isLoggedIn?: boolean): IMParticleUser {
         var self = this;
         return {
             /**
@@ -845,7 +879,7 @@ export default function Identity(mpInstance) {
              * @method setUserTag
              * @param {String} tagName
              */
-            setUserTag: function(tagName) {
+            setUserTag: function(tagName: string) {
                 if (!mpInstance._Helpers.Validators.isValidKeyValue(tagName)) {
                     mpInstance.Logger.error(Messages.ErrorMessages.BadKey);
                     return;
@@ -858,7 +892,7 @@ export default function Identity(mpInstance) {
              * @method removeUserTag
              * @param {String} tagName
              */
-            removeUserTag: function(tagName) {
+            removeUserTag: function(tagName: string) {
                 if (!mpInstance._Helpers.Validators.isValidKeyValue(tagName)) {
                     mpInstance.Logger.error(Messages.ErrorMessages.BadKey);
                     return;
@@ -874,7 +908,7 @@ export default function Identity(mpInstance) {
              */
             // https://go.mparticle.com/work/SQDSDKS-4576
             // https://go.mparticle.com/work/SQDSDKS-6373
-            setUserAttribute: function(key, newValue) {
+            setUserAttribute: function(key: string, newValue: string) {
                 mpInstance._SessionManager.resetSessionTimer();
 
                 if (mpInstance._Helpers.canLog()) {
@@ -950,7 +984,7 @@ export default function Identity(mpInstance) {
              * @param {Object} user attribute object with keys of the attribute type, and value of the attribute value
              */
             // https://go.mparticle.com/work/SQDSDKS-6373
-            setUserAttributes: function(userAttributes) {
+            setUserAttributes: function(userAttributes: Record<string, unknown>) {
                 mpInstance._SessionManager.resetSessionTimer();
                 if (isObject(userAttributes)) {
                     if (mpInstance._Helpers.canLog()) {
@@ -972,7 +1006,7 @@ export default function Identity(mpInstance) {
              * @method removeUserAttribute
              * @param {String} key
              */
-            removeUserAttribute: function(key) {
+            removeUserAttribute: function(key: string) {
                 var cookies, userAttributes;
                 mpInstance._SessionManager.resetSessionTimer();
 
@@ -1038,7 +1072,7 @@ export default function Identity(mpInstance) {
              * @param {Array} value an array of values
              */
             // https://go.mparticle.com/work/SQDSDKS-6373
-            setUserAttributeList: function(key, newValue) {
+            setUserAttributeList: function(key: string, newValue: UserAttributesValue[]) {
                 mpInstance._SessionManager.resetSessionTimer();
 
                 if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
@@ -1049,7 +1083,7 @@ export default function Identity(mpInstance) {
                 if (!Array.isArray(newValue)) {
                     mpInstance.Logger.error(
                         'The value you passed in to setUserAttributeList must be an array. You passed in a ' +
-                            typeof value
+                            typeof newValue
                     );
                     return;
                 }
@@ -1108,7 +1142,7 @@ export default function Identity(mpInstance) {
                     if (userAttributeChange) {
                         self.sendUserAttributeChangeEvent(
                             key,
-                            newValue,
+                            newValue as unknown as string[],
                             previousUserAttributeValue,
                             isNewAttribute,
                             false,
@@ -1195,12 +1229,11 @@ export default function Identity(mpInstance) {
                 if (userAttributes) {
                     for (const prop in userAttributes) {
                         if (userAttributes.hasOwnProperty(prop)) {
-                            if (Array.isArray(userAttributes[prop])) {
-                                userAttributesCopy[prop] = userAttributes[
-                                    prop
-                                ].slice();
+                            const attrValue = userAttributes[prop];
+                            if (Array.isArray(attrValue)) {
+                                userAttributesCopy[prop] = attrValue.slice();
                             } else {
-                                userAttributesCopy[prop] = userAttributes[prop];
+                                userAttributesCopy[prop] = attrValue;
                             }
                         }
                     }
@@ -1233,7 +1266,7 @@ export default function Identity(mpInstance) {
              * @method setConsentState
              * @param {Object} consent state
              */
-            setConsentState: function(state) {
+            setConsentState: function(state: ConsentState) {
                 mpInstance._Store.setConsentState(mpid, state);
                 mpInstance._Forwarders.initForwarders(
                     this.getUserIdentities().userIdentities,
@@ -1256,7 +1289,7 @@ export default function Identity(mpInstance) {
              * @param {Function} [callback] A callback function that is invoked when the user audience request completes
              */
             // https://go.mparticle.com/work/SQDSDKS-6436
-            getUserAudiences: function(callback) {
+            getUserAudiences: function(callback: IdentityCallback) {
                 // user audience API is feature flagged
                 if (
                     !mpInstance._Helpers.getFeatureFlag(
@@ -1272,12 +1305,14 @@ export default function Identity(mpInstance) {
                     self.audienceManager = new AudienceManager(
                         mpInstance._Store.SDKConfig.userAudienceUrl,
                         mpInstance._Store.devToken,
-                        mpInstance.Logger,
-                        mpid
+                        mpInstance.Logger
                     );
                 }
 
-                self.audienceManager.sendGetUserAudienceRequest(mpid, callback);
+                self.audienceManager.sendGetUserAudienceRequest(
+                    mpid,
+                    callback as unknown as (userAudiences: IAudienceMemberships) => void
+                );
             },
         };
     };
@@ -1288,7 +1323,7 @@ export default function Identity(mpInstance) {
      * @class mParticle.Identity.getCurrentUser().getCart()
      * @deprecated
      */
-    this.mParticleUserCart = function() {
+    this.mParticleUserCart = function(): mParticleUserCart {
         return {
             /**
              * Adds a cart product to the user cart
@@ -1357,14 +1392,14 @@ export default function Identity(mpInstance) {
 
     // https://go.mparticle.com/work/SQDSDKS-6355
     this.parseIdentityResponse = function(
-        identityResponse,
-        previousMPID,
-        callback,
-        identityApiData,
-        method,
-        knownIdentities,
-        parsingCachedResponse
-    ) {
+        identityResponse: IIdentityResponse,
+        previousMPID: MPID,
+        callback: IdentityCallback,
+        identityApiData: IdentityApiData,
+        method: IdentityAPIMethod,
+        knownIdentities: IKnownIdentities | UserIdentities,
+        parsingCachedResponse: boolean
+    ): void {
         const prevUser = mpInstance.Identity.getUser(previousMPID);
         const prevUserMPID = prevUser ? prevUser.getMPID() : null;
         const previousUIByName = prevUser
@@ -1587,11 +1622,11 @@ export default function Identity(mpInstance) {
     // compare what identities exist vs what is previously was for the specific user if they were in memory before.
     // if it's the first time the user is logging in, send a user identity change request with
     this.sendUserIdentityChangeEvent = function(
-        newUserIdentities,
-        method,
-        mpid,
-        prevUserIdentities
-    ) {
+        newUserIdentities: UserIdentities,
+        method: IdentityAPIMethod,
+        mpid: MPID,
+        prevUserIdentities: UserIdentities
+    ): void {
         if (!mpid) {
             // https://go.mparticle.com/work/SQDSDKS-6501
             if (method !== Modify) {
@@ -1620,18 +1655,18 @@ export default function Identity(mpInstance) {
                     currentUserInMemory
                 );
                 mpInstance._APIClient?.sendEventToServer(
-                    userIdentityChangeEvent
+                    userIdentityChangeEvent as unknown as SDKEvent
                 );
             }
         }
     };
 
     this.createUserIdentityChange = function(
-        identityType,
-        newIdentity,
-        oldIdentity,
-        isIdentityTypeNewToBatch,
-        userInMemory
+        identityType: string,
+        newIdentity: string,
+        oldIdentity: string,
+        isIdentityTypeNewToBatch: boolean,
+        userInMemory: IMParticleUser
     ) {
         var userIdentityChangeEvent;
 
@@ -1651,19 +1686,19 @@ export default function Identity(mpInstance) {
                 },
             },
             userInMemory,
-        });
+        } as BaseEvent);
 
         return userIdentityChangeEvent;
     };
 
     this.sendUserAttributeChangeEvent = function(
-        attributeKey,
-        newUserAttributeValue,
-        previousUserAttributeValue,
-        isNewAttribute,
-        deleted,
-        user
-    ) {
+        attributeKey: string,
+        newUserAttributeValue: string | string[] | null,
+        previousUserAttributeValue: string | string[] | null,
+        isNewAttribute: boolean,
+        deleted: boolean,
+        user: IMParticleUser
+    ): void {
         var userAttributeChangeEvent = self.createUserAttributeChange(
             attributeKey,
             newUserAttributeValue,
@@ -1673,17 +1708,17 @@ export default function Identity(mpInstance) {
             user
         );
         if (userAttributeChangeEvent) {
-            mpInstance._APIClient?.sendEventToServer(userAttributeChangeEvent);
+            mpInstance._APIClient?.sendEventToServer(userAttributeChangeEvent as unknown as SDKEvent);
         }
     };
 
     this.createUserAttributeChange = function(
-        key,
-        newValue,
-        previousUserAttributeValue,
-        isNewAttribute,
-        deleted,
-        user
+        key: string,
+        newValue: string | string[] | null,
+        previousUserAttributeValue: string | string[] | null,
+        isNewAttribute: boolean,
+        deleted: boolean,
+        user: IMParticleUser
     ) {
         if (typeof previousUserAttributeValue === 'undefined') {
             previousUserAttributeValue = null;
@@ -1696,8 +1731,8 @@ export default function Identity(mpInstance) {
                     messageType: Types.MessageType.UserAttributeChange,
                     userAttributeChanges: {
                         UserAttributeName: key,
-                        New: newValue,
-                        Old: previousUserAttributeValue,
+                        New: newValue as string,
+                        Old: previousUserAttributeValue as string,
                         Deleted: deleted,
                         IsNewAttribute: isNewAttribute,
                     },
@@ -1708,7 +1743,7 @@ export default function Identity(mpInstance) {
         return userAttributeChangeEvent;
     };
 
-    this.reinitForwardersOnUserChange = function(prevUser, newUser) {
+    this.reinitForwardersOnUserChange = function(prevUser: IMParticleUser, newUser: IMParticleUser): void {
         if (hasMPIDAndUserLoginChanged(prevUser, newUser)) {
             mpInstance._Forwarders?.initForwarders(
                 newUser.getUserIdentities().userIdentities,
@@ -1717,7 +1752,7 @@ export default function Identity(mpInstance) {
         }
     };
 
-    this.setForwarderCallbacks = function(user, method) {
+    this.setForwarderCallbacks = function(user: IMParticleUser, method: IdentityAPIMethod): void {
         // https://go.mparticle.com/work/SQDSDKS-6036
         mpInstance._Forwarders?.setForwarderUserIdentities(
             user.getUserIdentities().userIdentities
@@ -1727,8 +1762,18 @@ export default function Identity(mpInstance) {
     };
 }
 
+interface IdentityApiDataWithAlias extends IdentityApiData {
+    /** @deprecated */
+    onUserAlias?: (previousUser: IMParticleUser, newUser: IMParticleUser) => void;
+}
+
 // https://go.mparticle.com/work/SQDSDKS-6359
-function tryOnUserAlias(previousUser, newUser, identityApiData, logger) {
+function tryOnUserAlias(
+    previousUser: IMParticleUser,
+    newUser: IMParticleUser,
+    identityApiData: IdentityApiDataWithAlias,
+    logger: SDKLoggerApi
+): void {
     if (
         identityApiData &&
         identityApiData.onUserAlias &&
