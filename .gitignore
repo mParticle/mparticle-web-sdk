@@ -14,3 +14,12 @@ local.log
 test/cross-browser-testing/CBT-tests-es5.js
 test/cross-browser-testing/CBT-tests.js
 coverage/
+
+# Integration test artifacts
+IntegrationTests/node_modules/
+
+IntegrationTests/wiremock-recordings/mappings/*-?????.json
+IntegrationTests/wiremock-recordings/__files/*-?????.txt
+IntegrationTests/wiremock-recordings/__files/*-?????.json
+
+IntegrationTests/wiremock-recordings/stubs-backup/
