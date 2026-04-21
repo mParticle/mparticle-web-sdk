@@ -7,6 +7,13 @@ import {
     UserIdentities,
     IdentityCallback,
 } from '@mparticle/web-sdk';
+
+declare module '@mparticle/web-sdk' {
+    interface UserIdentities {
+        email_sha256?: string | undefined;
+        mobile_sha256?: string | undefined;
+    }
+}
 import { IdentityAPIMethod, IIdentityRequest } from './identity.interfaces';
 import {
     IdentityResultBody,
@@ -304,8 +311,11 @@ export const normalizeUserIdentityKeys = (
     };
     for (const alias of Object.keys(SHA256_IDENTITY_ALIASES)) {
         if (alias in normalized) {
-            normalized[SHA256_IDENTITY_ALIASES[alias]] = normalized[alias];
+            const value = normalized[alias];
             delete normalized[alias];
+            if (value !== null) {
+                normalized[SHA256_IDENTITY_ALIASES[alias]] = value;
+            }
         }
     }
     return normalized as UserIdentities;
