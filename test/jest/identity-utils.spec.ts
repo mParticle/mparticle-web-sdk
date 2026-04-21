@@ -2,12 +2,12 @@ import { normalizeUserIdentityKeys } from '../../src/identity-utils';
 
 describe('normalizeUserIdentityKeys', () => {
     it('maps email_sha256 to other', () => {
-        const result = normalizeUserIdentityKeys({ email_sha256: 'abc123hash' } as any);
+        const result = normalizeUserIdentityKeys({ email_sha256: 'abc123hash' });
         expect(result).toEqual({ other: 'abc123hash' });
     });
 
     it('maps mobile_sha256 to other', () => {
-        const result = normalizeUserIdentityKeys({ mobile_sha256: 'mobilehash456' } as any);
+        const result = normalizeUserIdentityKeys({ mobile_sha256: 'mobilehash456' });
         expect(result).toEqual({ other: 'mobilehash456' });
     });
 
@@ -15,7 +15,7 @@ describe('normalizeUserIdentityKeys', () => {
         const result = normalizeUserIdentityKeys({
             email_sha256: 'emailhash',
             mobile_sha256: 'mobilehash',
-        } as any);
+        });
         expect(result).toEqual({ other: 'mobilehash' });
     });
 
@@ -24,7 +24,7 @@ describe('normalizeUserIdentityKeys', () => {
             email: 'user@example.com',
             customerid: 'cust123',
             email_sha256: 'sha256ofEmail',
-        } as any);
+        });
         expect(result).toEqual({
             email: 'user@example.com',
             customerid: 'cust123',
@@ -38,13 +38,13 @@ describe('normalizeUserIdentityKeys', () => {
         expect(result).toEqual({ email: 'user@example.com', customerid: 'cust123' });
     });
 
-    it('handles null values for sha256 aliases', () => {
-        const result = normalizeUserIdentityKeys({ email_sha256: null } as any);
-        expect(result).toEqual({ other: null });
+    it('drops null values for sha256 aliases', () => {
+        const result = normalizeUserIdentityKeys({ email_sha256: null });
+        expect(result).toEqual({});
     });
 
     it('does not mutate the original object', () => {
-        const input = { email_sha256: 'hash' } as any;
+        const input = { email_sha256: 'hash' };
         normalizeUserIdentityKeys(input);
         expect(input).toEqual({ email_sha256: 'hash' });
     });
