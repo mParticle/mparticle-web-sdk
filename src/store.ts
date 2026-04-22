@@ -800,6 +800,13 @@ export function processBaseUrls(
     // Set default baseUrls
     let baseUrls: Dictionary<string>;
 
+    // A CNAME (config.domain, e.g. set by the snippet v2.6+) takes precedence
+    // over direct URL routing so that customer-configured first-party domains
+    // and the snippet's fallback domain are always honored.
+    if (!isEmpty(config.domain)) {
+        return processCustomBaseUrls(config);
+    }
+
     // When direct URL routing is false, update baseUrls based custom urls
     // passed to the config
     if (flags.directURLRouting) {

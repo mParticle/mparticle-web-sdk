@@ -1803,6 +1803,71 @@ describe('Store', () => {
 
                 expect(result).to.deep.equal(expectedResult);
             });
+
+            it('should append url paths to domain when config.domain is set, ignoring silo routing', () => {
+                // Regression guard: when a customer uses a CNAME (partner
+                // first-party domain or the Rokt snippet's fallback domain),
+                // config.domain MUST win over direct-URL routing. Without this
+                // the snippet's apps.roktecommerce.com fallback is defeated
+                // because identity/alias/etc. keep pointing at the silo host.
+                const featureFlags = { directURLRouting: true };
+
+                const config = {
+                    domain: 'custom.domain.com'
+                };
+
+                const result = processBaseUrls(
+                    (config as unknown) as SDKInitConfig,
+                    (featureFlags as unknown) as IFeatureFlags,
+                    'apikey'
+                );
+
+                const expectedResult = {
+                    configUrl: 'custom.domain.com/tags/JS/v2/',
+                    identityUrl: 'custom.domain.com/identity/v1/',
+                    aliasUrl: 'custom.domain.com/webevents/v1/identity/',
+                    v1SecureServiceUrl: 'custom.domain.com/webevents/v1/JS/',
+                    v2SecureServiceUrl: 'custom.domain.com/webevents/v2/JS/',
+                    v3SecureServiceUrl: 'custom.domain.com/webevents/v3/JS/',
+                };
+
+                expect(result).to.deep.equal(expectedResult);
+            });
+
+            it('should prioritize domain over custom baseUrls when both are set', () => {
+                // The server-side app.js template stamps in explicit
+                // identityUrl/aliasUrl/etc. via the `|| default` pattern.
+                // When the snippet also sets config.domain, domain must still
+                // win so downstream calls follow the CNAME / fallback host.
+                const featureFlags = { directURLRouting: true };
+
+                const config = {
+                    domain: 'custom.domain.com',
+                    v1SecureServiceUrl: 'foo.customer.mp.com/v1/JS/',
+                    v2SecureServiceUrl: 'foo.customer.mp.com/v2/JS/',
+                    v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
+                    configUrl: 'foo-configUrl.customer.mp.com/v2/JS/',
+                    identityUrl: 'foo-identity.customer.mp.com/',
+                    aliasUrl: 'foo-alias.customer.mp.com/',
+                };
+
+                const result = processBaseUrls(
+                    (config as unknown) as SDKInitConfig,
+                    (featureFlags as unknown) as IFeatureFlags,
+                    'apikey'
+                );
+
+                const expectedResult = {
+                    configUrl: 'custom.domain.com/tags/JS/v2/',
+                    identityUrl: 'custom.domain.com/identity/v1/',
+                    aliasUrl: 'custom.domain.com/webevents/v1/identity/',
+                    v1SecureServiceUrl: 'custom.domain.com/webevents/v1/JS/',
+                    v2SecureServiceUrl: 'custom.domain.com/webevents/v2/JS/',
+                    v3SecureServiceUrl: 'custom.domain.com/webevents/v3/JS/',
+                };
+
+                expect(result).to.deep.equal(expectedResult);
+            });
         });
     });
 });
