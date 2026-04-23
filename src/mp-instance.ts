@@ -1558,6 +1558,12 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     ) {
         mpInstance._Store.isInitialized = true;
 
+        // Sync $NoTargeting user attribute on re-init when no identity call is made
+        // if for some reason there was a change in boolean between init calls
+        mpInstance._CookieConsentManager?.syncNoTargetingAttribute(
+            mpInstance.Identity.getCurrentUser()
+        );
+
         mpInstance._preInit.readyQueue = processReadyQueue(
             mpInstance._preInit.readyQueue
         );

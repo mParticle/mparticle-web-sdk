@@ -225,6 +225,11 @@ export default Constants;
 export const ONE_DAY_IN_SECONDS = 60 * 60 * 24;
 export const MILLIS_IN_ONE_SEC = 1000;
 
+// User attribute set when the end user opts out of ad targeting via
+// launcherOptions.noTargeting. Server-side systems use this attribute
+// to exclude the user from retargeting audiences.
+export const NO_TARGETING_ATTRIBUTE = '$NoTargeting';
+
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
 export const HTTP_OK = 200 as const;
 export const HTTP_ACCEPTED = 202 as const;

@@ -1,4 +1,5 @@
 import CookieConsentManager from '../../src/cookieConsentManager';
+import { IMParticleUser } from '../../src/identity-user-interfaces';
 
 describe('CookieConsentManager', () => {
     describe('#constructor', () => {
@@ -40,6 +41,50 @@ describe('CookieConsentManager', () => {
             const cookieConsentManager = new CookieConsentManager({ noTargeting: true, noFunctional: undefined });
 
             expect(cookieConsentManager.getNoTargeting()).toBe(true);
+        });
+    });
+
+    describe('#syncNoTargetingAttribute', () => {
+        function createMockUser(attributes: Record<string, any> = {}) {
+            const attrs = { ...attributes };
+            return {
+                setUserAttribute: jest.fn((key, value) => { attrs[key] = value; }),
+                removeUserAttribute: jest.fn((key) => { delete attrs[key]; }),
+                getAllUserAttributes: jest.fn(() => attrs),
+            } as unknown as IMParticleUser;
+        }
+
+        it('should set $NoTargeting when noTargeting is true', () => {
+            const manager = new CookieConsentManager({ noTargeting: true, noFunctional: false });
+            const user = createMockUser();
+
+            manager.syncNoTargetingAttribute(user);
+
+            expect(user.setUserAttribute).toHaveBeenCalledWith('$NoTargeting', true);
+        });
+
+        it('should remove $NoTargeting when noTargeting is false and attribute exists', () => {
+            const manager = new CookieConsentManager({ noTargeting: false, noFunctional: false });
+            const user = createMockUser({ '$NoTargeting': true });
+
+            manager.syncNoTargetingAttribute(user);
+
+            expect(user.removeUserAttribute).toHaveBeenCalledWith('$NoTargeting');
+        });
+
+        it('should not remove $NoTargeting when noTargeting is false and attribute does not exist', () => {
+            const manager = new CookieConsentManager({ noTargeting: false, noFunctional: false });
+            const user = createMockUser();
+
+            manager.syncNoTargetingAttribute(user);
+
+            expect(user.removeUserAttribute).not.toHaveBeenCalled();
+        });
+
+        it('should do nothing when user is null', () => {
+            const manager = new CookieConsentManager({ noTargeting: true, noFunctional: false });
+
+            expect(() => manager.syncNoTargetingAttribute(null)).not.toThrow();
         });
     });
 });
