@@ -31,12 +31,21 @@ export declare class BatchUploader {
     private uploader;
     private lastASTEventTime;
     private readonly AST_DEBOUNCE_MS;
+    private uploadIntervalTimerId;
+    private exitHandler;
+    private visibilityChangeHandler;
+    private destroyed;
     /**
      * Creates an instance of a BatchUploader
      * @param {IMParticleWebSDKInstance} mpInstance - the mParticle SDK instance
      * @param {number} uploadInterval - the desired upload interval in milliseconds
      */
     constructor(mpInstance: IMParticleWebSDKInstance, uploadInterval: number);
+    /**
+     * Cleans up timers and event listeners to prevent leaks when the SDK
+     * is re-initialized (e.g. between tests or on repeated init calls).
+     */
+    destroy(): void;
     private isOfflineStorageAvailable;
     private shouldDebounceAndUpdateLastASTTime;
     private createBackgroundASTEvent;

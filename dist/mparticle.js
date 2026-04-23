@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.64.1";
+    var version = "2.65.0";
 
     var Constants = {
       sdkVersion: version,
@@ -409,6 +409,10 @@ var mParticle = (function () {
     // https://go.mparticle.com/work/SQDSDKS-6080
     var ONE_DAY_IN_SECONDS = 60 * 60 * 24;
     var MILLIS_IN_ONE_SEC = 1000;
+    // User attribute set when the end user opts out of ad targeting via
+    // launcherOptions.noTargeting. Server-side systems use this attribute
+    // to exclude the user from retargeting audiences.
+    var NO_TARGETING_ATTRIBUTE = '$NoTargeting';
     // https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
     var HTTP_OK = 200;
     var HTTP_ACCEPTED = 202;
@@ -2689,6 +2693,10 @@ var mParticle = (function () {
         this.offlineStorageEnabled = false;
         this.lastASTEventTime = 0;
         this.AST_DEBOUNCE_MS = 1000; // 1 second debounce
+        this.uploadIntervalTimerId = null;
+        this.exitHandler = null;
+        this.visibilityChangeHandler = null;
+        this.destroyed = false;
         this.mpInstance = mpInstance;
         this.uploadIntervalMillis = uploadInterval;
         this.batchingEnabled = uploadInterval >= BatchUploader.MINIMUM_INTERVAL_MILLIS;
@@ -2721,6 +2729,26 @@ var mParticle = (function () {
         this.triggerUploadInterval(true, false);
         this.addEventListeners();
       }
+      /**
+       * Cleans up timers and event listeners to prevent leaks when the SDK
+       * is re-initialized (e.g. between tests or on repeated init calls).
+       */
+      BatchUploader.prototype.destroy = function () {
+        this.destroyed = true;
+        if (this.uploadIntervalTimerId !== null) {
+          clearTimeout(this.uploadIntervalTimerId);
+          this.uploadIntervalTimerId = null;
+        }
+        if (this.visibilityChangeHandler) {
+          document.removeEventListener('visibilitychange', this.visibilityChangeHandler);
+        }
+        if (this.exitHandler) {
+          window.removeEventListener('beforeunload', this.exitHandler);
+          window.removeEventListener('pagehide', this.exitHandler);
+        }
+        this.exitHandler = null;
+        this.visibilityChangeHandler = null;
+      };
       BatchUploader.prototype.isOfflineStorageAvailable = function () {
         var _a = this.mpInstance,
           getFeatureFlag = _a._Helpers.getFeatureFlag,
@@ -2816,12 +2844,14 @@ var mParticle = (function () {
           // Then trigger the upload with beacon
           _this.prepareAndUpload(false, _this.isBeaconAvailable());
         };
-        // visibility change is a document property, not window
-        document.addEventListener('visibilitychange', function () {
+        this.exitHandler = handleExit;
+        this.visibilityChangeHandler = function () {
           if (document.visibilityState === 'hidden') {
             handleExit();
           }
-        });
+        };
+        // visibility change is a document property, not window
+        document.addEventListener('visibilitychange', this.visibilityChangeHandler);
         window.addEventListener('beforeunload', handleExit);
         window.addEventListener('pagehide', handleExit);
       };
@@ -2840,7 +2870,7 @@ var mParticle = (function () {
         if (useBeacon === void 0) {
           useBeacon = false;
         }
-        setTimeout(function () {
+        this.uploadIntervalTimerId = setTimeout(function () {
           _this_1.prepareAndUpload(triggerFuture, useBeacon);
         }, this.uploadIntervalMillis);
       };
@@ -3004,7 +3034,7 @@ var mParticle = (function () {
                   // Clear batch queue since everything should be in Offline Storage
                   this.batchesQueuedForProcessing = [];
                 }
-                if (triggerFuture) {
+                if (triggerFuture && !this.destroyed) {
                   this.triggerUploadInterval(triggerFuture, false);
                 }
                 return [2 /*return*/];
@@ -5107,6 +5137,12 @@ var mParticle = (function () {
       // an API key is not present in a webview only mode. In this case, no baseUrls are needed
       if (!apiKey) {
         return {};
+      }
+      // A CNAME (config.domain, e.g. set by the snippet v2.6+) takes precedence
+      // over direct URL routing so that customer-configured first-party domains
+      // and the snippet's fallback domain are always honored.
+      if (!isEmpty(config.domain)) {
+        return processCustomBaseUrls(config);
       }
       // When direct URL routing is false, update baseUrls based custom urls
       // passed to the config
@@ -8555,6 +8591,7 @@ var mParticle = (function () {
             mpInstance._Persistence.setFirstSeenTime(identityApiResult.mpid);
           }
           if (identityResponse.status === HTTP_OK) {
+            var _mpInstance$_CookieCo;
             if (getFeatureFlag(CacheIdentity)) {
               cacheOrClearIdCache(method, knownIdentities, self.idCache, identityResponse, parsingCachedResponse);
             }
@@ -8600,6 +8637,13 @@ var mParticle = (function () {
             }
             var newIdentitiesByName = IdentityType.getNewIdentitiesByName(newIdentitiesByType);
             var uiByName = method === Modify$1 ? previousUIByName : incomingUIByName;
+
+            // Sync $NoTargeting before sendUserIdentityChangeEvent
+            // because UIC events call sendEventToServer which triggers
+            // processQueuedEvents, draining the event queue. The
+            // attribute must be in the store before that happens so
+            // appendUserInfo picks it up.
+            (_mpInstance$_CookieCo = mpInstance._CookieConsentManager) === null || _mpInstance$_CookieCo === void 0 || _mpInstance$_CookieCo.syncNoTargetingAttribute(newUser);
 
             // https://go.mparticle.com/work/SQDSDKS-6501
             self.sendUserIdentityChangeEvent(newIdentitiesByName, method, identityApiResult.mpid, uiByName);
@@ -10683,6 +10727,14 @@ var mParticle = (function () {
       CookieConsentManager.prototype.getNoFunctional = function () {
         return this.flags.noFunctional;
       };
+      CookieConsentManager.prototype.syncNoTargetingAttribute = function (user) {
+        if (!user) return;
+        if (this.flags.noTargeting) {
+          user.setUserAttribute(NO_TARGETING_ATTRIBUTE, true);
+        } else if (user.getAllUserAttributes().hasOwnProperty(NO_TARGETING_ATTRIBUTE)) {
+          user.removeUserAttribute(NO_TARGETING_ATTRIBUTE);
+        }
+      };
       return CookieConsentManager;
     }();
 
@@ -11716,9 +11768,13 @@ var mParticle = (function () {
     }
     // Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment
     function completeSDKInitialization(apiKey, config, mpInstance) {
-      var _a, _b;
+      var _a, _b, _c, _d;
       var kitBlocker = createKitBlocker(config, mpInstance);
       var getFeatureFlag = mpInstance._Helpers.getFeatureFlag;
+      // Destroy previous batch uploader to prevent leaked timers and event listeners
+      if ((_a = mpInstance._APIClient) === null || _a === void 0 ? void 0 : _a.uploader) {
+        mpInstance._APIClient.uploader.destroy();
+      }
       mpInstance._APIClient = new APIClient(mpInstance, kitBlocker);
       mpInstance._Forwarders = new Forwarders(mpInstance, kitBlocker);
       mpInstance._Store.processConfig(config);
@@ -11762,7 +11818,7 @@ var mParticle = (function () {
         // Configure Rokt Manager with user and filtered user
         var roktConfig = parseConfig(config, 'Rokt', 181);
         if (roktConfig) {
-          var accountId = (_a = roktConfig.settings) === null || _a === void 0 ? void 0 : _a.accountId;
+          var accountId = (_b = roktConfig.settings) === null || _b === void 0 ? void 0 : _b.accountId;
           mpInstance._Store.setRoktAccountId(accountId);
           var userAttributeFilters = roktConfig.userAttributeFilters;
           var roktFilteredUser = filteredMparticleUser(currentUserMPID, {
@@ -11788,11 +11844,14 @@ var mParticle = (function () {
       // if an identify request is unnecessary, such as if there is an existing session
       if (mpInstance._Store.mpid && !mpInstance._Store.identifyCalled || mpInstance._Store.webviewBridgeEnabled) {
         mpInstance._Store.isInitialized = true;
+        // Sync $NoTargeting user attribute on re-init when no identity call is made
+        // if for some reason there was a change in boolean between init calls
+        (_c = mpInstance._CookieConsentManager) === null || _c === void 0 ? void 0 : _c.syncNoTargetingAttribute(mpInstance.Identity.getCurrentUser());
         mpInstance._preInit.readyQueue = processReadyQueue(mpInstance._preInit.readyQueue);
       }
       // For noFunctional sessions with no identity, drain any pre-init ready callbacks
       // that were queued before _CookieConsentManager was available to evaluate the condition.
-      (_b = mpInstance.processQueueOnNoFunctional) === null || _b === void 0 ? void 0 : _b.call(mpInstance);
+      (_d = mpInstance.processQueueOnNoFunctional) === null || _d === void 0 ? void 0 : _d.call(mpInstance);
       // https://go.mparticle.com/work/SQDSDKS-6040
       if (mpInstance._Store.isFirstRun) {
         mpInstance._Store.isFirstRun = false;

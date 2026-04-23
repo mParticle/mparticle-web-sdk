@@ -192,6 +192,7 @@ declare const Constants: {
 export default Constants;
 export declare const ONE_DAY_IN_SECONDS: number;
 export declare const MILLIS_IN_ONE_SEC = 1000;
+export declare const NO_TARGETING_ATTRIBUTE = "$NoTargeting";
 export declare const HTTP_OK: 200;
 export declare const HTTP_ACCEPTED: 202;
 export declare const HTTP_BAD_REQUEST: 400;

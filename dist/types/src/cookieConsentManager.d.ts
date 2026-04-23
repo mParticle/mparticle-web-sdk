@@ -1,3 +1,4 @@
+import { IMParticleUser } from './identity-user-interfaces';
 /**
  * Cookie consent flags control SDK behavior based on user consent preferences for Rokt integration.
  * @see https://docs.rokt.com/developers/integration-guides/web/cookie-consent-flags/
@@ -24,6 +25,11 @@ export interface ICookieConsentManager {
      * Functional tracking is allowed when noFunctional is false (default)
      */
     getNoFunctional: () => boolean;
+    /**
+     * Syncs the $NoTargeting user attribute based on the current noTargeting flag.
+     * Sets the attribute when noTargeting is true, removes it when false.
+     */
+    syncNoTargetingAttribute: (user: IMParticleUser | null) => void;
 }
 /**
  * CookieConsentManager handles storage and access of consent flags (noFunctional, noTargeting)
@@ -47,4 +53,5 @@ export default class CookieConsentManager implements ICookieConsentManager {
      * Functional tracking is allowed when noFunctional is false (default).
      */
     getNoFunctional(): boolean;
+    syncNoTargetingAttribute(user: IMParticleUser | null): void;
 }
