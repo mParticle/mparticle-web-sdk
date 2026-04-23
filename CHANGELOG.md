@@ -1,3 +1,16 @@
+# [2.65.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.64.1...v2.65.0) (2026-04-23)
+
+
+### Bug Fixes
+
+* Clean up BatchUploader timers and event listeners on re-init ([#1251](https://github.com/mParticle/mparticle-web-sdk/issues/1251)) ([79ca4f8](https://github.com/mParticle/mparticle-web-sdk/commit/79ca4f8d8eac382849b0a7a66833f23e374d0b43))
+* honor config.domain when directURLRouting is enabled ([#1253](https://github.com/mParticle/mparticle-web-sdk/issues/1253)) ([8b64e8e](https://github.com/mParticle/mparticle-web-sdk/commit/8b64e8ea7c62a8feeca0f839558471d5f603418b))
+
+
+### Features
+
+* set $NoTargeting as User Attribute value ([#1247](https://github.com/mParticle/mparticle-web-sdk/issues/1247)) ([6fa48bf](https://github.com/mParticle/mparticle-web-sdk/commit/6fa48bf838be19d5a8d11c24e223d07bc5d6e0c1))
+
 ## [2.64.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.64.0...v2.64.1) (2026-04-16)
 
 
