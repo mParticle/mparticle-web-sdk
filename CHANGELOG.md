@@ -1,3 +1,10 @@
+# [2.66.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.65.0...v2.66.0) (2026-04-27)
+
+
+### Features
+
+* Expose onShoppableAdsReady on RoktManager ([#1254](https://github.com/mParticle/mparticle-web-sdk/issues/1254)) ([9ddea1a](https://github.com/mParticle/mparticle-web-sdk/commit/9ddea1ab6353931789e18868ddece9db38b5a123))
+
 # [2.65.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.64.1...v2.65.0) (2026-04-23)
 
 
