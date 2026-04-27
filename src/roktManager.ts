@@ -90,6 +90,8 @@ export interface IRoktOptions {
 
 export type IRoktLauncherOptions = Dictionary<any>;
 
+const ON_SHOPPABLE_ADS_READY_METHOD = 'onShoppableAdsReady'
+
 // The purpose of this class is to create a link between the Core mParticle SDK and the
 // Rokt Web SDK via a Web Kit.
 // The Rokt Manager should load before the Web Kit and stubs out many of the
@@ -470,7 +472,7 @@ export default class RoktManager {
         this.kit = kit;
 
         this.messageQueue.forEach((message, key) => {
-            if (message.methodName === 'onShoppableAdsReady') {
+            if (message.methodName === ON_SHOPPABLE_ADS_READY_METHOD) {
                 try {
                     kit.onShoppableAdsReady(message.payload as () => void);
                 } catch (e) {
