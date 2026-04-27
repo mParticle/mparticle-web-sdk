@@ -76,6 +76,7 @@ export interface IRoktKit {
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
     setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void;
     use: <T>(name: string) => Promise<T>;
+    onShoppableAdsReady(callback: () => void): void;
     launcherOptions?: Dictionary<any>;
     settings?: IRoktKitSettings;
     integrationName?: string;
@@ -116,6 +117,7 @@ export default class RoktManager {
     private captureTiming?: (metricsName: string) => void;
     private onReadyCallback: (() => void) | null = null;
     private initialized: boolean = false;
+    private isShoppableAdsLoaded: boolean = false;
 
     /**
      * Sets a callback to be invoked when RoktManager becomes ready
@@ -450,6 +452,37 @@ export default class RoktManager {
         }
     }
 
+    public onShoppableAdsReady(callback: () => void): void {
+        if (!this.kit || !this.isShoppableAdsLoaded) {
+            this.deferredCall<void>('onShoppableAdsReady', callback);
+            return;
+        }
+
+        try {
+            this.kit.onShoppableAdsReady(callback);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger.error(`Failed to register onShoppableAdsReady callback: ${errorMessage}`);
+        }
+    }
+
+    public flushOnShoppableAdsReadyMessageQueue(kit: IRoktKit): void {
+        this.kit = kit;
+
+        this.messageQueue.forEach((message, key) => {
+            if (message.methodName === 'onShoppableAdsReady') {
+                try {
+                    kit.onShoppableAdsReady(message.payload as () => void);
+                } catch (e) {
+                    this.logger?.error('RoktManager: Error flushing onShoppableAdsReady: ' + e);
+                }
+                this.messageQueue.delete(key);
+            }
+        });
+
+        this.isShoppableAdsLoaded = true;
+    }
+    
     /**
      * Hashes an attribute using SHA-256
      * 

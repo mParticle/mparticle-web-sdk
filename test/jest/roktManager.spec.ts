@@ -498,6 +498,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
         });
 
@@ -599,6 +600,7 @@ describe('RoktManager', () => {
                 userAttributes: undefined,
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
         });
 
@@ -927,10 +929,11 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
- 
+
             roktManager.attachKit(kit);
- 
+
             const options = {
                 attributes: {}
             } as IRoktSelectPlacementsOptions;
@@ -976,6 +979,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -1002,6 +1006,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -1049,6 +1054,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             // Ensure store has identityCallInFlight set to false (from beforeEach)
@@ -1109,6 +1115,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -1142,6 +1149,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 userAttributes: undefined,
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -1172,6 +1180,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -1204,6 +1213,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 userAttributes: undefined,
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -1232,6 +1242,7 @@ describe('RoktManager', () => {
                 selectPlacements: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -1281,6 +1292,7 @@ describe('RoktManager', () => {
                 selectPlacements: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -1310,6 +1322,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -1374,6 +1387,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -1417,6 +1431,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -1468,6 +1483,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -1503,6 +1519,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -1557,6 +1574,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -1599,6 +1617,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -2167,6 +2186,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -2217,6 +2237,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -2480,6 +2501,7 @@ describe('RoktManager', () => {
                 selectPlacements: jest.fn().mockResolvedValue({}),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -2678,6 +2700,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -2710,6 +2733,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.use('ThankYouPageJourney');
@@ -2747,6 +2771,193 @@ describe('RoktManager', () => {
             expect(kit.use).toHaveBeenCalledWith('ThankYouPageJourney');
             expect(kit.launcher.use).toHaveBeenCalledWith('ThankYouPageJourney');
             expect(result).toBe('test-use');
+        });
+    });
+
+    describe('#onShoppableAdsReady', () => {
+        const makeKit = (): IRoktKit => ({
+            launcher: {
+                selectPlacements: jest.fn(),
+                hashAttributes: jest.fn(),
+                use: jest.fn(),
+            },
+            filters: undefined,
+            filteredUser: undefined,
+            userAttributes: undefined,
+            selectPlacements: jest.fn(),
+            hashAttributes: jest.fn(),
+            setExtensionData: jest.fn(),
+            use: jest.fn(),
+            onShoppableAdsReady: jest.fn(),
+        });
+
+        it('should queue the callback when kit is null', () => {
+            const callback = jest.fn();
+
+            roktManager.onShoppableAdsReady(callback);
+
+            expect(roktManager['kit']).toBeNull();
+            expect(roktManager['messageQueue'].size).toBe(1);
+            const queued = Array.from(roktManager['messageQueue'].values())[0];
+            expect(queued.methodName).toBe('onShoppableAdsReady');
+            expect(queued.payload).toBe(callback);
+        });
+
+        it('should queue the callback when kit is attached but isShoppableAdsLoaded is false', () => {
+            const kit = makeKit();
+            // Attach via attachKit so kit is set, but isShoppableAdsLoaded stays false
+            roktManager.attachKit(kit);
+            const callback = jest.fn();
+
+            roktManager.onShoppableAdsReady(callback);
+
+            expect(roktManager['isShoppableAdsLoaded']).toBe(false);
+            expect(roktManager['messageQueue'].size).toBe(1);
+            const queued = Array.from(roktManager['messageQueue'].values())[0];
+            expect(queued.methodName).toBe('onShoppableAdsReady');
+            expect(queued.payload).toBe(callback);
+            expect(kit.onShoppableAdsReady).not.toHaveBeenCalled();
+        });
+
+        it('should call kit.onShoppableAdsReady directly when kit is set and isShoppableAdsLoaded is true', () => {
+            const kit = makeKit();
+            roktManager.flushOnShoppableAdsReadyMessageQueue(kit); // sets kit + isShoppableAdsLoaded = true
+            const callback = jest.fn();
+
+            roktManager.onShoppableAdsReady(callback);
+
+            expect(kit.onShoppableAdsReady).toHaveBeenCalledWith(callback);
+            expect(roktManager['messageQueue'].size).toBe(0);
+        });
+
+        it('should log an error if kit.onShoppableAdsReady throws', () => {
+            const kit = makeKit();
+            (kit.onShoppableAdsReady as jest.Mock).mockImplementation(() => {
+                throw new Error('registration failed');
+            });
+            roktManager.flushOnShoppableAdsReadyMessageQueue(kit);
+
+            roktManager.onShoppableAdsReady(jest.fn());
+
+            expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
+                expect.stringContaining('Failed to register onShoppableAdsReady callback: registration failed')
+            );
+        });
+    });
+
+    describe('#flushOnShoppableAdsReadyMessageQueue', () => {
+        const makeKit = (): IRoktKit => ({
+            launcher: {
+                selectPlacements: jest.fn(),
+                hashAttributes: jest.fn(),
+                use: jest.fn(),
+            },
+            filters: undefined,
+            filteredUser: undefined,
+            userAttributes: undefined,
+            selectPlacements: jest.fn(),
+            hashAttributes: jest.fn(),
+            setExtensionData: jest.fn(),
+            use: jest.fn(),
+            onShoppableAdsReady: jest.fn(),
+        });
+
+        it('should set this.kit to the provided kit', () => {
+            const kit = makeKit();
+
+            roktManager.flushOnShoppableAdsReadyMessageQueue(kit);
+
+            expect(roktManager['kit']).toBe(kit);
+        });
+
+        it('should set isShoppableAdsLoaded to true', () => {
+            const kit = makeKit();
+
+            expect(roktManager['isShoppableAdsLoaded']).toBe(false);
+            roktManager.flushOnShoppableAdsReadyMessageQueue(kit);
+            expect(roktManager['isShoppableAdsLoaded']).toBe(true);
+        });
+
+        it('should flush a queued onShoppableAdsReady message by calling kit.onShoppableAdsReady', () => {
+            const callback = jest.fn();
+            roktManager.onShoppableAdsReady(callback); // queued — no kit yet
+
+            const kit = makeKit();
+            roktManager.flushOnShoppableAdsReadyMessageQueue(kit);
+
+            expect(kit.onShoppableAdsReady).toHaveBeenCalledWith(callback);
+        });
+
+        it('should flush all queued onShoppableAdsReady messages', () => {
+            const cb1 = jest.fn();
+            const cb2 = jest.fn();
+            roktManager.onShoppableAdsReady(cb1);
+            roktManager.onShoppableAdsReady(cb2);
+
+            const kit = makeKit();
+            roktManager.flushOnShoppableAdsReadyMessageQueue(kit);
+
+            expect(kit.onShoppableAdsReady).toHaveBeenCalledTimes(2);
+            expect(kit.onShoppableAdsReady).toHaveBeenCalledWith(cb1);
+            expect(kit.onShoppableAdsReady).toHaveBeenCalledWith(cb2);
+        });
+
+        it('should remove flushed onShoppableAdsReady messages from the queue', () => {
+            roktManager.onShoppableAdsReady(jest.fn());
+            expect(roktManager['messageQueue'].size).toBe(1);
+
+            const kit = makeKit();
+            roktManager.flushOnShoppableAdsReadyMessageQueue(kit);
+
+            expect(roktManager['messageQueue'].size).toBe(0);
+        });
+
+        it('should not remove non-onShoppableAdsReady messages from the queue', () => {
+            // Queue an onShoppableAdsReady message and a selectPlacements message
+            roktManager.onShoppableAdsReady(jest.fn());
+            roktManager['deferredCall']('selectPlacements', { attributes: {} });
+            expect(roktManager['messageQueue'].size).toBe(2);
+
+            const kit = makeKit();
+            roktManager.flushOnShoppableAdsReadyMessageQueue(kit);
+
+            // Only the onShoppableAdsReady message should have been removed
+            expect(roktManager['messageQueue'].size).toBe(1);
+            const remaining = Array.from(roktManager['messageQueue'].values())[0];
+            expect(remaining.methodName).toBe('selectPlacements');
+        });
+
+        it('should log an error and continue flushing when kit.onShoppableAdsReady throws', () => {
+            const cb1 = jest.fn();
+            const cb2 = jest.fn();
+            roktManager.onShoppableAdsReady(cb1);
+            roktManager.onShoppableAdsReady(cb2);
+
+            const kit = makeKit();
+            let callCount = 0;
+            (kit.onShoppableAdsReady as jest.Mock).mockImplementation(() => {
+                callCount++;
+                if (callCount === 1) throw new Error('flush error');
+            });
+
+            roktManager.flushOnShoppableAdsReadyMessageQueue(kit);
+
+            expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
+                expect.stringContaining('RoktManager: Error flushing onShoppableAdsReady')
+            );
+            // Second callback still processed
+            expect(kit.onShoppableAdsReady).toHaveBeenCalledTimes(2);
+            // Queue is still cleared even after an error
+            expect(roktManager['messageQueue'].size).toBe(0);
+        });
+
+        it('should not call kit.onShoppableAdsReady when queue is empty', () => {
+            const kit = makeKit();
+
+            roktManager.flushOnShoppableAdsReadyMessageQueue(kit);
+
+            expect(kit.onShoppableAdsReady).not.toHaveBeenCalled();
+            expect(roktManager['isShoppableAdsLoaded']).toBe(true);
         });
     });
 
@@ -2894,6 +3105,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             mParticle.Rokt.attachKit(mockRoktKit as any);
