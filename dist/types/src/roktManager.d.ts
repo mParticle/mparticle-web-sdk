@@ -54,6 +54,7 @@ export interface IRoktKit {
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
     setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void;
     use: <T>(name: string) => Promise<T>;
+    onShoppableAdsReady(callback: () => void): void;
     launcherOptions?: Dictionary<any>;
     settings?: IRoktKitSettings;
     integrationName?: string;
@@ -82,6 +83,7 @@ export default class RoktManager {
     private captureTiming?;
     private onReadyCallback;
     private initialized;
+    private isShoppableAdsLoaded;
     /**
      * Sets a callback to be invoked when RoktManager becomes ready
      */
@@ -131,6 +133,8 @@ export default class RoktManager {
     hashAttributes(attributes: RoktAttributes): Promise<RoktAttributes>;
     setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void;
     use<T>(name: string): Promise<T>;
+    onShoppableAdsReady(callback: () => void): void;
+    flushOnShoppableAdsReadyMessageQueue(kit: IRoktKit): void;
     /**
      * Hashes an attribute using SHA-256
      *

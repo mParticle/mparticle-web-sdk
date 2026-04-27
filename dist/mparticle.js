@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.65.0";
+    var version = "2.66.0";
 
     var Constants = {
       sdkVersion: version,
@@ -10171,6 +10171,7 @@ var mParticle = (function () {
       return IntegrationCapture;
     }();
 
+    var ON_SHOPPABLE_ADS_READY_METHOD = 'onShoppableAdsReady';
     // The purpose of this class is to create a link between the Core mParticle SDK and the
     // Rokt Web SDK via a Web Kit.
     // The Rokt Manager should load before the Web Kit and stubs out many of the
@@ -10190,6 +10191,7 @@ var mParticle = (function () {
         this.placementAttributesMapping = [];
         this.onReadyCallback = null;
         this.initialized = false;
+        this.isShoppableAdsLoaded = false;
       }
       /**
        * Sets a callback to be invoked when RoktManager becomes ready
@@ -10488,6 +10490,34 @@ var mParticle = (function () {
         } catch (error) {
           return Promise.reject(error instanceof Error ? error : new Error('Error using extension: ' + name));
         }
+      };
+      RoktManager.prototype.onShoppableAdsReady = function (callback) {
+        if (!this.kit || !this.isShoppableAdsLoaded) {
+          this.deferredCall('onShoppableAdsReady', callback);
+          return;
+        }
+        try {
+          this.kit.onShoppableAdsReady(callback);
+        } catch (error) {
+          var errorMessage = error instanceof Error ? error.message : String(error);
+          this.logger.error("Failed to register onShoppableAdsReady callback: ".concat(errorMessage));
+        }
+      };
+      RoktManager.prototype.flushOnShoppableAdsReadyMessageQueue = function (kit) {
+        var _this = this;
+        this.kit = kit;
+        this.messageQueue.forEach(function (message, key) {
+          var _a;
+          if (message.methodName === ON_SHOPPABLE_ADS_READY_METHOD) {
+            try {
+              kit.onShoppableAdsReady(message.payload);
+            } catch (e) {
+              (_a = _this.logger) === null || _a === void 0 ? void 0 : _a.error('RoktManager: Error flushing onShoppableAdsReady: ' + e);
+            }
+            _this.messageQueue["delete"](key);
+          }
+        });
+        this.isShoppableAdsLoaded = true;
       };
       /**
        * Hashes an attribute using SHA-256
