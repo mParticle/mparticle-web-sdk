@@ -791,7 +791,9 @@ export default function Identity(mpInstance) {
                 requestBuilder,
                 searchUrl,
                 callback,
-                mpInstance.Logger
+                mpInstance.Logger,
+                undefined,
+                mpInstance._ErrorReportingDispatcher
             );
         },
 

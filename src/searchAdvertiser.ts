@@ -6,6 +6,11 @@ import {
     IFetchPayload,
     XHRUploader,
 } from './uploaders';
+import {
+    ErrorCodes,
+    IErrorReportingService,
+    WSDKErrorSeverity,
+} from './reporting/types';
 
 const { HTTPCodes } = Constants;
 
@@ -87,7 +92,9 @@ interface ISearchAdvertiserPayload extends IFetchPayload {
  *  - Missing `apiKey`        -> callback with `{ httpCode: noHttpCoverage }`,
  *    no network call.
  *  - Network/JSON-parse errors are caught and surfaced via the callback,
- *    never thrown.
+ *    never thrown. Network errors are also reported through the optional
+ *    `errorReporter` so any registered IErrorReportingService can observe
+ *    them (matches the pattern used by identifyRequest in identityApiClient).
  *
  * NOTE: There is a known CORS limitation at the Fastly edge in front of
  * `/v1/search`: it currently only allows `authorization,content-type` in
@@ -104,6 +111,7 @@ export const sendSearchAdvertiserRequest = async (
     callback: SearchAdvertiserCallback,
     logger: SDKLoggerApi,
     uploader?: AsyncUploader,
+    errorReporter?: IErrorReportingService,
 ): Promise<void> => {
     // Validate the callback up front. If it isn't a function we have nowhere
     // to deliver a result to, so log and bail out without invoking anything.
@@ -210,7 +218,17 @@ export const sendSearchAdvertiserRequest = async (
         safeInvoke({ httpCode: response.status, body });
     } catch (e) {
         const message = (e as Error)?.message || String(e);
-        logger.error('Error sending searchAdvertiser request: ' + message);
+        const reportMessage = 'Error sending searchAdvertiser request: ' + message;
+        logger.error(reportMessage);
+        // Mirror the identity-route pattern in identityApiClient.ts: log to
+        // console AND push a structured report through the dispatcher so any
+        // registered IErrorReportingService (e.g. the Rokt kit's) can observe
+        // the failure.
+        errorReporter?.report({
+            message: reportMessage,
+            code: ErrorCodes.IDENTITY_REQUEST,
+            severity: WSDKErrorSeverity.ERROR,
+        });
         safeInvoke({ httpCode: HTTPCodes.noHttpCoverage });
     }
 };

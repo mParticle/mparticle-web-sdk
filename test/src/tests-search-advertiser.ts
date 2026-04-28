@@ -251,6 +251,53 @@ describe('searchAdvertiser', () => {
             expect(result.httpCode).to.equal(HTTPCodes.noHttpCoverage);
         });
 
+        it('reports a structured error through the supplied errorReporter on network failure', async () => {
+            fetchMock.post(searchUrl, { throws: new Error('network down') });
+
+            const callback = sinon.spy();
+            const errorReporter = { report: sinon.spy() };
+
+            await sendSearchAdvertiserRequest(
+                { email: 'user@example.com' },
+                apiKey,
+                buildEnvelope,
+                searchUrl,
+                callback,
+                logger,
+                undefined,
+                errorReporter,
+            );
+
+            expect(errorReporter.report.calledOnce).to.eq(true);
+            const reported = errorReporter.report.getCall(0).args[0];
+            expect(reported.severity).to.equal('ERROR');
+            expect(reported.code).to.equal('IDENTITY_REQUEST');
+            expect(reported.message).to.match(/searchAdvertiser/);
+            expect(reported.message).to.match(/network down/);
+        });
+
+        it('does not throw when errorReporter is omitted on network failure', async () => {
+            fetchMock.post(searchUrl, { throws: new Error('network down') });
+
+            const callback = sinon.spy();
+            let threw = false;
+            try {
+                await sendSearchAdvertiserRequest(
+                    { email: 'user@example.com' },
+                    apiKey,
+                    buildEnvelope,
+                    searchUrl,
+                    callback,
+                    logger,
+                );
+            } catch (e) {
+                threw = true;
+            }
+
+            expect(threw, 'should not throw without errorReporter').to.eq(false);
+            expect(callback.calledOnce).to.eq(true);
+        });
+
         it('handles a non-JSON response body without throwing', async () => {
             fetchMock.post(searchUrl, {
                 status: 200,
