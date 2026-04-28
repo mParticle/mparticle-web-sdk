@@ -3,6 +3,7 @@ import Types, { IdentityType } from './types';
 import {
     cacheOrClearIdCache,
     createKnownIdentities,
+    normalizeUserIdentityKeys,
     tryCacheIdentity,
 } from './identity-utils';
 import AudienceManager from './audienceManager';
@@ -34,10 +35,20 @@ export default function Identity(mpInstance) {
             );
 
             // First, remove any falsy identity values and warn about them
-            const cleanedIdentityApiData = mpInstance._Helpers.Validators.removeFalsyIdentityValues(
+            const removedFalsyIdentityData = mpInstance._Helpers.Validators.removeFalsyIdentityValues(
                 identityApiData,
                 mpInstance.Logger
             );
+
+            // Normalize convenience aliases (email_sha256 → other, mobile_sha256 → other)
+            const cleanedIdentityApiData = removedFalsyIdentityData?.userIdentities
+                ? {
+                      ...removedFalsyIdentityData,
+                      userIdentities: normalizeUserIdentityKeys(
+                          removedFalsyIdentityData.userIdentities
+                      ),
+                  }
+                : removedFalsyIdentityData;
 
             var identityValidationResult = mpInstance._Helpers.Validators.validateIdentities(
                 cleanedIdentityApiData,

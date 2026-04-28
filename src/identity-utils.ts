@@ -7,6 +7,13 @@ import {
     UserIdentities,
     IdentityCallback,
 } from '@mparticle/web-sdk';
+
+declare module '@mparticle/web-sdk' {
+    interface UserIdentities {
+        email_sha256?: string | undefined;
+        mobile_sha256?: string | undefined;
+    }
+}
 import { IdentityAPIMethod, IIdentityRequest } from './identity.interfaces';
 import {
     IdentityResultBody,
@@ -281,6 +288,31 @@ const getExpireTimestamp = (maxAge: number = ONE_DAY_IN_SECONDS): number =>
 
 const parseIdentityResponse = (responseText: string): IdentityResultBody =>
     responseText ? JSON.parse(responseText) : ({} as IdentityResultBody);
+
+// Maps convenience identity key names to their canonical server-side names.
+// Mirrors the emailSha256/mobileSha256 helpers added in the Apple SDK (PR #756).
+const SHA256_IDENTITY_ALIASES: Readonly<Record<string, string>> = {
+    email_sha256: 'other',
+    mobile_sha256: 'other',
+};
+
+export const normalizeUserIdentityKeys = (
+    userIdentities: UserIdentities
+): UserIdentities => {
+    const normalized: Record<string, string | null | undefined> = {
+        ...(userIdentities as Record<string, string | null | undefined>),
+    };
+    for (const alias of Object.keys(SHA256_IDENTITY_ALIASES)) {
+        if (alias in normalized) {
+            const value = normalized[alias];
+            delete normalized[alias];
+            if (value !== null) {
+                normalized[SHA256_IDENTITY_ALIASES[alias]] = value;
+            }
+        }
+    }
+    return normalized as UserIdentities;
+};
 
 export const hasIdentityRequestChanged = (
     currentUser: IMParticleUser,
