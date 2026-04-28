@@ -753,6 +753,21 @@ export default function Identity(mpInstance) {
          * @param {Function} callback Invoked with the `ISearchAdvertiserResult`.
          */
         searchAdvertiser: function(apiKey, knownIdentities, callback) {
+            // Honour the SDK's opt-out / disabled state the same way every
+            // other identity method does. If logging is disabled (e.g. user
+            // called setOptOut(true)) we must not POST identifiers.
+            if (!mpInstance._Helpers.canLog()) {
+                mpInstance._Helpers.invokeCallback(
+                    callback,
+                    HTTPCodes.loggingDisabledOrMissingAPIKey,
+                    Messages.InformationMessages.AbandonLogEvent
+                );
+                mpInstance.Logger.verbose(
+                    Messages.InformationMessages.AbandonLogEvent
+                );
+                return;
+            }
+
             // Callback validation, missing apiKey, and missing/invalid
             // email are all handled inside sendSearchAdvertiserRequest so
             // the contract has a single enforcement point.

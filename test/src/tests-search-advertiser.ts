@@ -153,7 +153,7 @@ describe('searchAdvertiser', () => {
             expect(result.body).to.deep.equal(notFoundBody);
         });
 
-        it('returns silently when the API key is missing (no network call, no callback)', async () => {
+        it('invokes the callback with noHttpCoverage when the API key is missing (no network call)', async () => {
             const callback = sinon.spy();
             const requestBuilderSpy = sinon.spy(buildEnvelope);
 
@@ -168,8 +168,11 @@ describe('searchAdvertiser', () => {
 
             expect(fetchMock.calls(searchUrl).length).to.equal(0);
             expect(requestBuilderSpy.called).to.eq(false);
-            // Missing apiKey is silently inert: no network, no callback.
-            expect(callback.called).to.eq(false);
+            // Missing apiKey: no network, but callback fires so callers can
+            // resolve any loading state they're holding open.
+            expect(callback.calledOnce).to.eq(true);
+            const result = callback.getCall(0).args[0] as ISearchAdvertiserResult;
+            expect(result.httpCode).to.equal(HTTPCodes.noHttpCoverage);
         });
 
         it('returns silently and does not throw when the callback is not a function', async () => {
@@ -192,7 +195,7 @@ describe('searchAdvertiser', () => {
             expect(requestBuilderSpy.called).to.eq(false);
         });
 
-        it('returns silently when knownIdentities.email is missing or invalid (no network, no callback)', async () => {
+        it('invokes the callback with noHttpCoverage when knownIdentities.email is missing or invalid (no network)', async () => {
             const callback = sinon.spy();
 
             await sendSearchAdvertiserRequest(
@@ -222,9 +225,14 @@ describe('searchAdvertiser', () => {
                 logger,
             );
 
-            // Missing/invalid email is silently inert: no network, no callback.
+            // Missing/invalid email: no network, but callback fires for each
+            // call so callers can resolve any pending loading state.
             expect(fetchMock.calls(searchUrl).length).to.equal(0);
-            expect(callback.called).to.eq(false);
+            expect(callback.callCount).to.equal(3);
+            for (let i = 0; i < callback.callCount; i++) {
+                const result = callback.getCall(i).args[0] as ISearchAdvertiserResult;
+                expect(result.httpCode).to.equal(HTTPCodes.noHttpCoverage);
+            }
         });
 
         it('catches network errors and surfaces noHttpCoverage via the callback (not thrown)', async () => {
@@ -386,7 +394,7 @@ describe('searchAdvertiser', () => {
             ).to.not.throw();
         });
 
-        it('returns silently (no network call, no callback) when the caller passes an empty apiKey', async () => {
+        it('invokes the callback with noHttpCoverage (no network call) when the caller passes an empty apiKey', async () => {
             fetchMock.post(searchUrl, {
                 status: 200,
                 body: JSON.stringify({ mpid: 'should-not-be-called' }),
@@ -402,7 +410,39 @@ describe('searchAdvertiser', () => {
             await new Promise(resolve => setTimeout(resolve, 10));
 
             expect(fetchMock.calls(searchUrl).length).to.equal(0);
-            expect(callback.called).to.eq(false);
+            expect(callback.calledOnce).to.eq(true);
+            const result = callback.getCall(0).args[0] as ISearchAdvertiserResult;
+            expect(result.httpCode).to.equal(HTTPCodes.noHttpCoverage);
+        });
+
+        it('skips the request and invokes the callback with loggingDisabledOrMissingAPIKey when the SDK is opted out', async () => {
+            fetchMock.post(searchUrl, {
+                status: 200,
+                body: JSON.stringify({ mpid: 'should-not-be-called' }),
+            });
+
+            // Wait for init's /identify round-trip to finish so setOptOut isn't
+            // queued by `queueIfNotInitialized` (it's a no-op until the SDK is ready).
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            window.mParticle.setOptOut(true);
+
+            const callback = sinon.spy();
+            (window.mParticle.Identity as any).searchAdvertiser(
+                advertiserApiKey,
+                { email: 'user@example.com' },
+                callback,
+            );
+
+            await new Promise(resolve => setTimeout(resolve, 10));
+
+            expect(fetchMock.calls(searchUrl).length).to.equal(0);
+            expect(callback.calledOnce).to.eq(true);
+            const result = callback.getCall(0).args[0] as { httpCode: number };
+            expect(result.httpCode).to.equal(HTTPCodes.loggingDisabledOrMissingAPIKey);
+
+            // Restore opt-in so the next test's beforeEach reset isn't fighting state.
+            window.mParticle.setOptOut(false);
         });
     });
 });

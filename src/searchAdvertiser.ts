@@ -133,20 +133,22 @@ export const sendSearchAdvertiserRequest = async (
         }
     };
 
-    // No valid email -> no request, and no callback. The consumer (Rokt kit)
-    // only reacts on httpCode === 200, so missing inputs are silently inert.
+    // No valid email -> deliver httpCode: noHttpCoverage so callers waiting on
+    // the callback (e.g. to clear a loading state) don't hang.
     if (!knownIdentities || typeof knownIdentities.email !== 'string' || !knownIdentities.email) {
         logger.verbose(
             'searchAdvertiser called without a valid email; skipping request.',
         );
+        safeInvoke({ httpCode: HTTPCodes.noHttpCoverage });
         return;
     }
 
-    // No API key -> no request, and no callback. Same rationale as above.
+    // No API key -> same: deliver noHttpCoverage rather than hanging.
     if (!apiKey) {
         logger.verbose(
             'searchAdvertiser called without a workspace API key; skipping request.',
         );
+        safeInvoke({ httpCode: HTTPCodes.noHttpCoverage });
         return;
     }
 
