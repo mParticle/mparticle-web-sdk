@@ -34,13 +34,6 @@ const buildEnvelope = () => ({
     request_timestamp_ms: 1735689600000,
 });
 
-const TEST_API_KEY = 'advertiser-api-key';
-const TEST_API_SECRET = 'advertiser-api-secret';
-
-// Pre-computed expected base64 for `${TEST_API_KEY}:${TEST_API_SECRET}`. Tests
-// also recompute via btoa() so a refactor of toBase64 is caught.
-const EXPECTED_BASIC = 'Basic ' + btoa(`${TEST_API_KEY}:${TEST_API_SECRET}`);
-
 describe('searchAdvertiser', () => {
     let logger: SDKLoggerApi;
 
@@ -79,8 +72,7 @@ describe('searchAdvertiser', () => {
             const callback = sinon.spy();
             await sendSearchAdvertiserRequest(
                 { email: 'user@example.com' },
-                TEST_API_KEY,
-                TEST_API_SECRET,
+                apiKey,
                 buildEnvelope,
                 searchUrl,
                 callback,
@@ -93,7 +85,7 @@ describe('searchAdvertiser', () => {
             expect(result.body).to.deep.equal(responseBody);
         });
 
-        it('forwards Basic auth, content-type, and a JSON body matching the /v1/identify envelope', async () => {
+        it('forwards x-mp-key, content-type, and a JSON body matching the /v1/identify envelope', async () => {
             fetchMock.post(searchUrl, {
                 status: 200,
                 body: JSON.stringify({ mpid: 'm' }),
@@ -101,8 +93,7 @@ describe('searchAdvertiser', () => {
 
             await sendSearchAdvertiserRequest(
                 { email: 'user@example.com' },
-                TEST_API_KEY,
-                TEST_API_SECRET,
+                apiKey,
                 buildEnvelope,
                 searchUrl,
                 () => undefined,
@@ -113,10 +104,8 @@ describe('searchAdvertiser', () => {
             expect(lastCall, 'POST was issued to the search URL').to.be.ok;
             const init = lastCall![1] as RequestInit;
             const headers = init.headers as Record<string, string>;
-            expect(headers['Authorization']).to.equal(EXPECTED_BASIC);
+            expect(headers['x-mp-key']).to.equal(apiKey);
             expect(headers['Content-Type']).to.equal('application/json');
-            // Should NOT send the deprecated x-mp-key header.
-            expect(headers['x-mp-key']).to.be.undefined;
 
             const sentBody = JSON.parse(init.body as string);
             expect(sentBody).to.have.keys(
@@ -149,8 +138,7 @@ describe('searchAdvertiser', () => {
             const callback = sinon.spy();
             await sendSearchAdvertiserRequest(
                 { email: 'unknown@example.com' },
-                TEST_API_KEY,
-                TEST_API_SECRET,
+                apiKey,
                 buildEnvelope,
                 searchUrl,
                 callback,
@@ -172,7 +160,6 @@ describe('searchAdvertiser', () => {
             await sendSearchAdvertiserRequest(
                 { email: 'user@example.com' },
                 '',
-                TEST_API_SECRET,
                 requestBuilderSpy,
                 searchUrl,
                 callback,
@@ -185,34 +172,13 @@ describe('searchAdvertiser', () => {
             expect(callback.called).to.eq(false);
         });
 
-        it('returns silently when the secret is missing (no network call, no callback)', async () => {
-            const callback = sinon.spy();
-            const requestBuilderSpy = sinon.spy(buildEnvelope);
-
-            await sendSearchAdvertiserRequest(
-                { email: 'user@example.com' },
-                TEST_API_KEY,
-                '',
-                requestBuilderSpy,
-                searchUrl,
-                callback,
-                logger,
-            );
-
-            expect(fetchMock.calls(searchUrl).length).to.equal(0);
-            expect(requestBuilderSpy.called).to.eq(false);
-            // Missing secret is silently inert: no network, no callback.
-            expect(callback.called).to.eq(false);
-        });
-
         it('returns silently and does not throw when the callback is not a function', async () => {
             const requestBuilderSpy = sinon.spy(buildEnvelope);
             let threw = false;
             try {
                 await sendSearchAdvertiserRequest(
                     { email: 'user@example.com' },
-                    TEST_API_KEY,
-                    TEST_API_SECRET,
+                    apiKey,
                     requestBuilderSpy,
                     searchUrl,
                     (undefined as unknown) as any,
@@ -231,8 +197,7 @@ describe('searchAdvertiser', () => {
 
             await sendSearchAdvertiserRequest(
                 ({} as any),
-                TEST_API_KEY,
-                TEST_API_SECRET,
+                apiKey,
                 buildEnvelope,
                 searchUrl,
                 callback,
@@ -241,8 +206,7 @@ describe('searchAdvertiser', () => {
 
             await sendSearchAdvertiserRequest(
                 ({ email: '' } as any),
-                TEST_API_KEY,
-                TEST_API_SECRET,
+                apiKey,
                 buildEnvelope,
                 searchUrl,
                 callback,
@@ -251,8 +215,7 @@ describe('searchAdvertiser', () => {
 
             await sendSearchAdvertiserRequest(
                 ({ email: 12345 } as any),
-                TEST_API_KEY,
-                TEST_API_SECRET,
+                apiKey,
                 buildEnvelope,
                 searchUrl,
                 callback,
@@ -272,8 +235,7 @@ describe('searchAdvertiser', () => {
             try {
                 await sendSearchAdvertiserRequest(
                     { email: 'user@example.com' },
-                    TEST_API_KEY,
-                    TEST_API_SECRET,
+                    apiKey,
                     buildEnvelope,
                     searchUrl,
                     callback,
@@ -299,8 +261,7 @@ describe('searchAdvertiser', () => {
             const callback = sinon.spy();
             await sendSearchAdvertiserRequest(
                 { email: 'user@example.com' },
-                TEST_API_KEY,
-                TEST_API_SECRET,
+                apiKey,
                 buildEnvelope,
                 searchUrl,
                 callback,
@@ -315,6 +276,8 @@ describe('searchAdvertiser', () => {
     });
 
     describe('mParticle.Identity.searchAdvertiser (public surface)', () => {
+        const advertiserApiKey = 'advertiser_api_key';
+
         beforeEach(() => {
             window.mParticle.init(apiKey, window.mParticle.config);
         });
@@ -325,7 +288,7 @@ describe('searchAdvertiser', () => {
             );
         });
 
-        it('issues a POST to /v1/search with Basic auth from the caller-supplied apiKey + secret', async () => {
+        it('issues a POST to /v1/search with the caller-supplied x-mp-key and a known_identities email', async () => {
             fetchMock.post(searchUrl, {
                 status: 200,
                 body: JSON.stringify({ mpid: 'matched' }),
@@ -333,8 +296,7 @@ describe('searchAdvertiser', () => {
 
             const callback = sinon.spy();
             (window.mParticle.Identity as any).searchAdvertiser(
-                TEST_API_KEY,
-                TEST_API_SECRET,
+                advertiserApiKey,
                 { email: 'user@example.com' },
                 callback,
             );
@@ -349,11 +311,9 @@ describe('searchAdvertiser', () => {
 
             const init = lastCall![1] as RequestInit;
             const headers = init.headers as Record<string, string>;
-            // Must use the advertiser-supplied credentials, NOT the SDK's
-            // workspace token.
-            expect(headers['Authorization']).to.equal(EXPECTED_BASIC);
-            // The SDK's own workspace token must not leak into this request.
-            expect(headers['Authorization']).to.not.contain(apiKey);
+            // Must use the advertiser-supplied key, NOT the SDK's workspace token.
+            expect(headers['x-mp-key']).to.equal(advertiserApiKey);
+            expect(headers['x-mp-key']).to.not.equal(apiKey);
 
             const sentBody = JSON.parse(init.body as string);
             expect(sentBody.known_identities).to.deep.equal({
@@ -373,8 +333,7 @@ describe('searchAdvertiser', () => {
         it('does not throw and logs an error when called without a callback', () => {
             expect(() =>
                 (window.mParticle.Identity as any).searchAdvertiser(
-                    TEST_API_KEY,
-                    TEST_API_SECRET,
+                    advertiserApiKey,
                     { email: 'user@example.com' },
                 ),
             ).to.not.throw();
@@ -388,27 +347,6 @@ describe('searchAdvertiser', () => {
 
             const callback = sinon.spy();
             (window.mParticle.Identity as any).searchAdvertiser(
-                '',
-                TEST_API_SECRET,
-                { email: 'user@example.com' },
-                callback,
-            );
-
-            await new Promise(resolve => setTimeout(resolve, 10));
-
-            expect(fetchMock.calls(searchUrl).length).to.equal(0);
-            expect(callback.called).to.eq(false);
-        });
-
-        it('returns silently (no network call, no callback) when the caller passes an empty secret', async () => {
-            fetchMock.post(searchUrl, {
-                status: 200,
-                body: JSON.stringify({ mpid: 'should-not-be-called' }),
-            });
-
-            const callback = sinon.spy();
-            (window.mParticle.Identity as any).searchAdvertiser(
-                TEST_API_KEY,
                 '',
                 { email: 'user@example.com' },
                 callback,

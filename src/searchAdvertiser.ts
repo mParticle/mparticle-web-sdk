@@ -73,52 +73,32 @@ interface ISearchAdvertiserPayload extends IFetchPayload {
     headers: {
         Accept: string;
         'Content-Type': string;
-        Authorization: string;
+        'x-mp-key': string;
     };
 }
-
-/**
- * Encode a UTF-8 string as base64. Browsers expose `btoa`, but it only handles
- * Latin-1; for the IDSync use case the inputs are workspace API keys/secrets
- * (ASCII), so `btoa` is sufficient. We fall back to a manual table only in the
- * unlikely event `btoa` is unavailable.
- */
-const toBase64 = (input: string): string => {
-    if (typeof btoa === 'function') {
-        return btoa(input);
-    }
-    // Minimal fallback for non-DOM hosts; the SDK runs in browsers, so this
-    // path should never execute in practice.
-    /* istanbul ignore next */
-    if (typeof Buffer !== 'undefined') {
-        return Buffer.from(input, 'utf-8').toString('base64');
-    }
-    /* istanbul ignore next */
-    throw new Error('No base64 encoder available.');
-};
 
 /**
  * Sends a POST to mParticle's IDSync Search endpoint and invokes `callback`
  * with the HTTP status and parsed body.
  *
- * Auth: HTTP Basic with `Authorization: Basic <base64(apiKey:secret)>`.
- * Per https://docs.mparticle.com/developers/apis/idsync/#search the Search
- * endpoint requires Basic (key+secret) or HMAC auth; key-only auth is not
- * generally provisioned. For Web workspaces the "secret" ships in the
- * browser bundle and is not actually a secret.
- *
  * Defensive contract:
- *  - Missing/invalid `email`           -> no network call, no callback.
- *  - Missing `apiKey` or `secret`      -> no network call, no callback.
- *  - Non-function `callback`           -> no network call, logged.
- *  - Network/JSON-parse errors         -> callback with
- *                                         `{ httpCode: noHttpCoverage }`,
- *                                         never thrown.
+ *  - Missing/invalid `email` -> callback with `{ httpCode: noHttpCoverage }`,
+ *    no network call.
+ *  - Missing `apiKey`        -> callback with `{ httpCode: noHttpCoverage }`,
+ *    no network call.
+ *  - Network/JSON-parse errors are caught and surfaced via the callback,
+ *    never thrown.
+ *
+ * NOTE: There is a known CORS limitation at the Fastly edge in front of
+ * `/v1/search`: it currently only allows `authorization,content-type` in
+ * `Access-Control-Allow-Headers`, which means browsers will block requests
+ * carrying `x-mp-key`. This is being addressed separately by the team that
+ * owns the Fastly config. This SDK code is written assuming `x-mp-key` will
+ * be allowed.
  */
 export const sendSearchAdvertiserRequest = async (
     knownIdentities: ISearchAdvertiserKnownIdentities,
     apiKey: string,
-    secret: string,
     requestBuilder: () => Omit<ISearchAdvertiserRequestBody, 'known_identities'>,
     searchUrl: string,
     callback: SearchAdvertiserCallback,
@@ -154,10 +134,10 @@ export const sendSearchAdvertiserRequest = async (
         return;
     }
 
-    // Both halves of the Basic auth credential are required.
-    if (!apiKey || !secret) {
+    // No API key -> no request, and no callback. Same rationale as above.
+    if (!apiKey) {
         logger.verbose(
-            'searchAdvertiser called without a complete apiKey+secret credential; skipping request.',
+            'searchAdvertiser called without a workspace API key; skipping request.',
         );
         return;
     }
@@ -175,7 +155,7 @@ export const sendSearchAdvertiserRequest = async (
         headers: {
             Accept: 'application/json',
             'Content-Type': 'application/json',
-            Authorization: 'Basic ' + toBase64(apiKey + ':' + secret),
+            'x-mp-key': apiKey,
         },
         body: JSON.stringify(requestBody),
     };

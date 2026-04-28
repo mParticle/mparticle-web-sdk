@@ -741,27 +741,25 @@ export default function Identity(mpInstance) {
          *
          * v1 only supports `email` in `knownIdentities`.
          *
-         * Auth uses HTTP Basic with the advertiser-specific workspace key
-         * and secret supplied by the caller (typically parsed from a kit's
-         * settings). The SDK's own workspace token is intentionally NOT used,
-         * so advertiser searches can be authorised independently of the host
-         * SDK's workspace. For Web workspaces the "secret" ships in the
-         * browser bundle and is not actually a secret.
+         * The `apiKey` is an advertiser-specific workspace API key supplied
+         * by the caller (typically passed in from a kit's settings). It is
+         * intentionally NOT read from the SDK's own workspace token, so that
+         * advertiser searches can be authorised independently of the host
+         * SDK's workspace.
          *
          * @method searchAdvertiser
-         * @param {String} apiKey Advertiser workspace API key.
-         * @param {String} secret Advertiser workspace API secret.
+         * @param {String} apiKey Advertiser workspace API key (sent as x-mp-key).
          * @param {Object} knownIdentities `{ email: string }`
          * @param {Function} callback Invoked with the `ISearchAdvertiserResult`.
          */
-        searchAdvertiser: function(apiKey, secret, knownIdentities, callback) {
-            // Callback validation, missing credentials, and missing/invalid
+        searchAdvertiser: function(apiKey, knownIdentities, callback) {
+            // Callback validation, missing apiKey, and missing/invalid
             // email are all handled inside sendSearchAdvertiserRequest so
             // the contract has a single enforcement point.
 
             // The Search endpoint is colocated with /v1/identify under
             // identityUrl, so we reuse the same service URL builder. We do
-            // NOT append the apiKey to the URL — auth is via Basic header.
+            // NOT append the apiKey to the URL — auth is done via x-mp-key.
             var serviceUrl = mpInstance._Helpers.createServiceUrl(
                 mpInstance._Store.SDKConfig.identityUrl
             );
@@ -790,7 +788,6 @@ export default function Identity(mpInstance) {
             sendSearchAdvertiserRequest(
                 knownIdentities,
                 apiKey,
-                secret,
                 requestBuilder,
                 searchUrl,
                 callback,
