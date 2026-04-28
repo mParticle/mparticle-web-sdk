@@ -6,6 +6,7 @@ import {
     tryCacheIdentity,
 } from './identity-utils';
 import AudienceManager from './audienceManager';
+import { sendSearchAdvertiserRequest } from './searchAdvertiser';
 const { Messages, HTTPCodes, FeatureFlags, IdentityMethods } = Constants;
 const { ErrorMessages } = Messages;
 const { CacheIdentity } = FeatureFlags;
@@ -728,6 +729,70 @@ export default function Identity(mpInstance) {
                     Messages.InformationMessages.AbandonAliasUsers
                 );
             }
+        },
+
+        /**
+         * Search the IDSync Advertiser endpoint for a known identity.
+         *
+         * POSTs to mParticle's `/v1/search` endpoint and invokes `callback`
+         * with `{ httpCode, body? }`. Both 200 (match) and 404 (no match) are
+         * expected steady-state outcomes. Consumers (e.g. the Rokt Web Kit)
+         * should gate behaviour on `httpCode === 200`.
+         *
+         * v1 only supports `email` in `knownIdentities`.
+         *
+         * The `apiKey` is an advertiser-specific workspace API key supplied
+         * by the caller (typically passed in from a kit's settings). It is
+         * intentionally NOT read from the SDK's own workspace token, so that
+         * advertiser searches can be authorised independently of the host
+         * SDK's workspace.
+         *
+         * @method searchAdvertiser
+         * @param {String} apiKey Advertiser workspace API key (sent as x-mp-key).
+         * @param {Object} knownIdentities `{ email: string }`
+         * @param {Function} callback Invoked with the `ISearchAdvertiserResult`.
+         */
+        searchAdvertiser: function(apiKey, knownIdentities, callback) {
+            // Callback validation, missing apiKey, and missing/invalid
+            // email are all handled inside sendSearchAdvertiserRequest so
+            // the contract has a single enforcement point.
+
+            // The Search endpoint is colocated with /v1/identify under
+            // identityUrl, so we reuse the same service URL builder. We do
+            // NOT append the apiKey to the URL — auth is done via x-mp-key.
+            var serviceUrl = mpInstance._Helpers.createServiceUrl(
+                mpInstance._Store.SDKConfig.identityUrl
+            );
+            var searchUrl = serviceUrl + 'search';
+
+            var environment = mpInstance._Store.SDKConfig.isDevelopmentMode
+                ? 'development'
+                : 'production';
+
+            // Build the same envelope that /v1/identify uses (client_sdk,
+            // request_id, request_timestamp_ms, environment) so the IDSync
+            // service can correlate requests across endpoints.
+            var requestBuilder = function() {
+                return {
+                    client_sdk: {
+                        platform: Constants.platform,
+                        sdk_vendor: Constants.sdkVendor,
+                        sdk_version: Constants.sdkVersion,
+                    },
+                    environment: environment,
+                    request_id: mpInstance._Helpers.generateUniqueId(),
+                    request_timestamp_ms: new Date().getTime(),
+                };
+            };
+
+            sendSearchAdvertiserRequest(
+                knownIdentities,
+                apiKey,
+                requestBuilder,
+                searchUrl,
+                callback,
+                mpInstance.Logger
+            );
         },
 
         /**
