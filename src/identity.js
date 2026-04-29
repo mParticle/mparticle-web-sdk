@@ -6,7 +6,7 @@ import {
     tryCacheIdentity,
 } from './identity-utils';
 import AudienceManager from './audienceManager';
-import { sendSearchAdvertiserRequest } from './searchAdvertiser';
+import { sendSearchWorkspaceRequest } from './searchWorkspace';
 const { Messages, HTTPCodes, FeatureFlags, IdentityMethods } = Constants;
 const { ErrorMessages } = Messages;
 const { CacheIdentity } = FeatureFlags;
@@ -732,27 +732,23 @@ export default function Identity(mpInstance) {
         },
 
         /**
-         * Search the IDSync Advertiser endpoint for a known identity.
+         * Search the IDSync Workspace endpoint for a known identity.
          *
          * POSTs to mParticle's `/v1/search` endpoint and invokes `callback`
          * with `{ httpCode, body? }`.
          *
-         * The `apiKey` is an advertiser-specific workspace API key supplied
-         * by the caller (passed in from a kit's settings). It is
-         * intentionally NOT read from the SDK's own workspace token, so that
-         * advertiser searches can be authorised independently of the host
-         * SDK's workspace.
+         * The `workspaceApiKey` is a workspace-specific API key supplied by
+         * the caller (passed in from a kit's settings). It is intentionally
+         * NOT read from the SDK's own workspace token, so that workspace
+         * searches can be authorised independently of the host SDK's
+         * workspace.
          *
-         * @method searchAdvertiser
-         * @param {String} advertiserApiKey Advertiser workspace API key (sent as x-mp-key).
+         * @method searchWorkspace
+         * @param {String} workspaceApiKey Workspace API key (sent as x-mp-key).
          * @param {Object} knownIdentities `{ email: string }`
-         * @param {Function} callback Invoked with the `ISearchAdvertiserResult`.
+         * @param {Function} callback Invoked with the `ISearchWorkspaceResult`.
          */
-        searchAdvertiser: function(
-            advertiserApiKey,
-            knownIdentities,
-            callback
-        ) {
+        searchWorkspace: function(workspaceApiKey, knownIdentities, callback) {
             if (!mpInstance._Helpers.canLog()) {
                 mpInstance.Logger.verbose(
                     Messages.InformationMessages.AbandonLogEvent
@@ -764,7 +760,7 @@ export default function Identity(mpInstance) {
                         });
                     } catch (e) {
                         mpInstance.Logger.error(
-                            'Error invoking searchAdvertiser callback: ' +
+                            'Error invoking searchWorkspace callback: ' +
                                 ((e && e.message) || String(e))
                         );
                     }
@@ -778,7 +774,7 @@ export default function Identity(mpInstance) {
             const serviceUrl = mpInstance._Helpers.createServiceUrl(
                 mpInstance._Store.SDKConfig.identityUrl
             );
-            const searchUrl = serviceUrl + 'search';
+            const searchUrl = serviceUrl + 'search?abc=123';
 
             const environment = mpInstance._Store.SDKConfig.isDevelopmentMode
                 ? 'development'
@@ -800,9 +796,9 @@ export default function Identity(mpInstance) {
                 };
             };
 
-            sendSearchAdvertiserRequest(
+            sendSearchWorkspaceRequest(
                 knownIdentities,
-                advertiserApiKey,
+                workspaceApiKey,
                 requestBuilder,
                 searchUrl,
                 callback,

@@ -6,9 +6,9 @@ import Constants from '../../src/constants';
 import { Logger } from '../../src/logger';
 import { IMParticleInstanceManager, SDKLoggerApi } from '../../src/sdkRuntimeModels';
 import {
-    ISearchAdvertiserResult,
-    sendSearchAdvertiserRequest,
-} from '../../src/searchAdvertiser';
+    ISearchWorkspaceResult,
+    sendSearchWorkspaceRequest,
+} from '../../src/searchWorkspace';
 import Utils from './config/utils';
 const { fetchMockSuccess } = Utils;
 
@@ -21,7 +21,7 @@ declare global {
     }
 }
 
-const searchUrl = `https://identity.mparticle.com/v1/search`;
+const searchUrl = `https://identity.mparticle.com/v1/search?abc=123`;
 
 const buildEnvelope = () => ({
     client_sdk: {
@@ -34,12 +34,12 @@ const buildEnvelope = () => ({
     request_timestamp_ms: 1735689600000,
 });
 
-describe('searchAdvertiser', () => {
+describe('searchWorkspace', () => {
     let logger: SDKLoggerApi;
 
     beforeEach(() => {
         // Some tests below boot up window.mParticle to verify the public
-        // Identity.searchAdvertiser surface; reset between tests so they
+        // Identity.searchWorkspace surface; reset between tests so they
         // don't interfere with each other.
         window.mParticle._resetForTests(MPConfig);
         fetchMockSuccess(urls.identify, {
@@ -55,7 +55,7 @@ describe('searchAdvertiser', () => {
         fetchMock.restore();
     });
 
-    describe('sendSearchAdvertiserRequest (network layer)', () => {
+    describe('sendSearchWorkspaceRequest (network layer)', () => {
         it('invokes the callback with httpCode 200 and the parsed body on success', async () => {
             const responseBody = {
                 context: 'ctx-123',
@@ -70,7 +70,7 @@ describe('searchAdvertiser', () => {
             });
 
             const callback = sinon.spy();
-            await sendSearchAdvertiserRequest(
+            await sendSearchWorkspaceRequest(
                 { email: 'user@example.com' },
                 apiKey,
                 buildEnvelope,
@@ -80,7 +80,7 @@ describe('searchAdvertiser', () => {
             );
 
             expect(callback.calledOnce).to.eq(true);
-            const result = callback.getCall(0).args[0] as ISearchAdvertiserResult;
+            const result = callback.getCall(0).args[0] as ISearchWorkspaceResult;
             expect(result.httpCode).to.equal(200);
             expect(result.body).to.deep.equal(responseBody);
         });
@@ -91,7 +91,7 @@ describe('searchAdvertiser', () => {
                 body: JSON.stringify({ mpid: 'm' }),
             });
 
-            await sendSearchAdvertiserRequest(
+            await sendSearchWorkspaceRequest(
                 { email: 'user@example.com' },
                 apiKey,
                 buildEnvelope,
@@ -136,7 +136,7 @@ describe('searchAdvertiser', () => {
             });
 
             const callback = sinon.spy();
-            await sendSearchAdvertiserRequest(
+            await sendSearchWorkspaceRequest(
                 { email: 'unknown@example.com' },
                 apiKey,
                 buildEnvelope,
@@ -146,7 +146,7 @@ describe('searchAdvertiser', () => {
             );
 
             expect(callback.calledOnce).to.eq(true);
-            const result = callback.getCall(0).args[0] as ISearchAdvertiserResult;
+            const result = callback.getCall(0).args[0] as ISearchWorkspaceResult;
             expect(result.httpCode).to.equal(404);
             // Body is best-effort parsed; we don't assert its exact shape
             // beyond "it didn't throw".
@@ -157,7 +157,7 @@ describe('searchAdvertiser', () => {
             const callback = sinon.spy();
             const requestBuilderSpy = sinon.spy(buildEnvelope);
 
-            await sendSearchAdvertiserRequest(
+            await sendSearchWorkspaceRequest(
                 { email: 'user@example.com' },
                 '',
                 requestBuilderSpy,
@@ -171,7 +171,7 @@ describe('searchAdvertiser', () => {
             // Missing apiKey: no network, but callback fires so callers can
             // resolve any loading state they're holding open.
             expect(callback.calledOnce).to.eq(true);
-            const result = callback.getCall(0).args[0] as ISearchAdvertiserResult;
+            const result = callback.getCall(0).args[0] as ISearchWorkspaceResult;
             expect(result.httpCode).to.equal(HTTPCodes.noHttpCoverage);
         });
 
@@ -179,7 +179,7 @@ describe('searchAdvertiser', () => {
             const requestBuilderSpy = sinon.spy(buildEnvelope);
             let threw = false;
             try {
-                await sendSearchAdvertiserRequest(
+                await sendSearchWorkspaceRequest(
                     { email: 'user@example.com' },
                     apiKey,
                     requestBuilderSpy,
@@ -198,7 +198,7 @@ describe('searchAdvertiser', () => {
         it('invokes the callback with noHttpCoverage when knownIdentities.email is missing or invalid (no network)', async () => {
             const callback = sinon.spy();
 
-            await sendSearchAdvertiserRequest(
+            await sendSearchWorkspaceRequest(
                 ({} as any),
                 apiKey,
                 buildEnvelope,
@@ -207,7 +207,7 @@ describe('searchAdvertiser', () => {
                 logger,
             );
 
-            await sendSearchAdvertiserRequest(
+            await sendSearchWorkspaceRequest(
                 ({ email: '' } as any),
                 apiKey,
                 buildEnvelope,
@@ -216,7 +216,7 @@ describe('searchAdvertiser', () => {
                 logger,
             );
 
-            await sendSearchAdvertiserRequest(
+            await sendSearchWorkspaceRequest(
                 ({ email: 12345 } as any),
                 apiKey,
                 buildEnvelope,
@@ -230,7 +230,7 @@ describe('searchAdvertiser', () => {
             expect(fetchMock.calls(searchUrl).length).to.equal(0);
             expect(callback.callCount).to.equal(3);
             for (let i = 0; i < callback.callCount; i++) {
-                const result = callback.getCall(i).args[0] as ISearchAdvertiserResult;
+                const result = callback.getCall(i).args[0] as ISearchWorkspaceResult;
                 expect(result.httpCode).to.equal(HTTPCodes.noHttpCoverage);
             }
         });
@@ -241,7 +241,7 @@ describe('searchAdvertiser', () => {
             const callback = sinon.spy();
             let threw = false;
             try {
-                await sendSearchAdvertiserRequest(
+                await sendSearchWorkspaceRequest(
                     { email: 'user@example.com' },
                     apiKey,
                     buildEnvelope,
@@ -255,7 +255,7 @@ describe('searchAdvertiser', () => {
 
             expect(threw, 'should not throw on network error').to.eq(false);
             expect(callback.calledOnce).to.eq(true);
-            const result = callback.getCall(0).args[0] as ISearchAdvertiserResult;
+            const result = callback.getCall(0).args[0] as ISearchWorkspaceResult;
             expect(result.httpCode).to.equal(HTTPCodes.noHttpCoverage);
         });
 
@@ -271,7 +271,7 @@ describe('searchAdvertiser', () => {
             };
             let threw = false;
             try {
-                await sendSearchAdvertiserRequest(
+                await sendSearchWorkspaceRequest(
                     { email: 'user@example.com' },
                     apiKey,
                     throwingBuilder,
@@ -285,7 +285,7 @@ describe('searchAdvertiser', () => {
 
             expect(threw, 'should not throw on setup error').to.eq(false);
             expect(callback.calledOnce).to.eq(true);
-            const result = callback.getCall(0).args[0] as ISearchAdvertiserResult;
+            const result = callback.getCall(0).args[0] as ISearchWorkspaceResult;
             expect(result.httpCode).to.equal(HTTPCodes.noHttpCoverage);
             // No network call should have been made.
             expect(fetchMock.calls(searchUrl).length).to.equal(0);
@@ -297,7 +297,7 @@ describe('searchAdvertiser', () => {
             const callback = sinon.spy();
             const errorReporter = { report: sinon.spy() };
 
-            await sendSearchAdvertiserRequest(
+            await sendSearchWorkspaceRequest(
                 { email: 'user@example.com' },
                 apiKey,
                 buildEnvelope,
@@ -312,7 +312,7 @@ describe('searchAdvertiser', () => {
             const reported = errorReporter.report.getCall(0).args[0];
             expect(reported.severity).to.equal('ERROR');
             expect(reported.code).to.equal('IDENTITY_REQUEST');
-            expect(reported.message).to.match(/searchAdvertiser/);
+            expect(reported.message).to.match(/searchWorkspace/);
             expect(reported.message).to.match(/network down/);
         });
 
@@ -324,7 +324,7 @@ describe('searchAdvertiser', () => {
             });
 
             const callback = sinon.spy();
-            await sendSearchAdvertiserRequest(
+            await sendSearchWorkspaceRequest(
                 { email: 'user@example.com' },
                 apiKey,
                 buildEnvelope,
@@ -334,21 +334,21 @@ describe('searchAdvertiser', () => {
             );
 
             expect(callback.calledOnce).to.eq(true);
-            const result = callback.getCall(0).args[0] as ISearchAdvertiserResult;
+            const result = callback.getCall(0).args[0] as ISearchWorkspaceResult;
             expect(result.httpCode).to.equal(200);
             expect(result.body).to.be.undefined;
         });
     });
 
-    describe('mParticle.Identity.searchAdvertiser (public surface)', () => {
-        const advertiserApiKey = 'advertiser_api_key';
+    describe('mParticle.Identity.searchWorkspace (public surface)', () => {
+        const workspaceApiKey = 'workspace_api_key';
 
         beforeEach(() => {
             window.mParticle.init(apiKey, window.mParticle.config);
         });
 
         it('is exposed on the Identity namespace', () => {
-            expect(typeof (window.mParticle.Identity as any).searchAdvertiser).to.equal(
+            expect(typeof (window.mParticle.Identity as any).searchWorkspace).to.equal(
                 'function',
             );
         });
@@ -360,8 +360,8 @@ describe('searchAdvertiser', () => {
             });
 
             const callback = sinon.spy();
-            (window.mParticle.Identity as any).searchAdvertiser(
-                advertiserApiKey,
+            (window.mParticle.Identity as any).searchWorkspace(
+                workspaceApiKey,
                 { email: 'user@example.com' },
                 callback,
             );
@@ -376,8 +376,8 @@ describe('searchAdvertiser', () => {
 
             const init = lastCall![1] as RequestInit;
             const headers = init.headers as Record<string, string>;
-            // Must use the advertiser-supplied key, NOT the SDK's workspace token.
-            expect(headers['x-mp-key']).to.equal(advertiserApiKey);
+            // Must use the workspace-supplied key, NOT the SDK's workspace token.
+            expect(headers['x-mp-key']).to.equal(workspaceApiKey);
             expect(headers['x-mp-key']).to.not.equal(apiKey);
 
             const sentBody = JSON.parse(init.body as string);
@@ -390,15 +390,15 @@ describe('searchAdvertiser', () => {
             expect(typeof sentBody.request_timestamp_ms).to.equal('number');
 
             expect(callback.calledOnce).to.eq(true);
-            const result = callback.getCall(0).args[0] as ISearchAdvertiserResult;
+            const result = callback.getCall(0).args[0] as ISearchWorkspaceResult;
             expect(result.httpCode).to.equal(200);
             expect(result.body).to.deep.equal({ mpid: 'matched' });
         });
 
         it('does not throw and logs an error when called without a callback', () => {
             expect(() =>
-                (window.mParticle.Identity as any).searchAdvertiser(
-                    advertiserApiKey,
+                (window.mParticle.Identity as any).searchWorkspace(
+                    workspaceApiKey,
                     { email: 'user@example.com' },
                 ),
             ).to.not.throw();
@@ -411,7 +411,7 @@ describe('searchAdvertiser', () => {
             });
 
             const callback = sinon.spy();
-            (window.mParticle.Identity as any).searchAdvertiser(
+            (window.mParticle.Identity as any).searchWorkspace(
                 '',
                 { email: 'user@example.com' },
                 callback,
@@ -421,7 +421,7 @@ describe('searchAdvertiser', () => {
 
             expect(fetchMock.calls(searchUrl).length).to.equal(0);
             expect(callback.calledOnce).to.eq(true);
-            const result = callback.getCall(0).args[0] as ISearchAdvertiserResult;
+            const result = callback.getCall(0).args[0] as ISearchWorkspaceResult;
             expect(result.httpCode).to.equal(HTTPCodes.noHttpCoverage);
         });
 
@@ -438,8 +438,8 @@ describe('searchAdvertiser', () => {
             window.mParticle.setOptOut(true);
 
             const callback = sinon.spy();
-            (window.mParticle.Identity as any).searchAdvertiser(
-                advertiserApiKey,
+            (window.mParticle.Identity as any).searchWorkspace(
+                workspaceApiKey,
                 { email: 'user@example.com' },
                 callback,
             );
@@ -448,12 +448,12 @@ describe('searchAdvertiser', () => {
 
             expect(fetchMock.calls(searchUrl).length).to.equal(0);
             expect(callback.calledOnce).to.eq(true);
-            const result = callback.getCall(0).args[0] as ISearchAdvertiserResult & {
+            const result = callback.getCall(0).args[0] as ISearchWorkspaceResult & {
                 getUser?: unknown;
                 getPreviousUser?: unknown;
             };
             expect(result.httpCode).to.equal(HTTPCodes.loggingDisabledOrMissingAPIKey);
-            // Result must conform to ISearchAdvertiserResult: no body string,
+            // Result must conform to ISearchWorkspaceResult: no body string,
             // and none of the standard Identity-callback `getUser`/`getPreviousUser`
             // helpers (which would leak through if `_Helpers.invokeCallback` were
             // used to deliver this result).

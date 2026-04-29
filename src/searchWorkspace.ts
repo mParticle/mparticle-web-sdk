@@ -15,14 +15,14 @@ import {
 const { HTTPCodes } = Constants;
 
 /**
- * Shape of `known_identities` accepted by `searchAdvertiser`.
+ * Shape of `known_identities` accepted by `searchWorkspace`.
  *
  * The IDSync `/v1/search` endpoint accepts the same identity keys as
  * `/v1/identify`, but for v1 of this client API we only support `email`.
  * Additional identity types can be added here in the future without breaking
  * existing consumers.
  */
-export interface ISearchAdvertiserKnownIdentities {
+export interface ISearchWorkspaceKnownIdentities {
     email: string;
 }
 
@@ -34,7 +34,7 @@ export interface ISearchAdvertiserKnownIdentities {
  * error-shaped bodies, and the consumer should only rely on body fields when
  * `httpCode === 200`.
  */
-export interface ISearchAdvertiserResponseBody {
+export interface ISearchWorkspaceResponseBody {
     context?: string | null;
     mpid?: string;
     matched_identities?: Record<string, string>;
@@ -51,18 +51,18 @@ export interface ISearchAdvertiserResponseBody {
  * be omitted. The consumer is expected to gate behaviour on
  * `httpCode === 200`.
  */
-export interface ISearchAdvertiserResult {
+export interface ISearchWorkspaceResult {
     httpCode: number;
-    body?: ISearchAdvertiserResponseBody;
+    body?: ISearchWorkspaceResponseBody;
 }
 
-export type SearchAdvertiserCallback = (result: ISearchAdvertiserResult) => void;
+export type SearchWorkspaceCallback = (result: ISearchWorkspaceResult) => void;
 
 /**
  * Body posted to `/v1/search`. Mirrors the `/v1/identify` request envelope so
  * that the IDSync service can correlate requests across endpoints.
  */
-export interface ISearchAdvertiserRequestBody {
+export interface ISearchWorkspaceRequestBody {
     client_sdk: {
         platform: string;
         sdk_vendor: string;
@@ -71,10 +71,10 @@ export interface ISearchAdvertiserRequestBody {
     environment: 'development' | 'production';
     request_id: string;
     request_timestamp_ms: number;
-    known_identities: ISearchAdvertiserKnownIdentities;
+    known_identities: ISearchWorkspaceKnownIdentities;
 }
 
-interface ISearchAdvertiserPayload extends IFetchPayload {
+interface ISearchWorkspacePayload extends IFetchPayload {
     headers: {
         Accept: string;
         'Content-Type': string;
@@ -96,12 +96,12 @@ interface ISearchAdvertiserPayload extends IFetchPayload {
  *    `errorReporter` so any registered IErrorReportingService can observe
  *    them (matches the pattern used by identifyRequest in identityApiClient).
  */
-export const sendSearchAdvertiserRequest = async (
-    knownIdentities: ISearchAdvertiserKnownIdentities,
+export const sendSearchWorkspaceRequest = async (
+    knownIdentities: ISearchWorkspaceKnownIdentities,
     apiKey: string,
-    requestBuilder: () => Omit<ISearchAdvertiserRequestBody, 'known_identities'>,
+    requestBuilder: () => Omit<ISearchWorkspaceRequestBody, 'known_identities'>,
     searchUrl: string,
-    callback: SearchAdvertiserCallback,
+    callback: SearchWorkspaceCallback,
     logger: SDKLoggerApi,
     uploader?: AsyncUploader,
     errorReporter?: IErrorReportingService,
@@ -110,17 +110,17 @@ export const sendSearchAdvertiserRequest = async (
     // to deliver a result to, so log and bail out without invoking anything.
     if (typeof callback !== 'function') {
         logger.error(
-            'searchAdvertiser called without a callback function; skipping request.',
+            'searchWorkspace called without a callback function; skipping request.',
         );
         return;
     }
 
-    const safeInvoke = (result: ISearchAdvertiserResult): void => {
+    const safeInvoke = (result: ISearchWorkspaceResult): void => {
         try {
             callback(result);
         } catch (e) {
             logger.error(
-                'Error invoking searchAdvertiser callback: ' +
+                'Error invoking searchWorkspace callback: ' +
                     ((e as Error)?.message || String(e)),
             );
         }
@@ -130,7 +130,7 @@ export const sendSearchAdvertiserRequest = async (
     // the callback (e.g. to clear a loading state) don't hang.
     if (!knownIdentities || typeof knownIdentities.email !== 'string' || !knownIdentities.email) {
         logger.verbose(
-            'searchAdvertiser called without a valid email; skipping request.',
+            'searchWorkspace called without a valid email; skipping request.',
         );
         safeInvoke({ httpCode: HTTPCodes.noHttpCoverage });
         return;
@@ -139,7 +139,7 @@ export const sendSearchAdvertiserRequest = async (
     // No API key -> same: deliver noHttpCoverage rather than hanging.
     if (!apiKey) {
         logger.verbose(
-            'searchAdvertiser called without a workspace API key; skipping request.',
+            'searchWorkspace called without a workspace API key; skipping request.',
         );
         safeInvoke({ httpCode: HTTPCodes.noHttpCoverage });
         return;
@@ -152,14 +152,14 @@ export const sendSearchAdvertiserRequest = async (
     // rejecting and the caller hanging on a never-fired callback.
     try {
         const requestEnvelope = requestBuilder();
-        const requestBody: ISearchAdvertiserRequestBody = {
+        const requestBody: ISearchWorkspaceRequestBody = {
             ...requestEnvelope,
             known_identities: {
                 email: knownIdentities.email,
             },
         };
 
-        const fetchPayload: ISearchAdvertiserPayload = {
+        const fetchPayload: ISearchWorkspacePayload = {
             method: 'post',
             headers: {
                 Accept: 'application/json',
@@ -175,50 +175,50 @@ export const sendSearchAdvertiserRequest = async (
                 ? new FetchUploader(searchUrl)
                 : new XHRUploader(searchUrl));
 
-        logger.verbose('Sending searchAdvertiser request to ' + searchUrl);
+        logger.verbose('Sending searchWorkspace request to ' + searchUrl);
         const response: Response = await api.upload(fetchPayload, searchUrl);
 
-        let body: ISearchAdvertiserResponseBody | undefined;
+        let body: ISearchWorkspaceResponseBody | undefined;
 
         // FetchUploader returns a real Response with .json(); XHRUploader
         // returns an XHR-shaped object with `responseText`. We tolerate both.
         if (typeof (response as Response).json === 'function') {
             try {
-                body = (await (response as Response).json()) as ISearchAdvertiserResponseBody;
+                body = (await (response as Response).json()) as ISearchWorkspaceResponseBody;
             } catch (e) {
                 logger.verbose(
-                    'searchAdvertiser response had no parseable JSON body.',
+                    'searchWorkspace response had no parseable JSON body.',
                 );
             }
         } else {
             const xhrLike = (response as unknown) as XMLHttpRequest;
             if (xhrLike?.responseText) {
                 try {
-                    body = JSON.parse(xhrLike.responseText) as ISearchAdvertiserResponseBody;
+                    body = JSON.parse(xhrLike.responseText) as ISearchWorkspaceResponseBody;
                 } catch (e) {
                     logger.verbose(
-                        'searchAdvertiser XHR response was not valid JSON.',
+                        'searchWorkspace XHR response was not valid JSON.',
                     );
                 }
             }
         }
 
         if (response.status === HTTP_OK) {
-            logger.verbose('searchAdvertiser received 200 OK.');
+            logger.verbose('searchWorkspace received 200 OK.');
         } else if (response.status === HTTP_NOT_FOUND) {
             // 404 NOT_FOUND_ERROR is an expected steady-state outcome and is
             // intentionally not logged as an error.
-            logger.verbose('searchAdvertiser received 404 (no match).');
+            logger.verbose('searchWorkspace received 404 (no match).');
         } else {
             logger.verbose(
-                'searchAdvertiser received non-success status ' + response.status,
+                'searchWorkspace received non-success status ' + response.status,
             );
         }
 
         safeInvoke({ httpCode: response.status, body });
     } catch (e) {
         const message = (e as Error)?.message || String(e);
-        const reportMessage = 'Error sending searchAdvertiser request: ' + message;
+        const reportMessage = 'Error sending searchWorkspace request: ' + message;
         logger.error(reportMessage);
         // Mirror the identity-route pattern in identityApiClient.ts: log to
         // console AND push a structured report through the dispatcher so any
