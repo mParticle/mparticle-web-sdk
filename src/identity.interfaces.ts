@@ -14,7 +14,6 @@ import {
 } from './identity-user-interfaces';
 import {
     ISearchAdvertiserKnownIdentities,
-    ISearchAdvertiserResult,
     SearchAdvertiserCallback,
 } from './searchAdvertiser';
 const { platform, sdkVendor, sdkVersion, HTTPCodes } = Constants;

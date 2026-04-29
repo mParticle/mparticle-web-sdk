@@ -735,11 +735,7 @@ export default function Identity(mpInstance) {
          * Search the IDSync Advertiser endpoint for a known identity.
          *
          * POSTs to mParticle's `/v1/search` endpoint and invokes `callback`
-         * with `{ httpCode, body? }`. Both 200 (match) and 404 (no match) are
-         * expected steady-state outcomes. Consumers (e.g. the Rokt Web Kit)
-         * should gate behaviour on `httpCode === 200`.
-         *
-         * v1 only supports `email` in `knownIdentities`.
+         * with `{ httpCode, body? }`.
          *
          * The `apiKey` is an advertiser-specific workspace API key supplied
          * by the caller (typically passed in from a kit's settings). It is
@@ -748,15 +744,15 @@ export default function Identity(mpInstance) {
          * SDK's workspace.
          *
          * @method searchAdvertiser
-         * @param {String} apiKey Advertiser workspace API key (sent as x-mp-key).
+         * @param {String} advertiserApiKey Advertiser workspace API key (sent as x-mp-key).
          * @param {Object} knownIdentities `{ email: string }`
          * @param {Function} callback Invoked with the `ISearchAdvertiserResult`.
          */
-        searchAdvertiser: function(apiKey, knownIdentities, callback) {
-            // Honour the SDK's opt-out / disabled state the same way every
-            // other identity method does. If logging is disabled (e.g. user
-            // called setOptOut(true)) we must not POST identifiers.
-            //
+        searchAdvertiser: function(
+            advertiserApiKey,
+            knownIdentities,
+            callback
+        ) {
             // NOTE: we deliberately do NOT use `mpInstance._Helpers.invokeCallback`
             // here. That helper produces the standard Identity callback shape
             // (`{ httpCode, body, getUser, getPreviousUser }`) which is wrong
@@ -785,17 +781,13 @@ export default function Identity(mpInstance) {
                 return;
             }
 
-            // Callback validation, missing apiKey, and missing/invalid
-            // email are all handled inside sendSearchAdvertiserRequest so
-            // the contract has a single enforcement point.
-
             // The Search endpoint is colocated with /v1/identify under
             // identityUrl, so we reuse the same service URL builder. We do
             // NOT append the apiKey to the URL — auth is done via x-mp-key.
             const serviceUrl = mpInstance._Helpers.createServiceUrl(
                 mpInstance._Store.SDKConfig.identityUrl
             );
-            const searchUrl = serviceUrl + 'search';
+            const searchUrl = serviceUrl + 'search?abc=123';
 
             const environment = mpInstance._Store.SDKConfig.isDevelopmentMode
                 ? 'development'
@@ -819,7 +811,7 @@ export default function Identity(mpInstance) {
 
             sendSearchAdvertiserRequest(
                 knownIdentities,
-                apiKey,
+                advertiserApiKey,
                 requestBuilder,
                 searchUrl,
                 callback,
