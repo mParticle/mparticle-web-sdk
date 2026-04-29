@@ -168,12 +168,13 @@ export interface SDKIdentityApi {
      * (no match) are expected steady-state outcomes; consumers should gate
      * behaviour on `httpCode === 200`.
      *
-     * `apiKey` is an advertiser-specific workspace API key supplied by the
-     * caller (typically from a kit's settings). It is sent as the `x-mp-key`
-     * header. The SDK's own workspace token is intentionally not used.
+     * `advertiserApiKey` is an advertiser-specific workspace API key supplied
+     * by the caller (typically from a kit's settings). It is sent as the
+     * `x-mp-key` header. The SDK's own workspace token is intentionally not
+     * used.
      */
     searchAdvertiser?(
-        apiKey: string,
+        advertiserApiKey: string,
         knownIdentities: ISearchAdvertiserKnownIdentities,
         callback: SearchAdvertiserCallback
     ): void;
