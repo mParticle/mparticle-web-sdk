@@ -792,19 +792,19 @@ export default function Identity(mpInstance) {
             // The Search endpoint is colocated with /v1/identify under
             // identityUrl, so we reuse the same service URL builder. We do
             // NOT append the apiKey to the URL — auth is done via x-mp-key.
-            var serviceUrl = mpInstance._Helpers.createServiceUrl(
+            const serviceUrl = mpInstance._Helpers.createServiceUrl(
                 mpInstance._Store.SDKConfig.identityUrl
             );
-            var searchUrl = serviceUrl + 'search';
+            const searchUrl = serviceUrl + 'search';
 
-            var environment = mpInstance._Store.SDKConfig.isDevelopmentMode
+            const environment = mpInstance._Store.SDKConfig.isDevelopmentMode
                 ? 'development'
                 : 'production';
 
             // Build the same envelope that /v1/identify uses (client_sdk,
             // request_id, request_timestamp_ms, environment) so the IDSync
             // service can correlate requests across endpoints.
-            var requestBuilder = function() {
+            const requestBuilder = function() {
                 return {
                     client_sdk: {
                         platform: Constants.platform,
