@@ -259,6 +259,38 @@ describe('searchAdvertiser', () => {
             expect(result.httpCode).to.equal(HTTPCodes.noHttpCoverage);
         });
 
+        it('catches errors thrown during request setup (e.g. requestBuilder) and surfaces noHttpCoverage via the callback', async () => {
+            // The try/catch must wrap requestBuilder, JSON.stringify, and
+            // uploader construction — not just the network call. If any
+            // synchronous setup step throws, the consumer's callback must
+            // still fire (otherwise a discarded Promise becomes an unhandled
+            // rejection and the consumer hangs on a never-fired callback).
+            const callback = sinon.spy();
+            const throwingBuilder = () => {
+                throw new Error('builder boom');
+            };
+            let threw = false;
+            try {
+                await sendSearchAdvertiserRequest(
+                    { email: 'user@example.com' },
+                    apiKey,
+                    throwingBuilder,
+                    searchUrl,
+                    callback,
+                    logger,
+                );
+            } catch (e) {
+                threw = true;
+            }
+
+            expect(threw, 'should not throw on setup error').to.eq(false);
+            expect(callback.calledOnce).to.eq(true);
+            const result = callback.getCall(0).args[0] as ISearchAdvertiserResult;
+            expect(result.httpCode).to.equal(HTTPCodes.noHttpCoverage);
+            // No network call should have been made.
+            expect(fetchMock.calls(searchUrl).length).to.equal(0);
+        });
+
         it('reports a structured error through the supplied errorReporter on network failure', async () => {
             fetchMock.post(searchUrl, { throws: new Error('network down') });
 

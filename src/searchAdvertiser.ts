@@ -152,31 +152,36 @@ export const sendSearchAdvertiserRequest = async (
         return;
     }
 
-    const requestEnvelope = requestBuilder();
-    const requestBody: ISearchAdvertiserRequestBody = {
-        ...requestEnvelope,
-        known_identities: {
-            email: knownIdentities.email,
-        },
-    };
-
-    const fetchPayload: ISearchAdvertiserPayload = {
-        method: 'post',
-        headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            'x-mp-key': apiKey,
-        },
-        body: JSON.stringify(requestBody),
-    };
-
-    const api: AsyncUploader =
-        uploader ||
-        (window.fetch
-            ? new FetchUploader(searchUrl)
-            : new XHRUploader(searchUrl));
-
+    // Wrap request setup AND the network call in the try/catch so any throw
+    // — from requestBuilder, JSON.stringify (e.g. circular refs), or
+    // uploader construction — flows into the catch below and the consumer's
+    // callback fires with noHttpCoverage rather than the async function
+    // rejecting and the caller hanging on a never-fired callback.
     try {
+        const requestEnvelope = requestBuilder();
+        const requestBody: ISearchAdvertiserRequestBody = {
+            ...requestEnvelope,
+            known_identities: {
+                email: knownIdentities.email,
+            },
+        };
+
+        const fetchPayload: ISearchAdvertiserPayload = {
+            method: 'post',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'x-mp-key': apiKey,
+            },
+            body: JSON.stringify(requestBody),
+        };
+
+        const api: AsyncUploader =
+            uploader ||
+            (window.fetch
+                ? new FetchUploader(searchUrl)
+                : new XHRUploader(searchUrl));
+
         logger.verbose('Sending searchAdvertiser request to ' + searchUrl);
         const response: Response = await api.upload(fetchPayload, searchUrl);
 
