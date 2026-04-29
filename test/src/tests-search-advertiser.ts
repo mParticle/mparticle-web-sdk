@@ -438,8 +438,18 @@ describe('searchAdvertiser', () => {
 
             expect(fetchMock.calls(searchUrl).length).to.equal(0);
             expect(callback.calledOnce).to.eq(true);
-            const result = callback.getCall(0).args[0] as { httpCode: number };
+            const result = callback.getCall(0).args[0] as ISearchAdvertiserResult & {
+                getUser?: unknown;
+                getPreviousUser?: unknown;
+            };
             expect(result.httpCode).to.equal(HTTPCodes.loggingDisabledOrMissingAPIKey);
+            // Result must conform to ISearchAdvertiserResult: no body string,
+            // and none of the standard Identity-callback `getUser`/`getPreviousUser`
+            // helpers (which would leak through if `_Helpers.invokeCallback` were
+            // used to deliver this result).
+            expect(result.body).to.equal(undefined);
+            expect(result.getUser).to.equal(undefined);
+            expect(result.getPreviousUser).to.equal(undefined);
 
             // Restore opt-in so the next test's beforeEach reset isn't fighting state.
             window.mParticle.setOptOut(false);

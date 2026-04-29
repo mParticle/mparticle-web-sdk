@@ -756,15 +756,32 @@ export default function Identity(mpInstance) {
             // Honour the SDK's opt-out / disabled state the same way every
             // other identity method does. If logging is disabled (e.g. user
             // called setOptOut(true)) we must not POST identifiers.
+            //
+            // NOTE: we deliberately do NOT use `mpInstance._Helpers.invokeCallback`
+            // here. That helper produces the standard Identity callback shape
+            // (`{ httpCode, body, getUser, getPreviousUser }`) which is wrong
+            // for `searchAdvertiser` — the contract is `ISearchAdvertiserResult`
+            // = `{ httpCode, body? }` with `body` typed as a parsed JSON object
+            // (not a string message) and no `getUser`/`getPreviousUser` methods.
+            // Mirror the validation-failure shape used inside
+            // `sendSearchAdvertiserRequest` so consumers see a consistent shape
+            // across all skipped-request paths.
             if (!mpInstance._Helpers.canLog()) {
-                mpInstance._Helpers.invokeCallback(
-                    callback,
-                    HTTPCodes.loggingDisabledOrMissingAPIKey,
-                    Messages.InformationMessages.AbandonLogEvent
-                );
                 mpInstance.Logger.verbose(
                     Messages.InformationMessages.AbandonLogEvent
                 );
+                if (mpInstance._Helpers.Validators.isFunction(callback)) {
+                    try {
+                        callback({
+                            httpCode: HTTPCodes.loggingDisabledOrMissingAPIKey,
+                        });
+                    } catch (e) {
+                        mpInstance.Logger.error(
+                            'Error invoking searchAdvertiser callback: ' +
+                                ((e && e.message) || String(e))
+                        );
+                    }
+                }
                 return;
             }
 
