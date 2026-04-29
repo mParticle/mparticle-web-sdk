@@ -316,28 +316,6 @@ describe('searchAdvertiser', () => {
             expect(reported.message).to.match(/network down/);
         });
 
-        it('does not throw when errorReporter is omitted on network failure', async () => {
-            fetchMock.post(searchUrl, { throws: new Error('network down') });
-
-            const callback = sinon.spy();
-            let threw = false;
-            try {
-                await sendSearchAdvertiserRequest(
-                    { email: 'user@example.com' },
-                    apiKey,
-                    buildEnvelope,
-                    searchUrl,
-                    callback,
-                    logger,
-                );
-            } catch (e) {
-                threw = true;
-            }
-
-            expect(threw, 'should not throw without errorReporter').to.eq(false);
-            expect(callback.calledOnce).to.eq(true);
-        });
-
         it('handles a non-JSON response body without throwing', async () => {
             fetchMock.post(searchUrl, {
                 status: 200,

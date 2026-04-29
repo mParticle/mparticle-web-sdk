@@ -95,13 +95,6 @@ interface ISearchAdvertiserPayload extends IFetchPayload {
  *    never thrown. Network errors are also reported through the optional
  *    `errorReporter` so any registered IErrorReportingService can observe
  *    them (matches the pattern used by identifyRequest in identityApiClient).
- *
- * NOTE: There is a known CORS limitation at the Fastly edge in front of
- * `/v1/search`: it currently only allows `authorization,content-type` in
- * `Access-Control-Allow-Headers`, which means browsers will block requests
- * carrying `x-mp-key`. This is being addressed separately by the team that
- * owns the Fastly config. This SDK code is written assuming `x-mp-key` will
- * be allowed.
  */
 export const sendSearchAdvertiserRequest = async (
     knownIdentities: ISearchAdvertiserKnownIdentities,

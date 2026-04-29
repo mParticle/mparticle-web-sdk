@@ -738,7 +738,7 @@ export default function Identity(mpInstance) {
          * with `{ httpCode, body? }`.
          *
          * The `apiKey` is an advertiser-specific workspace API key supplied
-         * by the caller (typically passed in from a kit's settings). It is
+         * by the caller (passed in from a kit's settings). It is
          * intentionally NOT read from the SDK's own workspace token, so that
          * advertiser searches can be authorised independently of the host
          * SDK's workspace.
@@ -753,15 +753,6 @@ export default function Identity(mpInstance) {
             knownIdentities,
             callback
         ) {
-            // NOTE: we deliberately do NOT use `mpInstance._Helpers.invokeCallback`
-            // here. That helper produces the standard Identity callback shape
-            // (`{ httpCode, body, getUser, getPreviousUser }`) which is wrong
-            // for `searchAdvertiser` — the contract is `ISearchAdvertiserResult`
-            // = `{ httpCode, body? }` with `body` typed as a parsed JSON object
-            // (not a string message) and no `getUser`/`getPreviousUser` methods.
-            // Mirror the validation-failure shape used inside
-            // `sendSearchAdvertiserRequest` so consumers see a consistent shape
-            // across all skipped-request paths.
             if (!mpInstance._Helpers.canLog()) {
                 mpInstance.Logger.verbose(
                     Messages.InformationMessages.AbandonLogEvent

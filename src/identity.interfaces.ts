@@ -162,16 +162,14 @@ export interface SDKIdentityApi {
     ): IAliasRequest;
     /**
      * Sends a request to mParticle's IDSync `/v1/search` endpoint to look up
-     * an advertiser identity (today, only `email`) without affecting the
-     * current user. The callback receives `httpCode` (always) and an optional
-     * `body` containing the parsed JSON response. Both 200 (match) and 404
-     * (no match) are expected steady-state outcomes; consumers should gate
-     * behaviour on `httpCode === 200`.
+     * an advertiser identity without affecting the current user. The callback 
+     * receives `httpCode` (always) and an optional `body` containing the 
+     * parsed JSON response. Consumers should gate behaviour on
+     * `httpCode === 200`.
      *
      * `advertiserApiKey` is an advertiser-specific workspace API key supplied
-     * by the caller (typically from a kit's settings). It is sent as the
-     * `x-mp-key` header. The SDK's own workspace token is intentionally not
-     * used.
+     * by the caller (from a kit's settings). It is sent as the `x-mp-key`
+     * header. The SDK's own workspace token is intentionally not used.
      */
     searchAdvertiser?(
         advertiserApiKey: string,
