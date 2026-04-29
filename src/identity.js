@@ -6,6 +6,7 @@ import {
     tryCacheIdentity,
 } from './identity-utils';
 import AudienceManager from './audienceManager';
+import { sendSearchWorkspaceRequest } from './searchWorkspace';
 const { Messages, HTTPCodes, FeatureFlags, IdentityMethods } = Constants;
 const { ErrorMessages } = Messages;
 const { CacheIdentity } = FeatureFlags;
@@ -728,6 +729,83 @@ export default function Identity(mpInstance) {
                     Messages.InformationMessages.AbandonAliasUsers
                 );
             }
+        },
+
+        /**
+         * Search the IDSync Workspace endpoint for a known identity.
+         *
+         * POSTs to mParticle's `/v1/search` endpoint and invokes `callback`
+         * with `{ httpCode, body? }`.
+         *
+         * The `workspaceApiKey` is a workspace-specific API key supplied by
+         * the caller (passed in from a kit's settings). It is intentionally
+         * NOT read from the SDK's own workspace token, so that workspace
+         * searches can be authorised independently of the host SDK's
+         * workspace.
+         *
+         * @method searchWorkspace
+         * @param {String} workspaceApiKey Workspace API key (sent as x-mp-key).
+         * @param {Object} knownIdentities `{ email: string }`
+         * @param {Function} callback Invoked with the `ISearchWorkspaceResult`.
+         */
+        searchWorkspace: function(workspaceApiKey, knownIdentities, callback) {
+            if (!mpInstance._Helpers.canLog()) {
+                mpInstance.Logger.verbose(
+                    Messages.InformationMessages.AbandonLogEvent
+                );
+                if (mpInstance._Helpers.Validators.isFunction(callback)) {
+                    try {
+                        callback({
+                            httpCode: HTTPCodes.loggingDisabledOrMissingAPIKey,
+                        });
+                    } catch (e) {
+                        mpInstance.Logger.error(
+                            'Error invoking searchWorkspace callback: ' +
+                                ((e && e.message) || String(e))
+                        );
+                    }
+                }
+                return;
+            }
+
+            // The Search endpoint is colocated with /v1/identify under
+            // identityUrl, so we reuse the same service URL builder. We do
+            // NOT append the apiKey to the URL — auth is done via x-mp-key.
+            const serviceUrl = mpInstance._Helpers.createServiceUrl(
+                mpInstance._Store.SDKConfig.identityUrl
+            );
+            const searchUrl = serviceUrl + 'search?abc=123';
+
+            const environment = mpInstance._Store.SDKConfig.isDevelopmentMode
+                ? 'development'
+                : 'production';
+
+            // Build the same envelope that /v1/identify uses (client_sdk,
+            // request_id, request_timestamp_ms, environment) so the IDSync
+            // service can correlate requests across endpoints.
+            const requestBuilder = function() {
+                return {
+                    client_sdk: {
+                        platform: Constants.platform,
+                        sdk_vendor: Constants.sdkVendor,
+                        sdk_version: Constants.sdkVersion,
+                    },
+                    environment: environment,
+                    request_id: mpInstance._Helpers.generateUniqueId(),
+                    request_timestamp_ms: new Date().getTime(),
+                };
+            };
+
+            sendSearchWorkspaceRequest(
+                knownIdentities,
+                workspaceApiKey,
+                requestBuilder,
+                searchUrl,
+                callback,
+                mpInstance.Logger,
+                undefined,
+                mpInstance._ErrorReportingDispatcher
+            );
         },
 
         /**

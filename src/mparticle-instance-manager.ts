@@ -394,6 +394,13 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
         modify: function(identityApiData, callback) {
             self.getInstance().Identity.modify(identityApiData, callback);
         },
+        searchWorkspace: function(workspaceApiKey, knownIdentities, callback) {
+            self.getInstance().Identity.searchWorkspace(
+                workspaceApiKey,
+                knownIdentities,
+                callback
+            );
+        },
     };
 
     this.sessionManager = {

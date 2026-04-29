@@ -124,6 +124,7 @@ describe('mParticle instance manager', () => {
             'getUsers',
             'aliasUsers',
             'createAliasRequest',
+            'searchWorkspace',
         ]);
         expect(mParticle.Identity.HTTPCodes, 'HTTP Codes').to.have.keys([
             'noHttpCoverage',

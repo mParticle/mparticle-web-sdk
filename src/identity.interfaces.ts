@@ -12,6 +12,10 @@ import {
     mParticleUserCart,
     IIdentityResponse,
 } from './identity-user-interfaces';
+import {
+    ISearchWorkspaceKnownIdentities,
+    SearchWorkspaceCallback,
+} from './searchWorkspace';
 const { platform, sdkVendor, sdkVersion, HTTPCodes } = Constants;
 
 export type IdentityPreProcessResult = {
@@ -156,7 +160,30 @@ export interface SDKIdentityApi {
         destinationUser: IMParticleUser,
         scope?: AliasRequestScope
     ): IAliasRequest;
+    /**
+     * Sends a request to mParticle's IDSync `/v1/search` endpoint to look up
+     * a workspace identity without affecting the current user. The callback
+     * receives `httpCode` (always) and an optional `body` containing the
+     * parsed JSON response. Consumers should gate behaviour on
+     * `httpCode === 200`.
+     *
+     * `workspaceApiKey` is a workspace-specific API key supplied by the
+     * caller (from a kit's settings). It is sent as the `x-mp-key` header.
+     * The SDK's own workspace token is intentionally not used.
+     */
+    searchWorkspace?(
+        workspaceApiKey: string,
+        knownIdentities: ISearchWorkspaceKnownIdentities,
+        callback: SearchWorkspaceCallback
+    ): void;
 }
+
+export type {
+    ISearchWorkspaceKnownIdentities,
+    ISearchWorkspaceResult,
+    ISearchWorkspaceResponseBody,
+    SearchWorkspaceCallback,
+} from './searchWorkspace';
 
 export interface IIdentity {
     audienceManager: AudienceManager;
