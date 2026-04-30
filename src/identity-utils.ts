@@ -399,6 +399,6 @@ export const executeSearchRequest = (
         callback,
         Logger,
         undefined,
-        mpInstance._ErrorReportingDispatcher,
+        _ErrorReportingDispatcher,
     );
 };
