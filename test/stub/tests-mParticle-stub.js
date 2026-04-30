@@ -125,6 +125,16 @@ describe('mParticle stubs', function() {
         (typeof aliasRequest.startTime).should.equal('number');
         (typeof aliasRequest.endTime).should.equal('number');
 
+        mParticle.Identity.identify();
+        mParticle.Identity.login();
+        mParticle.Identity.logout();
+        mParticle.Identity.modify();
+        mParticle.Identity.search(
+            'workspace_api_key',
+            { email: 'user@example.com' },
+            function() {}
+        );
+
         done();
     });
 
