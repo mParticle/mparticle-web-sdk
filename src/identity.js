@@ -774,7 +774,7 @@ export default function Identity(mpInstance) {
             const serviceUrl = mpInstance._Helpers.createServiceUrl(
                 mpInstance._Store.SDKConfig.identityUrl
             );
-            const searchUrl = serviceUrl + 'search?abc=123';
+            const searchUrl = serviceUrl + 'search?cb=1';
 
             const environment = mpInstance._Store.SDKConfig.isDevelopmentMode
                 ? 'development'
