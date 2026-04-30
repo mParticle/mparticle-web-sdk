@@ -44,7 +44,7 @@
         'stopTrackingLocation',
     ];
     var ecommerceMethods = ['setCurrencyCode', 'logCheckout'];
-    var identityMethods = ['identify', 'login', 'logout', 'modify'];
+    var identityMethods = ['identify', 'login', 'logout', 'modify', 'search'];
     var roktMethods = [
         'selectPlacements',
         'hashAttributes',

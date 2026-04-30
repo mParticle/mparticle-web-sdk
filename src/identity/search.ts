@@ -1,5 +1,6 @@
 import Constants, { HTTP_OK, HTTP_NOT_FOUND } from '../constants';
 import { SDKLoggerApi } from '../sdkRuntimeModels';
+import { isFunction } from '../utils';
 import {
     AsyncUploader,
     FetchUploader,
@@ -108,7 +109,7 @@ export const sendSearchRequest = async (
 ): Promise<void> => {
     // Validate the callback up front. If it isn't a function we have nowhere
     // to deliver a result to, so log and bail out without invoking anything.
-    if (typeof callback !== 'function') {
+    if (!isFunction(callback)) {
         logger.error(
             'search called without a callback function; skipping request.',
         );
@@ -182,7 +183,7 @@ export const sendSearchRequest = async (
 
         // FetchUploader returns a real Response with .json(); XHRUploader
         // returns an XHR-shaped object with `responseText`. We tolerate both.
-        if (typeof (response as Response).json === 'function') {
+        if (isFunction((response as Response).json)) {
             try {
                 body = (await (response as Response).json()) as IIdentitySearchResponseBody;
             } catch (e) {
