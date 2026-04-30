@@ -6,7 +6,7 @@ import {
     tryCacheIdentity,
 } from './identity-utils';
 import AudienceManager from './audienceManager';
-import { sendSearchWorkspaceRequest } from './searchWorkspace';
+import { sendSearchRequest } from './search';
 const { Messages, HTTPCodes, FeatureFlags, IdentityMethods } = Constants;
 const { ErrorMessages } = Messages;
 const { CacheIdentity } = FeatureFlags;
@@ -743,12 +743,12 @@ export default function Identity(mpInstance) {
          * searches can be authorised independently of the host SDK's
          * workspace.
          *
-         * @method searchWorkspace
+         * @method search
          * @param {String} workspaceApiKey Workspace API key (sent as x-mp-key).
          * @param {Object} knownIdentities `{ email: string }`
-         * @param {Function} callback Invoked with the `ISearchWorkspaceResult`.
+         * @param {Function} callback Invoked with the `ISearchResult`.
          */
-        searchWorkspace: function(workspaceApiKey, knownIdentities, callback) {
+        search: function(workspaceApiKey, knownIdentities, callback) {
             if (!mpInstance._Helpers.canLog()) {
                 mpInstance.Logger.verbose(
                     Messages.InformationMessages.AbandonLogEvent
@@ -760,7 +760,7 @@ export default function Identity(mpInstance) {
                         });
                     } catch (e) {
                         mpInstance.Logger.error(
-                            'Error invoking searchWorkspace callback: ' +
+                            'Error invoking search callback: ' +
                                 ((e && e.message) || String(e))
                         );
                     }
@@ -796,7 +796,7 @@ export default function Identity(mpInstance) {
                 };
             };
 
-            sendSearchWorkspaceRequest(
+            sendSearchRequest(
                 knownIdentities,
                 workspaceApiKey,
                 requestBuilder,

@@ -13,9 +13,9 @@ import {
     IIdentityResponse,
 } from './identity-user-interfaces';
 import {
-    ISearchWorkspaceKnownIdentities,
-    SearchWorkspaceCallback,
-} from './searchWorkspace';
+    ISearchKnownIdentities,
+    SearchCallback,
+} from './search';
 const { platform, sdkVendor, sdkVersion, HTTPCodes } = Constants;
 
 export type IdentityPreProcessResult = {
@@ -171,19 +171,19 @@ export interface SDKIdentityApi {
      * caller (from a kit's settings). It is sent as the `x-mp-key` header.
      * The SDK's own workspace token is intentionally not used.
      */
-    searchWorkspace?(
+    search?(
         workspaceApiKey: string,
-        knownIdentities: ISearchWorkspaceKnownIdentities,
-        callback: SearchWorkspaceCallback
+        knownIdentities: ISearchKnownIdentities,
+        callback: SearchCallback
     ): void;
 }
 
 export type {
-    ISearchWorkspaceKnownIdentities,
-    ISearchWorkspaceResult,
-    ISearchWorkspaceResponseBody,
-    SearchWorkspaceCallback,
-} from './searchWorkspace';
+    ISearchKnownIdentities,
+    ISearchResult,
+    ISearchResponseBody,
+    SearchCallback,
+} from './search';
 
 export interface IIdentity {
     audienceManager: AudienceManager;
