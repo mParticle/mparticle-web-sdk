@@ -14,8 +14,16 @@ import {
     IMParticleUser,
 } from './identity-user-interfaces';
 import { IStore } from './store';
+import type { IMParticleWebSDKInstance } from './mp-instance';
+import {
+    ISearchKnownIdentities,
+    ISearchRequestBody,
+    SearchCallback,
+    sendSearchRequest,
+} from './search';
 
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
+const { HTTPCodes, Messages } = Constants;
 export const CACHE_HEADER = 'x-mp-max-age' as const;
 
 export type IdentityCache = BaseVault<Dictionary<ICachedIdentityCall>>;
@@ -320,4 +328,75 @@ export const hasExplicitIdentifier = (store: IStore | undefined | null): boolean
         return true;
     }
     return !!store?.SDKConfig?.deviceId;
+};
+
+/**
+ * Wires the SDK instance into `sendSearchRequest`: gates on `canLog`,
+ * builds the `/v1/search` URL and request envelope, and dispatches.
+ * Lives here so the SDK glue (URL building, opt-out gate, dispatcher
+ * plumbing) is type-checked instead of being expressed in plain JS.
+ */
+export const executeSearchRequest = (
+    mpInstance: IMParticleWebSDKInstance,
+    workspaceApiKey: string,
+    knownIdentities: ISearchKnownIdentities,
+    callback: SearchCallback,
+): void => {
+    if (!mpInstance._Helpers.canLog()) {
+        mpInstance.Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
+        if (mpInstance._Helpers.Validators.isFunction(callback)) {
+            try {
+                callback({
+                    httpCode: HTTPCodes.loggingDisabledOrMissingAPIKey,
+                });
+            } catch (e) {
+                mpInstance.Logger.error(
+                    'Error invoking search callback: ' +
+                        ((e as Error)?.message || String(e)),
+                );
+            }
+        }
+        return;
+    }
+
+    // The Search endpoint is colocated with /v1/identify under
+    // identityUrl, so we reuse the same service URL builder. We do
+    // NOT append the apiKey to the URL — auth is done via x-mp-key.
+    const serviceUrl: string = mpInstance._Helpers.createServiceUrl(
+        mpInstance._Store.SDKConfig.identityUrl,
+    );
+    const searchUrl: string = serviceUrl + 'search?cb=1';
+
+    const environment: 'development' | 'production' = mpInstance._Store
+        .SDKConfig.isDevelopmentMode
+        ? 'development'
+        : 'production';
+
+    // Build the same envelope that /v1/identify uses (client_sdk,
+    // request_id, request_timestamp_ms, environment) so the IDSync
+    // service can correlate requests across endpoints.
+    const requestBuilder = (): Omit<
+        ISearchRequestBody,
+        'known_identities'
+    > => ({
+        client_sdk: {
+            platform: Constants.platform,
+            sdk_vendor: Constants.sdkVendor,
+            sdk_version: Constants.sdkVersion,
+        },
+        environment,
+        request_id: mpInstance._Helpers.generateUniqueId(),
+        request_timestamp_ms: new Date().getTime(),
+    });
+
+    sendSearchRequest(
+        knownIdentities,
+        workspaceApiKey,
+        requestBuilder,
+        searchUrl,
+        callback,
+        mpInstance.Logger,
+        undefined,
+        mpInstance._ErrorReportingDispatcher,
+    );
 };

@@ -3,10 +3,10 @@ import Types, { IdentityType } from './types';
 import {
     cacheOrClearIdCache,
     createKnownIdentities,
+    executeSearchRequest,
     tryCacheIdentity,
 } from './identity-utils';
 import AudienceManager from './audienceManager';
-import { sendSearchRequest } from './search';
 const { Messages, HTTPCodes, FeatureFlags, IdentityMethods } = Constants;
 const { ErrorMessages } = Messages;
 const { CacheIdentity } = FeatureFlags;
@@ -749,62 +749,11 @@ export default function Identity(mpInstance) {
          * @param {Function} callback Invoked with the `ISearchResult`.
          */
         search: function(workspaceApiKey, knownIdentities, callback) {
-            if (!mpInstance._Helpers.canLog()) {
-                mpInstance.Logger.verbose(
-                    Messages.InformationMessages.AbandonLogEvent
-                );
-                if (mpInstance._Helpers.Validators.isFunction(callback)) {
-                    try {
-                        callback({
-                            httpCode: HTTPCodes.loggingDisabledOrMissingAPIKey,
-                        });
-                    } catch (e) {
-                        mpInstance.Logger.error(
-                            'Error invoking search callback: ' +
-                                ((e && e.message) || String(e))
-                        );
-                    }
-                }
-                return;
-            }
-
-            // The Search endpoint is colocated with /v1/identify under
-            // identityUrl, so we reuse the same service URL builder. We do
-            // NOT append the apiKey to the URL — auth is done via x-mp-key.
-            const serviceUrl = mpInstance._Helpers.createServiceUrl(
-                mpInstance._Store.SDKConfig.identityUrl
-            );
-            const searchUrl = serviceUrl + 'search?cb=1';
-
-            const environment = mpInstance._Store.SDKConfig.isDevelopmentMode
-                ? 'development'
-                : 'production';
-
-            // Build the same envelope that /v1/identify uses (client_sdk,
-            // request_id, request_timestamp_ms, environment) so the IDSync
-            // service can correlate requests across endpoints.
-            const requestBuilder = function() {
-                return {
-                    client_sdk: {
-                        platform: Constants.platform,
-                        sdk_vendor: Constants.sdkVendor,
-                        sdk_version: Constants.sdkVersion,
-                    },
-                    environment: environment,
-                    request_id: mpInstance._Helpers.generateUniqueId(),
-                    request_timestamp_ms: new Date().getTime(),
-                };
-            };
-
-            sendSearchRequest(
-                knownIdentities,
+            executeSearchRequest(
+                mpInstance,
                 workspaceApiKey,
-                requestBuilder,
-                searchUrl,
-                callback,
-                mpInstance.Logger,
-                undefined,
-                mpInstance._ErrorReportingDispatcher
+                knownIdentities,
+                callback
             );
         },
 
