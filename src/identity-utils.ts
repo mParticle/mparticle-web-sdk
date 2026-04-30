@@ -1,5 +1,5 @@
 import Constants, { ONE_DAY_IN_SECONDS, MILLIS_IN_ONE_SEC } from './constants';
-import { Dictionary, parseNumber, isObject, generateHash, generateUniqueId, isEmpty, isFunction } from './utils';
+import { Dictionary, Environment, parseNumber, isObject, generateHash, generateUniqueId, isEmpty, isFunction } from './utils';
 import { BaseVault } from './vault';
 import Types from './types';
 import {
@@ -337,7 +337,7 @@ export const hasExplicitIdentifier = (store: IStore | undefined | null): boolean
  * fold in the search-specific identifiers alongside the envelope.
  */
 export const buildIdentitySearchEnvelope = (
-    environment: 'development' | 'production',
+    environment: Environment,
 ): Omit<IIdentitySearchRequestBody, 'known_identities'> => ({
     client_sdk: {
         platform: Constants.platform,

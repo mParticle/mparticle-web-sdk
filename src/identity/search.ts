@@ -1,6 +1,6 @@
 import Constants, { HTTP_OK, HTTP_NOT_FOUND } from '../constants';
 import { SDKLoggerApi } from '../sdkRuntimeModels';
-import { isFunction } from '../utils';
+import { Environment, isFunction } from '../utils';
 import {
     AsyncUploader,
     FetchUploader,
@@ -69,7 +69,7 @@ export interface IIdentitySearchRequestBody {
         sdk_vendor: string;
         sdk_version: string;
     };
-    environment: 'development' | 'production';
+    environment: Environment;
     request_id: string;
     request_timestamp_ms: number;
     known_identities: IIdentitySearchKnownIdentities;
@@ -183,9 +183,9 @@ export const sendSearchRequest = async (
 
         // FetchUploader returns a real Response with .json(); XHRUploader
         // returns an XHR-shaped object with `responseText`. We tolerate both.
-        if (isFunction((response as Response).json)) {
+        if (isFunction(response.json)) {
             try {
-                body = (await (response as Response).json()) as IIdentitySearchResponseBody;
+                body = (await response.json()) as IIdentitySearchResponseBody;
             } catch (e) {
                 logger.verbose(
                     'search response had no parseable JSON body.',
