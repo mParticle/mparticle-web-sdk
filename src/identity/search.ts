@@ -1,16 +1,16 @@
-import Constants, { HTTP_OK, HTTP_NOT_FOUND } from './constants';
-import { SDKLoggerApi } from './sdkRuntimeModels';
+import Constants, { HTTP_OK, HTTP_NOT_FOUND } from '../constants';
+import { SDKLoggerApi } from '../sdkRuntimeModels';
 import {
     AsyncUploader,
     FetchUploader,
     IFetchPayload,
     XHRUploader,
-} from './uploaders';
+} from '../uploaders';
 import {
     ErrorCodes,
     IErrorReportingService,
     WSDKErrorSeverity,
-} from './reporting/types';
+} from '../reporting/types';
 
 const { HTTPCodes } = Constants;
 

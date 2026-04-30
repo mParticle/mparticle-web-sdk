@@ -8,7 +8,8 @@ import { IMParticleInstanceManager, SDKLoggerApi } from '../../src/sdkRuntimeMod
 import {
     IIdentitySearchResult,
     sendSearchRequest,
-} from '../../src/search';
+} from '../../src/identity/search';
+import { buildIdentitySearchEnvelope } from '../../src/identity-utils';
 import Utils from './config/utils';
 const { fetchMockSuccess } = Utils;
 
@@ -337,6 +338,41 @@ describe('search', () => {
             const result = callback.getCall(0).args[0] as IIdentitySearchResult;
             expect(result.httpCode).to.equal(200);
             expect(result.body).to.be.undefined;
+        });
+    });
+
+    describe('buildIdentitySearchEnvelope', () => {
+        it('returns the SDK identifiers and the supplied environment with a generated request_id and timestamp', () => {
+            const before = new Date().getTime();
+            const envelope = buildIdentitySearchEnvelope('production');
+            const after = new Date().getTime();
+
+            expect(envelope.client_sdk).to.deep.equal({
+                platform: Constants.platform,
+                sdk_vendor: Constants.sdkVendor,
+                sdk_version: Constants.sdkVersion,
+            });
+            expect(envelope.environment).to.equal('production');
+            expect(typeof envelope.request_id).to.equal('string');
+            expect(envelope.request_id.length).to.be.greaterThan(0);
+            expect(typeof envelope.request_timestamp_ms).to.equal('number');
+            expect(envelope.request_timestamp_ms).to.be.at.least(before);
+            expect(envelope.request_timestamp_ms).to.be.at.most(after);
+        });
+
+        it('forwards the development environment when called with development', () => {
+            expect(buildIdentitySearchEnvelope('development').environment).to.equal('development');
+        });
+
+        it('returns a fresh request_id on every call', () => {
+            const a = buildIdentitySearchEnvelope('development').request_id;
+            const b = buildIdentitySearchEnvelope('development').request_id;
+            expect(a).to.not.equal(b);
+        });
+
+        it('does not include known_identities (caller folds those in)', () => {
+            const envelope = buildIdentitySearchEnvelope('development') as Record<string, unknown>;
+            expect(envelope).to.not.have.property('known_identities');
         });
     });
 

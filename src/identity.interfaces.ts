@@ -15,7 +15,7 @@ import {
 import {
     IIdentitySearchKnownIdentities,
     IdentitySearchCallback,
-} from './search';
+} from './identity/search';
 const { platform, sdkVendor, sdkVersion, HTTPCodes } = Constants;
 
 export type IdentityPreProcessResult = {
@@ -183,7 +183,7 @@ export type {
     IIdentitySearchResult,
     IIdentitySearchResponseBody,
     IdentitySearchCallback,
-} from './search';
+} from './identity/search';
 
 export interface IIdentity {
     audienceManager: AudienceManager;

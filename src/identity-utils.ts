@@ -1,5 +1,5 @@
 import Constants, { ONE_DAY_IN_SECONDS, MILLIS_IN_ONE_SEC } from './constants';
-import { Dictionary, parseNumber, isObject, generateHash, isEmpty } from './utils';
+import { Dictionary, parseNumber, isObject, generateHash, generateUniqueId, isEmpty, isFunction } from './utils';
 import { BaseVault } from './vault';
 import Types from './types';
 import {
@@ -20,7 +20,7 @@ import {
     IIdentitySearchRequestBody,
     IdentitySearchCallback,
     sendSearchRequest,
-} from './search';
+} from './identity/search';
 
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 const { HTTPCodes, Messages } = Constants;
@@ -331,6 +331,25 @@ export const hasExplicitIdentifier = (store: IStore | undefined | null): boolean
 };
 
 /**
+ * Builds the /v1/identify-style envelope (client_sdk, environment,
+ * request_id, request_timestamp_ms) used to correlate IDSync requests
+ * across endpoints. `known_identities` is omitted so the caller can
+ * fold in the search-specific identifiers alongside the envelope.
+ */
+export const buildIdentitySearchEnvelope = (
+    environment: 'development' | 'production',
+): Omit<IIdentitySearchRequestBody, 'known_identities'> => ({
+    client_sdk: {
+        platform: Constants.platform,
+        sdk_vendor: Constants.sdkVendor,
+        sdk_version: Constants.sdkVersion,
+    },
+    environment,
+    request_id: generateUniqueId(),
+    request_timestamp_ms: new Date().getTime(),
+});
+
+/**
  * Wires the SDK instance into `sendSearchRequest`: gates on `canLog`,
  * builds the `/v1/search` URL and request envelope, and dispatches.
  * Lives here so the SDK glue (URL building, opt-out gate, dispatcher
@@ -342,15 +361,18 @@ export const executeSearchRequest = (
     knownIdentities: IIdentitySearchKnownIdentities,
     callback: IdentitySearchCallback,
 ): void => {
-    if (!mpInstance._Helpers.canLog()) {
-        mpInstance.Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
-        if (mpInstance._Helpers.Validators.isFunction(callback)) {
+    const { _Helpers, _Store, Logger, _ErrorReportingDispatcher } = mpInstance;
+    const { identityUrl, isDevelopmentMode } = _Store.SDKConfig;
+
+    if (!_Helpers.canLog()) {
+        Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
+        if (isFunction(callback)) {
             try {
                 callback({
                     httpCode: HTTPCodes.loggingDisabledOrMissingAPIKey,
                 });
             } catch (e) {
-                mpInstance.Logger.error(
+                Logger.error(
                     'Error invoking search callback: ' +
                         ((e as Error)?.message || String(e)),
                 );
@@ -362,40 +384,20 @@ export const executeSearchRequest = (
     // The Search endpoint is colocated with /v1/identify under
     // identityUrl, so we reuse the same service URL builder. We do
     // NOT append the apiKey to the URL — auth is done via x-mp-key.
-    const serviceUrl: string = mpInstance._Helpers.createServiceUrl(
-        mpInstance._Store.SDKConfig.identityUrl,
-    );
+    const serviceUrl: string = _Helpers.createServiceUrl(identityUrl);
     const searchUrl: string = serviceUrl + 'search?cb=1';
 
-    const environment: 'development' | 'production' = mpInstance._Store
-        .SDKConfig.isDevelopmentMode
+    const environment: 'development' | 'production' = isDevelopmentMode
         ? 'development'
         : 'production';
-
-    // Build the same envelope that /v1/identify uses (client_sdk,
-    // request_id, request_timestamp_ms, environment) so the IDSync
-    // service can correlate requests across endpoints.
-    const requestBuilder = (): Omit<
-        IIdentitySearchRequestBody,
-        'known_identities'
-    > => ({
-        client_sdk: {
-            platform: Constants.platform,
-            sdk_vendor: Constants.sdkVendor,
-            sdk_version: Constants.sdkVersion,
-        },
-        environment,
-        request_id: mpInstance._Helpers.generateUniqueId(),
-        request_timestamp_ms: new Date().getTime(),
-    });
 
     sendSearchRequest(
         knownIdentities,
         workspaceApiKey,
-        requestBuilder,
+        () => buildIdentitySearchEnvelope(environment),
         searchUrl,
         callback,
-        mpInstance.Logger,
+        Logger,
         undefined,
         mpInstance._ErrorReportingDispatcher,
     );
