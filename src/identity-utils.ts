@@ -16,9 +16,9 @@ import {
 import { IStore } from './store';
 import type { IMParticleWebSDKInstance } from './mp-instance';
 import {
-    ISearchKnownIdentities,
-    ISearchRequestBody,
-    SearchCallback,
+    IIdentitySearchKnownIdentities,
+    IIdentitySearchRequestBody,
+    IdentitySearchCallback,
     sendSearchRequest,
 } from './search';
 
@@ -339,8 +339,8 @@ export const hasExplicitIdentifier = (store: IStore | undefined | null): boolean
 export const executeSearchRequest = (
     mpInstance: IMParticleWebSDKInstance,
     workspaceApiKey: string,
-    knownIdentities: ISearchKnownIdentities,
-    callback: SearchCallback,
+    knownIdentities: IIdentitySearchKnownIdentities,
+    callback: IdentitySearchCallback,
 ): void => {
     if (!mpInstance._Helpers.canLog()) {
         mpInstance.Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
@@ -376,7 +376,7 @@ export const executeSearchRequest = (
     // request_id, request_timestamp_ms, environment) so the IDSync
     // service can correlate requests across endpoints.
     const requestBuilder = (): Omit<
-        ISearchRequestBody,
+        IIdentitySearchRequestBody,
         'known_identities'
     > => ({
         client_sdk: {

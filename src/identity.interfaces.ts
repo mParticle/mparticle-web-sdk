@@ -13,8 +13,8 @@ import {
     IIdentityResponse,
 } from './identity-user-interfaces';
 import {
-    ISearchKnownIdentities,
-    SearchCallback,
+    IIdentitySearchKnownIdentities,
+    IdentitySearchCallback,
 } from './search';
 const { platform, sdkVendor, sdkVersion, HTTPCodes } = Constants;
 
@@ -173,16 +173,16 @@ export interface SDKIdentityApi {
      */
     search?(
         workspaceApiKey: string,
-        knownIdentities: ISearchKnownIdentities,
-        callback: SearchCallback
+        knownIdentities: IIdentitySearchKnownIdentities,
+        callback: IdentitySearchCallback
     ): void;
 }
 
 export type {
-    ISearchKnownIdentities,
-    ISearchResult,
-    ISearchResponseBody,
-    SearchCallback,
+    IIdentitySearchKnownIdentities,
+    IIdentitySearchResult,
+    IIdentitySearchResponseBody,
+    IdentitySearchCallback,
 } from './search';
 
 export interface IIdentity {

@@ -6,7 +6,7 @@ import Constants from '../../src/constants';
 import { Logger } from '../../src/logger';
 import { IMParticleInstanceManager, SDKLoggerApi } from '../../src/sdkRuntimeModels';
 import {
-    ISearchResult,
+    IIdentitySearchResult,
     sendSearchRequest,
 } from '../../src/search';
 import Utils from './config/utils';
@@ -80,7 +80,7 @@ describe('search', () => {
             );
 
             expect(callback.calledOnce).to.eq(true);
-            const result = callback.getCall(0).args[0] as ISearchResult;
+            const result = callback.getCall(0).args[0] as IIdentitySearchResult;
             expect(result.httpCode).to.equal(200);
             expect(result.body).to.deep.equal(responseBody);
         });
@@ -146,7 +146,7 @@ describe('search', () => {
             );
 
             expect(callback.calledOnce).to.eq(true);
-            const result = callback.getCall(0).args[0] as ISearchResult;
+            const result = callback.getCall(0).args[0] as IIdentitySearchResult;
             expect(result.httpCode).to.equal(404);
             // Body is best-effort parsed; we don't assert its exact shape
             // beyond "it didn't throw".
@@ -171,7 +171,7 @@ describe('search', () => {
             // Missing apiKey: no network, but callback fires so callers can
             // resolve any loading state they're holding open.
             expect(callback.calledOnce).to.eq(true);
-            const result = callback.getCall(0).args[0] as ISearchResult;
+            const result = callback.getCall(0).args[0] as IIdentitySearchResult;
             expect(result.httpCode).to.equal(HTTPCodes.noHttpCoverage);
         });
 
@@ -230,7 +230,7 @@ describe('search', () => {
             expect(fetchMock.calls(searchUrl).length).to.equal(0);
             expect(callback.callCount).to.equal(3);
             for (let i = 0; i < callback.callCount; i++) {
-                const result = callback.getCall(i).args[0] as ISearchResult;
+                const result = callback.getCall(i).args[0] as IIdentitySearchResult;
                 expect(result.httpCode).to.equal(HTTPCodes.noHttpCoverage);
             }
         });
@@ -255,7 +255,7 @@ describe('search', () => {
 
             expect(threw, 'should not throw on network error').to.eq(false);
             expect(callback.calledOnce).to.eq(true);
-            const result = callback.getCall(0).args[0] as ISearchResult;
+            const result = callback.getCall(0).args[0] as IIdentitySearchResult;
             expect(result.httpCode).to.equal(HTTPCodes.noHttpCoverage);
         });
 
@@ -285,7 +285,7 @@ describe('search', () => {
 
             expect(threw, 'should not throw on setup error').to.eq(false);
             expect(callback.calledOnce).to.eq(true);
-            const result = callback.getCall(0).args[0] as ISearchResult;
+            const result = callback.getCall(0).args[0] as IIdentitySearchResult;
             expect(result.httpCode).to.equal(HTTPCodes.noHttpCoverage);
             // No network call should have been made.
             expect(fetchMock.calls(searchUrl).length).to.equal(0);
@@ -334,7 +334,7 @@ describe('search', () => {
             );
 
             expect(callback.calledOnce).to.eq(true);
-            const result = callback.getCall(0).args[0] as ISearchResult;
+            const result = callback.getCall(0).args[0] as IIdentitySearchResult;
             expect(result.httpCode).to.equal(200);
             expect(result.body).to.be.undefined;
         });
@@ -390,7 +390,7 @@ describe('search', () => {
             expect(typeof sentBody.request_timestamp_ms).to.equal('number');
 
             expect(callback.calledOnce).to.eq(true);
-            const result = callback.getCall(0).args[0] as ISearchResult;
+            const result = callback.getCall(0).args[0] as IIdentitySearchResult;
             expect(result.httpCode).to.equal(200);
             expect(result.body).to.deep.equal({ mpid: 'matched' });
         });
@@ -421,7 +421,7 @@ describe('search', () => {
 
             expect(fetchMock.calls(searchUrl).length).to.equal(0);
             expect(callback.calledOnce).to.eq(true);
-            const result = callback.getCall(0).args[0] as ISearchResult;
+            const result = callback.getCall(0).args[0] as IIdentitySearchResult;
             expect(result.httpCode).to.equal(HTTPCodes.noHttpCoverage);
         });
 
@@ -448,12 +448,12 @@ describe('search', () => {
 
             expect(fetchMock.calls(searchUrl).length).to.equal(0);
             expect(callback.calledOnce).to.eq(true);
-            const result = callback.getCall(0).args[0] as ISearchResult & {
+            const result = callback.getCall(0).args[0] as IIdentitySearchResult & {
                 getUser?: unknown;
                 getPreviousUser?: unknown;
             };
             expect(result.httpCode).to.equal(HTTPCodes.loggingDisabledOrMissingAPIKey);
-            // Result must conform to ISearchResult: no body string,
+            // Result must conform to IIdentitySearchResult: no body string,
             // and none of the standard Identity-callback `getUser`/`getPreviousUser`
             // helpers (which would leak through if `_Helpers.invokeCallback` were
             // used to deliver this result).

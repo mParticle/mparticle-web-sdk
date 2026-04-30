@@ -22,7 +22,7 @@ const { HTTPCodes } = Constants;
  * Additional identity types can be added here in the future without breaking
  * existing consumers.
  */
-export interface ISearchKnownIdentities {
+export interface IIdentitySearchKnownIdentities {
     email: string;
 }
 
@@ -34,7 +34,7 @@ export interface ISearchKnownIdentities {
  * error-shaped bodies, and the consumer should only rely on body fields when
  * `httpCode === 200`.
  */
-export interface ISearchResponseBody {
+export interface IIdentitySearchResponseBody {
     context?: string | null;
     mpid?: string;
     matched_identities?: Record<string, string>;
@@ -51,18 +51,18 @@ export interface ISearchResponseBody {
  * be omitted. The consumer is expected to gate behaviour on
  * `httpCode === 200`.
  */
-export interface ISearchResult {
+export interface IIdentitySearchResult {
     httpCode: number;
-    body?: ISearchResponseBody;
+    body?: IIdentitySearchResponseBody;
 }
 
-export type SearchCallback = (result: ISearchResult) => void;
+export type IdentitySearchCallback = (result: IIdentitySearchResult) => void;
 
 /**
  * Body posted to `/v1/search`. Mirrors the `/v1/identify` request envelope so
  * that the IDSync service can correlate requests across endpoints.
  */
-export interface ISearchRequestBody {
+export interface IIdentitySearchRequestBody {
     client_sdk: {
         platform: string;
         sdk_vendor: string;
@@ -71,10 +71,10 @@ export interface ISearchRequestBody {
     environment: 'development' | 'production';
     request_id: string;
     request_timestamp_ms: number;
-    known_identities: ISearchKnownIdentities;
+    known_identities: IIdentitySearchKnownIdentities;
 }
 
-interface ISearchPayload extends IFetchPayload {
+interface IIdentitySearchPayload extends IFetchPayload {
     headers: {
         Accept: string;
         'Content-Type': string;
@@ -97,11 +97,11 @@ interface ISearchPayload extends IFetchPayload {
  *    them (matches the pattern used by identifyRequest in identityApiClient).
  */
 export const sendSearchRequest = async (
-    knownIdentities: ISearchKnownIdentities,
+    knownIdentities: IIdentitySearchKnownIdentities,
     apiKey: string,
-    requestBuilder: () => Omit<ISearchRequestBody, 'known_identities'>,
+    requestBuilder: () => Omit<IIdentitySearchRequestBody, 'known_identities'>,
     searchUrl: string,
-    callback: SearchCallback,
+    callback: IdentitySearchCallback,
     logger: SDKLoggerApi,
     uploader?: AsyncUploader,
     errorReporter?: IErrorReportingService,
@@ -115,7 +115,7 @@ export const sendSearchRequest = async (
         return;
     }
 
-    const safeInvoke = (result: ISearchResult): void => {
+    const safeInvoke = (result: IIdentitySearchResult): void => {
         try {
             callback(result);
         } catch (e) {
@@ -152,14 +152,14 @@ export const sendSearchRequest = async (
     // rejecting and the caller hanging on a never-fired callback.
     try {
         const requestEnvelope = requestBuilder();
-        const requestBody: ISearchRequestBody = {
+        const requestBody: IIdentitySearchRequestBody = {
             ...requestEnvelope,
             known_identities: {
                 email: knownIdentities.email,
             },
         };
 
-        const fetchPayload: ISearchPayload = {
+        const fetchPayload: IIdentitySearchPayload = {
             method: 'post',
             headers: {
                 Accept: 'application/json',
@@ -178,13 +178,13 @@ export const sendSearchRequest = async (
         logger.verbose('Sending search request to ' + searchUrl);
         const response: Response = await api.upload(fetchPayload, searchUrl);
 
-        let body: ISearchResponseBody | undefined;
+        let body: IIdentitySearchResponseBody | undefined;
 
         // FetchUploader returns a real Response with .json(); XHRUploader
         // returns an XHR-shaped object with `responseText`. We tolerate both.
         if (typeof (response as Response).json === 'function') {
             try {
-                body = (await (response as Response).json()) as ISearchResponseBody;
+                body = (await (response as Response).json()) as IIdentitySearchResponseBody;
             } catch (e) {
                 logger.verbose(
                     'search response had no parseable JSON body.',
@@ -194,7 +194,7 @@ export const sendSearchRequest = async (
             const xhrLike = (response as unknown) as XMLHttpRequest;
             if (xhrLike?.responseText) {
                 try {
-                    body = JSON.parse(xhrLike.responseText) as ISearchResponseBody;
+                    body = JSON.parse(xhrLike.responseText) as IIdentitySearchResponseBody;
                 } catch (e) {
                     logger.verbose(
                         'search XHR response was not valid JSON.',
