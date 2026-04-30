@@ -387,7 +387,7 @@ export const executeSearchRequest = (
     const serviceUrl: string = _Helpers.createServiceUrl(identityUrl);
     const searchUrl: string = serviceUrl + 'search?cb=1';
 
-    const environment: 'development' | 'production' = isDevelopmentMode
+    const environment: Environment = isDevelopmentMode
         ? 'development'
         : 'production';
 
