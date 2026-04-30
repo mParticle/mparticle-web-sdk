@@ -346,7 +346,7 @@ export const buildIdentitySearchEnvelope = (
     },
     environment,
     request_id: generateUniqueId(),
-    request_timestamp_ms: new Date().getTime(),
+    request_timestamp_ms: Date.now(),
 });
 
 /**
