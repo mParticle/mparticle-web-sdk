@@ -296,11 +296,9 @@ const getExpireTimestamp = (maxAge: number = ONE_DAY_IN_SECONDS): number =>
 const parseIdentityResponse = (responseText: string): IdentityResultBody =>
     responseText ? JSON.parse(responseText) : ({} as IdentityResultBody);
 
-// Maps convenience identity key names to their canonical server-side names.
-// Mirrors the emailSha256/mobileSha256 helpers added in the Apple SDK (PR #756).
 const SHA256_IDENTITY_ALIASES: Readonly<Record<string, string>> = {
     email_sha256: 'other',
-    mobile_sha256: 'other',
+    mobile_sha256: 'other2',
 };
 
 export const normalizeUserIdentityKeys = (
@@ -313,9 +311,7 @@ export const normalizeUserIdentityKeys = (
         if (alias in normalized) {
             const value = normalized[alias];
             delete normalized[alias];
-            if (value !== null) {
-                normalized[SHA256_IDENTITY_ALIASES[alias]] = value;
-            }
+            normalized[SHA256_IDENTITY_ALIASES[alias]] = value;
         }
     }
     return normalized as UserIdentities;

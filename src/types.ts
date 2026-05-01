@@ -208,7 +208,7 @@ export const IdentityType = {
             case 'email_sha256':
                 return IdentityType.Other;
             case 'mobile_sha256':
-                return IdentityType.Other;
+                return IdentityType.Other2;
             default:
                 return false;
         }

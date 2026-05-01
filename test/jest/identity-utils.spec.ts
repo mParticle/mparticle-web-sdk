@@ -6,17 +6,22 @@ describe('normalizeUserIdentityKeys', () => {
         expect(result).toEqual({ other: 'abc123hash' });
     });
 
-    it('maps mobile_sha256 to other', () => {
-        const result = normalizeUserIdentityKeys({ mobile_sha256: 'mobilehash456' });
-        expect(result).toEqual({ other: 'mobilehash456' });
+    it('maps mobile_sha256 to other2', () => {
+        const result = normalizeUserIdentityKeys({
+            mobile_sha256: 'mobilehash456',
+        });
+        expect(result).toEqual({ other2: 'mobilehash456' });
     });
 
-    it('last sha256 alias wins when both are set (same slot)', () => {
+    it('maps both aliases to distinct canonical slots', () => {
         const result = normalizeUserIdentityKeys({
             email_sha256: 'emailhash',
             mobile_sha256: 'mobilehash',
         });
-        expect(result).toEqual({ other: 'mobilehash' });
+        expect(result).toEqual({
+            other: 'emailhash',
+            other2: 'mobilehash',
+        });
     });
 
     it('preserves other canonical identity keys alongside sha256 aliases', () => {
@@ -35,12 +40,28 @@ describe('normalizeUserIdentityKeys', () => {
     it('does not modify identities without sha256 aliases', () => {
         const input = { email: 'user@example.com', customerid: 'cust123' };
         const result = normalizeUserIdentityKeys(input);
-        expect(result).toEqual({ email: 'user@example.com', customerid: 'cust123' });
+        expect(result).toEqual({
+            email: 'user@example.com',
+            customerid: 'cust123',
+        });
     });
 
-    it('drops null values for sha256 aliases', () => {
+    it('passes null on email_sha256 through to other (clears canonical slot)', () => {
         const result = normalizeUserIdentityKeys({ email_sha256: null });
-        expect(result).toEqual({});
+        expect(result).toEqual({ other: null });
+    });
+
+    it('passes null on mobile_sha256 through to other2 (clears canonical slot)', () => {
+        const result = normalizeUserIdentityKeys({ mobile_sha256: null });
+        expect(result).toEqual({ other2: null });
+    });
+
+    it('alias overwrites a same-slot canonical value (silent last-write-wins)', () => {
+        const result = normalizeUserIdentityKeys({
+            other: 'preexisting',
+            email_sha256: 'aliasvalue',
+        });
+        expect(result).toEqual({ other: 'aliasvalue' });
     });
 
     it('does not mutate the original object', () => {

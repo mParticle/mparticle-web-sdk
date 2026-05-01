@@ -440,7 +440,7 @@ describe('IdentityType', () => {
             expect(getIdentityType('phone_number_2')).toBe(PhoneNumber2);
             expect(getIdentityType('phone_number_3')).toBe(PhoneNumber3);
             expect(getIdentityType('email_sha256')).toBe(Other);
-            expect(getIdentityType('mobile_sha256')).toBe(Other);
+            expect(getIdentityType('mobile_sha256')).toBe(Other2);
         });
 
         it('returns false if the identity name is not found', () => {
