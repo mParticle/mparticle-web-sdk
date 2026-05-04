@@ -28,7 +28,7 @@ interface ICart {
 
 // https://go.mparticle.com/work/SQDSDKS-5033
 // https://go.mparticle.com/work/SQDSDKS-6354
-export interface IMParticleUser extends Omit<User, 'getCart'> {
+export interface IMParticleUser extends User {
     getAllUserAttributes(): any;
     setUserTag(tagName: string, value?: any): void;
     setUserAttribute(key: string, value: any): void;

@@ -161,9 +161,9 @@ export interface SDKProductAction {
 }
 
 export interface SDKProduct {
-    Sku?: string;
-    Name?: string;
-    Price?: number;
+    Sku: string;
+    Name: string;
+    Price: number;
     Quantity?: number;
     Brand?: string;
     Variant?: string;
@@ -173,7 +173,7 @@ export interface SDKProduct {
     TotalAmount?: number;
 
     // https://go.mparticle.com/work/SQDSDKS-4801
-    Attributes?: Record<string, unknown> | null;
+    Attributes?: Record<string, unknown>;
 }
 
 // https://go.mparticle.com/work/SQDSDKS-6949
