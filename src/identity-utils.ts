@@ -289,7 +289,9 @@ const getExpireTimestamp = (maxAge: number = ONE_DAY_IN_SECONDS): number =>
 const parseIdentityResponse = (responseText: string): IdentityResultBody =>
     responseText ? JSON.parse(responseText) : ({} as IdentityResultBody);
 
-const SHA256_IDENTITY_ALIASES: Readonly<UserIdentities> = {
+const SHA256_IDENTITY_ALIASES: Readonly<
+    Partial<Record<keyof UserIdentities, keyof UserIdentities>>
+> = {
     email_sha256: 'other',
     mobile_sha256: 'other2',
 };
