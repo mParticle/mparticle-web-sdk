@@ -41,7 +41,7 @@ export default function Identity(mpInstance) {
                 mpInstance.Logger
             );
 
-            // Normalize convenience aliases (email_sha256 → other, mobile_sha256 → other)
+            // Normalize convenience aliases (email_sha256 → other, mobile_sha256 → other2)
             const cleanedIdentityApiData = removedFalsyIdentityData?.userIdentities
                 ? {
                       ...removedFalsyIdentityData,
