@@ -7,13 +7,6 @@ import {
     UserIdentities,
     IdentityCallback,
 } from '@mparticle/web-sdk';
-
-declare module '@mparticle/web-sdk' {
-    interface UserIdentities {
-        email_sha256?: string | undefined;
-        mobile_sha256?: string | undefined;
-    }
-}
 import { IdentityAPIMethod, IIdentityRequest } from './identity.interfaces';
 import {
     IdentityResultBody,
@@ -296,7 +289,7 @@ const getExpireTimestamp = (maxAge: number = ONE_DAY_IN_SECONDS): number =>
 const parseIdentityResponse = (responseText: string): IdentityResultBody =>
     responseText ? JSON.parse(responseText) : ({} as IdentityResultBody);
 
-const SHA256_IDENTITY_ALIASES: Readonly<Record<string, string>> = {
+const SHA256_IDENTITY_ALIASES: Readonly<UserIdentities> = {
     email_sha256: 'other',
     mobile_sha256: 'other2',
 };
@@ -304,9 +297,7 @@ const SHA256_IDENTITY_ALIASES: Readonly<Record<string, string>> = {
 export const normalizeUserIdentityKeys = (
     userIdentities: UserIdentities
 ): UserIdentities => {
-    const normalized: Record<string, string | null | undefined> = {
-        ...(userIdentities as Record<string, string | null | undefined>),
-    };
+    const normalized: UserIdentities = { ...userIdentities };
     for (const alias of Object.keys(SHA256_IDENTITY_ALIASES)) {
         if (alias in normalized) {
             const value = normalized[alias];
@@ -314,7 +305,7 @@ export const normalizeUserIdentityKeys = (
             normalized[SHA256_IDENTITY_ALIASES[alias]] = value;
         }
     }
-    return normalized as UserIdentities;
+    return normalized;
 };
 
 export const hasIdentityRequestChanged = (
@@ -328,7 +319,9 @@ export const hasIdentityRequestChanged = (
     const currentUserIdentities =
         currentUser.getUserIdentities().userIdentities;
 
-    const newIdentities = newIdentityRequest.userIdentities;
+    const newIdentities = normalizeUserIdentityKeys(
+        newIdentityRequest.userIdentities
+    );
 
     return (
         JSON.stringify(currentUserIdentities) !== JSON.stringify(newIdentities)
