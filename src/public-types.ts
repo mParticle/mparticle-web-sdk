@@ -86,12 +86,3 @@ export type {
 
 // Utilities
 export type { Dictionary, valueof } from './utils';
-
-// Remove once DefinitelyTyped/DefinitelyTyped#74955 publishes to
-// @types/mparticle__web-sdk.
-declare module '@mparticle/web-sdk' {
-    interface UserIdentities {
-        email_sha256?: string | null;
-        mobile_sha256?: string | null;
-    }
-}
