@@ -1,6 +1,6 @@
 import Constants, { HTTP_OK, HTTP_NOT_FOUND } from '../constants';
 import { SDKLoggerApi } from '../sdkRuntimeModels';
-import { Environment, isEmpty, isFunction } from '../utils';
+import { Environment, isFunction } from '../utils';
 import {
     AsyncUploader,
     FetchUploader,
@@ -130,7 +130,7 @@ export const sendSearchRequest = async (
         )
     ) {
         logger.verbose(
-            'Identity search called with non empty identifiers; skipping request.',
+            'Identity search called with empty identifiers; skipping request.',
         );
         safeInvoke({ httpCode: HTTPCodes.noHttpCoverage });
         return;
