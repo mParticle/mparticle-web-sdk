@@ -56,6 +56,7 @@ let mParticle = {
         login: voidFunction,
         logout: voidFunction,
         modify: voidFunction,
+        search: voidFunction,
     },
 };
 

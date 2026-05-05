@@ -56,6 +56,10 @@ export type {
     IAliasCallback,
     IAliasResult,
     SDKIdentityTypeEnum,
+    IIdentitySearchKnownIdentities,
+    IIdentitySearchResult,
+    IIdentitySearchResponseBody,
+    IdentitySearchCallback,
 } from './identity.interfaces';
 
 // eCommerce

@@ -1,5 +1,5 @@
 import Constants, { ONE_DAY_IN_SECONDS, MILLIS_IN_ONE_SEC } from './constants';
-import { Dictionary, parseNumber, isObject, generateHash, isEmpty } from './utils';
+import { Dictionary, Environment, parseNumber, isObject, generateHash, generateUniqueId, isEmpty, isFunction } from './utils';
 import { BaseVault } from './vault';
 import Types from './types';
 import {
@@ -14,8 +14,16 @@ import {
     IMParticleUser,
 } from './identity-user-interfaces';
 import { IStore } from './store';
+import type { IMParticleWebSDKInstance } from './mp-instance';
+import {
+    IIdentitySearchKnownIdentities,
+    IIdentitySearchRequestBody,
+    IdentitySearchCallback,
+    sendSearchRequest,
+} from './identity/search';
 
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
+const { HTTPCodes, Messages } = Constants;
 export const CACHE_HEADER = 'x-mp-max-age' as const;
 
 export type IdentityCache = BaseVault<Dictionary<ICachedIdentityCall>>;
@@ -320,4 +328,77 @@ export const hasExplicitIdentifier = (store: IStore | undefined | null): boolean
         return true;
     }
     return !!store?.SDKConfig?.deviceId;
+};
+
+/**
+ * Builds the /v1/identify-style envelope (client_sdk, environment,
+ * request_id, request_timestamp_ms) used to correlate IDSync requests
+ * across endpoints. `known_identities` is omitted so the caller can
+ * fold in the search-specific identifiers alongside the envelope.
+ */
+export const buildIdentitySearchEnvelope = (
+    environment: Environment,
+): Omit<IIdentitySearchRequestBody, 'known_identities'> => ({
+    client_sdk: {
+        platform: Constants.platform,
+        sdk_vendor: Constants.sdkVendor,
+        sdk_version: Constants.sdkVersion,
+    },
+    environment,
+    request_id: generateUniqueId(),
+    request_timestamp_ms: Date.now(),
+});
+
+/**
+ * Wires the SDK instance into `sendSearchRequest`: gates on `canLog`,
+ * builds the `/v1/search` URL and request envelope, and dispatches.
+ * Lives here so the SDK glue (URL building, opt-out gate, dispatcher
+ * plumbing) is type-checked instead of being expressed in plain JS.
+ */
+export const executeSearchRequest = (
+    mpInstance: IMParticleWebSDKInstance,
+    workspaceApiKey: string,
+    knownIdentities: IIdentitySearchKnownIdentities,
+    callback: IdentitySearchCallback,
+): void => {
+    const { _Helpers, _Store, Logger, _ErrorReportingDispatcher } = mpInstance;
+    const { identityUrl, isDevelopmentMode } = _Store.SDKConfig;
+
+    if (!_Helpers.canLog()) {
+        Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
+        if (isFunction(callback)) {
+            try {
+                callback({
+                    httpCode: HTTPCodes.loggingDisabledOrMissingAPIKey,
+                });
+            } catch (e) {
+                Logger.error(
+                    'Error invoking search callback: ' +
+                        ((e as Error)?.message || String(e)),
+                );
+            }
+        }
+        return;
+    }
+
+    // The Search endpoint is colocated with /v1/identify under
+    // identityUrl, so we reuse the same service URL builder. We do
+    // NOT append the apiKey to the URL — auth is done via x-mp-key.
+    const serviceUrl: string = _Helpers.createServiceUrl(identityUrl);
+    const searchUrl: string = serviceUrl + 'search?cb=1';
+
+    const environment: Environment = isDevelopmentMode
+        ? 'development'
+        : 'production';
+
+    sendSearchRequest(
+        knownIdentities,
+        workspaceApiKey,
+        () => buildIdentitySearchEnvelope(environment),
+        searchUrl,
+        callback,
+        Logger,
+        undefined,
+        _ErrorReportingDispatcher,
+    );
 };

@@ -3,6 +3,7 @@ import Types, { IdentityType } from './types';
 import {
     cacheOrClearIdCache,
     createKnownIdentities,
+    executeSearchRequest,
     tryCacheIdentity,
 } from './identity-utils';
 import AudienceManager from './audienceManager';
@@ -728,6 +729,32 @@ export default function Identity(mpInstance) {
                     Messages.InformationMessages.AbandonAliasUsers
                 );
             }
+        },
+
+        /**
+         * Search the IDSync Workspace endpoint for a known identity.
+         *
+         * POSTs to mParticle's `/v1/search` endpoint and invokes `callback`
+         * with `{ httpCode, body? }`.
+         *
+         * The `workspaceApiKey` is a workspace-specific API key supplied by
+         * the caller (passed in from a kit's settings). It is intentionally
+         * NOT read from the SDK's own workspace token, so that workspace
+         * searches can be authorised independently of the host SDK's
+         * workspace.
+         *
+         * @method search
+         * @param {String} workspaceApiKey Workspace API key (sent as x-mp-key).
+         * @param {Object} knownIdentities `{ email: string }`
+         * @param {Function} callback Invoked with the `IIdentitySearchResult`.
+         */
+        search: function(workspaceApiKey, knownIdentities, callback) {
+            executeSearchRequest(
+                mpInstance,
+                workspaceApiKey,
+                knownIdentities,
+                callback
+            );
         },
 
         /**
