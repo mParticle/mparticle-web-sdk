@@ -1,3 +1,15 @@
+# [2.67.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.66.0...v2.67.0) (2026-05-05)
+
+
+### Bug Fixes
+
+* Allow all user identity types in Identity.search ([#1256](https://github.com/mParticle/mparticle-web-sdk/issues/1256)) ([40e2972](https://github.com/mParticle/mparticle-web-sdk/commit/40e29727c36f6b82057620d8b02cf905860ea1d0))
+
+
+### Features
+
+* Add Identity.search for IDSync Search ([#1255](https://github.com/mParticle/mparticle-web-sdk/issues/1255)) ([2b249b9](https://github.com/mParticle/mparticle-web-sdk/commit/2b249b96f7dccbf58154eabe7222f961e498f10f))
+
 # [2.66.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.65.0...v2.66.0) (2026-04-27)
 
 
