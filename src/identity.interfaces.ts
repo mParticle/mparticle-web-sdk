@@ -12,10 +12,7 @@ import {
     mParticleUserCart,
     IIdentityResponse,
 } from './identity-user-interfaces';
-import {
-    IIdentitySearchKnownIdentities,
-    IdentitySearchCallback,
-} from './identity/search';
+import { IdentitySearchCallback } from './identity/search';
 const { platform, sdkVendor, sdkVersion, HTTPCodes } = Constants;
 
 export type IdentityPreProcessResult = {
@@ -173,18 +170,40 @@ export interface SDKIdentityApi {
      */
     search?(
         workspaceApiKey: string,
-        knownIdentities: IIdentitySearchKnownIdentities,
+        knownIdentities: UserIdentities,
         callback: IdentitySearchCallback
     ): void;
 }
 
 export type {
-    IIdentitySearchKnownIdentities,
     IIdentitySearchResult,
     IIdentitySearchResponseBody,
     IdentitySearchCallback,
 } from './identity/search';
 
+export interface IUserIdentities {
+    customerid?: string;
+    email?: string;
+    other?: string;
+    other2?: string;
+    other3?: string;
+    other4?: string;
+    other5?: string;
+    other6?: string;
+    other7?: string;
+    other8?: string;
+    other9?: string;
+    other10?: string;
+    mobile_number?: string;
+    phone_number_2?: string;
+    phone_number_3?: string;
+    facebook?: string;
+    facebookcustomaudienceid?: string;
+    google?: string;
+    twitter?: string;
+    microsoft?: string;
+    yahoo?: string;
+}
 export interface IIdentity {
     audienceManager: AudienceManager;
     idCache: BaseVault<Dictionary<ICachedIdentityCall>>;

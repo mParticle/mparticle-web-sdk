@@ -745,7 +745,7 @@ export default function Identity(mpInstance) {
          *
          * @method search
          * @param {String} workspaceApiKey Workspace API key (sent as x-mp-key).
-         * @param {Object} knownIdentities `{ email: string }`
+         * @param {Object} knownIdentities A `UserIdentities` map.
          * @param {Function} callback Invoked with the `IIdentitySearchResult`.
          */
         search: function(workspaceApiKey, knownIdentities, callback) {
