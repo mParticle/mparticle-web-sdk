@@ -1,9 +1,11 @@
-import { Dictionary } from './utils';
+import { Dictionary, Environment } from './utils';
 import { BaseVault } from './vault';
 import { IdentityApiData, UserIdentities, IdentityCallback } from '@mparticle/web-sdk';
 import { IdentityAPIMethod } from './identity.interfaces';
 import { IIdentityResponse, IMParticleUser } from './identity-user-interfaces';
 import { IStore } from './store';
+import type { IMParticleWebSDKInstance } from './mp-instance';
+import { IIdentitySearchRequestBody, IdentitySearchCallback } from './identity/search';
 export declare const CACHE_HEADER: "x-mp-max-age";
 export type IdentityCache = BaseVault<Dictionary<ICachedIdentityCall>>;
 export type IParseCachedIdentityResponse = (cachedIdentity: IIdentityResponse, mpid: string, callback: IdentityCallback, identityApiData: IdentityApiData, identityMethod: string, knownIdentities: IKnownIdentities, fromCachedIdentity: boolean) => void;
@@ -34,3 +36,17 @@ export declare const hasIdentityRequestChanged: (currentUser: IMParticleUser, ne
  * @returns true if deviceId or other identifiers were explicitly provided in config, false otherwise
  */
 export declare const hasExplicitIdentifier: (store: IStore | undefined | null) => boolean;
+/**
+ * Builds the /v1/identify-style envelope (client_sdk, environment,
+ * request_id, request_timestamp_ms) used to correlate IDSync requests
+ * across endpoints. `known_identities` is omitted so the caller can
+ * fold in the search-specific identifiers alongside the envelope.
+ */
+export declare const buildIdentitySearchEnvelope: (environment: Environment) => Omit<IIdentitySearchRequestBody, 'known_identities'>;
+/**
+ * Wires the SDK instance into `sendSearchRequest`: gates on `canLog`,
+ * builds the `/v1/search` URL and request envelope, and dispatches.
+ * Lives here so the SDK glue (URL building, opt-out gate, dispatcher
+ * plumbing) is type-checked instead of being expressed in plain JS.
+ */
+export declare const executeSearchRequest: (mpInstance: IMParticleWebSDKInstance, workspaceApiKey: string, knownIdentities: UserIdentities, callback: IdentitySearchCallback) => void;

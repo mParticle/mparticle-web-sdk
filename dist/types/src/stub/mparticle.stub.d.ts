@@ -57,6 +57,7 @@ declare namespace mParticle {
         export { voidFunction as login };
         export { voidFunction as logout };
         export { voidFunction as modify };
+        export { voidFunction as search };
     }
 }
 declare function voidFunction(): void;

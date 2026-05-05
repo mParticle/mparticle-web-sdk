@@ -5,6 +5,7 @@ import { BaseVault } from './vault';
 import { Dictionary, Environment, valueof } from './utils';
 import Constants from './constants';
 import { IdentityCallback, IUserAttributeChangeEvent, IUserIdentityChangeEvent, IMParticleUser, mParticleUserCart, IIdentityResponse } from './identity-user-interfaces';
+import { IdentitySearchCallback } from './identity/search';
 declare const platform: "web", sdkVendor: "mparticle", sdkVersion: string, HTTPCodes: {
     readonly noHttpCoverage: -1;
     readonly activeIdentityRequest: -2;
@@ -97,6 +98,42 @@ export interface SDKIdentityApi {
     getUsers?(): IMParticleUser[];
     aliasUsers?(aliasRequest?: IAliasRequest, callback?: IdentityCallback): void;
     createAliasRequest?(sourceUser: IMParticleUser, destinationUser: IMParticleUser, scope?: AliasRequestScope): IAliasRequest;
+    /**
+     * Sends a request to mParticle's IDSync `/v1/search` endpoint to look up
+     * a workspace identity without affecting the current user. The callback
+     * receives `httpCode` (always) and an optional `body` containing the
+     * parsed JSON response. Consumers should gate behaviour on
+     * `httpCode === 200`.
+     *
+     * `workspaceApiKey` is a workspace-specific API key supplied by the
+     * caller (from a kit's settings). It is sent as the `x-mp-key` header.
+     * The SDK's own workspace token is intentionally not used.
+     */
+    search?(workspaceApiKey: string, knownIdentities: UserIdentities, callback: IdentitySearchCallback): void;
+}
+export type { IIdentitySearchResult, IIdentitySearchResponseBody, IdentitySearchCallback, } from './identity/search';
+export interface IUserIdentities {
+    customerid?: string;
+    email?: string;
+    other?: string;
+    other2?: string;
+    other3?: string;
+    other4?: string;
+    other5?: string;
+    other6?: string;
+    other7?: string;
+    other8?: string;
+    other9?: string;
+    other10?: string;
+    mobile_number?: string;
+    phone_number_2?: string;
+    phone_number_3?: string;
+    facebook?: string;
+    facebookcustomaudienceid?: string;
+    google?: string;
+    twitter?: string;
+    microsoft?: string;
+    yahoo?: string;
 }
 export interface IIdentity {
     audienceManager: AudienceManager;
@@ -114,4 +151,3 @@ export interface IIdentity {
      */
     mParticleUserCart(): mParticleUserCart;
 }
-export {};

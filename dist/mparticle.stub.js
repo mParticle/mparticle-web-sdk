@@ -58,6 +58,7 @@ var mParticle = (function () {
             login: voidFunction,
             logout: voidFunction,
             modify: voidFunction,
+            search: voidFunction,
         },
     };
 

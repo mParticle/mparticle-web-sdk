@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.66.0";
+    var version = "2.67.0";
 
     var Constants = {
       sdkVersion: version,
@@ -417,6 +417,7 @@ var mParticle = (function () {
     var HTTP_OK = 200;
     var HTTP_ACCEPTED = 202;
     var HTTP_BAD_REQUEST = 400;
+    var HTTP_NOT_FOUND = 404;
     var HTTP_SERVER_ERROR = 500;
 
     function _typeof$1(o) {
@@ -524,7 +525,7 @@ var mParticle = (function () {
         return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     };
 
-    var Messages$9 = Constants.Messages;
+    var Messages$a = Constants.Messages;
     var createCookieString = function createCookieString(value) {
       return replaceCommasWithPipes(replaceQuotesWithApostrophes(value));
     };
@@ -560,12 +561,12 @@ var mParticle = (function () {
     var generateDeprecationMessage = function generateDeprecationMessage(methodName, isDeprecated, alternateMethod, docsUrl) {
       var messageArray = [methodName];
       if (isDeprecated) {
-        messageArray.push(Messages$9.DeprecationMessages.MethodHasBeenDeprecated);
+        messageArray.push(Messages$a.DeprecationMessages.MethodHasBeenDeprecated);
       } else {
-        messageArray.push(Messages$9.DeprecationMessages.MethodMarkedForDeprecationPostfix);
+        messageArray.push(Messages$a.DeprecationMessages.MethodMarkedForDeprecationPostfix);
       }
       if (alternateMethod) {
-        messageArray.push(Messages$9.DeprecationMessages.AlternativeMethodPrefix);
+        messageArray.push(Messages$a.DeprecationMessages.AlternativeMethodPrefix);
         messageArray.push(alternateMethod + ".");
       }
       if (docsUrl) {
@@ -3118,11 +3119,278 @@ var mParticle = (function () {
       return BatchUploader;
     }();
 
+    var ErrorCodes = {
+      UNKNOWN_ERROR: 'UNKNOWN_ERROR',
+      UNHANDLED_EXCEPTION: 'UNHANDLED_EXCEPTION',
+      IDENTITY_REQUEST: 'IDENTITY_REQUEST',
+      IDENTITY_MISMATCH: 'IDENTITY_MISMATCH',
+      ROKT_KIT_ATTACHED: 'ROKT_KIT_ATTACHED'
+    };
+    var WSDKErrorSeverity = {
+      ERROR: 'ERROR',
+      INFO: 'INFO',
+      WARNING: 'WARNING'
+    };
+
+    var Modify$4 = Constants.IdentityMethods.Modify;
+    var Validators = {
+      // From ./utils
+      // Utility Functions for backwards compatability
+      isNumber: isNumber,
+      isFunction: isFunction,
+      isStringOrNumber: isStringOrNumber,
+      // Validator Functions
+      isValidAttributeValue: isValidAttributeValue,
+      // Validator Functions
+      // Neither null nor undefined can be a valid Key
+      isValidKeyValue: function isValidKeyValue(key) {
+        return Boolean(key && !isObject(key) && !Array.isArray(key) && !this.isFunction(key));
+      },
+      removeFalsyIdentityValues: function removeFalsyIdentityValues(identityApiData, logger) {
+        if (!identityApiData || !identityApiData.userIdentities) {
+          return identityApiData;
+        }
+        var cleanedData = {};
+        var cleanedUserIdentities = __assign({}, identityApiData.userIdentities);
+        for (var identityType in identityApiData.userIdentities) {
+          if (identityApiData.userIdentities.hasOwnProperty(identityType)) {
+            var value = identityApiData.userIdentities[identityType];
+            // Check if value is falsy (undefined, false, 0, '', etc.) but not null
+            if (value !== null && !value) {
+              logger.warning("Identity value for '".concat(identityType, "' is falsy (").concat(value, "). This value will be removed from the request."));
+              delete cleanedUserIdentities[identityType];
+            }
+          }
+        }
+        cleanedData.userIdentities = cleanedUserIdentities;
+        return cleanedData;
+      },
+      validateIdentities: function validateIdentities(identityApiData, method) {
+        var validIdentityRequestKeys = {
+          userIdentities: 1,
+          onUserAlias: 1,
+          copyUserAttributes: 1
+        };
+        if (identityApiData) {
+          if (method === Modify$4) {
+            if (isObject(identityApiData.userIdentities) && !Object.keys(identityApiData.userIdentities).length || !isObject(identityApiData.userIdentities)) {
+              return {
+                valid: false,
+                error: Constants.Messages.ValidationMessages.ModifyIdentityRequestUserIdentitiesPresent
+              };
+            }
+          }
+          for (var key in identityApiData) {
+            if (identityApiData.hasOwnProperty(key)) {
+              if (!validIdentityRequestKeys[key]) {
+                return {
+                  valid: false,
+                  error: Constants.Messages.ValidationMessages.IdentityRequesetInvalidKey
+                };
+              }
+              if (key === 'onUserAlias' && !Validators.isFunction(identityApiData[key])) {
+                return {
+                  valid: false,
+                  error: Constants.Messages.ValidationMessages.OnUserAliasType
+                };
+              }
+            }
+          }
+          if (Object.keys(identityApiData).length === 0) {
+            return {
+              valid: true
+            };
+          } else {
+            // identityApiData.userIdentities can't be undefined
+            if (identityApiData.userIdentities === undefined) {
+              return {
+                valid: false,
+                error: Constants.Messages.ValidationMessages.UserIdentities
+              };
+              // identityApiData.userIdentities can be null, but if it isn't null or undefined (above conditional), it must be an object
+            } else if (identityApiData.userIdentities !== null && !isObject(identityApiData.userIdentities)) {
+              return {
+                valid: false,
+                error: Constants.Messages.ValidationMessages.UserIdentities
+              };
+            }
+            if (isObject(identityApiData.userIdentities) && Object.keys(identityApiData.userIdentities).length) {
+              for (var identityType in identityApiData.userIdentities) {
+                if (identityApiData.userIdentities.hasOwnProperty(identityType)) {
+                  if (Types.IdentityType.getIdentityType(identityType) === false) {
+                    return {
+                      valid: false,
+                      error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidKey
+                    };
+                  }
+                  if (!(typeof identityApiData.userIdentities[identityType] === 'string' || identityApiData.userIdentities[identityType] === null)) {
+                    return {
+                      valid: false,
+                      error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues
+                    };
+                  }
+                }
+              }
+            }
+          }
+        }
+        return {
+          valid: true
+        };
+      }
+    };
+
+    var HTTPCodes$4 = Constants.HTTPCodes;
+    /**
+     * Sends a POST to mParticle's IDSync Search endpoint and invokes `callback`
+     * with the HTTP status and parsed body.
+     *
+     * Defensive contract:
+     *  - No identifier with a non-empty string value -> callback with
+     *    `{ httpCode: noHttpCoverage }`, no network call.
+     *  - Missing `apiKey` -> callback with `{ httpCode: noHttpCoverage }`,
+     *    no network call.
+     *  - Network/JSON-parse errors are caught and surfaced via the callback,
+     *    never thrown. Network errors are also reported through the optional
+     *    `errorReporter` so any registered IErrorReportingService can observe
+     *    them (matches the pattern used by identifyRequest in identityApiClient).
+     */
+    var sendSearchRequest = function sendSearchRequest(knownIdentities, apiKey, requestBuilder, searchUrl, callback, logger, uploader, errorReporter) {
+      return __awaiter(void 0, void 0, void 0, function () {
+        var safeInvoke, cleanedKnownIdentities, requestEnvelope, requestBody, fetchPayload, api, response, body, xhrLike, e_2, message, reportMessage;
+        return __generator(this, function (_a) {
+          switch (_a.label) {
+            case 0:
+              // Validate the callback up front. If it isn't a function we have nowhere
+              // to deliver a result to, so log and bail out without invoking anything.
+              if (!isFunction(callback)) {
+                logger.error('search called without a callback function; skipping request.');
+                return [2 /*return*/];
+              }
+
+              safeInvoke = function safeInvoke(result) {
+                try {
+                  callback(result);
+                } catch (e) {
+                  logger.error('Error invoking search callback: ' + ((e === null || e === void 0 ? void 0 : e.message) || String(e)));
+                }
+              };
+              cleanedKnownIdentities = Validators.removeFalsyIdentityValues({
+                userIdentities: knownIdentities !== null && knownIdentities !== void 0 ? knownIdentities : {}
+              }, logger).userIdentities;
+              // No usable identifier -> deliver httpCode: noHttpCoverage so callers
+              // waiting on the callback (e.g. to clear a loading state) don't hang.
+              if (!Object.values(cleanedKnownIdentities !== null && cleanedKnownIdentities !== void 0 ? cleanedKnownIdentities : {}).some(function (v) {
+                return typeof v === 'string' && v.length > 0;
+              })) {
+                logger.verbose('Identity search called with empty identifiers; skipping request.');
+                safeInvoke({
+                  httpCode: HTTPCodes$4.noHttpCoverage
+                });
+                return [2 /*return*/];
+              }
+              // No API key -> same: deliver noHttpCoverage rather than hanging.
+              if (!apiKey) {
+                logger.verbose('search called without a workspace API key; skipping request.');
+                safeInvoke({
+                  httpCode: HTTPCodes$4.noHttpCoverage
+                });
+                return [2 /*return*/];
+              }
+
+              _a.label = 1;
+            case 1:
+              _a.trys.push([1, 9,, 10]);
+              requestEnvelope = requestBuilder();
+              requestBody = __assign(__assign({}, requestEnvelope), {
+                known_identities: __assign({}, cleanedKnownIdentities)
+              });
+              fetchPayload = {
+                method: 'post',
+                headers: {
+                  Accept: 'application/json',
+                  'Content-Type': 'application/json',
+                  'x-mp-key': apiKey
+                },
+                body: JSON.stringify(requestBody)
+              };
+              api = uploader || (window.fetch ? new FetchUploader(searchUrl) : new XHRUploader(searchUrl));
+              logger.verbose('Sending search request to ' + searchUrl);
+              return [4 /*yield*/, api.upload(fetchPayload, searchUrl)];
+            case 2:
+              response = _a.sent();
+              body = void 0;
+              if (!isFunction(response.json)) return [3 /*break*/, 7];
+              _a.label = 3;
+            case 3:
+              _a.trys.push([3, 5,, 6]);
+              return [4 /*yield*/, response.json()];
+            case 4:
+              body = _a.sent();
+              return [3 /*break*/, 6];
+            case 5:
+              _a.sent();
+              logger.verbose('search response had no parseable JSON body.');
+              return [3 /*break*/, 6];
+            case 6:
+              return [3 /*break*/, 8];
+            case 7:
+              xhrLike = response;
+              if (xhrLike === null || xhrLike === void 0 ? void 0 : xhrLike.responseText) {
+                try {
+                  body = JSON.parse(xhrLike.responseText);
+                } catch (e) {
+                  logger.verbose('search XHR response was not valid JSON.');
+                }
+              }
+              _a.label = 8;
+            case 8:
+              if (response.status === HTTP_OK) {
+                logger.verbose('search received 200 OK.');
+              } else if (response.status === HTTP_NOT_FOUND) {
+                // 404 NOT_FOUND_ERROR is an expected steady-state outcome and is
+                // intentionally not logged as an error.
+                logger.verbose('search received 404 (no match).');
+              } else {
+                logger.verbose('search received non-success status ' + response.status);
+              }
+              safeInvoke({
+                httpCode: response.status,
+                body: body
+              });
+              return [3 /*break*/, 10];
+            case 9:
+              e_2 = _a.sent();
+              message = (e_2 === null || e_2 === void 0 ? void 0 : e_2.message) || String(e_2);
+              reportMessage = 'Error sending search request: ' + message;
+              logger.error(reportMessage);
+              // Mirror the identity-route pattern in identityApiClient.ts: log to
+              // console AND push a structured report through the dispatcher so any
+              // registered IErrorReportingService (e.g. the Rokt kit's) can observe
+              // the failure.
+              errorReporter === null || errorReporter === void 0 ? void 0 : errorReporter.report({
+                message: reportMessage,
+                code: ErrorCodes.IDENTITY_REQUEST,
+                severity: WSDKErrorSeverity.ERROR
+              });
+              safeInvoke({
+                httpCode: HTTPCodes$4.noHttpCoverage
+              });
+              return [3 /*break*/, 10];
+            case 10:
+              return [2 /*return*/];
+          }
+        });
+      });
+    };
+
     var _a = Constants.IdentityMethods,
       Identify$2 = _a.Identify,
-      Modify$4 = _a.Modify,
+      Modify$3 = _a.Modify,
       Login$2 = _a.Login,
       Logout$2 = _a.Logout;
+    var HTTPCodes$3 = Constants.HTTPCodes,
+      Messages$9 = Constants.Messages;
     var CACHE_HEADER = 'x-mp-max-age';
     var cacheOrClearIdCache = function cacheOrClearIdCache(method, knownIdentities, idCache, identityResponse, parsingCachedResponse) {
       // when parsing a response that has already been cached, simply return instead of attempting another cache
@@ -3136,7 +3404,7 @@ var mParticle = (function () {
         case Identify$2:
           cacheIdentityRequest(method, knownIdentities, expireTimestamp, idCache, identityResponse);
           break;
-        case Modify$4:
+        case Modify$3:
         case Logout$2:
           idCache.purge();
           break;
@@ -3291,6 +3559,61 @@ var mParticle = (function () {
         return true;
       }
       return !!((_c = store === null || store === void 0 ? void 0 : store.SDKConfig) === null || _c === void 0 ? void 0 : _c.deviceId);
+    };
+    /**
+     * Builds the /v1/identify-style envelope (client_sdk, environment,
+     * request_id, request_timestamp_ms) used to correlate IDSync requests
+     * across endpoints. `known_identities` is omitted so the caller can
+     * fold in the search-specific identifiers alongside the envelope.
+     */
+    var buildIdentitySearchEnvelope = function buildIdentitySearchEnvelope(environment) {
+      return {
+        client_sdk: {
+          platform: Constants.platform,
+          sdk_vendor: Constants.sdkVendor,
+          sdk_version: Constants.sdkVersion
+        },
+        environment: environment,
+        request_id: generateUniqueId(),
+        request_timestamp_ms: Date.now()
+      };
+    };
+    /**
+     * Wires the SDK instance into `sendSearchRequest`: gates on `canLog`,
+     * builds the `/v1/search` URL and request envelope, and dispatches.
+     * Lives here so the SDK glue (URL building, opt-out gate, dispatcher
+     * plumbing) is type-checked instead of being expressed in plain JS.
+     */
+    var executeSearchRequest = function executeSearchRequest(mpInstance, workspaceApiKey, knownIdentities, callback) {
+      var _Helpers = mpInstance._Helpers,
+        _Store = mpInstance._Store,
+        Logger = mpInstance.Logger,
+        _ErrorReportingDispatcher = mpInstance._ErrorReportingDispatcher;
+      var _a = _Store.SDKConfig,
+        identityUrl = _a.identityUrl,
+        isDevelopmentMode = _a.isDevelopmentMode;
+      if (!_Helpers.canLog()) {
+        Logger.verbose(Messages$9.InformationMessages.AbandonLogEvent);
+        if (isFunction(callback)) {
+          try {
+            callback({
+              httpCode: HTTPCodes$3.loggingDisabledOrMissingAPIKey
+            });
+          } catch (e) {
+            Logger.error('Error invoking search callback: ' + ((e === null || e === void 0 ? void 0 : e.message) || String(e)));
+          }
+        }
+        return;
+      }
+      // The Search endpoint is colocated with /v1/identify under
+      // identityUrl, so we reuse the same service URL builder. We do
+      // NOT append the apiKey to the URL — auth is done via x-mp-key.
+      var serviceUrl = _Helpers.createServiceUrl(identityUrl);
+      var searchUrl = serviceUrl + 'search?cb=1';
+      var environment = isDevelopmentMode ? 'development' : 'production';
+      sendSearchRequest(knownIdentities, workspaceApiKey, function () {
+        return buildIdentitySearchEnvelope(environment);
+      }, searchUrl, callback, Logger, undefined, _ErrorReportingDispatcher);
     };
 
     function APIClient(mpInstance, kitBlocker) {
@@ -3453,114 +3776,6 @@ var mParticle = (function () {
         }
       };
     }
-
-    var Modify$3 = Constants.IdentityMethods.Modify;
-    var Validators = {
-      // From ./utils
-      // Utility Functions for backwards compatability
-      isNumber: isNumber,
-      isFunction: isFunction,
-      isStringOrNumber: isStringOrNumber,
-      // Validator Functions
-      isValidAttributeValue: isValidAttributeValue,
-      // Validator Functions
-      // Neither null nor undefined can be a valid Key
-      isValidKeyValue: function isValidKeyValue(key) {
-        return Boolean(key && !isObject(key) && !Array.isArray(key) && !this.isFunction(key));
-      },
-      removeFalsyIdentityValues: function removeFalsyIdentityValues(identityApiData, logger) {
-        if (!identityApiData || !identityApiData.userIdentities) {
-          return identityApiData;
-        }
-        var cleanedData = {};
-        var cleanedUserIdentities = __assign({}, identityApiData.userIdentities);
-        for (var identityType in identityApiData.userIdentities) {
-          if (identityApiData.userIdentities.hasOwnProperty(identityType)) {
-            var value = identityApiData.userIdentities[identityType];
-            // Check if value is falsy (undefined, false, 0, '', etc.) but not null
-            if (value !== null && !value) {
-              logger.warning("Identity value for '".concat(identityType, "' is falsy (").concat(value, "). This value will be removed from the request."));
-              delete cleanedUserIdentities[identityType];
-            }
-          }
-        }
-        cleanedData.userIdentities = cleanedUserIdentities;
-        return cleanedData;
-      },
-      validateIdentities: function validateIdentities(identityApiData, method) {
-        var validIdentityRequestKeys = {
-          userIdentities: 1,
-          onUserAlias: 1,
-          copyUserAttributes: 1
-        };
-        if (identityApiData) {
-          if (method === Modify$3) {
-            if (isObject(identityApiData.userIdentities) && !Object.keys(identityApiData.userIdentities).length || !isObject(identityApiData.userIdentities)) {
-              return {
-                valid: false,
-                error: Constants.Messages.ValidationMessages.ModifyIdentityRequestUserIdentitiesPresent
-              };
-            }
-          }
-          for (var key in identityApiData) {
-            if (identityApiData.hasOwnProperty(key)) {
-              if (!validIdentityRequestKeys[key]) {
-                return {
-                  valid: false,
-                  error: Constants.Messages.ValidationMessages.IdentityRequesetInvalidKey
-                };
-              }
-              if (key === 'onUserAlias' && !Validators.isFunction(identityApiData[key])) {
-                return {
-                  valid: false,
-                  error: Constants.Messages.ValidationMessages.OnUserAliasType
-                };
-              }
-            }
-          }
-          if (Object.keys(identityApiData).length === 0) {
-            return {
-              valid: true
-            };
-          } else {
-            // identityApiData.userIdentities can't be undefined
-            if (identityApiData.userIdentities === undefined) {
-              return {
-                valid: false,
-                error: Constants.Messages.ValidationMessages.UserIdentities
-              };
-              // identityApiData.userIdentities can be null, but if it isn't null or undefined (above conditional), it must be an object
-            } else if (identityApiData.userIdentities !== null && !isObject(identityApiData.userIdentities)) {
-              return {
-                valid: false,
-                error: Constants.Messages.ValidationMessages.UserIdentities
-              };
-            }
-            if (isObject(identityApiData.userIdentities) && Object.keys(identityApiData.userIdentities).length) {
-              for (var identityType in identityApiData.userIdentities) {
-                if (identityApiData.userIdentities.hasOwnProperty(identityType)) {
-                  if (Types.IdentityType.getIdentityType(identityType) === false) {
-                    return {
-                      valid: false,
-                      error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidKey
-                    };
-                  }
-                  if (!(typeof identityApiData.userIdentities[identityType] === 'string' || identityApiData.userIdentities[identityType] === null)) {
-                    return {
-                      valid: false,
-                      error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues
-                    };
-                  }
-                }
-              }
-            }
-          }
-        }
-        return {
-          valid: true
-        };
-      }
-    };
 
     var KitFilterHelper = /** @class */function () {
       function KitFilterHelper() {}
@@ -8131,6 +8346,26 @@ var mParticle = (function () {
           }
         },
         /**
+         * Search the IDSync Workspace endpoint for a known identity.
+         *
+         * POSTs to mParticle's `/v1/search` endpoint and invokes `callback`
+         * with `{ httpCode, body? }`.
+         *
+         * The `workspaceApiKey` is a workspace-specific API key supplied by
+         * the caller (passed in from a kit's settings). It is intentionally
+         * NOT read from the SDK's own workspace token, so that workspace
+         * searches can be authorised independently of the host SDK's
+         * workspace.
+         *
+         * @method search
+         * @param {String} workspaceApiKey Workspace API key (sent as x-mp-key).
+         * @param {Object} knownIdentities A `UserIdentities` map.
+         * @param {Function} callback Invoked with the `IIdentitySearchResult`.
+         */
+        search: function search(workspaceApiKey, knownIdentities, callback) {
+          executeSearchRequest(mpInstance, workspaceApiKey, knownIdentities, callback);
+        },
+        /**
          Create a default AliasRequest for 2 MParticleUsers. This will construct the request
         using the sourceUser's firstSeenTime as the startTime, and its lastSeenTime as the endTime.
         
@@ -9598,19 +9833,6 @@ var mParticle = (function () {
         });
       };
     }
-
-    var ErrorCodes = {
-      UNKNOWN_ERROR: 'UNKNOWN_ERROR',
-      UNHANDLED_EXCEPTION: 'UNHANDLED_EXCEPTION',
-      IDENTITY_REQUEST: 'IDENTITY_REQUEST',
-      IDENTITY_MISMATCH: 'IDENTITY_MISMATCH',
-      ROKT_KIT_ATTACHED: 'ROKT_KIT_ATTACHED'
-    };
-    var WSDKErrorSeverity = {
-      ERROR: 'ERROR',
-      INFO: 'INFO',
-      WARNING: 'WARNING'
-    };
 
     var HTTPCodes$1 = Constants.HTTPCodes,
       Messages$1 = Constants.Messages,
@@ -12446,6 +12668,9 @@ var mParticle = (function () {
         },
         modify: function modify(identityApiData, callback) {
           self.getInstance().Identity.modify(identityApiData, callback);
+        },
+        search: function search(workspaceApiKey, knownIdentities, callback) {
+          self.getInstance().Identity.search(workspaceApiKey, knownIdentities, callback);
         }
       };
       this.sessionManager = {
