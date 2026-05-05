@@ -196,7 +196,7 @@ describe('search', () => {
             expect(requestBuilderSpy.called).to.eq(false);
         });
 
-        it('invokes the callback with noHttpCoverage when knownIdentities.email is missing or invalid (no network)', async () => {
+        it('invokes the callback with noHttpCoverage when no identifier has a non-empty string value (no network)', async () => {
             const callback = sinon.spy();
 
             await sendSearchRequest(
@@ -218,7 +218,7 @@ describe('search', () => {
             );
 
             await sendSearchRequest(
-                ({ email: 12345 } as any),
+                ({ email: 12345, other: null } as any),
                 apiKey,
                 buildEnvelope,
                 searchUrl,
@@ -226,7 +226,7 @@ describe('search', () => {
                 logger,
             );
 
-            // Missing/invalid email: no network, but callback fires for each
+            // No usable identifier: no network, but callback fires for each
             // call so callers can resolve any pending loading state.
             expect(fetchMock.calls(searchUrl).length).to.equal(0);
             expect(callback.callCount).to.equal(3);
@@ -234,6 +234,35 @@ describe('search', () => {
                 const result = callback.getCall(i).args[0] as IIdentitySearchResult;
                 expect(result.httpCode).to.equal(HTTPCodes.noHttpCoverage);
             }
+        });
+
+        it('forwards non-email identifiers (e.g. hashed email in `other`) to the wire', async () => {
+            fetchMock.post(searchUrl, {
+                status: 200,
+                body: JSON.stringify({ mpid: '42' }),
+            });
+
+            const callback = sinon.spy();
+            await sendSearchRequest(
+                { other: 'sha256:abc123', customerid: 'cust-1' },
+                apiKey,
+                buildEnvelope,
+                searchUrl,
+                callback,
+                logger,
+            );
+
+            expect(fetchMock.calls(searchUrl).length).to.equal(1);
+            const sentBody = JSON.parse(
+                fetchMock.calls(searchUrl)[0][1].body as string,
+            );
+            expect(sentBody.known_identities).to.deep.equal({
+                other: 'sha256:abc123',
+                customerid: 'cust-1',
+            });
+            expect(callback.calledOnce).to.eq(true);
+            const result = callback.getCall(0).args[0] as IIdentitySearchResult;
+            expect(result.httpCode).to.equal(200);
         });
 
         it('catches network errors and surfaces noHttpCoverage via the callback (not thrown)', async () => {

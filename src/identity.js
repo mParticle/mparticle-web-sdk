@@ -745,7 +745,11 @@ export default function Identity(mpInstance) {
          *
          * @method search
          * @param {String} workspaceApiKey Workspace API key (sent as x-mp-key).
-         * @param {Object} knownIdentities `{ email: string }`
+         * @param {Object} knownIdentities A `UserIdentities` map. Any of the
+         *     identifiers accepted by `/v1/identify` may be supplied — e.g.
+         *     `email`, `customerid`, `other`/`other2-10` (commonly used for
+         *     hashed email), `email_sha256`, `mobile_number`, `facebook`, etc.
+         *     At least one non-empty string identifier must be present.
          * @param {Function} callback Invoked with the `IIdentitySearchResult`.
          */
         search: function(workspaceApiKey, knownIdentities, callback) {

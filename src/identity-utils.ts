@@ -16,7 +16,6 @@ import {
 import { IStore } from './store';
 import type { IMParticleWebSDKInstance } from './mp-instance';
 import {
-    IIdentitySearchKnownIdentities,
     IIdentitySearchRequestBody,
     IdentitySearchCallback,
     sendSearchRequest,
@@ -358,7 +357,7 @@ export const buildIdentitySearchEnvelope = (
 export const executeSearchRequest = (
     mpInstance: IMParticleWebSDKInstance,
     workspaceApiKey: string,
-    knownIdentities: IIdentitySearchKnownIdentities,
+    knownIdentities: UserIdentities,
     callback: IdentitySearchCallback,
 ): void => {
     const { _Helpers, _Store, Logger, _ErrorReportingDispatcher } = mpInstance;

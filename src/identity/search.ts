@@ -12,20 +12,9 @@ import {
     IErrorReportingService,
     WSDKErrorSeverity,
 } from '../reporting/types';
+import { UserIdentities } from '@mparticle/web-sdk';
 
 const { HTTPCodes } = Constants;
-
-/**
- * Shape of `known_identities` accepted by `search`.
- *
- * The IDSync `/v1/search` endpoint accepts the same identity keys as
- * `/v1/identify`, but for v1 of this client API we only support `email`.
- * Additional identity types can be added here in the future without breaking
- * existing consumers.
- */
-export interface IIdentitySearchKnownIdentities {
-    email: string;
-}
 
 /**
  * Body payload returned by the `/v1/search` endpoint, as parsed JSON.
@@ -72,7 +61,7 @@ export interface IIdentitySearchRequestBody {
     environment: Environment;
     request_id: string;
     request_timestamp_ms: number;
-    known_identities: IIdentitySearchKnownIdentities;
+    known_identities: UserIdentities;
 }
 
 interface IIdentitySearchPayload extends IFetchPayload {
@@ -88,9 +77,9 @@ interface IIdentitySearchPayload extends IFetchPayload {
  * with the HTTP status and parsed body.
  *
  * Defensive contract:
- *  - Missing/invalid `email` -> callback with `{ httpCode: noHttpCoverage }`,
- *    no network call.
- *  - Missing `apiKey`        -> callback with `{ httpCode: noHttpCoverage }`,
+ *  - No identifier with a non-empty string value -> callback with
+ *    `{ httpCode: noHttpCoverage }`, no network call.
+ *  - Missing `apiKey` -> callback with `{ httpCode: noHttpCoverage }`,
  *    no network call.
  *  - Network/JSON-parse errors are caught and surfaced via the callback,
  *    never thrown. Network errors are also reported through the optional
@@ -98,7 +87,7 @@ interface IIdentitySearchPayload extends IFetchPayload {
  *    them (matches the pattern used by identifyRequest in identityApiClient).
  */
 export const sendSearchRequest = async (
-    knownIdentities: IIdentitySearchKnownIdentities,
+    knownIdentities: UserIdentities,
     apiKey: string,
     requestBuilder: () => Omit<IIdentitySearchRequestBody, 'known_identities'>,
     searchUrl: string,
@@ -127,11 +116,17 @@ export const sendSearchRequest = async (
         }
     };
 
-    // No valid email -> deliver httpCode: noHttpCoverage so callers waiting on
-    // the callback (e.g. to clear a loading state) don't hang.
-    if (!knownIdentities || typeof knownIdentities.email !== 'string' || !knownIdentities.email) {
+    // No usable identifier -> deliver httpCode: noHttpCoverage so callers
+    // waiting on the callback (e.g. to clear a loading state) don't hang.
+    const hasIdentifier =
+        knownIdentities &&
+        typeof knownIdentities === 'object' &&
+        Object.values(knownIdentities).some(
+            (v) => typeof v === 'string' && v.length > 0,
+        );
+    if (!hasIdentifier) {
         logger.verbose(
-            'search called without a valid email; skipping request.',
+            'search called without any non-empty identifier; skipping request.',
         );
         safeInvoke({ httpCode: HTTPCodes.noHttpCoverage });
         return;
@@ -155,9 +150,7 @@ export const sendSearchRequest = async (
         const requestEnvelope = requestBuilder();
         const requestBody: IIdentitySearchRequestBody = {
             ...requestEnvelope,
-            known_identities: {
-                email: knownIdentities.email,
-            },
+            known_identities: { ...knownIdentities },
         };
 
         const fetchPayload: IIdentitySearchPayload = {
