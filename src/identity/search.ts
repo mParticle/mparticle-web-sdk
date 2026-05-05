@@ -131,7 +131,7 @@ export const sendSearchRequest = async (
         )
     ) {
         logger.verbose(
-            'search called without any non-empty identifier; skipping request.',
+            'Identity search called with non empty identifiers; skipping request.',
         );
         safeInvoke({ httpCode: HTTPCodes.noHttpCoverage });
         return;
