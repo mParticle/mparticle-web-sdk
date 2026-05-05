@@ -182,27 +182,27 @@ export type {
 } from './identity/search';
 
 export interface IUserIdentities {
-    customerid?: string | undefined;
-    email?: string | undefined;
-    other?: string | undefined;
-    other2?: string | undefined;
-    other3?: string | undefined;
-    other4?: string | undefined;
-    other5?: string | undefined;
-    other6?: string | undefined;
-    other7?: string | undefined;
-    other8?: string | undefined;
-    other9?: string | undefined;
-    other10?: string | undefined;
-    mobile_number?: string | undefined;
-    phone_number_2?: string | undefined;
-    phone_number_3?: string | undefined;
-    facebook?: string | undefined;
-    facebookcustomaudienceid?: string | undefined;
-    google?: string | undefined;
-    twitter?: string | undefined;
-    microsoft?: string | undefined;
-    yahoo?: string | undefined;
+    customerid?: string;
+    email?: string;
+    other?: string;
+    other2?: string;
+    other3?: string;
+    other4?: string;
+    other5?: string;
+    other6?: string;
+    other7?: string;
+    other8?: string;
+    other9?: string;
+    other10?: string;
+    mobile_number?: string;
+    phone_number_2?: string;
+    phone_number_3?: string;
+    facebook?: string;
+    facebookcustomaudienceid?: string;
+    google?: string;
+    twitter?: string;
+    microsoft?: string;
+    yahoo?: string;
 }
 export interface IIdentity {
     audienceManager: AudienceManager;

@@ -265,6 +265,44 @@ describe('search', () => {
             expect(result.httpCode).to.equal(200);
         });
 
+        it('strips falsy identity values but preserves null on the wire', async () => {
+            // removeFalsyIdentityValues drops undefined / 0 / false / '' but
+            // explicitly preserves null (the server accepts it as a "no value"
+            // sentinel). Anything with at least one non-empty string value
+            // still triggers the network call.
+            fetchMock.post(searchUrl, {
+                status: 200,
+                body: JSON.stringify({ mpid: '99' }),
+            });
+
+            const callback = sinon.spy();
+            await sendSearchRequest(
+                ({
+                    email: 'valid@example.com',
+                    customerid: null,
+                    other: '',
+                } as any),
+                apiKey,
+                buildEnvelope,
+                searchUrl,
+                callback,
+                logger,
+            );
+
+            expect(fetchMock.calls(searchUrl).length).to.equal(1);
+            const sentBody = JSON.parse(
+                fetchMock.calls(searchUrl)[0][1].body as string,
+            );
+            // `other: ''` stripped, `customerid: null` preserved on the wire.
+            expect(sentBody.known_identities).to.deep.equal({
+                email: 'valid@example.com',
+                customerid: null,
+            });
+            expect(callback.calledOnce).to.eq(true);
+            const result = callback.getCall(0).args[0] as IIdentitySearchResult;
+            expect(result.httpCode).to.equal(200);
+        });
+
         it('catches network errors and surfaces noHttpCoverage via the callback (not thrown)', async () => {
             fetchMock.post(searchUrl, { throws: new Error('network down') });
 

@@ -1,6 +1,6 @@
 import Constants, { HTTP_OK, HTTP_NOT_FOUND } from '../constants';
 import { SDKLoggerApi } from '../sdkRuntimeModels';
-import { Environment, isFunction } from '../utils';
+import { Environment, isEmpty, isFunction } from '../utils';
 import {
     AsyncUploader,
     FetchUploader,
@@ -12,7 +12,8 @@ import {
     IErrorReportingService,
     WSDKErrorSeverity,
 } from '../reporting/types';
-import { UserIdentities } from '@mparticle/web-sdk';
+import { IdentityApiData, UserIdentities } from '@mparticle/web-sdk';
+import Validators from '../validators';
 
 const { HTTPCodes } = Constants;
 
@@ -116,15 +117,19 @@ export const sendSearchRequest = async (
         }
     };
 
+    const cleanedKnownIdentities: UserIdentities = Validators.removeFalsyIdentityValues(
+        { userIdentities: knownIdentities ?? {} } as IdentityApiData,
+        logger,
+    ).userIdentities;
+
     // No usable identifier -> deliver httpCode: noHttpCoverage so callers
     // waiting on the callback (e.g. to clear a loading state) don't hang.
-    const hasIdentifier =
-        knownIdentities &&
-        typeof knownIdentities === 'object' &&
-        Object.values(knownIdentities).some(
+    if (
+        isEmpty(cleanedKnownIdentities) ||
+        !Object.values(cleanedKnownIdentities).some(
             (v) => typeof v === 'string' && v.length > 0,
-        );
-    if (!hasIdentifier) {
+        )
+    ) {
         logger.verbose(
             'search called without any non-empty identifier; skipping request.',
         );
@@ -148,9 +153,10 @@ export const sendSearchRequest = async (
     // rejecting and the caller hanging on a never-fired callback.
     try {
         const requestEnvelope = requestBuilder();
+
         const requestBody: IIdentitySearchRequestBody = {
             ...requestEnvelope,
-            known_identities: { ...knownIdentities },
+            known_identities: { ...cleanedKnownIdentities },
         };
 
         const fetchPayload: IIdentitySearchPayload = {
