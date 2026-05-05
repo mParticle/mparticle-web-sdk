@@ -125,8 +125,7 @@ export const sendSearchRequest = async (
     // No usable identifier -> deliver httpCode: noHttpCoverage so callers
     // waiting on the callback (e.g. to clear a loading state) don't hang.
     if (
-        isEmpty(cleanedKnownIdentities) ||
-        !Object.values(cleanedKnownIdentities).some(
+        !Object.values(cleanedKnownIdentities ?? {}).some(
             (v) => typeof v === 'string' && v.length > 0,
         )
     ) {
