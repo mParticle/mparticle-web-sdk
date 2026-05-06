@@ -317,6 +317,20 @@ export const normalizeUserIdentityKeys = (
     return normalized;
 };
 
+// Compare two identity objects by key and value, independent of
+// object key insertion order. The two sides come from different sources
+// (numeric IdentityType iteration vs. partner-provided / alias-normalized
+// order)
+const identitiesEqual = (
+    a?: UserIdentities,
+    b?: UserIdentities
+): boolean => {
+    const aKeys = Object.keys(a ?? {});
+    const bKeys = Object.keys(b ?? {});
+    if (aKeys.length !== bKeys.length) return false;
+    return aKeys.every((key) => a[key] === b[key]);
+};
+
 export const hasIdentityRequestChanged = (
     currentUser: IMParticleUser,
     newIdentityRequest: IdentityApiData
@@ -332,9 +346,7 @@ export const hasIdentityRequestChanged = (
         newIdentityRequest.userIdentities
     );
 
-    return (
-        JSON.stringify(currentUserIdentities) !== JSON.stringify(newIdentities)
-    );
+    return !identitiesEqual(currentUserIdentities, newIdentities);
 };
 
 /**

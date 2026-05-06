@@ -1,4 +1,13 @@
-import { normalizeUserIdentityKeys } from '../../src/identity-utils';
+import {
+    hasIdentityRequestChanged,
+    normalizeUserIdentityKeys,
+} from '../../src/identity-utils';
+import { IMParticleUser } from '../../src/identity-user-interfaces';
+
+const mockUserWithIdentities = (userIdentities: Record<string, unknown>) =>
+    (({
+        getUserIdentities: () => ({ userIdentities }),
+    } as unknown) as IMParticleUser);
 
 describe('normalizeUserIdentityKeys', () => {
     it('maps email_sha256 to other', () => {
@@ -68,5 +77,93 @@ describe('normalizeUserIdentityKeys', () => {
         const input = { email_sha256: 'hash' };
         normalizeUserIdentityKeys(input);
         expect(input).toEqual({ email_sha256: 'hash' });
+    });
+});
+
+describe('hasIdentityRequestChanged', () => {
+    it('returns false when current user is null', () => {
+        const result = hasIdentityRequestChanged(null, {
+            userIdentities: { customerid: 'c' },
+        });
+        expect(result).toBe(false);
+    });
+
+    it('returns false when new request has no userIdentities', () => {
+        const user = mockUserWithIdentities({ customerid: 'c' });
+        expect(hasIdentityRequestChanged(user, null)).toBe(false);
+        expect(hasIdentityRequestChanged(user, {} as any)).toBe(false);
+    });
+
+    it('returns false when identities match in value but differ in key order', () => {
+        // Persisted side comes from numeric IdentityType iteration:
+        // other(0), customerid(1)
+        const user = mockUserWithIdentities({
+            other: 'hash',
+            customerid: 'cust123',
+        });
+        // Partner-supplied request in different (input) order
+        const result = hasIdentityRequestChanged(user, {
+            userIdentities: {
+                customerid: 'cust123',
+                other: 'hash',
+            },
+        });
+        expect(result).toBe(false);
+    });
+
+    it('returns false when an alias normalizes to a canonical match (regression for bugbot finding)', () => {
+        // Persisted user has `other` set to a sha256 value at IdentityType.Other(0),
+        // alongside customerid at IdentityType.CustomerId(1) — so numeric iteration
+        // order yields { other, customerid }.
+        const user = mockUserWithIdentities({
+            other: 'sha256ofEmail',
+            customerid: 'cust123',
+        });
+        // Partner config supplies the alias form. After normalization the new
+        // identities historically had `other` appended at the end, causing a
+        // spurious mismatch. With order-independent comparison this should match.
+        const result = hasIdentityRequestChanged(user, {
+            userIdentities: {
+                customerid: 'cust123',
+                email_sha256: 'sha256ofEmail',
+            } as any,
+        });
+        expect(result).toBe(false);
+    });
+
+    it('returns true when an identity value actually differs', () => {
+        const user = mockUserWithIdentities({
+            other: 'oldhash',
+            customerid: 'cust123',
+        });
+        const result = hasIdentityRequestChanged(user, {
+            userIdentities: {
+                customerid: 'cust123',
+                email_sha256: 'newhash',
+            } as any,
+        });
+        expect(result).toBe(true);
+    });
+
+    it('returns true when the new request adds an identity', () => {
+        const user = mockUserWithIdentities({ customerid: 'cust123' });
+        const result = hasIdentityRequestChanged(user, {
+            userIdentities: {
+                customerid: 'cust123',
+                email: 'user@example.com',
+            },
+        });
+        expect(result).toBe(true);
+    });
+
+    it('returns true when the new request drops an identity', () => {
+        const user = mockUserWithIdentities({
+            customerid: 'cust123',
+            email: 'user@example.com',
+        });
+        const result = hasIdentityRequestChanged(user, {
+            userIdentities: { customerid: 'cust123' },
+        });
+        expect(result).toBe(true);
     });
 });
