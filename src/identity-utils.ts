@@ -289,24 +289,31 @@ const getExpireTimestamp = (maxAge: number = ONE_DAY_IN_SECONDS): number =>
 const parseIdentityResponse = (responseText: string): IdentityResultBody =>
     responseText ? JSON.parse(responseText) : ({} as IdentityResultBody);
 
+type Sha256IdentityAlias = 'email_sha256' | 'mobile_sha256';
+
 const SHA256_IDENTITY_ALIASES: Readonly<
-    Partial<Record<keyof UserIdentities, keyof UserIdentities>>
+    Record<Sha256IdentityAlias, keyof UserIdentities>
 > = {
     email_sha256: 'other',
     mobile_sha256: 'other2',
 };
 
+type UserIdentitiesWithAliases = UserIdentities &
+    Partial<Record<Sha256IdentityAlias, string | null>>;
+
 export const normalizeUserIdentityKeys = (
-    userIdentities: UserIdentities
+    userIdentities: UserIdentitiesWithAliases
 ): UserIdentities => {
-    const normalized: UserIdentities = { ...userIdentities };
-    for (const alias of Object.keys(SHA256_IDENTITY_ALIASES)) {
-        if (alias in normalized) {
-            const value = normalized[alias];
-            delete normalized[alias];
-            normalized[SHA256_IDENTITY_ALIASES[alias]] = value;
+    const normalized: UserIdentitiesWithAliases = { ...userIdentities };
+    (Object.keys(SHA256_IDENTITY_ALIASES) as Sha256IdentityAlias[]).forEach(
+        (alias) => {
+            if (alias in normalized) {
+                const value = normalized[alias];
+                delete normalized[alias];
+                normalized[SHA256_IDENTITY_ALIASES[alias]] = value;
+            }
         }
-    }
+    );
     return normalized;
 };
 
