@@ -137,8 +137,11 @@ export default function CookieSyncManager(
             // It is optional but to simplify the code, we add it for all Trade
             // // Desk cookie syncs.
             const domain = moduleId === PARTNER_MODULE_IDS.TradeDesk ? window.location.hostname : undefined;
-            // Add domain parameter for Trade Desk
-            const fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl, domain);
+
+            // Google Marketing Platform requires a base64-encoded MPID query parameter
+            const base64Mpid = moduleId === PARTNER_MODULE_IDS.DoubleclickDFP ? btoa(mpid) : undefined;
+
+            const fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl, domain, base64Mpid);
 
             self.performCookieSync(
                 fullUrl,

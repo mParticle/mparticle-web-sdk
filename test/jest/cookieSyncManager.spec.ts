@@ -776,6 +776,92 @@ describe('CookieSyncManager', () => {
                 );
             });
         });
+
+        describe('Google Marketing Platform (DoubleclickDFP) base64 MPID', () => {
+            it('should add base64-encoded MPID parameter for DoubleclickDFP (module ID 41)', () => {
+                const gmpPixelSettings: IPixelConfiguration = {
+                    ...pixelSettings,
+                    moduleId: PARTNER_MODULE_IDS.DoubleclickDFP, // 41
+                    pixelUrl: 'https://cm.g.doubleclick.net/pixel?google_nid=abc123',
+                    redirectUrl: '',
+                };
+
+                const mockMPInstance = ({
+                    _Store: {
+                        webviewBridgeEnabled: false,
+                        pixelConfigurations: [gmpPixelSettings],
+                    },
+                    _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
+                    _Persistence: {
+                        getPersistence: () => ({testMPID: {
+                            csd: {}
+                        }}),
+                    },
+                    _Consent: {
+                        isEnabledForUserConsent: jest.fn().mockReturnValue(true),
+                    },
+                    Identity: {
+                        getCurrentUser: jest.fn().mockReturnValue({
+                            getMPID: () => testMPID,
+                        }),
+                    },
+                } as unknown) as IMParticleWebSDKInstance;
+
+                const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+                cookieSyncManager.performCookieSync = jest.fn();
+
+                cookieSyncManager.attemptCookieSync(testMPID, true);
+
+                expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
+                    `https://cm.g.doubleclick.net/pixel?google_nid=abc123&google_hm=${btoa(testMPID)}`,
+                    '41',
+                    testMPID,
+                    {},
+                );
+            });
+
+            it('should not add base64 MPID parameter for non-DoubleclickDFP partners', () => {
+                const appNexusPixelSettings: IPixelConfiguration = {
+                    ...pixelSettings,
+                    moduleId: PARTNER_MODULE_IDS.AppNexus, // 50
+                    pixelUrl: 'https://ib.adnxs.com/cookie_sync?adv=abc123',
+                    redirectUrl: '',
+                };
+
+                const mockMPInstance = ({
+                    _Store: {
+                        webviewBridgeEnabled: false,
+                        pixelConfigurations: [appNexusPixelSettings],
+                    },
+                    _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
+                    _Persistence: {
+                        getPersistence: () => ({testMPID: {
+                            csd: {}
+                        }}),
+                    },
+                    _Consent: {
+                        isEnabledForUserConsent: jest.fn().mockReturnValue(true),
+                    },
+                    Identity: {
+                        getCurrentUser: jest.fn().mockReturnValue({
+                            getMPID: () => testMPID,
+                        }),
+                    },
+                } as unknown) as IMParticleWebSDKInstance;
+
+                const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+                cookieSyncManager.performCookieSync = jest.fn();
+
+                cookieSyncManager.attemptCookieSync(testMPID, true);
+
+                expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
+                    'https://ib.adnxs.com/cookie_sync?adv=abc123',
+                    '50',
+                    testMPID,
+                    {},
+                );
+            });
+        });
     });
 
     describe('PARTNER_MODULE_IDS', () => {
