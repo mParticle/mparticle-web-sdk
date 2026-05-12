@@ -13,6 +13,7 @@ import {
     IdentityAPIMethod,
     IIdentity,
     IIdentityAPIRequestData,
+    IIdentityAPIModifyRequestData,
 } from './identity.interfaces';
 import {
     IdentityApiData,
@@ -37,13 +38,13 @@ export interface IIdentityApiClient {
         aliasCallback: IAliasCallback
     ) => Promise<void>;
     sendIdentityRequest: (
-        identityApiRequest: IIdentityAPIRequestData,
+        identityApiRequest: IIdentityAPIRequestData | IIdentityAPIModifyRequestData,
         method: IdentityAPIMethod,
         callback: IdentityCallback,
         originalIdentityApiData: IdentityApiData,
         parseIdentityResponse: IIdentity['parseIdentityResponse'],
         mpid: MPID,
-        knownIdentities: UserIdentities
+        knownIdentities?: UserIdentities
     ) => Promise<void>;
     getUploadUrl: (method: IdentityAPIMethod, mpid: MPID) => string;
     getIdentityResponseFromFetch: (
@@ -186,13 +187,13 @@ export default function IdentityAPIClient(
     };
 
     this.sendIdentityRequest = async function(
-        identityApiRequest: IIdentityAPIRequestData,
+        identityApiRequest: IIdentityAPIRequestData | IIdentityAPIModifyRequestData,
         method: IdentityAPIMethod,
         callback: IdentityCallback,
         originalIdentityApiData: IdentityApiData,
         parseIdentityResponse: IIdentity['parseIdentityResponse'],
         mpid: MPID,
-        knownIdentities: UserIdentities
+        knownIdentities?: UserIdentities
     ) {
         if (mpInstance._RoktManager?.isInitialized) {
             mpInstance._Store.identifyRequestCount = (mpInstance._Store.identifyRequestCount || 0) + 1;

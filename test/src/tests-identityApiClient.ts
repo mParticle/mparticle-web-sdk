@@ -6,6 +6,7 @@ import {
     IAliasRequest,
     IIdentityAPIRequestData,
 } from '../../src/identity.interfaces';
+import { Context } from '@mparticle/event-models';
 import Constants, {
     HTTP_ACCEPTED,
     HTTP_BAD_REQUEST,
@@ -42,10 +43,10 @@ describe('Identity Api Client', () => {
                 sdk_vendor: 'mparticle',
                 sdk_version: '1.0.0',
             },
-            context: 'test-context',
+            context: 'test-context' as unknown as Context,
             environment: 'development',
             request_id: '123',
-            request_timestamp_unixtime_ms: Date.now(),
+            request_timestamp_ms: Date.now(),
             previous_mpid: null,
             known_identities: {
                 email: 'user@mparticle.com',
