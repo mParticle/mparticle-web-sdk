@@ -25,6 +25,9 @@ export declare const getCachedIdentity: (method: IdentityAPIMethod, proposedUser
 export declare const createKnownIdentities: (identityApiData: IdentityApiData, deviceId: string) => IKnownIdentities;
 export declare const removeExpiredIdentityCacheDates: (idCache: BaseVault<Dictionary<ICachedIdentityCall>>) => void;
 export declare const tryCacheIdentity: (knownIdentities: IKnownIdentities, idCache: IdentityCache, parseIdentityResponse: IParseCachedIdentityResponse, mpid: string, callback: IdentityCallback, identityApiData: IdentityApiData, identityMethod: IdentityAPIMethod) => boolean;
+type Sha256IdentityAlias = 'email_sha256' | 'mobile_sha256';
+type UserIdentitiesWithAliases = UserIdentities & Partial<Record<Sha256IdentityAlias, string | null>>;
+export declare const normalizeUserIdentityKeys: (userIdentities: UserIdentitiesWithAliases) => UserIdentities;
 export declare const hasIdentityRequestChanged: (currentUser: IMParticleUser, newIdentityRequest: IdentityApiData) => boolean;
 /**
  * Checks if deviceId or other user identifiers (like email) were explicitly provided
@@ -50,3 +53,4 @@ export declare const buildIdentitySearchEnvelope: (environment: Environment) => 
  * plumbing) is type-checked instead of being expressed in plain JS.
  */
 export declare const executeSearchRequest: (mpInstance: IMParticleWebSDKInstance, workspaceApiKey: string, knownIdentities: UserIdentities, callback: IdentitySearchCallback) => void;
+export {};

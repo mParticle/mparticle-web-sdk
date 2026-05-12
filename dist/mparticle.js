@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.67.0";
+    var version = "2.68.0";
 
     var Constants = {
       sdkVersion: version,
@@ -1204,6 +1204,10 @@ var mParticle = (function () {
             return IdentityType.PhoneNumber2;
           case 'phone_number_3':
             return IdentityType.PhoneNumber3;
+          case 'email_sha256':
+            return IdentityType.Other;
+          case 'mobile_sha256':
+            return IdentityType.Other2;
           default:
             return false;
         }
@@ -3535,13 +3539,40 @@ var mParticle = (function () {
     var parseIdentityResponse = function parseIdentityResponse(responseText) {
       return responseText ? JSON.parse(responseText) : {};
     };
+    var SHA256_IDENTITY_ALIASES = {
+      email_sha256: 'other',
+      mobile_sha256: 'other2'
+    };
+    var normalizeUserIdentityKeys = function normalizeUserIdentityKeys(userIdentities) {
+      var normalized = __assign({}, userIdentities);
+      Object.keys(SHA256_IDENTITY_ALIASES).forEach(function (alias) {
+        if (alias in normalized) {
+          var value = normalized[alias];
+          delete normalized[alias];
+          normalized[SHA256_IDENTITY_ALIASES[alias]] = value;
+        }
+      });
+      return normalized;
+    };
+    // Compare two identity objects by key and value, independent of
+    // object key insertion order. The two sides come from different sources
+    // (numeric IdentityType iteration vs. partner-provided / alias-normalized
+    // order)
+    var identitiesEqual = function identitiesEqual(a, b) {
+      var aKeys = Object.keys(a !== null && a !== void 0 ? a : {});
+      var bKeys = Object.keys(b !== null && b !== void 0 ? b : {});
+      if (aKeys.length !== bKeys.length) return false;
+      return aKeys.every(function (key) {
+        return a[key] === b[key];
+      });
+    };
     var hasIdentityRequestChanged = function hasIdentityRequestChanged(currentUser, newIdentityRequest) {
       if (!currentUser || !(newIdentityRequest === null || newIdentityRequest === void 0 ? void 0 : newIdentityRequest.userIdentities)) {
         return false;
       }
       var currentUserIdentities = currentUser.getUserIdentities().userIdentities;
-      var newIdentities = newIdentityRequest.userIdentities;
-      return JSON.stringify(currentUserIdentities) !== JSON.stringify(newIdentities);
+      var newIdentities = normalizeUserIdentityKeys(newIdentityRequest.userIdentities);
+      return !identitiesEqual(currentUserIdentities, newIdentities);
     };
     /**
      * Checks if deviceId or other user identifiers (like email) were explicitly provided
@@ -7831,6 +7862,37 @@ var mParticle = (function () {
       }
     }
 
+    function _toPrimitive(input, hint) {
+      if (_typeof$1(input) !== "object" || input === null) return input;
+      var prim = input[Symbol.toPrimitive];
+      if (prim !== undefined) {
+        var res = prim.call(input, hint || "default");
+        if (_typeof$1(res) !== "object") return res;
+        throw new TypeError("@@toPrimitive must return a primitive value.");
+      }
+      return (hint === "string" ? String : Number)(input);
+    }
+
+    function _toPropertyKey(arg) {
+      var key = _toPrimitive(arg, "string");
+      return _typeof$1(key) === "symbol" ? key : String(key);
+    }
+
+    function _defineProperty(obj, key, value) {
+      key = _toPropertyKey(key);
+      if (key in obj) {
+        Object.defineProperty(obj, key, {
+          value: value,
+          enumerable: true,
+          configurable: true,
+          writable: true
+        });
+      } else {
+        obj[key] = value;
+      }
+      return obj;
+    }
+
     var AudienceManager = /** @class */function () {
       function AudienceManager(userAudienceUrl, apiKey, logger) {
         this.url = '';
@@ -7935,6 +7997,8 @@ var mParticle = (function () {
       }
     };
 
+    function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+    function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
     var Messages$2 = Constants.Messages,
       HTTPCodes$2 = Constants.HTTPCodes,
       FeatureFlags$1 = Constants.FeatureFlags,
@@ -7959,7 +8023,12 @@ var mParticle = (function () {
           mpInstance.Logger.verbose(Messages$2.InformationMessages.StartingLogEvent + ': ' + method);
 
           // First, remove any falsy identity values and warn about them
-          var cleanedIdentityApiData = mpInstance._Helpers.Validators.removeFalsyIdentityValues(identityApiData, mpInstance.Logger);
+          var removedFalsyIdentityData = mpInstance._Helpers.Validators.removeFalsyIdentityValues(identityApiData, mpInstance.Logger);
+
+          // Normalize convenience aliases (email_sha256 → other, mobile_sha256 → other2)
+          var cleanedIdentityApiData = removedFalsyIdentityData !== null && removedFalsyIdentityData !== void 0 && removedFalsyIdentityData.userIdentities ? _objectSpread(_objectSpread({}, removedFalsyIdentityData), {}, {
+            userIdentities: normalizeUserIdentityKeys(removedFalsyIdentityData.userIdentities)
+          }) : removedFalsyIdentityData;
           var identityValidationResult = mpInstance._Helpers.Validators.validateIdentities(cleanedIdentityApiData, method);
           if (!identityValidationResult.valid) {
             mpInstance.Logger.error('ERROR: ' + identityValidationResult.error);

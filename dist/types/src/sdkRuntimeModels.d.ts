@@ -118,9 +118,9 @@ export interface SDKProductAction {
     TaxAmount?: number;
 }
 export interface SDKProduct {
-    Sku?: string;
-    Name?: string;
-    Price?: number;
+    Sku: string;
+    Name: string;
+    Price: number;
     Quantity?: number;
     Brand?: string;
     Variant?: string;
@@ -128,7 +128,7 @@ export interface SDKProduct {
     Position?: number;
     CouponCode?: string;
     TotalAmount?: number;
-    Attributes?: Record<string, unknown> | null;
+    Attributes?: Record<string, unknown>;
 }
 export interface MParticleWebSDK {
     addForwarder(forwarder: UnregisteredKit): void;
@@ -203,7 +203,7 @@ export declare const LogLevelType: {
     readonly Warning: "warning";
     readonly Error: "error";
 };
-export interface SDKInitConfig extends Omit<MPConfiguration, 'dataPlan' | 'logLevel'> {
+export interface SDKInitConfig extends Omit<MPConfiguration, 'dataPlan' | 'logLevel' | 'identityCallback'> {
     dataPlan?: DataPlanConfig | KitBlockerDataPlan;
     logLevel?: LogLevelType;
     kitConfigs?: IKitConfigs[];
