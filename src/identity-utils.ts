@@ -289,6 +289,48 @@ const getExpireTimestamp = (maxAge: number = ONE_DAY_IN_SECONDS): number =>
 const parseIdentityResponse = (responseText: string): IdentityResultBody =>
     responseText ? JSON.parse(responseText) : ({} as IdentityResultBody);
 
+type Sha256IdentityAlias = 'email_sha256' | 'mobile_sha256';
+
+const SHA256_IDENTITY_ALIASES: Readonly<
+    Record<Sha256IdentityAlias, keyof UserIdentities>
+> = {
+    email_sha256: 'other',
+    mobile_sha256: 'other2',
+};
+
+type UserIdentitiesWithAliases = UserIdentities &
+    Partial<Record<Sha256IdentityAlias, string | null>>;
+
+export const normalizeUserIdentityKeys = (
+    userIdentities: UserIdentitiesWithAliases
+): UserIdentities => {
+    const normalized: UserIdentitiesWithAliases = { ...userIdentities };
+    (Object.keys(SHA256_IDENTITY_ALIASES) as Sha256IdentityAlias[]).forEach(
+        (alias) => {
+            if (alias in normalized) {
+                const value = normalized[alias];
+                delete normalized[alias];
+                normalized[SHA256_IDENTITY_ALIASES[alias]] = value;
+            }
+        }
+    );
+    return normalized;
+};
+
+// Compare two identity objects by key and value, independent of
+// object key insertion order. The two sides come from different sources
+// (numeric IdentityType iteration vs. partner-provided / alias-normalized
+// order)
+const identitiesEqual = (
+    a?: UserIdentities,
+    b?: UserIdentities
+): boolean => {
+    const aKeys = Object.keys(a ?? {});
+    const bKeys = Object.keys(b ?? {});
+    if (aKeys.length !== bKeys.length) return false;
+    return aKeys.every((key) => a[key] === b[key]);
+};
+
 export const hasIdentityRequestChanged = (
     currentUser: IMParticleUser,
     newIdentityRequest: IdentityApiData
@@ -300,11 +342,11 @@ export const hasIdentityRequestChanged = (
     const currentUserIdentities =
         currentUser.getUserIdentities().userIdentities;
 
-    const newIdentities = newIdentityRequest.userIdentities;
-
-    return (
-        JSON.stringify(currentUserIdentities) !== JSON.stringify(newIdentities)
+    const newIdentities = normalizeUserIdentityKeys(
+        newIdentityRequest.userIdentities
     );
+
+    return !identitiesEqual(currentUserIdentities, newIdentities);
 };
 
 /**

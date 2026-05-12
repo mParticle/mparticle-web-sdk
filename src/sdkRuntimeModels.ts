@@ -161,9 +161,9 @@ export interface SDKProductAction {
 }
 
 export interface SDKProduct {
-    Sku?: string;
-    Name?: string;
-    Price?: number;
+    Sku: string;
+    Name: string;
+    Price: number;
     Quantity?: number;
     Brand?: string;
     Variant?: string;
@@ -173,7 +173,7 @@ export interface SDKProduct {
     TotalAmount?: number;
 
     // https://go.mparticle.com/work/SQDSDKS-4801
-    Attributes?: Record<string, unknown> | null;
+    Attributes?: Record<string, unknown>;
 }
 
 // https://go.mparticle.com/work/SQDSDKS-6949
@@ -306,7 +306,7 @@ export const LogLevelType = {
 // Currently, this extends MPConfiguration in @types/mparticle__web-sdk
 // and the two will be merged in once the Store module is refactored
 export interface SDKInitConfig
-    extends Omit<MPConfiguration, 'dataPlan' | 'logLevel'> {
+    extends Omit<MPConfiguration, 'dataPlan' | 'logLevel' | 'identityCallback'> {
     dataPlan?: DataPlanConfig | KitBlockerDataPlan; // TODO: These should be eventually split into two different attributes
     logLevel?: LogLevelType;
 

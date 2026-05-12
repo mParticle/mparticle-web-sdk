@@ -205,6 +205,10 @@ export const IdentityType = {
                 return IdentityType.PhoneNumber2;
             case 'phone_number_3':
                 return IdentityType.PhoneNumber3;
+            case 'email_sha256':
+                return IdentityType.Other;
+            case 'mobile_sha256':
+                return IdentityType.Other2;
             default:
                 return false;
         }
