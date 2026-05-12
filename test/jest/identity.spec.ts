@@ -17,6 +17,7 @@ import {
 import { hasExplicitIdentifier } from '../../src/identity-utils';
 import { IStore } from '../../src/store';
 import { MessageType } from '../../src/types';
+import { Context } from '@mparticle/event-models';
 
 describe('Identity', () => {
     describe('#types', () => {
@@ -122,10 +123,10 @@ describe('Identity', () => {
                     sdk_vendor: 'mparticle',
                     sdk_version: '1.0.0',
                 },
-                context: 'test-context',
+                context: 'test-context' as unknown as Context,
                 environment: 'development',
                 request_id: '123',
-                request_timestamp_unixtime_ms: Date.now(),
+                request_timestamp_ms: Date.now(),
                 previous_mpid: null,
                 known_identities: {
                     email: 'user@mparticle.com',
@@ -142,10 +143,10 @@ describe('Identity', () => {
                     sdk_vendor: 'mparticle',
                     sdk_version: '1.0.0',
                 },
-                context: 'test-context',
+                context: 'test-context' as unknown as Context,
                 environment: 'development',
                 request_id: '123',
-                request_timestamp_unixtime_ms: Date.now(),
+                request_timestamp_ms: Date.now(),
                 identity_changes: [
                     {
                         identity_type: SDKIdentityTypeEnum.google,
