@@ -1,3 +1,10 @@
+# [2.68.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.67.0...v2.68.0) (2026-05-12)
+
+
+### Features
+
+* Add alias for sha256 identities ([#1252](https://github.com/mParticle/mparticle-web-sdk/issues/1252)) ([410a0c1](https://github.com/mParticle/mparticle-web-sdk/commit/410a0c12bcb790e07e5bb612572afb566ce2a51b))
+
 # [2.67.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.66.0...v2.67.0) (2026-05-05)
 
 
