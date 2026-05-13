@@ -43,14 +43,7 @@ export default function Events(
     };
 
     this.startTracking = function(callback: Function | null): void {
-        if (!mpInstance._Store.isTracking) {
-            if ('geolocation' in navigator) {
-                mpInstance._Store.watchPositionId = navigator.geolocation.watchPosition(
-                    successTracking,
-                    errorTracking
-                );
-            }
-        } else {
+        if (mpInstance._Store.isTracking) {
             const position = {
                 coords: {
                     latitude: mpInstance._Store.currentPosition.lat,
@@ -58,6 +51,13 @@ export default function Events(
                 },
             };
             triggerCallback(callback, position);
+        } else {
+            if ('geolocation' in navigator) {
+                mpInstance._Store.watchPositionId = navigator.geolocation.watchPosition(
+                    successTracking,
+                    errorTracking
+                );
+            }
         }
 
         function successTracking(position: GeolocationPosition): void {
