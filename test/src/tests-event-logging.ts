@@ -10,7 +10,6 @@ import {
     MessageType,
 } from './config/constants';
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
-import { TransactionAttributes } from '@mparticle/web-sdk';
 
 declare global {
     interface Window {
