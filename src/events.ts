@@ -1,4 +1,4 @@
-import Types from './types';
+import Types, { EventType, ProductActionType, PromotionActionType } from './types';
 import Constants from './constants';
 import { IEvents } from './events.interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
@@ -14,7 +14,6 @@ import {
 } from './sdkRuntimeModels';
 import { SDKEventAttrs, SDKEventOptions, TransactionAttributes } from '@mparticle/web-sdk';
 import { valueof } from './utils';
-import { EventType, ProductActionType, PromotionActionType } from './types';
 
 interface DOMHandlerElement extends HTMLElement {
     href?: string;
@@ -23,19 +22,18 @@ interface DOMHandlerElement extends HTMLElement {
     attachEvent?: (event: string, handler: EventListener) => void;
 }
 
-var Messages = Constants.Messages;
+const Messages = Constants.Messages;
 
 export default function Events(
     this: IEvents,
     mpInstance: IMParticleWebSDKInstance
 ): void {
-    var self = this;
     this.logEvent = function(event: BaseEvent, options?: SDKEventOptions): void {
         mpInstance.Logger.verbose(
             Messages.InformationMessages.StartingLogEvent + ': ' + event.name
         );
         if (mpInstance._Helpers.canLog()) {
-            var uploadObject = mpInstance._ServerModel.createEventObject(event);
+            const uploadObject = mpInstance._ServerModel.createEventObject(event);
             mpInstance._APIClient.sendEventToServer(uploadObject, options);
         } else {
             mpInstance.Logger.verbose(
@@ -53,7 +51,7 @@ export default function Events(
                 );
             }
         } else {
-            var position = {
+            const position = {
                 coords: {
                     latitude: mpInstance._Store.currentPosition.lat,
                     longitude: mpInstance._Store.currentPosition.lng,
@@ -116,7 +114,7 @@ export default function Events(
             Messages.InformationMessages.StartingLogOptOut
         );
 
-        var event = mpInstance._ServerModel.createEventObject({
+        const event = mpInstance._ServerModel.createEventObject({
             messageType: Types.MessageType.OptOut,
             eventType: Types.EventType.Other,
         });
@@ -124,7 +122,7 @@ export default function Events(
     };
 
     this.logAST = function(): void {
-        self.logEvent({ messageType: Types.MessageType.AppStateTransition });
+        this.logEvent({ messageType: Types.MessageType.AppStateTransition });
     };
 
     this.logCheckoutEvent = function(
@@ -133,7 +131,7 @@ export default function Events(
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags
     ): void {
-        var event = mpInstance._Ecommerce.createCommerceEventObject(
+        const event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
 
@@ -149,7 +147,7 @@ export default function Events(
                 ProductList: [],
             };
 
-            self.logCommerceEvent(event, attrs);
+            this.logCommerceEvent(event, attrs);
         }
     };
 
@@ -161,12 +159,12 @@ export default function Events(
         transactionAttributes?: TransactionAttributes,
         options?: SDKEventOptions
     ): void {
-        var event = mpInstance._Ecommerce.createCommerceEventObject(
+        const event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags,
             options
         );
 
-        var productList: SDKProduct[] = Array.isArray(product) ? product : [product];
+        const productList: SDKProduct[] = Array.isArray(product) ? product : [product];
 
         productList.forEach(function(product: SDKProduct) {
             if (product.TotalAmount) {
@@ -214,7 +212,7 @@ export default function Events(
                 );
             }
 
-            self.logCommerceEvent(event, customAttrs, options);
+            this.logCommerceEvent(event, customAttrs, options);
         }
     };
 
@@ -224,7 +222,7 @@ export default function Events(
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags
     ): void {
-        var event = mpInstance._Ecommerce.createCommerceEventObject(
+        const event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
 
@@ -246,7 +244,7 @@ export default function Events(
                 event.ProductAction
             );
 
-            self.logCommerceEvent(event, attrs);
+            this.logCommerceEvent(event, attrs);
         }
     };
 
@@ -261,7 +259,7 @@ export default function Events(
             return;
         }
 
-        var event = mpInstance._Ecommerce.createCommerceEventObject(
+        const event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
 
@@ -283,7 +281,7 @@ export default function Events(
                 event.ProductAction
             );
 
-            self.logCommerceEvent(event, attrs);
+            this.logCommerceEvent(event, attrs);
         }
     };
 
@@ -294,7 +292,7 @@ export default function Events(
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions
     ): void {
-        var event = mpInstance._Ecommerce.createCommerceEventObject(
+        const event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
 
@@ -312,7 +310,7 @@ export default function Events(
                     : [promotion],
             };
 
-            self.logCommerceEvent(event, attrs, eventOptions);
+            this.logCommerceEvent(event, attrs, eventOptions);
         }
     };
 
@@ -322,21 +320,21 @@ export default function Events(
         customFlags?: SDKEventCustomFlags,
         options?: SDKEventOptions
     ): void {
-        var event = mpInstance._Ecommerce.createCommerceEventObject(
+        const event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
 
         if (event) {
             event.EventName += 'Impression';
             event.EventCategory = Types.CommerceEventType.ProductImpression;
-            var rawList = Array.isArray(impression)
+            const rawList = Array.isArray(impression)
                 ? impression
                 : [impression];
 
             event.ProductImpressions = [];
 
             rawList.forEach(function(item) {
-                var imp = item as SDKImpression;
+                const imp = item as SDKImpression;
                 event.ProductImpressions.push({
                     ProductImpressionList: imp.Name,
                     ProductList: Array.isArray(imp.Product)
@@ -345,7 +343,7 @@ export default function Events(
                 });
             });
 
-            self.logCommerceEvent(event, attrs, options);
+            this.logCommerceEvent(event, attrs, options);
         }
     };
 
@@ -405,12 +403,12 @@ export default function Events(
         data: ((element: HTMLLinkElement | HTMLFormElement) => SDKEventAttrs) | SDKEventAttrs,
         eventType: valueof<typeof EventType>
     ): void {
-        var elements: ArrayLike<Element> | Element[] = [],
-            handler = function(e: Event): void {
-                var el = element as DOMHandlerElement;
-                var timeoutHandler = function(): void {
+        let elements: ArrayLike<Element> | Element[] = [],
+            handler = (e: Event): void => {
+                const el = element as DOMHandlerElement;
+                const timeoutHandler = function(): void {
                     if (el.href) {
-                        window.location.href = el.href;
+                        globalThis.location.href = el.href;
                     } else if (el.submit) {
                         el.submit();
                     }
@@ -420,7 +418,7 @@ export default function Events(
                     'DOM event triggered, handling event'
                 );
 
-                self.logEvent({
+                this.logEvent({
                     messageType: Types.MessageType.PageEvent,
                     name:
                         typeof eventName === 'function'
@@ -475,7 +473,7 @@ export default function Events(
 
             for (i = 0; i < elements.length; i++) {
                 element = elements[i];
-                var el = element as DOMHandlerElement;
+                const el = element as DOMHandlerElement;
 
                 if (el.addEventListener) {
                     el.addEventListener(domEvent, handler, false);
