@@ -1,8 +1,8 @@
 import { Dictionary, Environment } from './utils';
 import { BaseVault } from './vault';
-import { IdentityApiData, UserIdentities, IdentityCallback } from '@mparticle/web-sdk';
+import { IdentityApiData, UserIdentities } from './publicSdkTypes';
 import { IdentityAPIMethod } from './identity.interfaces';
-import { IIdentityResponse, IMParticleUser } from './identity-user-interfaces';
+import { IdentityCallback, IIdentityResponse, IMParticleUser } from './identity-user-interfaces';
 import { IStore } from './store';
 import type { IMParticleWebSDKInstance } from './mp-instance';
 import { IIdentitySearchRequestBody, IdentitySearchCallback } from './identity/search';

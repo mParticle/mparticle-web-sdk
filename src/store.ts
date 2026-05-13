@@ -6,7 +6,7 @@ import {
     SDKEventCustomFlags,
     ConsentState,
     UserIdentities,
-} from '@mparticle/web-sdk';
+} from './publicSdkTypes';
 import { IKitConfigs } from './configAPIClient';
 import Constants from './constants';
 import {

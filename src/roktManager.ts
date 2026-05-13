@@ -14,7 +14,7 @@ import {
 import { SDKIdentityApi } from "./identity.interfaces";
 import { SDKLoggerApi } from "./sdkRuntimeModels";
 import { IStore, LocalSessionAttributes } from "./store";
-import { UserIdentities } from "@mparticle/web-sdk";
+import { UserIdentities } from './publicSdkTypes';
 import { IdentityType, PerformanceMarkType } from "./types";
 import { ErrorCodes, IErrorReportingService, ILoggingService, WSDKErrorSeverity } from "./reporting/types";
 

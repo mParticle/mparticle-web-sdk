@@ -1,4 +1,4 @@
-import { MPID } from '@mparticle/web-sdk';
+import { MPID } from './publicSdkTypes';
 import Constants from './constants';
 import { SDKInitConfig } from './sdkRuntimeModels';
 import { IKitConfigs } from './configAPIClient';

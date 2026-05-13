@@ -1,4 +1,4 @@
-import { ConsentState, PrivacyConsentState } from '@mparticle/web-sdk';
+import { ConsentState, PrivacyConsentState } from './publicSdkTypes';
 import { Dictionary } from './utils';
 import { IMParticleUser } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';

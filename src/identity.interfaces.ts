@@ -1,8 +1,8 @@
-import { IdentityApiData, MPID, UserIdentities } from '@mparticle/web-sdk';
+import { IdentityApiData, MPID, UserIdentities } from './publicSdkTypes';
 import AudienceManager from './audienceManager';
 import { ICachedIdentityCall, IKnownIdentities } from './identity-utils';
 import { BaseVault } from './vault';
-import { Dictionary, Environment, valueof } from './utils';
+import { Dictionary, valueof } from './utils';
 import Constants from './constants';
 import {
     IdentityCallback,
@@ -54,9 +54,9 @@ export interface IIdentityAPIRequestData {
         sdk_version: typeof sdkVersion;
     };
     context: string | null;
-    environment: Environment;
+    environment: string;
     request_id: string;
-    request_timestamp_unixtime_ms: number;
+    request_timestamp_ms: number;
     previous_mpid: MPID | null;
     known_identities: IKnownIdentities;
 }
@@ -70,7 +70,7 @@ export interface IIdentityAPIModifyRequestData
 }
 
 export interface IIdentityAPIIdentityChangeData {
-    identity_type: SDKIdentityTypeEnum;
+    identity_type: SDKIdentityTypeEnum | string;
     old_value: string;
     new_value: string;
 }
@@ -100,7 +100,7 @@ export interface IIdentityRequest {
     createIdentityChanges(
         previousIdentities: UserIdentities,
         newIdentitie: UserIdentities
-    ): IIdentityAPIIdentityChangeData;
+    ): IIdentityAPIIdentityChangeData[];
     preProcessIdentityRequest(
         identityApiData: IdentityApiData,
         callback: IdentityCallback,

@@ -1,5 +1,5 @@
 import { ProductAction, Product, Promotion, CommerceEvent } from '@mparticle/event-models';
-import { SDKEventAttrs, SDKEventOptions, TransactionAttributes } from '@mparticle/web-sdk';
+import { SDKEventAttrs, SDKEventOptions, TransactionAttributes } from './publicSdkTypes';
 import { valueof } from './utils';
 import { ProductActionType, PromotionActionType, CommerceEventType, EventType } from './types';
 import { SDKEvent, SDKEventCustomFlags, SDKImpression, SDKProduct, SDKProductImpression, SDKPromotion } from './sdkRuntimeModels';
@@ -58,9 +58,8 @@ interface ExtractedTransactionId {
 }
 export interface IECommerce extends IECommerceShared {
     buildProductList(event: SDKEvent, product: Product | Product[]): Product[];
-    convertProductActionToEventType(productActionType: valueof<typeof ProductActionType>): // https://go.mparticle.com/work/SQDSDKS-4801
-    typeof CommerceEventType | typeof EventType | null;
-    convertPromotionActionToEventType(promotionActionType: valueof<typeof PromotionActionType>): typeof CommerceEventType | null;
+    convertProductActionToEventType(productActionType: valueof<typeof ProductActionType>): valueof<typeof CommerceEventType> | valueof<typeof EventType> | null;
+    convertPromotionActionToEventType(promotionActionType: valueof<typeof PromotionActionType>): valueof<typeof CommerceEventType> | null;
     convertTransactionAttributesToProductAction(transactionAttributes: TransactionAttributes, productAction: ProductAction): void;
     createCommerceEventObject(customFlags: SDKEventCustomFlags, options?: SDKEventOptions): SDKEvent | null;
     expandProductAction(commerceEvent: CommerceEvent): SDKEvent[];

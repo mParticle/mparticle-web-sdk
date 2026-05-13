@@ -7,17 +7,17 @@
  * Usage:
  *   import type { SDKInitConfig, EventType } from '@mparticle/web-sdk';
  *
- * Note: Types from @types/mparticle__web-sdk (e.g., MPConfiguration, MPID,
- * ConsentState) are NOT re-exported here to avoid circular references.
- * Consumers get those automatically via DefinitelyTyped until they are
- * natively defined in this SDK and the DT package is deprecated.
+ * These declarations replace the legacy DefinitelyTyped surface. Keep this
+ * file focused on customer-facing SDK types; kit and SDK implementation types
+ * belong in internal-types.ts.
  */
 export type { Batch, } from '@mparticle/event-models';
+export type { AliasRequestScope, AliasUsersCallback, AllUserAttributes, Callback, Cart, CCPAConsentState, ConsentState, DataPlanConfig, DataPlanResult, Dictionary, GDPRConsentState, IdentityApiData, IdentityCallback, IdentityModifyResultBody, IdentityResult, IdentityResultBody, IdentifyRequest, Impression, Location, Logger, LogLevel, MPConfiguration, MPForwarder, MPID, OnCreateBatch, onCreateBatch, PrivacyConsentState, Product, Promotion, SDKEventAttrs, SDKEventAttrTypes, SDKEventCustomFlags, SDKEventOptions, TrackLocationCallback, TransactionAttributes, User, UserAliasRequest, UserAttributesValue, UserIdentities, } from './publicSdkTypes';
 export type { EventType, CommerceEventType, IdentityType, ProductActionType, PromotionActionType, MessageType, } from './types';
-export type { SDKInitConfig, DataPlanConfig, BaseEvent, SDKEventCustomFlags, LogLevelType, MParticleWebSDK, } from './sdkRuntimeModels';
-export type { IMParticleUser, IdentityCallback, IdentityResult, IdentityResultBody, IdentityModifyResultBody, ISDKUserIdentity, ISDKUserAttributes, } from './identity-user-interfaces';
-export type { SDKIdentityApi, IAliasRequest, IAliasCallback, IAliasResult, SDKIdentityTypeEnum, IIdentitySearchResult, IIdentitySearchResponseBody, IdentitySearchCallback, IUserIdentities } from './identity.interfaces';
+export type { SDKInitConfig, BaseEvent, LogLevelType, MParticleWebSDK, } from './sdkRuntimeModels';
+export type { IMParticleUser, ISDKUserIdentity, ISDKUserAttributes, } from './identity-user-interfaces';
+export type { SDKIdentityApi, IAliasRequest, IAliasCallback, IAliasResult, SDKIdentityTypeEnum, IIdentitySearchResult, IIdentitySearchResponseBody, IdentitySearchCallback, IUserIdentities, } from './identity.interfaces';
 export type { SDKECommerceAPI, SDKCart, } from './ecommerce.interfaces';
 export type { SDKProduct, SDKPromotion, SDKImpression, SDKProductImpression, } from './sdkRuntimeModels';
 export type { SDKConsentApi, SDKConsentState, SDKConsentStateData, SDKGDPRConsentState, SDKCCPAConsentState, } from './consent';
-export type { Dictionary, valueof } from './utils';
+export type { valueof } from './utils';

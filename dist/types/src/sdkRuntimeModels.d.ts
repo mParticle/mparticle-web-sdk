@@ -1,6 +1,5 @@
 import * as EventsApi from '@mparticle/event-models';
-import { DataPlanVersion } from '@mparticle/data-planning-models';
-import { MPConfiguration, MPID, SDKEventOptions, SDKEventAttrs, Callback } from '@mparticle/web-sdk';
+import { Callback, DataPlanConfig, KitBlockerDataPlan, KitBlockerOptions, MPConfiguration, MPID, SDKEventAttrs, SDKEventOptions } from './publicSdkTypes';
 import { IntegrationAttribute, IntegrationAttributes, IStore, WrapperSDKTypes } from './store';
 import Validators from './validators';
 import { Dictionary, valueof } from './utils';
@@ -20,6 +19,7 @@ import Constants from './constants';
 import RoktManager, { IRoktLauncherOptions } from './roktManager';
 import { IConsoleLogger } from './logger';
 import { ErrorCodes, IErrorReportingService, ILoggingService } from './reporting/types';
+export type { DataPlanConfig, DataPlanResult, KitBlockerDataPlan, KitBlockerOptions, } from './publicSdkTypes';
 export type SDKEventCustomFlags = Dictionary<any>;
 export interface SDKEvent {
     DeviceId: string;
@@ -175,7 +175,7 @@ export interface MParticleWebSDK {
     setOptOut(isOptingOut: boolean): void;
     startTrackingLocation(callback?: Callback): void;
     stopTrackingLocation(): void;
-    generateHash(value: string): string;
+    generateHash(value: string): number;
     setIntegrationAttribute(integrationModuleId: number, attrs: IntegrationAttribute): void;
     getIntegrationAttributes(integrationModuleId: number): IntegrationAttribute;
     captureTiming(metricName: string): void;
@@ -237,11 +237,6 @@ export interface SDKInitConfig extends Omit<MPConfiguration, 'dataPlan' | 'logLe
     rq?: Function[] | any[];
     logger?: IConsoleLogger;
 }
-export interface DataPlanConfig {
-    planId?: string;
-    planVersion?: number;
-    document?: DataPlanResult;
-}
 export interface SDKHelpersApi {
     canLog?(): boolean;
     createMainStorageName?(workspaceToken: string): string;
@@ -251,14 +246,14 @@ export interface SDKHelpersApi {
     findKeyInObject?(obj: any, key: string): string;
     parseNumber?(value: string | number): number;
     generateUniqueId(): any;
-    generateHash?(value: string): string;
+    generateHash?(value: string): number;
     getFeatureFlag?(feature: string): boolean | string;
     invokeAliasCallback(aliasCallback: IAliasCallback, number: number, errorMessage: string): void;
     isDelayedByIntegration?(delayedIntegrations: Dictionary<boolean>, timeoutStart: number, now: number): boolean;
     isEventType?(type: valueof<typeof EventType>): boolean;
     isObject?(item: any): any;
     invokeCallback?(callback: IdentityCallback, code: number, body: string, mParticleUser?: IMParticleUser, previousMpid?: MPID): void;
-    sanitizeAttributes?(attrs: SDKEventAttrs, name: string): Dictionary<string> | null;
+    sanitizeAttributes?(attrs: SDKEventAttrs, name: string): Dictionary | null;
     Validators: typeof Validators;
 }
 export interface SDKLoggerApi {
@@ -294,26 +289,4 @@ export interface BaseEvent {
     sourceMessageId?: string;
     userAttributeChanges?: ISDKUserAttributeChangeData;
     userIdentityChanges?: ISDKUserIdentityChanges;
-}
-export interface KitBlockerOptions {
-    dataPlanVersion: DataPlanVersion;
-    blockUserAttributes: boolean;
-    blockEventAttributes: boolean;
-    blockEvents: boolean;
-    blockUserIdentities: boolean;
-}
-export interface KitBlockerDataPlan {
-    document: DataPlanResult;
-}
-export interface DataPlanResult {
-    dtpn?: {
-        vers: DataPlanVersion;
-        blok: {
-            ev: boolean;
-            ea: boolean;
-            ua: boolean;
-            id: boolean;
-        };
-    };
-    error_message?: string;
 }

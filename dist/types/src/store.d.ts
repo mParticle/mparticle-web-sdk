@@ -1,5 +1,5 @@
 import { Batch, Context } from '@mparticle/event-models';
-import { MPID, IdentifyRequest, SDKEventCustomFlags, ConsentState, UserIdentities } from '@mparticle/web-sdk';
+import { MPID, IdentifyRequest, SDKEventCustomFlags, ConsentState, UserIdentities } from './publicSdkTypes';
 import { IKitConfigs } from './configAPIClient';
 import { DataPlanResult, KitBlockerOptions, LogLevelType, SDKDataPlan, SDKEvent, SDKGeoLocation, SDKInitConfig, SDKProduct } from './sdkRuntimeModels';
 import { Dictionary, AttributeValue } from './utils';

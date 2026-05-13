@@ -1,4 +1,4 @@
-import { UserIdentities } from '@mparticle/web-sdk';
+import { UserIdentities } from './publicSdkTypes';
 import { IMParticleUser, ISDKUserIdentity, IdentityResultBody } from './identity-user-interfaces';
 import { SDKEvent } from './sdkRuntimeModels';
 import Types from './types';

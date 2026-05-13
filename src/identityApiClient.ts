@@ -18,7 +18,7 @@ import {
     IdentityApiData,
     MPID,
     UserIdentities,
-} from '@mparticle/web-sdk';
+} from './publicSdkTypes';
 import {
     IdentityCallback,
     IdentityResultBody,

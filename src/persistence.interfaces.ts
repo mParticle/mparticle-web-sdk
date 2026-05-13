@@ -4,7 +4,7 @@ import {
     MPID,
     Product,
     UserIdentities,
-} from '@mparticle/web-sdk';
+} from './publicSdkTypes';
 import { IForwardingStatsData } from './apiClient';
 import {
     IntegrationAttributes,
@@ -102,7 +102,7 @@ export interface IPersistence {
     storeDataInMemory(obj: IPersistenceMinified, currentMPID: MPID): void;
     determineLocalStorageAvailability(storage: Storage): boolean;
     setLocalStorage(): void;
-    getLocalStorage(): IPersistenceMinified | null;
+    getLocalStorage(): IPersistenceMinified | Dictionary | null;
     expireCookies(cookieName: string): void;
     getCookie(): IPersistenceMinified | null;
     setCookie(): void;

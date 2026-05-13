@@ -3,7 +3,7 @@ import {
     ConsentState,
     GDPRConsentState,
     PrivacyConsentState,
-} from '@mparticle/web-sdk';
+} from './publicSdkTypes';
 import { Dictionary, isObject } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';

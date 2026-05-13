@@ -1,4 +1,4 @@
-import { Callback, SDKEventAttrs, SDKEventOptions, TransactionAttributes } from '@mparticle/web-sdk';
+import { Callback, SDKEventAttrs, SDKEventOptions, TransactionAttributes } from './publicSdkTypes';
 import { BaseEvent, SDKEvent, SDKEventCustomFlags, SDKProduct, SDKProductImpression, SDKPromotion } from './sdkRuntimeModels';
 import { valueof } from './utils';
 import { EventType, ProductActionType, PromotionActionType } from './types';

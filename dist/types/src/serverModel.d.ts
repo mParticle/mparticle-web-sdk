@@ -1,7 +1,7 @@
 import { BaseEvent, SDKEvent, SDKGeoLocation } from './sdkRuntimeModels';
 import { Dictionary } from './utils';
 import { ServerSettings } from './store';
-import { MPID } from '@mparticle/web-sdk';
+import { MPID } from './publicSdkTypes';
 import { IConsentStateV2DTO, SDKConsentState } from './consent';
 import { IMParticleUser, ISDKUserIdentity } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';

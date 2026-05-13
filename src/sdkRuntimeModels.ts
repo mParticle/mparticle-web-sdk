@@ -1,12 +1,14 @@
 import * as EventsApi from '@mparticle/event-models';
-import { DataPlanVersion } from '@mparticle/data-planning-models';
 import {
+    Callback,
+    DataPlanConfig,
+    KitBlockerDataPlan,
+    KitBlockerOptions,
     MPConfiguration,
     MPID,
-    SDKEventOptions,
     SDKEventAttrs,
-    Callback,
-} from '@mparticle/web-sdk';
+    SDKEventOptions,
+} from './publicSdkTypes';
 import {
     IntegrationAttribute,
     IntegrationAttributes,
@@ -53,7 +55,15 @@ import RoktManager, { IRoktLauncherOptions } from './roktManager';
 import { IConsoleLogger } from './logger';
 import { ErrorCodes, IErrorReportingService, ILoggingService } from './reporting/types';
 
-// TODO: Resolve this with version in @mparticle/web-sdk
+export type {
+    DataPlanConfig,
+    DataPlanResult,
+    KitBlockerDataPlan,
+    KitBlockerOptions,
+} from './publicSdkTypes';
+
+// Internal SDK custom flags are normalized before upload and may temporarily
+// contain arrays or other values supported by the legacy public API.
 export type SDKEventCustomFlags = Dictionary<any>;
 
 export interface SDKEvent {
@@ -253,7 +263,7 @@ export interface MParticleWebSDK {
     startTrackingLocation(callback?: Callback): void;
 
     stopTrackingLocation(): void;
-    generateHash(value: string): string;
+    generateHash(value: string): number;
     setIntegrationAttribute(
         integrationModuleId: number,
         attrs: IntegrationAttribute
@@ -348,12 +358,6 @@ export interface SDKInitConfig
     logger?: IConsoleLogger;
 }
 
-export interface DataPlanConfig {
-    planId?: string;
-    planVersion?: number;
-    document?: DataPlanResult; // when the data plan comes from the server via /mparticle.js
-}
-
 export interface SDKHelpersApi {
     canLog?(): boolean;
     createMainStorageName?(workspaceToken: string): string;
@@ -363,7 +367,7 @@ export interface SDKHelpersApi {
     findKeyInObject?(obj: any, key: string): string;
     parseNumber?(value: string | number): number;
     generateUniqueId();
-    generateHash?(value: string): string;
+    generateHash?(value: string): number;
     // https://go.mparticle.com/work/SQDSDKS-6317
     getFeatureFlag?(feature: string): boolean | string; // TODO: Feature Constants should be converted to enum
     invokeAliasCallback(
@@ -388,7 +392,7 @@ export interface SDKHelpersApi {
     sanitizeAttributes?(
         attrs: SDKEventAttrs,
         name: string
-    ): Dictionary<string> | null;
+    ): Dictionary | null;
     Validators: typeof Validators;
 }
 
@@ -427,29 +431,4 @@ export interface BaseEvent {
     sourceMessageId?: string;
     userAttributeChanges?: ISDKUserAttributeChangeData;
     userIdentityChanges?: ISDKUserIdentityChanges;
-}
-
-export interface KitBlockerOptions {
-    dataPlanVersion: DataPlanVersion;
-    blockUserAttributes: boolean;
-    blockEventAttributes: boolean;
-    blockEvents: boolean;
-    blockUserIdentities: boolean;
-}
-
-export interface KitBlockerDataPlan {
-    document: DataPlanResult;
-}
-
-export interface DataPlanResult {
-    dtpn?: {
-        vers: DataPlanVersion;
-        blok: {
-            ev: boolean;
-            ea: boolean;
-            ua: boolean;
-            id: boolean;
-        };
-    };
-    error_message?: string;
 }

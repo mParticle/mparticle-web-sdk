@@ -8,7 +8,7 @@ import {
     valueof,
 } from './utils';
 import Constants from './constants';
-import { IdentityApiData } from '@mparticle/web-sdk';
+import { IdentityApiData } from './publicSdkTypes';
 import { IdentityAPIMethod } from './identity.interfaces';
 
 type ValidationIdentitiesReturn = {
