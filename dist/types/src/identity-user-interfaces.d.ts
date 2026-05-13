@@ -1,16 +1,8 @@
-import { AllUserAttributes, MPID, User } from './publicSdkTypes';
+import type { AllUserAttributes, IdentityCallback, IdentityResultBody, User } from './publicSdkTypes';
 import { SDKIdentityTypeEnum } from './identity.interfaces';
 import { MessageType } from './types';
 import { BaseEvent, SDKProduct } from './sdkRuntimeModels';
-declare const HTTPCodes: {
-    readonly noHttpCoverage: -1;
-    readonly activeIdentityRequest: -2;
-    readonly activeSession: -3;
-    readonly validationIssue: -4;
-    readonly nativeIdentityRequest: -5;
-    readonly loggingDisabledOrMissingAPIKey: -6;
-    readonly tooManyRequests: 429;
-};
+export type { IdentityCallback, IdentityModifyResultBody, IdentityResult, IdentityResultBody, } from './publicSdkTypes';
 interface ICart {
     /**
      * @deprecated Cart persistence in mParticle has been deprecated. Please use mParticle.eCommerce.logProductAction(mParticle.ProductActionType.AddToCart, [products])
@@ -68,33 +60,11 @@ export interface IUserAttributeChangeEvent extends BaseEvent {
     messageType: typeof MessageType.UserAttributeChange;
     userAttributeChanges: ISDKUserAttributeChangeData;
 }
-export interface IdentityCallback {
-    (result: IdentityResult): void;
-}
 export interface IIdentityResponse {
     responseText: IdentityResultBody;
     status: number;
     cacheMaxAge?: number;
     expireTimestamp?: number;
-}
-export interface IdentityResult {
-    httpCode: typeof HTTPCodes;
-    getPreviousUser(): User;
-    getUser(): User;
-    body: IdentityResultBody | IdentityModifyResultBody;
-}
-export interface IdentityResultBody {
-    context: string | null;
-    is_ephemeral: boolean;
-    is_logged_in: boolean;
-    matched_identities: Record<string, unknown>;
-    mpid?: MPID;
-}
-export interface IdentityModifyResultBody {
-    change_results?: {
-        identity_type: SDKIdentityTypeEnum;
-        modified_mpid: MPID;
-    };
 }
 export interface mParticleUserCart {
     add(): void;
@@ -103,4 +73,3 @@ export interface mParticleUserCart {
     getCartProducts(): SDKProduct[];
 }
 export type UserAttributes = AllUserAttributes;
-export {};

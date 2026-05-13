@@ -89,15 +89,15 @@ export interface IAliasResult {
 }
 export interface SDKIdentityApi {
     HTTPCodes: typeof HTTPCodes;
-    identify?(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
-    login?(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
-    logout?(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
-    modify?(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
-    getCurrentUser?(): IMParticleUser;
-    getUser?(mpid: string): IMParticleUser;
-    getUsers?(): IMParticleUser[];
-    aliasUsers?(aliasRequest?: IAliasRequest, callback?: IdentityCallback): void;
-    createAliasRequest?(sourceUser: IMParticleUser, destinationUser: IMParticleUser, scope?: AliasRequestScope): IAliasRequest;
+    identify(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
+    login(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
+    logout(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
+    modify(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
+    getCurrentUser(): IMParticleUser;
+    getUser(mpid: string): IMParticleUser;
+    getUsers(): IMParticleUser[];
+    aliasUsers(aliasRequest?: IAliasRequest, callback?: IdentityCallback): void;
+    createAliasRequest(sourceUser: IMParticleUser, destinationUser: IMParticleUser, scope?: AliasRequestScope): IAliasRequest;
     /**
      * Sends a request to mParticle's IDSync `/v1/search` endpoint to look up
      * a workspace identity without affecting the current user. The callback
@@ -109,7 +109,7 @@ export interface SDKIdentityApi {
      * caller (from a kit's settings). It is sent as the `x-mp-key` header.
      * The SDK's own workspace token is intentionally not used.
      */
-    search?(workspaceApiKey: string, knownIdentities: UserIdentities, callback: IdentitySearchCallback): void;
+    search(workspaceApiKey: string, knownIdentities: UserIdentities, callback: IdentitySearchCallback): void;
 }
 export type { IIdentitySearchResult, IIdentitySearchResponseBody, IdentitySearchCallback, } from './identity/search';
 export interface IUserIdentities {

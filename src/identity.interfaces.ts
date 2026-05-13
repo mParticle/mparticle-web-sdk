@@ -129,30 +129,30 @@ export interface IAliasResult {
 
 export interface SDKIdentityApi {
     HTTPCodes: typeof HTTPCodes;
-    identify?(
+    identify(
         identityApiData?: IdentityApiData,
         callback?: IdentityCallback
     ): void;
-    login?(
+    login(
         identityApiData?: IdentityApiData,
         callback?: IdentityCallback
     ): void;
-    logout?(
+    logout(
         identityApiData?: IdentityApiData,
         callback?: IdentityCallback
     ): void;
-    modify?(
+    modify(
         identityApiData?: IdentityApiData,
         callback?: IdentityCallback
     ): void;
-    getCurrentUser?(): IMParticleUser;
-    getUser?(mpid: string): IMParticleUser;
-    getUsers?(): IMParticleUser[];
-    aliasUsers?(
+    getCurrentUser(): IMParticleUser;
+    getUser(mpid: string): IMParticleUser;
+    getUsers(): IMParticleUser[];
+    aliasUsers(
         aliasRequest?: IAliasRequest,
         callback?: IdentityCallback
     ): void;
-    createAliasRequest?(
+    createAliasRequest(
         sourceUser: IMParticleUser,
         destinationUser: IMParticleUser,
         scope?: AliasRequestScope
@@ -168,7 +168,7 @@ export interface SDKIdentityApi {
      * caller (from a kit's settings). It is sent as the `x-mp-key` header.
      * The SDK's own workspace token is intentionally not used.
      */
-    search?(
+    search(
         workspaceApiKey: string,
         knownIdentities: UserIdentities,
         callback: IdentitySearchCallback

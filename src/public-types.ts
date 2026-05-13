@@ -12,6 +12,12 @@
  * belong in internal-types.ts.
  */
 
+import type { MParticleWebSDKManager } from './sdkRuntimeModels';
+
+declare const mParticle: MParticleWebSDKManager;
+
+export default mParticle;
+
 // Re-export types from @mparticle/event-models
 // Consumers should not need to install @mparticle/event-models directly
 export type {
@@ -76,6 +82,8 @@ export type {
     SDKInitConfig,
     BaseEvent,
     LogLevelType,
+    MParticleWebSDKInstance,
+    MParticleWebSDKManager,
     MParticleWebSDK,
 } from './sdkRuntimeModels';
 

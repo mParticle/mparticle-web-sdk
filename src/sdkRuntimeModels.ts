@@ -274,10 +274,21 @@ export interface MParticleWebSDK {
     _registerLoggingService(service: ILoggingService): void;
 }
 
+export interface MParticleWebSDKInstance extends MParticleWebSDK {}
+
+export interface MParticleWebSDKManager extends MParticleWebSDK {
+    config: SDKInitConfig;
+    isIOS?: boolean;
+    Rokt: RoktManager;
+    sessionManager: Pick<ISessionManager, 'getSession'>;
+    Store: IStore;
+    getInstance(instanceName?: string): MParticleWebSDKInstance | null;
+}
+
 // https://go.mparticle.com/work/SQDSDKS-4805
 
 // https://go.mparticle.com/work/SQDSDKS-6949
-export interface IMParticleInstanceManager extends MParticleWebSDK {
+export interface IMParticleInstanceManager extends MParticleWebSDKManager {
     // https://go.mparticle.com/work/SQDSDKS-5053
     // Private Properties
     _BatchValidator: _BatchValidator;

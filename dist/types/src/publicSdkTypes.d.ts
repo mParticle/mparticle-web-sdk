@@ -45,13 +45,13 @@ export interface KitBlockerDataPlan {
     document: DataPlanResult;
 }
 export type MPForwarder = Dictionary;
-export interface IdentifyRequest {
-    userIdentities: UserIdentities;
-}
 export interface IdentityApiData {
     userIdentities?: UserIdentities;
     onUserAlias?: string;
     copyUserAttributes?: boolean;
+}
+export interface IdentifyRequest extends IdentityApiData {
+    userIdentities: UserIdentities;
 }
 export interface UserIdentities {
     customerid?: string;
@@ -101,7 +101,7 @@ export interface ConsentState {
 }
 export interface Product {
     Name: string;
-    Sku: string | number;
+    Sku: string;
     Price: number;
     Quantity?: number;
     Variant?: string;
@@ -126,10 +126,10 @@ export interface Impression {
     Product: Product;
 }
 export interface Promotion {
-    Id: string | number;
+    Id: string;
     Creative?: string;
     Name?: string;
-    Position?: string | number;
+    Position?: string;
 }
 export interface Cart {
     /**

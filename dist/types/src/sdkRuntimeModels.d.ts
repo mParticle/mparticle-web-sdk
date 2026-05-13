@@ -182,7 +182,17 @@ export interface MParticleWebSDK {
     _registerErrorReportingService(service: IErrorReportingService): void;
     _registerLoggingService(service: ILoggingService): void;
 }
-export interface IMParticleInstanceManager extends MParticleWebSDK {
+export interface MParticleWebSDKInstance extends MParticleWebSDK {
+}
+export interface MParticleWebSDKManager extends MParticleWebSDK {
+    config: SDKInitConfig;
+    isIOS?: boolean;
+    Rokt: RoktManager;
+    sessionManager: Pick<ISessionManager, 'getSession'>;
+    Store: IStore;
+    getInstance(instanceName?: string): MParticleWebSDKInstance | null;
+}
+export interface IMParticleInstanceManager extends MParticleWebSDKManager {
     _BatchValidator: _BatchValidator;
     _instances: Dictionary<IMParticleWebSDKInstance>;
     _isTestEnv?: boolean;

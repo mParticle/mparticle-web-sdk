@@ -1,9 +1,20 @@
-import { AllUserAttributes, MPID, User } from './publicSdkTypes';
+import type {
+    AllUserAttributes,
+    IdentityCallback,
+    IdentityResultBody,
+    MPID,
+    User,
+} from './publicSdkTypes';
 import { SDKIdentityTypeEnum } from './identity.interfaces';
 import { MessageType } from './types';
 import { BaseEvent, SDKProduct } from './sdkRuntimeModels';
-import Constants from './constants';
-const { HTTPCodes } = Constants;
+
+export type {
+    IdentityCallback,
+    IdentityModifyResultBody,
+    IdentityResult,
+    IdentityResultBody,
+} from './publicSdkTypes';
 
 // Cart is Deprecated and private to mParticle user in @mparticle/web-sdk
 // but we need to expose it here for type safety in some of our tests
@@ -79,39 +90,12 @@ export interface IUserAttributeChangeEvent extends BaseEvent {
     userAttributeChanges: ISDKUserAttributeChangeData;
 }
 
-// https://go.mparticle.com/work/SQDSDKS-6460
-export interface IdentityCallback {
-    (result: IdentityResult): void;
-}
-
 export interface IIdentityResponse {
     // https://go.mparticle.com/work/SQDSDKS-6672
     responseText: IdentityResultBody;
     status: number;
     cacheMaxAge?: number; // Default: 86400
     expireTimestamp?: number;
-}
-
-export interface IdentityResult {
-    httpCode: typeof HTTPCodes;
-    getPreviousUser(): User;
-    getUser(): User;
-    body: IdentityResultBody | IdentityModifyResultBody;
-}
-
-export interface IdentityResultBody {
-    context: string | null;
-    is_ephemeral: boolean;
-    is_logged_in: boolean;
-    matched_identities: Record<string, unknown>;
-    mpid?: MPID;
-}
-
-export interface IdentityModifyResultBody {
-    change_results?: {
-        identity_type: SDKIdentityTypeEnum;
-        modified_mpid: MPID;
-    };
 }
 
 export interface mParticleUserCart {
