@@ -42,7 +42,7 @@ export default function Events(
         }
     };
 
-    this.startTracking = function(callback: Function | null): void {
+    this.startTracking = function(callback: ((position?: GeolocationPosition | { coords: { latitude: number | string; longitude: number | string } }) => void) | null): void {
         if (mpInstance._Store.isTracking) {
             const position = {
                 coords: {
@@ -81,7 +81,7 @@ export default function Events(
         }
 
         function triggerCallback(
-            callback: Function | null,
+            callback: ((position?: GeolocationPosition | { coords: { latitude: number | string; longitude: number | string } }) => void) | null,
             position?: GeolocationPosition | { coords: { latitude: number | string; longitude: number | string } }
         ): void {
             if (callback) {
@@ -95,7 +95,7 @@ export default function Events(
                     mpInstance.Logger.error(
                         'Error invoking the callback passed to startTrackingLocation.'
                     );
-                    mpInstance.Logger.error(e as string);
+                    mpInstance.Logger.error(e instanceof Error ? e.message : String(e));
                 }
             }
         }
@@ -194,6 +194,7 @@ export default function Events(
         });
 
         if (event) {
+            // TODO(SDKE-1106): Remove `as Function` casts when ecommerce.js is migrated to TS
             event.EventCategory = (mpInstance._Ecommerce.convertProductActionToEventType as Function)(
                 productActionType
             );
