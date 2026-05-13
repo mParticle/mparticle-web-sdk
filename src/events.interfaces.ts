@@ -62,7 +62,7 @@ export interface IEvents {
     ): void;
     logPromotionEvent(
         promotionType: valueof<typeof PromotionActionType>,
-        promotion: SDKPromotion,
+        promotion: SDKPromotion | SDKPromotion[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions
