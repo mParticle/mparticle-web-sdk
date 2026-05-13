@@ -31,7 +31,7 @@ declare global {
     }
 }
 
-const mParticle = window.mParticle;
+const mParticle = window.mParticle as IMParticleInstanceManager;
 
 const { findEventFromRequest, findBatch, getIdentityEvent, waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
 
