@@ -30,7 +30,7 @@ import Persistence from './persistence';
 import Events from './events';
 import Forwarders from './forwarders';
 import ServerModel, { IServerModel } from './serverModel';
-import ForwardingStatsUploader from './forwardingStatsUploader';
+import ForwardingStatsUploader, { IForwardingStatsUploader } from './forwardingStatsUploader';
 import Identity from './identity';
 import Consent, { IConsent } from './consent';
 import KitBlocker from './kitBlocking';
@@ -79,7 +79,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _Ecommerce: IECommerce;
     _Events: IEvents;
     _Forwarders: any; // https://go.mparticle.com/work/SQDSDKS-5767
-    _ForwardingStatsUploader: ForwardingStatsUploader;
+    _ForwardingStatsUploader: IForwardingStatsUploader;
     _Helpers: SDKHelpersApi;
     _Identity: IIdentity;
     _IdentityAPIClient: typeof IdentityAPIClient;
@@ -1446,11 +1446,6 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     const kitBlocker = createKitBlocker(config, mpInstance);
     const { getFeatureFlag } = mpInstance._Helpers;
 
-    // Destroy previous batch uploader to prevent leaked timers and event listeners
-    if (mpInstance._APIClient?.uploader) {
-        mpInstance._APIClient.uploader.destroy();
-    }
-
     mpInstance._APIClient = new APIClient(mpInstance, kitBlocker);
     mpInstance._Forwarders = new Forwarders(mpInstance, kitBlocker);
     mpInstance._Store.processConfig(config);
@@ -1557,12 +1552,6 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         mpInstance._Store.webviewBridgeEnabled
     ) {
         mpInstance._Store.isInitialized = true;
-
-        // Sync $NoTargeting user attribute on re-init when no identity call is made
-        // if for some reason there was a change in boolean between init calls
-        mpInstance._CookieConsentManager?.syncNoTargetingAttribute(
-            mpInstance.Identity.getCurrentUser()
-        );
 
         mpInstance._preInit.readyQueue = processReadyQueue(
             mpInstance._preInit.readyQueue
