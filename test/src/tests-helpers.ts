@@ -9,10 +9,12 @@ import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import Utils from './config/utils';
 
+declare var Should: Function;
+
 const { waitForCondition, fetchMockSuccess, hasIdentityCallInflightReturned } = Utils;
 
 describe('helpers', function() {
-    let sandbox;
+    let sandbox: sinon.SinonSandbox;
 
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
@@ -44,24 +46,13 @@ describe('helpers', function() {
     });
 
     it('should correctly validate an attribute value', () => {
-        const validatedString = mParticle
-            .getInstance()
-            ._Helpers.Validators.isValidAttributeValue('testValue1');
-        const validatedNumber = mParticle
-            .getInstance()
-            ._Helpers.Validators.isValidAttributeValue(1);
-        const validatedNull = mParticle
-            .getInstance()
-            ._Helpers.Validators.isValidAttributeValue(null);
-        const validatedObject = mParticle
-            .getInstance()
-            ._Helpers.Validators.isValidAttributeValue({});
-        const validatedArray = mParticle
-            .getInstance()
-            ._Helpers.Validators.isValidAttributeValue([]);
-        const validatedUndefined = mParticle
-            .getInstance()
-            ._Helpers.Validators.isValidAttributeValue(undefined);
+        const isValid = mParticle.getInstance()._Helpers.Validators.isValidAttributeValue as Function;
+        const validatedString = isValid('testValue1');
+        const validatedNumber = isValid(1);
+        const validatedNull = isValid(null);
+        const validatedObject = isValid({});
+        const validatedArray = isValid([]);
+        const validatedUndefined = isValid(undefined);
 
         validatedString.should.be.ok();
         validatedNumber.should.be.ok();
@@ -74,7 +65,7 @@ describe('helpers', function() {
     it('should return event name in warning when sanitizing invalid attributes', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
         const bond = sandbox.spy(mParticle.getInstance().Logger, 'warning');
-        mParticle.logEvent('eventName', mParticle.EventType.Location, {invalidValue: {}});
+        (mParticle.logEvent as Function)('eventName', (mParticle as any).EventType.Location, {invalidValue: {}});
 
         bond.called.should.eql(true);
         bond.callCount.should.equal(1);
@@ -86,7 +77,7 @@ describe('helpers', function() {
 
     it('should return product name in warning when sanitizing invalid attributes', () => {
         const bond = sandbox.spy(mParticle.getInstance().Logger, 'warning');
-        mParticle.eCommerce.createProduct(
+        (mParticle.eCommerce.createProduct as Function)(
             'productName',
             'sku',
             1,
@@ -115,7 +106,7 @@ describe('helpers', function() {
         const product2 = mParticle.eCommerce.createProduct('prod2', 'prod2sku', 799);
 
         const customAttributes = {invalidValue: {}};
-        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.AddToCart, [product1, product2], customAttributes);
+        (mParticle.eCommerce.logProductAction as Function)((mParticle as any).ProductActionType.AddToCart, [product1, product2], customAttributes);
 
         bond.called.should.eql(true);
         bond.callCount.should.equal(1);
@@ -157,21 +148,12 @@ describe('helpers', function() {
         const object = {};
         const array = [];
 
-        const stringResult = mParticle
-            .getInstance()
-            ._Helpers.parseStringOrNumber(string);
-        const numberResult = mParticle
-            .getInstance()
-            ._Helpers.parseStringOrNumber(number);
-        const objectResult = mParticle
-            .getInstance()
-            ._Helpers.parseStringOrNumber(object);
-        const arrayResult = mParticle
-            .getInstance()
-            ._Helpers.parseStringOrNumber(array);
-        const nullResult = mParticle
-            .getInstance()
-            ._Helpers.parseStringOrNumber(null);
+        const parseStringOrNumber = mParticle.getInstance()._Helpers.parseStringOrNumber as Function;
+        const stringResult = parseStringOrNumber(string);
+        const numberResult = parseStringOrNumber(number);
+        const objectResult = parseStringOrNumber(object);
+        const arrayResult = parseStringOrNumber(array);
+        const nullResult = parseStringOrNumber(null);
 
         stringResult.should.equal(string);
         numberResult.should.equal(number);
@@ -225,18 +207,11 @@ describe('helpers', function() {
             10: false,
         };
 
-        const result1 = mParticle
-            .getInstance()
-            ._Helpers.isDelayedByIntegration(integrationDelays1);
-        const result2 = mParticle
-            .getInstance()
-            ._Helpers.isDelayedByIntegration(integrationDelays2);
-        const result3 = mParticle
-            .getInstance()
-            ._Helpers.isDelayedByIntegration(integrationDelays3);
-        const result4 = mParticle
-            .getInstance()
-            ._Helpers.isDelayedByIntegration(integrationDelays4);
+        const isDelayed = mParticle.getInstance()._Helpers.isDelayedByIntegration as Function;
+        const result1 = isDelayed(integrationDelays1);
+        const result2 = isDelayed(integrationDelays2);
+        const result3 = isDelayed(integrationDelays3);
+        const result4 = isDelayed(integrationDelays4);
 
         result1.should.equal(true);
         result2.should.equal(true);
@@ -246,32 +221,31 @@ describe('helpers', function() {
 
     it('should return false if integration delay object is empty', () => {
         const emptyIntegrationDelays = {};
-        const result1 = mParticle
-            .getInstance()
-            ._Helpers.isDelayedByIntegration(emptyIntegrationDelays);
+        const result1 = (mParticle.getInstance()._Helpers.isDelayedByIntegration as Function)(emptyIntegrationDelays);
 
         result1.should.equal(false);
     });
 
     it('should return 0 when hashing undefined or null', () => {
-        mParticle.generateHash(undefined)
+        const generateHash = mParticle.generateHash as Function;
+        generateHash(undefined)
             .should.equal(0);
-        mParticle.generateHash(null)
+        generateHash(null)
             .should.equal(0);
-        (typeof mParticle.generateHash(false)).should.equal('number');
-        mParticle.generateHash(false)
+        (typeof generateHash(false)).should.equal('number');
+        generateHash(false)
             .should.not.equal(0);
     });
 
     it('should generate random value', () => {
         let randomValue = mParticle.getInstance()._Helpers.generateUniqueId();
         randomValue.should.be.ok();
-        window.crypto.getRandomValues = undefined;
+        (window.crypto as any).getRandomValues = undefined;
         randomValue = mParticle.getInstance()._Helpers.generateUniqueId();
         randomValue.should.be.ok();
         //old browsers may return undefined despite
         //defining the getRandomValues API.
-        window.crypto.getRandomValues = function(a) {
+        (window.crypto as any).getRandomValues = function(a: any) {
             a = undefined;
             return a;
         };
@@ -288,9 +262,7 @@ describe('helpers', function() {
     });
 
     it('should create a storage name based on default mParticle storage version if no apiKey is passed in', () => {
-        const cookieName = mParticle
-            .getInstance()
-            ._Helpers.createMainStorageName();
+        const cookieName = (mParticle.getInstance()._Helpers.createMainStorageName as Function)();
         cookieName.should.equal('mprtcl-v4');
     });
 });
