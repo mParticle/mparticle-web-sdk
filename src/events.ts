@@ -121,16 +121,16 @@ export default function Events(
         mpInstance._APIClient.sendEventToServer(event);
     };
 
-    this.logAST = function(): void {
+    this.logAST = (): void => {
         this.logEvent({ messageType: Types.MessageType.AppStateTransition });
     };
 
-    this.logCheckoutEvent = function(
+    this.logCheckoutEvent = (
         step: number,
         option?: string,
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags
-    ): void {
+    ): void => {
         const event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
@@ -151,14 +151,14 @@ export default function Events(
         }
     };
 
-    this.logProductActionEvent = function(
+    this.logProductActionEvent = (
         productActionType: valueof<typeof ProductActionType>,
         product: SDKProduct | SDKProduct[],
         customAttrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         transactionAttributes?: TransactionAttributes,
         options?: SDKEventOptions
-    ): void {
+    ): void => {
         const event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags,
             options
@@ -217,12 +217,12 @@ export default function Events(
         }
     };
 
-    this.logPurchaseEvent = function(
+    this.logPurchaseEvent = (
         transactionAttributes: TransactionAttributes,
         product: SDKProduct | SDKProduct[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags
-    ): void {
+    ): void => {
         const event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
@@ -249,12 +249,12 @@ export default function Events(
         }
     };
 
-    this.logRefundEvent = function(
+    this.logRefundEvent = (
         transactionAttributes: TransactionAttributes,
         product: SDKProduct | SDKProduct[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags
-    ): void {
+    ): void => {
         if (!transactionAttributes) {
             mpInstance.Logger.error(Messages.ErrorMessages.TransactionRequired);
             return;
@@ -286,13 +286,13 @@ export default function Events(
         }
     };
 
-    this.logPromotionEvent = function(
+    this.logPromotionEvent = (
         promotionType: valueof<typeof PromotionActionType>,
         promotion: SDKPromotion | SDKPromotion[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions
-    ): void {
+    ): void => {
         const event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
@@ -315,12 +315,12 @@ export default function Events(
         }
     };
 
-    this.logImpressionEvent = function(
+    this.logImpressionEvent = (
         impression: SDKImpression | SDKImpression[] | SDKProductImpression | SDKProductImpression[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         options?: SDKEventOptions
-    ): void {
+    ): void => {
         const event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
@@ -335,13 +335,21 @@ export default function Events(
             event.ProductImpressions = [];
 
             rawList.forEach(function(item) {
-                const imp = item as SDKImpression;
-                event.ProductImpressions.push({
-                    ProductImpressionList: imp.Name,
-                    ProductList: Array.isArray(imp.Product)
-                        ? imp.Product
-                        : [imp.Product],
-                });
+                if ('Name' in item) {
+                    const imp = item as SDKImpression;
+                    event.ProductImpressions.push({
+                        ProductImpressionList: imp.Name,
+                        ProductList: Array.isArray(imp.Product)
+                            ? imp.Product
+                            : [imp.Product],
+                    });
+                } else {
+                    const imp = item as SDKProductImpression;
+                    event.ProductImpressions.push({
+                        ProductImpressionList: imp.ProductImpressionList,
+                        ProductList: imp.ProductList || [],
+                    });
+                }
             });
 
             this.logCommerceEvent(event, attrs, options);
