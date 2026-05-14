@@ -831,20 +831,22 @@ describe('Integration Capture', () => {
 
         it('should map both epik and _epik to Pinterest.click_id', () => {
             const integrationCapture = new IntegrationCapture('all');
+            expect(integrationCapture.filteredCustomFlagMappings.epik).toBeDefined();
+            expect(integrationCapture.filteredCustomFlagMappings._epik).toBeDefined();
+
             integrationCapture.clickIds = {
                 epik: 'pinterest_epik',
                 _epik: 'pinterest_underscore_epik',
             };
 
             const customFlags = integrationCapture.getClickIdsAsCustomFlags();
+            const pinterestClickId = customFlags['Pinterest.click_id'];
 
-            // Both map to the same custom flag key; value is whichever is applied last
-            expect(customFlags['Pinterest.click_id']).toBeDefined();
-            expect(
-                ['pinterest_epik', 'pinterest_underscore_epik'].includes(
-                    customFlags['Pinterest.click_id'],
-                ),
-            ).toEqual(true);
+            // Same mappedKey: last key wins depends on for-in order; value must be one of the inputs.
+            expect(pinterestClickId).toBeDefined();
+            expect(['pinterest_epik', 'pinterest_underscore_epik']).toContain(
+                pinterestClickId,
+            );
         });
     });
 
