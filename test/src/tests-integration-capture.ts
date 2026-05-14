@@ -32,6 +32,18 @@ function expectCapturedSnapchatAndPinterestFlags(
     expect(customFlags['Pinterest.click_id'], 'Pinterest click id').to.equal('pinterest-qp-epik');
 }
 
+/** Expected Facebook + Google custom flags from stubbed capture */
+function expectCapturedGoogleFacebookFlags(
+    customFlags: Record<string, unknown>,
+    facebookClickId: string,
+): void {
+    expect(customFlags['Facebook.ClickId'], 'Facebook Click Id').to.equal(facebookClickId);
+    expect(customFlags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
+    expect(customFlags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
+    expect(customFlags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
+    expect(customFlags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
+}
+
 describe('Integration Capture', () => {
     beforeEach(async function() {
         mParticle._resetForTests(MPConfig);
@@ -94,11 +106,10 @@ describe('Integration Capture', () => {
         expect(testEvent.data).to.have.property('event_name', 'Test Event');
         expect(testEvent.data).to.have.property('custom_flags');
 
-        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal(`fb.1.${initialTimestamp}.1234`);
-        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
+        expectCapturedGoogleFacebookFlags(
+            testEvent.data.custom_flags,
+            `fb.1.${initialTimestamp}.1234`,
+        );
         expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
     });
 
@@ -117,11 +128,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data).to.have.property('event_name', 'Test Event');
         expect(testEvent.data).to.have.property('custom_flags');
 
-        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal('passed-in');
-        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
+        expectCapturedGoogleFacebookFlags(testEvent.data.custom_flags, 'passed-in');
         expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
     });
 
@@ -141,11 +148,10 @@ describe('Integration Capture', () => {
         expect(testEvent.data).to.have.property('screen_name', 'Test Page View');
         expect(testEvent.data).to.have.property('custom_flags');
 
-        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal(`fb.1.${initialTimestamp}.1234`);
-        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
+        expectCapturedGoogleFacebookFlags(
+            testEvent.data.custom_flags,
+            `fb.1.${initialTimestamp}.1234`,
+        );
         expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
     });
 
@@ -164,11 +170,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data).to.have.property('screen_name', 'Test Page View');
         expect(testEvent.data).to.have.property('custom_flags');
 
-        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal('passed-in');
-        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
+        expectCapturedGoogleFacebookFlags(testEvent.data.custom_flags, 'passed-in');
         expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
     });
 
@@ -202,11 +204,10 @@ describe('Integration Capture', () => {
         expect(testEvent.data).to.have.property('custom_flags');
 
         expect(testEvent.data.custom_flags['foo'], 'Custom Flag').to.equal('bar');
-        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal(`fb.1.${initialTimestamp}.1234`);
-        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
+        expectCapturedGoogleFacebookFlags(
+            testEvent.data.custom_flags,
+            `fb.1.${initialTimestamp}.1234`,
+        );
         expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
     });
 
@@ -240,87 +241,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data.product_action).to.have.property('action', 'purchase');
         expect(testEvent.data).to.have.property('custom_flags');
 
-        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal('passed-in');
-        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
-        expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
-    });
-
-    it('should add captured integrations to commerce event custom flags', async () => {
-        await waitForCondition(hasIdentifyReturned);
-
-        const product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999, 1);
-        const product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799, 1);
-
-        const transactionAttributes = {
-            Id: 'foo-transaction-id',
-            Revenue: 430.00,
-            Tax: 30
-        };
-
-        const customAttributes = {sale: true};
-        const customFlags = {foo: 'bar'};
-
-        mParticle.eCommerce.logProductAction(
-            mParticle.ProductActionType.Purchase,
-            [product1, product2],
-            customAttributes,
-            customFlags,
-            transactionAttributes);
-
-        const testEvent = findEventFromRequest(fetchMock.calls(), 'purchase');
-
-        const initialTimestamp = window.mParticle.getInstance()._IntegrationCapture.initialTimestamp;
-
-        expect(testEvent.data.product_action).to.have.property('action', 'purchase');
-        expect(testEvent.data).to.have.property('custom_flags');
-
-        expect(testEvent.data.custom_flags['foo'], 'Custom Flag').to.equal('bar');
-        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal(`fb.1.${initialTimestamp}.1234`);
-        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
-        expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
-    });
-
-    it('should add captured integrations to commerce event custom flags, prioritizing passed in flags', async () => {
-        await waitForCondition(hasIdentifyReturned);
-
-        const product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999, 1);
-        const product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799, 1);
-
-        const transactionAttributes = {
-            Id: 'foo-transaction-id',
-            Revenue: 430.00,
-            Tax: 30
-        };
-
-        const customAttributes = {sale: true};
-        const customFlags = {
-            'Facebook.ClickId': 'passed-in'
-        };
-
-        mParticle.eCommerce.logProductAction(
-            mParticle.ProductActionType.Purchase,
-            [product1, product2],
-            customAttributes,
-            customFlags,
-            transactionAttributes);
-    
-
-        const testEvent = findEventFromRequest(fetchMock.calls(), 'purchase');
-
-        expect(testEvent.data.product_action).to.have.property('action', 'purchase');
-        expect(testEvent.data).to.have.property('custom_flags');
-        
-        expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal('passed-in');
-        expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
-        expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
+        expectCapturedGoogleFacebookFlags(testEvent.data.custom_flags, 'passed-in');
         expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
     });
 
