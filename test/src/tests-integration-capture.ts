@@ -23,6 +23,15 @@ declare global {
 
 const mParticle = window.mParticle as IMParticleInstanceManager;
 
+/** Expected integration-capture custom flags from stubbed query params + _scid cookie */
+function expectCapturedSnapchatAndPinterestFlags(
+    customFlags: Record<string, unknown>,
+): void {
+    expect(customFlags['SnapchatConversions.ClickId'], 'Snapchat Click ID').to.equal('1234');
+    expect(customFlags['SnapchatConversions.Cookie1'], 'Snapchat Cookie1').to.equal('cookie1-value');
+    expect(customFlags['Pinterest.click_id'], 'Pinterest click id').to.equal('pinterest-qp-epik');
+}
+
 describe('Integration Capture', () => {
     beforeEach(async function() {
         mParticle._resetForTests(MPConfig);
@@ -90,9 +99,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
-        expect(testEvent.data.custom_flags['SnapchatConversions.ClickId'], 'Snapchat Click ID').to.equal('1234');
-        expect(testEvent.data.custom_flags['SnapchatConversions.Cookie1'], 'Snapchat Cookie1').to.equal('cookie1-value');
-        expect(testEvent.data.custom_flags['Pinterest.click_id'], 'Pinterest click id').to.equal('pinterest-qp-epik');
+        expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
     });
 
     it('should add captured integrations to event custom flags, prioritizing passed in custom flags', async () => {
@@ -115,9 +122,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
-        expect(testEvent.data.custom_flags['SnapchatConversions.ClickId'], 'Snapchat Click ID').to.equal('1234');
-        expect(testEvent.data.custom_flags['SnapchatConversions.Cookie1'], 'Snapchat Cookie1').to.equal('cookie1-value');
-        expect(testEvent.data.custom_flags['Pinterest.click_id'], 'Pinterest click id').to.equal('pinterest-qp-epik');
+        expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
     });
 
     it('should add captured integrations to page view custom flags', async () => {
@@ -141,9 +146,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
-        expect(testEvent.data.custom_flags['SnapchatConversions.ClickId'], 'Snapchat Click ID').to.equal('1234');
-        expect(testEvent.data.custom_flags['SnapchatConversions.Cookie1'], 'Snapchat Cookie1').to.equal('cookie1-value');
-        expect(testEvent.data.custom_flags['Pinterest.click_id'], 'Pinterest click id').to.equal('pinterest-qp-epik');
+        expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
     });
 
     it('should add captured integrations to page view custom flags, prioritizing passed in custom flags', async () => {
@@ -166,9 +169,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
-        expect(testEvent.data.custom_flags['SnapchatConversions.ClickId'], 'Snapchat Click ID').to.equal('1234');
-        expect(testEvent.data.custom_flags['SnapchatConversions.Cookie1'], 'Snapchat Cookie1').to.equal('cookie1-value');
-        expect(testEvent.data.custom_flags['Pinterest.click_id'], 'Pinterest click id').to.equal('pinterest-qp-epik');
+        expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
     });
 
     it('should add captured integrations to commerce event custom flags', async () => {
@@ -206,9 +207,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
-        expect(testEvent.data.custom_flags['SnapchatConversions.ClickId'], 'Snapchat Click ID').to.equal('1234');
-        expect(testEvent.data.custom_flags['SnapchatConversions.Cookie1'], 'Snapchat Cookie1').to.equal('cookie1-value');
-        expect(testEvent.data.custom_flags['Pinterest.click_id'], 'Pinterest click id').to.equal('pinterest-qp-epik');
+        expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
     });
 
     it('should add captured integrations to commerce event custom flags, prioritizing passed in flags', async () => {
@@ -246,9 +245,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
-        expect(testEvent.data.custom_flags['SnapchatConversions.ClickId'], 'Snapchat Click ID').to.equal('1234');
-        expect(testEvent.data.custom_flags['SnapchatConversions.Cookie1'], 'Snapchat Cookie1').to.equal('cookie1-value');
-        expect(testEvent.data.custom_flags['Pinterest.click_id'], 'Pinterest click id').to.equal('pinterest-qp-epik');
+        expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
     });
 
     it('should add captured integrations to commerce event custom flags', async () => {
@@ -286,9 +283,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
-        expect(testEvent.data.custom_flags['SnapchatConversions.ClickId'], 'Snapchat Click ID').to.equal('1234');
-        expect(testEvent.data.custom_flags['SnapchatConversions.Cookie1'], 'Snapchat Cookie1').to.equal('cookie1-value');
-        expect(testEvent.data.custom_flags['Pinterest.click_id'], 'Pinterest click id').to.equal('pinterest-qp-epik');
+        expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
     });
 
     it('should add captured integrations to commerce event custom flags, prioritizing passed in flags', async () => {
@@ -326,9 +321,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
-        expect(testEvent.data.custom_flags['SnapchatConversions.ClickId'], 'Snapchat Click ID').to.equal('1234');
-        expect(testEvent.data.custom_flags['SnapchatConversions.Cookie1'], 'Snapchat Cookie1').to.equal('cookie1-value');
-        expect(testEvent.data.custom_flags['Pinterest.click_id'], 'Pinterest click id').to.equal('pinterest-qp-epik');
+        expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
     });
 
     it('should add captured integrations to batch as partner identities', async () => {
