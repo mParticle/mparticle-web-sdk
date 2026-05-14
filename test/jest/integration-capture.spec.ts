@@ -405,6 +405,55 @@ describe('Integration Capture', () => {
                     epik: 'pinterest_localstorage_value_epik',
                 });
             });
+
+            it('should prefer Pinterest query param over cookie when both are present', () => {
+                const url = new URL('https://www.example.com/?epik=from_query');
+
+                globalThis.document.cookie = '_epik=from_cookie';
+                globalThis.document.cookie = 'epik=from_cookie_epik';
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    epik: 'from_query',
+                });
+            });
+
+            it('should prefer Pinterest query param over localStorage when both are present', () => {
+                const url = new URL('https://www.example.com/?_epik=from_query');
+
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
+                localStorage.setItem('epik', 'from_ls');
+                localStorage.setItem('_epik', 'from_ls_underscore');
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    _epik: 'from_query',
+                });
+            });
+
+            it('should prefer Pinterest localStorage over cookie when both are present', () => {
+                const url = new URL('https://www.example.com/');
+
+                globalThis.document.cookie = 'epik=from_cookie';
+                globalThis.document.cookie = '_epik=from_cookie_us';
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
+                localStorage.setItem('_epik', 'from_ls');
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    _epik: 'from_ls',
+                });
+            });
         });
 
         describe('Facebook Click Ids', () => {

@@ -195,6 +195,26 @@ export default class IntegrationCapture {
             delete cookies['_fbc'];
         }
 
+        // Pinterest Rules
+        // epik and _epik both map to Pinterest.click_id. Prefer query params over
+        // localStorage and cookies (same rationale as Facebook fbclid vs _fbc).
+        // https://help.pinterest.com/en/business/article/pinterest-tag-parameters-and-cookies
+        const hasPinterestQuery =
+            !isEmpty(queryParams['epik']) || !isEmpty(queryParams['_epik']);
+        if (hasPinterestQuery) {
+            delete cookies['epik'];
+            delete cookies['_epik'];
+            delete localStorage['epik'];
+            delete localStorage['_epik'];
+        } else {
+            const hasPinterestLocalStorage =
+                !isEmpty(localStorage['epik']) || !isEmpty(localStorage['_epik']);
+            if (hasPinterestLocalStorage) {
+                delete cookies['epik'];
+                delete cookies['_epik'];
+            }
+        }
+
         // ROKT Rules
         // If both rtid or rclid and RoktTransactionId are present, prioritize rtid/rclid
         // If RoktTransactionId is present in both cookies and localStorage,
