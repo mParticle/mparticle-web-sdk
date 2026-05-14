@@ -44,6 +44,45 @@ function expectCapturedGoogleFacebookFlags(
     expect(customFlags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
 }
 
+function expectStubbedIntegrationCaptureFlags(
+    customFlags: Record<string, unknown>,
+    facebookClickId: string,
+): void {
+    expectCapturedGoogleFacebookFlags(customFlags, facebookClickId);
+    expectCapturedSnapchatAndPinterestFlags(customFlags);
+}
+
+const COMMERCE_TRANSACTION_ATTRS = { Id: 'foo-transaction-id', Revenue: 430.0, Tax: 30 };
+const COMMERCE_CUSTOM_ATTRS = { sale: true };
+
+function createCommercePurchaseProducts() {
+    const product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999, 1);
+    const product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799, 1);
+    return [product1, product2] as const;
+}
+
+function logCommercePurchaseAndGetEvent(customFlags: Record<string, unknown>) {
+    const [product1, product2] = createCommercePurchaseProducts();
+    mParticle.eCommerce.logProductAction(
+        mParticle.ProductActionType.Purchase,
+        [product1, product2],
+        COMMERCE_CUSTOM_ATTRS,
+        customFlags,
+        COMMERCE_TRANSACTION_ATTRS,
+    );
+    return findEventFromRequest(fetchMock.calls(), 'purchase');
+}
+
+function logThreeEventsUploadAndParseBatch(): Record<string, unknown> {
+    window.mParticle.logEvent('Test Event 1');
+    window.mParticle.logEvent('Test Event 2');
+    window.mParticle.logEvent('Test Event 3');
+    window.mParticle.upload();
+    expect(fetchMock.calls().length).to.greaterThan(1);
+    const lastCall = fetchMock.lastCall();
+    return JSON.parse(lastCall[1].body as string) as Record<string, unknown>;
+}
+
 describe('Integration Capture', () => {
     beforeEach(async function() {
         mParticle._resetForTests(MPConfig);
@@ -106,11 +145,10 @@ describe('Integration Capture', () => {
         expect(testEvent.data).to.have.property('event_name', 'Test Event');
         expect(testEvent.data).to.have.property('custom_flags');
 
-        expectCapturedGoogleFacebookFlags(
+        expectStubbedIntegrationCaptureFlags(
             testEvent.data.custom_flags,
             `fb.1.${initialTimestamp}.1234`,
         );
-        expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
     });
 
     it('should add captured integrations to event custom flags, prioritizing passed in custom flags', async () => {
@@ -128,8 +166,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data).to.have.property('event_name', 'Test Event');
         expect(testEvent.data).to.have.property('custom_flags');
 
-        expectCapturedGoogleFacebookFlags(testEvent.data.custom_flags, 'passed-in');
-        expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
+        expectStubbedIntegrationCaptureFlags(testEvent.data.custom_flags, 'passed-in');
     });
 
     it('should add captured integrations to page view custom flags', async () => {
@@ -148,11 +185,10 @@ describe('Integration Capture', () => {
         expect(testEvent.data).to.have.property('screen_name', 'Test Page View');
         expect(testEvent.data).to.have.property('custom_flags');
 
-        expectCapturedGoogleFacebookFlags(
+        expectStubbedIntegrationCaptureFlags(
             testEvent.data.custom_flags,
             `fb.1.${initialTimestamp}.1234`,
         );
-        expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
     });
 
     it('should add captured integrations to page view custom flags, prioritizing passed in custom flags', async () => {
@@ -170,33 +206,13 @@ describe('Integration Capture', () => {
         expect(testEvent.data).to.have.property('screen_name', 'Test Page View');
         expect(testEvent.data).to.have.property('custom_flags');
 
-        expectCapturedGoogleFacebookFlags(testEvent.data.custom_flags, 'passed-in');
-        expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
+        expectStubbedIntegrationCaptureFlags(testEvent.data.custom_flags, 'passed-in');
     });
 
     it('should add captured integrations to commerce event custom flags', async () => {
         await waitForCondition(hasIdentifyReturned);
 
-        const product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999, 1);
-        const product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799, 1);
-
-        const transactionAttributes = {
-            Id: 'foo-transaction-id',
-            Revenue: 430.00,
-            Tax: 30
-        };
-
-        const customAttributes = {sale: true};
-        const customFlags = {foo: 'bar'};
-
-        mParticle.eCommerce.logProductAction(
-            mParticle.ProductActionType.Purchase,
-            [product1, product2],
-            customAttributes,
-            customFlags,
-            transactionAttributes);
-
-        const testEvent = findEventFromRequest(fetchMock.calls(), 'purchase');
+        const testEvent = logCommercePurchaseAndGetEvent({ foo: 'bar' });
 
         const initialTimestamp = window.mParticle.getInstance()._IntegrationCapture.initialTimestamp;
 
@@ -204,60 +220,29 @@ describe('Integration Capture', () => {
         expect(testEvent.data).to.have.property('custom_flags');
 
         expect(testEvent.data.custom_flags['foo'], 'Custom Flag').to.equal('bar');
-        expectCapturedGoogleFacebookFlags(
+        expectStubbedIntegrationCaptureFlags(
             testEvent.data.custom_flags,
             `fb.1.${initialTimestamp}.1234`,
         );
-        expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
     });
 
     it('should add captured integrations to commerce event custom flags, prioritizing passed in flags', async () => {
         await waitForCondition(hasIdentifyReturned);
 
-        const product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999, 1);
-        const product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799, 1);
-
-        const transactionAttributes = {
-            Id: 'foo-transaction-id',
-            Revenue: 430.00,
-            Tax: 30
-        };
-
-        const customAttributes = {sale: true};
-        const customFlags = {
-            'Facebook.ClickId': 'passed-in'
-        };
-
-        mParticle.eCommerce.logProductAction(
-            mParticle.ProductActionType.Purchase,
-            [product1, product2],
-            customAttributes,
-            customFlags,
-            transactionAttributes);
-    
-
-        const testEvent = findEventFromRequest(fetchMock.calls(), 'purchase');
+        const testEvent = logCommercePurchaseAndGetEvent({
+            'Facebook.ClickId': 'passed-in',
+        });
 
         expect(testEvent.data.product_action).to.have.property('action', 'purchase');
         expect(testEvent.data).to.have.property('custom_flags');
 
-        expectCapturedGoogleFacebookFlags(testEvent.data.custom_flags, 'passed-in');
-        expectCapturedSnapchatAndPinterestFlags(testEvent.data.custom_flags);
+        expectStubbedIntegrationCaptureFlags(testEvent.data.custom_flags, 'passed-in');
     });
 
     it('should add captured integrations to batch as partner identities', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
 
-        window.mParticle.logEvent('Test Event 1');
-        window.mParticle.logEvent('Test Event 2');
-        window.mParticle.logEvent('Test Event 3');
-
-        window.mParticle.upload();
-
-        expect(fetchMock.calls().length).to.greaterThan(1);
-
-        const lastCall = fetchMock.lastCall();
-        const batch = JSON.parse(lastCall[1].body as string);
+        const batch = logThreeEventsUploadAndParseBatch();
 
         expect(batch).to.have.property('partner_identities');
         expect(batch.partner_identities).to.deep.equal({
@@ -269,16 +254,7 @@ describe('Integration Capture', () => {
     it('should add captured integrations to batch as integration attributes', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
 
-        window.mParticle.logEvent('Test Event 1');
-        window.mParticle.logEvent('Test Event 2');
-        window.mParticle.logEvent('Test Event 3');
-
-        window.mParticle.upload();
-
-        expect(fetchMock.calls().length).to.greaterThan(1);
-
-        const lastCall = fetchMock.lastCall();
-        const batch = JSON.parse(lastCall[1].body as string);
+        const batch = logThreeEventsUploadAndParseBatch();
 
         expect(batch).to.have.property('integration_attributes');
         expect(batch.integration_attributes['1277']).to.deep.equal({
@@ -291,16 +267,7 @@ describe('Integration Capture', () => {
 
         window.mParticle.setIntegrationAttribute(160, { 'client_id': '12354'});
 
-        window.mParticle.logEvent('Test Event 1');
-        window.mParticle.logEvent('Test Event 2');
-        window.mParticle.logEvent('Test Event 3');
-
-        window.mParticle.upload();
-
-        expect(fetchMock.calls().length).to.greaterThan(1);
-
-        const lastCall = fetchMock.lastCall();
-        const batch = JSON.parse(lastCall[1].body as string);
+        const batch = logThreeEventsUploadAndParseBatch();
 
         expect(batch).to.have.property('integration_attributes');
         expect(batch.integration_attributes).to.have.property('1277');
@@ -320,16 +287,7 @@ describe('Integration Capture', () => {
         window.mParticle.setIntegrationAttribute(1277, { 'passbackconversiontrackingid': 'passed-in'});
         window.mParticle.setIntegrationAttribute(160, { 'client_id': '12354'});
 
-        window.mParticle.logEvent('Test Event 1');
-        window.mParticle.logEvent('Test Event 2');
-        window.mParticle.logEvent('Test Event 3');
-
-        window.mParticle.upload();
-
-        expect(fetchMock.calls().length).to.greaterThan(1);
-
-        const lastCall = fetchMock.lastCall();
-        const batch = JSON.parse(lastCall[1].body as string);
+        const batch = logThreeEventsUploadAndParseBatch();
 
         expect(batch).to.have.property('integration_attributes');
         expect(batch.integration_attributes['1277']).to.deep.equal({
