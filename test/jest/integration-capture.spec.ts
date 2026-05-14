@@ -830,26 +830,24 @@ describe('Integration Capture', () => {
         });
 
         it('should map both epik and _epik to Pinterest.click_id', () => {
-    const integrationCapture = new IntegrationCapture('all');
-    integrationCapture.clickIds = {
-        epik: 'pinterest_epik',
-        _epik: 'pinterest_underscore_epik',
-    };
+            const integrationCapture = new IntegrationCapture('all');
+            integrationCapture.clickIds = {
+                epik: 'pinterest_epik',
+                _epik: 'pinterest_underscore_epik',
+            };
 
-    const customFlags = integrationCapture.getClickIdsAsCustomFlags();
+            const customFlags = integrationCapture.getClickIdsAsCustomFlags();
 
-    // Both map to the same key (support either common key name)
-    const pinterestKey = Object.keys(customFlags).find(
-        (k) => k === 'Pinterest.click_id' || k === 'pinterest_click_id'
-    );
-    expect(pinterestKey).toBeDefined();
-    expect(customFlags).toHaveProperty(pinterestKey);
+            // Both map to the same custom flag key; value is whichever is applied last
+            expect(customFlags['Pinterest.click_id']).toBeDefined();
+            expect(
+                ['pinterest_epik', 'pinterest_underscore_epik'].includes(
+                    customFlags['Pinterest.click_id'],
+                ),
+            ).toEqual(true);
+        });
+    });
 
-    const value = customFlags[pinterestKey];
-    expect(value).toBeDefined();
-    expect(['pinterest_epik', 'pinterest_underscore_epik']).toContain(value);
-});
-        
     describe('#getClickIdsAsPartnerIdentites', () => {
         it('should return empty object if clickIds is empty or undefined', () => {
             const integrationCapture = new IntegrationCapture('all');
