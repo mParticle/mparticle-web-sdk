@@ -3,6 +3,35 @@ import IntegrationCapture, {
 } from '../../src/integrationCapture';
 import { deleteAllCookies } from './utils';
 
+type FullCaptureSetup = {
+    url: string;
+    cookies?: string[];
+    localStorage?: Record<string, string>;
+    mockNow?: number;
+};
+
+/** Sets location from URL, optional cookies/localStorage, runs IntegrationCapture('all').capture(). */
+function clickIdsAfterFullCaptureAllMode(setup: FullCaptureSetup): Record<string, string> {
+    const { url, cookies, localStorage: ls, mockNow } = setup;
+    if (mockNow !== undefined) {
+        jest.spyOn(Date, 'now').mockImplementation(() => mockNow);
+    }
+    const urlObj = new URL(url);
+    cookies?.forEach((c) => {
+        globalThis.document.cookie = c;
+    });
+    if (ls) {
+        for (const [key, val] of Object.entries(ls)) {
+            globalThis.localStorage.setItem(key, val);
+        }
+    }
+    globalThis.location.href = urlObj.href;
+    globalThis.location.search = urlObj.search;
+    const integrationCapture = new IntegrationCapture('all');
+    integrationCapture.capture();
+    return (integrationCapture.clickIds ?? {}) as Record<string, string>;
+}
+
 describe('Integration Capture', () => {
     describe('constructor', () => {
         it('should initialize with clickIds as undefined', () => {
@@ -83,82 +112,100 @@ describe('Integration Capture', () => {
             globalThis.localStorage.clear();
         });
 
-        it('should return only Rokt keys from helpers when captureMode is roktonly (lowercase)', () => {
-            // Query params
-            const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1');
-            globalThis.location.href = url.href;
-            globalThis.location.search = url.search;
+        const V2_MODE_HELPER_CASES: Array<{
+            title: string;
+            captureMode: 'roktonly' | 'all' | 'none';
+            url: string;
+            cookies: string[];
+            mockNow?: number;
+            expectQuery: Record<string, unknown>;
+            expectCookies: Record<string, unknown>;
+            expectLocalStorage: Record<string, string>;
+        }> = [
+            {
+                title: 'should return only Rokt keys from helpers when captureMode is roktonly (lowercase)',
+                captureMode: 'roktonly',
+                url: 'https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1',
+                cookies: ['_fbp=54321', 'RoktTransactionId=xyz'],
+                expectQuery: { rtid: 'rt1', rclid: 'rc1' },
+                expectCookies: { RoktTransactionId: 'xyz' },
+                expectLocalStorage: { RoktTransactionId: 'ls-rok' },
+            },
+            {
+                title: 'should return all mapped keys from helpers when captureMode is all (lowercase)',
+                captureMode: 'all',
+                url: 'https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1&ScCid=snap1',
+                cookies: [
+                    '_fbp=54321',
+                    '_fbc=fb.1.1554763741205.abcdef',
+                    'RoktTransactionId=xyz',
+                ],
+                mockNow: 42,
+                expectQuery: {
+                    fbclid: 'fb.2.42.abc',
+                    gclid: 'g1',
+                    rtid: 'rt1',
+                    rclid: 'rc1',
+                    ScCid: 'snap1',
+                },
+                expectCookies: {
+                    _fbp: '54321',
+                    _fbc: 'fb.1.1554763741205.abcdef',
+                    RoktTransactionId: 'xyz',
+                },
+                expectLocalStorage: { RoktTransactionId: 'ls-rok' },
+            },
+            {
+                title: 'should NOT return mapped keys from helpers when captureMode is none (lowercase)',
+                captureMode: 'none',
+                url: 'https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1&ScCid=snap1',
+                cookies: [
+                    '_fbp=54321',
+                    '_fbc=fb.1.1554763741205.abcdef',
+                    'RoktTransactionId=xyz',
+                ],
+                mockNow: 42,
+                expectQuery: {},
+                expectCookies: {},
+                expectLocalStorage: {},
+            },
+        ];
 
-            // Cookies
-            document.cookie = '_fbp=54321';
-            document.cookie = 'RoktTransactionId=xyz';
+        V2_MODE_HELPER_CASES.forEach(
+            ({
+                title,
+                captureMode,
+                url,
+                cookies,
+                mockNow,
+                expectQuery,
+                expectCookies,
+                expectLocalStorage,
+            }) => {
+                it(title, () => {
+                    if (mockNow !== undefined) {
+                        jest.spyOn(Date, 'now').mockImplementation(() => mockNow);
+                    }
+                    const urlObj = new URL(url);
+                    globalThis.location.href = urlObj.href;
+                    globalThis.location.search = urlObj.search;
+                    cookies.forEach((c) => {
+                        document.cookie = c;
+                    });
+                    globalThis.localStorage.setItem('RoktTransactionId', 'ls-rok');
 
-            // Local storage
-            globalThis.localStorage.setItem('RoktTransactionId', 'ls-rok');
+                    const integrationCapture = new IntegrationCapture(captureMode);
 
-            const integrationCapture = new IntegrationCapture('roktonly');
+                    const clickIds = integrationCapture.captureQueryParams();
+                    const clickIdCookies = integrationCapture.captureCookies();
+                    const clickIdLocalStorage = integrationCapture.captureLocalStorage();
 
-            const clickIds = integrationCapture.captureQueryParams();
-            const clickIdCookies = integrationCapture.captureCookies();
-            const clickIdLocalStorage = integrationCapture.captureLocalStorage();
-
-            expect(clickIds).toEqual({ rtid: 'rt1', rclid: 'rc1' });
-            expect(clickIdCookies).toEqual({ RoktTransactionId: 'xyz' });
-            expect(clickIdLocalStorage).toEqual({ RoktTransactionId: 'ls-rok' });
-        });
-
-        it('should return all mapped keys from helpers when captureMode is all (lowercase)', () => {
-            jest.spyOn(Date, 'now').mockImplementation(() => 42);
-            // Query params
-            const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1&ScCid=snap1');
-            globalThis.location.href = url.href;
-            globalThis.location.search = url.search;
-
-            // Cookies
-            document.cookie = '_fbp=54321';
-            document.cookie = '_fbc=fb.1.1554763741205.abcdef';
-            document.cookie = 'RoktTransactionId=xyz';
-
-            // Local storage
-            globalThis.localStorage.setItem('RoktTransactionId', 'ls-rok');
-
-            const integrationCapture = new IntegrationCapture('all');
-
-            const clickIds = integrationCapture.captureQueryParams();
-            const clickIdCookies = integrationCapture.captureCookies();
-            const clickIdLocalStorage = integrationCapture.captureLocalStorage();
-
-            // fbclid is formatted with timestamp/domain index
-            expect(clickIds).toMatchObject({ fbclid: 'fb.2.42.abc', gclid: 'g1', rtid: 'rt1', rclid: 'rc1', ScCid: 'snap1' });
-            expect(clickIdCookies).toMatchObject({ _fbp: '54321', _fbc: 'fb.1.1554763741205.abcdef', RoktTransactionId: 'xyz' });
-            expect(clickIdLocalStorage).toEqual({ RoktTransactionId: 'ls-rok' });
-        });
-
-        it('should NOT return mapped keys from helpers when captureMode is none (lowercase)', () => {
-            jest.spyOn(Date, 'now').mockImplementation(() => 42);
-            // Query params
-            const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1&ScCid=snap1');
-            globalThis.location.href = url.href;
-            globalThis.location.search = url.search;
-
-            // Cookies
-            document.cookie = '_fbp=54321';
-            document.cookie = '_fbc=fb.1.1554763741205.abcdef';
-            document.cookie = 'RoktTransactionId=xyz';
-
-            // Local storage
-            globalThis.localStorage.setItem('RoktTransactionId', 'ls-rok');
-
-            const integrationCapture = new IntegrationCapture('none');
-
-            const clickIds = integrationCapture.captureQueryParams();
-            const clickIdCookies = integrationCapture.captureCookies();
-            const clickIdLocalStorage = integrationCapture.captureLocalStorage();
-
-            expect(clickIds).toMatchObject({});
-            expect(clickIdCookies).toMatchObject({});
-            expect(clickIdLocalStorage).toEqual({});
-        });
+                    expect(clickIds).toMatchObject(expectQuery);
+                    expect(clickIdCookies).toMatchObject(expectCookies);
+                    expect(clickIdLocalStorage).toEqual(expectLocalStorage);
+                });
+            },
+        );
     });
 
     describe('#capture', () => {
@@ -233,15 +280,11 @@ describe('Integration Capture', () => {
 
         describe('Google Click Ids', () => {
             it('should capture Google specific click ids', () => {
-                const url = new URL('https://www.example.com/?gclid=54321&gbraid=67890&wbraid=09876');
-
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
+                expect(
+                    clickIdsAfterFullCaptureAllMode({
+                        url: 'https://www.example.com/?gclid=54321&gbraid=67890&wbraid=09876',
+                    }),
+                ).toEqual({
                     gclid: '54321',
                     gbraid: '67890',
                     wbraid: '09876',
@@ -250,208 +293,134 @@ describe('Integration Capture', () => {
         });
 
         describe('SnapChat Click Ids', () => {
-            it('should capture Snapchat specific click ids', () => {
-                const url = new URL('https://www.example.com/?ScCid=1234');
+            const SNAPCHAT_FULL_CAPTURE: Array<{
+                title: string;
+                setup: FullCaptureSetup;
+                expected: Record<string, string>;
+            }> = [
+                {
+                    title: 'should capture Snapchat specific click ids',
+                    setup: { url: 'https://www.example.com/?ScCid=1234' },
+                    expected: { ScCid: '1234' },
+                },
+                {
+                    title: 'should capture Snapchat specific click ids without being case sensitive',
+                    setup: { url: 'https://www.example.com/?sccid=1234' },
+                    expected: { ScCid: '1234' },
+                },
+                {
+                    title: 'should capture _scid from cookies',
+                    setup: {
+                        url: 'https://www.example.com/',
+                        cookies: [
+                            '_scid=cookie1-from-cookie',
+                            '_cookie1=4567',
+                            'baz=qux',
+                        ],
+                    },
+                    expected: { _scid: 'cookie1-from-cookie' },
+                },
+                {
+                    title: 'should capture both ScCid from query params and _scid from cookies',
+                    setup: {
+                        url: 'https://www.example.com/?ScCid=4567',
+                        cookies: ['_scid=cookie1-from-cookie', '_cookie1=334455'],
+                    },
+                    expected: {
+                        ScCid: '4567',
+                        _scid: 'cookie1-from-cookie',
+                    },
+                },
+            ];
 
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    ScCid: '1234',
-                });
-            });
-
-            it('should capture Snapchat specific click ids without being case sensitive', () => {
-                const url = new URL('https://www.example.com/?sccid=1234');
-
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    ScCid: '1234',
-                });
-            });
-
-            it('should capture _scid from cookies', () => {
-                const url = new URL('https://www.example.com/');
-
-                globalThis.document.cookie = '_scid=cookie1-from-cookie';
-                globalThis.document.cookie = '_cookie1=4567';
-                globalThis.document.cookie = 'baz=qux';
-
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    _scid: 'cookie1-from-cookie',
-                });
-            });
-
-            it('should capture both ScCid from query params and _scid from cookies', () => {
-                const url = new URL('https://www.example.com/?ScCid=4567');
-
-                globalThis.document.cookie = '_scid=cookie1-from-cookie';
-                globalThis.document.cookie = '_cookie1=334455';
-
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    ScCid: '4567',
-                    _scid: 'cookie1-from-cookie',
+            SNAPCHAT_FULL_CAPTURE.forEach(({ title, setup, expected }) => {
+                it(title, () => {
+                    expect(clickIdsAfterFullCaptureAllMode(setup)).toEqual(expected);
                 });
             });
         });
 
         describe('Pinterest Click Ids', () => {
-            it('should capture Pinterest specific click ids from query params (_epik)', () => {
-                const url = new URL('https://www.example.com/?_epik=1234');
+            const PINTEREST_FULL_CAPTURE: Array<{
+                title: string;
+                setup: FullCaptureSetup;
+                expected: Record<string, string>;
+            }> = [
+                {
+                    title: 'should capture Pinterest specific click ids from query params (_epik)',
+                    setup: { url: 'https://www.example.com/?_epik=1234' },
+                    expected: { _epik: '1234' },
+                },
+                {
+                    title: 'should capture Pinterest specific click ids from query params (epik)',
+                    setup: { url: 'https://www.example.com/?epik=5678' },
+                    expected: { epik: '5678' },
+                },
+                {
+                    title: 'should capture Pinterest specific click ids from cookies (_epik)',
+                    setup: {
+                        url: 'https://www.example.com/',
+                        cookies: ['_epik=pinterest_cookie_value'],
+                    },
+                    expected: { _epik: 'pinterest_cookie_value' },
+                },
+                {
+                    title: 'should capture Pinterest specific click ids from cookies (epik)',
+                    setup: {
+                        url: 'https://www.example.com/',
+                        cookies: ['epik=pinterest_cookie_value_epik'],
+                    },
+                    expected: { epik: 'pinterest_cookie_value_epik' },
+                },
+                {
+                    title: 'should capture Pinterest specific click ids from localStorage (_epik)',
+                    setup: {
+                        url: 'https://www.example.com/',
+                        localStorage: { _epik: 'pinterest_localstorage_value' },
+                    },
+                    expected: { _epik: 'pinterest_localstorage_value' },
+                },
+                {
+                    title: 'should capture Pinterest specific click ids from localStorage (epik)',
+                    setup: {
+                        url: 'https://www.example.com/',
+                        localStorage: { epik: 'pinterest_localstorage_value_epik' },
+                    },
+                    expected: { epik: 'pinterest_localstorage_value_epik' },
+                },
+                {
+                    title: 'should prefer Pinterest query param over cookie when both are present',
+                    setup: {
+                        url: 'https://www.example.com/?epik=from_query',
+                        cookies: ['_epik=from_cookie', 'epik=from_cookie_epik'],
+                    },
+                    expected: { epik: 'from_query' },
+                },
+                {
+                    title: 'should prefer Pinterest query param over localStorage when both are present',
+                    setup: {
+                        url: 'https://www.example.com/?_epik=from_query',
+                        localStorage: {
+                            epik: 'from_ls',
+                            _epik: 'from_ls_underscore',
+                        },
+                    },
+                    expected: { _epik: 'from_query' },
+                },
+                {
+                    title: 'should prefer Pinterest localStorage over cookie when both are present',
+                    setup: {
+                        url: 'https://www.example.com/',
+                        cookies: ['epik=from_cookie', '_epik=from_cookie_us'],
+                        localStorage: { _epik: 'from_ls' },
+                    },
+                    expected: { _epik: 'from_ls' },
+                },
+            ];
 
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    _epik: '1234',
-                });
-            });
-
-            it('should capture Pinterest specific click ids from query params (epik)', () => {
-                const url = new URL('https://www.example.com/?epik=5678');
-
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    epik: '5678',
-                });
-            });
-
-            it('should capture Pinterest specific click ids from cookies (_epik)', () => {
-                const url = new URL('https://www.example.com/');
-
-                globalThis.document.cookie = '_epik=pinterest_cookie_value';
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    _epik: 'pinterest_cookie_value',
-                });
-            });
-
-            it('should capture Pinterest specific click ids from cookies (epik)', () => {
-                const url = new URL('https://www.example.com/');
-
-                globalThis.document.cookie = 'epik=pinterest_cookie_value_epik';
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    epik: 'pinterest_cookie_value_epik',
-                });
-            });
-
-            it('should capture Pinterest specific click ids from localStorage (_epik)', () => {
-                const url = new URL('https://www.example.com/');
-
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-
-                localStorage.setItem('_epik', 'pinterest_localstorage_value');
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    _epik: 'pinterest_localstorage_value',
-                });
-            });
-
-            it('should capture Pinterest specific click ids from localStorage (epik)', () => {
-                const url = new URL('https://www.example.com/');
-
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-
-                localStorage.setItem('epik', 'pinterest_localstorage_value_epik');
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    epik: 'pinterest_localstorage_value_epik',
-                });
-            });
-
-            it('should prefer Pinterest query param over cookie when both are present', () => {
-                const url = new URL('https://www.example.com/?epik=from_query');
-
-                globalThis.document.cookie = '_epik=from_cookie';
-                globalThis.document.cookie = 'epik=from_cookie_epik';
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    epik: 'from_query',
-                });
-            });
-
-            it('should prefer Pinterest query param over localStorage when both are present', () => {
-                const url = new URL('https://www.example.com/?_epik=from_query');
-
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-                localStorage.setItem('epik', 'from_ls');
-                localStorage.setItem('_epik', 'from_ls_underscore');
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    _epik: 'from_query',
-                });
-            });
-
-            it('should prefer Pinterest localStorage over cookie when both are present', () => {
-                const url = new URL('https://www.example.com/');
-
-                globalThis.document.cookie = 'epik=from_cookie';
-                globalThis.document.cookie = '_epik=from_cookie_us';
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-                localStorage.setItem('_epik', 'from_ls');
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    _epik: 'from_ls',
+            PINTEREST_FULL_CAPTURE.forEach(({ title, setup, expected }) => {
+                it(title, () => {
+                    expect(clickIdsAfterFullCaptureAllMode(setup)).toEqual(expected);
                 });
             });
         });
@@ -542,156 +511,89 @@ describe('Integration Capture', () => {
         });
 
         describe('Rokt Click Ids', () => {
-            it('should capture rtid via url param', () => {
-                const url = new URL('https://www.example.com/?rtid=54321');
+            const ROKT_FULL_CAPTURE: Array<{
+                title: string;
+                setup: FullCaptureSetup;
+                expected: Record<string, string>;
+            }> = [
+                {
+                    title: 'should capture rtid via url param',
+                    setup: { url: 'https://www.example.com/?rtid=54321' },
+                    expected: { rtid: '54321' },
+                },
+                {
+                    title: 'should capture rclid via url param',
+                    setup: { url: 'https://www.example.com/?rclid=7183717' },
+                    expected: { rclid: '7183717' },
+                },
+                {
+                    title: 'should capture RoktTransactionId via cookies',
+                    setup: {
+                        url: 'https://www.example.com/',
+                        cookies: ['RoktTransactionId=12345'],
+                    },
+                    expected: { RoktTransactionId: '12345' },
+                },
+                {
+                    title: 'should capture RoktTransactionId via local storage',
+                    setup: {
+                        url: 'https://www.example.com/',
+                        localStorage: { RoktTransactionId: '54321' },
+                        mockNow: 42,
+                    },
+                    expected: { RoktTransactionId: '54321' },
+                },
+                {
+                    title: 'should prioritize rtid over RoktTransactionId via cookies',
+                    setup: {
+                        url: 'https://www.example.com/?rtid=54321',
+                        cookies: ['RoktTransactionId=12345'],
+                        mockNow: 42,
+                    },
+                    expected: { rtid: '54321' },
+                },
+                {
+                    title: 'should prioritize rclid over RoktTransactionId via cookies',
+                    setup: {
+                        url: 'https://www.example.com/?rclid=7183717',
+                        cookies: ['RoktTransactionId=12345'],
+                        mockNow: 42,
+                    },
+                    expected: { rclid: '7183717' },
+                },
+                {
+                    title: 'should prioritize rtid over RoktTransactionId via local storage',
+                    setup: {
+                        url: 'https://www.example.com/?rtid=54321',
+                        localStorage: { RoktTransactionId: '12345' },
+                        mockNow: 42,
+                    },
+                    expected: { rtid: '54321' },
+                },
+                {
+                    title: 'should prioritize rclid over RoktTransactionId via local storage',
+                    setup: {
+                        url: 'https://www.example.com/?rclid=7183717',
+                        localStorage: { RoktTransactionId: '12345' },
+                        mockNow: 42,
+                    },
+                    expected: { rclid: '7183717' },
+                },
+                {
+                    title: 'should prioritize local storage over cookies',
+                    setup: {
+                        url: 'https://www.example.com/',
+                        cookies: ['RoktTransactionId=67890'],
+                        localStorage: { RoktTransactionId: '12345' },
+                        mockNow: 42,
+                    },
+                    expected: { RoktTransactionId: '12345' },
+                },
+            ];
 
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    rtid: '54321',
-                });
-            });
-
-            it('should capture rclid via url param', () => {
-                const url = new URL('https://www.example.com/?rclid=7183717');
-
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    rclid: '7183717',
-                });
-            });
-
-            it('should capture RoktTransactionId via cookies', () => {
-                globalThis.document.cookie = 'RoktTransactionId=12345';
-
-                const url = new URL('https://www.example.com/');
-
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    RoktTransactionId: '12345',
-                });
-            });
-
-            it('should capture RoktTransactionId via local storage', () => {
-                jest.spyOn(Date, 'now').mockImplementation(() => 42);
-
-                const url = new URL('https://www.example.com/');
-
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-
-                localStorage.setItem('RoktTransactionId', '54321');
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    RoktTransactionId: '54321',
-                });
-            });
-
-            it('should prioritize rtid over RoktTransactionId via cookies', () => {
-                jest.spyOn(Date, 'now').mockImplementation(() => 42);
-
-                const url = new URL('https://www.example.com/?rtid=54321');
-                
-                globalThis.document.cookie = 'RoktTransactionId=12345';
-
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    rtid: '54321',
-                });
-            });
-
-            it('should prioritize rclid over RoktTransactionId via cookies', () => {
-                jest.spyOn(Date, 'now').mockImplementation(() => 42);
-
-                const url = new URL('https://www.example.com/?rclid=7183717');
-
-                globalThis.document.cookie = 'RoktTransactionId=12345';
-
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    rclid: '7183717',
-                });
-            });
-
-            it('should prioritize rtid over RoktTransactionId via local storage', () => {
-                jest.spyOn(Date, 'now').mockImplementation(() => 42);
-
-                const url = new URL('https://www.example.com/?rtid=54321');
-
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-
-                localStorage.setItem('RoktTransactionId', '12345');
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    rtid: '54321',
-                });
-            });
-
-            it('should prioritize rclid over RoktTransactionId via local storage', () => {
-                jest.spyOn(Date, 'now').mockImplementation(() => 42);
-
-                const url = new URL('https://www.example.com/?rclid=7183717');
-                
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-
-                localStorage.setItem('RoktTransactionId', '12345');
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    rclid: '7183717',
-                });
-            });
-
-            it('should prioritize local storage over cookies', () => {
-                jest.spyOn(Date, 'now').mockImplementation(() => 42);
-
-                const url = new URL('https://www.example.com/');
-
-                globalThis.location.href = url.href;
-                globalThis.location.search = url.search;
-
-                localStorage.setItem('RoktTransactionId', '12345');
-                globalThis.document.cookie = 'RoktTransactionId=67890';
-
-                const integrationCapture = new IntegrationCapture('all');
-                integrationCapture.capture();
-
-                expect(integrationCapture.clickIds).toEqual({
-                    RoktTransactionId: '12345',
+            ROKT_FULL_CAPTURE.forEach(({ title, setup, expected }) => {
+                it(title, () => {
+                    expect(clickIdsAfterFullCaptureAllMode(setup)).toEqual(expected);
                 });
             });
         });
