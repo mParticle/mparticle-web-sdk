@@ -21,7 +21,7 @@ declare global {
     }
 }
 
-const mParticle = globalThis.mParticle as IMParticleInstanceManager;
+const mParticle = window.mParticle as IMParticleInstanceManager;
 
 /** Expected integration-capture custom flags from stubbed query params + _scid cookie */
 function expectCapturedSnapchatAndPinterestFlags(
@@ -74,10 +74,10 @@ function logCommercePurchaseAndGetEvent(customFlags: Record<string, unknown>) {
 }
 
 function logThreeEventsUploadAndParseBatch(): Record<string, unknown> {
-    globalThis.mParticle.logEvent('Test Event 1');
-    globalThis.mParticle.logEvent('Test Event 2');
-    globalThis.mParticle.logEvent('Test Event 3');
-    globalThis.mParticle.upload();
+    window.mParticle.logEvent('Test Event 1');
+    window.mParticle.logEvent('Test Event 2');
+    window.mParticle.logEvent('Test Event 3');
+    window.mParticle.upload();
     expect(fetchMock.calls().length).to.greaterThan(1);
     const lastCall = fetchMock.lastCall();
     return JSON.parse(lastCall[1].body as string) as Record<string, unknown>;
@@ -145,22 +145,22 @@ describe('Integration Capture', () => {
             mpid: testMPID, is_logged_in: false
         });
 
-        globalThis.mParticle.config.flags = {
+        window.mParticle.config.flags = {
             captureIntegrationSpecificIds: 'True',
             captureIntegrationSpecificIdsV2: 'all'
         };
 
-        globalThis.document.cookie = '_cookie1=234';
-        globalThis.document.cookie = '_cookie2=39895811.9165333198';
-        globalThis.document.cookie = 'foo=bar';
-        globalThis.document.cookie = '_fbp=54321';
-        globalThis.document.cookie = 'baz=qux';
-        globalThis.document.cookie = '_ttp=45670808';
-        globalThis.document.cookie = '_scid=cookie1-value';
-        mParticle.init(apiKey, globalThis.mParticle.config);
+        window.document.cookie = '_cookie1=234';
+        window.document.cookie = '_cookie2=39895811.9165333198';
+        window.document.cookie = 'foo=bar';
+        window.document.cookie = '_fbp=54321';
+        window.document.cookie = 'baz=qux';
+        window.document.cookie = '_ttp=45670808';
+        window.document.cookie = '_scid=cookie1-value';
+        mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        const integrationCapture = globalThis.mParticle.getInstance()._IntegrationCapture;
-        // Mock the query params capture function because we cannot mock globalThis.location.href
+        const integrationCapture = window.mParticle.getInstance()._IntegrationCapture;
+        // Mock the query params capture function because we cannot mock window.location.href
         sinon.stub(integrationCapture, 'getQueryParams').returns({
             fbclid: '1234',
             gclid: '234',
@@ -212,7 +212,7 @@ describe('Integration Capture', () => {
             const eventName = kind === 'event' ? 'Test Event' : 'Test Page View';
             const testEvent = findEventFromRequest(fetchMock.calls(), eventName);
             const initialTimestamp =
-                globalThis.mParticle.getInstance()._IntegrationCapture.initialTimestamp;
+                window.mParticle.getInstance()._IntegrationCapture.initialTimestamp;
 
             expect(testEvent).to.have.property('data');
             if (kind === 'event') {
@@ -239,7 +239,7 @@ describe('Integration Capture', () => {
 
                 const testEvent = logCommercePurchaseAndGetEvent(customFlags);
                 const initialTimestamp =
-                    globalThis.mParticle.getInstance()._IntegrationCapture.initialTimestamp;
+                    window.mParticle.getInstance()._IntegrationCapture.initialTimestamp;
 
                 expect(testEvent.data.product_action).to.have.property(
                     'action',
@@ -290,7 +290,7 @@ describe('Integration Capture', () => {
     it('should add captured integrations to batch as integration attributes without colliding with set integration attributes', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
 
-        globalThis.mParticle.setIntegrationAttribute(160, { 'client_id': '12354'});
+        window.mParticle.setIntegrationAttribute(160, { 'client_id': '12354'});
 
         const batch = logThreeEventsUploadAndParseBatch();
 
@@ -309,8 +309,8 @@ describe('Integration Capture', () => {
     it('should add captured integrations to batch as integration attributes, prioritizing passed in integration attributes', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
 
-        globalThis.mParticle.setIntegrationAttribute(1277, { 'passbackconversiontrackingid': 'passed-in'});
-        globalThis.mParticle.setIntegrationAttribute(160, { 'client_id': '12354'});
+        window.mParticle.setIntegrationAttribute(1277, { 'passbackconversiontrackingid': 'passed-in'});
+        window.mParticle.setIntegrationAttribute(160, { 'client_id': '12354'});
 
         const batch = logThreeEventsUploadAndParseBatch();
 
