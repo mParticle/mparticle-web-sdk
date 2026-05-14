@@ -83,6 +83,57 @@ function logThreeEventsUploadAndParseBatch(): Record<string, unknown> {
     return JSON.parse(lastCall[1].body as string) as Record<string, unknown>;
 }
 
+type CaptureCustomFlagCase = {
+    title: string;
+    kind: 'event' | 'pageView';
+    usePassedInFacebook: boolean;
+};
+
+const CAPTURE_CUSTOM_FLAG_CASES: CaptureCustomFlagCase[] = [
+    {
+        title: 'should add captured integrations to event custom flags',
+        kind: 'event',
+        usePassedInFacebook: false,
+    },
+    {
+        title: 'should add captured integrations to event custom flags, prioritizing passed in custom flags',
+        kind: 'event',
+        usePassedInFacebook: true,
+    },
+    {
+        title: 'should add captured integrations to page view custom flags',
+        kind: 'pageView',
+        usePassedInFacebook: false,
+    },
+    {
+        title: 'should add captured integrations to page view custom flags, prioritizing passed in custom flags',
+        kind: 'pageView',
+        usePassedInFacebook: true,
+    },
+];
+
+type CommerceCaptureCase = {
+    title: string;
+    customFlags: Record<string, unknown>;
+    expectFooBar: boolean;
+    usePassedInFacebook: boolean;
+};
+
+const COMMERCE_CAPTURE_CASES: CommerceCaptureCase[] = [
+    {
+        title: 'should add captured integrations to commerce event custom flags',
+        customFlags: { foo: 'bar' },
+        expectFooBar: true,
+        usePassedInFacebook: false,
+    },
+    {
+        title: 'should add captured integrations to commerce event custom flags, prioritizing passed in flags',
+        customFlags: { 'Facebook.ClickId': 'passed-in' },
+        expectFooBar: false,
+        usePassedInFacebook: true,
+    },
+];
+
 describe('Integration Capture', () => {
     beforeEach(async function() {
         mParticle._resetForTests(MPConfig);
@@ -129,115 +180,89 @@ describe('Integration Capture', () => {
         deleteAllCookies();
     });
 
-    it('should add captured integrations to event custom flags', async () => {
-        await waitForCondition(hasIdentifyReturned);
-        mParticle.logEvent(
-            'Test Event',
-            mParticle.EventType.Navigation,
-            { mykey: 'myvalue' }
-        );
+    CAPTURE_CUSTOM_FLAG_CASES.forEach(({ title, kind, usePassedInFacebook }) => {
+        it(title, async () => {
+            await waitForCondition(hasIdentifyReturned);
 
-        const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
+            if (kind === 'event') {
+                if (usePassedInFacebook) {
+                    mParticle.logEvent(
+                        'Test Event',
+                        mParticle.EventType.Navigation,
+                        { mykey: 'myvalue' },
+                        { 'Facebook.ClickId': 'passed-in' },
+                    );
+                } else {
+                    mParticle.logEvent(
+                        'Test Event',
+                        mParticle.EventType.Navigation,
+                        { mykey: 'myvalue' },
+                    );
+                }
+            } else if (usePassedInFacebook) {
+                mParticle.logPageView(
+                    'Test Page View',
+                    { 'foo-attr': 'bar-attr' },
+                    { 'Facebook.ClickId': 'passed-in' },
+                );
+            } else {
+                mParticle.logPageView('Test Page View', { 'foo-attr': 'bar-attr' });
+            }
 
-        const initialTimestamp = window.mParticle.getInstance()._IntegrationCapture.initialTimestamp;
+            const eventName = kind === 'event' ? 'Test Event' : 'Test Page View';
+            const testEvent = findEventFromRequest(fetchMock.calls(), eventName);
+            const initialTimestamp =
+                window.mParticle.getInstance()._IntegrationCapture.initialTimestamp;
 
-        expect(testEvent).to.have.property('data');
-        expect(testEvent.data).to.have.property('event_name', 'Test Event');
-        expect(testEvent.data).to.have.property('custom_flags');
+            expect(testEvent).to.have.property('data');
+            if (kind === 'event') {
+                expect(testEvent.data).to.have.property('event_name', 'Test Event');
+            } else {
+                expect(testEvent.data).to.have.property('screen_name', 'Test Page View');
+            }
+            expect(testEvent.data).to.have.property('custom_flags');
 
-        expectStubbedIntegrationCaptureFlags(
-            testEvent.data.custom_flags,
-            `fb.1.${initialTimestamp}.1234`,
-        );
-    });
-
-    it('should add captured integrations to event custom flags, prioritizing passed in custom flags', async () => {
-        await waitForCondition(hasIdentifyReturned);
-        window.mParticle.logEvent(
-            'Test Event',
-            mParticle.EventType.Navigation,
-            { mykey: 'myvalue' },
-            { 'Facebook.ClickId': 'passed-in' },
-        );
-
-        const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
-
-        expect(testEvent).to.have.property('data');
-        expect(testEvent.data).to.have.property('event_name', 'Test Event');
-        expect(testEvent.data).to.have.property('custom_flags');
-
-        expectStubbedIntegrationCaptureFlags(testEvent.data.custom_flags, 'passed-in');
-    });
-
-    it('should add captured integrations to page view custom flags', async () => {
-        await waitForCondition(hasIdentifyReturned);
-
-        window.mParticle.logPageView(
-            'Test Page View',
-            {'foo-attr': 'bar-attr'}
-        );
-
-        const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Page View');
-
-        const initialTimestamp = window.mParticle.getInstance()._IntegrationCapture.initialTimestamp;
-
-        expect(testEvent).to.have.property('data');
-        expect(testEvent.data).to.have.property('screen_name', 'Test Page View');
-        expect(testEvent.data).to.have.property('custom_flags');
-
-        expectStubbedIntegrationCaptureFlags(
-            testEvent.data.custom_flags,
-            `fb.1.${initialTimestamp}.1234`,
-        );
-    });
-
-    it('should add captured integrations to page view custom flags, prioritizing passed in custom flags', async () => {
-        await waitForCondition(hasIdentifyReturned);
-
-        window.mParticle.logPageView(
-            'Test Page View',
-            {'foo-attr': 'bar-attr'},
-            {'Facebook.ClickId': 'passed-in'},
-        );
-
-        const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Page View');
-
-        expect(testEvent).to.have.property('data');
-        expect(testEvent.data).to.have.property('screen_name', 'Test Page View');
-        expect(testEvent.data).to.have.property('custom_flags');
-
-        expectStubbedIntegrationCaptureFlags(testEvent.data.custom_flags, 'passed-in');
-    });
-
-    it('should add captured integrations to commerce event custom flags', async () => {
-        await waitForCondition(hasIdentifyReturned);
-
-        const testEvent = logCommercePurchaseAndGetEvent({ foo: 'bar' });
-
-        const initialTimestamp = window.mParticle.getInstance()._IntegrationCapture.initialTimestamp;
-
-        expect(testEvent.data.product_action).to.have.property('action', 'purchase');
-        expect(testEvent.data).to.have.property('custom_flags');
-
-        expect(testEvent.data.custom_flags['foo'], 'Custom Flag').to.equal('bar');
-        expectStubbedIntegrationCaptureFlags(
-            testEvent.data.custom_flags,
-            `fb.1.${initialTimestamp}.1234`,
-        );
-    });
-
-    it('should add captured integrations to commerce event custom flags, prioritizing passed in flags', async () => {
-        await waitForCondition(hasIdentifyReturned);
-
-        const testEvent = logCommercePurchaseAndGetEvent({
-            'Facebook.ClickId': 'passed-in',
+            const facebookClickId = usePassedInFacebook
+                ? 'passed-in'
+                : `fb.1.${initialTimestamp}.1234`;
+            expectStubbedIntegrationCaptureFlags(
+                testEvent.data.custom_flags,
+                facebookClickId,
+            );
         });
-
-        expect(testEvent.data.product_action).to.have.property('action', 'purchase');
-        expect(testEvent.data).to.have.property('custom_flags');
-
-        expectStubbedIntegrationCaptureFlags(testEvent.data.custom_flags, 'passed-in');
     });
+
+    COMMERCE_CAPTURE_CASES.forEach(
+        ({ title, customFlags, expectFooBar, usePassedInFacebook }) => {
+            it(title, async () => {
+                await waitForCondition(hasIdentifyReturned);
+
+                const testEvent = logCommercePurchaseAndGetEvent(customFlags);
+                const initialTimestamp =
+                    window.mParticle.getInstance()._IntegrationCapture.initialTimestamp;
+
+                expect(testEvent.data.product_action).to.have.property(
+                    'action',
+                    'purchase',
+                );
+                expect(testEvent.data).to.have.property('custom_flags');
+
+                if (expectFooBar) {
+                    expect(testEvent.data.custom_flags['foo'], 'Custom Flag').to.equal(
+                        'bar',
+                    );
+                }
+
+                const facebookClickId = usePassedInFacebook
+                    ? 'passed-in'
+                    : `fb.1.${initialTimestamp}.1234`;
+                expectStubbedIntegrationCaptureFlags(
+                    testEvent.data.custom_flags,
+                    facebookClickId,
+                );
+            });
+        },
+    );
 
     it('should add captured integrations to batch as partner identities', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
