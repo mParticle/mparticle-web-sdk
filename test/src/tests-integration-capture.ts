@@ -52,7 +52,7 @@ function expectStubbedIntegrationCaptureFlags(
     expectCapturedSnapchatAndPinterestFlags(customFlags);
 }
 
-const COMMERCE_TRANSACTION_ATTRS = { Id: 'foo-transaction-id', Revenue: 430.0, Tax: 30 };
+const COMMERCE_TRANSACTION_ATTRS = { Id: 'foo-transaction-id', Revenue: 430, Tax: 30 };
 const COMMERCE_CUSTOM_ATTRS = { sale: true };
 
 function createCommercePurchaseProducts() {
