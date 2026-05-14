@@ -29,7 +29,7 @@ function clickIdsAfterFullCaptureAllMode(setup: FullCaptureSetup): Record<string
     globalThis.location.search = urlObj.search;
     const integrationCapture = new IntegrationCapture('all');
     integrationCapture.capture();
-    return (integrationCapture.clickIds ?? {}) as Record<string, string>;
+    return integrationCapture.clickIds ?? {};
 }
 
 describe('Integration Capture', () => {
