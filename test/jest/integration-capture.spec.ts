@@ -67,34 +67,34 @@ describe('Integration Capture', () => {
     });
 
     describe('capture V2 modes gating in helpers', () => {
-        const originalLocation = window.location as any;
+        const originalLocation = globalThis.location as any;
 
         beforeEach(() => {
-            delete (window as any).location;
-            (window as any).location = { href: 'https://www.example.com/', search: '' } as any;
+            delete (globalThis as any).location;
+            (globalThis as any).location = { href: 'https://www.example.com/', search: '' } as any;
             deleteAllCookies();
-            window.localStorage.clear();
+            globalThis.localStorage.clear();
             jest.restoreAllMocks();
         });
 
         afterEach(() => {
-            window.location = originalLocation;
+            globalThis.location = originalLocation;
             deleteAllCookies();
-            window.localStorage.clear();
+            globalThis.localStorage.clear();
         });
 
         it('should return only Rokt keys from helpers when captureMode is roktonly (lowercase)', () => {
             // Query params
             const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1');
-            window.location.href = url.href;
-            window.location.search = url.search;
+            globalThis.location.href = url.href;
+            globalThis.location.search = url.search;
 
             // Cookies
             document.cookie = '_fbp=54321';
             document.cookie = 'RoktTransactionId=xyz';
 
             // Local storage
-            window.localStorage.setItem('RoktTransactionId', 'ls-rok');
+            globalThis.localStorage.setItem('RoktTransactionId', 'ls-rok');
 
             const integrationCapture = new IntegrationCapture('roktonly');
 
@@ -111,8 +111,8 @@ describe('Integration Capture', () => {
             jest.spyOn(Date, 'now').mockImplementation(() => 42);
             // Query params
             const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1&ScCid=snap1');
-            window.location.href = url.href;
-            window.location.search = url.search;
+            globalThis.location.href = url.href;
+            globalThis.location.search = url.search;
 
             // Cookies
             document.cookie = '_fbp=54321';
@@ -120,7 +120,7 @@ describe('Integration Capture', () => {
             document.cookie = 'RoktTransactionId=xyz';
 
             // Local storage
-            window.localStorage.setItem('RoktTransactionId', 'ls-rok');
+            globalThis.localStorage.setItem('RoktTransactionId', 'ls-rok');
 
             const integrationCapture = new IntegrationCapture('all');
 
@@ -138,8 +138,8 @@ describe('Integration Capture', () => {
             jest.spyOn(Date, 'now').mockImplementation(() => 42);
             // Query params
             const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1&ScCid=snap1');
-            window.location.href = url.href;
-            window.location.search = url.search;
+            globalThis.location.href = url.href;
+            globalThis.location.search = url.search;
 
             // Cookies
             document.cookie = '_fbp=54321';
@@ -147,7 +147,7 @@ describe('Integration Capture', () => {
             document.cookie = 'RoktTransactionId=xyz';
 
             // Local storage
-            window.localStorage.setItem('RoktTransactionId', 'ls-rok');
+            globalThis.localStorage.setItem('RoktTransactionId', 'ls-rok');
 
             const integrationCapture = new IntegrationCapture('none');
 
@@ -162,11 +162,11 @@ describe('Integration Capture', () => {
     });
 
     describe('#capture', () => {
-        const originalLocation = window.location;
+        const originalLocation = globalThis.location;
 
         beforeEach(() => {
-            delete (window as any).location;
-            (window as any).location = {
+            delete (globalThis as any).location;
+            (globalThis as any).location = {
                 href: '',
                 search: '',
                 assign: jest.fn(),
@@ -178,8 +178,8 @@ describe('Integration Capture', () => {
         });
 
         afterEach(() => {
-            window.location = originalLocation;
-            window.localStorage.clear();
+            globalThis.location = originalLocation;
+            globalThis.localStorage.clear();
             jest.restoreAllMocks();
         });
 
@@ -208,13 +208,13 @@ describe('Integration Capture', () => {
 
             const url = new URL(`https://www.example.com/?${queryParams}`);
 
-            window.document.cookie = '_cookie1=1234';
-            window.document.cookie = '_cookie2=39895811.9165333198';
-            window.document.cookie = '_fbp=54321';
-            window.document.cookie = 'baz=qux';
+            globalThis.document.cookie = '_cookie1=1234';
+            globalThis.document.cookie = '_cookie2=39895811.9165333198';
+            globalThis.document.cookie = '_fbp=54321';
+            globalThis.document.cookie = 'baz=qux';
 
-            window.location.href = url.href;
-            window.location.search = url.search;
+            globalThis.location.href = url.href;
+            globalThis.location.search = url.search;
 
             const integrationCapture = new IntegrationCapture('all');
             integrationCapture.capture();
@@ -235,8 +235,8 @@ describe('Integration Capture', () => {
             it('should capture Google specific click ids', () => {
                 const url = new URL('https://www.example.com/?gclid=54321&gbraid=67890&wbraid=09876');
 
-                window.location.href = url.href;
-                window.location.search = url.search;
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
 
                 const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
@@ -253,8 +253,8 @@ describe('Integration Capture', () => {
             it('should capture Snapchat specific click ids', () => {
                 const url = new URL('https://www.example.com/?ScCid=1234');
 
-                window.location.href = url.href;
-                window.location.search = url.search;
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
 
                 const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
@@ -267,8 +267,8 @@ describe('Integration Capture', () => {
             it('should capture Snapchat specific click ids without being case sensitive', () => {
                 const url = new URL('https://www.example.com/?sccid=1234');
 
-                window.location.href = url.href;
-                window.location.search = url.search;
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
 
                 const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
@@ -281,12 +281,12 @@ describe('Integration Capture', () => {
             it('should capture _scid from cookies', () => {
                 const url = new URL('https://www.example.com/');
 
-                window.document.cookie = '_scid=cookie1-from-cookie';
-                window.document.cookie = '_cookie1=4567';
-                window.document.cookie = 'baz=qux';
+                globalThis.document.cookie = '_scid=cookie1-from-cookie';
+                globalThis.document.cookie = '_cookie1=4567';
+                globalThis.document.cookie = 'baz=qux';
 
-                window.location.href = url.href;
-                window.location.search = url.search;
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
 
                 const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
@@ -299,11 +299,11 @@ describe('Integration Capture', () => {
             it('should capture both ScCid from query params and _scid from cookies', () => {
                 const url = new URL('https://www.example.com/?ScCid=4567');
 
-                window.document.cookie = '_scid=cookie1-from-cookie';
-                window.document.cookie = '_cookie1=334455';
+                globalThis.document.cookie = '_scid=cookie1-from-cookie';
+                globalThis.document.cookie = '_cookie1=334455';
 
-                window.location.href = url.href;
-                window.location.search = url.search;
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
 
                 const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
@@ -319,8 +319,8 @@ describe('Integration Capture', () => {
             it('should capture Pinterest specific click ids from query params (_epik)', () => {
                 const url = new URL('https://www.example.com/?_epik=1234');
 
-                window.location.href = url.href;
-                window.location.search = url.search;
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
 
                 const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
@@ -333,8 +333,8 @@ describe('Integration Capture', () => {
             it('should capture Pinterest specific click ids from query params (epik)', () => {
                 const url = new URL('https://www.example.com/?epik=5678');
 
-                window.location.href = url.href;
-                window.location.search = url.search;
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
 
                 const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
@@ -347,9 +347,9 @@ describe('Integration Capture', () => {
             it('should capture Pinterest specific click ids from cookies (_epik)', () => {
                 const url = new URL('https://www.example.com/');
 
-                window.document.cookie = '_epik=pinterest_cookie_value';
-                window.location.href = url.href;
-                window.location.search = url.search;
+                globalThis.document.cookie = '_epik=pinterest_cookie_value';
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
 
                 const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
@@ -362,9 +362,9 @@ describe('Integration Capture', () => {
             it('should capture Pinterest specific click ids from cookies (epik)', () => {
                 const url = new URL('https://www.example.com/');
 
-                window.document.cookie = 'epik=pinterest_cookie_value_epik';
-                window.location.href = url.href;
-                window.location.search = url.search;
+                globalThis.document.cookie = 'epik=pinterest_cookie_value_epik';
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
 
                 const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
@@ -377,8 +377,8 @@ describe('Integration Capture', () => {
             it('should capture Pinterest specific click ids from localStorage (_epik)', () => {
                 const url = new URL('https://www.example.com/');
 
-                window.location.href = url.href;
-                window.location.search = url.search;
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
 
                 localStorage.setItem('_epik', 'pinterest_localstorage_value');
 
@@ -393,8 +393,8 @@ describe('Integration Capture', () => {
             it('should capture Pinterest specific click ids from localStorage (epik)', () => {
                 const url = new URL('https://www.example.com/');
 
-                window.location.href = url.href;
-                window.location.search = url.search;
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
 
                 localStorage.setItem('epik', 'pinterest_localstorage_value_epik');
 
@@ -415,12 +415,12 @@ describe('Integration Capture', () => {
                 'https://www.example.com/?fbclid=AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'
             );
 
-            window.document.cookie = '_cookie1=1234';
-            window.document.cookie = '_cookie2=39895811.9165333198';
-            window.document.cookie = 'baz=qux';
+            globalThis.document.cookie = '_cookie1=1234';
+            globalThis.document.cookie = '_cookie2=39895811.9165333198';
+            globalThis.document.cookie = 'baz=qux';
 
-            window.location.href = url.href;
-            window.location.search = url.search;
+            globalThis.location.href = url.href;
+            globalThis.location.search = url.search;
 
             const integrationCapture = new IntegrationCapture('all');
             integrationCapture.capture();
@@ -434,14 +434,14 @@ describe('Integration Capture', () => {
         it('should pass the _fbc value unaltered', () => {
             const url = new URL('https://www.example.com/?foo=bar');
 
-            window.document.cookie = '_cookie1=1234';
-            window.document.cookie = '_cookie2=39895811.9165333198';
-            window.document.cookie =
+            globalThis.document.cookie = '_cookie1=1234';
+            globalThis.document.cookie = '_cookie2=39895811.9165333198';
+            globalThis.document.cookie =
                 '_fbc=fb.1.1554763741205.AbCdEfGhIjKlMnOpQrStUvWxYz1234567890';
-            window.document.cookie = 'baz=qux';
+            globalThis.document.cookie = 'baz=qux';
 
-            window.location.href = url.href;
-            window.location.search = url.search;
+            globalThis.location.href = url.href;
+            globalThis.location.search = url.search;
 
             const integrationCapture = new IntegrationCapture('all');
             integrationCapture.capture();
@@ -454,13 +454,13 @@ describe('Integration Capture', () => {
         it('should pass the _fbp value unaltered', () => {
             const url = new URL('https://www.example.com/?foo=bar');
 
-            window.document.cookie = '_cookie1=1234';
-            window.document.cookie = '_cookie2=39895811.9165333198';
-            window.document.cookie = '_fbp=54321';
-            window.document.cookie = 'baz=qux';
+            globalThis.document.cookie = '_cookie1=1234';
+            globalThis.document.cookie = '_cookie2=39895811.9165333198';
+            globalThis.document.cookie = '_fbp=54321';
+            globalThis.document.cookie = 'baz=qux';
 
-            window.location.href = url.href;
-            window.location.search = url.search;
+            globalThis.location.href = url.href;
+            globalThis.location.search = url.search;
 
             const integrationCapture = new IntegrationCapture('all');
             integrationCapture.capture();
@@ -475,13 +475,13 @@ describe('Integration Capture', () => {
 
             const url = new URL('https://www.example.com/?fbclid=12345&');
 
-            window.document.cookie = '_cookie1=1234';
-            window.document.cookie = '_cookie2=39895811.9165333198';
-            window.document.cookie = '_fbc=fb.1.23.654321';
-            window.document.cookie = 'baz=qux';
+            globalThis.document.cookie = '_cookie1=1234';
+            globalThis.document.cookie = '_cookie2=39895811.9165333198';
+            globalThis.document.cookie = '_fbc=fb.1.23.654321';
+            globalThis.document.cookie = 'baz=qux';
 
-            window.location.href = url.href;
-            window.location.search = url.search;
+            globalThis.location.href = url.href;
+            globalThis.location.search = url.search;
 
             const integrationCapture = new IntegrationCapture('all');
             integrationCapture.capture();
@@ -496,8 +496,8 @@ describe('Integration Capture', () => {
             it('should capture rtid via url param', () => {
                 const url = new URL('https://www.example.com/?rtid=54321');
 
-                window.location.href = url.href;
-                window.location.search = url.search;
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
 
                 const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
@@ -510,8 +510,8 @@ describe('Integration Capture', () => {
             it('should capture rclid via url param', () => {
                 const url = new URL('https://www.example.com/?rclid=7183717');
 
-                window.location.href = url.href;
-                window.location.search = url.search;
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
 
                 const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
@@ -522,12 +522,12 @@ describe('Integration Capture', () => {
             });
 
             it('should capture RoktTransactionId via cookies', () => {
-                window.document.cookie = 'RoktTransactionId=12345';
+                globalThis.document.cookie = 'RoktTransactionId=12345';
 
                 const url = new URL('https://www.example.com/');
 
-                window.location.href = url.href;
-                window.location.search = url.search;
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
 
                 const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
@@ -542,8 +542,8 @@ describe('Integration Capture', () => {
 
                 const url = new URL('https://www.example.com/');
 
-                window.location.href = url.href;
-                window.location.search = url.search;
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
 
                 localStorage.setItem('RoktTransactionId', '54321');
 
@@ -560,10 +560,10 @@ describe('Integration Capture', () => {
 
                 const url = new URL('https://www.example.com/?rtid=54321');
                 
-                window.document.cookie = 'RoktTransactionId=12345';
+                globalThis.document.cookie = 'RoktTransactionId=12345';
 
-                window.location.href = url.href;
-                window.location.search = url.search;
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
 
                 const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
@@ -578,10 +578,10 @@ describe('Integration Capture', () => {
 
                 const url = new URL('https://www.example.com/?rclid=7183717');
 
-                window.document.cookie = 'RoktTransactionId=12345';
+                globalThis.document.cookie = 'RoktTransactionId=12345';
 
-                window.location.href = url.href;
-                window.location.search = url.search;
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
 
                 const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
@@ -596,8 +596,8 @@ describe('Integration Capture', () => {
 
                 const url = new URL('https://www.example.com/?rtid=54321');
 
-                window.location.href = url.href;
-                window.location.search = url.search;
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
 
                 localStorage.setItem('RoktTransactionId', '12345');
 
@@ -614,8 +614,8 @@ describe('Integration Capture', () => {
 
                 const url = new URL('https://www.example.com/?rclid=7183717');
                 
-                window.location.href = url.href;
-                window.location.search = url.search;
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
 
                 localStorage.setItem('RoktTransactionId', '12345');
 
@@ -632,11 +632,11 @@ describe('Integration Capture', () => {
 
                 const url = new URL('https://www.example.com/');
 
-                window.location.href = url.href;
-                window.location.search = url.search;
+                globalThis.location.href = url.href;
+                globalThis.location.search = url.search;
 
                 localStorage.setItem('RoktTransactionId', '12345');
-                window.document.cookie = 'RoktTransactionId=67890';
+                globalThis.document.cookie = 'RoktTransactionId=67890';
 
                 const integrationCapture = new IntegrationCapture('all');
                 integrationCapture.capture();
@@ -650,11 +650,11 @@ describe('Integration Capture', () => {
     });
 
     describe('#captureQueryParams', () => {
-        const originalLocation = window.location;
+        const originalLocation = globalThis.location;
 
         beforeEach(() => {
-            delete (window as any).location;
-            (window as any).location = {
+            delete (globalThis as any).location;
+            (globalThis as any).location = {
                 href: '',
                 search: '',
                 assign: jest.fn(),
@@ -664,7 +664,7 @@ describe('Integration Capture', () => {
         });
 
         afterEach(() => {
-            window.location = originalLocation;
+            globalThis.location = originalLocation;
             jest.restoreAllMocks();
         });
 
@@ -675,8 +675,8 @@ describe('Integration Capture', () => {
                 'https://www.example.com/?ttclid=12345&fbclid=67890&gclid=54321&rclid=7183717&rtid=54321'
             );
 
-            window.location.href = url.href;
-            window.location.search = url.search;
+            globalThis.location.href = url.href;
+            globalThis.location.search = url.search;
 
             const integrationCapture = new IntegrationCapture('all');
             const clickIds = integrationCapture.captureQueryParams();
@@ -695,8 +695,8 @@ describe('Integration Capture', () => {
                 'https://www.example.com/?invalidid=12345&foo=bar'
             );
 
-            window.location.href = url.href;
-            window.location.search = url.search;
+            globalThis.location.href = url.href;
+            globalThis.location.search = url.search;
 
             const integrationCapture = new IntegrationCapture('all');
             const clickIds = integrationCapture.captureQueryParams();
@@ -708,8 +708,8 @@ describe('Integration Capture', () => {
                 'https://www.example.com/?fbclid=AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'
             ); 
 
-            window.location.href = url.href;
-            window.location.search = url.search;
+            globalThis.location.href = url.href;
+            globalThis.location.search = url.search;
 
             const integrationCapture = new IntegrationCapture('all');
             integrationCapture.capture();   
@@ -730,10 +730,10 @@ describe('Integration Capture', () => {
         });
 
         it('should capture specific cookies into clickIds object', () => {
-            window.document.cookie = '_cookie1=1234';
-            window.document.cookie = '_cookie2=39895811.9165333198';
-            window.document.cookie = '_fbp=54321';
-            window.document.cookie = 'baz=qux';
+            globalThis.document.cookie = '_cookie1=1234';
+            globalThis.document.cookie = '_cookie2=39895811.9165333198';
+            globalThis.document.cookie = '_fbp=54321';
+            globalThis.document.cookie = 'baz=qux';
 
             const integrationCapture = new IntegrationCapture('all');
             const clickIds = integrationCapture.captureCookies();
@@ -744,9 +744,9 @@ describe('Integration Capture', () => {
         });
 
         it('should capture _scid from cookies', () => {
-            window.document.cookie = '_cookie1=4567';
-            window.document.cookie = '_scid=cookie1-from-cookie';
-            window.document.cookie = 'baz=qux';
+            globalThis.document.cookie = '_cookie1=4567';
+            globalThis.document.cookie = '_scid=cookie1-from-cookie';
+            globalThis.document.cookie = 'baz=qux';
 
             const integrationCapture = new IntegrationCapture('all');
             const clickIds = integrationCapture.captureCookies();
@@ -757,9 +757,9 @@ describe('Integration Capture', () => {
         });
 
         it('should NOT capture cookies if they are not mapped', () => {
-            window.document.cookie = '_cookie1=1234';
-            window.document.cookie = '_cookie2=39895811.9165333198';
-            window.document.cookie = 'baz=qux';
+            globalThis.document.cookie = '_cookie1=1234';
+            globalThis.document.cookie = '_cookie2=39895811.9165333198';
+            globalThis.document.cookie = 'baz=qux';
 
             const integrationCapture = new IntegrationCapture('all');
             const clickIds = integrationCapture.captureCookies();
