@@ -34,11 +34,37 @@ export interface IRoktSelectPlacementsOptions {
     identifier?: string;
 }
 
-interface IRoktPlacement {}
+export interface IRoktPlacementEvent<T = unknown> {
+    body: T;
+    event: string;
+    placement: IRoktPlacement;
+}
+
+export interface IRoktSubscription {
+    unsubscribe(): void;
+}
+
+export interface IRoktEventChannel<T = unknown> {
+    subscribe(callback: (event: IRoktPlacementEvent<T>) => void): IRoktSubscription;
+}
+
+export interface IRoktPlacement {
+    id: string;
+    element: HTMLElement;
+    on<T = unknown>(eventName: string): IRoktEventChannel<T>;
+    ready(): Promise<void>;
+    send(eventName: string, payload?: Record<string, unknown>): void;
+    onClose(): Promise<void>;
+    close(): Promise<void>;
+}
 
 export interface IRoktSelection {
     close: () => void;
+    on<T = unknown>(eventName: string): IRoktEventChannel<T>;
     getPlacements: () => Promise<IRoktPlacement[]>;
+    ready: () => Promise<void>;
+    send: (eventName: string, payload?: Record<string, unknown>) => void;
+    setAttributes: (attributes: RoktAttributes) => void;
 }
 
 export interface IRoktLauncher {

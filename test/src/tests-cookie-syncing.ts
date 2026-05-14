@@ -6,7 +6,6 @@ import { urls, testMPID, MPConfig, v4LSKey, apiKey } from './config/constants';
 import { IMParticleUser } from '../../src/identity-user-interfaces';
 import { IPixelConfiguration, PARTNER_MODULE_IDS } from '../../src/cookieSyncManager';
 import { IConsentRules } from '../../src/consent';
-import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 const {
     fetchMockSuccess,
     waitForCondition,
@@ -30,7 +29,6 @@ const pixelSettings: IPixelConfiguration = {
 
 declare global {
     interface Window {
-        mParticle: IMParticleInstanceManager;
         fetchMock: any;
     }
 }

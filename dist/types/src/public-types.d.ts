@@ -5,22 +5,36 @@
  * to import. Only add types here that are intended for external consumption.
  *
  * Usage:
- *   import type { SDKInitConfig, EventType } from '@mparticle/web-sdk';
+ *   import type { SDKInitConfig } from '@mparticle/web-sdk';
  *
  * These declarations replace the legacy DefinitelyTyped surface. Keep this
  * file focused on customer-facing SDK types; kit and SDK implementation types
  * belong in internal-types.ts.
  */
 import type { MParticleWebSDKManager } from './sdkRuntimeModels';
+import type { IMPSideloadedKit } from './sideloadedKit';
 declare const mParticle: MParticleWebSDKManager;
 export default mParticle;
+interface WindowMParticle extends MParticleWebSDKManager {
+    [key: string]: any;
+    getInstance(): any;
+    getInstance(instanceName: string): any;
+}
+declare global {
+    interface Window {
+        mParticle: WindowMParticle;
+    }
+}
 export type { Batch, } from '@mparticle/event-models';
-export type { AliasRequestScope, AliasUsersCallback, AllUserAttributes, Callback, Cart, CCPAConsentState, ConsentState, DataPlanConfig, DataPlanResult, Dictionary, GDPRConsentState, IdentityApiData, IdentityCallback, IdentityModifyResultBody, IdentityResult, IdentityResultBody, IdentifyRequest, Impression, Location, Logger, LogLevel, MPConfiguration, MPForwarder, MPID, OnCreateBatch, onCreateBatch, PrivacyConsentState, Product, Promotion, SDKEventAttrs, SDKEventAttrTypes, SDKEventCustomFlags, SDKEventOptions, TrackLocationCallback, TransactionAttributes, User, UserAliasRequest, UserAttributesValue, UserIdentities, } from './publicSdkTypes';
-export type { EventType, CommerceEventType, IdentityType, ProductActionType, PromotionActionType, MessageType, } from './types';
+export type { AliasRequestScope, AliasUsersCallback, AllUserAttributes, Callback, Cart, CCPAConsentState, ConsentState, DataPlanConfig, DataPlanResult, Dictionary, GDPRConsentState, IdentityApiData, IdentityCallback, IdentityModifyResultBody, IdentityResult, IdentityResultBody, IdentifyRequest, Impression, LauncherOptions, Location, Logger, LogLevel, MPConfiguration, MPForwarder, MPID, OnCreateBatch, OnUserAlias, onCreateBatch, PrivacyConsentState, Product, Promotion, SDKEventAttrs, SDKEventAttrTypes, SDKEventCustomFlags, SDKEventOptions, TrackLocationCallback, TransactionAttributes, User, UserAliasRequest, UserAttributesValue, UserIdentityValue, UserIdentities, } from './publicSdkTypes';
+export type MPSideloadedKit = IMPSideloadedKit;
+export type { IMPSideloadedKit, IMPSideloadedKitConstructor, } from './sideloadedKit';
+export type { IFilteringConsentRuleValues as FilteringConsentRuleValues, IFilteringEventAttributeValue as FilteringEventAttributeValue, IFilteringUserAttributeValue as FilteringUserAttributeValue, IKitFilterSettings as KitFilterSettings, } from './configAPIClient';
 export type { SDKInitConfig, BaseEvent, LogLevelType, MParticleWebSDKInstance, MParticleWebSDKManager, MParticleWebSDK, } from './sdkRuntimeModels';
 export type { IMParticleUser, ISDKUserIdentity, ISDKUserAttributes, } from './identity-user-interfaces';
 export type { SDKIdentityApi, IAliasRequest, IAliasCallback, IAliasResult, SDKIdentityTypeEnum, IIdentitySearchResult, IIdentitySearchResponseBody, IdentitySearchCallback, IUserIdentities, } from './identity.interfaces';
 export type { SDKECommerceAPI, SDKCart, } from './ecommerce.interfaces';
+export type { IRoktEventChannel as RoktEventChannel, IRoktPlacement as RoktPlacement, IRoktPlacementEvent as RoktPlacementEvent, IRoktSelection as RoktSelection, IRoktSubscription as RoktSubscription, RoktAttributes, } from './roktManager';
 export type { SDKProduct, SDKPromotion, SDKImpression, SDKProductImpression, } from './sdkRuntimeModels';
 export type { SDKConsentApi, SDKConsentState, SDKConsentStateData, SDKGDPRConsentState, SDKCCPAConsentState, } from './consent';
 export type { valueof } from './utils';

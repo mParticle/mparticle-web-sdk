@@ -4,6 +4,17 @@ module.exports = {
     // The built mParticle.js file needs to exist for integration tests
     setupFiles: ['./test/jest/setup.ts', './dist/mparticle.js'],
     setupFilesAfterEnv: ['jest-expect-message'],
+    testPathIgnorePatterns: [
+        '/node_modules/',
+        '<rootDir>/build/',
+        '<rootDir>/.agents/',
+        '<rootDir>/.claude/',
+    ],
+    modulePathIgnorePatterns: [
+        '<rootDir>/build/',
+        '<rootDir>/.agents/',
+        '<rootDir>/.claude/',
+    ],
     transform: {
         '^.+\\.(js)$': 'ts-jest',
     },

@@ -1,11 +1,10 @@
 import { MPID } from './publicSdkTypes';
-import Constants from './constants';
 import { SDKInitConfig } from './sdkRuntimeModels';
 import { IKitConfigs } from './configAPIClient';
 type valueof<T> = T[keyof T];
 type AttributeValue = string | number | boolean | null | undefined;
 export type Dictionary<V = any> = Record<string, V>;
-export type Environment = valueof<typeof Constants.Environment>;
+export type Environment = 'development' | 'production';
 declare const createCookieString: (value: string) => string;
 declare const revertCookieString: (value: string) => string;
 declare const inArray: (items: any[], name: any) => boolean;

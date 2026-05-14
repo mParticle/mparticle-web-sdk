@@ -38,7 +38,10 @@ interface IECommerceShared {
         couponCode?: string,
         attributes?: SDKEventAttrs
     ): SDKProduct | null;
-    createImpression(name: string, product: Product): SDKImpression | null;
+    createImpression(
+        name: string,
+        product: SDKProduct | SDKProduct[]
+    ): SDKImpression | null;
     createPromotion(
         id: string | number,
         creative?: string,
@@ -71,7 +74,7 @@ export interface SDKECommerceAPI extends IECommerceShared {
         customFlags?: SDKEventCustomFlags
     ): void;
     logImpression(
-        impression: SDKProductImpression,
+        impression: SDKImpression | SDKImpression[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions
@@ -86,7 +89,7 @@ export interface SDKECommerceAPI extends IECommerceShared {
     ): void;
     logPromotion(
         type: valueof<typeof PromotionActionType>,
-        promotion: SDKPromotion,
+        promotion: SDKPromotion | SDKPromotion[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions

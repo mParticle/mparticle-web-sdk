@@ -1,5 +1,4 @@
 import { Batch } from '@mparticle/event-models';
-import { DataPlanVersion } from '@mparticle/data-planning-models';
 export type Dictionary<V = any> = Record<string, V>;
 export type MPID = string;
 export type SDKEventAttrTypes = string | number | boolean | null | undefined;
@@ -11,6 +10,7 @@ export interface SDKEventCustomFlags {
 }
 export interface SDKEventOptions {
     shouldUploadEvent?: boolean;
+    sourceMessageId?: string;
 }
 export interface Logger {
     error?: (error: string) => void;
@@ -29,6 +29,12 @@ export interface DataPlanResult {
     };
     error_message?: string;
 }
+export interface DataPlanVersion {
+    version?: number;
+    data_plan_id?: string;
+    last_modified_on?: string;
+    version_document?: Dictionary;
+}
 export interface DataPlanConfig {
     planId?: string;
     planVersion?: number;
@@ -45,36 +51,40 @@ export interface KitBlockerDataPlan {
     document: DataPlanResult;
 }
 export type MPForwarder = Dictionary;
+export type OnUserAlias = (previousUser: User, newUser: User) => void;
 export interface IdentityApiData {
-    userIdentities?: UserIdentities;
-    onUserAlias?: string;
+    userIdentities?: UserIdentities | null;
+    onUserAlias?: OnUserAlias | null;
     copyUserAttributes?: boolean;
 }
 export interface IdentifyRequest extends IdentityApiData {
     userIdentities: UserIdentities;
 }
+export type UserIdentityValue = string | null;
 export interface UserIdentities {
-    customerid?: string;
-    email?: string;
-    other?: string;
-    other2?: string;
-    other3?: string;
-    other4?: string;
-    other5?: string;
-    other6?: string;
-    other7?: string;
-    other8?: string;
-    other9?: string;
-    other10?: string;
-    mobile_number?: string;
-    phone_number_2?: string;
-    phone_number_3?: string;
-    facebook?: string;
-    facebookcustomaudienceid?: string;
-    google?: string;
-    twitter?: string;
-    microsoft?: string;
-    yahoo?: string;
+    customerid?: UserIdentityValue;
+    email?: UserIdentityValue;
+    other?: UserIdentityValue;
+    other2?: UserIdentityValue;
+    other3?: UserIdentityValue;
+    other4?: UserIdentityValue;
+    other5?: UserIdentityValue;
+    other6?: UserIdentityValue;
+    other7?: UserIdentityValue;
+    other8?: UserIdentityValue;
+    other9?: UserIdentityValue;
+    other10?: UserIdentityValue;
+    mobile_number?: UserIdentityValue;
+    phone_number_2?: UserIdentityValue;
+    phone_number_3?: UserIdentityValue;
+    facebook?: UserIdentityValue;
+    facebookcustomaudienceid?: UserIdentityValue;
+    google?: UserIdentityValue;
+    twitter?: UserIdentityValue;
+    microsoft?: UserIdentityValue;
+    yahoo?: UserIdentityValue;
+    email_sha256?: UserIdentityValue;
+    mobile_sha256?: UserIdentityValue;
 }
 export type UserAttributesValue = string | number | boolean | null;
 export type AllUserAttributes = Record<string, UserAttributesValue | UserAttributesValue[]>;
@@ -123,13 +133,13 @@ export interface TransactionAttributes {
 }
 export interface Impression {
     Name: string;
-    Product: Product;
+    Product: Product | Product[];
 }
 export interface Promotion {
-    Id: string;
+    Id: string | number;
     Creative?: string;
     Name?: string;
-    Position?: string;
+    Position?: string | number;
 }
 export interface Cart {
     /**
@@ -146,7 +156,7 @@ export interface Cart {
     clear(): void;
 }
 export interface User {
-    getUserIdentities(): IdentityApiData;
+    getUserIdentities(): IdentifyRequest;
     getMPID(): MPID;
     setUserTag(tag: string, value?: any): void;
     removeUserTag(tag: string): void;
@@ -166,6 +176,7 @@ export interface User {
     isLoggedIn(): boolean;
     getLastSeenTime(): number;
     getFirstSeenTime(): number;
+    getUserAudiences?(callback?: IdentityCallback): void;
 }
 export interface IdentityResultBody {
     context: string | null;
@@ -221,9 +232,14 @@ export interface OnCreateBatch {
 }
 export type onCreateBatch = OnCreateBatch;
 export type LogLevel = 'verbose' | 'warning' | 'error' | 'none';
+export interface LauncherOptions {
+    noTargeting?: boolean;
+    noFunctional?: boolean;
+    [key: string]: unknown;
+}
 export interface MPConfiguration {
     isDevelopmentMode?: boolean;
-    identifyRequest?: IdentifyRequest;
+    identifyRequest?: IdentityApiData;
     identityCallback?: IdentityCallback;
     dataPlan?: DataPlanConfig;
     appVersion?: string;
@@ -242,4 +258,18 @@ export interface MPConfiguration {
     workspaceToken?: string;
     requiredWebviewBridgeName?: string;
     minWebviewBridgeVersion?: 1 | 2;
+    aliasUrl?: string;
+    configUrl?: string;
+    forceHttps?: boolean;
+    identityUrl?: string;
+    integrationDelayTimeout?: number;
+    isIOS?: boolean;
+    maxProducts?: number;
+    requestConfig?: boolean;
+    useNativeSdk?: boolean;
+    v1SecureServiceUrl?: string;
+    v2SecureServiceUrl?: string;
+    v3SecureServiceUrl?: string;
+    domain?: string;
+    launcherOptions?: LauncherOptions;
 }

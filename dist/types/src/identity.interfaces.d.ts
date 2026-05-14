@@ -1,8 +1,8 @@
-import { IdentityApiData, MPID, UserIdentities } from './publicSdkTypes';
+import { IdentityApiData, MPID, User, UserIdentities } from './publicSdkTypes';
 import AudienceManager from './audienceManager';
 import { ICachedIdentityCall, IKnownIdentities } from './identity-utils';
 import { BaseVault } from './vault';
-import { Dictionary, valueof } from './utils';
+import { Dictionary, Environment, valueof } from './utils';
 import Constants from './constants';
 import { IdentityCallback, IUserAttributeChangeEvent, IUserIdentityChangeEvent, IMParticleUser, mParticleUserCart, IIdentityResponse } from './identity-user-interfaces';
 import { IdentitySearchCallback } from './identity/search';
@@ -51,7 +51,7 @@ export interface IIdentityAPIRequestData {
         sdk_version: typeof sdkVersion;
     };
     context: string | null;
-    environment: string;
+    environment: Environment;
     request_id: string;
     request_timestamp_ms: number;
     previous_mpid: MPID | null;
@@ -91,13 +91,13 @@ export interface SDKIdentityApi {
     HTTPCodes: typeof HTTPCodes;
     identify(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
     login(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
-    logout(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
+    logout(identityApiData?: IdentityApiData | null, callback?: IdentityCallback): void;
     modify(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
     getCurrentUser(): IMParticleUser;
     getUser(mpid: string): IMParticleUser;
     getUsers(): IMParticleUser[];
-    aliasUsers(aliasRequest?: IAliasRequest, callback?: IdentityCallback): void;
-    createAliasRequest(sourceUser: IMParticleUser, destinationUser: IMParticleUser, scope?: AliasRequestScope): IAliasRequest;
+    aliasUsers(aliasRequest?: IAliasRequest, callback?: IAliasCallback): void;
+    createAliasRequest(sourceUser: User, destinationUser: User, scope?: AliasRequestScope): IAliasRequest;
     /**
      * Sends a request to mParticle's IDSync `/v1/search` endpoint to look up
      * a workspace identity without affecting the current user. The callback

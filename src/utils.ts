@@ -12,7 +12,7 @@ type AttributeValue = string | number | boolean | null | undefined;
 // Placeholder for Dictionary-like Types
 export type Dictionary<V = any> = Record<string, V>;
 
-export type Environment = valueof<typeof Constants.Environment>;
+export type Environment = 'development' | 'production';
 
 const createCookieString = (value: string): string =>
     replaceCommasWithPipes(replaceQuotesWithApostrophes(value));

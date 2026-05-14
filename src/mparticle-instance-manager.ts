@@ -86,7 +86,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
         self.getInstance().captureTiming(metricsName);
     }
 
-    this.getInstance = function getInstance(instanceName) {
+    this.getInstance = function getInstance(instanceName?: string) {
         let client: IMParticleWebSDKInstance;
         if (!instanceName) {
             instanceName = Constants.DefaultInstance;

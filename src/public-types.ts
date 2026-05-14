@@ -5,7 +5,7 @@
  * to import. Only add types here that are intended for external consumption.
  *
  * Usage:
- *   import type { SDKInitConfig, EventType } from '@mparticle/web-sdk';
+ *   import type { SDKInitConfig } from '@mparticle/web-sdk';
  *
  * These declarations replace the legacy DefinitelyTyped surface. Keep this
  * file focused on customer-facing SDK types; kit and SDK implementation types
@@ -13,10 +13,23 @@
  */
 
 import type { MParticleWebSDKManager } from './sdkRuntimeModels';
+import type { IMPSideloadedKit } from './sideloadedKit';
 
 declare const mParticle: MParticleWebSDKManager;
 
 export default mParticle;
+
+interface WindowMParticle extends MParticleWebSDKManager {
+    [key: string]: any;
+    getInstance(): any;
+    getInstance(instanceName: string): any;
+}
+
+declare global {
+    interface Window {
+        mParticle: WindowMParticle;
+    }
+}
 
 // Re-export types from @mparticle/event-models
 // Consumers should not need to install @mparticle/event-models directly
@@ -44,6 +57,7 @@ export type {
     IdentityResultBody,
     IdentifyRequest,
     Impression,
+    LauncherOptions,
     Location,
     Logger,
     LogLevel,
@@ -51,6 +65,7 @@ export type {
     MPForwarder,
     MPID,
     OnCreateBatch,
+    OnUserAlias,
     onCreateBatch,
     PrivacyConsentState,
     Product,
@@ -64,18 +79,23 @@ export type {
     User,
     UserAliasRequest,
     UserAttributesValue,
+    UserIdentityValue,
     UserIdentities,
 } from './publicSdkTypes';
 
-// Enums / Constants (type-only to avoid runtime mismatch with entry point)
+export type MPSideloadedKit = IMPSideloadedKit;
+
 export type {
-    EventType,
-    CommerceEventType,
-    IdentityType,
-    ProductActionType,
-    PromotionActionType,
-    MessageType,
-} from './types';
+    IMPSideloadedKit,
+    IMPSideloadedKitConstructor,
+} from './sideloadedKit';
+
+export type {
+    IFilteringConsentRuleValues as FilteringConsentRuleValues,
+    IFilteringEventAttributeValue as FilteringEventAttributeValue,
+    IFilteringUserAttributeValue as FilteringUserAttributeValue,
+    IKitFilterSettings as KitFilterSettings,
+} from './configAPIClient';
 
 // Configuration
 export type {
@@ -111,6 +131,15 @@ export type {
     SDKECommerceAPI,
     SDKCart,
 } from './ecommerce.interfaces';
+
+export type {
+    IRoktEventChannel as RoktEventChannel,
+    IRoktPlacement as RoktPlacement,
+    IRoktPlacementEvent as RoktPlacementEvent,
+    IRoktSelection as RoktSelection,
+    IRoktSubscription as RoktSubscription,
+    RoktAttributes,
+} from './roktManager';
 
 export type {
     SDKProduct,

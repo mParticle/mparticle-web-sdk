@@ -2,10 +2,10 @@ import { ProductAction, Product, Promotion, CommerceEvent } from '@mparticle/eve
 import { SDKEventAttrs, SDKEventOptions, TransactionAttributes } from './publicSdkTypes';
 import { valueof } from './utils';
 import { ProductActionType, PromotionActionType, CommerceEventType, EventType } from './types';
-import { SDKEvent, SDKEventCustomFlags, SDKImpression, SDKProduct, SDKProductImpression, SDKPromotion } from './sdkRuntimeModels';
+import { SDKEvent, SDKEventCustomFlags, SDKImpression, SDKProduct, SDKPromotion } from './sdkRuntimeModels';
 interface IECommerceShared {
     createProduct(name: string, sku: string | number, price: string | number, quantity?: string | number, variant?: string, category?: string, brand?: string, position?: number, couponCode?: string, attributes?: SDKEventAttrs): SDKProduct | null;
-    createImpression(name: string, product: Product): SDKImpression | null;
+    createImpression(name: string, product: SDKProduct | SDKProduct[]): SDKImpression | null;
     createPromotion(id: string | number, creative?: string, name?: string, position?: number): SDKPromotion | null;
     createTransactionAttributes(id: string | number, affiliation?: string, couponCode?: string, revenue?: string | number, shipping?: string | number, tax?: number): TransactionAttributes | null;
     expandCommerceEvent(event: CommerceEvent): SDKEvent[] | null;
@@ -17,9 +17,9 @@ export interface SDKCart {
 }
 export interface SDKECommerceAPI extends IECommerceShared {
     logCheckout(step: number, option?: string, attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags): void;
-    logImpression(impression: SDKProductImpression, attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): void;
+    logImpression(impression: SDKImpression | SDKImpression[], attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): void;
     logProductAction(productActionType: valueof<typeof ProductActionType>, product: SDKProduct | SDKProduct[], attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, transactionAttributes?: TransactionAttributes, eventOptions?: SDKEventOptions): void;
-    logPromotion(type: valueof<typeof PromotionActionType>, promotion: SDKPromotion, attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): void;
+    logPromotion(type: valueof<typeof PromotionActionType>, promotion: SDKPromotion | SDKPromotion[], attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): void;
     setCurrencyCode(code: string): void;
     Cart: SDKCart;
     logPurchase(transactionAttributes: TransactionAttributes, product: SDKProduct | SDKProduct[], clearCart?: boolean, attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags): void;

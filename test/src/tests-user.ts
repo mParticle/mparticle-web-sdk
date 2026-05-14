@@ -8,7 +8,6 @@ const { fetchMockSuccess, waitForCondition } = Utils;
 
 declare global {
     interface Window {
-        mParticle: IMParticleInstanceManager;
         fetchMock: any;
     }
 }

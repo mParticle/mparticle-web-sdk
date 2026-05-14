@@ -1,8 +1,8 @@
 import { Batch, Context } from '@mparticle/event-models';
 import {
     DataPlanConfig,
+    IdentityApiData,
     MPID,
-    IdentifyRequest,
     SDKEventCustomFlags,
     ConsentState,
     UserIdentities,
@@ -70,7 +70,7 @@ export interface SDKConfig {
     cookieDomain?: string;
     maxCookieSize?: number | undefined;
     minWebviewBridgeVersion: 1 | 2 | undefined;
-    identifyRequest: IdentifyRequest;
+    identifyRequest: IdentityApiData;
     identityCallback: IdentityCallback;
     integrationDelayTimeout: number;
     sideloadedKits: MPForwarder[];

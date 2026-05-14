@@ -1,6 +1,5 @@
 import * as EventsApi from '@mparticle/event-models';
 import {
-    Callback,
     DataPlanConfig,
     KitBlockerDataPlan,
     KitBlockerOptions,
@@ -8,6 +7,7 @@ import {
     MPID,
     SDKEventAttrs,
     SDKEventOptions,
+    TrackLocationCallback,
 } from './publicSdkTypes';
 import {
     IntegrationAttribute,
@@ -16,7 +16,7 @@ import {
     WrapperSDKTypes,
 } from './store';
 import Validators from './validators';
-import { Dictionary, valueof } from './utils';
+import { AttributeValue, Dictionary, Environment, valueof } from './utils';
 import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
 import MPSideloadedKit from './sideloadedKit';
@@ -127,15 +127,15 @@ export interface SDKPromotionAction {
 }
 
 export interface SDKPromotion {
-    Id?: string;
+    Id: string | number;
     Name?: string;
     Creative?: string;
-    Position?: string;
+    Position?: string | number;
 }
 
 export interface SDKImpression {
     Name: string;
-    Product: SDKProduct;
+    Product: SDKProduct | SDKProduct[];
 }
 
 export interface SDKProductImpression {
@@ -213,8 +213,8 @@ export interface MParticleWebSDK {
     getAppVersion(): string;
     getDeviceId(): string;
     setDeviceId(deviceId: string): void;
-    getEnvironment(): valueof<typeof Constants.Environment>;
-    setSessionAttribute(key: string, value: string): void;
+    getEnvironment(): Environment;
+    setSessionAttribute(key: string, value: AttributeValue): void;
     getVersion(): string;
     upload(): void;
     setLogLevel(logLevel: LogLevelType): void;
@@ -229,17 +229,18 @@ export interface MParticleWebSDK {
     ): void;
     logBaseEvent(event: BaseEvent, eventOptions?: SDKEventOptions): void;
     logError(error: IErrorLogMessage, attrs?: SDKEventAttrs): void;
+    logError(error: string, attrs?: SDKEventAttrs): void;
     logLink(
         selector: string,
         eventName: string,
-        eventType: valueof<typeof EventType>,
-        eventInfo: SDKEventAttrs
+        eventType?: valueof<typeof EventType>,
+        eventInfo?: SDKEventAttrs
     ): void;
     logForm(
         selector: string,
         eventName: string,
-        eventType: valueof<typeof EventType>,
-        eventInfo: SDKEventAttrs
+        eventType?: valueof<typeof EventType>,
+        eventInfo?: SDKEventAttrs
     ): void;
     logPageView(
         eventName?: string,
@@ -260,7 +261,7 @@ export interface MParticleWebSDK {
     setOptOut(isOptingOut: boolean): void;
 
     // https://go.mparticle.com/work/SQDSDKS-7063
-    startTrackingLocation(callback?: Callback): void;
+    startTrackingLocation(callback?: TrackLocationCallback): void;
 
     stopTrackingLocation(): void;
     generateHash(value: string): number;
@@ -279,10 +280,12 @@ export interface MParticleWebSDKInstance extends MParticleWebSDK {}
 export interface MParticleWebSDKManager extends MParticleWebSDK {
     config: SDKInitConfig;
     isIOS?: boolean;
+    MPSideloadedKit: typeof MPSideloadedKit;
     Rokt: RoktManager;
     sessionManager: Pick<ISessionManager, 'getSession'>;
     Store: IStore;
-    getInstance(instanceName?: string): MParticleWebSDKInstance | null;
+    getInstance(): MParticleWebSDKInstance;
+    getInstance(instanceName: string): MParticleWebSDKInstance | null;
 }
 
 // https://go.mparticle.com/work/SQDSDKS-4805
@@ -305,7 +308,8 @@ export interface IMParticleInstanceManager extends MParticleWebSDKManager {
     Store: IStore;
 
     // Public Methods
-    getInstance(instanceName?: string): IMParticleWebSDKInstance;
+    getInstance(): IMParticleWebSDKInstance;
+    getInstance(instanceName: string): IMParticleWebSDKInstance | null;
 }
 
 // Used in cases where server requires booleans as strings

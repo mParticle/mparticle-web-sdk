@@ -15,6 +15,9 @@ import mParticle, {
     type UserIdentities,
 } from '@mparticle/web-sdk';
 
+// @ts-expect-error The package only exposes a default runtime export.
+import { init } from '@mparticle/web-sdk';
+
 const identities: UserIdentities = {
     customerid: 'customer-1',
     email: 'name@example.com',
@@ -83,6 +86,7 @@ const legacyConfig: MPConfiguration = {
 
 mParticle.init('api-key', config);
 mParticle.init('api-key', legacyConfig);
+window.mParticle.init('api-key', config);
 
 const instance = mParticle.getInstance();
 

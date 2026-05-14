@@ -1,8 +1,8 @@
-import { IdentityApiData, MPID, UserIdentities } from './publicSdkTypes';
+import { IdentityApiData, MPID, User, UserIdentities } from './publicSdkTypes';
 import AudienceManager from './audienceManager';
 import { ICachedIdentityCall, IKnownIdentities } from './identity-utils';
 import { BaseVault } from './vault';
-import { Dictionary, valueof } from './utils';
+import { Dictionary, Environment, valueof } from './utils';
 import Constants from './constants';
 import {
     IdentityCallback,
@@ -54,7 +54,7 @@ export interface IIdentityAPIRequestData {
         sdk_version: typeof sdkVersion;
     };
     context: string | null;
-    environment: string;
+    environment: Environment;
     request_id: string;
     request_timestamp_ms: number;
     previous_mpid: MPID | null;
@@ -138,7 +138,7 @@ export interface SDKIdentityApi {
         callback?: IdentityCallback
     ): void;
     logout(
-        identityApiData?: IdentityApiData,
+        identityApiData?: IdentityApiData | null,
         callback?: IdentityCallback
     ): void;
     modify(
@@ -150,11 +150,11 @@ export interface SDKIdentityApi {
     getUsers(): IMParticleUser[];
     aliasUsers(
         aliasRequest?: IAliasRequest,
-        callback?: IdentityCallback
+        callback?: IAliasCallback
     ): void;
     createAliasRequest(
-        sourceUser: IMParticleUser,
-        destinationUser: IMParticleUser,
+        sourceUser: User,
+        destinationUser: User,
         scope?: AliasRequestScope
     ): IAliasRequest;
     /**

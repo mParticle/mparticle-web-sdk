@@ -45,7 +45,7 @@ export interface IFilteringConsentRuleValues {
     values: IConsentRuleValue[];
 }
 export interface IConsentRuleValue {
-    consentPurpose: string;
+    consentPurpose: string | number;
     hasConsented: boolean;
 }
 export interface IConfigResponse {

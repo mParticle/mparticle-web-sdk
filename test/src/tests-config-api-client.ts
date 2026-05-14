@@ -6,15 +6,8 @@ import ConfigAPIClient  from '../../src/configAPIClient';
 import {
     DataPlanConfig,
     DataPlanResult,
-    IMParticleInstanceManager,
     SDKInitConfig,
 } from '../../src/sdkRuntimeModels';
-
-declare global {
-    interface Window {
-        mParticle: IMParticleInstanceManager;
-    }
-}
 
 describe('ConfigAPIClient', () => {
     let mockServer;

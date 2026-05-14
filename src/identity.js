@@ -95,6 +95,11 @@ export default function Identity(mpInstance) {
             context,
             mpid
         ) {
+            /** @type {import('./utils').Environment} */
+            var environment = mpInstance._Store.SDKConfig.isDevelopmentMode
+                ? Constants.Environment.Development
+                : Constants.Environment.Production;
+
             var APIRequest = {
                 client_sdk: {
                     platform: platform,
@@ -102,9 +107,7 @@ export default function Identity(mpInstance) {
                     sdk_version: sdkVersion,
                 },
                 context: context,
-                environment: mpInstance._Store.SDKConfig.isDevelopmentMode
-                    ? 'development'
-                    : 'production',
+                environment: environment,
                 request_id: mpInstance._Helpers.generateUniqueId(),
                 request_timestamp_ms: new Date().getTime(),
                 previous_mpid: mpid || null,
@@ -125,6 +128,11 @@ export default function Identity(mpInstance) {
             sdkVersion,
             context
         ) {
+            /** @type {import('./utils').Environment} */
+            var environment = mpInstance._Store.SDKConfig.isDevelopmentMode
+                ? Constants.Environment.Development
+                : Constants.Environment.Production;
+
             return {
                 client_sdk: {
                     platform: platform,
@@ -132,9 +140,7 @@ export default function Identity(mpInstance) {
                     sdk_version: sdkVersion,
                 },
                 context: context,
-                environment: mpInstance._Store.SDKConfig.isDevelopmentMode
-                    ? 'development'
-                    : 'production',
+                environment: environment,
                 request_id: mpInstance._Helpers.generateUniqueId(),
                 request_timestamp_ms: new Date().getTime(),
                 identity_changes: this.createIdentityChanges(

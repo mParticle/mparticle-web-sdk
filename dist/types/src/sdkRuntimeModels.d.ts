@@ -1,8 +1,8 @@
 import * as EventsApi from '@mparticle/event-models';
-import { Callback, DataPlanConfig, KitBlockerDataPlan, KitBlockerOptions, MPConfiguration, MPID, SDKEventAttrs, SDKEventOptions } from './publicSdkTypes';
+import { DataPlanConfig, KitBlockerDataPlan, KitBlockerOptions, MPConfiguration, MPID, SDKEventAttrs, SDKEventOptions, TrackLocationCallback } from './publicSdkTypes';
 import { IntegrationAttribute, IntegrationAttributes, IStore, WrapperSDKTypes } from './store';
 import Validators from './validators';
-import { Dictionary, valueof } from './utils';
+import { AttributeValue, Dictionary, Environment, valueof } from './utils';
 import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
 import MPSideloadedKit from './sideloadedKit';
@@ -15,7 +15,6 @@ import { IPixelConfiguration } from './cookieSyncManager';
 import _BatchValidator from './mockBatchCreator';
 import { SDKECommerceAPI } from './ecommerce.interfaces';
 import { IErrorLogMessage, IMParticleWebSDKInstance, IntegrationDelays } from './mp-instance';
-import Constants from './constants';
 import RoktManager, { IRoktLauncherOptions } from './roktManager';
 import { IConsoleLogger } from './logger';
 import { ErrorCodes, IErrorReportingService, ILoggingService } from './reporting/types';
@@ -79,14 +78,14 @@ export interface SDKPromotionAction {
     PromotionList?: SDKPromotion[];
 }
 export interface SDKPromotion {
-    Id?: string;
+    Id: string | number;
     Name?: string;
     Creative?: string;
-    Position?: string;
+    Position?: string | number;
 }
 export interface SDKImpression {
     Name: string;
-    Product: SDKProduct;
+    Product: SDKProduct | SDKProduct[];
 }
 export interface SDKProductImpression {
     ProductImpressionList?: string;
@@ -152,8 +151,8 @@ export interface MParticleWebSDK {
     getAppVersion(): string;
     getDeviceId(): string;
     setDeviceId(deviceId: string): void;
-    getEnvironment(): valueof<typeof Constants.Environment>;
-    setSessionAttribute(key: string, value: string): void;
+    getEnvironment(): Environment;
+    setSessionAttribute(key: string, value: AttributeValue): void;
     getVersion(): string;
     upload(): void;
     setLogLevel(logLevel: LogLevelType): void;
@@ -162,8 +161,9 @@ export interface MParticleWebSDK {
     logEvent(eventName: string, eventType?: valueof<typeof EventType>, attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): void;
     logBaseEvent(event: BaseEvent, eventOptions?: SDKEventOptions): void;
     logError(error: IErrorLogMessage, attrs?: SDKEventAttrs): void;
-    logLink(selector: string, eventName: string, eventType: valueof<typeof EventType>, eventInfo: SDKEventAttrs): void;
-    logForm(selector: string, eventName: string, eventType: valueof<typeof EventType>, eventInfo: SDKEventAttrs): void;
+    logError(error: string, attrs?: SDKEventAttrs): void;
+    logLink(selector: string, eventName: string, eventType?: valueof<typeof EventType>, eventInfo?: SDKEventAttrs): void;
+    logForm(selector: string, eventName: string, eventType?: valueof<typeof EventType>, eventInfo?: SDKEventAttrs): void;
     logPageView(eventName?: string, attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): void;
     setOptOut(isOptingOut: boolean): void;
     eCommerce: SDKECommerceAPI;
@@ -173,7 +173,7 @@ export interface MParticleWebSDK {
     setAppName(name: string): void;
     setAppVersion(version: string): void;
     setOptOut(isOptingOut: boolean): void;
-    startTrackingLocation(callback?: Callback): void;
+    startTrackingLocation(callback?: TrackLocationCallback): void;
     stopTrackingLocation(): void;
     generateHash(value: string): number;
     setIntegrationAttribute(integrationModuleId: number, attrs: IntegrationAttribute): void;
@@ -187,10 +187,12 @@ export interface MParticleWebSDKInstance extends MParticleWebSDK {
 export interface MParticleWebSDKManager extends MParticleWebSDK {
     config: SDKInitConfig;
     isIOS?: boolean;
+    MPSideloadedKit: typeof MPSideloadedKit;
     Rokt: RoktManager;
     sessionManager: Pick<ISessionManager, 'getSession'>;
     Store: IStore;
-    getInstance(instanceName?: string): MParticleWebSDKInstance | null;
+    getInstance(): MParticleWebSDKInstance;
+    getInstance(instanceName: string): MParticleWebSDKInstance | null;
 }
 export interface IMParticleInstanceManager extends MParticleWebSDKManager {
     _BatchValidator: _BatchValidator;
@@ -202,7 +204,8 @@ export interface IMParticleInstanceManager extends MParticleWebSDKManager {
     Rokt: RoktManager;
     sessionManager: Pick<ISessionManager, 'getSession'>;
     Store: IStore;
-    getInstance(instanceName?: string): IMParticleWebSDKInstance;
+    getInstance(): IMParticleWebSDKInstance;
+    getInstance(instanceName: string): IMParticleWebSDKInstance | null;
 }
 export type BooleanStringLowerCase = 'false' | 'true';
 export type BooleanStringTitleCase = 'False' | 'True';
