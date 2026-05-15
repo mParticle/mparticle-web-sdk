@@ -70,7 +70,7 @@ export interface SDKConfig {
     cookieDomain?: string;
     maxCookieSize?: number | undefined;
     minWebviewBridgeVersion: 1 | 2 | undefined;
-    identifyRequest: IdentityApiData;
+    identifyRequest?: IdentityApiData | null;
     identityCallback: IdentityCallback;
     integrationDelayTimeout: number;
     sideloadedKits: MPForwarder[];
