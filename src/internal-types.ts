@@ -17,8 +17,23 @@
 export * from './public-types';
 
 export type {
+    ConfiguredKit,
+    forwardingStatsCallback,
     KitInterface,
+    KitRegistrationConfig,
+    MPForwarder,
+    RegisteredKit,
+    UnregisteredKit,
+    UserAttributeFilters,
+    UserIdentityFilters,
+    UserIdentityId,
+    UserIdentityType,
 } from './forwarders.interfaces';
+
+export type {
+    IKitConfigs,
+    IKitFilterSettings,
+} from './configAPIClient';
 
 // Rokt integration types
 export type {

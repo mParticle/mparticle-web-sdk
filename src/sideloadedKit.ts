@@ -22,7 +22,7 @@ export interface IMPSideloadedKit {
     ): void;
     addScreenNameFilter(screenName: string): void;
     addScreenAttributeFilter(screenName: string, screenAttribute: string): void;
-    addUserIdentityFilter(userIdentity: typeof IdentityType): void;
+    addUserIdentityFilter(userIdentity: valueof<typeof IdentityType>): void;
     addUserAttributeFilter(userAttributeKey: string): void;
 }
 
@@ -109,7 +109,7 @@ export default class MPSideloadedKit implements IMPSideloadedKit{
         );
     }
 
-    public addUserIdentityFilter(userIdentity: typeof IdentityType): void {
+    public addUserIdentityFilter(userIdentity: valueof<typeof IdentityType>): void {
         const hashedIdentityType = KitFilterHelper.hashUserIdentity(
             userIdentity
         );
