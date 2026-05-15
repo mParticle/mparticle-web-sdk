@@ -163,7 +163,6 @@ points.
 
 ## New Public Declarations Not In DefinitelyTyped
 
-- `MParticleWebSDK`
 - `MParticleWebSDKManager`
 - `MParticleWebSDKInstance`
 - `FilteringConsentRuleValues`
