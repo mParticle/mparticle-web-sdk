@@ -11,6 +11,7 @@ import mParticle, {
     type AllUserAttributes,
     type IdentityApiData,
     type IdentityCallback,
+    type IdentityHTTPCode,
     type IdentifyRequest,
     type MPConfiguration,
     type MPID,
@@ -44,6 +45,7 @@ const identifyRequest: IdentifyRequest = {
 const identityCallback: IdentityCallback = result => {
     const mpid: MPID | undefined =
         'mpid' in result.body ? result.body.mpid : undefined;
+    const code: IdentityHTTPCode = result.httpCode;
     const user = result.getUser();
     const attrs: AllUserAttributes = user.getAllUserAttributes();
 
@@ -53,6 +55,7 @@ const identityCallback: IdentityCallback = result => {
     user.setConsentState(mParticle.Consent.createConsentState());
 
     void mpid;
+    void code;
     void attrs;
 };
 

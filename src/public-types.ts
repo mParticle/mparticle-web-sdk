@@ -52,6 +52,7 @@ export type {
     GDPRConsentState,
     IdentityApiData,
     IdentityCallback,
+    IdentityHTTPCode,
     IdentityModifyResultBody,
     IdentityResult,
     IdentityResultBody,

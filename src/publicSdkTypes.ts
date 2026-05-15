@@ -238,8 +238,20 @@ export interface IdentityModifyResultBody {
     };
 }
 
+export type IdentityHTTPCode =
+    | -1 // noHttpCoverage
+    | -2 // activeIdentityRequest
+    | -3 // activeSession
+    | -4 // validationIssue
+    | -5 // nativeIdentityRequest
+    | -6 // loggingDisabledOrMissingAPIKey
+    | 200
+    | 202
+    | 400
+    | 429;
+
 export interface IdentityResult {
-    httpCode: number;
+    httpCode: IdentityHTTPCode;
     getPreviousUser(): User;
     getUser(): User;
     body: IdentityResultBody | IdentityModifyResultBody;
