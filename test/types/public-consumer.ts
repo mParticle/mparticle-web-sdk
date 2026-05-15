@@ -1,3 +1,12 @@
+/**
+ * Package contract smoke test for the public `@mparticle/web-sdk` entry point.
+ *
+ * This file is compiled against generated declarations in `dist/types`, not
+ * source files, so it catches publish-shape regressions for normal customers.
+ * Keep this focused on representative public usage; the legacy DefinitelyTyped
+ * fixtures cover broader migration compatibility.
+ */
+
 import mParticle, {
     type AllUserAttributes,
     type IdentityApiData,
@@ -17,6 +26,9 @@ import mParticle, {
 
 // @ts-expect-error The package only exposes a default runtime export.
 import { init } from '@mparticle/web-sdk';
+
+// @ts-expect-error Kit internals belong to `@mparticle/web-sdk/internal`.
+import type { KitInterface } from '@mparticle/web-sdk';
 
 const identities: UserIdentities = {
     customerid: 'customer-1',
