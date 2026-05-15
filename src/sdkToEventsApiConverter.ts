@@ -406,10 +406,10 @@ export function convertPromotions(
     const promotions: EventsApi.Promotion[] = [];
     for (const sdkPromotion of sdkPromotions) {
         const promotion: EventsApi.Promotion = {
-            id: sdkPromotion.Id,
+            id: sdkPromotion.Id as EventsApi.Promotion['id'],
             name: sdkPromotion.Name,
             creative: sdkPromotion.Creative,
-            position: sdkPromotion.Position,
+            position: sdkPromotion.Position as EventsApi.Promotion['position'],
         };
         promotions.push(promotion);
     }

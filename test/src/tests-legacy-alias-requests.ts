@@ -23,7 +23,6 @@ const { HTTPCodes } = Constants;
 
 declare global {
     interface Window {
-        mParticle: IMParticleInstanceManager;
         fetchMock: any;
     }
 }    

@@ -8,7 +8,7 @@ import {
     SDKEventAttrs,
     SDKEventOptions,
     TransactionAttributes,
-} from '@mparticle/web-sdk';
+} from './publicSdkTypes';
 import { valueof } from './utils';
 import {
     ProductActionType,
@@ -38,7 +38,10 @@ interface IECommerceShared {
         couponCode?: string,
         attributes?: SDKEventAttrs
     ): SDKProduct | null;
-    createImpression(name: string, product: Product): SDKImpression | null;
+    createImpression(
+        name: string,
+        product: SDKProduct | SDKProduct[]
+    ): SDKImpression | null;
     createPromotion(
         id: string | number,
         creative?: string,
@@ -71,7 +74,7 @@ export interface SDKECommerceAPI extends IECommerceShared {
         customFlags?: SDKEventCustomFlags
     ): void;
     logImpression(
-        impression: SDKProductImpression,
+        impression: SDKImpression | SDKImpression[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions
@@ -86,7 +89,7 @@ export interface SDKECommerceAPI extends IECommerceShared {
     ): void;
     logPromotion(
         type: valueof<typeof PromotionActionType>,
-        promotion: SDKPromotion,
+        promotion: SDKPromotion | SDKPromotion[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions
@@ -159,10 +162,12 @@ export interface IECommerce extends IECommerceShared {
     convertProductActionToEventType(
         productActionType: valueof<typeof ProductActionType>
     ): // https://go.mparticle.com/work/SQDSDKS-4801
-    typeof CommerceEventType | typeof EventType | null;
+    | valueof<typeof CommerceEventType>
+        | valueof<typeof EventType>
+        | null;
     convertPromotionActionToEventType(
         promotionActionType: valueof<typeof PromotionActionType>
-    ): typeof CommerceEventType | null;
+    ): valueof<typeof CommerceEventType> | null;
     convertTransactionAttributesToProductAction(
         transactionAttributes: TransactionAttributes,
         productAction: ProductAction

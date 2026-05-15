@@ -14,7 +14,7 @@ import {
 import { SDKIdentityApi } from "./identity.interfaces";
 import { SDKLoggerApi } from "./sdkRuntimeModels";
 import { IStore, LocalSessionAttributes } from "./store";
-import { UserIdentities } from "@mparticle/web-sdk";
+import { UserIdentities } from './publicSdkTypes';
 import { IdentityType, PerformanceMarkType } from "./types";
 import { ErrorCodes, IErrorReportingService, ILoggingService, WSDKErrorSeverity } from "./reporting/types";
 
@@ -34,12 +34,48 @@ export interface IRoktSelectPlacementsOptions {
     identifier?: string;
 }
 
-interface IRoktPlacement {}
-
-export interface IRoktSelection {
-    close: () => void;
-    getPlacements: () => Promise<IRoktPlacement[]>;
+export interface RoktPlacementEvent<T = unknown> {
+    body: T;
+    event: string;
+    placement: RoktPlacement;
 }
+
+export interface RoktUnsubscriber {
+    unsubscribe(): void;
+}
+
+export interface RoktSubscriber<T> {
+    subscribe(callback: (event: T) => void): RoktUnsubscriber;
+}
+
+export interface RoktPlacement {
+    id: string;
+    element: HTMLIFrameElement;
+    on<T = unknown>(eventName: string): RoktSubscriber<RoktPlacementEvent<T>>;
+    ready(): Promise<void>;
+    send<T = unknown>(eventName: string, payload?: T): Promise<void>;
+    onClose(): Promise<void>;
+    close(): Promise<void>;
+}
+
+export interface RoktSelection {
+    close(): Promise<void>;
+    on<T = unknown>(eventName: string): RoktSubscriber<RoktPlacementEvent<T>>;
+    getPlacements(): Promise<RoktPlacement[]>;
+    ready(): Promise<void>;
+    send<T = unknown>(eventName: string, payload?: T): Promise<void>;
+    setAttributes(attributes: RoktAttributes): Promise<void>;
+    context?: {
+        sessionId?: Promise<string>;
+        [key: string]: unknown;
+    };
+}
+
+export type IRoktPlacementEvent<T = unknown> = RoktPlacementEvent<T>;
+export type IRoktSubscription = RoktUnsubscriber;
+export type IRoktEventChannel<T = unknown> = RoktSubscriber<RoktPlacementEvent<T>>;
+export type IRoktPlacement = RoktPlacement;
+export type IRoktSelection = RoktSelection;
 
 export interface IRoktLauncher {
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;

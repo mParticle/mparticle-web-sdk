@@ -19,7 +19,6 @@ import IdentityAPIClient, { IIdentityApiClient } from '../../src/identityApiClie
 import { IIdentityResponse } from '../../src/identity-user-interfaces';
 import Utils from './config/utils';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
-import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 import RoktManager from '../../src/roktManager';
 import { ErrorReportingDispatcher } from '../../src/reporting/errorReportingDispatcher';
 const { fetchMockSuccess } = Utils;
@@ -27,7 +26,6 @@ const { HTTPCodes }  = Constants;
 
 declare global {
     interface Window {
-        mParticle: IMParticleInstanceManager;
         fetchMock: any;
     }
 }
@@ -45,7 +43,7 @@ describe('Identity Api Client', () => {
             context: 'test-context',
             environment: 'development',
             request_id: '123',
-            request_timestamp_unixtime_ms: Date.now(),
+            request_timestamp_ms: Date.now(),
             previous_mpid: null,
             known_identities: {
                 email: 'user@mparticle.com',

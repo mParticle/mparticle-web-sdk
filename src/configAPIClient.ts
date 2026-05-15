@@ -1,11 +1,12 @@
-import { DataPlanConfig } from '@mparticle/web-sdk';
-import {
+import type {
     BooleanStringLowerCase,
+    DataPlanConfig,
     DataPlanResult,
     SDKEventCustomFlags,
     SDKInitConfig,
 } from './sdkRuntimeModels';
 import { Dictionary } from './utils';
+import type { IConsentRuleValue } from './consent';
 import {
     AsyncUploader,
     IFetchPayload,
@@ -60,12 +61,6 @@ export interface IFilteringConsentRuleValues {
     includeOnMatch: boolean;
     values: IConsentRuleValue[];
 }
-
-export interface IConsentRuleValue {
-    consentPurpose: string;
-    hasConsented: boolean;
-}
-
 
 export interface IConfigResponse {
     appName: string;

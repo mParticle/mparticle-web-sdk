@@ -1,4 +1,4 @@
-import { IdentityApiData, MPID, UserIdentities } from '@mparticle/web-sdk';
+import { IdentityApiData, MPID, User, UserIdentities } from './publicSdkTypes';
 import AudienceManager from './audienceManager';
 import { ICachedIdentityCall, IKnownIdentities } from './identity-utils';
 import { BaseVault } from './vault';
@@ -56,7 +56,7 @@ export interface IIdentityAPIRequestData {
     context: string | null;
     environment: Environment;
     request_id: string;
-    request_timestamp_unixtime_ms: number;
+    request_timestamp_ms: number;
     previous_mpid: MPID | null;
     known_identities: IKnownIdentities;
 }
@@ -70,7 +70,7 @@ export interface IIdentityAPIModifyRequestData
 }
 
 export interface IIdentityAPIIdentityChangeData {
-    identity_type: SDKIdentityTypeEnum;
+    identity_type: SDKIdentityTypeEnum | string;
     old_value: string;
     new_value: string;
 }
@@ -100,7 +100,7 @@ export interface IIdentityRequest {
     createIdentityChanges(
         previousIdentities: UserIdentities,
         newIdentitie: UserIdentities
-    ): IIdentityAPIIdentityChangeData;
+    ): IIdentityAPIIdentityChangeData[];
     preProcessIdentityRequest(
         identityApiData: IdentityApiData,
         callback: IdentityCallback,
@@ -129,32 +129,32 @@ export interface IAliasResult {
 
 export interface SDKIdentityApi {
     HTTPCodes: typeof HTTPCodes;
-    identify?(
+    identify(
         identityApiData?: IdentityApiData,
         callback?: IdentityCallback
     ): void;
-    login?(
+    login(
         identityApiData?: IdentityApiData,
         callback?: IdentityCallback
     ): void;
-    logout?(
+    logout(
+        identityApiData?: IdentityApiData | null,
+        callback?: IdentityCallback
+    ): void;
+    modify(
         identityApiData?: IdentityApiData,
         callback?: IdentityCallback
     ): void;
-    modify?(
-        identityApiData?: IdentityApiData,
-        callback?: IdentityCallback
-    ): void;
-    getCurrentUser?(): IMParticleUser;
-    getUser?(mpid: string): IMParticleUser;
-    getUsers?(): IMParticleUser[];
-    aliasUsers?(
+    getCurrentUser(): IMParticleUser;
+    getUser(mpid: string): IMParticleUser;
+    getUsers(): IMParticleUser[];
+    aliasUsers(
         aliasRequest?: IAliasRequest,
-        callback?: IdentityCallback
+        callback?: IAliasCallback
     ): void;
-    createAliasRequest?(
-        sourceUser: IMParticleUser,
-        destinationUser: IMParticleUser,
+    createAliasRequest(
+        sourceUser: User,
+        destinationUser: User,
         scope?: AliasRequestScope
     ): IAliasRequest;
     /**
@@ -168,7 +168,7 @@ export interface SDKIdentityApi {
      * caller (from a kit's settings). It is sent as the `x-mp-key` header.
      * The SDK's own workspace token is intentionally not used.
      */
-    search?(
+    search(
         workspaceApiKey: string,
         knownIdentities: UserIdentities,
         callback: IdentitySearchCallback

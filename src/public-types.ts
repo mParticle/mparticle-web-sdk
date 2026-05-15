@@ -5,13 +5,31 @@
  * to import. Only add types here that are intended for external consumption.
  *
  * Usage:
- *   import type { SDKInitConfig, EventType } from '@mparticle/web-sdk';
+ *   import type { SDKInitConfig } from '@mparticle/web-sdk';
  *
- * Note: Types from @types/mparticle__web-sdk (e.g., MPConfiguration, MPID,
- * ConsentState) are NOT re-exported here to avoid circular references.
- * Consumers get those automatically via DefinitelyTyped until they are
- * natively defined in this SDK and the DT package is deprecated.
+ * These declarations replace the legacy DefinitelyTyped surface. Keep this
+ * file focused on customer-facing SDK types; kit and SDK implementation types
+ * belong in internal-types.ts.
  */
+
+import type { MParticleWebSDKManager } from './sdkRuntimeModels';
+import type { IMPSideloadedKit } from './sideloadedKit';
+
+declare const mParticle: MParticleWebSDKManager;
+
+export default mParticle;
+
+interface WindowMParticle extends MParticleWebSDKManager {
+    [key: string]: any;
+    getInstance(): any;
+    getInstance(instanceName: string): any;
+}
+
+declare global {
+    interface Window {
+        mParticle: WindowMParticle;
+    }
+}
 
 // Re-export types from @mparticle/event-models
 // Consumers should not need to install @mparticle/event-models directly
@@ -19,33 +37,72 @@ export type {
     Batch,
 } from '@mparticle/event-models';
 
-// Enums / Constants (type-only to avoid runtime mismatch with entry point)
+// Legacy DefinitelyTyped-owned public primitives now owned by this package
 export type {
-    EventType,
-    CommerceEventType,
-    IdentityType,
-    ProductActionType,
-    PromotionActionType,
-    MessageType,
-} from './types';
+    AliasRequestScope,
+    AliasUsersCallback,
+    AllUserAttributes,
+    Callback,
+    Cart,
+    CCPAConsentState,
+    ConsentState,
+    GDPRConsentState,
+    IdentityApiData,
+    IdentifyRequest,
+    Impression,
+    LauncherOptions,
+    Location,
+    Logger,
+    LogLevel,
+    MPConfiguration,
+    MPForwarder,
+    MPID,
+    OnCreateBatch,
+    OnUserAlias,
+    onCreateBatch,
+    PrivacyConsentState,
+    Product,
+    Promotion,
+    SDKEventAttrs,
+    SDKEventAttrTypes,
+    SDKEventCustomFlags,
+    SDKEventOptions,
+    TrackLocationCallback,
+    TransactionAttributes,
+    User,
+    UserAliasRequest,
+    UserAttributesValue,
+    UserIdentityValue,
+    UserIdentities,
+} from './publicSdkTypes';
+
+export type MPSideloadedKit = IMPSideloadedKit;
+
+export type {
+    IFilteringConsentRuleValues as FilteringConsentRuleValues,
+    IFilteringEventAttributeValue as FilteringEventAttributeValue,
+    IFilteringUserAttributeValue as FilteringUserAttributeValue,
+    IKitFilterSettings as KitFilterSettings,
+} from './configAPIClient';
 
 // Configuration
 export type {
     SDKInitConfig,
-    DataPlanConfig,
     BaseEvent,
-    SDKEventCustomFlags,
+    DataPlanConfig,
     LogLevelType,
-    MParticleWebSDK,
+    MParticleWebSDKInstance,
+    MParticleWebSDKManager,
 } from './sdkRuntimeModels';
 
 // User & Identity
 export type {
-    IMParticleUser,
     IdentityCallback,
+    IdentityHTTPCode,
+    IdentityModifyResultBody,
     IdentityResult,
     IdentityResultBody,
-    IdentityModifyResultBody,
+    IMParticleUser,
     ISDKUserIdentity,
     ISDKUserAttributes,
 } from './identity-user-interfaces';
@@ -59,7 +116,7 @@ export type {
     IIdentitySearchResult,
     IIdentitySearchResponseBody,
     IdentitySearchCallback,
-    IUserIdentities
+    IUserIdentities,
 } from './identity.interfaces';
 
 // eCommerce
@@ -69,15 +126,28 @@ export type {
 } from './ecommerce.interfaces';
 
 export type {
+    RoktAttributes,
+    RoktAttributeValue,
+    RoktAttributeValueArray,
+    RoktAttributeValueType,
+    IRoktPartnerExtensionData as RoktPartnerExtensionData,
+    RoktPlacement,
+    RoktPlacementEvent,
+    IRoktSelectPlacementsOptions as RoktSelectPlacementsOptions,
+    RoktSelection,
+    RoktSubscriber,
+    RoktUnsubscriber,
+} from './roktManager';
+
+export type {
     SDKProduct,
     SDKPromotion,
     SDKImpression,
     SDKProductImpression,
 } from './sdkRuntimeModels';
 
-// Consent
+// Consent API facade types
 export type {
-    SDKConsentApi,
     SDKConsentState,
     SDKConsentStateData,
     SDKGDPRConsentState,

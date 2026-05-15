@@ -36,13 +36,13 @@ import Consent, { IConsent } from './consent';
 import KitBlocker from './kitBlocking';
 import ConfigAPIClient, { IKitConfigs } from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
-import { isFunction, parseConfig, valueof, generateDeprecationMessage, extend } from './utils';
+import { Dictionary, isFunction, parseConfig, valueof, generateDeprecationMessage, extend } from './utils';
 import { DisabledVault, LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates, hasExplicitIdentifier } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
 import { IPreInit, processReadyQueue } from './pre-init-utils';
 import { BaseEvent, MParticleWebSDK, SDKHelpersApi } from './sdkRuntimeModels';
-import { Dictionary, SDKEventAttrs } from '@mparticle/web-sdk';
+import { SDKEventAttrs } from './publicSdkTypes';
 import { IIdentity } from './identity.interfaces';
 import { IEvents } from './events.interfaces';
 import { IECommerce } from './ecommerce.interfaces';
@@ -1741,4 +1741,3 @@ function queueIfNotInitialized(func, self) {
     });
     return true;
 }
-

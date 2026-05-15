@@ -80,7 +80,6 @@ interface MockMParticleForForwarders extends IMParticleInstanceManager{
 
 declare global {
     interface Window {
-        mParticle: IMParticleInstanceManager;
         MockForwarder: IMockForwarder;
         MockForwarder1: IMockForwarder;
         SideloadedKit11: IMockForwarder;

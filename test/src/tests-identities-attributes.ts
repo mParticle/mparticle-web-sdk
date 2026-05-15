@@ -24,12 +24,6 @@ const {
     setupLoggerSpy
 } = Utils;
 
-declare global {
-    interface Window {
-        mParticle: IMParticleInstanceManager;
-    }
-}
-
 const mParticle = window.mParticle as IMParticleInstanceManager;
 
 const BAD_SESSION_ATTRIBUTE_KEY_AS_OBJECT = ({

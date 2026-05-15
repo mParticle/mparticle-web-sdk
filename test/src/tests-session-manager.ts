@@ -13,13 +13,11 @@ import {
 import { IdentityApiData } from '@mparticle/web-sdk';
 import { MILLIS_IN_ONE_SEC } from '../../src/constants';
 import Constants from '../../src/constants';
-import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 
 const { Messages } = Constants;
 
 declare global {
     interface Window {
-        mParticle: IMParticleInstanceManager;
         fetchMock: any;
     }
 }

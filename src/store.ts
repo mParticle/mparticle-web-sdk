@@ -1,15 +1,15 @@
 import { Batch, Context } from '@mparticle/event-models';
 import {
-    DataPlanConfig,
+    IdentityApiData,
     MPID,
-    IdentifyRequest,
     SDKEventCustomFlags,
     ConsentState,
     UserIdentities,
-} from '@mparticle/web-sdk';
+} from './publicSdkTypes';
 import { IKitConfigs } from './configAPIClient';
 import Constants from './constants';
 import {
+    DataPlanConfig,
     DataPlanResult,
     KitBlockerOptions,
     LogLevelType,
@@ -70,7 +70,7 @@ export interface SDKConfig {
     cookieDomain?: string;
     maxCookieSize?: number | undefined;
     minWebviewBridgeVersion: 1 | 2 | undefined;
-    identifyRequest: IdentifyRequest;
+    identifyRequest?: IdentityApiData | null;
     identityCallback: IdentityCallback;
     integrationDelayTimeout: number;
     sideloadedKits: MPForwarder[];

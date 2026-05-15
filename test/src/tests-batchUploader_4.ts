@@ -6,14 +6,7 @@ import { expect } from 'chai';
 import _BatchValidator from '../../src/mockBatchCreator';
 import fetchMock from 'fetch-mock/esm/client';
 import { ProductActionType } from '../../src/types';
-import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 const { fetchMockSuccess, waitForCondition, hasIdentifyReturned  } = Utils;
-
-declare global {
-    interface Window {
-        mParticle: IMParticleInstanceManager;
-    }
-}
 
 describe('batch uploader', () => {
     let mockServer;

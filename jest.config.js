@@ -4,11 +4,20 @@ module.exports = {
     // The built mParticle.js file needs to exist for integration tests
     setupFiles: ['./test/jest/setup.ts', './dist/mparticle.js'],
     setupFilesAfterEnv: ['jest-expect-message'],
-    // Exclude Adobe kit test files — Adobe uses Jest but via its own kit-level
-    // jest.config.js; running them from the root would be missing kit setup.
-    // Other kits use Karma and name their tests `tests.js` (plural), which
-    // doesn't match Jest's default testMatch, so they don't need exclusion.
-    testPathIgnorePatterns: ['<rootDir>/kits/adobe'],
+    testPathIgnorePatterns: [
+        '/node_modules/',
+        '<rootDir>/build/',
+        '<rootDir>/.agents/',
+        '<rootDir>/.claude/',
+        // Exclude Adobe kit test files. Adobe uses Jest through its own
+        // kit-level config; running it from the root skips kit setup.
+        '<rootDir>/kits/adobe',
+    ],
+    modulePathIgnorePatterns: [
+        '<rootDir>/build/',
+        '<rootDir>/.agents/',
+        '<rootDir>/.claude/',
+    ],
     transform: {
         '^.+\\.(js)$': 'ts-jest',
     },

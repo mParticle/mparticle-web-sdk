@@ -3,7 +3,7 @@ import {
     ConsentState,
     GDPRConsentState,
     PrivacyConsentState,
-} from '@mparticle/web-sdk';
+} from './publicSdkTypes';
 import { Dictionary, isObject } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
@@ -88,13 +88,15 @@ export interface IConsentStateV2DTO {
     ccpa?: ICCPAConsentStateV2DTO;
 }
 
-export interface IConsentRulesValues {
-    consentPurpose: string;
+export interface IConsentRuleValue {
+    // Server-side consent filters can return hashed consent purposes as numbers.
+    consentPurpose: string | number;
     hasConsented: boolean;
 }
+
 export interface IConsentRules {
     includeOnMatch: boolean;
-    values: IConsentRulesValues[];
+    values: IConsentRuleValue[];
 }
 
 // TODO: Remove this if we can safely deprecate `removeCCPAState`

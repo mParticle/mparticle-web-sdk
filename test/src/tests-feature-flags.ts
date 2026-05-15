@@ -7,15 +7,8 @@ import { urls, apiKey,
     MPConfig,
 } from './config/constants';
 import Utils from './config/utils';
-import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 
 const { waitForCondition, fetchMockSuccess, deleteAllCookies } = Utils;
-
-declare global {
-    interface Window {
-        mParticle: IMParticleInstanceManager;
-    }
-}
 
 const hasIdentifyReturned = () => {
     return window.mParticle.Identity.getCurrentUser()?.getMPID() === testMPID;
