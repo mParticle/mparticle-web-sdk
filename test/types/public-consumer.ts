@@ -59,6 +59,30 @@ const identityCallback: IdentityCallback = result => {
     void attrs;
 };
 
+const docsIdentityCallback: IdentityCallback = result => {
+    if (result.getUser()) {
+        const user = result.getUser();
+        void user;
+        return;
+    }
+
+    const codes = mParticle.Identity.HTTPCodes;
+
+    switch (result.httpCode) {
+        case codes.noHttpCoverage:
+            break;
+        case codes.activeIdentityRequest:
+        case 429:
+            break;
+        case codes.validationIssue:
+        case 400:
+            void result.body;
+            break;
+        default:
+            void result.body;
+    }
+};
+
 const config: SDKInitConfig = {
     appName: 'Type Test App',
     appVersion: '1.2.3',
