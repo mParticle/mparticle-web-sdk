@@ -84,6 +84,31 @@ jobs:
                   name: npm-logs
                   path: ~/.npm/_logs
 
+    test-types:
+        name: 'Test Type Declarations'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+
+            - name: NPM install
+              uses: actions/setup-node@v6
+              with:
+                  node-version: latest
+
+            - name: Run NPM CI
+              run: npm ci
+
+            - name: Build and Test Type Declarations
+              run: npm run test:types
+
+            - name: Archive npm failure logs
+              uses: actions/upload-artifact@v6
+              if: failure()
+              with:
+                  name: npm-logs
+                  path: ~/.npm/_logs
+
     # Only Core test requires bundle, but we want to make sure
     # that tests only run when the bundle is successfully built
     test-core:
