@@ -7,6 +7,7 @@ import {
 import { Dictionary, isObject } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
+import type { IConsentRuleValue } from './configAPIClient';
 import { IMParticleUser } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 
@@ -88,13 +89,9 @@ export interface IConsentStateV2DTO {
     ccpa?: ICCPAConsentStateV2DTO;
 }
 
-export interface IConsentRulesValues {
-    consentPurpose: string | number;
-    hasConsented: boolean;
-}
 export interface IConsentRules {
     includeOnMatch: boolean;
-    values: IConsentRulesValues[];
+    values: IConsentRuleValue[];
 }
 
 // TODO: Remove this if we can safely deprecate `removeCCPAState`
