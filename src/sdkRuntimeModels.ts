@@ -1,8 +1,5 @@
 import * as EventsApi from '@mparticle/event-models';
 import {
-    DataPlanConfig,
-    KitBlockerDataPlan,
-    KitBlockerOptions,
     MPConfiguration,
     MPID,
     SDKEventAttrs,
@@ -17,7 +14,7 @@ import {
 } from './store';
 import Validators from './validators';
 import { AttributeValue, Dictionary, Environment, valueof } from './utils';
-import { IKitConfigs } from './configAPIClient';
+import type { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
 import MPSideloadedKit from './sideloadedKit';
 import { ISessionManager } from './sessionManager';
@@ -54,13 +51,6 @@ import Constants from './constants';
 import RoktManager, { IRoktLauncherOptions } from './roktManager';
 import { IConsoleLogger } from './logger';
 import { ErrorCodes, IErrorReportingService, ILoggingService } from './reporting/types';
-
-export type {
-    DataPlanConfig,
-    DataPlanResult,
-    KitBlockerDataPlan,
-    KitBlockerOptions,
-} from './publicSdkTypes';
 
 // Internal SDK custom flags are normalized before upload and may temporarily
 // contain arrays or other values supported by the legacy public API.
@@ -371,6 +361,44 @@ export interface SDKInitConfig
 
     rq?: Function[] | any[];
     logger?: IConsoleLogger;
+}
+
+export interface DataPlanVersion {
+    version?: number;
+    data_plan_id?: string;
+    last_modified_on?: string;
+    version_document?: Dictionary;
+}
+
+export interface DataPlanConfig {
+    planId?: string;
+    planVersion?: number;
+    document?: DataPlanResult;
+}
+
+export interface KitBlockerOptions {
+    dataPlanVersion: DataPlanVersion;
+    blockUserAttributes: boolean;
+    blockEventAttributes: boolean;
+    blockEvents: boolean;
+    blockUserIdentities: boolean;
+}
+
+export interface KitBlockerDataPlan {
+    document: DataPlanResult;
+}
+
+export interface DataPlanResult {
+    dtpn?: {
+        vers: DataPlanVersion;
+        blok: {
+            ev: boolean;
+            ea: boolean;
+            ua: boolean;
+            id: boolean;
+        };
+    };
+    error_message?: string;
 }
 
 export interface SDKHelpersApi {

@@ -1,6 +1,6 @@
-import { DataPlanConfig } from './publicSdkTypes';
-import {
+import type {
     BooleanStringLowerCase,
+    DataPlanConfig,
     DataPlanResult,
     SDKEventCustomFlags,
     SDKInitConfig,

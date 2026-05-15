@@ -1,20 +1,11 @@
 import type {
     AllUserAttributes,
-    IdentityCallback,
-    IdentityResultBody,
     MPID,
     User,
 } from './publicSdkTypes';
-import { SDKIdentityTypeEnum } from './identity.interfaces';
+import type { SDKIdentityTypeEnum } from './identity.interfaces';
 import { MessageType } from './types';
-import { BaseEvent, SDKProduct } from './sdkRuntimeModels';
-
-export type {
-    IdentityCallback,
-    IdentityModifyResultBody,
-    IdentityResult,
-    IdentityResultBody,
-} from './publicSdkTypes';
+import type { BaseEvent, SDKProduct } from './sdkRuntimeModels';
 
 // Cart is Deprecated and private to mParticle user in @mparticle/web-sdk
 // but we need to expose it here for type safety in some of our tests
@@ -35,6 +26,45 @@ interface ICart {
      * @deprecated Cart Products have been deprecated
      */
     getCartProducts: () => SDKProduct[];
+}
+
+export interface IdentityResultBody {
+    context: string | null;
+    is_ephemeral: boolean;
+    is_logged_in: boolean;
+    matched_identities: Record<string, unknown>;
+    mpid?: MPID;
+}
+
+export interface IdentityModifyResultBody {
+    change_results?: {
+        identity_type: SDKIdentityTypeEnum;
+        modified_mpid: MPID;
+    };
+}
+
+export type IdentityHTTPCode =
+    | -1 // noHttpCoverage
+    | -2 // activeIdentityRequest
+    | -3 // activeSession
+    | -4 // validationIssue
+    | -5 // nativeIdentityRequest
+    | -6 // loggingDisabledOrMissingAPIKey
+    | 200
+    | 202
+    | 400
+    | 429;
+
+export interface IdentityResult {
+    httpCode: IdentityHTTPCode;
+    getPreviousUser(): User;
+    getUser(): User;
+    body: IdentityResultBody | IdentityModifyResultBody;
+}
+
+// https://go.mparticle.com/work/SQDSDKS-6460
+export interface IdentityCallback {
+    (result: IdentityResult): void;
 }
 
 // https://go.mparticle.com/work/SQDSDKS-5033

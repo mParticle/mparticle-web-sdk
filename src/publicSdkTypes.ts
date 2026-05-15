@@ -1,6 +1,7 @@
 import { Batch } from '@mparticle/event-models';
-
-export type Dictionary<V = any> = Record<string, V>;
+import type { IdentityCallback } from './identity-user-interfaces';
+import type { DataPlanConfig } from './sdkRuntimeModels';
+import type { Dictionary } from './utils';
 
 export type MPID = string;
 
@@ -28,44 +29,6 @@ export interface Logger {
     error?: (error: string) => void;
     warning?: (warning: string) => void;
     verbose?: (message: string) => void;
-}
-
-export interface DataPlanResult {
-    dtpn?: {
-        vers: DataPlanVersion;
-        blok: {
-            ev: boolean;
-            ea: boolean;
-            ua: boolean;
-            id: boolean;
-        };
-    };
-    error_message?: string;
-}
-
-export interface DataPlanVersion {
-    version?: number;
-    data_plan_id?: string;
-    last_modified_on?: string;
-    version_document?: Dictionary;
-}
-
-export interface DataPlanConfig {
-    planId?: string;
-    planVersion?: number;
-    document?: DataPlanResult;
-}
-
-export interface KitBlockerOptions {
-    dataPlanVersion: DataPlanVersion;
-    blockUserAttributes: boolean;
-    blockEventAttributes: boolean;
-    blockEvents: boolean;
-    blockUserIdentities: boolean;
-}
-
-export interface KitBlockerDataPlan {
-    document: DataPlanResult;
 }
 
 export type MPForwarder = Dictionary;
@@ -221,44 +184,6 @@ export interface User {
     getLastSeenTime(): number;
     getFirstSeenTime(): number;
     getUserAudiences?(callback?: IdentityCallback): void;
-}
-
-export interface IdentityResultBody {
-    context: string | null;
-    is_ephemeral: boolean;
-    is_logged_in: boolean;
-    matched_identities: Record<string, unknown>;
-    mpid?: MPID;
-}
-
-export interface IdentityModifyResultBody {
-    change_results?: {
-        identity_type: string;
-        modified_mpid: MPID;
-    };
-}
-
-export type IdentityHTTPCode =
-    | -1 // noHttpCoverage
-    | -2 // activeIdentityRequest
-    | -3 // activeSession
-    | -4 // validationIssue
-    | -5 // nativeIdentityRequest
-    | -6 // loggingDisabledOrMissingAPIKey
-    | 200
-    | 202
-    | 400
-    | 429;
-
-export interface IdentityResult {
-    httpCode: IdentityHTTPCode;
-    getPreviousUser(): User;
-    getUser(): User;
-    body: IdentityResultBody | IdentityModifyResultBody;
-}
-
-export interface IdentityCallback {
-    (result: IdentityResult): void;
 }
 
 export type AliasRequestScope = 'device' | 'mpid';

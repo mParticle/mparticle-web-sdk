@@ -46,16 +46,8 @@ export type {
     Cart,
     CCPAConsentState,
     ConsentState,
-    DataPlanConfig,
-    DataPlanResult,
-    Dictionary,
     GDPRConsentState,
     IdentityApiData,
-    IdentityCallback,
-    IdentityHTTPCode,
-    IdentityModifyResultBody,
-    IdentityResult,
-    IdentityResultBody,
     IdentifyRequest,
     Impression,
     LauncherOptions,
@@ -102,6 +94,8 @@ export type {
 export type {
     SDKInitConfig,
     BaseEvent,
+    DataPlanConfig,
+    DataPlanResult,
     LogLevelType,
     MParticleWebSDKInstance,
     MParticleWebSDKManager,
@@ -110,6 +104,11 @@ export type {
 
 // User & Identity
 export type {
+    IdentityCallback,
+    IdentityHTTPCode,
+    IdentityModifyResultBody,
+    IdentityResult,
+    IdentityResultBody,
     IMParticleUser,
     ISDKUserIdentity,
     ISDKUserAttributes,
@@ -159,4 +158,4 @@ export type {
 } from './consent';
 
 // Utilities
-export type { valueof } from './utils';
+export type { Dictionary, valueof } from './utils';

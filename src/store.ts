@@ -1,6 +1,5 @@
 import { Batch, Context } from '@mparticle/event-models';
 import {
-    DataPlanConfig,
     IdentityApiData,
     MPID,
     SDKEventCustomFlags,
@@ -10,6 +9,7 @@ import {
 import { IKitConfigs } from './configAPIClient';
 import Constants from './constants';
 import {
+    DataPlanConfig,
     DataPlanResult,
     KitBlockerOptions,
     LogLevelType,
