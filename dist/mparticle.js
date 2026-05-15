@@ -8051,8 +8051,6 @@ var mParticle = (function () {
           };
         },
         createIdentityRequest: function createIdentityRequest(identityApiData, platform, sdkVendor, sdkVersion, deviceId, context, mpid) {
-          /** @type {import('./utils').Environment} */
-          var environment = mpInstance._Store.SDKConfig.isDevelopmentMode ? Constants.Environment.Development : Constants.Environment.Production;
           var APIRequest = {
             client_sdk: {
               platform: platform,
@@ -8060,7 +8058,7 @@ var mParticle = (function () {
               sdk_version: sdkVersion
             },
             context: context,
-            environment: environment,
+            environment: mpInstance._Store.SDKConfig.isDevelopmentMode ? 'development' : 'production',
             request_id: mpInstance._Helpers.generateUniqueId(),
             request_timestamp_ms: new Date().getTime(),
             previous_mpid: mpid || null,
@@ -8069,8 +8067,6 @@ var mParticle = (function () {
           return APIRequest;
         },
         createModifyIdentityRequest: function createModifyIdentityRequest(currentUserIdentities, newUserIdentities, platform, sdkVendor, sdkVersion, context) {
-          /** @type {import('./utils').Environment} */
-          var environment = mpInstance._Store.SDKConfig.isDevelopmentMode ? Constants.Environment.Development : Constants.Environment.Production;
           return {
             client_sdk: {
               platform: platform,
@@ -8078,7 +8074,7 @@ var mParticle = (function () {
               sdk_version: sdkVersion
             },
             context: context,
-            environment: environment,
+            environment: mpInstance._Store.SDKConfig.isDevelopmentMode ? 'development' : 'production',
             request_id: mpInstance._Helpers.generateUniqueId(),
             request_timestamp_ms: new Date().getTime(),
             identity_changes: this.createIdentityChanges(currentUserIdentities, newUserIdentities)
@@ -8496,9 +8492,6 @@ var mParticle = (function () {
        * Example: mParticle.Identity.getCurrentUser().getAllUserAttributes()
        * @class mParticle.Identity.getCurrentUser()
        */
-      /**
-       * @returns {import('./identity-user-interfaces').IMParticleUser}
-       */
       this.mParticleUser = function (mpid, _isLoggedIn) {
         var self = this;
         return {
@@ -8832,9 +8825,6 @@ var mParticle = (function () {
        * Example: mParticle.Identity.getCurrentUser().getCart().add(...);
        * @class mParticle.Identity.getCurrentUser().getCart()
        * @deprecated
-       */
-      /**
-       * @returns {import('./identity-user-interfaces').mParticleUserCart}
        */
       this.mParticleUserCart = function () {
         return {

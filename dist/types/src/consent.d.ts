@@ -1,4 +1,4 @@
-import { ConsentState, PrivacyConsentState } from './publicSdkTypes';
+import { ConsentState, PrivacyConsentState } from '@mparticle/web-sdk';
 import { Dictionary } from './utils';
 import { IMParticleUser } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
@@ -51,7 +51,7 @@ export interface IConsentStateV2DTO {
     ccpa?: ICCPAConsentStateV2DTO;
 }
 export interface IConsentRulesValues {
-    consentPurpose: string | number;
+    consentPurpose: string;
     hasConsented: boolean;
 }
 export interface IConsentRules {

@@ -29,6 +29,11 @@ native declarations without depending on `@types/mparticle__web-sdk`, while
 avoiding declarations for named runtime imports that the ESM bundle does not
 emit.
 
+The generated `dist/types` output is intentionally not part of this PR's source
+diff. CI runs `npm run test:types`, which rebuilds declaration files from source
+before compiling the consumer fixtures against the generated package entry
+points.
+
 ## Public Type Ownership
 
 - Added native public definitions for types previously supplied by

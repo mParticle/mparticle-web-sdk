@@ -1,5 +1,5 @@
 import { IAliasCallback, IAliasRequest, IdentityAPIMethod, IIdentity, IIdentityAPIRequestData } from './identity.interfaces';
-import { IdentityApiData, MPID, UserIdentities } from './publicSdkTypes';
+import { IdentityApiData, MPID, UserIdentities } from '@mparticle/web-sdk';
 import { IdentityCallback, IdentityResultBody, IIdentityResponse } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 export interface IIdentityApiClient {

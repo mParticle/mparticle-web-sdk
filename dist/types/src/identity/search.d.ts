@@ -2,7 +2,7 @@ import { SDKLoggerApi } from '../sdkRuntimeModels';
 import { Environment } from '../utils';
 import { AsyncUploader } from '../uploaders';
 import { IErrorReportingService } from '../reporting/types';
-import { UserIdentities } from '../publicSdkTypes';
+import { UserIdentities } from '@mparticle/web-sdk';
 /**
  * Body payload returned by the `/v1/search` endpoint, as parsed JSON.
  *

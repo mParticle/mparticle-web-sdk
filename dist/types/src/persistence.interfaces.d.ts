@@ -1,5 +1,5 @@
 import { Context } from '@mparticle/event-models';
-import { IdentityApiData, MPID, Product, UserIdentities } from './publicSdkTypes';
+import { IdentityApiData, MPID, Product, UserIdentities } from '@mparticle/web-sdk';
 import { IForwardingStatsData } from './apiClient';
 import { IntegrationAttributes, ServerSettings, SessionAttributes, LocalSessionAttributes } from './store';
 import { Dictionary } from './utils';
@@ -48,7 +48,7 @@ export interface IPersistence {
     storeDataInMemory(obj: IPersistenceMinified, currentMPID: MPID): void;
     determineLocalStorageAvailability(storage: Storage): boolean;
     setLocalStorage(): void;
-    getLocalStorage(): IPersistenceMinified | Dictionary | null;
+    getLocalStorage(): IPersistenceMinified | null;
     expireCookies(cookieName: string): void;
     getCookie(): IPersistenceMinified | null;
     setCookie(): void;

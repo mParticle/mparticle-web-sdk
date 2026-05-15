@@ -33,7 +33,7 @@
     "repository": "https://github.com/mParticle/mparticle-web-sdk",
     "scripts": {
         "build": "cross-env ENVIRONMENT=prod BUILDALL=true rollup --config rollup.config.js && npm run build:types",
-        "build:types": "rm -rf dist/types && (tsc -p tsconfig.types.json || true) && test -f dist/types/src/public-types.d.ts && test -f dist/types/src/internal-types.d.ts",
+        "build:types": "rm -rf dist/types && tsc -p tsconfig.types.json && test -f dist/types/src/public-types.d.ts && test -f dist/types/src/internal-types.d.ts",
         "build:cbt": "rollup --config test/cross-browser-testing/rollup.CBT.config.js",
         "build:dev": "cross-env ENVIRONMENT=dev BUILD=iife rollup --config rollup.config.js",
         "build:iife": "cross-env ENVIRONMENT=prod BUILD=iife rollup --config rollup.config.js",
@@ -67,7 +67,7 @@
         "test:integrations:module": "npm run test:integrations:module:webpack && npm run test:integrations:module:rollup",
         "test:integrations:module:webpack": "npm run build:webpack:module && npm run test:karma:webpack:module",
         "test:integrations:module:rollup": "npm run build:rollup:module && npm run test:karma:rollup:module",
-        "test:types": "npm run test:types:consumers && npm run test:types:definitely-typed",
+        "test:types": "npm run build:types && npm run test:types:consumers && npm run test:types:definitely-typed",
         "test:types:consumers": "tsc -p test/types/tsconfig.json",
         "test:types:definitely-typed": "tsc -p test/fixtures/tsconfig.json",
         "test:requirejs": "npm run build:iife && npm run build:rollup:requirejs && npm run test:requirejs:before && npm run test:requirejs:after",

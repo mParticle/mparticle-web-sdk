@@ -1,4 +1,4 @@
-import { IdentityApiData, MPID, User, UserIdentities } from './publicSdkTypes';
+import { IdentityApiData, MPID, UserIdentities } from '@mparticle/web-sdk';
 import AudienceManager from './audienceManager';
 import { ICachedIdentityCall, IKnownIdentities } from './identity-utils';
 import { BaseVault } from './vault';
@@ -53,7 +53,7 @@ export interface IIdentityAPIRequestData {
     context: string | null;
     environment: Environment;
     request_id: string;
-    request_timestamp_ms: number;
+    request_timestamp_unixtime_ms: number;
     previous_mpid: MPID | null;
     known_identities: IKnownIdentities;
 }
@@ -61,7 +61,7 @@ export interface IIdentityAPIModifyRequestData extends Omit<IIdentityAPIRequestD
     identity_changes: IIdentityAPIIdentityChangeData[];
 }
 export interface IIdentityAPIIdentityChangeData {
-    identity_type: SDKIdentityTypeEnum | string;
+    identity_type: SDKIdentityTypeEnum;
     old_value: string;
     new_value: string;
 }
@@ -69,7 +69,7 @@ export interface IIdentityRequest {
     combineUserIdentities(previousUIByName: UserIdentities, newUIByName: UserIdentities): UserIdentities;
     createIdentityRequest(identityApiData: IdentityApiData, platform: string, sdkVendor: string, sdkVersion: string, deviceId: string, context: string | null, mpid: MPID): IIdentityAPIRequestData;
     createModifyIdentityRequest(currentUserIdentities: UserIdentities, newUserIdentities: UserIdentities, platform: string, sdkVendor: string, sdkVersion: string, context: string | null): IIdentityAPIModifyRequestData;
-    createIdentityChanges(previousIdentities: UserIdentities, newIdentitie: UserIdentities): IIdentityAPIIdentityChangeData[];
+    createIdentityChanges(previousIdentities: UserIdentities, newIdentitie: UserIdentities): IIdentityAPIIdentityChangeData;
     preProcessIdentityRequest(identityApiData: IdentityApiData, callback: IdentityCallback, method: IdentityAPIMethod): IdentityPreProcessResult;
 }
 export type AliasRequestScope = 'device' | 'mpid';
@@ -89,15 +89,15 @@ export interface IAliasResult {
 }
 export interface SDKIdentityApi {
     HTTPCodes: typeof HTTPCodes;
-    identify(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
-    login(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
-    logout(identityApiData?: IdentityApiData | null, callback?: IdentityCallback): void;
-    modify(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
-    getCurrentUser(): IMParticleUser;
-    getUser(mpid: string): IMParticleUser;
-    getUsers(): IMParticleUser[];
-    aliasUsers(aliasRequest?: IAliasRequest, callback?: IAliasCallback): void;
-    createAliasRequest(sourceUser: User, destinationUser: User, scope?: AliasRequestScope): IAliasRequest;
+    identify?(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
+    login?(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
+    logout?(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
+    modify?(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
+    getCurrentUser?(): IMParticleUser;
+    getUser?(mpid: string): IMParticleUser;
+    getUsers?(): IMParticleUser[];
+    aliasUsers?(aliasRequest?: IAliasRequest, callback?: IdentityCallback): void;
+    createAliasRequest?(sourceUser: IMParticleUser, destinationUser: IMParticleUser, scope?: AliasRequestScope): IAliasRequest;
     /**
      * Sends a request to mParticle's IDSync `/v1/search` endpoint to look up
      * a workspace identity without affecting the current user. The callback
@@ -109,7 +109,7 @@ export interface SDKIdentityApi {
      * caller (from a kit's settings). It is sent as the `x-mp-key` header.
      * The SDK's own workspace token is intentionally not used.
      */
-    search(workspaceApiKey: string, knownIdentities: UserIdentities, callback: IdentitySearchCallback): void;
+    search?(workspaceApiKey: string, knownIdentities: UserIdentities, callback: IdentitySearchCallback): void;
 }
 export type { IIdentitySearchResult, IIdentitySearchResponseBody, IdentitySearchCallback, } from './identity/search';
 export interface IUserIdentities {

@@ -1,6 +1,6 @@
 import { valueof } from './utils';
 import Constants from './constants';
-import { IdentityApiData } from './publicSdkTypes';
+import { IdentityApiData } from '@mparticle/web-sdk';
 import { IdentityAPIMethod } from './identity.interfaces';
 type ValidationIdentitiesReturn = {
     valid: boolean;

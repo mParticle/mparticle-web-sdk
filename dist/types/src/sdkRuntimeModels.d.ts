@@ -1,8 +1,9 @@
 import * as EventsApi from '@mparticle/event-models';
-import { DataPlanConfig, KitBlockerDataPlan, KitBlockerOptions, MPConfiguration, MPID, SDKEventAttrs, SDKEventOptions, TrackLocationCallback } from './publicSdkTypes';
+import { DataPlanVersion } from '@mparticle/data-planning-models';
+import { MPConfiguration, MPID, SDKEventOptions, SDKEventAttrs, Callback } from '@mparticle/web-sdk';
 import { IntegrationAttribute, IntegrationAttributes, IStore, WrapperSDKTypes } from './store';
 import Validators from './validators';
-import { AttributeValue, Dictionary, Environment, valueof } from './utils';
+import { Dictionary, valueof } from './utils';
 import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
 import MPSideloadedKit from './sideloadedKit';
@@ -15,10 +16,10 @@ import { IPixelConfiguration } from './cookieSyncManager';
 import _BatchValidator from './mockBatchCreator';
 import { SDKECommerceAPI } from './ecommerce.interfaces';
 import { IErrorLogMessage, IMParticleWebSDKInstance, IntegrationDelays } from './mp-instance';
+import Constants from './constants';
 import RoktManager, { IRoktLauncherOptions } from './roktManager';
 import { IConsoleLogger } from './logger';
 import { ErrorCodes, IErrorReportingService, ILoggingService } from './reporting/types';
-export type { DataPlanConfig, DataPlanResult, KitBlockerDataPlan, KitBlockerOptions, } from './publicSdkTypes';
 export type SDKEventCustomFlags = Dictionary<any>;
 export interface SDKEvent {
     DeviceId: string;
@@ -78,14 +79,14 @@ export interface SDKPromotionAction {
     PromotionList?: SDKPromotion[];
 }
 export interface SDKPromotion {
-    Id: string | number;
+    Id?: string;
     Name?: string;
     Creative?: string;
-    Position?: string | number;
+    Position?: string;
 }
 export interface SDKImpression {
     Name: string;
-    Product: SDKProduct | SDKProduct[];
+    Product: SDKProduct;
 }
 export interface SDKProductImpression {
     ProductImpressionList?: string;
@@ -151,8 +152,8 @@ export interface MParticleWebSDK {
     getAppVersion(): string;
     getDeviceId(): string;
     setDeviceId(deviceId: string): void;
-    getEnvironment(): Environment;
-    setSessionAttribute(key: string, value: AttributeValue): void;
+    getEnvironment(): valueof<typeof Constants.Environment>;
+    setSessionAttribute(key: string, value: string): void;
     getVersion(): string;
     upload(): void;
     setLogLevel(logLevel: LogLevelType): void;
@@ -161,9 +162,8 @@ export interface MParticleWebSDK {
     logEvent(eventName: string, eventType?: valueof<typeof EventType>, attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): void;
     logBaseEvent(event: BaseEvent, eventOptions?: SDKEventOptions): void;
     logError(error: IErrorLogMessage, attrs?: SDKEventAttrs): void;
-    logError(error: string, attrs?: SDKEventAttrs): void;
-    logLink(selector: string, eventName: string, eventType?: valueof<typeof EventType>, eventInfo?: SDKEventAttrs): void;
-    logForm(selector: string, eventName: string, eventType?: valueof<typeof EventType>, eventInfo?: SDKEventAttrs): void;
+    logLink(selector: string, eventName: string, eventType: valueof<typeof EventType>, eventInfo: SDKEventAttrs): void;
+    logForm(selector: string, eventName: string, eventType: valueof<typeof EventType>, eventInfo: SDKEventAttrs): void;
     logPageView(eventName?: string, attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): void;
     setOptOut(isOptingOut: boolean): void;
     eCommerce: SDKECommerceAPI;
@@ -173,28 +173,16 @@ export interface MParticleWebSDK {
     setAppName(name: string): void;
     setAppVersion(version: string): void;
     setOptOut(isOptingOut: boolean): void;
-    startTrackingLocation(callback?: TrackLocationCallback): void;
+    startTrackingLocation(callback?: Callback): void;
     stopTrackingLocation(): void;
-    generateHash(value: string): number;
+    generateHash(value: string): string;
     setIntegrationAttribute(integrationModuleId: number, attrs: IntegrationAttribute): void;
     getIntegrationAttributes(integrationModuleId: number): IntegrationAttribute;
     captureTiming(metricName: string): void;
     _registerErrorReportingService(service: IErrorReportingService): void;
     _registerLoggingService(service: ILoggingService): void;
 }
-export interface MParticleWebSDKInstance extends MParticleWebSDK {
-}
-export interface MParticleWebSDKManager extends MParticleWebSDK {
-    config: SDKInitConfig;
-    isIOS?: boolean;
-    MPSideloadedKit: typeof MPSideloadedKit;
-    Rokt: RoktManager;
-    sessionManager: Pick<ISessionManager, 'getSession'>;
-    Store: IStore;
-    getInstance(): MParticleWebSDKInstance;
-    getInstance(instanceName: string): MParticleWebSDKInstance | null;
-}
-export interface IMParticleInstanceManager extends MParticleWebSDKManager {
+export interface IMParticleInstanceManager extends MParticleWebSDK {
     _BatchValidator: _BatchValidator;
     _instances: Dictionary<IMParticleWebSDKInstance>;
     _isTestEnv?: boolean;
@@ -204,8 +192,7 @@ export interface IMParticleInstanceManager extends MParticleWebSDKManager {
     Rokt: RoktManager;
     sessionManager: Pick<ISessionManager, 'getSession'>;
     Store: IStore;
-    getInstance(): IMParticleWebSDKInstance;
-    getInstance(instanceName: string): IMParticleWebSDKInstance | null;
+    getInstance(instanceName?: string): IMParticleWebSDKInstance;
 }
 export type BooleanStringLowerCase = 'false' | 'true';
 export type BooleanStringTitleCase = 'False' | 'True';
@@ -250,6 +237,11 @@ export interface SDKInitConfig extends Omit<MPConfiguration, 'dataPlan' | 'logLe
     rq?: Function[] | any[];
     logger?: IConsoleLogger;
 }
+export interface DataPlanConfig {
+    planId?: string;
+    planVersion?: number;
+    document?: DataPlanResult;
+}
 export interface SDKHelpersApi {
     canLog?(): boolean;
     createMainStorageName?(workspaceToken: string): string;
@@ -259,14 +251,14 @@ export interface SDKHelpersApi {
     findKeyInObject?(obj: any, key: string): string;
     parseNumber?(value: string | number): number;
     generateUniqueId(): any;
-    generateHash?(value: string): number;
+    generateHash?(value: string): string;
     getFeatureFlag?(feature: string): boolean | string;
     invokeAliasCallback(aliasCallback: IAliasCallback, number: number, errorMessage: string): void;
     isDelayedByIntegration?(delayedIntegrations: Dictionary<boolean>, timeoutStart: number, now: number): boolean;
     isEventType?(type: valueof<typeof EventType>): boolean;
     isObject?(item: any): any;
     invokeCallback?(callback: IdentityCallback, code: number, body: string, mParticleUser?: IMParticleUser, previousMpid?: MPID): void;
-    sanitizeAttributes?(attrs: SDKEventAttrs, name: string): Dictionary | null;
+    sanitizeAttributes?(attrs: SDKEventAttrs, name: string): Dictionary<string> | null;
     Validators: typeof Validators;
 }
 export interface SDKLoggerApi {
@@ -302,4 +294,26 @@ export interface BaseEvent {
     sourceMessageId?: string;
     userAttributeChanges?: ISDKUserAttributeChangeData;
     userIdentityChanges?: ISDKUserIdentityChanges;
+}
+export interface KitBlockerOptions {
+    dataPlanVersion: DataPlanVersion;
+    blockUserAttributes: boolean;
+    blockEventAttributes: boolean;
+    blockEvents: boolean;
+    blockUserIdentities: boolean;
+}
+export interface KitBlockerDataPlan {
+    document: DataPlanResult;
+}
+export interface DataPlanResult {
+    dtpn?: {
+        vers: DataPlanVersion;
+        blok: {
+            ev: boolean;
+            ea: boolean;
+            ua: boolean;
+            id: boolean;
+        };
+    };
+    error_message?: string;
 }

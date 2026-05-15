@@ -10,7 +10,7 @@ export interface IMPSideloadedKit {
     addEventAttributeFilter(eventType: valueof<typeof EventType>, eventName: string, customAttributeKey: string): void;
     addScreenNameFilter(screenName: string): void;
     addScreenAttributeFilter(screenName: string, screenAttribute: string): void;
-    addUserIdentityFilter(userIdentity: valueof<typeof IdentityType>): void;
+    addUserIdentityFilter(userIdentity: typeof IdentityType): void;
     addUserAttributeFilter(userAttributeKey: string): void;
 }
 export interface IMPSideloadedKitConstructor {
@@ -25,6 +25,6 @@ export default class MPSideloadedKit implements IMPSideloadedKit {
     addEventAttributeFilter(eventType: valueof<typeof EventType>, eventName: string, customAttributeKey: string): void;
     addScreenNameFilter(screenName: string): void;
     addScreenAttributeFilter(screenName: string, screenAttribute: string): void;
-    addUserIdentityFilter(userIdentity: valueof<typeof IdentityType>): void;
+    addUserIdentityFilter(userIdentity: typeof IdentityType): void;
     addUserAttributeFilter(userAttributeKey: string): void;
 }
