@@ -7,12 +7,6 @@ import * as EventsApi from '@mparticle/event-models';
 import { MPConfig, apiKey } from './config/constants';
 import { IMParticleUser } from '../../src/identity-user-interfaces';
 
-declare global {
-    interface Window {
-        mParticle: IMParticleInstanceManager;
-    }
-}
-
 describe('Old model to batch model conversion', () => {
     beforeEach(function() {
         window.mParticle._resetForTests(MPConfig);

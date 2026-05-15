@@ -1,11 +1,4 @@
 import { MPConfig, workspaceToken } from './constants';
-import { IMParticleInstanceManager } from '../../../src/sdkRuntimeModels';
-
-declare global {
-    interface Window {
-        mParticle: IMParticleInstanceManager;
-    }
-}
 
 let userApi = null;
 

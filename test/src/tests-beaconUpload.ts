@@ -6,12 +6,10 @@ import { event0 } from '../fixtures/events';
 import { batch1, batch2, batch3 } from '../fixtures/batches';
 import _BatchValidator from '../../src/mockBatchCreator';
 import Utils from './config/utils';
-import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 const { waitForCondition, fetchMockSuccess, hasIdentifyReturned, triggerVisibilityHidden } = Utils;
 
 declare global {
     interface Window {
-        mParticle: IMParticleInstanceManager;
         fetchMock: any;
     }
 }

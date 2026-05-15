@@ -16,7 +16,6 @@ const MockForwarder = Utils.MockForwarder;
 
 declare global {
     interface Window {
-        mParticle: IMParticleInstanceManager;
         MockForwarder1: IMockForwarder;
     }
 }
