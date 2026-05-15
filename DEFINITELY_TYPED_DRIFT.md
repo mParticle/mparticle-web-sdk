@@ -170,7 +170,6 @@ points.
 - `FilteringEventAttributeValue`
 - `FilteringUserAttributeValue`
 - `SDKInitConfig`
-- `SDKConsentApi`
 - `SDKConsentState`
 - `SDKGDPRConsentState`
 - `SDKCCPAConsentState`
