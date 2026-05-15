@@ -95,8 +95,11 @@ export default function Identity(mpInstance) {
             context,
             mpid
         ) {
+            // Keep this annotated while this file is JavaScript so
+            // generated declarations narrow environment to the public
+            // Environment union instead of widening it to string.
             /** @type {import('./utils').Environment} */
-            var environment = mpInstance._Store.SDKConfig.isDevelopmentMode
+            const environment = mpInstance._Store.SDKConfig.isDevelopmentMode
                 ? Constants.Environment.Development
                 : Constants.Environment.Production;
 
@@ -128,8 +131,11 @@ export default function Identity(mpInstance) {
             sdkVersion,
             context
         ) {
+            // Keep this annotated while this file is JavaScript so
+            // generated declarations narrow environment to the public
+            // Environment union instead of widening it to string.
             /** @type {import('./utils').Environment} */
-            var environment = mpInstance._Store.SDKConfig.isDevelopmentMode
+            const environment = mpInstance._Store.SDKConfig.isDevelopmentMode
                 ? Constants.Environment.Development
                 : Constants.Environment.Production;
 
