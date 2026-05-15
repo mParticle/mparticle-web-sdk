@@ -6,7 +6,7 @@ import _BatchValidator from './mockBatchCreator';
 import MPSideloadedKit from './sideloadedKit';
 import { IMParticleInstanceManager } from './sdkRuntimeModels';
 import { IStore } from './store';
-import { Dictionary } from '@mparticle/web-sdk';
+import { Dictionary } from './utils';
 
 if (!Array.prototype.forEach) {
     Array.prototype.forEach = Polyfill.forEach;
@@ -86,7 +86,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
         self.getInstance().captureTiming(metricsName);
     }
 
-    this.getInstance = function getInstance(instanceName) {
+    this.getInstance = function getInstance(instanceName?: string) {
         let client: IMParticleWebSDKInstance;
         if (!instanceName) {
             instanceName = Constants.DefaultInstance;

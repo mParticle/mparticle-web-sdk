@@ -1,15 +1,15 @@
 import {
-    Callback,
     SDKEventAttrs,
     SDKEventOptions,
+    TrackLocationCallback,
     TransactionAttributes,
-} from '@mparticle/web-sdk';
+} from './publicSdkTypes';
 import {
     BaseEvent,
     SDKEvent,
     SDKEventCustomFlags,
+    SDKImpression,
     SDKProduct,
-    SDKProductImpression,
     SDKPromotion,
 } from './sdkRuntimeModels';
 import { valueof } from './utils';
@@ -45,7 +45,7 @@ export interface IEvents {
     ): void;
     logEvent(event: BaseEvent, eventOptions?: SDKEventOptions): void;
     logImpressionEvent(
-        impression: SDKProductImpression,
+        impression: SDKImpression | SDKImpression[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions
@@ -61,7 +61,7 @@ export interface IEvents {
     ): void;
     logPromotionEvent(
         promotionType: valueof<typeof PromotionActionType>,
-        promotion: SDKPromotion,
+        promotion: SDKPromotion | SDKPromotion[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions
@@ -78,6 +78,6 @@ export interface IEvents {
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags
     ): void;
-    startTracking(callback: Callback): void;
+    startTracking(callback?: TrackLocationCallback): void;
     stopTracking(): void;
 }

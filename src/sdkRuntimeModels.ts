@@ -3,10 +3,10 @@ import { DataPlanVersion } from '@mparticle/data-planning-models';
 import {
     MPConfiguration,
     MPID,
-    SDKEventOptions,
     SDKEventAttrs,
-    Callback,
-} from '@mparticle/web-sdk';
+    SDKEventOptions,
+    TrackLocationCallback,
+} from './publicSdkTypes';
 import {
     IntegrationAttribute,
     IntegrationAttributes,
@@ -14,8 +14,8 @@ import {
     WrapperSDKTypes,
 } from './store';
 import Validators from './validators';
-import { Dictionary, valueof } from './utils';
-import { IKitConfigs } from './configAPIClient';
+import { AttributeValue, Dictionary, Environment, valueof } from './utils';
+import type { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
 import MPSideloadedKit from './sideloadedKit';
 import { ISessionManager } from './sessionManager';
@@ -53,7 +53,8 @@ import RoktManager, { IRoktLauncherOptions } from './roktManager';
 import { IConsoleLogger } from './logger';
 import { ErrorCodes, IErrorReportingService, ILoggingService } from './reporting/types';
 
-// TODO: Resolve this with version in @mparticle/web-sdk
+// Internal SDK custom flags are normalized before upload and may temporarily
+// contain arrays or other values supported by the legacy public API.
 export type SDKEventCustomFlags = Dictionary<any>;
 
 export interface SDKEvent {
@@ -117,15 +118,15 @@ export interface SDKPromotionAction {
 }
 
 export interface SDKPromotion {
-    Id?: string;
+    Id: string | number;
     Name?: string;
     Creative?: string;
-    Position?: string;
+    Position?: string | number;
 }
 
 export interface SDKImpression {
     Name: string;
-    Product: SDKProduct;
+    Product: SDKProduct | SDKProduct[];
 }
 
 export interface SDKProductImpression {
@@ -203,8 +204,8 @@ export interface MParticleWebSDK {
     getAppVersion(): string;
     getDeviceId(): string;
     setDeviceId(deviceId: string): void;
-    getEnvironment(): valueof<typeof Constants.Environment>;
-    setSessionAttribute(key: string, value: string): void;
+    getEnvironment(): Environment;
+    setSessionAttribute(key: string, value: AttributeValue): void;
     getVersion(): string;
     upload(): void;
     setLogLevel(logLevel: LogLevelType): void;
@@ -219,17 +220,18 @@ export interface MParticleWebSDK {
     ): void;
     logBaseEvent(event: BaseEvent, eventOptions?: SDKEventOptions): void;
     logError(error: IErrorLogMessage, attrs?: SDKEventAttrs): void;
+    logError(error: string, attrs?: SDKEventAttrs): void;
     logLink(
         selector: string,
         eventName: string,
-        eventType: valueof<typeof EventType>,
-        eventInfo: SDKEventAttrs
+        eventType?: valueof<typeof EventType>,
+        eventInfo?: SDKEventAttrs
     ): void;
     logForm(
         selector: string,
         eventName: string,
-        eventType: valueof<typeof EventType>,
-        eventInfo: SDKEventAttrs
+        eventType?: valueof<typeof EventType>,
+        eventInfo?: SDKEventAttrs
     ): void;
     logPageView(
         eventName?: string,
@@ -250,10 +252,10 @@ export interface MParticleWebSDK {
     setOptOut(isOptingOut: boolean): void;
 
     // https://go.mparticle.com/work/SQDSDKS-7063
-    startTrackingLocation(callback?: Callback): void;
+    startTrackingLocation(callback?: TrackLocationCallback): void;
 
     stopTrackingLocation(): void;
-    generateHash(value: string): string;
+    generateHash(value: string): number;
     setIntegrationAttribute(
         integrationModuleId: number,
         attrs: IntegrationAttribute
@@ -264,10 +266,23 @@ export interface MParticleWebSDK {
     _registerLoggingService(service: ILoggingService): void;
 }
 
+export interface MParticleWebSDKInstance extends MParticleWebSDK {}
+
+export interface MParticleWebSDKManager extends MParticleWebSDK {
+    config: SDKInitConfig;
+    isIOS?: boolean;
+    MPSideloadedKit: typeof MPSideloadedKit;
+    Rokt: RoktManager;
+    sessionManager: Pick<ISessionManager, 'getSession'>;
+    Store: IStore;
+    getInstance(): MParticleWebSDKInstance;
+    getInstance(instanceName: string): MParticleWebSDKInstance | null;
+}
+
 // https://go.mparticle.com/work/SQDSDKS-4805
 
 // https://go.mparticle.com/work/SQDSDKS-6949
-export interface IMParticleInstanceManager extends MParticleWebSDK {
+export interface IMParticleInstanceManager extends MParticleWebSDKManager {
     // https://go.mparticle.com/work/SQDSDKS-5053
     // Private Properties
     _BatchValidator: _BatchValidator;
@@ -284,7 +299,8 @@ export interface IMParticleInstanceManager extends MParticleWebSDK {
     Store: IStore;
 
     // Public Methods
-    getInstance(instanceName?: string): IMParticleWebSDKInstance;
+    getInstance(): IMParticleWebSDKInstance;
+    getInstance(instanceName: string): IMParticleWebSDKInstance | null;
 }
 
 // Used in cases where server requires booleans as strings
@@ -363,7 +379,7 @@ export interface SDKHelpersApi {
     findKeyInObject?(obj: any, key: string): string;
     parseNumber?(value: string | number): number;
     generateUniqueId();
-    generateHash?(value: string): string;
+    generateHash?(value: string): number;
     // https://go.mparticle.com/work/SQDSDKS-6317
     getFeatureFlag?(feature: string): boolean | string; // TODO: Feature Constants should be converted to enum
     invokeAliasCallback(
@@ -388,7 +404,7 @@ export interface SDKHelpersApi {
     sanitizeAttributes?(
         attrs: SDKEventAttrs,
         name: string
-    ): Dictionary<string> | null;
+    ): Dictionary | null;
     Validators: typeof Validators;
 }
 

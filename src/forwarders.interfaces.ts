@@ -1,7 +1,8 @@
 import { SDKEvent, SDKEventCustomFlags } from './sdkRuntimeModels';
 import { Dictionary } from './utils';
 import { IKitConfigs, IKitFilterSettings } from './configAPIClient';
-import { IdentityApiData, IdentityType } from '@mparticle/web-sdk';
+import { IdentityApiData } from './publicSdkTypes';
+import { IdentityType } from './types';
 import { Batch } from '@mparticle/event-models';
 
 import {

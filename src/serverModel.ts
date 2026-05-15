@@ -19,7 +19,7 @@ import {
     extend,
 } from './utils';
 import { IntegrationAttributes, ServerSettings } from './store';
-import { MPID } from '@mparticle/web-sdk';
+import { MPID } from './publicSdkTypes';
 import {
     IConsentStateV2DTO,
     IGDPRConsentStateV2DTO,

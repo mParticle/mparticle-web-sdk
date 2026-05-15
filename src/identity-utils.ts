@@ -5,10 +5,10 @@ import Types from './types';
 import {
     IdentityApiData,
     UserIdentities,
-    IdentityCallback,
-} from '@mparticle/web-sdk';
+} from './publicSdkTypes';
 import { IdentityAPIMethod, IIdentityRequest } from './identity.interfaces';
 import {
+    IdentityCallback,
     IdentityResultBody,
     IIdentityResponse,
     IMParticleUser,

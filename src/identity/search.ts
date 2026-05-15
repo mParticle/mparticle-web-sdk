@@ -12,7 +12,7 @@ import {
     IErrorReportingService,
     WSDKErrorSeverity,
 } from '../reporting/types';
-import { IdentityApiData, UserIdentities } from '@mparticle/web-sdk';
+import { IdentityApiData, UserIdentities } from '../publicSdkTypes';
 import Validators from '../validators';
 
 const { HTTPCodes } = Constants;

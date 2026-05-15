@@ -4,7 +4,7 @@ import {
     createCookieSyncUrl,
 } from './utils';
 import Constants from './constants';
-import { MPID } from '@mparticle/web-sdk';
+import { MPID } from './publicSdkTypes';
 import { IConsentRules } from './consent';
 import { IMParticleWebSDKInstance } from './mp-instance';
 

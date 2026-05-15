@@ -1,9 +1,11 @@
-import { AllUserAttributes, MPID, User } from '@mparticle/web-sdk';
-import { SDKIdentityTypeEnum } from './identity.interfaces';
+import type {
+    AllUserAttributes,
+    MPID,
+    User,
+} from './publicSdkTypes';
+import type { SDKIdentityTypeEnum } from './identity.interfaces';
 import { MessageType } from './types';
-import { BaseEvent, SDKProduct } from './sdkRuntimeModels';
-import Constants from './constants';
-const { HTTPCodes } = Constants;
+import type { BaseEvent, SDKProduct } from './sdkRuntimeModels';
 
 // Cart is Deprecated and private to mParticle user in @mparticle/web-sdk
 // but we need to expose it here for type safety in some of our tests
@@ -92,8 +94,20 @@ export interface IIdentityResponse {
     expireTimestamp?: number;
 }
 
+export type IdentityHTTPCode =
+    | -1 // noHttpCoverage
+    | -2 // activeIdentityRequest
+    | -3 // activeSession
+    | -4 // validationIssue
+    | -5 // nativeIdentityRequest
+    | -6 // loggingDisabledOrMissingAPIKey
+    | 200
+    | 202
+    | 400
+    | 429;
+
 export interface IdentityResult {
-    httpCode: typeof HTTPCodes;
+    httpCode: IdentityHTTPCode;
     getPreviousUser(): User;
     getUser(): User;
     body: IdentityResultBody | IdentityModifyResultBody;
