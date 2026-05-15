@@ -2,7 +2,6 @@ import sinon from 'sinon';
 import { urls, apiKey, MPConfig, testMPID } from './config/constants';
 import {
     BaseEvent,
-    IMParticleInstanceManager,
     SDKEvent,
 } from '../../src/sdkRuntimeModels';
 import { Batch, CustomEventData } from '@mparticle/event-models';
@@ -21,12 +20,6 @@ const {
     setupFakeTimers,
     triggerVisibilityHidden
 } = Utils;
-
-declare global {
-    interface Window {
-        mParticle: IMParticleInstanceManager;
-    }
-}
 
 const enableBatchingConfigFlags = {
     eventBatchingIntervalMillis: 1000,

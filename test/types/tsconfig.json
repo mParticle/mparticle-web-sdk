@@ -1,0 +1,20 @@
+{
+    "compilerOptions": {
+        "allowSyntheticDefaultImports": true,
+        "baseUrl": "../..",
+        "esModuleInterop": true,
+        "lib": ["es5", "es6", "dom"],
+        "module": "esnext",
+        "moduleResolution": "node",
+        "noEmit": true,
+        "skipLibCheck": false,
+        "strict": true,
+        "target": "es5",
+        "types": [],
+        "paths": {
+            "@mparticle/web-sdk": ["dist/types/src/public-types.d.ts"],
+            "@mparticle/web-sdk/internal": ["dist/types/src/internal-types.d.ts"]
+        }
+    },
+    "include": ["*.ts"]
+}

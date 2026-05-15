@@ -2,13 +2,6 @@ import Types from '../../src/types';
 import { apiKey, MPConfig } from './config/constants';
 import { expect } from 'chai';
 import { IMParticleUser } from '../../src/identity-user-interfaces';
-import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
-
-declare global {
-    interface Window {
-        mParticle: IMParticleInstanceManager;
-    }
-}
 
 const mParticle = window.mParticle;
 

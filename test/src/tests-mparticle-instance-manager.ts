@@ -11,12 +11,6 @@ const {
     hasConfigurationReturned
 } = Utils;
 
-declare global {
-    interface Window {
-        mParticle: IMParticleInstanceManager;
-    }
-}
-
 const mParticle = window.mParticle as IMParticleInstanceManager;;
 let mockServer;
 

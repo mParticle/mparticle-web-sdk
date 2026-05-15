@@ -16,7 +16,6 @@ const {
 
 declare global {
     interface Window {
-        mParticle: IMParticleInstanceManager;
         fetchMock: any;
     }
 }
