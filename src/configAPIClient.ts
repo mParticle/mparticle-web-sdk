@@ -6,6 +6,7 @@ import type {
     SDKInitConfig,
 } from './sdkRuntimeModels';
 import { Dictionary } from './utils';
+import type { IConsentRuleValue } from './consent';
 import {
     AsyncUploader,
     IFetchPayload,
@@ -60,13 +61,6 @@ export interface IFilteringConsentRuleValues {
     includeOnMatch: boolean;
     values: IConsentRuleValue[];
 }
-
-export interface IConsentRuleValue {
-    // Server-side consent filters can return hashed consent purposes as numbers.
-    consentPurpose: string | number;
-    hasConsented: boolean;
-}
-
 
 export interface IConfigResponse {
     appName: string;

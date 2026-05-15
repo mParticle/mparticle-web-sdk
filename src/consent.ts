@@ -7,7 +7,6 @@ import {
 import { Dictionary, isObject } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
-import type { IConsentRuleValue } from './configAPIClient';
 import { IMParticleUser } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 
@@ -87,6 +86,12 @@ export interface ICCPAConsentStateV2DTO {
 export interface IConsentStateV2DTO {
     gdpr?: IGDPRConsentStateV2DTO;
     ccpa?: ICCPAConsentStateV2DTO;
+}
+
+export interface IConsentRuleValue {
+    // Server-side consent filters can return hashed consent purposes as numbers.
+    consentPurpose: string | number;
+    hasConsented: boolean;
 }
 
 export interface IConsentRules {
