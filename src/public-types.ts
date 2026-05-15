@@ -149,7 +149,6 @@ export type {
 
 // Consent API facade types
 export type {
-    SDKConsentApi,
     SDKConsentState,
     SDKConsentStateData,
     SDKGDPRConsentState,
