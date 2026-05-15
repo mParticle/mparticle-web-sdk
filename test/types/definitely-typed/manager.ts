@@ -1,14 +1,14 @@
 /**
- * Legacy DefinitelyTyped compatibility fixture.
+ * Legacy DefinitelyTyped compatibility compile test.
  *
- * This file is based on the old @types/mparticle__web-sdk instance tests. It
+ * This file is based on the old @types/mparticle__web-sdk tests. It
  * keeps the old mParticle namespace-style type references while importing the
  * SDK through this package's default runtime export.
  */
 
+import { Batch } from "@mparticle/event-models";
 import mParticle from "@mparticle/web-sdk";
 import type * as MParticleTypes from "@mparticle/web-sdk";
-import { Batch } from "@mparticle/event-models";
 
 declare namespace mParticle {
     export type AllUserAttributes = MParticleTypes.AllUserAttributes;
@@ -43,8 +43,6 @@ declare namespace mParticle {
     export type UserAliasRequest = MParticleTypes.UserAliasRequest;
     export type onCreateBatch = MParticleTypes.onCreateBatch;
 }
-
-const instance = mParticle.getInstance("default")!;
 
 const dataPlan: mParticle.DataPlanConfig = {
     planId: "test",
@@ -160,8 +158,8 @@ const config: mParticle.MPConfiguration = {
     isDevelopmentMode: true,
     identifyRequest,
     identityCallback,
-    onCreateBatch,
     dataPlan,
+    onCreateBatch,
     appVersion: "1.0.0",
     appName: "testAppName",
     package: "com.mparticle.example",
@@ -182,32 +180,38 @@ const config: mParticle.MPConfiguration = {
     configUrl: "mp.mydomain.com/tags/JS/v2/",
     identityUrl: "mp.mydomain.com/identity/v1/",
     aliasUrl: "mp.mydomain.com/webevents/v1/identity/",
+    launcherOptions: {
+        noTargeting: true,
+        noFunctional: true,
+    },
 };
 
-instance.endSession();
+mParticle.endSession();
 
-instance.getAppName();
+mParticle.getAppName();
 
-instance.getAppVersion();
+mParticle.getAppVersion();
 
-instance.getDeviceId();
+mParticle.getDeviceId();
 
-instance.getEnvironment();
+mParticle.getEnvironment();
 
-instance.getVersion();
+const instance = mParticle.getInstance();
 
-instance.init("apiKey", config);
-instance.init("apiKey", config, "instance");
+mParticle.getVersion();
 
-instance.isInitialized();
+mParticle.init("apiKey", config);
+mParticle.init("apiKey", config, "instance");
 
-instance.logBaseEvent({
+mParticle.isInitialized();
+
+mParticle.logBaseEvent({
     data: {},
     name: "baseEventName",
     messageType: 1,
     eventType: 1,
 });
-instance.logBaseEvent(
+mParticle.logBaseEvent(
     {
         data: {},
         name: "baseEventName",
@@ -217,8 +221,26 @@ instance.logBaseEvent(
     eventOptions,
 );
 
-instance.logError("Login Failed", customAttrs);
-instance.logError(
+// MPSideloadedKit
+const mockKitInstance = {
+    name: "MockKit",
+    register: () => {},
+    constructor: () => {},
+};
+
+const sideloadedKit: mParticle.MPSideloadedKit = new mParticle.MPSideloadedKit(mockKitInstance);
+sideloadedKit.addEventTypeFilter(mParticle.EventType.Navigation);
+sideloadedKit.addEventNameFilter(mParticle.EventType.Navigation, "PageView");
+sideloadedKit.addEventAttributeFilter(mParticle.EventType.Navigation, "PageView", "attributeKey");
+sideloadedKit.addScreenNameFilter("HomePage");
+sideloadedKit.addScreenAttributeFilter("HomePage", "screenAttribute");
+sideloadedKit.addUserIdentityFilter(mParticle.IdentityType.Email);
+sideloadedKit.addUserAttributeFilter("userAttributeKey");
+const kitInstance: mParticle.MPForwarder = sideloadedKit.kitInstance;
+const filterDictionary: mParticle.KitFilterSettings = sideloadedKit.filterDictionary;
+
+mParticle.logError("Login Failed", customAttrs);
+mParticle.logError(
     {
         name: "error",
         message: "errorMessage",
@@ -227,83 +249,125 @@ instance.logError(
     customAttrs,
 );
 
-instance.logEvent("eventName");
-instance.logEvent("eventName", instance.EventType.Location);
-instance.logEvent("eventName", instance.EventType.Location, customAttrs);
-instance.logEvent("eventName", instance.EventType.Location, customAttrs, customFlags);
-instance.logEvent("eventName", mParticle.EventType.Location, customAttrs, customFlags, eventOptions);
-instance.logEvent("eventName", mParticle.EventType.Location, customAttrs, customFlags, eventOptionsOnlyShouldUpload);
-instance.logEvent("eventName", mParticle.EventType.Location, customAttrs, customFlags, eventOptionsOnlySourceMessageId);
-instance.logEvent("eventName", mParticle.EventType.Location, customAttrs, customFlags, eventOptionsEmpty);
+mParticle.logEvent("eventName");
+mParticle.logEvent("eventName", mParticle.EventType.Location);
+mParticle.logEvent("eventName", mParticle.EventType.Location, customAttrs);
+mParticle.logEvent("eventName", mParticle.EventType.Location, customAttrs, customFlags);
+mParticle.logEvent("eventName", mParticle.EventType.Location, customAttrs, customFlags, eventOptions);
+mParticle.logEvent("eventName", mParticle.EventType.Location, customAttrs, customFlags, eventOptionsOnlyShouldUpload);
+mParticle.logEvent(
+    "eventName",
+    mParticle.EventType.Location,
+    customAttrs,
+    customFlags,
+    eventOptionsOnlySourceMessageId,
+);
+mParticle.logEvent("eventName", mParticle.EventType.Location, customAttrs, customFlags, eventOptionsEmpty);
 
-instance.logForm("click", "eventName");
-instance.logForm("click", "eventName", instance.EventType.Location);
-instance.logForm("click", "eventName", instance.EventType.Location, customAttrs);
+mParticle.logForm("click", "eventName");
+mParticle.logForm("click", "eventName", mParticle.EventType.Location);
+mParticle.logForm("click", "eventName", mParticle.EventType.Location, customAttrs);
 
-instance.logLink("click", "eventName");
-instance.logLink("click", "eventName", instance.EventType.Location);
-instance.logLink("click", "eventName", instance.EventType.Location, customAttrs);
+mParticle.logLink("click", "eventName");
+mParticle.logLink("click", "eventName", mParticle.EventType.Location);
+mParticle.logLink("click", "eventName", mParticle.EventType.Location, customAttrs);
 
-instance.logPageView();
-instance.logPageView("pageName");
-instance.logPageView("pageName", customAttrs);
-instance.logPageView("pageName", customAttrs, customFlags);
-instance.logPageView("pageName", customAttrs, customFlags, eventOptions);
+mParticle.logPageView();
+mParticle.logPageView("pageName");
+mParticle.logPageView("pageName", customAttrs);
+mParticle.logPageView("pageName", customAttrs, customFlags);
+mParticle.logPageView("pageName", customAttrs, customFlags, eventOptions);
 
-instance.ready(() => {
+mParticle.Rokt.selectPlacements({
+    identifier: "mp-test-identifier",
+    attributes: {
+        email: "test@test.com",
+        price: 100,
+        taxes: 6.75,
+        excessbaggage: true,
+        products: ["product1", "product2"],
+        cartItems: ["item 1", "item 2", "item 3"],
+    },
+});
+
+mParticle.Rokt.hashAttributes({
+    email: "test@test.com",
+});
+
+mParticle.Rokt.setExtensionData({
+    "test-extension": {
+        "test-key": "test-value",
+    },
+});
+
+mParticle.Rokt.use("test-extension-name");
+
+mParticle.Rokt.hashSha256("test@test.com");
+mParticle.Rokt.hashSha256(12345);
+mParticle.Rokt.hashSha256(true);
+mParticle.Rokt.hashSha256(undefined);
+mParticle.Rokt.hashSha256(null);
+
+mParticle.Rokt.onShoppableAdsReady(() => {
+    // shoppable ads ready
+});
+
+mParticle.generateHash("test-string");
+
+mParticle.ready(() => {
     console.log("hi");
 });
 
-instance.reset();
+mParticle.reset();
 
-instance.setAppName("appName");
+mParticle.setAppName("appName");
 
-instance.setAppVersion("1.0.0");
+mParticle.setAppVersion("1.0.0");
 
-instance.setDeviceId("foo-uuid-v4");
+mParticle.setDeviceId("foo-uuid-v4");
 
-instance.setIntegrationAttribute(123, { key: "value" });
+mParticle.setIntegrationAttribute(123, { key: "value" });
 
-instance.getIntegrationAttributes(123);
+mParticle.getIntegrationAttributes(123);
 
-instance.setLogLevel("verbose");
-instance.setLogLevel("none");
-instance.setLogLevel("warning");
+mParticle.setLogLevel("verbose");
+mParticle.setLogLevel("none");
+mParticle.setLogLevel("warning");
 
-instance.setOptOut(true);
+mParticle.setOptOut(true);
 
-instance.setPosition(1, 2);
+mParticle.setPosition(1, 2);
 
-instance.setSessionAttribute("key1", "value1");
-instance.setSessionAttribute("key2", 2);
-instance.setSessionAttribute("key3", false);
-instance.setSessionAttribute("key4", null);
+mParticle.setSessionAttribute("key1", "value1");
+mParticle.setSessionAttribute("key2", 2);
+mParticle.setSessionAttribute("key3", false);
+mParticle.setSessionAttribute("key4", null);
 
-instance.startNewSession();
+mParticle.startNewSession();
 
-instance.startTrackingLocation();
-instance.startTrackingLocation((location: mParticle.Location) => {
+mParticle.startTrackingLocation();
+mParticle.startTrackingLocation((location: mParticle.Location) => {
     console.log(location.coords.latitude);
     console.log(location.coords.longitude);
 });
 
-instance.stopTrackingLocation();
+mParticle.stopTrackingLocation();
 
-instance.upload();
+mParticle.upload();
 
 mParticle.sessionManager.getSession();
 
 // CONSENT START
-const user: mParticle.User = instance.Identity.getCurrentUser();
+const user: mParticle.User = mParticle.Identity.getCurrentUser();
 
-const ccpaConsent: mParticle.CCPAConsentState = instance.Consent.createCCPAConsent(
+const ccpaConsent: mParticle.CCPAConsentState = mParticle.Consent.createCCPAConsent(
     true,
     new Date().getTime(),
     "consentDocument",
     "location",
     "hardware",
 )!;
-const gdprConsent = instance.Consent.createGDPRConsent(
+const gdprConsent = mParticle.Consent.createGDPRConsent(
     true,
     new Date().getTime(),
     "consentDocument",
@@ -311,7 +375,7 @@ const gdprConsent = instance.Consent.createGDPRConsent(
     "hardware",
 )!;
 
-let consentState: mParticle.ConsentState = instance.Consent.createConsentState();
+let consentState: mParticle.ConsentState = mParticle.Consent.createConsentState();
 
 consentState.addGDPRConsentState("generalConsent", gdprConsent);
 consentState.setCCPAConsentState(ccpaConsent);
@@ -324,7 +388,7 @@ user.setConsentState(consentState);
 consentState = user.getConsentState();
 const gdprConsentState: mParticle.GDPRConsentState = consentState.getGDPRConsentState();
 
-const user2 = instance.Identity.getCurrentUser();
+const user2 = mParticle.Identity.getCurrentUser();
 user2.getConsentState().setGDPRConsentState(gdprConsentState);
 
 consentState.removeGDPRConsentState("generalConsent");
@@ -335,7 +399,7 @@ user.setConsentState(consentState);
 
 // ECOMMERCE START
 
-const product1: mParticle.Product = instance.eCommerce.createProduct(
+const product1: mParticle.Product = mParticle.eCommerce.createProduct(
     "product1",
     "sku1",
     10,
@@ -347,7 +411,7 @@ const product1: mParticle.Product = instance.eCommerce.createProduct(
     "coupon1",
     { foo: "bar" },
 )!;
-const product2: mParticle.Product = instance.eCommerce.createProduct("product2", "sku2", 20)!;
+const product2: mParticle.Product = mParticle.eCommerce.createProduct("product2", "sku2", 20)!;
 console.log("Product 1 Name", product1.Name);
 console.log("Product 1 Sku", product1.Sku);
 console.log("Product 1 Price", product1.Price);
@@ -359,21 +423,23 @@ console.log("Product 1 Position", product1.Position);
 console.log("Product 1 Coupon", product1.Coupon);
 console.log("Product 1 Attributes", product1.Attributes);
 
-const impression1: mParticle.Impression = instance.eCommerce.createImpression("name1", product1)!;
-const impression2: mParticle.Impression = instance.eCommerce.createImpression("name2", product2)!;
-const impression3: mParticle.Impression = instance.eCommerce.createImpression("name2", [product1, product2])!;
+const impression1: mParticle.Impression = mParticle.eCommerce.createImpression("name1", product1)!;
+const impression2: mParticle.Impression = mParticle.eCommerce.createImpression("name2", product2)!;
+const impression3: mParticle.Impression = mParticle.eCommerce.createImpression("name2", [product1, product2])!;
 console.log("Impression 1 Name", impression1.Name);
 console.log("Impression 1 Product", impression1.Product);
 
-const promotion1 = instance.eCommerce.createPromotion("id2")!;
-const promotion2: mParticle.Promotion = instance.eCommerce.createPromotion("id1", "creative", "name", 1)!;
+const promotion1 = mParticle.eCommerce.createPromotion("id2")!;
+const promotion2: mParticle.Promotion = mParticle.eCommerce.createPromotion("id1", "creative", "name", 1)!;
 console.log("Promotion 1 ID", promotion1.Id);
 console.log("Promotion 1 Creative", promotion1.Creative);
 console.log("Promotion 1 Name", promotion1.Name);
 console.log("Promotion 1 Position", promotion1.Position);
 
-const transactionAttributes1: mParticle.TransactionAttributes = instance.eCommerce.createTransactionAttributes("TAid1")!;
-const transactionAttributes2: mParticle.TransactionAttributes = instance.eCommerce.createTransactionAttributes(
+const transactionAttributes1: mParticle.TransactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+    "TAid1",
+)!;
+const transactionAttributes2: mParticle.TransactionAttributes = mParticle.eCommerce.createTransactionAttributes(
     "TAid1",
     "aff1",
     "coupon",
@@ -386,80 +452,80 @@ const clearCartBoolean = true;
 const eCommerceCustomAttributes = { value: 10 };
 const eCommerceCustomFlags = { CF1: "key" };
 
-instance.eCommerce.logCheckout(1);
-instance.eCommerce.logCheckout(1, "ok", eCommerceCustomAttributes, eCommerceCustomFlags);
+mParticle.eCommerce.logCheckout(1);
+mParticle.eCommerce.logCheckout(1, "ok", eCommerceCustomAttributes, eCommerceCustomFlags);
 
-instance.eCommerce.logProductAction(
-    instance.ProductActionType.AddToCart,
+mParticle.eCommerce.logProductAction(
+    mParticle.ProductActionType.AddToCart,
     [product1, product2],
     eCommerceCustomAttributes,
     eCommerceCustomFlags,
 );
-instance.eCommerce.logProductAction(
-    instance.ProductActionType.AddToWishlist,
+mParticle.eCommerce.logProductAction(
+    mParticle.ProductActionType.AddToWishlist,
     [product1, product2],
     eCommerceCustomAttributes,
     eCommerceCustomFlags,
 );
-instance.eCommerce.logProductAction(
-    instance.ProductActionType.Checkout,
+mParticle.eCommerce.logProductAction(
+    mParticle.ProductActionType.Checkout,
     [product1, product2],
     eCommerceCustomAttributes,
     eCommerceCustomFlags,
 );
-instance.eCommerce.logProductAction(
-    instance.ProductActionType.CheckoutOption,
+mParticle.eCommerce.logProductAction(
+    mParticle.ProductActionType.CheckoutOption,
     [product1, product2],
     eCommerceCustomAttributes,
     eCommerceCustomFlags,
 );
-instance.eCommerce.logProductAction(
-    instance.ProductActionType.Click,
+mParticle.eCommerce.logProductAction(
+    mParticle.ProductActionType.Click,
     [product1, product2],
     eCommerceCustomAttributes,
     eCommerceCustomFlags,
 );
-instance.eCommerce.logProductAction(
-    instance.ProductActionType.Purchase,
+mParticle.eCommerce.logProductAction(
+    mParticle.ProductActionType.Purchase,
     [product1, product2],
     eCommerceCustomAttributes,
     eCommerceCustomFlags,
     transactionAttributes1,
 );
-instance.eCommerce.logProductAction(
-    instance.ProductActionType.Refund,
+mParticle.eCommerce.logProductAction(
+    mParticle.ProductActionType.Refund,
     [product1, product2],
     eCommerceCustomAttributes,
     eCommerceCustomFlags,
 );
-instance.eCommerce.logProductAction(
-    instance.ProductActionType.RemoveFromCart,
+mParticle.eCommerce.logProductAction(
+    mParticle.ProductActionType.RemoveFromCart,
     [product1, product2],
     eCommerceCustomAttributes,
     eCommerceCustomFlags,
 );
-instance.eCommerce.logProductAction(
-    instance.ProductActionType.RemoveFromWishlist,
+mParticle.eCommerce.logProductAction(
+    mParticle.ProductActionType.RemoveFromWishlist,
     [product1, product2],
     eCommerceCustomAttributes,
     eCommerceCustomFlags,
 );
-instance.eCommerce.logProductAction(
-    instance.ProductActionType.Unknown,
+mParticle.eCommerce.logProductAction(
+    mParticle.ProductActionType.Unknown,
     [product1, product2],
     eCommerceCustomAttributes,
     eCommerceCustomFlags,
 );
-instance.eCommerce.logProductAction(
-    instance.ProductActionType.ViewDetail,
+mParticle.eCommerce.logProductAction(
+    mParticle.ProductActionType.ViewDetail,
     [product1, product2],
     eCommerceCustomAttributes,
     eCommerceCustomFlags,
 );
 
-instance.eCommerce.logProductAction(0, [product1, product2], eCommerceCustomAttributes, eCommerceCustomFlags);
+mParticle.eCommerce.logProductAction(0, [product1, product2], eCommerceCustomAttributes, eCommerceCustomFlags);
 
-instance.eCommerce.logProductAction(
+mParticle.eCommerce.logProductAction(
     0,
     [product1, product2],
     eCommerceCustomAttributes,
@@ -468,7 +534,7 @@ instance.eCommerce.logProductAction(
     eventOptions,
 );
 
-instance.eCommerce.logPurchase(
+mParticle.eCommerce.logPurchase(
     transactionAttributes1,
     [product1, product2],
     clearCartBoolean,
@@ -476,35 +542,35 @@ instance.eCommerce.logPurchase(
     eCommerceCustomFlags,
 );
 
-instance.eCommerce.logPromotion(instance.PromotionType.PromotionClick, promotion1);
+mParticle.eCommerce.logPromotion(mParticle.PromotionType.PromotionClick, promotion1);
 
-instance.eCommerce.logPromotion(instance.PromotionType.PromotionClick, [promotion1, promotion2]);
+mParticle.eCommerce.logPromotion(mParticle.PromotionType.PromotionClick, [promotion1, promotion2]);
 
-instance.eCommerce.logPromotion(
-    instance.PromotionType.PromotionView,
+mParticle.eCommerce.logPromotion(
+    mParticle.PromotionType.PromotionView,
     promotion1,
     eCommerceCustomAttributes,
     eCommerceCustomFlags,
 );
-instance.eCommerce.logPromotion(
-    instance.PromotionType.Unknown,
+mParticle.eCommerce.logPromotion(
+    mParticle.PromotionType.Unknown,
     promotion1,
     eCommerceCustomAttributes,
     eCommerceCustomFlags,
 );
-instance.eCommerce.logPromotion(
-    instance.PromotionType.Unknown,
+mParticle.eCommerce.logPromotion(
+    mParticle.PromotionType.Unknown,
     promotion1,
     eCommerceCustomAttributes,
     eCommerceCustomFlags,
     eventOptions,
 );
 
-instance.eCommerce.logImpression(impression1);
-instance.eCommerce.logImpression([impression1, impression2]);
-instance.eCommerce.logImpression(impression1, eCommerceCustomAttributes, eCommerceCustomFlags, eventOptions);
+mParticle.eCommerce.logImpression(impression1);
+mParticle.eCommerce.logImpression([impression1, impression2]);
+mParticle.eCommerce.logImpression(impression1, eCommerceCustomAttributes, eCommerceCustomFlags, eventOptions);
 
-instance.eCommerce.logRefund(
+mParticle.eCommerce.logRefund(
     transactionAttributes1,
     [product1, product2],
     clearCartBoolean,
@@ -512,7 +578,7 @@ instance.eCommerce.logRefund(
     eCommerceCustomFlags,
 );
 
-instance.eCommerce.setCurrencyCode("usd");
+mParticle.eCommerce.setCurrencyCode("usd");
 // ECOMMERCE END
 
 // Identity Start
@@ -544,7 +610,7 @@ const identifyIdentities: mParticle.IdentifyRequest = {
     },
 };
 
-instance.Identity.login(identifyIdentities, (result: mParticle.IdentityResult) => {
+mParticle.Identity.login(identifyIdentities, (result: mParticle.IdentityResult) => {
     const body = result.body as mParticle.IdentityResultBody;
     console.log(body.is_ephemeral);
     console.log(body.is_logged_in);
@@ -579,21 +645,52 @@ instance.Identity.login(identifyIdentities, (result: mParticle.IdentityResult) =
         endTime: new Date().getTime(),
     };
 
-    instance.Identity.aliasUsers(userAliasObject, (aliasResult: { httpCode: number; message: string }) => {
+    mParticle.Identity.aliasUsers(userAliasObject, (aliasResult: { httpCode: number; message: string }) => {
         const httpCode: number = aliasResult.httpCode;
         const message: string = aliasResult.message;
     });
 
-    const aliasRequest: mParticle.UserAliasRequest = instance.Identity.createAliasRequest(
+    const aliasRequest: mParticle.UserAliasRequest = mParticle.Identity.createAliasRequest(
         result.getPreviousUser(),
         result.getUser(),
     );
 
+    // createAliasRequest with scope parameter
+    const aliasRequestWithScope: mParticle.UserAliasRequest = mParticle.Identity.createAliasRequest(
+        result.getPreviousUser(),
+        result.getUser(),
+        "device",
+    );
+
+    const aliasRequestWithMpidScope: mParticle.UserAliasRequest = mParticle.Identity.createAliasRequest(
+        result.getPreviousUser(),
+        result.getUser(),
+        "mpid",
+    );
+
+    // UserAliasRequest with scope
+    const userAliasWithScope: mParticle.UserAliasRequest = {
+        destinationMpid: result.getPreviousUser().getMPID(),
+        sourceMpid: result.getUser().getMPID(),
+        startTime: new Date().getTime(),
+        endTime: new Date().getTime(),
+        scope: "device",
+    };
+
     result.getPreviousUser().getAllUserAttributes();
     const consentState: mParticle.ConsentState = result.getUser().getConsentState();
+
+    // getUserAudiences
+    const currentUser = result.getUser();
+    if (currentUser.getUserAudiences) {
+        currentUser.getUserAudiences();
+        currentUser.getUserAudiences((audienceResult: mParticle.IdentityResult) => {
+            console.log(audienceResult);
+        });
+    }
 });
 
-instance.Identity.logout(identifyIdentities, (result: mParticle.IdentityResult) => {
+mParticle.Identity.logout(identifyIdentities, (result: mParticle.IdentityResult) => {
     const body = result.body as mParticle.IdentityResultBody;
     console.log(body.is_ephemeral);
     console.log(body.is_logged_in);
@@ -628,12 +725,12 @@ instance.Identity.logout(identifyIdentities, (result: mParticle.IdentityResult) 
         endTime: new Date().getTime(),
     };
 
-    instance.Identity.aliasUsers(userAliasObject, (aliasResult: { httpCode: number; message: string }) => {
+    mParticle.Identity.aliasUsers(userAliasObject, (aliasResult: { httpCode: number; message: string }) => {
         const httpCode: number = aliasResult.httpCode;
         const message: string = aliasResult.message;
     });
 
-    const aliasRequest: mParticle.UserAliasRequest = instance.Identity.createAliasRequest(
+    const aliasRequest: mParticle.UserAliasRequest = mParticle.Identity.createAliasRequest(
         result.getPreviousUser(),
         result.getUser(),
     );
@@ -643,12 +740,12 @@ instance.Identity.logout(identifyIdentities, (result: mParticle.IdentityResult) 
 });
 
 // Logout Identity API Data can be an empty object with no callback
-instance.Identity.logout({});
-instance.Identity.logout(null);
-instance.Identity.logout(undefined);
-instance.Identity.logout();
+mParticle.Identity.logout({});
+mParticle.Identity.logout(null);
+mParticle.Identity.logout(undefined);
+mParticle.Identity.logout();
 
-instance.Identity.identify(identifyIdentities, (result: mParticle.IdentityResult) => {
+mParticle.Identity.identify(identifyIdentities, (result: mParticle.IdentityResult) => {
     const body = result.body as mParticle.IdentityResultBody;
     console.log(body.is_ephemeral);
     console.log(body.is_logged_in);
@@ -684,12 +781,12 @@ instance.Identity.identify(identifyIdentities, (result: mParticle.IdentityResult
         scope: "mpid",
     };
 
-    instance.Identity.aliasUsers(userAliasObject, (aliasResult: { httpCode: number; message: string }) => {
+    mParticle.Identity.aliasUsers(userAliasObject, (aliasResult: { httpCode: number; message: string }) => {
         const httpCode: number = aliasResult.httpCode;
         const message: string = aliasResult.message;
     });
 
-    const aliasRequest: mParticle.UserAliasRequest = instance.Identity.createAliasRequest(
+    const aliasRequest: mParticle.UserAliasRequest = mParticle.Identity.createAliasRequest(
         result.getPreviousUser(),
         result.getUser(),
     );
@@ -698,7 +795,7 @@ instance.Identity.identify(identifyIdentities, (result: mParticle.IdentityResult
     const consentState: mParticle.ConsentState = result.getUser().getConsentState();
 });
 
-instance.Identity.modify(identifyIdentities, (result: mParticle.IdentityResult) => {
+mParticle.Identity.modify(identifyIdentities, (result: mParticle.IdentityResult) => {
     const body = result.body as mParticle.IdentityResultBody;
     console.log(body.context);
     console.log(body.is_ephemeral);
@@ -734,12 +831,12 @@ instance.Identity.modify(identifyIdentities, (result: mParticle.IdentityResult) 
         endTime: new Date().getTime(),
     };
 
-    instance.Identity.aliasUsers(userAliasObject, (aliasResult: { httpCode: number; message: string }) => {
+    mParticle.Identity.aliasUsers(userAliasObject, (aliasResult: { httpCode: number; message: string }) => {
         const httpCode: number = aliasResult.httpCode;
         const message: string = aliasResult.message;
     });
 
-    const aliasRequest: mParticle.UserAliasRequest = instance.Identity.createAliasRequest(
+    const aliasRequest: mParticle.UserAliasRequest = mParticle.Identity.createAliasRequest(
         result.getPreviousUser(),
         result.getUser(),
     );
@@ -748,13 +845,13 @@ instance.Identity.modify(identifyIdentities, (result: mParticle.IdentityResult) 
     const consentState: mParticle.ConsentState = result.getUser().getConsentState();
 });
 
-const user3: mParticle.User = instance.Identity.getCurrentUser();
-const user4: mParticle.User = instance.Identity.getUser("mpid" as mParticle.MPID);
+const user3: mParticle.User = mParticle.Identity.getCurrentUser();
+const user4: mParticle.User = mParticle.Identity.getUser("mpid" as mParticle.MPID);
 
 const identities: mParticle.IdentifyRequest = mParticle.Identity.getCurrentUser().getUserIdentities();
 const { email, customerid, facebook, other } = identities.userIdentities;
-const mpid: mParticle.MPID = instance.Identity.getCurrentUser().getMPID();
-const user5: mParticle.User = instance.Identity.getCurrentUser();
+const mpid: mParticle.MPID = mParticle.Identity.getCurrentUser().getMPID();
+const user5: mParticle.User = mParticle.Identity.getCurrentUser();
 user5.setUserTag("tag");
 user5.removeUserTag("tag");
 user5.setUserAttribute("attr", "value");
@@ -786,100 +883,3 @@ const firstSeenTime: number = user5.getFirstSeenTime();
 user5.getCart().add(product1, true);
 user5.getCart().remove(product1, true);
 user5.getCart().clear();
-
-mParticle.Rokt.selectPlacements({
-    attributes: {
-        "foo": "bar",
-        "fizz": "buzz",
-    },
-}).then((selection: mParticle.RoktSelection) => {
-    // Test event subscription patterns
-    selection.on("PLACEMENT_INTERACTIVE").subscribe(() => {
-        console.log("Placement interaction");
-    });
-
-    selection.on("PLACEMENT_COMPLETED").subscribe((event: mParticle.RoktPlacementEvent<unknown>) => {
-        console.log("Placement completed", event);
-        console.log("Event details:", event.body, event.event, event.placement);
-    });
-
-    // Test unsubscription
-    const unsubscriber = selection.on("PLACEMENT_READY").subscribe((event: mParticle.RoktPlacementEvent<unknown>) => {
-        console.log("Placement ready:", event.placement.id);
-    });
-    unsubscriber.unsubscribe();
-
-    // Test selection methods
-    selection.ready().then(() => {
-        console.log("Selection is ready");
-    });
-
-    selection.send("custom_event", { data: "test" });
-
-    selection.setAttributes({
-        "dynamic_attr": "updated_value",
-        "user_segment": "premium",
-    });
-
-    // Test getting individual placements
-    selection.getPlacements().then((placements: mParticle.RoktPlacement[]) => {
-        placements.forEach((placement: mParticle.RoktPlacement) => {
-            console.log("Placement ID:", placement.id);
-            console.log("Placement element:", placement.element);
-
-            // Test placement-specific events
-            placement.on("PLACEMENT_RENDERED").subscribe((event: mParticle.RoktPlacementEvent<unknown>) => {
-                console.log("Placement rendered:", event);
-            });
-
-            // Test placement methods
-            placement.ready().then(() => {
-                console.log(`Placement ${placement.id} is ready`);
-            });
-
-            placement.send("placement_event", { custom: "data" });
-
-            // Test placement close events
-            placement.onClose().then(() => {
-                console.log(`Placement ${placement.id} was closed`);
-            });
-
-            // Test manual close
-            placement.close().then(() => {
-                console.log(`Placement ${placement.id} closed programmatically`);
-            });
-        });
-    });
-
-    // Test selection close
-    selection.close();
-});
-
-// Test other Rokt methods
-mParticle.Rokt.hashAttributes({
-    email: "user@example.com",
-    userId: "12345",
-    segment: "premium",
-}).then((hashedAttrs: mParticle.RoktAttributes) => {
-    console.log("Hashed attributes:", hashedAttrs);
-});
-
-mParticle.Rokt.setExtensionData({
-    "analytics": { sessionId: "abc123" },
-    "personalization": { variant: "A" },
-});
-
-mParticle.Rokt.onShoppableAdsReady(() => {
-    console.log("Shoppable ads ready");
-});
-
-// Test with identifier
-mParticle.Rokt.selectPlacements({
-    attributes: {
-        "placement_type": "checkout",
-        "cart_value": 150.00,
-    },
-    identifier: "checkout-flow-2024",
-}).then((selection: mParticle.RoktSelection) => {
-    console.log("Selection with identifier created", selection);
-});

@@ -5,18 +5,18 @@ This PR moves the Web SDK's public TypeScript surface into
 `@types/mparticle__web-sdk`; the new public entry point is generated from
 `src/public-types.ts`.
 
-The compatibility fixtures at `test/fixtures/definitely-typed.ts` and
-`test/fixtures/definitely-typed-instance.ts` are based on the old
-DefinitelyTyped tests. They use this package's real default runtime import and
-keep the old namespace-style type examples through a local type-only namespace
-merge:
+The compatibility compile tests at
+`test/types/definitely-typed/manager.ts` and
+`test/types/definitely-typed/instance.ts` are based on the old DefinitelyTyped
+tests. They use this package's real default runtime import and keep the old
+namespace-style type examples through a local type-only namespace merge:
 
 ```ts
 import mParticle from '@mparticle/web-sdk';
 import type * as MParticleTypes from '@mparticle/web-sdk';
 ```
 
-Its fixture tsconfig maps that import to this package's generated declarations:
+Their tsconfig maps that import to this package's generated declarations:
 
 ```json
 "paths": {

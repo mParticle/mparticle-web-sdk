@@ -1,10 +1,10 @@
 {
     "compilerOptions": {
         "allowSyntheticDefaultImports": true,
-        "baseUrl": "../..",
+        "baseUrl": "../../..",
         "esModuleInterop": true,
         "lib": ["es5", "es6", "dom"],
-        "module": "commonjs",
+        "module": "esnext",
         "moduleResolution": "node",
         "noEmit": true,
         "skipLibCheck": false,
@@ -15,5 +15,5 @@
             "@mparticle/web-sdk": ["dist/types/src/public-types.d.ts"]
         }
     },
-    "files": ["definitely-typed.ts", "definitely-typed-instance.ts"]
+    "files": ["manager.ts", "instance.ts"]
 }
