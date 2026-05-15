@@ -93,7 +93,6 @@ export type {
     LogLevelType,
     MParticleWebSDKInstance,
     MParticleWebSDKManager,
-    MParticleWebSDK,
 } from './sdkRuntimeModels';
 
 // User & Identity
