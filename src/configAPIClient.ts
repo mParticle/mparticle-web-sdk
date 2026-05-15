@@ -62,6 +62,7 @@ export interface IFilteringConsentRuleValues {
 }
 
 export interface IConsentRuleValue {
+    // Server-side consent filters can return hashed consent purposes as numbers.
     consentPurpose: string | number;
     hasConsented: boolean;
 }
