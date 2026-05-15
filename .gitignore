@@ -3,6 +3,7 @@ node_modules/
 .vscode/
 test-bundle.js
 out/
+build/
 test/reports
 test/cross-browser-testing/reports
 test/test-bundle.js.map
@@ -15,3 +16,5 @@ test/cross-browser-testing/CBT-tests-es5.js
 test/cross-browser-testing/CBT-tests.js
 coverage/
 kits/**/test/test-bundle.js
+.agents/
+.claude/worktrees/
