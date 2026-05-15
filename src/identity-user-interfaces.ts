@@ -28,45 +28,6 @@ interface ICart {
     getCartProducts: () => SDKProduct[];
 }
 
-export interface IdentityResultBody {
-    context: string | null;
-    is_ephemeral: boolean;
-    is_logged_in: boolean;
-    matched_identities: Record<string, unknown>;
-    mpid?: MPID;
-}
-
-export interface IdentityModifyResultBody {
-    change_results?: {
-        identity_type: SDKIdentityTypeEnum;
-        modified_mpid: MPID;
-    };
-}
-
-export type IdentityHTTPCode =
-    | -1 // noHttpCoverage
-    | -2 // activeIdentityRequest
-    | -3 // activeSession
-    | -4 // validationIssue
-    | -5 // nativeIdentityRequest
-    | -6 // loggingDisabledOrMissingAPIKey
-    | 200
-    | 202
-    | 400
-    | 429;
-
-export interface IdentityResult {
-    httpCode: IdentityHTTPCode;
-    getPreviousUser(): User;
-    getUser(): User;
-    body: IdentityResultBody | IdentityModifyResultBody;
-}
-
-// https://go.mparticle.com/work/SQDSDKS-6460
-export interface IdentityCallback {
-    (result: IdentityResult): void;
-}
-
 // https://go.mparticle.com/work/SQDSDKS-5033
 // https://go.mparticle.com/work/SQDSDKS-6354
 export interface IMParticleUser extends User {
@@ -120,12 +81,51 @@ export interface IUserAttributeChangeEvent extends BaseEvent {
     userAttributeChanges: ISDKUserAttributeChangeData;
 }
 
+// https://go.mparticle.com/work/SQDSDKS-6460
+export interface IdentityCallback {
+    (result: IdentityResult): void;
+}
+
 export interface IIdentityResponse {
     // https://go.mparticle.com/work/SQDSDKS-6672
     responseText: IdentityResultBody;
     status: number;
     cacheMaxAge?: number; // Default: 86400
     expireTimestamp?: number;
+}
+
+export type IdentityHTTPCode =
+    | -1 // noHttpCoverage
+    | -2 // activeIdentityRequest
+    | -3 // activeSession
+    | -4 // validationIssue
+    | -5 // nativeIdentityRequest
+    | -6 // loggingDisabledOrMissingAPIKey
+    | 200
+    | 202
+    | 400
+    | 429;
+
+export interface IdentityResult {
+    httpCode: IdentityHTTPCode;
+    getPreviousUser(): User;
+    getUser(): User;
+    body: IdentityResultBody | IdentityModifyResultBody;
+}
+
+export interface IdentityResultBody {
+    context: string | null;
+    is_ephemeral: boolean;
+    is_logged_in: boolean;
+    matched_identities: Record<string, unknown>;
+    mpid?: MPID;
+}
+
+export interface IdentityModifyResultBody {
+    change_results?: {
+        identity_type: SDKIdentityTypeEnum;
+        modified_mpid: MPID;
+    };
 }
 
 export interface mParticleUserCart {
