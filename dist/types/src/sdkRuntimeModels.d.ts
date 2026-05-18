@@ -1,6 +1,6 @@
 import * as EventsApi from '@mparticle/event-models';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
-import { MPConfiguration, MPID, SDKEventOptions, SDKEventAttrs, Callback } from '@mparticle/web-sdk';
+import { MPConfiguration, MPID, SDKEventOptions, SDKEventAttrs, Callback } from './publicSdkTypes';
 import { IntegrationAttribute, IntegrationAttributes, IStore, WrapperSDKTypes } from './store';
 import Validators from './validators';
 import { Dictionary, valueof } from './utils';

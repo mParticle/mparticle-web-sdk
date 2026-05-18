@@ -12,7 +12,12 @@
     "forceConsistentCasingInFileNames": true,
     "lib": ["DOM", "ESNext"],
     "declaration": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@mparticle/web-sdk": ["../../dist/types/src/public-types.d.ts"],
+      "@mparticle/web-sdk/internal": ["../../dist/types/src/internal-types.d.ts"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "test"]

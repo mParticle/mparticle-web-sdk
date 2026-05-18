@@ -1,12 +1,11 @@
 import { Batch, Context } from '@mparticle/event-models';
 import {
-    DataPlanConfig,
+    ConsentState,
     MPID,
     IdentifyRequest,
-    SDKEventCustomFlags,
-    ConsentState,
     UserIdentities,
-} from '@mparticle/web-sdk';
+} from './publicSdkTypes';
+import { DataPlanConfig, SDKEventCustomFlags } from './sdkRuntimeModels';
 import { IKitConfigs } from './configAPIClient';
 import Constants from './constants';
 import {

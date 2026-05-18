@@ -4,7 +4,7 @@ import {
     MPID,
     Product,
     UserIdentities,
-} from '@mparticle/web-sdk';
+} from './publicSdkTypes';
 import { IForwardingStatsData } from './apiClient';
 import {
     IntegrationAttributes,

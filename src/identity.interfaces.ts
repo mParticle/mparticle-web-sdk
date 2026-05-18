@@ -1,4 +1,4 @@
-import { IdentityApiData, MPID, UserIdentities } from '@mparticle/web-sdk';
+import type { IdentityApiData, MPID, UserIdentities } from './publicSdkTypes';
 import AudienceManager from './audienceManager';
 import { ICachedIdentityCall, IKnownIdentities } from './identity-utils';
 import { BaseVault } from './vault';

@@ -1,5 +1,5 @@
 import { Context } from '@mparticle/event-models';
-import { IdentityApiData, MPID, Product, UserIdentities } from '@mparticle/web-sdk';
+import { IdentityApiData, MPID, Product, UserIdentities } from './publicSdkTypes';
 import { IForwardingStatsData } from './apiClient';
 import { IntegrationAttributes, ServerSettings, SessionAttributes, LocalSessionAttributes } from './store';
 import { Dictionary } from './utils';

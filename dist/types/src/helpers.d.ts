@@ -33,8 +33,8 @@ export default class Helpers {
         isStringOrNumber: (value: any) => boolean;
         isValidAttributeValue: (value: any) => boolean;
         isValidKeyValue: (key: any) => boolean;
-        removeFalsyIdentityValues: (identityApiData: import("@mparticle/web-sdk").IdentityApiData, logger: any) => import("@mparticle/web-sdk").IdentityApiData;
-        validateIdentities: (identityApiData: import("@mparticle/web-sdk").IdentityApiData, method?: import("./identity.interfaces").IdentityAPIMethod) => {
+        removeFalsyIdentityValues: (identityApiData: import("./publicSdkTypes").IdentityApiData, logger: any) => import("./publicSdkTypes").IdentityApiData;
+        validateIdentities: (identityApiData: import("./publicSdkTypes").IdentityApiData, method?: import("./identity.interfaces").IdentityAPIMethod) => {
             valid: boolean;
             error?: utils.valueof<{
                 readonly ModifyIdentityRequestUserIdentitiesPresent: "identityRequests to modify require userIdentities to be present. Request not sent to server. Please fix and try again";

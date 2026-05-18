@@ -6,7 +6,7 @@ import _BatchValidator from './mockBatchCreator';
 import MPSideloadedKit from './sideloadedKit';
 import { IMParticleInstanceManager } from './sdkRuntimeModels';
 import { IStore } from './store';
-import { Dictionary } from '@mparticle/web-sdk';
+import { Dictionary } from './utils';
 
 if (!Array.prototype.forEach) {
     Array.prototype.forEach = Polyfill.forEach;

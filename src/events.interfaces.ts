@@ -3,7 +3,7 @@ import {
     SDKEventAttrs,
     SDKEventOptions,
     TransactionAttributes,
-} from '@mparticle/web-sdk';
+} from './publicSdkTypes';
 import {
     BaseEvent,
     SDKEvent,

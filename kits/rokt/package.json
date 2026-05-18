@@ -24,6 +24,8 @@
     "directory": "kits/rokt"
   },
   "scripts": {
+    "build:core-types": "npm --prefix ../.. run build:types",
+    "prebuild": "npm run build:core-types",
     "build": "vite build",
     "build:watch": "vite build --watch",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",

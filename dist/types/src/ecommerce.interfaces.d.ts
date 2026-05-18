@@ -1,5 +1,5 @@
 import { ProductAction, Product, Promotion, CommerceEvent } from '@mparticle/event-models';
-import { SDKEventAttrs, SDKEventOptions, TransactionAttributes } from '@mparticle/web-sdk';
+import { SDKEventAttrs, SDKEventOptions, TransactionAttributes } from './publicSdkTypes';
 import { valueof } from './utils';
 import { ProductActionType, PromotionActionType, CommerceEventType, EventType } from './types';
 import { SDKEvent, SDKEventCustomFlags, SDKImpression, SDKProduct, SDKProductImpression, SDKPromotion } from './sdkRuntimeModels';

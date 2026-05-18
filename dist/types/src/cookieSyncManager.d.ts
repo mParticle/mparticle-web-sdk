@@ -1,5 +1,5 @@
 import { Dictionary } from './utils';
-import { MPID } from '@mparticle/web-sdk';
+import type { MPID } from './publicSdkTypes';
 import { IConsentRules } from './consent';
 import { IMParticleWebSDKInstance } from './mp-instance';
 export declare const DAYS_IN_MILLISECONDS: number;

@@ -9,7 +9,7 @@ import IdentityAPIClient from './identityApiClient';
 import IntegrationCapture from './integrationCapture';
 import { IPreInit } from './pre-init-utils';
 import { MParticleWebSDK, SDKHelpersApi } from './sdkRuntimeModels';
-import { Dictionary } from '@mparticle/web-sdk';
+import { Dictionary } from './utils';
 import { IIdentity } from './identity.interfaces';
 import { IEvents } from './events.interfaces';
 import { IECommerce } from './ecommerce.interfaces';

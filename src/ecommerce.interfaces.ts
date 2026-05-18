@@ -8,7 +8,7 @@ import {
     SDKEventAttrs,
     SDKEventOptions,
     TransactionAttributes,
-} from '@mparticle/web-sdk';
+} from './publicSdkTypes';
 import { valueof } from './utils';
 import {
     ProductActionType,

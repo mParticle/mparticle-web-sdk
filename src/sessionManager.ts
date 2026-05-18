@@ -1,4 +1,4 @@
-import { MPID } from '@mparticle/web-sdk';
+import type { MPID } from './publicSdkTypes';
 import Constants from './constants';
 import { IPersistenceMinified } from './persistence.interfaces';
 import Types from './types';

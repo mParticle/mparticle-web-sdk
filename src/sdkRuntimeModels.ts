@@ -6,7 +6,7 @@ import {
     SDKEventOptions,
     SDKEventAttrs,
     Callback,
-} from '@mparticle/web-sdk';
+} from './publicSdkTypes';
 import {
     IntegrationAttribute,
     IntegrationAttributes,

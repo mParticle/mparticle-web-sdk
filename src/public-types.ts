@@ -7,11 +7,18 @@
  * Usage:
  *   import type { SDKInitConfig, EventType } from '@mparticle/web-sdk';
  *
- * Note: Types from @types/mparticle__web-sdk (e.g., MPConfiguration, MPID,
- * ConsentState) are NOT re-exported here to avoid circular references.
- * Consumers get those automatically via DefinitelyTyped until they are
- * natively defined in this SDK and the DT package is deprecated.
+ * Note: These native types replace the historical dependency on
+ * @types/mparticle__web-sdk so monorepo packages can type-check against the
+ * local SDK before a coordinated release is published.
  */
+
+import type { MParticleWebSDK } from './sdkRuntimeModels';
+
+declare global {
+    interface Window {
+        mParticle?: MParticleWebSDK & Record<string, any>;
+    }
+}
 
 // Re-export types from @mparticle/event-models
 // Consumers should not need to install @mparticle/event-models directly
@@ -39,6 +46,30 @@ export type {
     MParticleWebSDK,
 } from './sdkRuntimeModels';
 
+export type {
+    AllUserAttributes,
+    Callback,
+    CCPAConsentState,
+    ConsentState,
+    GDPRConsentState,
+    IdentityApiData,
+    IdentifyRequest,
+    MPConfiguration,
+    MPID,
+    PrivacyConsentState,
+    Product,
+    RoktAttributeValue,
+    RoktAttributeValueArray,
+    RoktAttributeValueType,
+    RoktAttributes,
+    RoktSelection,
+    SDKEventAttrs,
+    SDKEventOptions,
+    TransactionAttributes,
+    User,
+    UserIdentities,
+} from './publicSdkTypes';
+
 // User & Identity
 export type {
     IMParticleUser,
@@ -59,7 +90,7 @@ export type {
     IIdentitySearchResult,
     IIdentitySearchResponseBody,
     IdentitySearchCallback,
-    IUserIdentities
+    IUserIdentities,
 } from './identity.interfaces';
 
 // eCommerce

@@ -42,7 +42,8 @@ import { removeExpiredIdentityCacheDates, hasExplicitIdentifier } from './identi
 import IntegrationCapture from './integrationCapture';
 import { IPreInit, processReadyQueue } from './pre-init-utils';
 import { BaseEvent, MParticleWebSDK, SDKHelpersApi } from './sdkRuntimeModels';
-import { Dictionary, SDKEventAttrs } from '@mparticle/web-sdk';
+import { Dictionary } from './utils';
+import type { SDKEventAttrs } from './publicSdkTypes';
 import { IIdentity } from './identity.interfaces';
 import { IEvents } from './events.interfaces';
 import { IECommerce } from './ecommerce.interfaces';
@@ -1741,4 +1742,3 @@ function queueIfNotInitialized(func, self) {
     });
     return true;
 }
-

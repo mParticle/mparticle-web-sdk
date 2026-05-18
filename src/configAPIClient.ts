@@ -1,4 +1,4 @@
-import { DataPlanConfig } from '@mparticle/web-sdk';
+import type { DataPlanConfig } from './sdkRuntimeModels';
 import {
     BooleanStringLowerCase,
     DataPlanResult,
