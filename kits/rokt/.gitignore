@@ -1,0 +1,12 @@
+node_modules/
+test/test-bundle.js
+.DS_Store
+test/end-to-end-testapp/build/compilation.js
+dist/*
+!dist/Rokt-Kit.common.js
+!dist/Rokt-Kit.common.js.map
+!dist/Rokt-Kit.d.ts
+!dist/Rokt-Kit.esm.js
+!dist/Rokt-Kit.esm.js.map
+!dist/Rokt-Kit.iife.js
+!dist/Rokt-Kit.iife.js.map
