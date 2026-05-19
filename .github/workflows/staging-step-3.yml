@@ -27,7 +27,7 @@ jobs:
           run: |
             git push origin HEAD:development
         
-        # main is the v3 release line. Do not push v2 release commits to it.
+        # As of 5/19/2026, master is v2. This is subject to change in the future, but we'll need to update mpServer if this changes.
         - name: Push release commits to master
           run: |
             git push origin HEAD:master
