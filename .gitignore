@@ -9,14 +9,6 @@ test/cross-browser-testing/reports
 test/test-bundle.js.map
 test/stub/test-stub-bundle.js
 **/dist
-!kits/rokt/dist/
-!kits/rokt/dist/Rokt-Kit.common.js
-!kits/rokt/dist/Rokt-Kit.common.js.map
-!kits/rokt/dist/Rokt-Kit.d.ts
-!kits/rokt/dist/Rokt-Kit.esm.js
-!kits/rokt/dist/Rokt-Kit.esm.js.map
-!kits/rokt/dist/Rokt-Kit.iife.js
-!kits/rokt/dist/Rokt-Kit.iife.js.map
 test/integrations/requirejs/test-requirejs-bundle.js
 browserstack.err
 local.log
