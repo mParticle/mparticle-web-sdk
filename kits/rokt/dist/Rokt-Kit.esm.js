@@ -45,7 +45,7 @@ function S(n) {
   }
   return [];
 }
-function M(n) {
+function K(n) {
   const e = n ? S(n) : [], t = [], i = [];
   let r = !1;
   for (let o = 0; o < e.length; o++) {
@@ -65,7 +65,7 @@ async function te(n, e) {
       t.push(e.use(i));
   return Promise.all(t);
 }
-function K(n) {
+function M(n) {
   if (!n)
     return {};
   const e = {};
@@ -282,10 +282,10 @@ const g = class g {
   }
   replaceOtherIdentityWithEmailsha256(e) {
     const t = {};
-    Object.keys(e || {}).forEach((r) => {
+    for (const r of Object.keys(e || {})) {
       const o = e[r];
       p(o) && (t[r] = o);
-    });
+    }
     const i = this._mappedEmailSha256Key;
     return i && e[i] && (t[g.EMAIL_SHA256_KEY] = e[i]), i && delete t[i], t;
   }
@@ -395,12 +395,12 @@ const g = class g {
     const s = e, c = s.accountId;
     this.userAttributes = o || {}, this._onboardingExpProvider = s.onboardingExpProvider;
     const u = S(s.placementEventMapping);
-    this.placementEventMappingLookup = K(u);
+    this.placementEventMappingLookup = M(u);
     const d = S(
       s.placementEventAttributeMapping
     );
     this.placementEventAttributeMappingLookup = D(d), s.hashedEmailUserIdentityType && (this._mappedEmailSha256Key = s.hashedEmailUserIdentityType.toLowerCase()), this._workspaceIdSyncApiKey = p(s.workspaceIdSyncApiKey) ? s.workspaceIdSyncApiKey : void 0;
-    const m = a().Rokt?.domain, { roktExtensionsQueryParams: v, legacyRoktExtensions: E, loadThankYouElement: b } = M(
+    const m = a().Rokt?.domain, { roktExtensionsQueryParams: v, legacyRoktExtensions: E, loadThankYouElement: b } = K(
       s.roktExtensions
     ), h = {
       ...a().Rokt?.launcherOptions || {}
@@ -425,10 +425,10 @@ const g = class g {
     return this.errorReportingService = _, this.loggingService = R, a()._registerErrorReportingService && a()._registerErrorReportingService(_), a()._registerLoggingService && a()._registerLoggingService(R), i ? (this.testHelpers = {
       generateLauncherScript: P,
       generateThankYouElementScript: U,
-      extractRoktExtensionConfig: M,
+      extractRoktExtensionConfig: K,
       hashEventMessage: x,
       parseSettingsString: S,
-      generateMappedEventLookup: K,
+      generateMappedEventLookup: M,
       generateMappedEventAttributeLookup: D,
       sendAdBlockMeasurementSignals: Y,
       createAutoRemovedIframe: O,
