@@ -39,6 +39,7 @@ import {
     IdentityType,
     ProductActionType,
     PromotionActionType,
+    RoktEvents,
 } from './types';
 import { IPixelConfiguration } from './cookieSyncManager';
 import _BatchValidator from './mockBatchCreator';
@@ -145,6 +146,14 @@ export enum SDKProductActionType {
     Refund = 8,
     AddToWishlist = 9,
     RemoveFromWishlist = 10,
+    ViewCart = 11,
+    AddShippingInfo = 12,
+    AddPaymentInfo = 13,
+    PaymentMethodSelected = 14,
+    PaymentAttempted = 15,
+    PaymentSucceeded = 16,
+    PaymentFailed = 17,
+    RefundInitiated = 18,
 }
 
 export interface SDKProductAction {
@@ -184,6 +193,7 @@ export interface MParticleWebSDK {
     EventType: typeof EventType;
     PromotionType: typeof PromotionActionType;
     ProductActionType: typeof ProductActionType;
+    RoktEvents: typeof RoktEvents;
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
     Consent: SDKConsentApi;

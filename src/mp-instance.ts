@@ -16,7 +16,7 @@
 //  Uses portions of code from jQuery
 //  jQuery v1.10.2 | (c) 2005, 2013 jQuery Foundation, Inc. | jquery.org/license
 
-import { EventType, IdentityType, CommerceEventType, PromotionActionType, ProductActionType, MessageType } from './types';
+import { EventType, IdentityType, CommerceEventType, PromotionActionType, ProductActionType, MessageType, RoktEvents } from './types';
 import Constants from './constants';
 import APIClient, { IAPIClient } from './apiClient';
 import Helpers from './helpers';
@@ -187,6 +187,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this.CommerceEventType = CommerceEventType;
     this.PromotionType = PromotionActionType;
     this.ProductActionType = ProductActionType;
+    this.RoktEvents = RoktEvents;
 
 
     this._Identity = new Identity(this);

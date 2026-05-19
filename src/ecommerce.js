@@ -69,6 +69,22 @@ export default function Ecommerce(mpInstance) {
                 return 'RemoveFromWishlist';
             case Types.ProductActionType.ViewDetail:
                 return 'ViewDetail';
+            case Types.ProductActionType.ViewCart:
+                return 'ViewCart';
+            case Types.ProductActionType.AddShippingInfo:
+                return 'AddShippingInfo';
+            case Types.ProductActionType.AddPaymentInfo:
+                return 'AddPaymentInfo';
+            case Types.ProductActionType.PaymentMethodSelected:
+                return 'PaymentMethodSelected';
+            case Types.ProductActionType.PaymentAttempted:
+                return 'PaymentAttempted';
+            case Types.ProductActionType.PaymentSucceeded:
+                return 'PaymentSucceeded';
+            case Types.ProductActionType.PaymentFailed:
+                return 'PaymentFailed';
+            case Types.ProductActionType.RefundInitiated:
+                return 'RefundInitiated';
             case Types.ProductActionType.Unknown:
             default:
                 return 'Unknown';
@@ -113,6 +129,18 @@ export default function Ecommerce(mpInstance) {
 
             case Types.ProductActionType.ViewDetail:
                 return Types.CommerceEventType.ProductViewDetail;
+
+            // Rokt Brain commerce-adjacent types map to Unknown on server
+            case Types.ProductActionType.ViewCart:
+            case Types.ProductActionType.AddShippingInfo:
+            case Types.ProductActionType.AddPaymentInfo:
+            case Types.ProductActionType.PaymentMethodSelected:
+            case Types.ProductActionType.PaymentAttempted:
+            case Types.ProductActionType.PaymentSucceeded:
+            case Types.ProductActionType.PaymentFailed:
+            case Types.ProductActionType.RefundInitiated:
+                return Types.EventType.Unknown;
+
             default:
                 mpInstance.Logger.error(
                     'Could not convert product action type ' +
