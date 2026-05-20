@@ -112,7 +112,7 @@ export interface SDKShoppingCart {
 }
 
 export interface SDKPromotionAction {
-    PromotionActionType: valueof<typeof PromotionActionType>;
+    PromotionActionType: string | valueof<typeof PromotionActionType>;
     PromotionList?: SDKPromotion[];
 }
 
