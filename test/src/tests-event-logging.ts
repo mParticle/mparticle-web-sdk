@@ -6,15 +6,12 @@ import {
     urls,
     apiKey,
     testMPID,
+    mParticle,
     MPConfig,
     MessageType,
 } from './config/constants';
-import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 
 declare global {
-    interface Window {
-        mParticle: IMParticleInstanceManager;
-    }
     namespace Should {
         interface Assertion {
             not: Assertion;
@@ -29,8 +26,6 @@ declare global {
         shouldFail: boolean;
     }
 }
-
-const mParticle = window.mParticle as IMParticleInstanceManager;
 
 const { findEventFromRequest, findBatch, getIdentityEvent, waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
 

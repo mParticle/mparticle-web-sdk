@@ -1,6 +1,6 @@
 import Types, { EventType, ProductActionType, PromotionActionType } from './types';
 import Constants from './constants';
-import { IEvents } from './events.interfaces';
+import { IEvents, TrackingCallback } from './events.interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import {
     BaseEvent,
@@ -42,7 +42,7 @@ export default function Events(
         }
     };
 
-    this.startTracking = function(callback: ((position?: GeolocationPosition | { coords: { latitude: number | string; longitude: number | string } }) => void) | null): void {
+    this.startTracking = function(callback: TrackingCallback): void {
         if (mpInstance._Store.isTracking) {
             const position = {
                 coords: {
@@ -81,7 +81,7 @@ export default function Events(
         }
 
         function triggerCallback(
-            callback: ((position?: GeolocationPosition | { coords: { latitude: number | string; longitude: number | string } }) => void) | null,
+            callback: TrackingCallback,
             position?: GeolocationPosition | { coords: { latitude: number | string; longitude: number | string } }
         ): void {
             if (callback) {
@@ -194,7 +194,7 @@ export default function Events(
         });
 
         if (event) {
-            // TODO(SDKE-1106): Remove `as Function` casts when ecommerce.js is migrated to TS
+            // TODO(https://go/j/SDKE-1108): Remove `as Function` casts when ecommerce.js is migrated to TS
             event.EventCategory = (mpInstance._Ecommerce.convertProductActionToEventType as Function)(
                 productActionType
             );
@@ -328,13 +328,14 @@ export default function Events(
         if (event) {
             event.EventName += 'Impression';
             event.EventCategory = Types.CommerceEventType.ProductImpression;
-            const rawList = Array.isArray(impression)
+            // https://go/j/SDKE-1199
+            const impressionList: (SDKImpression | SDKProductImpression)[] = Array.isArray(impression)
                 ? impression
                 : [impression];
 
             event.ProductImpressions = [];
 
-            rawList.forEach(function(item) {
+            impressionList.forEach(function(item) {
                 if ('Name' in item) {
                     const imp = item as SDKImpression;
                     event.ProductImpressions.push({
@@ -412,14 +413,15 @@ export default function Events(
         data: ((element: HTMLLinkElement | HTMLFormElement) => SDKEventAttrs) | SDKEventAttrs,
         eventType: valueof<typeof EventType>
     ): void {
-        let elements: ArrayLike<Element> | Element[] = [],
-            handler = (e: Event): void => {
-                const el = element as DOMHandlerElement;
+        let elements: ArrayLike<Element> | Element[] = [];
+        let element: DOMHandlerElement;
+        let elementIndex: number;
+        const handler = (e: Event): void => {
                 const timeoutHandler = function(): void {
-                    if (el.href) {
-                        globalThis.location.href = el.href;
-                    } else if (el.submit) {
-                        el.submit();
+                    if (element.href) {
+                        globalThis.location.href = element.href;
+                    } else if (element.submit) {
+                        element.submit();
                     }
                 };
 
@@ -431,16 +433,16 @@ export default function Events(
                     messageType: Types.MessageType.PageEvent,
                     name:
                         typeof eventName === 'function'
-                            ? eventName(el as HTMLLinkElement)
+                            ? eventName(element as HTMLLinkElement)
                             : eventName,
-                    data: typeof data === 'function' ? data(el as HTMLLinkElement) : data,
+                    data: typeof data === 'function' ? data(element as HTMLLinkElement) : data,
                     eventType: (eventType || Types.EventType.Other) as number,
                 });
 
                 // TODO: Handle middle-clicks and special keys (ctrl, alt, etc)
                 if (
-                    (el.href && el.target !== '_blank') ||
-                    el.submit
+                    (element.href && element.target !== '_blank') ||
+                    element.submit
                 ) {
                     // Give xmlhttprequest enough time to execute before navigating a link or submitting form
 
@@ -455,9 +457,7 @@ export default function Events(
                         mpInstance._Store.SDKConfig.timeout
                     );
                 }
-            },
-            element: Element,
-            i: number;
+            };
 
         if (!selector) {
             mpInstance.Logger.error("Can't bind event, selector is required");
@@ -480,16 +480,15 @@ export default function Events(
                     ', attaching event handlers'
             );
 
-            for (i = 0; i < elements.length; i++) {
-                element = elements[i];
-                const el = element as DOMHandlerElement;
+            for (elementIndex = 0; elementIndex < elements.length; elementIndex++) {
+                element = elements[elementIndex] as DOMHandlerElement;
 
-                if (el.addEventListener) {
-                    el.addEventListener(domEvent, handler, false);
-                } else if (el.attachEvent) {
-                    el.attachEvent('on' + domEvent, handler);
+                if (element.addEventListener) {
+                    element.addEventListener(domEvent, handler, false);
+                } else if (element.attachEvent) {
+                    element.attachEvent('on' + domEvent, handler);
                 } else {
-                    el['on' + domEvent] = handler;
+                    element['on' + domEvent] = handler;
                 }
             }
         } else {
