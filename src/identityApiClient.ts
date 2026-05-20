@@ -9,7 +9,7 @@ import { CACHE_HEADER } from './identity-utils';
 import { parseNumber, valueof } from './utils';
 import {
     IAliasCallback,
-    IAliasRequest,
+    IAliasNetworkRequest,
     IdentityAPIMethod,
     IIdentity,
     IIdentityAPIRequestData,
@@ -33,7 +33,7 @@ const { Modify } = IdentityMethods;
 
 export interface IIdentityApiClient {
     sendAliasRequest: (
-        aliasRequest: IAliasRequest,
+        aliasRequest: IAliasNetworkRequest,
         aliasCallback: IAliasCallback
     ) => Promise<void>;
     sendIdentityRequest: (
@@ -86,7 +86,7 @@ export default function IdentityAPIClient(
     mpInstance: IMParticleWebSDKInstance
 ) {
     this.sendAliasRequest = async function(
-        aliasRequest: IAliasRequest,
+        aliasRequest: IAliasNetworkRequest,
         aliasCallback: IAliasCallback
     ) {
         const { Logger } = mpInstance;

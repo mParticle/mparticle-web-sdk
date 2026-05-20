@@ -117,6 +117,21 @@ export interface IAliasRequest {
     scope?: AliasRequestScope;
 }
 
+export interface IAliasNetworkRequest {
+    request_id: string;
+    request_type: 'alias';
+    environment: 'development' | 'production';
+    api_key: string;
+    data: {
+        destination_mpid: MPID;
+        source_mpid: MPID;
+        start_unixtime_ms: number;
+        end_unixtime_ms: number;
+        scope?: AliasRequestScope;
+        device_application_stamp: string;
+    };
+}
+
 export interface IAliasCallback {
     (result: IAliasResult): void;
 }

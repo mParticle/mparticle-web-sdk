@@ -3,7 +3,7 @@ import fetchMock from 'fetch-mock/esm/client';
 import { urls, apiKey, MPConfig, testMPID } from './config/constants';
 import { expect } from 'chai';
 import {
-    IAliasRequest,
+    IAliasNetworkRequest,
     IIdentityAPIRequestData,
 } from '../../src/identity.interfaces';
 import Constants, {
@@ -947,6 +947,22 @@ describe('Identity Api Client', () => {
     describe('#sendAliasRequest', () => {
         const aliasUrl = 'https://jssdks.mparticle.com/v1/identity/test_key/Alias';
 
+        function buildAliasNetworkRequest(): IAliasNetworkRequest {
+            return {
+                request_id: 'test-request-id',
+                request_type: 'alias',
+                environment: 'development',
+                api_key: 'test_key',
+                data: {
+                    destination_mpid: '123',
+                    source_mpid: '456',
+                    start_unixtime_ms: 10001230123,
+                    end_unixtime_ms: 10001231123,
+                    device_application_stamp: 'test-das',
+                },
+            };
+        }
+
         beforeEach(function() {
             mParticle._resetForTests(MPConfig);
             fetchMock.config.overwriteRoutes = true;
@@ -962,13 +978,7 @@ describe('Identity Api Client', () => {
         it('should have just an httpCode on the result passed to the callback on a 200', async () => {
             const mpInstance: IMParticleWebSDKInstance = mParticle.getInstance();
             const identityApiClient = new IdentityAPIClient(mpInstance);
-
-            const aliasRequest: IAliasRequest = {
-                destinationMpid: '123',
-                sourceMpid: '456',
-                startTime: 10001230123,
-                endTime: 10001231123,
-            };
+            const aliasRequest = buildAliasNetworkRequest();
 
             const aliasCallback = sinon.spy();
             fetchMock.post(aliasUrl, HTTP_OK);
@@ -985,12 +995,7 @@ describe('Identity Api Client', () => {
         it('should have just an httpCode on the result passed to the callback on a 202', async () => {
             const mpInstance: IMParticleWebSDKInstance = mParticle.getInstance();
             const identityApiClient = new IdentityAPIClient(mpInstance);
-            const aliasRequest: IAliasRequest = {
-                destinationMpid: '123',
-                sourceMpid: '456',
-                startTime: 10001230123,
-                endTime: 10001231123,
-            };
+            const aliasRequest = buildAliasNetworkRequest();
 
             const aliasCallback = sinon.spy();
             fetchMock.post(aliasUrl, HTTP_ACCEPTED);
@@ -1007,12 +1012,7 @@ describe('Identity Api Client', () => {
         it('should have just an httpCode on the result passed to the callback on a 400', async () => {
             const mpInstance: IMParticleWebSDKInstance = mParticle.getInstance();
             const identityApiClient = new IdentityAPIClient(mpInstance);
-            const aliasRequest: IAliasRequest = {
-                destinationMpid: '123',
-                sourceMpid: '456',
-                startTime: 10001230123,
-                endTime: 10001231123,
-            };
+            const aliasRequest = buildAliasNetworkRequest();
 
             const aliasCallback = sinon.spy();
             fetchMock.post(aliasUrl, {
@@ -1039,12 +1039,7 @@ describe('Identity Api Client', () => {
         it('should have an httpCode and an error message passed to the callback on a 401', async () => {
             const mpInstance: IMParticleWebSDKInstance = mParticle.getInstance();
             const identityApiClient = new IdentityAPIClient(mpInstance);
-            const aliasRequest: IAliasRequest = {
-                destinationMpid: '123',
-                sourceMpid: '456',
-                startTime: 10001230123,
-                endTime: 10001231123,
-            };
+            const aliasRequest = buildAliasNetworkRequest();
 
             const aliasCallback = sinon.spy();
             fetchMock.post(aliasUrl, {
@@ -1065,12 +1060,7 @@ describe('Identity Api Client', () => {
         it('should have an httpCode and an error message passed to the callback on a 403', async () => {
             const mpInstance: IMParticleWebSDKInstance = mParticle.getInstance();
             const identityApiClient = new IdentityAPIClient(mpInstance);
-            const aliasRequest: IAliasRequest = {
-                destinationMpid: '123',
-                sourceMpid: '456',
-                startTime: 10001230123,
-                endTime: 10001231123,
-            };
+            const aliasRequest = buildAliasNetworkRequest();
 
             const aliasCallback = sinon.spy();
             fetchMock.post(aliasUrl, {
@@ -1091,12 +1081,7 @@ describe('Identity Api Client', () => {
         it('should have an httpCode and an error message passed to the callback on a 404', async () => {
             const mpInstance: IMParticleWebSDKInstance = mParticle.getInstance();
             const identityApiClient = new IdentityAPIClient(mpInstance);
-            const aliasRequest: IAliasRequest = {
-                destinationMpid: '123',
-                sourceMpid: '456',
-                startTime: 10001230123,
-                endTime: 10001231123,
-            };
+            const aliasRequest = buildAliasNetworkRequest();
 
             const aliasCallback = sinon.spy();
             fetchMock.post(aliasUrl, {
@@ -1117,12 +1102,7 @@ describe('Identity Api Client', () => {
         it('should have an httpCode and an error message passed to the callback on a 500', async () => {
             const mpInstance: IMParticleWebSDKInstance = mParticle.getInstance();
             const identityApiClient = new IdentityAPIClient(mpInstance);
-            const aliasRequest: IAliasRequest = {
-                destinationMpid: '123',
-                sourceMpid: '456',
-                startTime: 10001230123,
-                endTime: 10001231123,
-            };
+            const aliasRequest = buildAliasNetworkRequest();
 
             const aliasCallback = sinon.spy();
             fetchMock.post(aliasUrl, {
