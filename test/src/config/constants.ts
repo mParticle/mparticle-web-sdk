@@ -1,4 +1,4 @@
-import { SDKInitConfig } from "../../../src/sdkRuntimeModels";
+import { IMParticleInstanceManager, SDKInitConfig } from "../../../src/sdkRuntimeModels";
 import { MILLIS_IN_ONE_SEC, ONE_DAY_IN_SECONDS } from "../../../src/constants";
 
 export const urls = {
@@ -15,7 +15,7 @@ export const urls = {
 export const MILLISECONDS_IN_ONE_DAY = ONE_DAY_IN_SECONDS * MILLIS_IN_ONE_SEC
 export const MILLISECONDS_IN_ONE_DAY_PLUS_ONE_SECOND = MILLISECONDS_IN_ONE_DAY + 1;
 
-export const mParticle = window.mParticle;
+export const mParticle = window.mParticle as IMParticleInstanceManager;
 
 export const apiKey = 'test_key';
 export const testMPID = 'testMPID';
