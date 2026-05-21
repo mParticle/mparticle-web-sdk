@@ -118,12 +118,12 @@ export interface IPersistence {
     getCookieDomain(): string;
     getDomain(doc: string, locationHostname: string): string;
     saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDates): void;
-    savePersistence(persistance: IPersistenceMinified): void;
+    savePersistence(persistance: IPersistenceMinified, mpid?: MPID): void;
     getPersistence(): IPersistenceMinified;
-    getFirstSeenTime(mpid: MPID): string | null;
-    setFirstSeenTime(mpid: MPID, time: number): void;
+    getFirstSeenTime(mpid: MPID): number | null;
+    setFirstSeenTime(mpid: MPID, time?: number): void;
     getLastSeenTime(mpid: MPID): number | null;
-    setLastSeenTime(mpid: MPID, time: number): void;
+    setLastSeenTime(mpid: MPID, time?: number): void;
     getDeviceId(): string;
     setDeviceId(guid: string): void;
     resetPersistence(): void;
