@@ -50,6 +50,7 @@ describe('mParticle instance manager', () => {
                 'PaymentSucceeded',
                 'PaymentFailed',
                 'RefundInitiated',
+                'isRoktCommerceType',
                 'getName',
                 'getExpansionName',
             ]

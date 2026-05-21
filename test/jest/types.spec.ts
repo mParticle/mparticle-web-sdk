@@ -615,6 +615,40 @@ describe('ProductActionType', () => {
             expect(ProductActionType.getExpansionName(NaN)).toBe('unknown');
         });
     });
+
+    describe('#isRoktCommerceType', () => {
+        it('returns true for Rokt Brain commerce types (11-18)', () => {
+            expect(ProductActionType.isRoktCommerceType(ViewCart)).toBe(true);
+            expect(ProductActionType.isRoktCommerceType(AddShippingInfo)).toBe(true);
+            expect(ProductActionType.isRoktCommerceType(AddPaymentInfo)).toBe(true);
+            expect(ProductActionType.isRoktCommerceType(PaymentMethodSelected)).toBe(true);
+            expect(ProductActionType.isRoktCommerceType(PaymentAttempted)).toBe(true);
+            expect(ProductActionType.isRoktCommerceType(PaymentSucceeded)).toBe(true);
+            expect(ProductActionType.isRoktCommerceType(PaymentFailed)).toBe(true);
+            expect(ProductActionType.isRoktCommerceType(RefundInitiated)).toBe(true);
+        });
+
+        it('returns false for standard mParticle commerce types (0-10)', () => {
+            expect(ProductActionType.isRoktCommerceType(Unknown)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(AddToCart)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(RemoveFromCart)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(Checkout)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(CheckoutOption)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(Click)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(ViewDetail)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(Purchase)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(Refund)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(AddToWishlist)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(RemoveFromWishlist)).toBe(false);
+        });
+
+        it('returns false for out-of-range values', () => {
+            expect(ProductActionType.isRoktCommerceType(-1)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(19)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(100)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(NaN)).toBe(false);
+        });
+    });
 });
 
 describe('RoktEvents', () => {

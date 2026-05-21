@@ -312,6 +312,10 @@ export const ProductActionType = {
     PaymentFailed: 17 as const,
     RefundInitiated: 18 as const,
 
+    isRoktCommerceType: (id: number): boolean => {
+        return id >= ProductActionType.ViewCart && id <= ProductActionType.RefundInitiated;
+    },
+
     getName: (id: number): string => {
         switch (id) {
             case ProductActionType.AddToCart:
