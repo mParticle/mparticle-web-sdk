@@ -20,7 +20,7 @@ import {
 } from './utils';
 import { hasMPIDAndUserLoginChanged, hasMPIDChanged } from './user-utils';
 import { processReadyQueue } from './pre-init-utils';
-import { logDeprecatedApiUsage } from './reporting/deprecatedApiLogger';
+import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
 
 export default function Identity(mpInstance) {
     const { getFeatureFlag, extend } = mpInstance._Helpers;
@@ -1253,7 +1253,7 @@ export default function Identity(mpInstance) {
              * @return a cart object
              */
             getCart: function() {
-                logDeprecatedApiUsage(mpInstance, {
+                logDeprecatedMethodUsage(mpInstance, {
                     methodName: 'Identity.getCurrentUser().getCart()',
                     warningMessage:
                         'Deprecated function Identity.getCurrentUser().getCart() will be removed in future releases',
@@ -1337,7 +1337,7 @@ export default function Identity(mpInstance) {
              * @deprecated
              */
             add: function() {
-                logDeprecatedApiUsage(mpInstance, {
+                logDeprecatedMethodUsage(mpInstance, {
                     methodName: 'Identity.getCurrentUser().getCart().add()',
                     warningMessage: generateDeprecationMessage(
                         'Identity.getCurrentUser().getCart().add()',
@@ -1353,7 +1353,7 @@ export default function Identity(mpInstance) {
              * @deprecated
              */
             remove: function() {
-                logDeprecatedApiUsage(mpInstance, {
+                logDeprecatedMethodUsage(mpInstance, {
                     methodName: 'Identity.getCurrentUser().getCart().remove()',
                     warningMessage: generateDeprecationMessage(
                         'Identity.getCurrentUser().getCart().remove()',
@@ -1369,7 +1369,7 @@ export default function Identity(mpInstance) {
              * @deprecated
              */
             clear: function() {
-                logDeprecatedApiUsage(mpInstance, {
+                logDeprecatedMethodUsage(mpInstance, {
                     methodName: 'Identity.getCurrentUser().getCart().clear()',
                     warningMessage: generateDeprecationMessage(
                         'Identity.getCurrentUser().getCart().clear()',
@@ -1386,7 +1386,7 @@ export default function Identity(mpInstance) {
              * @deprecated
              */
             getCartProducts: function() {
-                logDeprecatedApiUsage(mpInstance, {
+                logDeprecatedMethodUsage(mpInstance, {
                     methodName:
                         'Identity.getCurrentUser().getCart().getCartProducts()',
                     warningMessage: generateDeprecationMessage(
@@ -1785,7 +1785,7 @@ function tryOnUserAlias(previousUser, newUser, identityApiData, mpInstance) {
         isFunction(identityApiData.onUserAlias)
     ) {
         try {
-            logDeprecatedApiUsage(mpInstance, {
+            logDeprecatedMethodUsage(mpInstance, {
                 methodName: 'onUserAlias',
                 warningMessage: generateDeprecationMessage('onUserAlias'),
             });

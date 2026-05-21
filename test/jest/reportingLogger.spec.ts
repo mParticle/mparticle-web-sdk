@@ -1,7 +1,7 @@
 import { ErrorReportingDispatcher } from '../../src/reporting/errorReportingDispatcher';
 import { LoggingDispatcher } from '../../src/reporting/loggingDispatcher';
 import { IErrorReportingService, ILoggingService, ISDKError, ISDKLogEntry, WSDKErrorSeverity, ErrorCodes } from '../../src/reporting/types';
-import { logDeprecatedApiUsage } from '../../src/reporting/deprecatedApiLogger';
+import { logDeprecatedMethodUsage } from '../../src/reporting/deprecatedMethodLogger';
 
 describe('ErrorReportingDispatcher', () => {
     let dispatcher: ErrorReportingDispatcher;
@@ -130,12 +130,12 @@ describe('LoggingDispatcher', () => {
     });
 });
 
-describe('logDeprecatedApiUsage', () => {
+describe('logDeprecatedMethodUsage', () => {
     it('keeps the console warning and emits structured usage details', () => {
         const warning = jest.fn();
         const log = jest.fn();
 
-        logDeprecatedApiUsage(
+        logDeprecatedMethodUsage(
             {
                 Logger: { warning },
                 _LoggingDispatcher: { log },
@@ -158,7 +158,7 @@ describe('logDeprecatedApiUsage', () => {
     it('does not require a registered logging dispatcher', () => {
         const warning = jest.fn();
 
-        expect(() => logDeprecatedApiUsage(
+        expect(() => logDeprecatedMethodUsage(
             { Logger: { warning } },
             {
                 methodName: 'onUserAlias',

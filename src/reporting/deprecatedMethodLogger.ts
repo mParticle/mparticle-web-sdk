@@ -1,20 +1,20 @@
 import { ErrorCodes, ILoggingService } from './types';
 
-interface DeprecatedApiLoggerInstance {
+interface DeprecatedMethodLoggerInstance {
     Logger?: {
         warning(message: string): void;
     };
     _LoggingDispatcher?: ILoggingService;
 }
 
-interface DeprecatedApiUsage {
+interface DeprecatedMethodUsage {
     methodName: string;
     warningMessage: string;
 }
 
-export function logDeprecatedApiUsage(
-    mpInstance: DeprecatedApiLoggerInstance,
-    usage: DeprecatedApiUsage
+export function logDeprecatedMethodUsage(
+    mpInstance: DeprecatedMethodLoggerInstance,
+    usage: DeprecatedMethodUsage
 ): void {
     mpInstance.Logger?.warning(usage.warningMessage);
     mpInstance._LoggingDispatcher?.log({

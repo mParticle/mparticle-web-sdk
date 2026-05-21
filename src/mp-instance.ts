@@ -55,7 +55,7 @@ import CookieConsentManager, { ICookieConsentManager } from './cookieConsentMana
 import { ErrorReportingDispatcher } from './reporting/errorReportingDispatcher';
 import { LoggingDispatcher } from './reporting/loggingDispatcher';
 import { IErrorReportingService, ILoggingService } from './reporting/types';
-import { logDeprecatedApiUsage } from './reporting/deprecatedApiLogger';
+import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -773,8 +773,8 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              * @deprecated
              */
             add: function(product, logEventBoolean) {
-                logDeprecatedApiUsage(self, {
-                    methodName: 'eCommerce.Cart.add()',
+                logDeprecatedMethodUsage(self, {
+                    methodName: 'mPInstance.eCommerce.Cart.add()',
                     warningMessage: generateDeprecationMessage(
                         'eCommerce.Cart.add()',
                         true,
@@ -791,8 +791,8 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              * @deprecated
              */
             remove: function(product, logEventBoolean) {
-                logDeprecatedApiUsage(self, {
-                    methodName: 'eCommerce.Cart.remove()',
+                logDeprecatedMethodUsage(self, {
+                    methodName: 'mPInstance.eCommerce.Cart.remove()',
                     warningMessage: generateDeprecationMessage(
                         'eCommerce.Cart.remove()',
                         true,
@@ -807,8 +807,8 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              * @deprecated
              */
             clear: function() {
-                logDeprecatedApiUsage(self, {
-                    methodName: 'eCommerce.Cart.clear()',
+                logDeprecatedMethodUsage(self, {
+                    methodName: 'mPInstance.eCommerce.Cart.clear()',
                     warningMessage: generateDeprecationMessage(
                         'eCommerce.Cart.clear()',
                         true,
@@ -944,7 +944,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
          * @deprecated
          */
         logCheckout: function(step, option, attrs, customFlags) {
-            logDeprecatedApiUsage(self, {
+            logDeprecatedMethodUsage(self, {
                 methodName: 'mParticle.logCheckout',
                 warningMessage: 'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead',
             });
@@ -1025,7 +1025,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             attrs,
             customFlags
         ) {
-            logDeprecatedApiUsage(self, {
+            logDeprecatedMethodUsage(self, {
                 methodName: 'mParticle.logPurchase',
                 warningMessage: 'mParticle.logPurchase is deprecated, please use mParticle.logProductAction instead',
             });
@@ -1138,7 +1138,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             attrs,
             customFlags
         ) {
-            logDeprecatedApiUsage(self, {
+            logDeprecatedMethodUsage(self, {
                 methodName: 'mParticle.logRefund',
                 warningMessage: 'mParticle.logRefund is deprecated, please use mParticle.logProductAction instead',
             });

@@ -6,7 +6,7 @@ import { generateDeprecationMessage } from './utils';
 import { IMParticleUser } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { hasIdentityRequestChanged, hasExplicitIdentifier } from './identity-utils';
-import { logDeprecatedApiUsage } from './reporting/deprecatedApiLogger';
+import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
 
 const { Messages } = Constants;
 
@@ -68,7 +68,7 @@ export default function SessionManager(
     };
 
     this.getSession = function (): string {
-        logDeprecatedApiUsage(mpInstance, {
+        logDeprecatedMethodUsage(mpInstance, {
             methodName: 'SessionManager.getSession()',
             warningMessage: generateDeprecationMessage(
                 'SessionManager.getSession()',
