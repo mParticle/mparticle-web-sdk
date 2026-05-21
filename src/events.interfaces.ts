@@ -51,6 +51,7 @@ export interface IEvents {
     ): void;
     logEvent(event: BaseEvent, eventOptions?: SDKEventOptions): void;
     logImpressionEvent(
+        // https://go/j/SDKE-1199
         impression: SDKImpression | SDKImpression[] | SDKProductImpression | SDKProductImpression[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,

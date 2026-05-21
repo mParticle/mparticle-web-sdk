@@ -406,13 +406,13 @@ export default function Events(
         }
     };
 
-    this.addEventHandler = function(
+    this.addEventHandler = (
         domEvent: string,
         selector: string | Node,
         eventName: ((element: HTMLLinkElement | HTMLFormElement) => string) | string,
         data: ((element: HTMLLinkElement | HTMLFormElement) => SDKEventAttrs) | SDKEventAttrs,
         eventType: valueof<typeof EventType>
-    ): void {
+    ): void => {
         let elements: ArrayLike<Element> | Element[] = [];
         let element: DOMHandlerElement;
         let elementIndex: number;
