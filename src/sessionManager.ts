@@ -68,14 +68,18 @@ export default function SessionManager(
     };
 
     this.getSession = function (): string {
-        logDeprecatedMethodUsage(mpInstance, {
-            methodName: 'SessionManager.getSession()',
-            warningMessage: generateDeprecationMessage(
-                'SessionManager.getSession()',
-                false,
-                'SessionManager.getSessionId()'
-            ),
-        });
+        logDeprecatedMethodUsage(
+            mpInstance.Logger,
+            mpInstance._LoggingDispatcher,
+            {
+                methodName: 'SessionManager.getSession()',
+                warningMessage: generateDeprecationMessage(
+                    'SessionManager.getSession()',
+                    false,
+                    'SessionManager.getSessionId()'
+                ),
+            }
+        );
         return this.getSessionId();
     };
 

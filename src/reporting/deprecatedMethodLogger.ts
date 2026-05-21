@@ -1,11 +1,5 @@
 import { ErrorCodes, ILoggingService } from './types';
-
-interface DeprecatedMethodLoggerInstance {
-    Logger?: {
-        warning(message: string): void;
-    };
-    _LoggingDispatcher?: ILoggingService;
-}
+import { SDKLoggerApi } from '../sdkRuntimeModels';
 
 interface DeprecatedMethodUsage {
     methodName: string;
@@ -13,11 +7,12 @@ interface DeprecatedMethodUsage {
 }
 
 export function logDeprecatedMethodUsage(
-    mpInstance: DeprecatedMethodLoggerInstance,
+    logger: Pick<SDKLoggerApi, 'warning'> | undefined,
+    loggingDispatcher: ILoggingService | undefined,
     usage: DeprecatedMethodUsage
 ): void {
-    mpInstance.Logger?.warning(usage.warningMessage);
-    mpInstance._LoggingDispatcher?.log({
+    logger?.warning(usage.warningMessage);
+    loggingDispatcher?.log({
         message: usage.methodName,
         code: ErrorCodes.MP_DEPRECATED_METHOD_USAGE,
     });
