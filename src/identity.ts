@@ -1044,7 +1044,8 @@ export default function Identity(
              * @param {String} key
              */
             removeUserAttribute: function(key: string) {
-                let cookies, userAttributes;
+                let cookies;
+                let userAttributes;
                 mpInstance._SessionManager.resetSessionTimer();
 
                 if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
