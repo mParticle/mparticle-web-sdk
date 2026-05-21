@@ -55,6 +55,7 @@ import CookieConsentManager, { ICookieConsentManager } from './cookieConsentMana
 import { ErrorReportingDispatcher } from './reporting/errorReportingDispatcher';
 import { LoggingDispatcher } from './reporting/loggingDispatcher';
 import { IErrorReportingService, ILoggingService } from './reporting/types';
+import { logDeprecatedApiUsage } from './reporting/deprecatedApiLogger';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -772,14 +773,15 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              * @deprecated
              */
             add: function(product, logEventBoolean) {
-                self.Logger.warning(
-                    generateDeprecationMessage(
+                logDeprecatedApiUsage(self, {
+                    methodName: 'eCommerce.Cart.add()',
+                    warningMessage: generateDeprecationMessage(
                         'eCommerce.Cart.add()',
                         true,
                         'eCommerce.logProductAction()',
                         'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
-                );
+                    ),
+                });
             },
             /**
              * Removes a product from the cart
@@ -789,14 +791,15 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              * @deprecated
              */
             remove: function(product, logEventBoolean) {
-                self.Logger.warning(
-                    generateDeprecationMessage(
+                logDeprecatedApiUsage(self, {
+                    methodName: 'eCommerce.Cart.remove()',
+                    warningMessage: generateDeprecationMessage(
                         'eCommerce.Cart.remove()',
                         true,
                         'eCommerce.logProductAction()',
                         'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
-                );
+                    ),
+                });
             },
             /**
              * Clears the cart
@@ -804,14 +807,15 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              * @deprecated
              */
             clear: function() {
-                self.Logger.warning(
-                    generateDeprecationMessage(
+                logDeprecatedApiUsage(self, {
+                    methodName: 'eCommerce.Cart.clear()',
+                    warningMessage: generateDeprecationMessage(
                         'eCommerce.Cart.clear()',
                         true,
                         '',
                         'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
-                );
+                    ),
+                });
             },
         },
         /**
@@ -940,9 +944,10 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
          * @deprecated
          */
         logCheckout: function(step, option, attrs, customFlags) {
-            self.Logger.warning(
-                'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead'
-            );
+            logDeprecatedApiUsage(self, {
+                methodName: 'mParticle.logCheckout',
+                warningMessage: 'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead',
+            });
 
             if (!self._Store.isInitialized) {
                 self.ready(function() {
@@ -1020,9 +1025,10 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             attrs,
             customFlags
         ) {
-            self.Logger.warning(
-                'mParticle.logPurchase is deprecated, please use mParticle.logProductAction instead'
-            );
+            logDeprecatedApiUsage(self, {
+                methodName: 'mParticle.logPurchase',
+                warningMessage: 'mParticle.logPurchase is deprecated, please use mParticle.logProductAction instead',
+            });
             if (!self._Store.isInitialized) {
                 self.ready(function() {
                     self.eCommerce.logPurchase(
@@ -1132,9 +1138,10 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             attrs,
             customFlags
         ) {
-            self.Logger.warning(
-                'mParticle.logRefund is deprecated, please use mParticle.logProductAction instead'
-            );
+            logDeprecatedApiUsage(self, {
+                methodName: 'mParticle.logRefund',
+                warningMessage: 'mParticle.logRefund is deprecated, please use mParticle.logProductAction instead',
+            });
             if (!self._Store.isInitialized) {
                 self.ready(function() {
                     self.eCommerce.logRefund(
@@ -1741,4 +1748,3 @@ function queueIfNotInitialized(func, self) {
     });
     return true;
 }
-

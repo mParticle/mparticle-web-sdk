@@ -1,6 +1,7 @@
 import { ErrorReportingDispatcher } from '../../src/reporting/errorReportingDispatcher';
 import { LoggingDispatcher } from '../../src/reporting/loggingDispatcher';
 import { IErrorReportingService, ILoggingService, ISDKError, ISDKLogEntry, WSDKErrorSeverity, ErrorCodes } from '../../src/reporting/types';
+import { logDeprecatedApiUsage } from '../../src/reporting/deprecatedApiLogger';
 
 describe('ErrorReportingDispatcher', () => {
     let dispatcher: ErrorReportingDispatcher;
@@ -126,5 +127,46 @@ describe('LoggingDispatcher', () => {
 
         expect(service1.log).toHaveBeenCalledWith(entry);
         expect(service2.log).toHaveBeenCalledWith(entry);
+    });
+});
+
+describe('logDeprecatedApiUsage', () => {
+    it('keeps the console warning and emits structured usage details', () => {
+        const warning = jest.fn();
+        const log = jest.fn();
+
+        logDeprecatedApiUsage(
+            {
+                Logger: { warning },
+                _LoggingDispatcher: { log },
+            },
+            {
+                methodName: 'mParticle.logCheckout',
+                warningMessage: 'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead',
+            }
+        );
+
+        expect(warning).toHaveBeenCalledWith(
+            'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead'
+        );
+        expect(log).toHaveBeenCalledWith({
+            message: 'mParticle.logCheckout',
+            code: ErrorCodes.MP_DEPRECATED_METHOD_USAGE,
+        });
+    });
+
+    it('does not require a registered logging dispatcher', () => {
+        const warning = jest.fn();
+
+        expect(() => logDeprecatedApiUsage(
+            { Logger: { warning } },
+            {
+                methodName: 'onUserAlias',
+                warningMessage: 'onUserAlias is a deprecated method and will be removed in future releases.',
+            }
+        )).not.toThrow();
+        expect(warning).toHaveBeenCalledWith(
+            'onUserAlias is a deprecated method and will be removed in future releases.'
+        );
     });
 });

@@ -20,6 +20,7 @@ import {
 } from './utils';
 import { hasMPIDAndUserLoginChanged, hasMPIDChanged } from './user-utils';
 import { processReadyQueue } from './pre-init-utils';
+import { logDeprecatedApiUsage } from './reporting/deprecatedApiLogger';
 
 export default function Identity(mpInstance) {
     const { getFeatureFlag, extend } = mpInstance._Helpers;
@@ -1252,9 +1253,11 @@ export default function Identity(mpInstance) {
              * @return a cart object
              */
             getCart: function() {
-                mpInstance.Logger.warning(
-                    'Deprecated function Identity.getCurrentUser().getCart() will be removed in future releases'
-                );
+                logDeprecatedApiUsage(mpInstance, {
+                    methodName: 'Identity.getCurrentUser().getCart()',
+                    warningMessage:
+                        'Deprecated function Identity.getCurrentUser().getCart() will be removed in future releases',
+                });
                 return self.mParticleUserCart();
             },
 
@@ -1334,14 +1337,15 @@ export default function Identity(mpInstance) {
              * @deprecated
              */
             add: function() {
-                mpInstance.Logger.warning(
-                    generateDeprecationMessage(
+                logDeprecatedApiUsage(mpInstance, {
+                    methodName: 'Identity.getCurrentUser().getCart().add()',
+                    warningMessage: generateDeprecationMessage(
                         'Identity.getCurrentUser().getCart().add()',
                         true,
                         'eCommerce.logProductAction()',
                         'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
-                );
+                    ),
+                });
             },
             /**
              * Removes a cart product from the current user cart
@@ -1349,14 +1353,15 @@ export default function Identity(mpInstance) {
              * @deprecated
              */
             remove: function() {
-                mpInstance.Logger.warning(
-                    generateDeprecationMessage(
+                logDeprecatedApiUsage(mpInstance, {
+                    methodName: 'Identity.getCurrentUser().getCart().remove()',
+                    warningMessage: generateDeprecationMessage(
                         'Identity.getCurrentUser().getCart().remove()',
                         true,
                         'eCommerce.logProductAction()',
                         'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
-                );
+                    ),
+                });
             },
             /**
              * Clears the user's cart
@@ -1364,14 +1369,15 @@ export default function Identity(mpInstance) {
              * @deprecated
              */
             clear: function() {
-                mpInstance.Logger.warning(
-                    generateDeprecationMessage(
+                logDeprecatedApiUsage(mpInstance, {
+                    methodName: 'Identity.getCurrentUser().getCart().clear()',
+                    warningMessage: generateDeprecationMessage(
                         'Identity.getCurrentUser().getCart().clear()',
                         true,
                         '',
                         'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
-                );
+                    ),
+                });
             },
             /**
              * Returns all cart products
@@ -1380,14 +1386,16 @@ export default function Identity(mpInstance) {
              * @deprecated
              */
             getCartProducts: function() {
-                mpInstance.Logger.warning(
-                    generateDeprecationMessage(
+                logDeprecatedApiUsage(mpInstance, {
+                    methodName:
+                        'Identity.getCurrentUser().getCart().getCartProducts()',
+                    warningMessage: generateDeprecationMessage(
                         'Identity.getCurrentUser().getCart().getCartProducts()',
                         true,
                         'eCommerce.logProductAction()',
                         'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
-                );
+                    ),
+                });
                 return [];
             },
         };
@@ -1536,12 +1544,7 @@ export default function Identity(mpInstance) {
                 newUser = mpInstance.Identity.getCurrentUser();
 
                 // https://go.mparticle.com/work/SQDSDKS-6359
-                tryOnUserAlias(
-                    prevUser,
-                    newUser,
-                    identityApiData,
-                    mpInstance.Logger
-                );
+                tryOnUserAlias(prevUser, newUser, identityApiData, mpInstance);
 
                 const persistence = mpInstance._Persistence.getPersistence();
 
@@ -1775,17 +1778,20 @@ export default function Identity(mpInstance) {
 }
 
 // https://go.mparticle.com/work/SQDSDKS-6359
-function tryOnUserAlias(previousUser, newUser, identityApiData, logger) {
+function tryOnUserAlias(previousUser, newUser, identityApiData, mpInstance) {
     if (
         identityApiData &&
         identityApiData.onUserAlias &&
         isFunction(identityApiData.onUserAlias)
     ) {
         try {
-            logger.warning(generateDeprecationMessage('onUserAlias'));
+            logDeprecatedApiUsage(mpInstance, {
+                methodName: 'onUserAlias',
+                warningMessage: generateDeprecationMessage('onUserAlias'),
+            });
             identityApiData.onUserAlias(previousUser, newUser);
         } catch (e) {
-            logger.error(
+            mpInstance.Logger.error(
                 'There was an error with your onUserAlias function - ' + e
             );
         }
