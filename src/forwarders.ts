@@ -40,8 +40,6 @@ export default function Forwarders(
     mpInstance: IMParticleWebSDKInstance,
     kitBlocker: KitBlocker
 ): void {
-    const self = this;
-
     this.forwarderStatsUploader = new APIClient(
         mpInstance,
         kitBlocker
@@ -71,7 +69,7 @@ export default function Forwarders(
             });
 
             mpInstance._Store.activeForwarders = mpInstance._Store.configuredForwarders.filter(
-                function(forwarder) {
+                (forwarder) => {
                     if (
                         !mpInstance._Consent.isEnabledForUserConsent(
                             forwarder.filteringConsentRuleValues,
@@ -81,7 +79,7 @@ export default function Forwarders(
                         return false;
                     }
                     if (
-                        !(self.isEnabledForUserAttributes as Function)(
+                        !(this.isEnabledForUserAttributes as Function)(
                             forwarder.filteringUserAttributeValue,
                             user
                         )
@@ -89,7 +87,7 @@ export default function Forwarders(
                         return false;
                     }
                     if (
-                        !(self.isEnabledForUnknownUser as Function)(
+                        !(this.isEnabledForUnknownUser as Function)(
                             forwarder.excludeAnonymousUser,
                             user
                         )
@@ -543,10 +541,10 @@ export default function Forwarders(
                 'No config was passed. Cannot process forwarders'
             );
         } else {
-            (self.processUIEnabledKits as Function)(config);
-            (self.processSideloadedKits as Function)(config);
+            (this.processUIEnabledKits as Function)(config);
+            (this.processSideloadedKits as Function)(config);
 
-            (self.initForwarders as Function)(
+            (this.initForwarders as Function)(
                 mpInstance._Store.SDKConfig.identifyRequest.userIdentities,
                 forwardingStatsCallback
             );
@@ -560,12 +558,12 @@ export default function Forwarders(
     // if there is a match before being initialized.
     // Only kits that are configured properly can be active and used for kit forwarding.
     this.processUIEnabledKits = function(config: IConfigResponse): void {
-        const kits = (self.returnKitConstructors as Function)() as Dictionary<RegisteredKit>;
+        const kits = (this.returnKitConstructors as Function)() as Dictionary<RegisteredKit>;
 
         try {
             if (Array.isArray(config.kitConfigs) && config.kitConfigs.length) {
-                config.kitConfigs.forEach(function(kitConfig: IKitConfigs) {
-                    (self.configureUIEnabledKit as Function)(kitConfig, kits);
+                config.kitConfigs.forEach((kitConfig: IKitConfigs) => {
+                    (this.configureUIEnabledKit as Function)(kitConfig, kits);
                 });
             }
         } catch (e) {
@@ -626,7 +624,7 @@ export default function Forwarders(
                     (config as IKitConfigs & { isSandbox?: boolean }).isSandbox ===
                         mpInstance._Store.SDKConfig.isDevelopmentMode
                 ) {
-                    newKit = (self.returnConfiguredKit as Function)(kits[name], config);
+                    newKit = (this.returnConfiguredKit as Function)(kits[name], config);
 
                     mpInstance._Store.configuredForwarders.push(newKit);
                     break;
@@ -673,7 +671,7 @@ export default function Forwarders(
                 for (const registeredKitKey in registeredSideloadedKits.kits) {
                     const registeredKit =
                         registeredSideloadedKits.kits[registeredKitKey];
-                    (self.configureSideloadedKit as Function)(registeredKit);
+                    (this.configureSideloadedKit as Function)(registeredKit);
                 }
 
                 // If Sideloaded Kits are successfully registered,
@@ -696,7 +694,7 @@ export default function Forwarders(
         kitConstructor: RegisteredKit
     ): void {
         mpInstance._Store.configuredForwarders.push(
-            (self.returnConfiguredKit as Function)(kitConstructor, kitConstructor.filters)
+            (this.returnConfiguredKit as Function)(kitConstructor, kitConstructor.filters)
         );
     };
 
@@ -753,10 +751,8 @@ export default function Forwarders(
     this.processPixelConfigs = function(config: IConfigResponse): void {
         try {
             if (!isEmpty(config.pixelConfigs)) {
-                config.pixelConfigs.forEach(function(
-                    pixelConfig: IPixelConfiguration
-                ) {
-                    (self.configurePixel as Function)(pixelConfig);
+                config.pixelConfigs.forEach((pixelConfig: IPixelConfiguration) => {
+                    (this.configurePixel as Function)(pixelConfig);
                 });
             }
         } catch (e) {
