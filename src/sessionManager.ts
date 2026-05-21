@@ -69,8 +69,6 @@ export default function SessionManager(
 
     this.getSession = function (): string {
         logDeprecatedMethodUsage(
-            mpInstance.Logger,
-            mpInstance._LoggingDispatcher,
             {
                 methodName: 'SessionManager.getSession()',
                 warningMessage: generateDeprecationMessage(
@@ -78,7 +76,9 @@ export default function SessionManager(
                     false,
                     'SessionManager.getSessionId()'
                 ),
-            }
+            },
+            mpInstance.Logger,
+            mpInstance._LoggingDispatcher
         );
         return this.getSessionId();
     };

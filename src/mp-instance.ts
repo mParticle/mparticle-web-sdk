@@ -774,8 +774,6 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              */
             add: function(product, logEventBoolean) {
                 logDeprecatedMethodUsage(
-                    self.Logger,
-                    self._LoggingDispatcher,
                     {
                         methodName: 'mPInstance.eCommerce.Cart.add()',
                         warningMessage: generateDeprecationMessage(
@@ -784,7 +782,9 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                             'eCommerce.logProductAction()',
                             'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
                         ),
-                    }
+                    },
+                    self.Logger,
+                    self._LoggingDispatcher
                 );
             },
             /**
@@ -796,8 +796,6 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              */
             remove: function(product, logEventBoolean) {
                 logDeprecatedMethodUsage(
-                    self.Logger,
-                    self._LoggingDispatcher,
                     {
                         methodName: 'mPInstance.eCommerce.Cart.remove()',
                         warningMessage: generateDeprecationMessage(
@@ -806,7 +804,9 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                             'eCommerce.logProductAction()',
                             'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
                         ),
-                    }
+                    },
+                    self.Logger,
+                    self._LoggingDispatcher
                 );
             },
             /**
@@ -816,8 +816,6 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              */
             clear: function() {
                 logDeprecatedMethodUsage(
-                    self.Logger,
-                    self._LoggingDispatcher,
                     {
                         methodName: 'mPInstance.eCommerce.Cart.clear()',
                         warningMessage: generateDeprecationMessage(
@@ -826,7 +824,9 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                             '',
                             'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
                         ),
-                    }
+                    },
+                    self.Logger,
+                    self._LoggingDispatcher
                 );
             },
         },
@@ -957,12 +957,12 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
          */
         logCheckout: function(step, option, attrs, customFlags) {
             logDeprecatedMethodUsage(
-                self.Logger,
-                self._LoggingDispatcher,
                 {
                     methodName: 'mParticle.logCheckout',
                     warningMessage: 'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead',
-                }
+                },
+                self.Logger,
+                self._LoggingDispatcher
             );
 
             if (!self._Store.isInitialized) {
@@ -1042,12 +1042,12 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             customFlags
         ) {
             logDeprecatedMethodUsage(
-                self.Logger,
-                self._LoggingDispatcher,
                 {
                     methodName: 'mParticle.logPurchase',
                     warningMessage: 'mParticle.logPurchase is deprecated, please use mParticle.logProductAction instead',
-                }
+                },
+                self.Logger,
+                self._LoggingDispatcher
             );
             if (!self._Store.isInitialized) {
                 self.ready(function() {
@@ -1159,12 +1159,12 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             customFlags
         ) {
             logDeprecatedMethodUsage(
-                self.Logger,
-                self._LoggingDispatcher,
                 {
                     methodName: 'mParticle.logRefund',
                     warningMessage: 'mParticle.logRefund is deprecated, please use mParticle.logProductAction instead',
-                }
+                },
+                self.Logger,
+                self._LoggingDispatcher
             );
             if (!self._Store.isInitialized) {
                 self.ready(function() {

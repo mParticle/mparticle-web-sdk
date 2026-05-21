@@ -136,12 +136,12 @@ describe('logDeprecatedMethodUsage', () => {
         const log = jest.fn();
 
         logDeprecatedMethodUsage(
-            { warning },
-            { log },
             {
                 methodName: 'mParticle.logCheckout',
                 warningMessage: 'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead',
-            }
+            },
+            { warning },
+            { log }
         );
 
         expect(warning).toHaveBeenCalledWith(
@@ -157,12 +157,12 @@ describe('logDeprecatedMethodUsage', () => {
         const warning = jest.fn();
 
         expect(() => logDeprecatedMethodUsage(
-            { warning },
-            undefined,
             {
                 methodName: 'onUserAlias',
                 warningMessage: 'onUserAlias is a deprecated method and will be removed in future releases.',
-            }
+            },
+            { warning },
+            undefined
         )).not.toThrow();
         expect(warning).toHaveBeenCalledWith(
             'onUserAlias is a deprecated method and will be removed in future releases.'

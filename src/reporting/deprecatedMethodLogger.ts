@@ -7,9 +7,9 @@ interface DeprecatedMethodUsage {
 }
 
 export function logDeprecatedMethodUsage(
+    usage: DeprecatedMethodUsage,
     logger: Pick<SDKLoggerApi, 'warning'>,
-    loggingDispatcher: ILoggingService | undefined,
-    usage: DeprecatedMethodUsage
+    loggingDispatcher: ILoggingService | undefined
 ): void {
     logger.warning(usage.warningMessage);
     loggingDispatcher?.log({

@@ -1254,13 +1254,13 @@ export default function Identity(mpInstance) {
              */
             getCart: function() {
                 logDeprecatedMethodUsage(
-                    mpInstance.Logger,
-                    mpInstance._LoggingDispatcher,
                     {
                         methodName: 'Identity.getCurrentUser().getCart()',
                         warningMessage:
                             'Deprecated function Identity.getCurrentUser().getCart() will be removed in future releases',
-                    }
+                    },
+                    mpInstance.Logger,
+                    mpInstance._LoggingDispatcher
                 );
                 return self.mParticleUserCart();
             },
@@ -1342,8 +1342,6 @@ export default function Identity(mpInstance) {
              */
             add: function() {
                 logDeprecatedMethodUsage(
-                    mpInstance.Logger,
-                    mpInstance._LoggingDispatcher,
                     {
                         methodName: 'Identity.getCurrentUser().getCart().add()',
                         warningMessage: generateDeprecationMessage(
@@ -1352,7 +1350,9 @@ export default function Identity(mpInstance) {
                             'eCommerce.logProductAction()',
                             'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
                         ),
-                    }
+                    },
+                    mpInstance.Logger,
+                    mpInstance._LoggingDispatcher
                 );
             },
             /**
@@ -1362,8 +1362,6 @@ export default function Identity(mpInstance) {
              */
             remove: function() {
                 logDeprecatedMethodUsage(
-                    mpInstance.Logger,
-                    mpInstance._LoggingDispatcher,
                     {
                         methodName:
                             'Identity.getCurrentUser().getCart().remove()',
@@ -1373,7 +1371,9 @@ export default function Identity(mpInstance) {
                             'eCommerce.logProductAction()',
                             'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
                         ),
-                    }
+                    },
+                    mpInstance.Logger,
+                    mpInstance._LoggingDispatcher
                 );
             },
             /**
@@ -1383,8 +1383,6 @@ export default function Identity(mpInstance) {
              */
             clear: function() {
                 logDeprecatedMethodUsage(
-                    mpInstance.Logger,
-                    mpInstance._LoggingDispatcher,
                     {
                         methodName:
                             'Identity.getCurrentUser().getCart().clear()',
@@ -1394,7 +1392,9 @@ export default function Identity(mpInstance) {
                             '',
                             'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
                         ),
-                    }
+                    },
+                    mpInstance.Logger,
+                    mpInstance._LoggingDispatcher
                 );
             },
             /**
@@ -1405,8 +1405,6 @@ export default function Identity(mpInstance) {
              */
             getCartProducts: function() {
                 logDeprecatedMethodUsage(
-                    mpInstance.Logger,
-                    mpInstance._LoggingDispatcher,
                     {
                         methodName:
                             'Identity.getCurrentUser().getCart().getCartProducts()',
@@ -1416,7 +1414,9 @@ export default function Identity(mpInstance) {
                             'eCommerce.logProductAction()',
                             'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
                         ),
-                    }
+                    },
+                    mpInstance.Logger,
+                    mpInstance._LoggingDispatcher
                 );
                 return [];
             },
@@ -1819,10 +1819,14 @@ function tryOnUserAlias(
         isFunction(identityApiData.onUserAlias)
     ) {
         try {
-            logDeprecatedMethodUsage(logger, loggingDispatcher, {
-                methodName: 'onUserAlias',
-                warningMessage: generateDeprecationMessage('onUserAlias'),
-            });
+            logDeprecatedMethodUsage(
+                {
+                    methodName: 'onUserAlias',
+                    warningMessage: generateDeprecationMessage('onUserAlias'),
+                },
+                logger,
+                loggingDispatcher
+            );
             identityApiData.onUserAlias(previousUser, newUser);
         } catch (e) {
             logger.error(

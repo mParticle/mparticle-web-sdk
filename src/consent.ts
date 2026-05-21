@@ -507,12 +507,12 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
         // TODO: Can we remove this? It is deprecated.
         function removeCCPAState(this: ConsentState) {
             logDeprecatedMethodUsage(
-                mpInstance.Logger,
-                mpInstance._LoggingDispatcher,
                 {
                     methodName: 'Consent.removeCCPAState',
                     warningMessage: 'removeCCPAState is deprecated and will be removed in a future release; use removeCCPAConsentState instead',
-                }
+                },
+                mpInstance.Logger,
+                mpInstance._LoggingDispatcher
             );
             // @ts-ignore
             return removeCCPAConsentState();
