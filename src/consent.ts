@@ -9,6 +9,7 @@ import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
 import { IMParticleUser } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
+import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
 
 const { CCPAPurpose } = Constants;
 
@@ -505,8 +506,13 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
 
         // TODO: Can we remove this? It is deprecated.
         function removeCCPAState(this: ConsentState) {
-            mpInstance.Logger.warning(
-                'removeCCPAState is deprecated and will be removed in a future release; use removeCCPAConsentState instead'
+            logDeprecatedMethodUsage(
+                {
+                    methodName: 'Consent.removeCCPAState',
+                    warningMessage: 'removeCCPAState is deprecated and will be removed in a future release; use removeCCPAConsentState instead',
+                },
+                mpInstance.Logger,
+                mpInstance._LoggingDispatcher
             );
             // @ts-ignore
             return removeCCPAConsentState();

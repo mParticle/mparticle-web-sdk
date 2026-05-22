@@ -55,6 +55,7 @@ import CookieConsentManager, { ICookieConsentManager } from './cookieConsentMana
 import { ErrorReportingDispatcher } from './reporting/errorReportingDispatcher';
 import { LoggingDispatcher } from './reporting/loggingDispatcher';
 import { IErrorReportingService, ILoggingService } from './reporting/types';
+import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -772,13 +773,18 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              * @deprecated
              */
             add: function(product, logEventBoolean) {
-                self.Logger.warning(
-                    generateDeprecationMessage(
-                        'eCommerce.Cart.add()',
-                        true,
-                        'eCommerce.logProductAction()',
-                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
+                logDeprecatedMethodUsage(
+                    {
+                        methodName: 'mPInstance.eCommerce.Cart.add()',
+                        warningMessage: generateDeprecationMessage(
+                            'eCommerce.Cart.add()',
+                            true,
+                            'eCommerce.logProductAction()',
+                            'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
+                        ),
+                    },
+                    self.Logger,
+                    self._LoggingDispatcher
                 );
             },
             /**
@@ -789,13 +795,18 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              * @deprecated
              */
             remove: function(product, logEventBoolean) {
-                self.Logger.warning(
-                    generateDeprecationMessage(
-                        'eCommerce.Cart.remove()',
-                        true,
-                        'eCommerce.logProductAction()',
-                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
+                logDeprecatedMethodUsage(
+                    {
+                        methodName: 'mPInstance.eCommerce.Cart.remove()',
+                        warningMessage: generateDeprecationMessage(
+                            'eCommerce.Cart.remove()',
+                            true,
+                            'eCommerce.logProductAction()',
+                            'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
+                        ),
+                    },
+                    self.Logger,
+                    self._LoggingDispatcher
                 );
             },
             /**
@@ -804,13 +815,18 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              * @deprecated
              */
             clear: function() {
-                self.Logger.warning(
-                    generateDeprecationMessage(
-                        'eCommerce.Cart.clear()',
-                        true,
-                        '',
-                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
+                logDeprecatedMethodUsage(
+                    {
+                        methodName: 'mPInstance.eCommerce.Cart.clear()',
+                        warningMessage: generateDeprecationMessage(
+                            'eCommerce.Cart.clear()',
+                            true,
+                            '',
+                            'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
+                        ),
+                    },
+                    self.Logger,
+                    self._LoggingDispatcher
                 );
             },
         },
@@ -940,8 +956,13 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
          * @deprecated
          */
         logCheckout: function(step, option, attrs, customFlags) {
-            self.Logger.warning(
-                'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead'
+            logDeprecatedMethodUsage(
+                {
+                    methodName: 'mParticle.logCheckout',
+                    warningMessage: 'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead',
+                },
+                self.Logger,
+                self._LoggingDispatcher
             );
 
             if (!self._Store.isInitialized) {
@@ -1020,8 +1041,13 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             attrs,
             customFlags
         ) {
-            self.Logger.warning(
-                'mParticle.logPurchase is deprecated, please use mParticle.logProductAction instead'
+            logDeprecatedMethodUsage(
+                {
+                    methodName: 'mParticle.logPurchase',
+                    warningMessage: 'mParticle.logPurchase is deprecated, please use mParticle.logProductAction instead',
+                },
+                self.Logger,
+                self._LoggingDispatcher
             );
             if (!self._Store.isInitialized) {
                 self.ready(function() {
@@ -1132,8 +1158,13 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             attrs,
             customFlags
         ) {
-            self.Logger.warning(
-                'mParticle.logRefund is deprecated, please use mParticle.logProductAction instead'
+            logDeprecatedMethodUsage(
+                {
+                    methodName: 'mParticle.logRefund',
+                    warningMessage: 'mParticle.logRefund is deprecated, please use mParticle.logProductAction instead',
+                },
+                self.Logger,
+                self._LoggingDispatcher
             );
             if (!self._Store.isInitialized) {
                 self.ready(function() {
@@ -1741,4 +1772,3 @@ function queueIfNotInitialized(func, self) {
     });
     return true;
 }
-
