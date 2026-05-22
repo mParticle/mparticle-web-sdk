@@ -1,5 +1,4 @@
 import {
-    Callback,
     SDKEventAttrs,
     SDKEventOptions,
     TransactionAttributes,
@@ -8,12 +7,19 @@ import {
     BaseEvent,
     SDKEvent,
     SDKEventCustomFlags,
+    SDKImpression,
     SDKProduct,
     SDKProductImpression,
     SDKPromotion,
 } from './sdkRuntimeModels';
 import { valueof } from './utils';
 import { EventType, ProductActionType, PromotionActionType } from './types';
+
+export type TrackingCallback = ((
+    position?: GeolocationPosition | {
+        coords: { latitude: number | string; longitude: number | string };
+    }
+) => void) | null;
 
 // Supports wrapping event handlers functions that will ideally return a specific type
 type EventHandlerFunction<T> = (element: HTMLLinkElement | HTMLFormElement) => T;
@@ -45,11 +51,12 @@ export interface IEvents {
     ): void;
     logEvent(event: BaseEvent, eventOptions?: SDKEventOptions): void;
     logImpressionEvent(
-        impression: SDKProductImpression,
+        // https://go/j/SDKE-1199
+        impression: SDKImpression | SDKImpression[] | SDKProductImpression | SDKProductImpression[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions
-    );
+    ): void;
     logOptOut(): void;
     logProductActionEvent(
         productActionType: valueof<typeof ProductActionType>,
@@ -61,7 +68,7 @@ export interface IEvents {
     ): void;
     logPromotionEvent(
         promotionType: valueof<typeof PromotionActionType>,
-        promotion: SDKPromotion,
+        promotion: SDKPromotion | SDKPromotion[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions
@@ -78,6 +85,6 @@ export interface IEvents {
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags
     ): void;
-    startTracking(callback: Callback): void;
+    startTracking(callback: TrackingCallback): void;
     stopTracking(): void;
 }
