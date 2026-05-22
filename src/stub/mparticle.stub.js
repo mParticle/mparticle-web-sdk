@@ -28,6 +28,7 @@ let mParticle = {
     IdentityType: {},
     ProductActionType: {},
     PromotionType: {},
+    RoktEvents: {},
     eCommerce: {
         createImpression: returnImpression,
         createProduct: returnProduct,

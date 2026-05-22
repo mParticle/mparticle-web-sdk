@@ -1,5 +1,5 @@
 import Polyfill from './polyfill';
-import { CommerceEventType, EventType, IdentityType, PerformanceMarkType, ProductActionType, PromotionActionType } from './types';
+import { CommerceEventType, EventType, IdentityType, PerformanceMarkType, ProductActionType, PromotionActionType, RoktEvents } from './types';
 import Constants from './constants';
 import mParticleInstance, { IMParticleWebSDKInstance } from './mp-instance.js';
 import _BatchValidator from './mockBatchCreator';
@@ -36,6 +36,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
     this.CommerceEventType = CommerceEventType;
     this.PromotionType = PromotionActionType;
     this.ProductActionType = ProductActionType;
+    this.RoktEvents = RoktEvents;
 
     this.MPSideloadedKit = MPSideloadedKit;
 

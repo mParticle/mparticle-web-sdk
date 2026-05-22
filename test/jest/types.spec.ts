@@ -7,6 +7,7 @@ import {
     ProductActionType,
     ProfileMessageType,
     PromotionActionType,
+    RoktEvents,
 } from '../../src/types';
 
 
@@ -464,6 +465,14 @@ describe('ProductActionType', () => {
         Refund,
         AddToWishlist,
         RemoveFromWishlist,
+        ViewCart,
+        AddShippingInfo,
+        AddPaymentInfo,
+        PaymentMethodSelected,
+        PaymentAttempted,
+        PaymentSucceeded,
+        PaymentFailed,
+        RefundInitiated,
     } = ProductActionType;
 
     it('returns a product action type', () => {
@@ -478,6 +487,17 @@ describe('ProductActionType', () => {
         expect(Refund).toEqual(8);
         expect(AddToWishlist).toEqual(9);
         expect(RemoveFromWishlist).toEqual(10);
+    });
+
+    it('returns Rokt Brain commerce-adjacent product action types', () => {
+        expect(ViewCart).toEqual(11);
+        expect(AddShippingInfo).toEqual(12);
+        expect(AddPaymentInfo).toEqual(13);
+        expect(PaymentMethodSelected).toEqual(14);
+        expect(PaymentAttempted).toEqual(15);
+        expect(PaymentSucceeded).toEqual(16);
+        expect(PaymentFailed).toEqual(17);
+        expect(RefundInitiated).toEqual(18);
     });
 
     describe('#getName', () => {
@@ -500,6 +520,31 @@ describe('ProductActionType', () => {
             );
             expect(ProductActionType.getName(RemoveFromWishlist)).toBe(
                 'Remove from Wishlist'
+            );
+        });
+
+        it('returns the name of a Rokt Brain Product Action Type', () => {
+            expect(ProductActionType.getName(ViewCart)).toBe('View Cart');
+            expect(ProductActionType.getName(AddShippingInfo)).toBe(
+                'Add Shipping Info'
+            );
+            expect(ProductActionType.getName(AddPaymentInfo)).toBe(
+                'Add Payment Info'
+            );
+            expect(ProductActionType.getName(PaymentMethodSelected)).toBe(
+                'Payment Method Selected'
+            );
+            expect(ProductActionType.getName(PaymentAttempted)).toBe(
+                'Payment Attempted'
+            );
+            expect(ProductActionType.getName(PaymentSucceeded)).toBe(
+                'Payment Succeeded'
+            );
+            expect(ProductActionType.getName(PaymentFailed)).toBe(
+                'Payment Failed'
+            );
+            expect(ProductActionType.getName(RefundInitiated)).toBe(
+                'Refund Initiated'
             );
         });
 
@@ -539,9 +584,86 @@ describe('ProductActionType', () => {
             );
         });
 
+        it('returns the expanded name of a Rokt Brain Product Action Type', () => {
+            expect(ProductActionType.getExpansionName(ViewCart)).toBe(
+                'view_cart'
+            );
+            expect(ProductActionType.getExpansionName(AddShippingInfo)).toBe(
+                'add_shipping_info'
+            );
+            expect(ProductActionType.getExpansionName(AddPaymentInfo)).toBe(
+                'add_payment_info'
+            );
+            expect(ProductActionType.getExpansionName(PaymentMethodSelected)).toBe(
+                'payment_method_selected'
+            );
+            expect(ProductActionType.getExpansionName(PaymentAttempted)).toBe(
+                'payment_attempted'
+            );
+            expect(ProductActionType.getExpansionName(PaymentSucceeded)).toBe(
+                'payment_succeeded'
+            );
+            expect(ProductActionType.getExpansionName(PaymentFailed)).toBe(
+                'payment_failed'
+            );
+            expect(ProductActionType.getExpansionName(RefundInitiated)).toBe(
+                'refund_initiated'
+            );
+        });
+
         it('returns unknown if the product action type is not found', () => {
             expect(ProductActionType.getExpansionName(NaN)).toBe('unknown');
         });
+    });
+
+    describe('#isRoktCommerceType', () => {
+        it('returns true for Rokt Brain commerce types (11-18)', () => {
+            expect(ProductActionType.isRoktCommerceType(ViewCart)).toBe(true);
+            expect(ProductActionType.isRoktCommerceType(AddShippingInfo)).toBe(true);
+            expect(ProductActionType.isRoktCommerceType(AddPaymentInfo)).toBe(true);
+            expect(ProductActionType.isRoktCommerceType(PaymentMethodSelected)).toBe(true);
+            expect(ProductActionType.isRoktCommerceType(PaymentAttempted)).toBe(true);
+            expect(ProductActionType.isRoktCommerceType(PaymentSucceeded)).toBe(true);
+            expect(ProductActionType.isRoktCommerceType(PaymentFailed)).toBe(true);
+            expect(ProductActionType.isRoktCommerceType(RefundInitiated)).toBe(true);
+        });
+
+        it('returns false for standard mParticle commerce types (0-10)', () => {
+            expect(ProductActionType.isRoktCommerceType(Unknown)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(AddToCart)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(RemoveFromCart)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(Checkout)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(CheckoutOption)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(Click)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(ViewDetail)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(Purchase)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(Refund)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(AddToWishlist)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(RemoveFromWishlist)).toBe(false);
+        });
+
+        it('returns false for out-of-range values', () => {
+            expect(ProductActionType.isRoktCommerceType(-1)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(19)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(100)).toBe(false);
+            expect(ProductActionType.isRoktCommerceType(NaN)).toBe(false);
+        });
+    });
+});
+
+describe('RoktEvents', () => {
+    it('returns non-commerce Rokt Brain event name constants', () => {
+        expect(RoktEvents.SignUp).toBe('sign_up');
+        expect(RoktEvents.Subscribe).toBe('subscribe');
+        expect(RoktEvents.StartTrial).toBe('start_trial');
+        expect(RoktEvents.GenerateLead).toBe('generate_lead');
+        expect(RoktEvents.Search).toBe('search');
+        expect(RoktEvents.Upsell).toBe('upsell');
+        expect(RoktEvents.EarnVirtualCurrency).toBe('earn_virtual_currency');
+        expect(RoktEvents.DwellTime).toBe('dwell_time');
+        expect(RoktEvents.Hover).toBe('hover');
+        expect(RoktEvents.Scroll).toBe('scroll');
+        expect(RoktEvents.ClickToExpand).toBe('click_to_expand');
     });
 });
 

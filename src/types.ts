@@ -302,6 +302,20 @@ export const ProductActionType = {
     AddToWishlist: 9 as const,
     RemoveFromWishlist: 10 as const,
 
+    // Rokt Brain commerce-adjacent types
+    ViewCart: 11 as const,
+    AddShippingInfo: 12 as const,
+    AddPaymentInfo: 13 as const,
+    PaymentMethodSelected: 14 as const,
+    PaymentAttempted: 15 as const,
+    PaymentSucceeded: 16 as const,
+    PaymentFailed: 17 as const,
+    RefundInitiated: 18 as const,
+
+    isRoktCommerceType: (id: number): boolean => {
+        return id >= ProductActionType.ViewCart && id <= ProductActionType.RefundInitiated;
+    },
+
     getName: (id: number): string => {
         switch (id) {
             case ProductActionType.AddToCart:
@@ -324,6 +338,22 @@ export const ProductActionType = {
                 return 'Add to Wishlist';
             case ProductActionType.RemoveFromWishlist:
                 return 'Remove from Wishlist';
+            case ProductActionType.ViewCart:
+                return 'View Cart';
+            case ProductActionType.AddShippingInfo:
+                return 'Add Shipping Info';
+            case ProductActionType.AddPaymentInfo:
+                return 'Add Payment Info';
+            case ProductActionType.PaymentMethodSelected:
+                return 'Payment Method Selected';
+            case ProductActionType.PaymentAttempted:
+                return 'Payment Attempted';
+            case ProductActionType.PaymentSucceeded:
+                return 'Payment Succeeded';
+            case ProductActionType.PaymentFailed:
+                return 'Payment Failed';
+            case ProductActionType.RefundInitiated:
+                return 'Refund Initiated';
             default:
                 return 'Unknown';
         }
@@ -352,10 +382,54 @@ export const ProductActionType = {
                 return 'add_to_wishlist';
             case ProductActionType.RemoveFromWishlist:
                 return 'remove_from_wishlist';
+            case ProductActionType.ViewCart:
+                return 'view_cart';
+            case ProductActionType.AddShippingInfo:
+                return 'add_shipping_info';
+            case ProductActionType.AddPaymentInfo:
+                return 'add_payment_info';
+            case ProductActionType.PaymentMethodSelected:
+                return 'payment_method_selected';
+            case ProductActionType.PaymentAttempted:
+                return 'payment_attempted';
+            case ProductActionType.PaymentSucceeded:
+                return 'payment_succeeded';
+            case ProductActionType.PaymentFailed:
+                return 'payment_failed';
+            case ProductActionType.RefundInitiated:
+                return 'refund_initiated';
             default:
                 return 'unknown';
         }
     },
+};
+
+export type RoktEventName =
+    | 'sign_up'
+    | 'subscribe'
+    | 'start_trial'
+    | 'generate_lead'
+    | 'search'
+    | 'upsell'
+    | 'earn_virtual_currency'
+    | 'dwell_time'
+    | 'hover'
+    | 'scroll'
+    | 'click_to_expand'
+    | (string & {});
+
+export const RoktEvents = {
+    SignUp: 'sign_up' as const,
+    Subscribe: 'subscribe' as const,
+    StartTrial: 'start_trial' as const,
+    GenerateLead: 'generate_lead' as const,
+    Search: 'search' as const,
+    Upsell: 'upsell' as const,
+    EarnVirtualCurrency: 'earn_virtual_currency' as const,
+    DwellTime: 'dwell_time' as const,
+    Hover: 'hover' as const,
+    Scroll: 'scroll' as const,
+    ClickToExpand: 'click_to_expand' as const,
 };
 
 export const PromotionActionType = {
@@ -544,5 +618,6 @@ export default {
     ApplicationTransitionType,
     ProductActionType,
     PromotionActionType,
+    RoktEvents,
     Environment: Constants.Environment,
 } as const;

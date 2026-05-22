@@ -174,6 +174,13 @@ export default function Events(mpInstance) {
                 ProductList: productList,
             };
 
+            if (Types.ProductActionType.isRoktCommerceType(productActionType)) {
+                event.CustomFlags = event.CustomFlags || {};
+                event.CustomFlags[
+                    'Rokt.CommerceEventType'
+                ] = Types.ProductActionType.getExpansionName(productActionType);
+            }
+
             if (mpInstance._Helpers.isObject(transactionAttributes)) {
                 mpInstance._Ecommerce.convertTransactionAttributesToProductAction(
                     transactionAttributes,
