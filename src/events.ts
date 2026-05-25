@@ -1,16 +1,39 @@
-import Types from './types';
+import Types, { EventType, ProductActionType, PromotionActionType } from './types';
 import Constants from './constants';
+import { IEvents, TrackingCallback } from './events.interfaces';
+import { IMParticleWebSDKInstance } from './mp-instance';
+import {
+    BaseEvent,
+    SDKEvent,
+    SDKEventCustomFlags,
+    SDKImpression,
+    SDKProduct,
+    SDKProductActionType,
+    SDKProductImpression,
+    SDKPromotion,
+} from './sdkRuntimeModels';
+import { SDKEventAttrs, SDKEventOptions, TransactionAttributes } from '@mparticle/web-sdk';
+import { valueof } from './utils';
 
-var Messages = Constants.Messages;
+interface DOMHandlerElement extends HTMLElement {
+    href?: string;
+    target?: string;
+    submit?: () => void;
+    attachEvent?: (event: string, handler: EventListener) => void;
+}
 
-export default function Events(mpInstance) {
-    var self = this;
-    this.logEvent = function(event, options) {
+const Messages = Constants.Messages;
+
+export default function Events(
+    this: IEvents,
+    mpInstance: IMParticleWebSDKInstance
+): void {
+    this.logEvent = function(event: BaseEvent, options?: SDKEventOptions): void {
         mpInstance.Logger.verbose(
             Messages.InformationMessages.StartingLogEvent + ': ' + event.name
         );
         if (mpInstance._Helpers.canLog()) {
-            var uploadObject = mpInstance._ServerModel.createEventObject(event);
+            const uploadObject = mpInstance._ServerModel.createEventObject(event);
             mpInstance._APIClient.sendEventToServer(uploadObject, options);
         } else {
             mpInstance.Logger.verbose(
@@ -19,25 +42,25 @@ export default function Events(mpInstance) {
         }
     };
 
-    this.startTracking = function(callback) {
-        if (!mpInstance._Store.isTracking) {
-            if ('geolocation' in navigator) {
-                mpInstance._Store.watchPositionId = navigator.geolocation.watchPosition(
-                    successTracking,
-                    errorTracking
-                );
-            }
-        } else {
-            var position = {
+    this.startTracking = function(callback: TrackingCallback): void {
+        if (mpInstance._Store.isTracking) {
+            const position = {
                 coords: {
                     latitude: mpInstance._Store.currentPosition.lat,
                     longitude: mpInstance._Store.currentPosition.lng,
                 },
             };
             triggerCallback(callback, position);
+        } else {
+            if ('geolocation' in navigator) {
+                mpInstance._Store.watchPositionId = navigator.geolocation.watchPosition(
+                    successTracking,
+                    errorTracking
+                );
+            }
         }
 
-        function successTracking(position) {
+        function successTracking(position: GeolocationPosition): void {
             mpInstance._Store.currentPosition = {
                 lat: position.coords.latitude,
                 lng: position.coords.longitude,
@@ -50,14 +73,17 @@ export default function Events(mpInstance) {
             mpInstance._Store.isTracking = true;
         }
 
-        function errorTracking() {
+        function errorTracking(): void {
             triggerCallback(callback);
             // prevents callback from being fired multiple times
             callback = null;
             mpInstance._Store.isTracking = false;
         }
 
-        function triggerCallback(callback, position) {
+        function triggerCallback(
+            callback: TrackingCallback,
+            position?: GeolocationPosition | { coords: { latitude: number | string; longitude: number | string } }
+        ): void {
             if (callback) {
                 try {
                     if (position) {
@@ -69,13 +95,13 @@ export default function Events(mpInstance) {
                     mpInstance.Logger.error(
                         'Error invoking the callback passed to startTrackingLocation.'
                     );
-                    mpInstance.Logger.error(e);
+                    mpInstance.Logger.error(e instanceof Error ? e.message : String(e));
                 }
             }
         }
     };
 
-    this.stopTracking = function() {
+    this.stopTracking = function(): void {
         if (mpInstance._Store.isTracking) {
             navigator.geolocation.clearWatch(mpInstance._Store.watchPositionId);
             mpInstance._Store.currentPosition = null;
@@ -83,24 +109,29 @@ export default function Events(mpInstance) {
         }
     };
 
-    this.logOptOut = function() {
+    this.logOptOut = function(): void {
         mpInstance.Logger.verbose(
             Messages.InformationMessages.StartingLogOptOut
         );
 
-        var event = mpInstance._ServerModel.createEventObject({
+        const event = mpInstance._ServerModel.createEventObject({
             messageType: Types.MessageType.OptOut,
             eventType: Types.EventType.Other,
         });
         mpInstance._APIClient.sendEventToServer(event);
     };
 
-    this.logAST = function() {
-        self.logEvent({ messageType: Types.MessageType.AppStateTransition });
+    this.logAST = (): void => {
+        this.logEvent({ messageType: Types.MessageType.AppStateTransition });
     };
 
-    this.logCheckoutEvent = function(step, option, attrs, customFlags) {
-        var event = mpInstance._Ecommerce.createCommerceEventObject(
+    this.logCheckoutEvent = (
+        step: number,
+        option?: string,
+        attrs?: SDKEventAttrs,
+        customFlags?: SDKEventCustomFlags
+    ): void => {
+        const event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
 
@@ -116,26 +147,26 @@ export default function Events(mpInstance) {
                 ProductList: [],
             };
 
-            self.logCommerceEvent(event, attrs);
+            this.logCommerceEvent(event, attrs);
         }
     };
 
-    this.logProductActionEvent = function(
-        productActionType,
-        product,
-        customAttrs,
-        customFlags,
-        transactionAttributes,
-        options
-    ) {
-        var event = mpInstance._Ecommerce.createCommerceEventObject(
+    this.logProductActionEvent = (
+        productActionType: valueof<typeof ProductActionType>,
+        product: SDKProduct | SDKProduct[],
+        customAttrs?: SDKEventAttrs,
+        customFlags?: SDKEventCustomFlags,
+        transactionAttributes?: TransactionAttributes,
+        options?: SDKEventOptions
+    ): void => {
+        const event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags,
             options
         );
 
-        var productList = Array.isArray(product) ? product : [product];
+        const productList: SDKProduct[] = Array.isArray(product) ? product : [product];
 
-        productList.forEach(function(product) {
+        productList.forEach(function(product: SDKProduct) {
             if (product.TotalAmount) {
                 product.TotalAmount = mpInstance._Ecommerce.sanitizeAmount(
                     product.TotalAmount,
@@ -163,35 +194,36 @@ export default function Events(mpInstance) {
         });
 
         if (event) {
-            event.EventCategory = mpInstance._Ecommerce.convertProductActionToEventType(
+            // TODO(https://go/j/SDKE-1108): Remove `as Function` casts when ecommerce.js is migrated to TS
+            event.EventCategory = (mpInstance._Ecommerce.convertProductActionToEventType as Function)(
                 productActionType
             );
             event.EventName += mpInstance._Ecommerce.getProductActionEventName(
                 productActionType
             );
             event.ProductAction = {
-                ProductActionType: productActionType,
+                ProductActionType: productActionType as SDKProductActionType,
                 ProductList: productList,
             };
 
             if (mpInstance._Helpers.isObject(transactionAttributes)) {
-                mpInstance._Ecommerce.convertTransactionAttributesToProductAction(
+                (mpInstance._Ecommerce.convertTransactionAttributesToProductAction as Function)(
                     transactionAttributes,
                     event.ProductAction
                 );
             }
 
-            self.logCommerceEvent(event, customAttrs, options);
+            this.logCommerceEvent(event, customAttrs, options);
         }
     };
 
-    this.logPurchaseEvent = function(
-        transactionAttributes,
-        product,
-        attrs,
-        customFlags
-    ) {
-        var event = mpInstance._Ecommerce.createCommerceEventObject(
+    this.logPurchaseEvent = (
+        transactionAttributes: TransactionAttributes,
+        product: SDKProduct | SDKProduct[],
+        attrs?: SDKEventAttrs,
+        customFlags?: SDKEventCustomFlags
+    ): void => {
+        const event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
 
@@ -203,32 +235,32 @@ export default function Events(mpInstance) {
             event.ProductAction = {
                 ProductActionType: Types.ProductActionType.Purchase,
             };
-            event.ProductAction.ProductList = mpInstance._Ecommerce.buildProductList(
+            event.ProductAction.ProductList = (mpInstance._Ecommerce.buildProductList as Function)(
                 event,
                 product
             );
 
-            mpInstance._Ecommerce.convertTransactionAttributesToProductAction(
+            (mpInstance._Ecommerce.convertTransactionAttributesToProductAction as Function)(
                 transactionAttributes,
                 event.ProductAction
             );
 
-            self.logCommerceEvent(event, attrs);
+            this.logCommerceEvent(event, attrs);
         }
     };
 
-    this.logRefundEvent = function(
-        transactionAttributes,
-        product,
-        attrs,
-        customFlags
-    ) {
+    this.logRefundEvent = (
+        transactionAttributes: TransactionAttributes,
+        product: SDKProduct | SDKProduct[],
+        attrs?: SDKEventAttrs,
+        customFlags?: SDKEventCustomFlags
+    ): void => {
         if (!transactionAttributes) {
             mpInstance.Logger.error(Messages.ErrorMessages.TransactionRequired);
             return;
         }
 
-        var event = mpInstance._Ecommerce.createCommerceEventObject(
+        const event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
 
@@ -240,28 +272,28 @@ export default function Events(mpInstance) {
             event.ProductAction = {
                 ProductActionType: Types.ProductActionType.Refund,
             };
-            event.ProductAction.ProductList = mpInstance._Ecommerce.buildProductList(
+            event.ProductAction.ProductList = (mpInstance._Ecommerce.buildProductList as Function)(
                 event,
                 product
             );
 
-            mpInstance._Ecommerce.convertTransactionAttributesToProductAction(
+            (mpInstance._Ecommerce.convertTransactionAttributesToProductAction as Function)(
                 transactionAttributes,
                 event.ProductAction
             );
 
-            self.logCommerceEvent(event, attrs);
+            this.logCommerceEvent(event, attrs);
         }
     };
 
-    this.logPromotionEvent = function(
-        promotionType,
-        promotion,
-        attrs,
-        customFlags,
-        eventOptions
-    ) {
-        var event = mpInstance._Ecommerce.createCommerceEventObject(
+    this.logPromotionEvent = (
+        promotionType: valueof<typeof PromotionActionType>,
+        promotion: SDKPromotion | SDKPromotion[],
+        attrs?: SDKEventAttrs,
+        customFlags?: SDKEventCustomFlags,
+        eventOptions?: SDKEventOptions
+    ): void => {
+        const event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
 
@@ -269,7 +301,7 @@ export default function Events(mpInstance) {
             event.EventName += mpInstance._Ecommerce.getPromotionActionEventName(
                 promotionType
             );
-            event.EventCategory = mpInstance._Ecommerce.convertPromotionActionToEventType(
+            event.EventCategory = (mpInstance._Ecommerce.convertPromotionActionToEventType as Function)(
                 promotionType
             );
             event.PromotionAction = {
@@ -279,43 +311,57 @@ export default function Events(mpInstance) {
                     : [promotion],
             };
 
-            self.logCommerceEvent(event, attrs, eventOptions);
+            this.logCommerceEvent(event, attrs, eventOptions);
         }
     };
 
-    this.logImpressionEvent = function(
-        impression,
-        attrs,
-        customFlags,
-        options
-    ) {
-        var event = mpInstance._Ecommerce.createCommerceEventObject(
+    this.logImpressionEvent = (
+        impression: SDKImpression | SDKImpression[] | SDKProductImpression | SDKProductImpression[],
+        attrs?: SDKEventAttrs,
+        customFlags?: SDKEventCustomFlags,
+        options?: SDKEventOptions
+    ): void => {
+        const event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
 
         if (event) {
             event.EventName += 'Impression';
             event.EventCategory = Types.CommerceEventType.ProductImpression;
-            if (!Array.isArray(impression)) {
-                impression = [impression];
-            }
+            // https://go/j/SDKE-1199
+            const impressionList: (SDKImpression | SDKProductImpression)[] = Array.isArray(impression)
+                ? impression
+                : [impression];
 
             event.ProductImpressions = [];
 
-            impression.forEach(function(impression) {
-                event.ProductImpressions.push({
-                    ProductImpressionList: impression.Name,
-                    ProductList: Array.isArray(impression.Product)
-                        ? impression.Product
-                        : [impression.Product],
-                });
+            impressionList.forEach(function(item) {
+                if ('Name' in item) {
+                    const imp = item as SDKImpression;
+                    event.ProductImpressions.push({
+                        ProductImpressionList: imp.Name,
+                        ProductList: Array.isArray(imp.Product)
+                            ? imp.Product
+                            : [imp.Product],
+                    });
+                } else {
+                    const imp = item as SDKProductImpression;
+                    event.ProductImpressions.push({
+                        ProductImpressionList: imp.ProductImpressionList,
+                        ProductList: imp.ProductList || [],
+                    });
+                }
             });
 
-            self.logCommerceEvent(event, attrs, options);
+            this.logCommerceEvent(event, attrs, options);
         }
     };
 
-    this.logCommerceEvent = function(commerceEvent, attrs, options) {
+    this.logCommerceEvent = function(
+        commerceEvent: SDKEvent,
+        attrs?: SDKEventAttrs,
+        options?: SDKEventOptions
+    ): void {
         mpInstance.Logger.verbose(
             Messages.InformationMessages.StartingLogCommerceEvent
         );
@@ -346,7 +392,7 @@ export default function Events(mpInstance) {
             }
 
             if (attrs) {
-                commerceEvent.EventAttributes = attrs;
+                commerceEvent.EventAttributes = attrs as Record<string, string>;
             }
 
             mpInstance._APIClient.sendEventToServer(commerceEvent, options);
@@ -360,16 +406,18 @@ export default function Events(mpInstance) {
         }
     };
 
-    this.addEventHandler = function(
-        domEvent,
-        selector,
-        eventName,
-        data,
-        eventType
-    ) {
-        var elements = [],
-            handler = function(e) {
-                var timeoutHandler = function() {
+    this.addEventHandler = (
+        domEvent: string,
+        selector: string | Node,
+        eventName: ((element: HTMLLinkElement | HTMLFormElement) => string) | string,
+        data: ((element: HTMLLinkElement | HTMLFormElement) => SDKEventAttrs) | SDKEventAttrs,
+        eventType: valueof<typeof EventType>
+    ): void => {
+        let elements: ArrayLike<Element> | Element[] = [];
+        let element: DOMHandlerElement;
+        let elementIndex: number;
+        const handler = (e: Event): void => {
+                const timeoutHandler = function(): void {
                     if (element.href) {
                         window.location.href = element.href;
                     } else if (element.submit) {
@@ -381,14 +429,14 @@ export default function Events(mpInstance) {
                     'DOM event triggered, handling event'
                 );
 
-                self.logEvent({
+                this.logEvent({
                     messageType: Types.MessageType.PageEvent,
                     name:
                         typeof eventName === 'function'
-                            ? eventName(element)
+                            ? eventName(element as HTMLLinkElement)
                             : eventName,
-                    data: typeof data === 'function' ? data(element) : data,
-                    eventType: eventType || Types.EventType.Other,
+                    data: typeof data === 'function' ? data(element as HTMLLinkElement) : data,
+                    eventType: (eventType || Types.EventType.Other) as number,
                 });
 
                 // TODO: Handle middle-clicks and special keys (ctrl, alt, etc)
@@ -401,7 +449,7 @@ export default function Events(mpInstance) {
                     if (e.preventDefault) {
                         e.preventDefault();
                     } else {
-                        e.returnValue = false;
+                        (e as { returnValue: boolean }).returnValue = false;
                     }
 
                     setTimeout(
@@ -409,9 +457,7 @@ export default function Events(mpInstance) {
                         mpInstance._Store.SDKConfig.timeout
                     );
                 }
-            },
-            element,
-            i;
+            };
 
         if (!selector) {
             mpInstance.Logger.error("Can't bind event, selector is required");
@@ -422,7 +468,7 @@ export default function Events(mpInstance) {
         if (typeof selector === 'string') {
             elements = document.querySelectorAll(selector);
         } else if (selector.nodeType) {
-            elements = [selector];
+            elements = [selector as Element];
         }
 
         if (elements.length) {
@@ -434,17 +480,14 @@ export default function Events(mpInstance) {
                     ', attaching event handlers'
             );
 
-            for (i = 0; i < elements.length; i++) {
-                element = elements[i];
+            for (elementIndex = 0; elementIndex < elements.length; elementIndex++) {
+                element = elements[elementIndex] as DOMHandlerElement;
 
                 if (element.addEventListener) {
-                    // Modern browsers
                     element.addEventListener(domEvent, handler, false);
                 } else if (element.attachEvent) {
-                    // IE < 9
                     element.attachEvent('on' + domEvent, handler);
                 } else {
-                    // All other browsers
                     element['on' + domEvent] = handler;
                 }
             }
