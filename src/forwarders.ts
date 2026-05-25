@@ -1,5 +1,5 @@
 import filteredMparticleUser from './filteredMparticleUser';
-import { isEmpty, extend } from './utils';
+import { isEmpty, extend, Dictionary } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
 import APIClient, { IForwardingStatsData } from './apiClient';
@@ -19,7 +19,7 @@ import {
     MPForwarder,
     RegisteredKit,
     forwardingStatsCallback as ForwardingStatsCallback,
-    ConfiguredKit,
+    SideloadedKit,
 } from './forwarders.interfaces';
 import {
     IConfigResponse,
@@ -31,7 +31,6 @@ import { IPixelConfiguration } from './cookieSyncManager';
 import { Batch } from '@mparticle/event-models';
 import { IMParticleUser, ISDKUserIdentity } from './identity-user-interfaces';
 import KitBlocker from './kitBlocking';
-import { Dictionary } from './utils';
 
 const { Modify, Identify, Login, Logout } = Constants.IdentityMethods;
 
@@ -238,13 +237,7 @@ export default function Forwarders(
                 event.EventCategory
             );
 
-            for (
-                let i = 0;
-                i < mpInstance._Store.activeForwarders.length;
-                i++
-            ) {
-                const forwarder = mpInstance._Store.activeForwarders[i];
-
+            for (const forwarder of mpInstance._Store.activeForwarders) {
                 if (
                     (isBlockedByForwardingRule as Function)(
                         event.EventDataType,
@@ -356,7 +349,7 @@ export default function Forwarders(
                 const result = forwarder.processBatch(batchCopy);
 
                 if (result) {
-                    mpInstance.Logger.verbose(result as string);
+                    mpInstance.Logger.verbose(result);
                 }
             } catch (e) {
                 mpInstance.Logger.verbose(e as string);
@@ -641,7 +634,7 @@ export default function Forwarders(
     // there being a separate process for MP configured kits and
     // sideloaded kits, this will need to be refactored.
     this.processSideloadedKits = function(
-        mpConfig: IConfigResponse & { sideloadedKits?: { kitInstance: { register: Function; name: string }; filterDictionary: IKitFilterSettings }[] }
+        mpConfig: IConfigResponse & { sideloadedKits?: SideloadedKit[] }
     ): void {
         try {
             if (Array.isArray(mpConfig.sideloadedKits)) {

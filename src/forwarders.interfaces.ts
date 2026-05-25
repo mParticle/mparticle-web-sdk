@@ -39,6 +39,11 @@ export interface UnregisteredKit {
     suffix?: string;
 }
 
+export interface SideloadedKit {
+    kitInstance: UnregisteredKit;
+    filterDictionary: IKitFilterSettings;
+}
+
 // The state of the kit after being added to forwarderConstructors in the CDN
 // or after registered to SDKConfig.kits via NPM
 // Sideloaded Kits would also be considered registered
@@ -190,7 +195,7 @@ export interface IForwarders {
         configuration: IKitConfigs,
         kits: Dictionary<RegisteredKit>
     ): void;
-    processSideloadedKits(mpConfig: IConfigResponse): void;
+    processSideloadedKits(mpConfig: IConfigResponse & { sideloadedKits?: SideloadedKit[] }): void;
     configureSideloadedKit(kitConstructor: RegisteredKit): void;
     returnConfiguredKit(
         forwarder: RegisteredKit,
