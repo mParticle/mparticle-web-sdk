@@ -2,7 +2,7 @@ import Constants from './constants';
 import Polyfill from './polyfill';
 import * as Utils from './utils';
 import { IMParticleWebSDKInstance } from './mp-instance';
-import { IPersistence, IPersistenceMinified, iForwardingStatsBatches } from './persistence.interfaces';
+import { IPersistence, IPersistenceMinified } from './persistence.interfaces';
 import { MPID, IdentityApiData } from '@mparticle/web-sdk';
 import { CookieSyncDates } from './cookieSyncManager';
 import { Dictionary } from './utils';
