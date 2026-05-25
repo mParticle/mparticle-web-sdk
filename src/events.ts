@@ -419,7 +419,7 @@ export default function Events(
         const handler = (e: Event): void => {
                 const timeoutHandler = function(): void {
                     if (element.href) {
-                        globalThis.location.href = element.href;
+                        window.location.href = element.href;
                     } else if (element.submit) {
                         element.submit();
                     }
