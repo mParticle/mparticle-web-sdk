@@ -1,5 +1,6 @@
 import Constants, { HTTP_OK } from './constants';
 import Types, { IdentityType } from './types';
+import AudienceManager, { IAudienceMemberships } from './audienceManager';
 import {
     cacheOrClearIdCache,
     createKnownIdentities,
@@ -9,20 +10,6 @@ import {
     normalizeUserIdentityKeys,
     tryCacheIdentity,
 } from './identity-utils';
-import AudienceManager, { IAudienceMemberships } from './audienceManager';
-const { Messages, HTTPCodes, FeatureFlags, IdentityMethods } = Constants;
-const { ErrorMessages } = Messages;
-const { CacheIdentity } = FeatureFlags;
-const { Identify, Modify, Login, Logout } = IdentityMethods;
-import {
-    Environment,
-    generateDeprecationMessage,
-    isEmpty,
-    isFunction,
-    isObject,
-} from './utils';
-import { hasMPIDAndUserLoginChanged, hasMPIDChanged } from './user-utils';
-import { processReadyQueue } from './pre-init-utils';
 import {
     IdentityCallback,
     IIdentityResponse,
@@ -30,19 +17,38 @@ import {
     mParticleUserCart,
 } from './identity-user-interfaces';
 import {
+    AliasRequestScope,
+    IAliasCallback,
+    IAliasRequest,
+    IdentityAPIMethod,
     IIdentity,
     IIdentityAPIRequestData,
-    IdentityAPIMethod,
-    IAliasRequest,
-    IAliasCallback,
-    AliasRequestScope,
     SDKIdentityTypeEnum,
 } from './identity.interfaces';
-import { IMParticleWebSDKInstance } from './mp-instance';
-import { IdentityApiData, UserIdentities, MPID, ConsentState, UserAttributesValue } from '@mparticle/web-sdk';
-import { Context } from '@mparticle/event-models';
-import { BaseEvent, SDKEvent, SDKLoggerApi } from './sdkRuntimeModels';
 import { IdentitySearchCallback } from './identity/search';
+import { IMParticleWebSDKInstance } from './mp-instance';
+import { processReadyQueue } from './pre-init-utils';
+import { BaseEvent, SDKEvent, SDKLoggerApi } from './sdkRuntimeModels';
+import { hasMPIDAndUserLoginChanged, hasMPIDChanged } from './user-utils';
+import {
+    generateDeprecationMessage,
+    isEmpty,
+    isFunction,
+    isObject,
+} from './utils';
+import {
+    ConsentState,
+    IdentityApiData,
+    MPID,
+    UserAttributesValue,
+    UserIdentities,
+} from '@mparticle/web-sdk';
+import { Context } from '@mparticle/event-models';
+
+const { Messages, HTTPCodes, FeatureFlags, IdentityMethods } = Constants;
+const { ErrorMessages } = Messages;
+const { CacheIdentity } = FeatureFlags;
+const { Identify, Modify, Login, Logout } = IdentityMethods;
 
 export default function Identity(
     this: IIdentity,
@@ -423,9 +429,8 @@ export default function Identity(
                             mpInstance._Store.activeForwarders.forEach(function(
                                 forwarder
                             ) {
-                                const fwd = forwarder as unknown as Record<string, Function>;
-                                if (typeof fwd.logOut === 'function') {
-                                    fwd.logOut(evt);
+                                if (typeof forwarder.logOut === 'function') {
+                                    forwarder.logOut(evt);
                                 }
                             });
                         }
@@ -1435,7 +1440,7 @@ export default function Identity(
         callback: IdentityCallback,
         identityApiData: IdentityApiData,
         method: IdentityAPIMethod,
-        knownIdentities: IKnownIdentities | UserIdentities,
+        knownIdentities: IKnownIdentities,
         parsingCachedResponse: boolean
     ): void {
         const prevUser = mpInstance.Identity.getUser(previousMPID);
@@ -1687,17 +1692,19 @@ export default function Identity(
         for (const identityType in newUserIdentities) {
             // Verifies a change actually happened
             if (
-                prevUserIdentities[identityType] !==
-                newUserIdentities[identityType]
+                prevUserIdentities[identityType as keyof UserIdentities] !==
+                newUserIdentities[identityType as keyof UserIdentities]
             ) {
                 // If a new identity type was introduced when the identity changes
                 // we need to notify the server so that the user profile is updated in
                 // the mParticle UI.
-                const isNewUserIdentityType = !prevUserIdentities[identityType];
+                const isNewUserIdentityType = !prevUserIdentities[
+                    identityType as keyof UserIdentities
+                ];
                 const userIdentityChangeEvent = self.createUserIdentityChange(
-                    identityType,
-                    newUserIdentities[identityType],
-                    prevUserIdentities[identityType],
+                    identityType as SDKIdentityTypeEnum,
+                    newUserIdentities[identityType as keyof UserIdentities],
+                    prevUserIdentities[identityType as keyof UserIdentities],
                     isNewUserIdentityType,
                     currentUserInMemory
                 );
@@ -1709,7 +1716,7 @@ export default function Identity(
     };
 
     this.createUserIdentityChange = function(
-        identityType: string,
+        identityType: SDKIdentityTypeEnum,
         newIdentity: string,
         oldIdentity: string,
         isIdentityTypeNewToBatch: boolean,

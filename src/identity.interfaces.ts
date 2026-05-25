@@ -227,7 +227,7 @@ export interface IIdentity {
         user: IMParticleUser
     ): IUserAttributeChangeEvent;
     createUserIdentityChange(
-        identityType: SDKIdentityTypeEnum | string,
+        identityType: SDKIdentityTypeEnum,
         newIdentity: string,
         oldIdentity: string,
         newCreatedThisBatch: boolean,
@@ -239,7 +239,7 @@ export interface IIdentity {
         callback: IdentityCallback,
         identityApiData: IdentityApiData,
         method: IdentityAPIMethod,
-        knownIdentities: IKnownIdentities | UserIdentities,
+        knownIdentities: IKnownIdentities,
         parsingCachedResponse: boolean
     ): void;
     sendUserAttributeChangeEvent(
