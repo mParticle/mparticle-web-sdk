@@ -27,6 +27,8 @@ export type {
     ProductActionType,
     PromotionActionType,
     MessageType,
+    RoktEventName,
+    RoktEvents,
 } from './types';
 
 // Configuration
