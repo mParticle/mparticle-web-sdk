@@ -15,7 +15,6 @@ export default function Helpers(
     this: SDKHelpersApi,
     mpInstance: IMParticleWebSDKInstance
 ): void {
-    const self = this;
     this.canLog = function(): boolean {
         if (
             mpInstance._Store.isEnabled &&
@@ -35,18 +34,18 @@ export default function Helpers(
         return null;
     };
 
-    this.invokeCallback = function(
+    this.invokeCallback = (
         callback: Function,
         code: number,
         body: string,
         mParticleUser?: IMParticleUser,
         previousMpid?: MPID
-    ): void {
+    ): void => {
         if (!callback) {
             mpInstance.Logger.warning('There is no callback provided');
         }
         try {
-            if (self.Validators.isFunction(callback)) {
+            if (this.Validators.isFunction(callback)) {
                 callback({
                     httpCode: code,
                     body: body,
@@ -86,16 +85,16 @@ export default function Helpers(
         }
     };
 
-    this.invokeAliasCallback = function(
+    this.invokeAliasCallback = (
         callback: Function,
         code: number,
         message?: string
-    ): void {
+    ): void => {
         if (!callback) {
             mpInstance.Logger.warning('There is no callback provided');
         }
         try {
-            if (self.Validators.isFunction(callback)) {
+            if (this.Validators.isFunction(callback)) {
                 const callbackMessage: Dictionary = {
                     httpCode: code,
                 };
@@ -158,10 +157,10 @@ export default function Helpers(
         return xhr;
     };
 
-    this.filterUserIdentities = function(
+    this.filterUserIdentities = (
         userIdentitiesObject: Dictionary<string>,
         filterList: number[]
-    ): Array<{ Type: number; Identity: string }> {
+    ): Array<{ Type: number; Identity: string }> => {
         const filteredUserIdentities: Array<{ Type: number; Identity: string }> = [];
 
         if (userIdentitiesObject && Object.keys(userIdentitiesObject).length) {
@@ -170,7 +169,7 @@ export default function Helpers(
                     const userIdentityType = Types.IdentityType.getIdentityType(
                         userIdentityName
                     );
-                    if (!self.inArray(filterList, userIdentityType)) {
+                    if (!this.inArray(filterList, userIdentityType)) {
                         const identity = {
                             Type: userIdentityType,
                             Identity: userIdentitiesObject[userIdentityName],
@@ -205,11 +204,11 @@ export default function Helpers(
         return false;
     };
 
-    this.sanitizeAttributes = function(
+    this.sanitizeAttributes = (
         attrs: Dictionary,
         name: string
-    ): Dictionary<string> | null {
-        if (!attrs || !self.isObject(attrs)) {
+    ): Dictionary<string> | null => {
+        if (!attrs || !this.isObject(attrs)) {
             return null;
         }
 
@@ -219,7 +218,7 @@ export default function Helpers(
             // Make sure that attribute values are not objects or arrays, which are not valid
             if (
                 attrs.hasOwnProperty(prop) &&
-                self.Validators.isValidAttributeValue(attrs[prop])
+                this.Validators.isValidAttributeValue(attrs[prop])
             ) {
                 sanitizedAttrs[prop] = attrs[prop];
             } else {
