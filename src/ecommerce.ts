@@ -32,8 +32,7 @@ export default function Ecommerce(
     this: IECommerce,
     mpInstance: IMParticleWebSDKInstance
 ): void {
-    const self = this;
-    const _self = self as { [K in keyof IECommerce]: Function };
+    const _self = this as unknown as { [K in keyof IECommerce]: Function };
 
     // https://go.mparticle.com/work/SQDSDKS-4801
     _self.convertTransactionAttributesToProductAction = function(
@@ -231,11 +230,11 @@ export default function Ecommerce(
     };
 
     // https://go.mparticle.com/work/SQDSDKS-4801
-    _self.extractActionAttributes = function(
+    _self.extractActionAttributes = (
         attributes: Record<string, string | number>,
         productAction: ProductAction & SDKProductAction
-    ): void {
-        (self.extractTransactionId as Function)(attributes, productAction);
+    ): void => {
+        (this.extractTransactionId as Function)(attributes, productAction);
 
         if (productAction.Affiliation) {
             attributes['Affiliation'] = productAction.Affiliation;
@@ -434,20 +433,20 @@ export default function Ecommerce(
         };
     };
 
-    _self.expandProductImpression = function(
+    _self.expandProductImpression = (
         commerceEvent: CommerceEvent & SDKEvent
-    ): SDKEvent[] {
+    ): SDKEvent[] => {
         const appEvents: SDKEvent[] = [];
         if (!commerceEvent.ProductImpressions) {
             return appEvents;
         }
-        commerceEvent.ProductImpressions.forEach(function(
+        commerceEvent.ProductImpressions.forEach((
             productImpression: SDKProductImpression
-        ) {
+        ) => {
             if (productImpression.ProductList) {
-                productImpression.ProductList.forEach(function(
+                productImpression.ProductList.forEach((
                     product: SDKProduct
-                ) {
+                ) => {
                     let attributes = extend(
                         false,
                         {},
@@ -459,7 +458,7 @@ export default function Ecommerce(
                                 product.Attributes[attribute];
                         }
                     }
-                    (self.extractProductAttributes as Function)(
+                    (this.extractProductAttributes as Function)(
                         attributes,
                         product
                     );
@@ -469,7 +468,7 @@ export default function Ecommerce(
                     }
                     const appEvent = mpInstance._ServerModel.createEventObject({
                         messageType: Types.MessageType.PageEvent,
-                        name: (self.generateExpandedEcommerceName as Function)(
+                        name: (this.generateExpandedEcommerceName as Function)(
                             'Impression'
                         ),
                         data: attributes,
@@ -483,35 +482,35 @@ export default function Ecommerce(
         return appEvents;
     };
 
-    _self.expandCommerceEvent = function(
+    _self.expandCommerceEvent = (
         event: CommerceEvent & SDKEvent
-    ): SDKEvent[] | null {
+    ): SDKEvent[] | null => {
         if (!event) {
             return null;
         }
-        return (self.expandProductAction as Function)(event)
-            .concat((self.expandPromotionAction as Function)(event))
-            .concat((self.expandProductImpression as Function)(event));
+        return (this.expandProductAction as Function)(event)
+            .concat((this.expandPromotionAction as Function)(event))
+            .concat((this.expandProductImpression as Function)(event));
     };
 
-    _self.expandPromotionAction = function(
+    _self.expandPromotionAction = (
         commerceEvent: CommerceEvent & SDKEvent
-    ): SDKEvent[] {
+    ): SDKEvent[] => {
         const appEvents: SDKEvent[] = [];
         if (!commerceEvent.PromotionAction) {
             return appEvents;
         }
         const promotions = commerceEvent.PromotionAction.PromotionList;
-        promotions.forEach(function(promotion: SDKPromotion) {
+        promotions.forEach((promotion: SDKPromotion) => {
             let attributes = extend(false, {}, commerceEvent.EventAttributes);
-            (self.extractPromotionAttributes as Function)(
+            (this.extractPromotionAttributes as Function)(
                 attributes,
                 promotion
             );
 
             const appEvent = mpInstance._ServerModel.createEventObject({
                 messageType: Types.MessageType.PageEvent,
-                name: (self.generateExpandedEcommerceName as Function)(
+                name: (this.generateExpandedEcommerceName as Function)(
                     (Types.PromotionActionType.getExpansionName as Function)(
                         commerceEvent.PromotionAction.PromotionActionType
                     )
@@ -524,9 +523,9 @@ export default function Ecommerce(
         return appEvents;
     };
 
-    _self.expandProductAction = function(
+    _self.expandProductAction = (
         commerceEvent: CommerceEvent & SDKEvent
-    ): SDKEvent[] {
+    ): SDKEvent[] => {
         const appEvents: SDKEvent[] = [];
         if (!commerceEvent.ProductAction) {
             return appEvents;
@@ -543,7 +542,7 @@ export default function Ecommerce(
                 .ProductList
                 ? commerceEvent.ProductAction.ProductList.length
                 : 0;
-            (self.extractActionAttributes as Function)(
+            (this.extractActionAttributes as Function)(
                 attributes,
                 commerceEvent.ProductAction
             );
@@ -552,7 +551,7 @@ export default function Ecommerce(
             }
             const plusOneEvent = mpInstance._ServerModel.createEventObject({
                 messageType: Types.MessageType.PageEvent,
-                name: self.generateExpandedEcommerceName(
+                name: this.generateExpandedEcommerceName(
                     Types.ProductActionType.getExpansionName(
                         commerceEvent.ProductAction.ProductActionType
                     ),
@@ -572,28 +571,28 @@ export default function Ecommerce(
             return appEvents;
         }
 
-        products.forEach(function(product: SDKProduct) {
+        products.forEach((product: SDKProduct) => {
             let attributes = extend(
                 false,
                 commerceEvent.EventAttributes,
                 product.Attributes
             );
             if (shouldExtractActionAttributes) {
-                (self.extractActionAttributes as Function)(
+                (this.extractActionAttributes as Function)(
                     attributes,
                     commerceEvent.ProductAction
                 );
             } else {
-                (self.extractTransactionId as Function)(
+                (this.extractTransactionId as Function)(
                     attributes,
                     commerceEvent.ProductAction
                 );
             }
-            (self.extractProductAttributes as Function)(attributes, product);
+            (this.extractProductAttributes as Function)(attributes, product);
 
             const productEvent = mpInstance._ServerModel.createEventObject({
                 messageType: Types.MessageType.PageEvent,
-                name: (self.generateExpandedEcommerceName as Function)(
+                name: (this.generateExpandedEcommerceName as Function)(
                     Types.ProductActionType.getExpansionName(
                         commerceEvent.ProductAction.ProductActionType
                     )
