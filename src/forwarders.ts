@@ -238,7 +238,13 @@ export default function Forwarders(
                 event.EventCategory
             );
 
-            for (const forwarder of mpInstance._Store.activeForwarders) {
+            for (
+                let i = 0;
+                i < mpInstance._Store.activeForwarders.length;
+                i++
+            ) {
+                const forwarder = mpInstance._Store.activeForwarders[i];
+
                 if (
                     (isBlockedByForwardingRule as Function)(
                         event.EventDataType,
@@ -305,13 +311,7 @@ export default function Forwarders(
             return;
         }
 
-        for (
-            let i = 0;
-            i < mpInstance._Store.activeForwarders.length;
-            i++
-        ) {
-            const forwarder = mpInstance._Store.activeForwarders[i];
-
+        for (const forwarder of mpInstance._Store.activeForwarders) {
             if (!forwarder.processBatch) {
                 continue;
             }
