@@ -1,4 +1,4 @@
-import { SDKEvent, SDKEventCustomFlags } from './sdkRuntimeModels';
+import { SDKEvent, SDKEventCustomFlags, SDKLoggerApi } from './sdkRuntimeModels';
 import { Dictionary } from './utils';
 import {
     IKitConfigs,
@@ -103,6 +103,9 @@ export interface ConfiguredKit
     // TODO: https://go.mparticle.com/work/SQDSDKS-5156
     isSandbox: boolean;
     hasSandbox: boolean;
+
+    initialized?: boolean;
+    logger?: SDKLoggerApi;
 }
 
 export interface KitInterface {

@@ -18,6 +18,7 @@ import {
     IForwarders,
     MPForwarder,
     RegisteredKit,
+    ConfiguredKit,
     forwardingStatsCallback as ForwardingStatsCallback,
     SideloadedKit,
 } from './forwarders.interfaces';
@@ -67,7 +68,7 @@ export default function Forwarders(
                 );
             });
 
-            mpInstance._Store.activeForwarders = mpInstance._Store.configuredForwarders.filter(
+            mpInstance._Store.activeForwarders = (mpInstance._Store.configuredForwarders as unknown as ConfiguredKit[]).filter(
                 (forwarder) => {
                     if (
                         !mpInstance._Consent.isEnabledForUserConsent(
