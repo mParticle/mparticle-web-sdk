@@ -11,7 +11,7 @@ import { ISessionManager } from './sessionManager';
 import { ConfiguredKit, MPForwarder, UnregisteredKit } from './forwarders.interfaces';
 import { SDKIdentityApi, IAliasCallback } from './identity.interfaces';
 import { ISDKUserAttributeChangeData, ISDKUserIdentityChanges, IMParticleUser, ISDKUserIdentity, IdentityCallback, ISDKUserAttributes } from './identity-user-interfaces';
-import { CommerceEventType, EventType, IdentityType, ProductActionType, PromotionActionType } from './types';
+import { CommerceEventType, EventType, IdentityType, ProductActionType, PromotionActionType, RoktEvents } from './types';
 import { IPixelConfiguration } from './cookieSyncManager';
 import _BatchValidator from './mockBatchCreator';
 import { SDKECommerceAPI } from './ecommerce.interfaces';
@@ -103,7 +103,15 @@ export declare enum SDKProductActionType {
     Purchase = 7,
     Refund = 8,
     AddToWishlist = 9,
-    RemoveFromWishlist = 10
+    RemoveFromWishlist = 10,
+    ViewCart = 11,
+    AddShippingInfo = 12,
+    AddPaymentInfo = 13,
+    PaymentMethodSelected = 14,
+    PaymentAttempted = 15,
+    PaymentSucceeded = 16,
+    PaymentFailed = 17,
+    RefundInitiated = 18
 }
 export interface SDKProductAction {
     ProductActionType: SDKProductActionType;
@@ -137,6 +145,7 @@ export interface MParticleWebSDK {
     EventType: typeof EventType;
     PromotionType: typeof PromotionActionType;
     ProductActionType: typeof ProductActionType;
+    RoktEvents: typeof RoktEvents;
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
     Consent: SDKConsentApi;

@@ -29,6 +29,7 @@ declare namespace mParticle {
     export let IdentityType: {};
     export let ProductActionType: {};
     export let PromotionType: {};
+    export let RoktEvents: {};
     export namespace eCommerce {
         export { returnImpression as createImpression };
         export { returnProduct as createProduct };

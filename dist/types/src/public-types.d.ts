@@ -13,7 +13,7 @@
  * natively defined in this SDK and the DT package is deprecated.
  */
 export type { Batch, } from '@mparticle/event-models';
-export type { EventType, CommerceEventType, IdentityType, ProductActionType, PromotionActionType, MessageType, } from './types';
+export type { EventType, CommerceEventType, IdentityType, ProductActionType, PromotionActionType, MessageType, RoktEventName, RoktEvents, } from './types';
 export type { SDKInitConfig, DataPlanConfig, BaseEvent, SDKEventCustomFlags, LogLevelType, MParticleWebSDK, } from './sdkRuntimeModels';
 export type { IMParticleUser, IdentityCallback, IdentityResult, IdentityResultBody, IdentityModifyResultBody, ISDKUserIdentity, ISDKUserAttributes, } from './identity-user-interfaces';
 export type { SDKIdentityApi, IAliasRequest, IAliasCallback, IAliasResult, SDKIdentityTypeEnum, IIdentitySearchResult, IIdentitySearchResponseBody, IdentitySearchCallback, IUserIdentities } from './identity.interfaces';

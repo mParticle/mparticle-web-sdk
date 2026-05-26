@@ -5,6 +5,7 @@ export declare const ErrorCodes: {
     readonly IDENTITY_REQUEST: "IDENTITY_REQUEST";
     readonly IDENTITY_MISMATCH: "IDENTITY_MISMATCH";
     readonly ROKT_KIT_ATTACHED: "ROKT_KIT_ATTACHED";
+    readonly MP_DEPRECATED_METHOD_USAGE: "MP_DEPRECATED_METHOD_USAGE";
 };
 export type ErrorCodes = valueof<typeof ErrorCodes>;
 export declare const WSDKErrorSeverity: {

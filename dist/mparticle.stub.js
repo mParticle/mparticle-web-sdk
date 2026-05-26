@@ -30,6 +30,7 @@ var mParticle = (function () {
         IdentityType: {},
         ProductActionType: {},
         PromotionType: {},
+        RoktEvents: {},
         eCommerce: {
             createImpression: returnImpression,
             createProduct: returnProduct,

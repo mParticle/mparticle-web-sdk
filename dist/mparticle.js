@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.68.0";
+    var version = "2.69.0";
 
     var Constants = {
       sdkVersion: version,
@@ -1293,6 +1293,18 @@ var mParticle = (function () {
       Refund: 8,
       AddToWishlist: 9,
       RemoveFromWishlist: 10,
+      // Rokt Brain commerce-adjacent types
+      ViewCart: 11,
+      AddShippingInfo: 12,
+      AddPaymentInfo: 13,
+      PaymentMethodSelected: 14,
+      PaymentAttempted: 15,
+      PaymentSucceeded: 16,
+      PaymentFailed: 17,
+      RefundInitiated: 18,
+      isRoktCommerceType: function isRoktCommerceType(id) {
+        return id >= ProductActionType.ViewCart && id <= ProductActionType.RefundInitiated;
+      },
       getName: function getName(id) {
         switch (id) {
           case ProductActionType.AddToCart:
@@ -1315,6 +1327,22 @@ var mParticle = (function () {
             return 'Add to Wishlist';
           case ProductActionType.RemoveFromWishlist:
             return 'Remove from Wishlist';
+          case ProductActionType.ViewCart:
+            return 'View Cart';
+          case ProductActionType.AddShippingInfo:
+            return 'Add Shipping Info';
+          case ProductActionType.AddPaymentInfo:
+            return 'Add Payment Info';
+          case ProductActionType.PaymentMethodSelected:
+            return 'Payment Method Selected';
+          case ProductActionType.PaymentAttempted:
+            return 'Payment Attempted';
+          case ProductActionType.PaymentSucceeded:
+            return 'Payment Succeeded';
+          case ProductActionType.PaymentFailed:
+            return 'Payment Failed';
+          case ProductActionType.RefundInitiated:
+            return 'Refund Initiated';
           default:
             return 'Unknown';
         }
@@ -1342,10 +1370,39 @@ var mParticle = (function () {
             return 'add_to_wishlist';
           case ProductActionType.RemoveFromWishlist:
             return 'remove_from_wishlist';
+          case ProductActionType.ViewCart:
+            return 'view_cart';
+          case ProductActionType.AddShippingInfo:
+            return 'add_shipping_info';
+          case ProductActionType.AddPaymentInfo:
+            return 'add_payment_info';
+          case ProductActionType.PaymentMethodSelected:
+            return 'payment_method_selected';
+          case ProductActionType.PaymentAttempted:
+            return 'payment_attempted';
+          case ProductActionType.PaymentSucceeded:
+            return 'payment_succeeded';
+          case ProductActionType.PaymentFailed:
+            return 'payment_failed';
+          case ProductActionType.RefundInitiated:
+            return 'refund_initiated';
           default:
             return 'unknown';
         }
       }
+    };
+    var RoktEvents = {
+      SignUp: 'sign_up',
+      Subscribe: 'subscribe',
+      StartTrial: 'start_trial',
+      GenerateLead: 'generate_lead',
+      Search: 'search',
+      Upsell: 'upsell',
+      EarnVirtualCurrency: 'earn_virtual_currency',
+      DwellTime: 'dwell_time',
+      Hover: 'hover',
+      Scroll: 'scroll',
+      ClickToExpand: 'click_to_expand'
     };
     var PromotionActionType = {
       Unknown: 0,
@@ -1518,6 +1575,7 @@ var mParticle = (function () {
       ApplicationTransitionType: ApplicationTransitionType$1,
       ProductActionType: ProductActionType,
       PromotionActionType: PromotionActionType,
+      RoktEvents: RoktEvents,
       Environment: Constants.Environment
     };
 
@@ -1534,6 +1592,14 @@ var mParticle = (function () {
       SDKProductActionType[SDKProductActionType["Refund"] = 8] = "Refund";
       SDKProductActionType[SDKProductActionType["AddToWishlist"] = 9] = "AddToWishlist";
       SDKProductActionType[SDKProductActionType["RemoveFromWishlist"] = 10] = "RemoveFromWishlist";
+      SDKProductActionType[SDKProductActionType["ViewCart"] = 11] = "ViewCart";
+      SDKProductActionType[SDKProductActionType["AddShippingInfo"] = 12] = "AddShippingInfo";
+      SDKProductActionType[SDKProductActionType["AddPaymentInfo"] = 13] = "AddPaymentInfo";
+      SDKProductActionType[SDKProductActionType["PaymentMethodSelected"] = 14] = "PaymentMethodSelected";
+      SDKProductActionType[SDKProductActionType["PaymentAttempted"] = 15] = "PaymentAttempted";
+      SDKProductActionType[SDKProductActionType["PaymentSucceeded"] = 16] = "PaymentSucceeded";
+      SDKProductActionType[SDKProductActionType["PaymentFailed"] = 17] = "PaymentFailed";
+      SDKProductActionType[SDKProductActionType["RefundInitiated"] = 18] = "RefundInitiated";
     })(SDKProductActionType || (SDKProductActionType = {}));
     var LogLevelType = {
       None: 'none',
@@ -3128,7 +3194,8 @@ var mParticle = (function () {
       UNHANDLED_EXCEPTION: 'UNHANDLED_EXCEPTION',
       IDENTITY_REQUEST: 'IDENTITY_REQUEST',
       IDENTITY_MISMATCH: 'IDENTITY_MISMATCH',
-      ROKT_KIT_ATTACHED: 'ROKT_KIT_ATTACHED'
+      ROKT_KIT_ATTACHED: 'ROKT_KIT_ATTACHED',
+      MP_DEPRECATED_METHOD_USAGE: 'MP_DEPRECATED_METHOD_USAGE'
     };
     var WSDKErrorSeverity = {
       ERROR: 'ERROR',
@@ -4278,6 +4345,14 @@ var mParticle = (function () {
       return new Date().getTime() > new Date(lastSyncDate).getTime() + frequencyCap * DAYS_IN_MILLISECONDS;
     };
 
+    function logDeprecatedMethodUsage(usage, logger, loggingDispatcher) {
+      logger.warning(usage.warningMessage);
+      loggingDispatcher === null || loggingDispatcher === void 0 ? void 0 : loggingDispatcher.log({
+        message: usage.methodName,
+        code: ErrorCodes.MP_DEPRECATED_METHOD_USAGE
+      });
+    }
+
     var Messages$6 = Constants.Messages;
     function SessionManager(mpInstance) {
       var self = this;
@@ -4308,7 +4383,10 @@ var mParticle = (function () {
         }
       };
       this.getSession = function () {
-        mpInstance.Logger.warning(generateDeprecationMessage('SessionManager.getSession()', false, 'SessionManager.getSessionId()'));
+        logDeprecatedMethodUsage({
+          methodName: 'SessionManager.getSession()',
+          warningMessage: generateDeprecationMessage('SessionManager.getSession()', false, 'SessionManager.getSessionId()')
+        }, mpInstance.Logger, mpInstance._LoggingDispatcher);
         return this.getSessionId();
       };
       this.getSessionId = function () {
@@ -4493,6 +4571,22 @@ var mParticle = (function () {
             return 'RemoveFromWishlist';
           case Types.ProductActionType.ViewDetail:
             return 'ViewDetail';
+          case Types.ProductActionType.ViewCart:
+            return 'ViewCart';
+          case Types.ProductActionType.AddShippingInfo:
+            return 'AddShippingInfo';
+          case Types.ProductActionType.AddPaymentInfo:
+            return 'AddPaymentInfo';
+          case Types.ProductActionType.PaymentMethodSelected:
+            return 'PaymentMethodSelected';
+          case Types.ProductActionType.PaymentAttempted:
+            return 'PaymentAttempted';
+          case Types.ProductActionType.PaymentSucceeded:
+            return 'PaymentSucceeded';
+          case Types.ProductActionType.PaymentFailed:
+            return 'PaymentFailed';
+          case Types.ProductActionType.RefundInitiated:
+            return 'RefundInitiated';
           case Types.ProductActionType.Unknown:
           default:
             return 'Unknown';
@@ -4534,6 +4628,17 @@ var mParticle = (function () {
             return Types.EventType.Unknown;
           case Types.ProductActionType.ViewDetail:
             return Types.CommerceEventType.ProductViewDetail;
+
+          // Rokt Brain commerce-adjacent types map to Unknown on server
+          case Types.ProductActionType.ViewCart:
+          case Types.ProductActionType.AddShippingInfo:
+          case Types.ProductActionType.AddPaymentInfo:
+          case Types.ProductActionType.PaymentMethodSelected:
+          case Types.ProductActionType.PaymentAttempted:
+          case Types.ProductActionType.PaymentSucceeded:
+          case Types.ProductActionType.PaymentFailed:
+          case Types.ProductActionType.RefundInitiated:
+            return Types.EventType.Unknown;
           default:
             mpInstance.Logger.error('Could not convert product action type ' + productActionType + ' to event type');
             return null;
@@ -6333,6 +6438,10 @@ var mParticle = (function () {
             ProductActionType: productActionType,
             ProductList: productList
           };
+          if (Types.ProductActionType.isRoktCommerceType(productActionType)) {
+            event.CustomFlags = event.CustomFlags || {};
+            event.CustomFlags['Rokt.CommerceEventType'] = Types.ProductActionType.getExpansionName(productActionType);
+          }
           if (mpInstance._Helpers.isObject(transactionAttributes)) {
             mpInstance._Ecommerce.convertTransactionAttributesToProductAction(transactionAttributes, event.ProductAction);
           }
@@ -8770,7 +8879,10 @@ var mParticle = (function () {
            * @return a cart object
            */
           getCart: function getCart() {
-            mpInstance.Logger.warning('Deprecated function Identity.getCurrentUser().getCart() will be removed in future releases');
+            logDeprecatedMethodUsage({
+              methodName: 'Identity.getCurrentUser().getCart()',
+              warningMessage: 'Deprecated function Identity.getCurrentUser().getCart() will be removed in future releases'
+            }, mpInstance.Logger, mpInstance._LoggingDispatcher);
             return self.mParticleUserCart();
           },
           /**
@@ -8834,7 +8946,10 @@ var mParticle = (function () {
            * @deprecated
            */
           add: function add() {
-            mpInstance.Logger.warning(generateDeprecationMessage('Identity.getCurrentUser().getCart().add()', true, 'eCommerce.logProductAction()', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'));
+            logDeprecatedMethodUsage({
+              methodName: 'Identity.getCurrentUser().getCart().add()',
+              warningMessage: generateDeprecationMessage('Identity.getCurrentUser().getCart().add()', true, 'eCommerce.logProductAction()', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking')
+            }, mpInstance.Logger, mpInstance._LoggingDispatcher);
           },
           /**
            * Removes a cart product from the current user cart
@@ -8842,7 +8957,10 @@ var mParticle = (function () {
            * @deprecated
            */
           remove: function remove() {
-            mpInstance.Logger.warning(generateDeprecationMessage('Identity.getCurrentUser().getCart().remove()', true, 'eCommerce.logProductAction()', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'));
+            logDeprecatedMethodUsage({
+              methodName: 'Identity.getCurrentUser().getCart().remove()',
+              warningMessage: generateDeprecationMessage('Identity.getCurrentUser().getCart().remove()', true, 'eCommerce.logProductAction()', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking')
+            }, mpInstance.Logger, mpInstance._LoggingDispatcher);
           },
           /**
            * Clears the user's cart
@@ -8850,7 +8968,10 @@ var mParticle = (function () {
            * @deprecated
            */
           clear: function clear() {
-            mpInstance.Logger.warning(generateDeprecationMessage('Identity.getCurrentUser().getCart().clear()', true, '', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'));
+            logDeprecatedMethodUsage({
+              methodName: 'Identity.getCurrentUser().getCart().clear()',
+              warningMessage: generateDeprecationMessage('Identity.getCurrentUser().getCart().clear()', true, '', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking')
+            }, mpInstance.Logger, mpInstance._LoggingDispatcher);
           },
           /**
            * Returns all cart products
@@ -8859,7 +8980,10 @@ var mParticle = (function () {
            * @deprecated
            */
           getCartProducts: function getCartProducts() {
-            mpInstance.Logger.warning(generateDeprecationMessage('Identity.getCurrentUser().getCart().getCartProducts()', true, 'eCommerce.logProductAction()', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'));
+            logDeprecatedMethodUsage({
+              methodName: 'Identity.getCurrentUser().getCart().getCartProducts()',
+              warningMessage: generateDeprecationMessage('Identity.getCurrentUser().getCart().getCartProducts()', true, 'eCommerce.logProductAction()', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking')
+            }, mpInstance.Logger, mpInstance._LoggingDispatcher);
             return [];
           }
         };
@@ -8932,7 +9056,7 @@ var mParticle = (function () {
             newUser = mpInstance.Identity.getCurrentUser();
 
             // https://go.mparticle.com/work/SQDSDKS-6359
-            tryOnUserAlias(prevUser, newUser, identityApiData, mpInstance.Logger);
+            tryOnUserAlias(prevUser, newUser, identityApiData, mpInstance.Logger, mpInstance._LoggingDispatcher);
             var persistence = mpInstance._Persistence.getPersistence();
             if (newUser) {
               mpInstance._Persistence.storeDataInMemory(persistence, newUser.getMPID());
@@ -9065,10 +9189,13 @@ var mParticle = (function () {
     }
 
     // https://go.mparticle.com/work/SQDSDKS-6359
-    function tryOnUserAlias(previousUser, newUser, identityApiData, logger) {
+    function tryOnUserAlias(previousUser, newUser, identityApiData, logger, loggingDispatcher) {
       if (identityApiData && identityApiData.onUserAlias && isFunction(identityApiData.onUserAlias)) {
         try {
-          logger.warning(generateDeprecationMessage('onUserAlias'));
+          logDeprecatedMethodUsage({
+            methodName: 'onUserAlias',
+            warningMessage: generateDeprecationMessage('onUserAlias')
+          }, logger, loggingDispatcher);
           identityApiData.onUserAlias(previousUser, newUser);
         } catch (e) {
           logger.error('There was an error with your onUserAlias function - ' + e);
@@ -9349,7 +9476,10 @@ var mParticle = (function () {
         }
         // TODO: Can we remove this? It is deprecated.
         function removeCCPAState() {
-          mpInstance.Logger.warning('removeCCPAState is deprecated and will be removed in a future release; use removeCCPAConsentState instead');
+          logDeprecatedMethodUsage({
+            methodName: 'Consent.removeCCPAState',
+            warningMessage: 'removeCCPAState is deprecated and will be removed in a future release; use removeCCPAConsentState instead'
+          }, mpInstance.Logger, mpInstance._LoggingDispatcher);
           // @ts-ignore
           return removeCCPAConsentState();
         }
@@ -11179,6 +11309,7 @@ var mParticle = (function () {
       this.CommerceEventType = CommerceEventType;
       this.PromotionType = PromotionActionType;
       this.ProductActionType = ProductActionType;
+      this.RoktEvents = RoktEvents;
       this._Identity = new Identity(this);
       this.Identity = this._Identity.IdentityAPI;
       this.generateHash = this._Helpers.generateHash;
@@ -11651,7 +11782,10 @@ var mParticle = (function () {
            * @deprecated
            */
           add: function add(product, logEventBoolean) {
-            self.Logger.warning(generateDeprecationMessage('eCommerce.Cart.add()', true, 'eCommerce.logProductAction()', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'));
+            logDeprecatedMethodUsage({
+              methodName: 'mPInstance.eCommerce.Cart.add()',
+              warningMessage: generateDeprecationMessage('eCommerce.Cart.add()', true, 'eCommerce.logProductAction()', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking')
+            }, self.Logger, self._LoggingDispatcher);
           },
           /**
            * Removes a product from the cart
@@ -11661,7 +11795,10 @@ var mParticle = (function () {
            * @deprecated
            */
           remove: function remove(product, logEventBoolean) {
-            self.Logger.warning(generateDeprecationMessage('eCommerce.Cart.remove()', true, 'eCommerce.logProductAction()', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'));
+            logDeprecatedMethodUsage({
+              methodName: 'mPInstance.eCommerce.Cart.remove()',
+              warningMessage: generateDeprecationMessage('eCommerce.Cart.remove()', true, 'eCommerce.logProductAction()', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking')
+            }, self.Logger, self._LoggingDispatcher);
           },
           /**
            * Clears the cart
@@ -11669,7 +11806,10 @@ var mParticle = (function () {
            * @deprecated
            */
           clear: function clear() {
-            self.Logger.warning(generateDeprecationMessage('eCommerce.Cart.clear()', true, '', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'));
+            logDeprecatedMethodUsage({
+              methodName: 'mPInstance.eCommerce.Cart.clear()',
+              warningMessage: generateDeprecationMessage('eCommerce.Cart.clear()', true, '', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking')
+            }, self.Logger, self._LoggingDispatcher);
           }
         },
         /**
@@ -11755,7 +11895,10 @@ var mParticle = (function () {
          * @deprecated
          */
         logCheckout: function logCheckout(step, option, attrs, customFlags) {
-          self.Logger.warning('mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead');
+          logDeprecatedMethodUsage({
+            methodName: 'mParticle.logCheckout',
+            warningMessage: 'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead'
+          }, self.Logger, self._LoggingDispatcher);
           if (!self._Store.isInitialized) {
             self.ready(function () {
               self.eCommerce.logCheckout(step, option, attrs, customFlags);
@@ -11796,7 +11939,10 @@ var mParticle = (function () {
          * @deprecated
          */
         logPurchase: function logPurchase(transactionAttributes, product, clearCart, attrs, customFlags) {
-          self.Logger.warning('mParticle.logPurchase is deprecated, please use mParticle.logProductAction instead');
+          logDeprecatedMethodUsage({
+            methodName: 'mParticle.logPurchase',
+            warningMessage: 'mParticle.logPurchase is deprecated, please use mParticle.logProductAction instead'
+          }, self.Logger, self._LoggingDispatcher);
           if (!self._Store.isInitialized) {
             self.ready(function () {
               self.eCommerce.logPurchase(transactionAttributes, product, clearCart, attrs, customFlags);
@@ -11857,7 +12003,10 @@ var mParticle = (function () {
          * @deprecated
          */
         logRefund: function logRefund(transactionAttributes, product, clearCart, attrs, customFlags) {
-          self.Logger.warning('mParticle.logRefund is deprecated, please use mParticle.logProductAction instead');
+          logDeprecatedMethodUsage({
+            methodName: 'mParticle.logRefund',
+            warningMessage: 'mParticle.logRefund is deprecated, please use mParticle.logProductAction instead'
+          }, self.Logger, self._LoggingDispatcher);
           if (!self._Store.isInitialized) {
             self.ready(function () {
               self.eCommerce.logRefund(transactionAttributes, product, clearCart, attrs, customFlags);
@@ -12530,6 +12679,7 @@ var mParticle = (function () {
       this.CommerceEventType = CommerceEventType;
       this.PromotionType = PromotionActionType;
       this.ProductActionType = ProductActionType;
+      this.RoktEvents = RoktEvents;
       this.MPSideloadedKit = MPSideloadedKit;
       if (typeof window !== 'undefined') {
         this.isIOS = window.mParticle && window.mParticle.isIOS ? window.mParticle.isIOS : false;

@@ -53,8 +53,31 @@ export declare const ProductActionType: {
     Refund: 8;
     AddToWishlist: 9;
     RemoveFromWishlist: 10;
+    ViewCart: 11;
+    AddShippingInfo: 12;
+    AddPaymentInfo: 13;
+    PaymentMethodSelected: 14;
+    PaymentAttempted: 15;
+    PaymentSucceeded: 16;
+    PaymentFailed: 17;
+    RefundInitiated: 18;
+    isRoktCommerceType: (id: number) => boolean;
     getName: (id: number) => string;
-    getExpansionName: (id: number) => "add_to_cart" | "remove_from_cart" | "checkout" | "checkout_option" | "click" | "view_detail" | "purchase" | "refund" | "add_to_wishlist" | "remove_from_wishlist" | "unknown";
+    getExpansionName: (id: number) => "add_to_cart" | "remove_from_cart" | "checkout" | "checkout_option" | "click" | "view_detail" | "purchase" | "refund" | "add_to_wishlist" | "remove_from_wishlist" | "view_cart" | "add_shipping_info" | "add_payment_info" | "payment_method_selected" | "payment_attempted" | "payment_succeeded" | "payment_failed" | "refund_initiated" | "unknown";
+};
+export type RoktEventName = 'sign_up' | 'subscribe' | 'start_trial' | 'generate_lead' | 'search' | 'upsell' | 'earn_virtual_currency' | 'dwell_time' | 'hover' | 'scroll' | 'click_to_expand' | (string & {});
+export declare const RoktEvents: {
+    SignUp: "sign_up";
+    Subscribe: "subscribe";
+    StartTrial: "start_trial";
+    GenerateLead: "generate_lead";
+    Search: "search";
+    Upsell: "upsell";
+    EarnVirtualCurrency: "earn_virtual_currency";
+    DwellTime: "dwell_time";
+    Hover: "hover";
+    Scroll: "scroll";
+    ClickToExpand: "click_to_expand";
 };
 export declare const PromotionActionType: {
     Unknown: 0;
@@ -139,8 +162,17 @@ declare const _default: {
         Refund: 8;
         AddToWishlist: 9;
         RemoveFromWishlist: 10;
+        ViewCart: 11;
+        AddShippingInfo: 12;
+        AddPaymentInfo: 13;
+        PaymentMethodSelected: 14;
+        PaymentAttempted: 15;
+        PaymentSucceeded: 16;
+        PaymentFailed: 17;
+        RefundInitiated: 18;
+        isRoktCommerceType: (id: number) => boolean;
         getName: (id: number) => string;
-        getExpansionName: (id: number) => "add_to_cart" | "remove_from_cart" | "checkout" | "checkout_option" | "click" | "view_detail" | "purchase" | "refund" | "add_to_wishlist" | "remove_from_wishlist" | "unknown";
+        getExpansionName: (id: number) => "add_to_cart" | "remove_from_cart" | "checkout" | "checkout_option" | "click" | "view_detail" | "purchase" | "refund" | "add_to_wishlist" | "remove_from_wishlist" | "view_cart" | "add_shipping_info" | "add_payment_info" | "payment_method_selected" | "payment_attempted" | "payment_succeeded" | "payment_failed" | "refund_initiated" | "unknown";
     };
     readonly PromotionActionType: {
         Unknown: 0;
@@ -148,6 +180,19 @@ declare const _default: {
         PromotionClick: 2;
         getName: (id: number) => string;
         getExpansionName: (id: number) => string;
+    };
+    readonly RoktEvents: {
+        SignUp: "sign_up";
+        Subscribe: "subscribe";
+        StartTrial: "start_trial";
+        GenerateLead: "generate_lead";
+        Search: "search";
+        Upsell: "upsell";
+        EarnVirtualCurrency: "earn_virtual_currency";
+        DwellTime: "dwell_time";
+        Hover: "hover";
+        Scroll: "scroll";
+        ClickToExpand: "click_to_expand";
     };
     readonly Environment: {
         readonly Development: "development";
