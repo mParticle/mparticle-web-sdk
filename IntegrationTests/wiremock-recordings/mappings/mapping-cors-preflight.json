@@ -1,0 +1,19 @@
+{
+  "id": "cors-preflight-handler",
+  "name": "CORS Preflight Handler",
+  "priority": 5,
+  "request": {
+    "method": "OPTIONS",
+    "urlPattern": ".*"
+  },
+  "response": {
+    "status": 204,
+    "headers": {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "content-type,x-mp-key",
+      "Access-Control-Max-Age": "86400"
+    }
+  }
+}
+
