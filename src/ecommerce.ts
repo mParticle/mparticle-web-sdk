@@ -51,19 +51,19 @@ export default function Ecommerce(
         }
         if (transactionAttributes.hasOwnProperty('Revenue')) {
             productAction.TotalAmount = this.sanitizeAmount(
-                transactionAttributes.Revenue as number,
+                transactionAttributes.Revenue!,
                 'Revenue'
             );
         }
         if (transactionAttributes.hasOwnProperty('Shipping')) {
             productAction.ShippingAmount = this.sanitizeAmount(
-                transactionAttributes.Shipping as string,
+                transactionAttributes.Shipping!,
                 'Shipping'
             );
         }
         if (transactionAttributes.hasOwnProperty('Tax')) {
             productAction.TaxAmount = this.sanitizeAmount(
-                transactionAttributes.Tax as number,
+                transactionAttributes.Tax!,
                 'Tax'
             );
         }
