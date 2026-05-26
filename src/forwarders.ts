@@ -311,7 +311,13 @@ export default function Forwarders(
             return;
         }
 
-        for (const forwarder of mpInstance._Store.activeForwarders) {
+        for (
+            let i = 0;
+            i < mpInstance._Store.activeForwarders.length;
+            i++
+        ) {
+            const forwarder = mpInstance._Store.activeForwarders[i];
+
             if (!forwarder.processBatch) {
                 continue;
             }
