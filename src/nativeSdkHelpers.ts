@@ -12,8 +12,7 @@ export default function NativeSdkHelpers(
     this: INativeSdkHelpers,
     mpInstance: IMParticleWebSDKInstance
 ): void {
-    const self = this;
-    this.initializeSessionAttributes = function(apiKey: string): void {
+    this.initializeSessionAttributes = (apiKey: string): void => {
         const { SetSessionAttribute } = Constants.NativeSdkPaths;
         const env = JSON.stringify({
             key: '$src_env',
@@ -25,13 +24,13 @@ export default function NativeSdkHelpers(
             value: apiKey,
         });
 
-        self.sendToNative(SetSessionAttribute, env);
+        this.sendToNative(SetSessionAttribute, env);
         if (apiKey) {
-            self.sendToNative(SetSessionAttribute, key);
+            this.sendToNative(SetSessionAttribute, key);
         }
     };
 
-    this.isBridgeV2Available = function(bridgeName: string): boolean {
+    this.isBridgeV2Available = (bridgeName: string): boolean => {
         if (!bridgeName) {
             return false;
         }
@@ -48,6 +47,7 @@ export default function NativeSdkHelpers(
             return true;
         }
         // other iOS v2 bridge
+        // TODO: what to do about people setting things on mParticle itself?
         if (
             window.mParticle &&
             (window.mParticle as Dictionary).uiwebviewBridgeName &&
@@ -62,14 +62,14 @@ export default function NativeSdkHelpers(
         return false;
     };
 
-    this.isWebviewEnabled = function(
+    this.isWebviewEnabled = (
         requiredWebviewBridgeName: string,
         minWebviewBridgeVersion: number
-    ): boolean {
-        (mpInstance._Store as Dictionary).bridgeV2Available = self.isBridgeV2Available(
+    ): boolean => {
+        (mpInstance._Store as Dictionary).bridgeV2Available = this.isBridgeV2Available(
             requiredWebviewBridgeName
         );
-        (mpInstance._Store as Dictionary).bridgeV1Available = self.isBridgeV1Available();
+        (mpInstance._Store as Dictionary).bridgeV1Available = this.isBridgeV1Available();
 
         if (minWebviewBridgeVersion === 2) {
             return (mpInstance._Store as Dictionary).bridgeV2Available;
@@ -97,7 +97,7 @@ export default function NativeSdkHelpers(
         return false;
     };
 
-    this.isBridgeV1Available = function(): boolean {
+    this.isBridgeV1Available = (): boolean => {
         if (
             mpInstance._Store.SDKConfig.useNativeSdk ||
             (window as Dictionary).mParticleAndroid ||
@@ -109,12 +109,12 @@ export default function NativeSdkHelpers(
         return false;
     };
 
-    this.sendToNative = function(path: string, value?: string): void {
+    this.sendToNative = (path: string, value?: string): void => {
         if (
             (mpInstance._Store as Dictionary).bridgeV2Available &&
             mpInstance._Store.SDKConfig.minWebviewBridgeVersion === 2
         ) {
-            self.sendViaBridgeV2(
+            this.sendViaBridgeV2(
                 path,
                 value,
                 mpInstance._Store.SDKConfig.requiredWebviewBridgeName
@@ -125,7 +125,7 @@ export default function NativeSdkHelpers(
             (mpInstance._Store as Dictionary).bridgeV2Available &&
             mpInstance._Store.SDKConfig.minWebviewBridgeVersion < 2
         ) {
-            self.sendViaBridgeV2(
+            this.sendViaBridgeV2(
                 path,
                 value,
                 mpInstance._Store.SDKConfig.requiredWebviewBridgeName
@@ -136,12 +136,12 @@ export default function NativeSdkHelpers(
             (mpInstance._Store as Dictionary).bridgeV1Available &&
             mpInstance._Store.SDKConfig.minWebviewBridgeVersion < 2
         ) {
-            self.sendViaBridgeV1(path, value);
+            this.sendViaBridgeV1(path, value);
             return;
         }
     };
 
-    this.sendViaBridgeV1 = function(path: string, value: string): void {
+    this.sendViaBridgeV1 = (path: string, value: string): void => {
         if (
             (window as Dictionary).mParticleAndroid &&
             (window as Dictionary).mParticleAndroid.hasOwnProperty(path)
@@ -154,11 +154,11 @@ export default function NativeSdkHelpers(
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.SendIOS + path
             );
-            self.sendViaIframeToIOS(path, value);
+            this.sendViaIframeToIOS(path, value);
         }
     };
 
-    this.sendViaIframeToIOS = function(path: string, value: string): void {
+    this.sendViaIframeToIOS = (path: string, value: string): void => {
         const iframe = document.createElement('IFRAME');
         iframe.setAttribute(
             'src',
@@ -168,11 +168,11 @@ export default function NativeSdkHelpers(
         iframe.parentNode.removeChild(iframe);
     };
 
-    this.sendViaBridgeV2 = function(
+    this.sendViaBridgeV2 = (
         path: string,
         value: string,
         requiredWebviewBridgeName: string
-    ): void {
+    ): void => {
         if (!requiredWebviewBridgeName) {
             return;
         }
@@ -219,7 +219,7 @@ export default function NativeSdkHelpers(
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.SendIOS + path
             );
-            self.sendViaIframeToIOS(path, value);
+            this.sendViaIframeToIOS(path, value);
         }
     };
 }
