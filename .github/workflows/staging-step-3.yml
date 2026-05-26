@@ -26,12 +26,10 @@ jobs:
         - name: Push release commits to development
           run: |
             git push origin HEAD:development
-        
-        # We will eventually replace master with main
-        - name: Push release commits to main and master
+
+        - name: Push release commits to master
           run: |
             git push origin HEAD:master
-            git push origin HEAD:main
 
         - name: Push release commits to Release Order Branches
           run: |
