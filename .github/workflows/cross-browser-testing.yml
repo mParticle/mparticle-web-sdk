@@ -2,7 +2,7 @@
 # https://github.com/browserstack/github-actions?tab=readme-ov-file#sample-workflow-with-usage-of-both-actions
 
 name: 'BrowserStack Test'
-on: [push, pull_request, workflow_dispatch]
+on: [push, workflow_dispatch]
 
 jobs:
   browserstack-test:
