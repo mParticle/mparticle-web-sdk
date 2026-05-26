@@ -1,3 +1,11 @@
+# [2.69.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.68.0...v2.69.0) (2026-05-26)
+
+
+### Features
+
+* add Rokt Brain event type constants ([#1269](https://github.com/mParticle/mparticle-web-sdk/issues/1269)) ([44cd55d](https://github.com/mParticle/mparticle-web-sdk/commit/44cd55d06b3e4355f45388f70fdbc676e87e9414))
+* Report deprecated method usage through logging dispatcher ([#1270](https://github.com/mParticle/mparticle-web-sdk/issues/1270)) ([cbefb33](https://github.com/mParticle/mparticle-web-sdk/commit/cbefb3389d0877a5b4eed28b2a20662a4f8eec22))
+
 # [2.68.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.67.0...v2.68.0) (2026-05-12)
 
 
