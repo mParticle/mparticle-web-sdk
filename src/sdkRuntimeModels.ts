@@ -399,6 +399,10 @@ export interface SDKHelpersApi {
         attrs: SDKEventAttrs,
         name: string
     ): Dictionary<string> | null;
+    filterUserIdentities?(
+        userIdentitiesObject: Dictionary<string>,
+        filterList: number[]
+    ): ISDKUserIdentity[];
     Validators: typeof Validators;
 }
 
