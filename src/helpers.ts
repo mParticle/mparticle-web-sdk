@@ -3,12 +3,19 @@ import Constants from './constants';
 import * as utils from './utils';
 import Validators from './validators';
 import KitFilterHelper from './kitFilterHelper';
+import { IMParticleWebSDKInstance } from './mp-instance';
+import { SDKHelpersApi } from './sdkRuntimeModels';
+import { Dictionary } from './utils';
+import { IMParticleUser } from './identity-user-interfaces';
+import { MPID } from '@mparticle/web-sdk';
 
-var StorageNames = Constants.StorageNames;
+const StorageNames = Constants.StorageNames;
 
-export default function Helpers(mpInstance) {
-    var self = this;
-    this.canLog = function() {
+export default function Helpers(
+    this: SDKHelpersApi,
+    mpInstance: IMParticleWebSDKInstance
+): void {
+    this.canLog = function(): boolean {
         if (
             mpInstance._Store.isEnabled &&
             (mpInstance._Store.devToken ||
@@ -20,25 +27,25 @@ export default function Helpers(mpInstance) {
         return false;
     };
 
-    this.getFeatureFlag = function(feature) {
+    this.getFeatureFlag = function(feature: string): boolean | string | null {
         if (mpInstance._Store.SDKConfig.flags.hasOwnProperty(feature)) {
             return mpInstance._Store.SDKConfig.flags[feature];
         }
         return null;
     };
 
-    this.invokeCallback = function(
-        callback,
-        code,
-        body,
-        mParticleUser,
-        previousMpid
-    ) {
+    this.invokeCallback = (
+        callback: Function,
+        code: number,
+        body: string,
+        mParticleUser?: IMParticleUser,
+        previousMpid?: MPID
+    ): void => {
         if (!callback) {
             mpInstance.Logger.warning('There is no callback provided');
         }
         try {
-            if (self.Validators.isFunction(callback)) {
+            if (this.Validators.isFunction(callback)) {
                 callback({
                     httpCode: code,
                     body: body,
@@ -51,9 +58,9 @@ export default function Helpers(mpInstance) {
                     },
                     getPreviousUser: function() {
                         if (!previousMpid) {
-                            var users = mpInstance.Identity.getUsers();
-                            var mostRecentUser = users.shift();
-                            var currentUser =
+                            const users = mpInstance.Identity.getUsers();
+                            const mostRecentUser = users.shift();
+                            const currentUser =
                                 mParticleUser ||
                                 mpInstance.Identity.getCurrentUser();
                             if (
@@ -62,7 +69,7 @@ export default function Helpers(mpInstance) {
                                 mostRecentUser.getMPID() ===
                                     currentUser.getMPID()
                             ) {
-                                mostRecentUser = users.shift();
+                                return users.shift() || null;
                             }
                             return mostRecentUser || null;
                         } else {
@@ -78,13 +85,17 @@ export default function Helpers(mpInstance) {
         }
     };
 
-    this.invokeAliasCallback = function(callback, code, message) {
+    this.invokeAliasCallback = (
+        callback: Function,
+        code: number,
+        message?: string
+    ): void => {
         if (!callback) {
             mpInstance.Logger.warning('There is no callback provided');
         }
         try {
-            if (self.Validators.isFunction(callback)) {
-                var callbackMessage = {
+            if (this.Validators.isFunction(callback)) {
+                const callbackMessage: Dictionary = {
                     httpCode: code,
                 };
                 if (message) {
@@ -101,12 +112,15 @@ export default function Helpers(mpInstance) {
 
     this.extend = utils.extend;
 
-    this.createServiceUrl = function(secureServiceUrl, devToken) {
-        var serviceScheme =
+    this.createServiceUrl = function(
+        secureServiceUrl: string,
+        devToken?: string
+    ): string {
+        const serviceScheme =
             window.mParticle && mpInstance._Store.SDKConfig.forceHttps
                 ? 'https://'
                 : window.location.protocol + '//';
-        var baseUrl;
+        let baseUrl: string;
         if (mpInstance._Store.SDKConfig.forceHttps) {
             baseUrl = 'https://' + secureServiceUrl;
         } else {
@@ -118,8 +132,8 @@ export default function Helpers(mpInstance) {
         return baseUrl;
     };
 
-    this.createXHR = function(cb) {
-        var xhr;
+    this.createXHR = function(cb: () => void): XMLHttpRequest {
+        let xhr: XMLHttpRequest;
 
         try {
             xhr = new window.XMLHttpRequest();
@@ -129,11 +143,11 @@ export default function Helpers(mpInstance) {
 
         if (xhr && cb && 'withCredentials' in xhr) {
             xhr.onreadystatechange = cb;
-        } else if (typeof window.XDomainRequest !== 'undefined') {
+        } else if (typeof (window as Dictionary).XDomainRequest !== 'undefined') {
             mpInstance.Logger.verbose('Creating XDomainRequest object');
 
             try {
-                xhr = new window.XDomainRequest();
+                xhr = new (window as Dictionary).XDomainRequest();
                 xhr.onload = cb;
             } catch (e) {
                 mpInstance.Logger.error('Error creating XDomainRequest object');
@@ -143,17 +157,20 @@ export default function Helpers(mpInstance) {
         return xhr;
     };
 
-    this.filterUserIdentities = function(userIdentitiesObject, filterList) {
-        var filteredUserIdentities = [];
+    this.filterUserIdentities = (
+        userIdentitiesObject: Dictionary<string>,
+        filterList: number[]
+    ): Array<{ Type: number; Identity: string }> => {
+        const filteredUserIdentities: Array<{ Type: number; Identity: string }> = [];
 
         if (userIdentitiesObject && Object.keys(userIdentitiesObject).length) {
-            for (var userIdentityName in userIdentitiesObject) {
+            for (const userIdentityName in userIdentitiesObject) {
                 if (userIdentitiesObject.hasOwnProperty(userIdentityName)) {
-                    var userIdentityType = Types.IdentityType.getIdentityType(
+                    const userIdentityType = Types.IdentityType.getIdentityType(
                         userIdentityName
                     );
-                    if (!self.inArray(filterList, userIdentityType)) {
-                        var identity = {
+                    if (!this.inArray(filterList, userIdentityType)) {
+                        const identity = {
                             Type: userIdentityType,
                             Identity: userIdentitiesObject[userIdentityName],
                         };
@@ -176,8 +193,8 @@ export default function Helpers(mpInstance) {
         KitFilterHelper.filterUserIdentities;
     this.filterUserAttributes = KitFilterHelper.filterUserAttributes;
 
-    this.isEventType = function(type) {
-        for (var prop in Types.EventType) {
+    this.isEventType = function(type: number): boolean {
+        for (const prop in Types.EventType) {
             if (Types.EventType.hasOwnProperty(prop)) {
                 if (Types.EventType[prop] === type) {
                     return true;
@@ -187,18 +204,21 @@ export default function Helpers(mpInstance) {
         return false;
     };
 
-    this.sanitizeAttributes = function(attrs, name) {
-        if (!attrs || !self.isObject(attrs)) {
+    this.sanitizeAttributes = (
+        attrs: Dictionary,
+        name: string
+    ): Dictionary<string> | null => {
+        if (!attrs || !this.isObject(attrs)) {
             return null;
         }
 
-        var sanitizedAttrs = {};
+        const sanitizedAttrs: Dictionary<string> = {};
 
-        for (var prop in attrs) {
+        for (const prop in attrs) {
             // Make sure that attribute values are not objects or arrays, which are not valid
             if (
                 attrs.hasOwnProperty(prop) &&
-                self.Validators.isValidAttributeValue(attrs[prop])
+                this.Validators.isValidAttributeValue(attrs[prop])
             ) {
                 sanitizedAttrs[prop] = attrs[prop];
             } else {
@@ -216,17 +236,17 @@ export default function Helpers(mpInstance) {
     };
 
     this.isDelayedByIntegration = function(
-        delayedIntegrations,
-        timeoutStart,
-        now
-    ) {
+        delayedIntegrations: Dictionary<boolean>,
+        timeoutStart: number,
+        now: number
+    ): boolean {
         if (
             now - timeoutStart >
             mpInstance._Store.SDKConfig.integrationDelayTimeout
         ) {
             return false;
         }
-        for (var integration in delayedIntegrations) {
+        for (const integration in delayedIntegrations) {
             if (delayedIntegrations[integration] === true) {
                 return true;
             } else {
@@ -236,7 +256,7 @@ export default function Helpers(mpInstance) {
         return false;
     };
 
-    this.createMainStorageName = function(workspaceToken) {
+    this.createMainStorageName = function(workspaceToken: string): string {
         if (workspaceToken) {
             return StorageNames.currentStorageName + '_' + workspaceToken;
         } else {
