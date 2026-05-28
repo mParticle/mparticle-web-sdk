@@ -197,20 +197,6 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
         self.getInstance().upload();
     };
     this.eCommerce = {
-        Cart: {
-            add: function(product, logEventBoolean) {
-                self.getInstance().eCommerce.Cart.add(product, logEventBoolean);
-            },
-            remove: function(product, logEventBoolean) {
-                self.getInstance().eCommerce.Cart.remove(
-                    product,
-                    logEventBoolean
-                );
-            },
-            clear: function() {
-                self.getInstance().eCommerce.Cart.clear();
-            },
-        },
         setCurrencyCode: function(code) {
             self.getInstance().eCommerce.setCurrencyCode(code);
         },

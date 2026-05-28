@@ -58,18 +58,6 @@ describe('mParticle stubs', function() {
         mParticle.eCommerce.logPromotion();
         mParticle.eCommerce.setCurrencyCode();
 
-        var product1 = mParticle.eCommerce.createProduct(
-            'iphone',
-            'iphoneSKU',
-            999
-        );
-
-        mParticle.eCommerce.Cart.add(product1);
-        mParticle.eCommerce.Cart.remove(product1);
-        mParticle.eCommerce.Cart.clear(product1);
-        var products = mParticle.eCommerce.Cart.getCartProducts();
-        checkProduct(products[0]);
-
         done();
     });
 
@@ -146,13 +134,6 @@ describe('mParticle stubs', function() {
         user.removeAllUserAttributes();
         (typeof user.getUserAttributesLists()).should.equal('object');
         (typeof user.getAllUserAttributes()).should.equal('object');
-        var userCart = user.getCart();
-        (typeof userCart).should.equal('object');
-        userCart.add();
-        userCart.clear();
-        userCart.remove();
-        var cartProducts = userCart.getCartProducts();
-        checkProduct(cartProducts[0]);
 
         user.setConsentState();
 

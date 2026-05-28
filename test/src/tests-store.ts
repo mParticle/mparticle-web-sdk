@@ -235,7 +235,6 @@ describe('Store', () => {
             expect(store.SDKConfig.logLevel, 'logLevel').to.eq(null);
 
             expect(store.SDKConfig.maxCookieSize, 'maxCookieSize').to.eq(3000);
-            expect(store.SDKConfig.maxProducts, 'maxProducts').to.eq(20);
             expect(
                 store.SDKConfig.minWebviewBridgeVersion,
                 'minWebviewBridgeVersion'

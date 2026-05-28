@@ -1209,18 +1209,6 @@ export default function Identity(mpInstance) {
                 return userAttributesCopy;
             },
             /**
-             * Returns the cart object for the current user
-             * @method getCart
-             * @return a cart object
-             */
-            getCart: function() {
-                mpInstance.Logger.warning(
-                    'Deprecated function Identity.getCurrentUser().getCart() will be removed in future releases'
-                );
-                return self.mParticleUserCart();
-            },
-
-            /**
              * Returns the Consent State stored locally for this user.
              * @method getConsentState
              * @return a ConsentState object
@@ -1278,79 +1266,6 @@ export default function Identity(mpInstance) {
                 }
 
                 self.audienceManager.sendGetUserAudienceRequest(mpid, callback);
-            },
-        };
-    };
-
-    /**
-     * Invoke these methods on the mParticle.Identity.getCurrentUser().getCart() object.
-     * Example: mParticle.Identity.getCurrentUser().getCart().add(...);
-     * @class mParticle.Identity.getCurrentUser().getCart()
-     * @deprecated
-     */
-    this.mParticleUserCart = function() {
-        return {
-            /**
-             * Adds a cart product to the user cart
-             * @method add
-             * @deprecated
-             */
-            add: function() {
-                mpInstance.Logger.warning(
-                    generateDeprecationMessage(
-                        'Identity.getCurrentUser().getCart().add()',
-                        true,
-                        'eCommerce.logProductAction()',
-                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
-                );
-            },
-            /**
-             * Removes a cart product from the current user cart
-             * @method remove
-             * @deprecated
-             */
-            remove: function() {
-                mpInstance.Logger.warning(
-                    generateDeprecationMessage(
-                        'Identity.getCurrentUser().getCart().remove()',
-                        true,
-                        'eCommerce.logProductAction()',
-                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
-                );
-            },
-            /**
-             * Clears the user's cart
-             * @method clear
-             * @deprecated
-             */
-            clear: function() {
-                mpInstance.Logger.warning(
-                    generateDeprecationMessage(
-                        'Identity.getCurrentUser().getCart().clear()',
-                        true,
-                        '',
-                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
-                );
-            },
-            /**
-             * Returns all cart products
-             * @method getCartProducts
-             * @return {Array} array of cart products
-             * @deprecated
-             */
-            getCartProducts: function() {
-                mpInstance.Logger.warning(
-                    generateDeprecationMessage(
-                        'Identity.getCurrentUser().getCart().getCartProducts()',
-                        true,
-                        'eCommerce.logProductAction()',
-                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
-                );
-                return [];
             },
         };
     };

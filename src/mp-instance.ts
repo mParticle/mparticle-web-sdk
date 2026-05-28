@@ -750,63 +750,6 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
      */
     this.eCommerce = {
         /**
-         * Invoke these methods on the mParticle.eCommerce.Cart object.
-         * Example: mParticle.eCommerce.Cart.add(...)
-         * @class mParticle.eCommerce.Cart
-         * @deprecated
-         */
-        Cart: {
-            /**
-             * Adds a product to the cart
-             * @method add
-             * @param {Object} product The product you want to add to the cart
-             * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
-             * @deprecated
-             */
-            add: function(product, logEventBoolean) {
-                self.Logger.warning(
-                    generateDeprecationMessage(
-                        'eCommerce.Cart.add()',
-                        true,
-                        'eCommerce.logProductAction()',
-                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
-                );
-            },
-            /**
-             * Removes a product from the cart
-             * @method remove
-             * @param {Object} product The product you want to add to the cart
-             * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
-             * @deprecated
-             */
-            remove: function(product, logEventBoolean) {
-                self.Logger.warning(
-                    generateDeprecationMessage(
-                        'eCommerce.Cart.remove()',
-                        true,
-                        'eCommerce.logProductAction()',
-                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
-                );
-            },
-            /**
-             * Clears the cart
-             * @method clear
-             * @deprecated
-             */
-            clear: function() {
-                self.Logger.warning(
-                    generateDeprecationMessage(
-                        'eCommerce.Cart.clear()',
-                        true,
-                        '',
-                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
-                );
-            },
-        },
-        /**
          * Sets the currency code
          * @for mParticle.eCommerce
          * @method setCurrencyCode

@@ -2558,7 +2558,6 @@ describe('forwarders', function() {
             123,
             1
         );
-        mParticle.eCommerce.Cart.add(product, true);
 
         let result = getForwarderEvent(fetchMock.calls(), 'not in forwarder');
 

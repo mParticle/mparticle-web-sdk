@@ -89,9 +89,6 @@ const Constants = {
         SetUserAttribute: 'setUserAttribute',
         RemoveUserAttribute: 'removeUserAttribute',
         SetSessionAttribute: 'setSessionAttribute',
-        AddToCart: 'addToCart',
-        RemoveFromCart: 'removeFromCart',
-        ClearCart: 'clearCart',
         LogOut: 'logOut',
         SetUserAttributeList: 'setUserAttributeList',
         RemoveAllUserAttributes: 'removeAllUserAttributes',
@@ -111,10 +108,8 @@ const Constants = {
         cookieNameV2: 'mprtcl-v2', // v2 Name of the cookie stored on the user's machine. Removed keys with no values, moved cartProducts and productBags to localStorage.
         cookieNameV3: 'mprtcl-v3', // v3 Name of the cookie stored on the user's machine. Base64 encoded keys in Base64CookieKeys object, final version on SDKv1
         localStorageNameV4: 'mprtcl-v4', // v4 Name of the mP localstorage, Current Version
-        localStorageProductsV4: 'mprtcl-prodv4', // The name for mP localstorage that contains products for cartProducs and productBags
         cookieNameV4: 'mprtcl-v4', // v4 Name of the cookie stored on the user's machine. Base64 encoded keys in Base64CookieKeys object, current version on SDK v2
         currentStorageName: 'mprtcl-v4',
-        currentStorageProductsName: 'mprtcl-prodv4',
     },
     DefaultConfig: {
         cookieDomain: null, // If null, defaults to current location.host
@@ -122,7 +117,6 @@ const Constants = {
         logLevel: null, // What logging will be provided in the console
         timeout: 300, // timeout in milliseconds for logging functions
         sessionTimeout: 30, // Session timeout in minutes
-        maxProducts: 20, // Number of products persisted in cartProducts and productBags
         forwarderStatsTimeout: 5000, // Milliseconds for forwarderStats timeout
         integrationDelayTimeout: 5000, // Milliseconds for forcing the integration delay to un-suspend event queueing due to integration partner errors
         maxCookieSize: 3000, // Number of bytes for cookie size to not exceed
