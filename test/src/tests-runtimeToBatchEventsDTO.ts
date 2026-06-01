@@ -510,4 +510,84 @@ describe('Old model to batch model conversion', () => {
         // set screen back on
         window.screen = originalScreen;
     });
+
+    it('propagates PageUrl to page_url on the converted event', () => {
+        const sdkEvent: SDKEvent = {
+            EventName: 'Page View',
+            EventCategory: Types.EventType.Navigation,
+            ExpandedEventCount: 0,
+            EventDataType: Types.MessageType.PageEvent,
+            EventAttributes: null,
+            ConsentState: null,
+            CurrencyCode: null,
+            CustomFlags: {},
+            DataPlan: {},
+            Debug: true,
+            DeviceId: '0edd580e-d887-44e4-89ae-cd65aa0ee933',
+            Location: null,
+            MPID: '-8433569646818451201',
+            OptOut: null,
+            SDKVersion: '2.11.15',
+            SourceMessageId: 'testSMID',
+            SessionId: '64102C03-592F-440D-8BCC-1D27AAA6B188',
+            SessionStartDate: 1603211322698,
+            Timestamp: 1603212299414,
+            ActiveTimeOnSite: 10,
+            PageUrl: 'https://example.com/checkout?utm=should-be-stripped-server-side',
+            UserAttributes: {},
+            UserIdentities: [],
+            IsFirstRun: true,
+        };
+
+        const batch = Converter.convertEvents(
+            '-8433569646818451201',
+            [sdkEvent],
+            window.mParticle.getInstance()
+        );
+
+        expect(batch).to.be.ok;
+        expect(batch.events.length).to.equal(1);
+        const event = batch.events[0] as EventsApi.CustomEvent;
+        expect(event.data.page_url).to.equal(
+            'https://example.com/checkout?utm=should-be-stripped-server-side'
+        );
+    });
+
+    it('omits page_url when PageUrl is not set on the SDK event', () => {
+        const sdkEvent: SDKEvent = {
+            EventName: 'Page View',
+            EventCategory: Types.EventType.Navigation,
+            ExpandedEventCount: 0,
+            EventDataType: Types.MessageType.PageEvent,
+            EventAttributes: null,
+            ConsentState: null,
+            CurrencyCode: null,
+            CustomFlags: {},
+            DataPlan: {},
+            Debug: true,
+            DeviceId: '0edd580e-d887-44e4-89ae-cd65aa0ee933',
+            Location: null,
+            MPID: '-8433569646818451201',
+            OptOut: null,
+            SDKVersion: '2.11.15',
+            SourceMessageId: 'testSMID',
+            SessionId: '64102C03-592F-440D-8BCC-1D27AAA6B188',
+            SessionStartDate: 1603211322698,
+            Timestamp: 1603212299414,
+            ActiveTimeOnSite: 10,
+            UserAttributes: {},
+            UserIdentities: [],
+            IsFirstRun: true,
+        };
+
+        const batch = Converter.convertEvents(
+            '-8433569646818451201',
+            [sdkEvent],
+            window.mParticle.getInstance()
+        );
+
+        expect(batch).to.be.ok;
+        const event = batch.events[0] as EventsApi.CustomEvent;
+        expect(event.data.page_url).to.equal(undefined);
+    });
 });

@@ -310,6 +310,7 @@ export default function ServerModel(
                         event.name
                     ),
                     ActiveTimeOnSite: mpInstance._timeOnSiteTimer?.getTimeInForeground(),
+                    PageUrl: window.location.href || null,
                     SourceMessageId:
                         event.sourceMessageId ||
                         mpInstance._Helpers.generateUniqueId(),
