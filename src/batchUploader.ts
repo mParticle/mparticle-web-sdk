@@ -193,6 +193,7 @@ export class BatchUploader {
             SessionStartDate: sessionStartDate?.getTime() || now,
             Debug: SDKConfig.isDevelopmentMode,
             ActiveTimeOnSite: _timeOnSiteTimer?.getTimeInForeground() || 0,
+            PageUrl: window.location.href || null,
             IsBackgroundAST: true
         } as SDKEvent;
 

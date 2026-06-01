@@ -241,6 +241,7 @@ describe('batch uploader', () => {
 
             expect(astEvent.event_type).to.equal('application_state_transition');
             expect(astEvent.data.active_time_on_site_ms).to.be.a('number');
+            expect(astEvent.data.page_url).to.equal(window.location.href);
             expect(astEvent.data.application_transition_type).to.equal('application_background');
             expect(astEvent.data.custom_attributes).to.exist;
             expect(astEvent.data.is_first_run).to.be.a('boolean');
@@ -335,6 +336,7 @@ describe('batch uploader', () => {
 
             expect(astEvent.event_type).to.equal('application_state_transition');
             expect(astEvent.data.active_time_on_site_ms).to.be.a('number');
+            expect(astEvent.data.page_url).to.equal(window.location.href);
             expect(astEvent.data.application_transition_type).to.equal('application_background');
             expect(astEvent.data.custom_attributes).to.exist;
             expect(astEvent.data.is_first_run).to.be.a('boolean');
