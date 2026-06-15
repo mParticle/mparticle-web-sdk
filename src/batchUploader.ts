@@ -3,7 +3,7 @@ import Constants from './constants';
 import { SDKEvent, SDKEventCustomFlags } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import { MessageType, EventType } from './types';
-import { getRampNumber, isEmpty, obfuscateDevData } from './utils';
+import { getRampNumber, getHref, isEmpty, obfuscateDevData } from './utils';
 import { SessionStorageVault, LocalStorageVault } from './vault';
 import {
     AsyncUploader,
@@ -193,7 +193,7 @@ export class BatchUploader {
             SessionStartDate: sessionStartDate?.getTime() || now,
             Debug: SDKConfig.isDevelopmentMode,
             ActiveTimeOnSite: _timeOnSiteTimer?.getTimeInForeground() || 0,
-            PageUrl: window.location.href || null,
+            PageUrl: getHref() || null,
             IsBackgroundAST: true
         } as SDKEvent;
 

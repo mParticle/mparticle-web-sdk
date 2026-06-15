@@ -17,6 +17,7 @@ import {
     Dictionary,
     isValidCustomFlagProperty,
     extend,
+    getHref,
 } from './utils';
 import { IntegrationAttributes, ServerSettings } from './store';
 import { MPID } from '@mparticle/web-sdk';
@@ -310,7 +311,7 @@ export default function ServerModel(
                         event.name
                     ),
                     ActiveTimeOnSite: mpInstance._timeOnSiteTimer?.getTimeInForeground(),
-                    PageUrl: window.location.href || null,
+                    PageUrl: getHref() || null,
                     SourceMessageId:
                         event.sourceMessageId ||
                         mpInstance._Helpers.generateUniqueId(),
