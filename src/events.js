@@ -356,6 +356,14 @@ export default function Events(mpInstance) {
                 commerceEvent.EventAttributes = attrs;
             }
 
+            // When no transaction total (Revenue) was provided, derive it from
+            // the products, shipping, and tax.
+            if (commerceEvent.ProductAction) {
+                mpInstance._Ecommerce.calculateProductActionTotalAmount(
+                    commerceEvent.ProductAction
+                );
+            }
+
             mpInstance._APIClient.sendEventToServer(commerceEvent, options);
 
             // https://go.mparticle.com/work/SQDSDKS-6038

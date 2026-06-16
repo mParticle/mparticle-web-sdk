@@ -640,6 +640,46 @@ describe('eCommerce', function() {
         checkoutEvent.data.product_action.products[1].should.have.property('id', 'galaxySKU');
     });
 
+    it('should auto-calculate total amount from the product list when revenue is not provided', async () => {
+        await waitForCondition(hasIdentifyReturned);
+        const product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999, 2);
+        const product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799, 1);
+
+        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Checkout, [product1, product2], null, null, {Step: 4, Option: 'Visa'});
+
+        const checkoutEvent = findEventFromRequest(fetchMock.calls(), 'checkout');
+
+        Should(checkoutEvent).be.ok();
+        // 999 * 2 + 799 * 1 = 2797
+        checkoutEvent.data.product_action.should.have.property('total_amount', 2797);
+    });
+
+    it('should include shipping and tax in the auto-calculated total amount', async () => {
+        await waitForCondition(hasIdentifyReturned);
+        const product = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999, 1);
+
+        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Checkout, [product], null, null, {Shipping: 10, Tax: 5});
+
+        const checkoutEvent = findEventFromRequest(fetchMock.calls(), 'checkout');
+
+        Should(checkoutEvent).be.ok();
+        // 999 * 1 + 10 shipping + 5 tax = 1014
+        checkoutEvent.data.product_action.should.have.property('total_amount', 1014);
+    });
+
+    it('should not override a revenue that the caller provided', async () => {
+        await waitForCondition(hasIdentifyReturned);
+        const product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999, 1);
+        const product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799, 1);
+
+        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Checkout, [product1, product2], null, null, {Revenue: 5});
+
+        const checkoutEvent = findEventFromRequest(fetchMock.calls(), 'checkout');
+
+        Should(checkoutEvent).be.ok();
+        checkoutEvent.data.product_action.should.have.property('total_amount', 5);
+    });
+
     it('should log checkout option', async () => {
         await waitForCondition(hasIdentifyReturned);
         const product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
@@ -1423,10 +1463,52 @@ describe('eCommerce', function() {
             productAction.Affiliation.should.equal("affiliation")
             productAction.CouponCode.should.equal("couponCode")
 
-            // convert strings to 0 
+            // convert strings to 0
             productAction.TotalAmount.should.equal(0)
             productAction.ShippingAmount.should.equal(0)
             productAction.TaxAmount.should.equal(0)
+        });
+
+        it('should derive total amount from the product list, shipping, and tax', () => {
+            const productAction = {
+                ProductList: [
+                    { Price: 100, Quantity: 2 },
+                    { Price: 50, Quantity: 1 },
+                ],
+                ShippingAmount: 10,
+                TaxAmount: 5,
+            };
+
+            mParticle
+                .getInstance()
+                ._Ecommerce.calculateProductActionTotalAmount(productAction);
+
+            // 100 * 2 + 50 * 1 + 10 shipping + 5 tax = 265
+            productAction.TotalAmount.should.equal(265);
+        });
+
+        it('should default to zero when there are no products, shipping, or tax', () => {
+            const productAction = { ProductList: [] };
+
+            mParticle
+                .getInstance()
+                ._Ecommerce.calculateProductActionTotalAmount(productAction);
+
+            productAction.TotalAmount.should.equal(0);
+        });
+
+        it('should not override a total amount that was already set', () => {
+            const productAction = {
+                TotalAmount: 0,
+                ProductList: [{ Price: 100, Quantity: 1 }],
+            };
+
+            mParticle
+                .getInstance()
+                ._Ecommerce.calculateProductActionTotalAmount(productAction);
+
+            // An explicitly supplied total (including 0) is never recalculated
+            productAction.TotalAmount.should.equal(0);
         });
 
         it('should allow a user to pass in a source_message_id to a commerce event', async () => {
