@@ -8,9 +8,6 @@ import {
     isBlockedByEventFilter,
     filterEventAttributes,
     filterUserIdentities,
-    isBatchEventAllowed,
-    filterBatchEventAttributes,
-    filterBatchIdentities,
 } from './forwarder-utils';
 
 const { Modify, Identify, Login, Logout } = Constants.IdentityMethods;
@@ -262,61 +259,6 @@ export default function Forwarders(mpInstance, kitBlocker) {
                         mpInstance.Logger.verbose(result);
                     }
                 }
-            }
-        }
-    };
-
-    this.sendBatchToForwarders = function(batch) {
-        if (
-            mpInstance._Store.webviewBridgeEnabled ||
-            !mpInstance._Store.activeForwarders
-        ) {
-            return;
-        }
-
-        for (const forwarder of mpInstance._Store.activeForwarders) {
-            if (!forwarder.processBatch) {
-                continue;
-            }
-
-            try {
-                const batchCopy = extend(true, {}, batch);
-
-                if (batchCopy.events) {
-                    batchCopy.events = batchCopy.events.filter(function(
-                        batchEvent
-                    ) {
-                        return isBatchEventAllowed(batchEvent, forwarder);
-                    });
-
-                    batchCopy.events.forEach(function(batchEvent) {
-                        filterBatchEventAttributes(batchEvent, forwarder);
-                    });
-                }
-
-                batchCopy.user_identities = filterBatchIdentities(
-                    batchCopy.user_identities,
-                    forwarder.userIdentityFilters
-                );
-
-                if (batchCopy.user_attributes) {
-                    batchCopy.user_attributes = KitFilterHelper.filterUserAttributes(
-                        batchCopy.user_attributes,
-                        forwarder.userAttributeFilters
-                    );
-                }
-
-                if (!batchCopy.events || batchCopy.events.length === 0) {
-                    continue;
-                }
-
-                const result = forwarder.processBatch(batchCopy);
-
-                if (result) {
-                    mpInstance.Logger.verbose(result);
-                }
-            } catch (e) {
-                mpInstance.Logger.verbose(e);
             }
         }
     };
