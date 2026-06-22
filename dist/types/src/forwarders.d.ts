@@ -7,7 +7,6 @@ export default class Forwarders {
     isEnabledForUnknownUser: (excludeAnonymousUserBoolean: any, user: any) => boolean;
     applyToForwarders: (functionName: any, functionArgs: any) => void;
     sendEventToForwarders: (event: any) => void;
-    sendBatchToForwarders: (batch: any) => void;
     handleForwarderUserAttributes: (functionNameKey: any, key: any, value: any) => void;
     setForwarderUserIdentities: (userIdentities: any) => void;
     setForwarderOnUserIdentified: (user: any) => void;

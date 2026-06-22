@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.69.0";
+    var version = "2.70.0";
 
     var Constants = {
       sdkVersion: version,
@@ -1441,131 +1441,6 @@ var mParticle = (function () {
       JointSdkSelectPlacements: 'mp:jointSdkSelectPlacements',
       JointSdkRoktKitInit: 'mp:jointSdkRoktKitInit'
     };
-    function getMessageTypeFromEventType(eventType) {
-      switch (eventType) {
-        case 'custom_event':
-          return MessageType$1.PageEvent;
-        case 'screen_view':
-          return MessageType$1.PageView;
-        case 'commerce_event':
-          return MessageType$1.Commerce;
-        case 'session_start':
-          return MessageType$1.SessionStart;
-        case 'session_end':
-          return MessageType$1.SessionEnd;
-        case 'crash_report':
-          return MessageType$1.CrashReport;
-        case 'opt_out':
-          return MessageType$1.OptOut;
-        case 'application_state_transition':
-          return MessageType$1.AppStateTransition;
-        case 'user_attribute_change':
-          return MessageType$1.UserAttributeChange;
-        case 'user_identity_change':
-          return MessageType$1.UserIdentityChange;
-        default:
-          return -1;
-      }
-    }
-    function getEventCategoryFromCustomEventType(customEventType) {
-      switch (customEventType) {
-        case 'navigation':
-          return EventType.Navigation;
-        case 'location':
-          return EventType.Location;
-        case 'search':
-          return EventType.Search;
-        case 'transaction':
-          return EventType.Transaction;
-        case 'user_content':
-          return EventType.UserContent;
-        case 'user_preference':
-          return EventType.UserPreference;
-        case 'social':
-          return EventType.Social;
-        case 'other':
-          return EventType.Other;
-        case 'media':
-          return EventType.Media;
-        case 'add_to_cart':
-          return CommerceEventType.ProductAddToCart;
-        case 'remove_from_cart':
-          return CommerceEventType.ProductRemoveFromCart;
-        case 'checkout':
-          return CommerceEventType.ProductCheckout;
-        case 'checkout_option':
-          return CommerceEventType.ProductCheckoutOption;
-        case 'click':
-          return CommerceEventType.ProductClick;
-        case 'view_detail':
-          return CommerceEventType.ProductViewDetail;
-        case 'purchase':
-          return CommerceEventType.ProductPurchase;
-        case 'refund':
-          return CommerceEventType.ProductRefund;
-        case 'promotion_view':
-          return CommerceEventType.PromotionView;
-        case 'promotion_click':
-          return CommerceEventType.PromotionClick;
-        case 'add_to_wishlist':
-          return CommerceEventType.ProductAddToWishlist;
-        case 'remove_from_wishlist':
-        case 'remove_from_wish_list':
-          return CommerceEventType.ProductRemoveFromWishlist;
-        case 'impression':
-          return CommerceEventType.ProductImpression;
-        default:
-          return EventType.Unknown;
-      }
-    }
-    function getIdentityTypeFromBatchKey(key) {
-      switch (key) {
-        case 'other':
-          return IdentityType.Other;
-        case 'customer_id':
-          return IdentityType.CustomerId;
-        case 'facebook':
-          return IdentityType.Facebook;
-        case 'twitter':
-          return IdentityType.Twitter;
-        case 'google':
-          return IdentityType.Google;
-        case 'microsoft':
-          return IdentityType.Microsoft;
-        case 'yahoo':
-          return IdentityType.Yahoo;
-        case 'email':
-          return IdentityType.Email;
-        case 'facebook_custom_audience_id':
-          return IdentityType.FacebookCustomAudienceId;
-        case 'other_id_2':
-          return IdentityType.Other2;
-        case 'other_id_3':
-          return IdentityType.Other3;
-        case 'other_id_4':
-          return IdentityType.Other4;
-        case 'other_id_5':
-          return IdentityType.Other5;
-        case 'other_id_6':
-          return IdentityType.Other6;
-        case 'other_id_7':
-          return IdentityType.Other7;
-        case 'other_id_8':
-          return IdentityType.Other8;
-        case 'other_id_9':
-          return IdentityType.Other9;
-        case 'other_id_10':
-          return IdentityType.Other10;
-        case 'mobile_number':
-          return IdentityType.MobileNumber;
-        case 'phone_number_2':
-          return IdentityType.PhoneNumber2;
-        case 'phone_number_3':
-          return IdentityType.PhoneNumber3;
-        default:
-          return -1;
-      }
-    }
     var Types = {
       MessageType: MessageType$1,
       EventType: EventType,
@@ -2476,44 +2351,6 @@ var mParticle = (function () {
           return dist.IdentityTypeEnum.phoneNumber3;
       }
     }
-    function getEventNameFromBatchEvent(batchEvent) {
-      if (!batchEvent || !batchEvent.data) {
-        return '';
-      }
-      if (batchEvent.event_type === 'screen_view') {
-        return batchEvent.data.screen_name || '';
-      }
-      return batchEvent.data.event_name || '';
-    }
-    function getEventCategoryFromBatchEvent(batchEvent) {
-      if (!batchEvent || !batchEvent.data) {
-        return Types.EventType.Unknown;
-      }
-      var data = batchEvent.data;
-      if (data.custom_event_type) {
-        return getEventCategoryFromCustomEventType(data.custom_event_type);
-      }
-      if (batchEvent.event_type === 'commerce_event') {
-        return getCommerceEventCategory(data);
-      }
-      return Types.EventType.Unknown;
-    }
-    function getCommerceEventCategory(data) {
-      if (data.product_action && data.product_action.action) {
-        return getEventCategoryFromCustomEventType(data.product_action.action);
-      }
-      var promoAction = data.promotion_action && data.promotion_action.action;
-      if (promoAction === 'view') {
-        return Types.CommerceEventType.PromotionView;
-      }
-      if (promoAction === 'click') {
-        return Types.CommerceEventType.PromotionClick;
-      }
-      if (data.product_impressions) {
-        return Types.CommerceEventType.ProductImpression;
-      }
-      return Types.EventType.Unknown;
-    }
 
     var BaseVault = /** @class */function () {
       /**
@@ -3018,13 +2855,6 @@ var mParticle = (function () {
           for (var _d = 0, _e = Array.from(eventsBySession.entries()); _d < _e.length; _d++) {
             var entry_1 = _e[_d];
             var uploadBatchObject = convertEvents(mpid, entry_1[1], mpInstance);
-            if (uploadBatchObject) {
-              try {
-                mpInstance._Forwarders.sendBatchToForwarders(uploadBatchObject);
-              } catch (e) {
-                mpInstance.Logger.error("Error forwarding batch to kits. ".concat(e));
-              }
-            }
             var onCreateBatchCallback = mpInstance._Store.SDKConfig.onCreateBatch;
             if (onCreateBatchCallback) {
               uploadBatchObject = onCreateBatchCallback(uploadBatchObject);
@@ -7110,48 +6940,7 @@ var mParticle = (function () {
         return !inArray(filterList, KitFilterHelper.hashUserIdentity(userIdentity.Type));
       });
     }
-    function isBatchEventAllowed(batchEvent, forwarder) {
-      if (!batchEvent || !batchEvent.data) {
-        return true;
-      }
-      var messageType = getMessageTypeFromEventType(batchEvent.event_type);
-      var eventName = getEventNameFromBatchEvent(batchEvent);
-      var eventCategory = getEventCategoryFromBatchEvent(batchEvent);
-      if (isBlockedByForwardingRule(messageType, batchEvent.data.custom_attributes, forwarder)) {
-        return false;
-      }
-      var hashedEventName = KitFilterHelper.hashEventName(eventName, eventCategory);
-      var hashedEventType = KitFilterHelper.hashEventType(eventCategory);
-      return !isBlockedByEventFilter(messageType, hashedEventName, hashedEventType, forwarder);
-    }
-    function filterBatchEventAttributes(batchEvent, forwarder) {
-      if (!batchEvent || !batchEvent.data) {
-        return;
-      }
-      var messageType = getMessageTypeFromEventType(batchEvent.event_type);
-      var eventName = getEventNameFromBatchEvent(batchEvent);
-      var eventCategory = getEventCategoryFromBatchEvent(batchEvent);
-      batchEvent.data.custom_attributes = filterEventAttributes(messageType, eventCategory, eventName, batchEvent.data.custom_attributes, forwarder);
-    }
-    function filterBatchIdentities(userIdentities, filterList) {
-      if (!userIdentities || !filterList) {
-        return userIdentities;
-      }
-      var filtered = {};
-      for (var key in userIdentities) {
-        if (userIdentities.hasOwnProperty(key)) {
-          var identityType = getIdentityTypeFromBatchKey(key);
-          if (identityType === -1 || !inArray(filterList, identityType)) {
-            filtered[key] = userIdentities[key];
-          }
-        }
-      }
-      return filtered;
-    }
 
-    function _createForOfIteratorHelper(o, allowArrayLike) { var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"]; if (!it) { if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = it.call(o); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
-    function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
-    function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) arr2[i] = arr[i]; return arr2; }
     var _Constants$IdentityMe = Constants.IdentityMethods,
       Modify$2 = _Constants$IdentityMe.Modify,
       Identify$1 = _Constants$IdentityMe.Identify,
@@ -7287,54 +7076,6 @@ var mParticle = (function () {
               }
             }
           }
-        }
-      };
-      this.sendBatchToForwarders = function (batch) {
-        if (mpInstance._Store.webviewBridgeEnabled || !mpInstance._Store.activeForwarders) {
-          return;
-        }
-        var _iterator = _createForOfIteratorHelper(mpInstance._Store.activeForwarders),
-          _step;
-        try {
-          var _loop = function _loop() {
-              var forwarder = _step.value;
-              if (!forwarder.processBatch) {
-                return 0; // continue
-              }
-              try {
-                var batchCopy = extend(true, {}, batch);
-                if (batchCopy.events) {
-                  batchCopy.events = batchCopy.events.filter(function (batchEvent) {
-                    return isBatchEventAllowed(batchEvent, forwarder);
-                  });
-                  batchCopy.events.forEach(function (batchEvent) {
-                    filterBatchEventAttributes(batchEvent, forwarder);
-                  });
-                }
-                batchCopy.user_identities = filterBatchIdentities(batchCopy.user_identities, forwarder.userIdentityFilters);
-                if (batchCopy.user_attributes) {
-                  batchCopy.user_attributes = KitFilterHelper.filterUserAttributes(batchCopy.user_attributes, forwarder.userAttributeFilters);
-                }
-                if (!batchCopy.events || batchCopy.events.length === 0) {
-                  return 0; // continue
-                }
-                var result = forwarder.processBatch(batchCopy);
-                if (result) {
-                  mpInstance.Logger.verbose(result);
-                }
-              } catch (e) {
-                mpInstance.Logger.verbose(e);
-              }
-            },
-            _ret;
-          for (_iterator.s(); !(_step = _iterator.n()).done;) {
-            _ret = _loop();
-            if (_ret === 0) continue;
-          }
-        } catch (err) {
-          _iterator.e(err);
-        } finally {
-          _iterator.f();
         }
       };
       this.handleForwarderUserAttributes = function (functionNameKey, key, value) {
