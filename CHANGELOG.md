@@ -1,3 +1,10 @@
+# [2.70.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.69.0...v2.70.0) (2026-06-22)
+
+
+### Features
+
+* remove batch forwarding to kits ([#1281](https://github.com/mParticle/mparticle-web-sdk/issues/1281)) ([db73223](https://github.com/mParticle/mparticle-web-sdk/commit/db7322307fd0a5541c969e9cd5bd27de21087727))
+
 # [2.69.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.68.0...v2.69.0) (2026-05-26)
 
 
