@@ -1436,7 +1436,7 @@ describe('Store', () => {
                 },
             };
             const mpInstance =
-                globalThis.mParticle.getInstance() as IMParticleWebSDKInstance;
+                globalThis.mParticle.getInstance() as unknown as IMParticleWebSDKInstance;
             const store: IStore = new Store(config, mpInstance);
 
             store.processConfig(config);
