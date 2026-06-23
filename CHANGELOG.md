@@ -1,3 +1,10 @@
+# [2.71.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.70.0...v2.71.0) (2026-06-23)
+
+
+### Features
+
+* capture page_url in events ([#1276](https://github.com/mParticle/mparticle-web-sdk/issues/1276)) ([efc549b](https://github.com/mParticle/mparticle-web-sdk/commit/efc549b6f919a578ff6be99b04a47bcb3970ad8e))
+
 # [2.70.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.69.0...v2.70.0) (2026-06-22)
 
 
