@@ -297,6 +297,25 @@ describe('ServerModel', () => {
             );
         });
 
+        it('should capture window.location.href as PageUrl', () => {
+            const event: BaseEvent = {
+                name: 'Test Event',
+                messageType: Types.MessageType.PageEvent,
+                eventType: Types.EventType.Navigation,
+                data: { foo: 'bar' },
+                sourceMessageId: 'test-source-message-id',
+                customFlags: {},
+            };
+
+            const actualEventObject = mParticle
+                .getInstance()
+                ._ServerModel.createEventObject(event) as IUploadObject;
+
+            expect(actualEventObject.PageUrl, 'PageUrl').to.equal(
+                window.location.href
+            );
+        });
+
         it('should create an event object with a user', () => {
             const event: BaseEvent = {
                 name: 'Test Event',
