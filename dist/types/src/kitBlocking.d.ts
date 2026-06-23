@@ -66,6 +66,7 @@ export default class KitBlocker {
         LaunchReferral?: string;
         ExpandedEventCount: number;
         ActiveTimeOnSite: number;
+        PageUrl?: string;
         IsBackgroundAST?: boolean;
         AlreadySentToForwarders?: boolean;
     };
@@ -110,6 +111,7 @@ export default class KitBlocker {
         LaunchReferral?: string;
         ExpandedEventCount: number;
         ActiveTimeOnSite: number;
+        PageUrl?: string;
         IsBackgroundAST?: boolean;
         AlreadySentToForwarders?: boolean;
     };

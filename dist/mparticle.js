@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.70.0";
+    var version = "2.71.0";
 
     var Constants = {
       sdkVersion: version,
@@ -2253,7 +2253,8 @@ var mParticle = (function () {
         custom_attributes: sdkEvent.EventAttributes,
         location: convertSDKLocation(sdkEvent.Location),
         source_message_id: sdkEvent.SourceMessageId,
-        active_time_on_site_ms: sdkEvent.ActiveTimeOnSite
+        active_time_on_site_ms: sdkEvent.ActiveTimeOnSite,
+        page_url: sdkEvent.PageUrl
       };
       return commonEventData;
     }
@@ -2710,6 +2711,7 @@ var mParticle = (function () {
           SessionStartDate: (sessionStartDate === null || sessionStartDate === void 0 ? void 0 : sessionStartDate.getTime()) || now,
           Debug: SDKConfig.isDevelopmentMode,
           ActiveTimeOnSite: (_timeOnSiteTimer === null || _timeOnSiteTimer === void 0 ? void 0 : _timeOnSiteTimer.getTimeInForeground()) || 0,
+          PageUrl: getHref() || null,
           IsBackgroundAST: true
         };
         var customFlags = __assign({}, event.CustomFlags);
@@ -7516,6 +7518,7 @@ var mParticle = (function () {
               EventCategory: event.eventType,
               EventAttributes: mpInstance._Helpers.sanitizeAttributes(event.data, event.name),
               ActiveTimeOnSite: (_a = mpInstance._timeOnSiteTimer) === null || _a === void 0 ? void 0 : _a.getTimeInForeground(),
+              PageUrl: getHref() || null,
               SourceMessageId: event.sourceMessageId || mpInstance._Helpers.generateUniqueId(),
               EventDataType: event.messageType,
               CustomFlags: customFlags,
