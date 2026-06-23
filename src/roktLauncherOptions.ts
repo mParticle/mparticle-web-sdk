@@ -10,7 +10,7 @@ export interface IRoktLauncherOptions extends Dictionary<any> {
 export function normalizeRoktLauncherOptions(
     launcherOptions?: IRoktLauncherOptions
 ): IRoktLauncherOptions {
-    const normalizedOptions = { ...(launcherOptions || {}) };
+    const normalizedOptions = launcherOptions ? { ...launcherOptions } : {};
     const hasNoDeviceId =
         normalizedOptions.noDeviceId === true ||
         normalizedOptions.noDeviceID === true;

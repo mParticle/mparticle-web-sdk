@@ -1434,7 +1434,7 @@ describe('Store', () => {
                     noFunctional: false,
                 },
             };
-            const mpInstance = window.mParticle.getInstance();
+            const mpInstance = globalThis.mParticle.getInstance();
             const store: IStore = new Store(config, mpInstance);
 
             store.processConfig(config);
