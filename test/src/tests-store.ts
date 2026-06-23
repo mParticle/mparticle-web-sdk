@@ -1425,6 +1425,26 @@ describe('Store', () => {
             );
         });
 
+        it('should treat noDeviceID as noFunctional when creating foreground timer', () => {
+            const config = {
+                ...sampleConfig,
+                workspaceToken: 'foo',
+                launcherOptions: {
+                    noDeviceID: true,
+                    noFunctional: false,
+                },
+            };
+            const mpInstance = window.mParticle.getInstance();
+            const store: IStore = new Store(config, mpInstance);
+
+            store.processConfig(config);
+
+            expect(
+                mpInstance._timeOnSiteTimer['noFunctional'],
+                'foreground timer noFunctional'
+            ).to.equal(true);
+        });
+
         it('should warn if workspace token is missing', () => {
             const config = {
                 ...sampleConfig,

@@ -4524,6 +4524,16 @@ describe('identity', function() {
                 expect(localStorage.getItem(idCacheStorageKey)).not.to.be.ok;
             });
 
+            it('should NOT save id cache to local storage when noDeviceID is true', async () => {
+                mParticle.config.launcherOptions = {
+                    noDeviceID: true,
+                    noFunctional: false,
+                };
+                mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                expect(localStorage.getItem(idCacheStorageKey)).not.to.be.ok;
+            });
+
             it('should save id cache to local storage when noFunctional is false', async () => {
                 mParticle.config.launcherOptions = { noFunctional: false };
                 mParticle.init(apiKey, window.mParticle.config);
