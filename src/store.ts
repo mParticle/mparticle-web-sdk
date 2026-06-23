@@ -41,6 +41,7 @@ import {
 import { CookieSyncDates, IPixelConfiguration } from './cookieSyncManager';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import ForegroundTimer from './foregroundTimeTracker';
+import { normalizeRoktLauncherOptions } from './roktLauncherOptions';
 
 const { Messages } = Constants;
 
@@ -729,7 +730,9 @@ export default function Store(
 
         if (workspaceToken) {
             this.SDKConfig.workspaceToken = workspaceToken;
-            const noFunctional = config?.launcherOptions?.noFunctional === true;
+            const { noFunctional } = normalizeRoktLauncherOptions(
+                config?.launcherOptions
+            );
             mpInstance._timeOnSiteTimer = new ForegroundTimer(workspaceToken, noFunctional);
         } else {
             mpInstance.Logger.warning(

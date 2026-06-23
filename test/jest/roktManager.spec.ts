@@ -464,6 +464,28 @@ describe('RoktManager', () => {
             expect(roktManager['launcherOptions'].noFunctional).toBe(false);
         });
 
+        it('should expand noDeviceID launcher option casing before attaching the Rokt kit', () => {
+            roktManager.init(
+                {} as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+                {
+                    launcherOptions: {
+                        noDeviceID: true,
+                        noFunctional: false,
+                        noTargeting: false,
+                    },
+                },
+            );
+
+            expect(roktManager['launcherOptions'].noDeviceId).toBe(true);
+            expect(roktManager['launcherOptions'].noDeviceID).toBe(true);
+            expect(roktManager['launcherOptions'].noFunctional).toBe(true);
+            expect(roktManager['launcherOptions'].noTargeting).toBe(true);
+        });
+
         it('should capture jointSdkRoktKitInit timing when init is called with captureTiming', () => {
             const mockCaptureTiming = jest.fn();
             roktManager.init(
