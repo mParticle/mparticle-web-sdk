@@ -19,6 +19,7 @@ import { Dictionary } from '../../src/utils';
 import Constants from '../../src/constants';
 import { IGlobalStoreV2MinifiedKeys } from '../../src/persistence.interfaces';
 import { IMinifiedConsentJSONObject } from '../../src/consent';
+import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 const MockSideloadedKit = Utils.MockSideloadedKit;
 
 describe('Store', () => {
@@ -1434,7 +1435,8 @@ describe('Store', () => {
                     noFunctional: false,
                 },
             };
-            const mpInstance = globalThis.mParticle.getInstance();
+            const mpInstance =
+                globalThis.mParticle.getInstance() as IMParticleWebSDKInstance;
             const store: IStore = new Store(config, mpInstance);
 
             store.processConfig(config);
