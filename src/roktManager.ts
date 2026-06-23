@@ -17,6 +17,7 @@ import { IStore, LocalSessionAttributes } from "./store";
 import { UserIdentities } from "@mparticle/web-sdk";
 import { IdentityType, PerformanceMarkType } from "./types";
 import { ErrorCodes, IErrorReportingService, ILoggingService, WSDKErrorSeverity } from "./reporting/types";
+import { IRoktLauncherOptions, normalizeRoktLauncherOptions } from "./roktLauncherOptions";
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export type RoktAttributeValueArray = Array<string | number | boolean>;
@@ -88,7 +89,7 @@ export interface IRoktOptions {
     domain?: string;
 }
 
-export type IRoktLauncherOptions = Dictionary<any>;
+export type { IRoktLauncherOptions } from "./roktLauncherOptions";
 
 const ON_SHOPPABLE_ADS_READY_METHOD = 'onShoppableAdsReady'
 
@@ -186,7 +187,10 @@ export default class RoktManager {
 
         // Launcher options are set here for the kit to pick up and pass through
         // to the Rokt Launcher.
-        this.launcherOptions = { sandbox, ...options?.launcherOptions };
+        const launcherOptions = normalizeRoktLauncherOptions(
+            options?.launcherOptions
+        );
+        this.launcherOptions = { sandbox, ...launcherOptions };
 
         if (options?.domain) {
             this.domain = options.domain;

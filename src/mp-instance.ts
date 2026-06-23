@@ -56,6 +56,7 @@ import { ErrorReportingDispatcher } from './reporting/errorReportingDispatcher';
 import { LoggingDispatcher } from './reporting/loggingDispatcher';
 import { IErrorReportingService, ILoggingService } from './reporting/types';
 import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
+import { normalizeRoktLauncherOptions } from './roktLauncherOptions';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -1695,7 +1696,9 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     mpInstance.Logger.verbose(StartingInitialization);
 
     // Initialize CookieConsentManager with privacy flags from launcherOptions
-    const { noFunctional, noTargeting } = config?.launcherOptions ?? {};
+    const { noFunctional, noTargeting } = normalizeRoktLauncherOptions(
+        config?.launcherOptions
+    );
     mpInstance._CookieConsentManager = new CookieConsentManager({ noFunctional, noTargeting });
 
     // Check to see if localStorage is available before main configuration runs
