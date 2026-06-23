@@ -16,6 +16,7 @@ export function normalizeRoktLauncherOptions(
         normalizedOptions.noDeviceID === true;
 
     if (hasNoDeviceId) {
+        // noDeviceId is the strongest Rokt privacy flag and implies the newer flags.
         normalizedOptions.noDeviceId = true;
         normalizedOptions.noFunctional = true;
         normalizedOptions.noTargeting = true;
