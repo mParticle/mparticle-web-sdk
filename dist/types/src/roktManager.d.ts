@@ -6,6 +6,7 @@ import { SDKIdentityApi } from "./identity.interfaces";
 import { SDKLoggerApi } from "./sdkRuntimeModels";
 import { IStore, LocalSessionAttributes } from "./store";
 import { IErrorReportingService, ILoggingService } from "./reporting/types";
+import { IRoktLauncherOptions } from "./roktLauncherOptions";
 export type RoktAttributeValueArray = Array<string | number | boolean>;
 export type RoktAttributeValueType = string | number | boolean | undefined | null;
 export type RoktAttributeValue = RoktAttributeValueType | RoktAttributeValueArray;
@@ -64,7 +65,7 @@ export interface IRoktOptions {
     launcherOptions?: IRoktLauncherOptions;
     domain?: string;
 }
-export type IRoktLauncherOptions = Dictionary<any>;
+export type { IRoktLauncherOptions } from "./roktLauncherOptions";
 export default class RoktManager {
     kit: IRoktKit;
     filters: RoktKitFilterSettings;
@@ -177,4 +178,3 @@ export default class RoktManager {
      */
     private hasIdentityChanged;
 }
-export {};

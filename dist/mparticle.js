@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.71.0";
+    var version = "2.71.1";
 
     var Constants = {
       sdkVersion: version,
@@ -4902,6 +4902,18 @@ var mParticle = (function () {
       return ForegroundTimeTracker;
     }();
 
+    function normalizeRoktLauncherOptions(launcherOptions) {
+      var normalizedOptions = launcherOptions ? __assign({}, launcherOptions) : {};
+      var hasNoDeviceId = normalizedOptions.noDeviceId === true || normalizedOptions.noDeviceID === true;
+      if (hasNoDeviceId) {
+        // noDeviceId is the strongest Rokt privacy flag and implies the newer flags.
+        normalizedOptions.noDeviceId = true;
+        normalizedOptions.noFunctional = true;
+        normalizedOptions.noTargeting = true;
+      }
+      return normalizedOptions;
+    }
+
     function createSDKConfig(config) {
       // TODO: Refactor to create a default config object
       var sdkConfig = {};
@@ -5258,7 +5270,6 @@ var mParticle = (function () {
         mpInstance._Persistence.update();
       };
       this.processConfig = function (config) {
-        var _a;
         var workspaceToken = config.workspaceToken,
           requiredWebviewBridgeName = config.requiredWebviewBridgeName;
         // We should reprocess the flags and baseUrls in case they have changed when we request an updated config
@@ -5274,7 +5285,7 @@ var mParticle = (function () {
         }
         if (workspaceToken) {
           _this.SDKConfig.workspaceToken = workspaceToken;
-          var noFunctional = ((_a = config === null || config === void 0 ? void 0 : config.launcherOptions) === null || _a === void 0 ? void 0 : _a.noFunctional) === true;
+          var noFunctional = normalizeRoktLauncherOptions(config === null || config === void 0 ? void 0 : config.launcherOptions).noFunctional;
           mpInstance._timeOnSiteTimer = new ForegroundTimeTracker(workspaceToken, noFunctional);
         } else {
           mpInstance.Logger.warning('You should have a workspaceToken on your config object for security purposes.');
@@ -10411,9 +10422,10 @@ var mParticle = (function () {
         var sandbox = (options === null || options === void 0 ? void 0 : options.sandbox) || false;
         // Launcher options are set here for the kit to pick up and pass through
         // to the Rokt Launcher.
+        var launcherOptions = normalizeRoktLauncherOptions(options === null || options === void 0 ? void 0 : options.launcherOptions);
         this.launcherOptions = __assign({
           sandbox: sandbox
-        }, options === null || options === void 0 ? void 0 : options.launcherOptions);
+        }, launcherOptions);
         if (options === null || options === void 0 ? void 0 : options.domain) {
           this.domain = options.domain;
         }
@@ -12140,7 +12152,6 @@ var mParticle = (function () {
       return new LocalStorageVault("".concat(mpInstance._Store.storageName, "-id-cache"));
     }
     function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
-      var _a;
       mpInstance.Logger = new Logger(config);
       mpInstance._ErrorReportingDispatcher.logger = mpInstance.Logger;
       mpInstance._LoggingDispatcher.logger = mpInstance.Logger;
@@ -12148,9 +12159,9 @@ var mParticle = (function () {
       window.mParticle.Store = mpInstance._Store;
       mpInstance.Logger.verbose(StartingInitialization);
       // Initialize CookieConsentManager with privacy flags from launcherOptions
-      var _b = (_a = config === null || config === void 0 ? void 0 : config.launcherOptions) !== null && _a !== void 0 ? _a : {},
-        noFunctional = _b.noFunctional,
-        noTargeting = _b.noTargeting;
+      var _a = normalizeRoktLauncherOptions(config === null || config === void 0 ? void 0 : config.launcherOptions),
+        noFunctional = _a.noFunctional,
+        noTargeting = _a.noTargeting;
       mpInstance._CookieConsentManager = new CookieConsentManager({
         noFunctional: noFunctional,
         noTargeting: noTargeting
