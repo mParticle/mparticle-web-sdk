@@ -1,3 +1,10 @@
+## [2.71.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.71.0...v2.71.1) (2026-06-24)
+
+
+### Bug Fixes
+
+* normalize Rokt noDeviceId launcher option ([#1285](https://github.com/mParticle/mparticle-web-sdk/issues/1285)) ([9d4d96e](https://github.com/mParticle/mparticle-web-sdk/commit/9d4d96e8f772722f5f041da376ef1b4d4479a4a1))
+
 # [2.71.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.70.0...v2.71.0) (2026-06-23)
 
 
