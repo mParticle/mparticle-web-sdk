@@ -19,6 +19,7 @@ import { Dictionary } from '../../src/utils';
 import Constants from '../../src/constants';
 import { IGlobalStoreV2MinifiedKeys } from '../../src/persistence.interfaces';
 import { IMinifiedConsentJSONObject } from '../../src/consent';
+import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 const MockSideloadedKit = Utils.MockSideloadedKit;
 
 describe('Store', () => {
@@ -1423,6 +1424,27 @@ describe('Store', () => {
             expect(store.SDKConfig.workspaceToken, 'workspace token').to.equal(
                 'foo'
             );
+        });
+
+        it('should treat noDeviceID as noFunctional when creating foreground timer', () => {
+            const config = {
+                ...sampleConfig,
+                workspaceToken: 'foo',
+                launcherOptions: {
+                    noDeviceID: true,
+                    noFunctional: false,
+                },
+            };
+            const mpInstance =
+                globalThis.mParticle.getInstance() as unknown as IMParticleWebSDKInstance;
+            const store: IStore = new Store(config, mpInstance);
+
+            store.processConfig(config);
+
+            expect(
+                mpInstance._timeOnSiteTimer['noFunctional'],
+                'foreground timer noFunctional'
+            ).to.equal(true);
         });
 
         it('should warn if workspace token is missing', () => {
