@@ -498,13 +498,17 @@ export class BatchUploader {
             }
 
             if (result === StorageResult.Unavailable) {
-                break;
+                this.mpInstance.Logger.warning(
+                    'Offline batch storage is unavailable. Retaining batches in memory.'
+                );
+                return;
             }
         }
 
-        // Could not persist any batches; retain them in memory to retry later.
+        // Every attempt stayed over quota, even down to the newest batch.
+        // Retain them in memory rather than dropping everything.
         this.mpInstance.Logger.warning(
-            'Offline batch storage is unavailable. Retaining batches in memory.'
+            'Offline batch storage is over quota. Retaining batches in memory.'
         );
     }
 

@@ -1127,6 +1127,50 @@ describe('batch uploader', () => {
             ).to.equal(true);
         });
 
+        it('should retain batches and warn about quota when even a single batch exceeds quota', async () => {
+            window.mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const mpInstance = window.mParticle.getInstance();
+            const uploader = new BatchUploader(mpInstance, 1000);
+            const batchValidator = new _BatchValidator();
+            const batch1 = batchValidator.returnBatch({
+                messageType: 4,
+                name: 'Test Event 1',
+            });
+            const batch2 = batchValidator.returnBatch({
+                messageType: 4,
+                name: 'Test Event 2',
+            });
+            const storeStub = sinon
+                .stub((<any>uploader).batchVault, 'store')
+                .returns(StorageResult.QuotaExceeded);
+            const warningSpy = sinon.spy(mpInstance.Logger, 'warning');
+
+            uploader.batchesQueuedForProcessing = [batch1, batch2];
+
+            (<any>uploader).storeBatchesQueuedForProcessing();
+
+            // Trimming runs down to the newest batch and still can't fit, so
+            // every subset is attempted before retaining in memory.
+            expect(storeStub.callCount).to.equal(2);
+            expect(uploader.batchesQueuedForProcessing).to.eql([
+                batch1,
+                batch2,
+            ]);
+            expect(
+                warningSpy.calledWith(
+                    'Offline batch storage is over quota. Retaining batches in memory.'
+                )
+            ).to.equal(true);
+            expect(
+                warningSpy.calledWith(
+                    'Offline batch storage is unavailable. Retaining batches in memory.'
+                ),
+                'should not mislabel quota exhaustion as unavailable'
+            ).to.equal(false);
+        });
+
         it('should not throw when offline storage retrieve returns null', async () => {
             fetchMock.post(urls.events, 200);
 
