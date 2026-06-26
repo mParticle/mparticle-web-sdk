@@ -473,6 +473,14 @@ export class BatchUploader {
 
     private storeBatchesQueuedForProcessing(): void {
         const batchesToStore = this.batchesQueuedForProcessing.slice();
+
+        // Nothing to persist: reset offline storage to an empty state.
+        if (isEmpty(batchesToStore)) {
+            this.batchVault.store([]);
+            this.batchesQueuedForProcessing = [];
+            return;
+        }
+
         let storedBatches = batchesToStore.slice();
 
         while (storedBatches.length) {
@@ -487,12 +495,7 @@ export class BatchUploader {
             storedBatches = storedBatches.slice(1);
         }
 
-        if (this.batchVault.store([])) {
-            this.logDroppedOfflineBatches(batchesToStore.length);
-            this.batchesQueuedForProcessing = [];
-            return;
-        }
-
+        // Could not persist any batches; retain them in memory to retry later.
         this.mpInstance.Logger.warning(
             'Offline batch storage is unavailable. Retaining batches in memory.'
         );

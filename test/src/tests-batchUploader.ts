@@ -1094,9 +1094,8 @@ describe('batch uploader', () => {
 
             (<any>uploader).storeBatchesQueuedForProcessing();
 
-            expect(storeStub.callCount).to.equal(2);
+            expect(storeStub.callCount).to.equal(1);
             expect(storeStub.getCall(0).args[0]).to.eql([batch1]);
-            expect(storeStub.getCall(1).args[0]).to.eql([]);
             expect(uploader.batchesQueuedForProcessing).to.eql([batch1]);
             expect(
                 warningSpy.calledWith(
