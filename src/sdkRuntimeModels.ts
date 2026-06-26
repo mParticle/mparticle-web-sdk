@@ -51,7 +51,7 @@ import {
 } from './mp-instance';
 import Constants from './constants';
 import RoktManager, { IRoktLauncherOptions } from './roktManager';
-import { IConsoleLogger } from './logger';
+import { IConsoleLogger, ILogger } from './logger';
 import { ErrorCodes, IErrorReportingService, ILoggingService } from './reporting/types';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
@@ -196,7 +196,7 @@ export interface MParticleWebSDK {
     ProductActionType: typeof ProductActionType;
     RoktEvents: typeof RoktEvents;
     Identity: SDKIdentityApi;
-    Logger: SDKLoggerApi;
+    Logger: ILogger;
     Consent: SDKConsentApi;
     _resetForTests(
         MPConfig?: SDKInitConfig,
@@ -401,14 +401,6 @@ export interface SDKHelpersApi {
         name: string
     ): Dictionary<string> | null;
     Validators: typeof Validators;
-}
-
-export interface SDKLoggerApi {
-    error(msg: string, code?: ErrorCodes): void;
-    verbose(msg: string): void;
-    warning(msg: string): void;
-    isVerbose(): boolean;
-    setLogLevel(logLevel: LogLevelType): void;
 }
 
 // TODO: Merge this with IStore in store.ts
