@@ -4,7 +4,7 @@ import { SDKEvent, SDKEventCustomFlags } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import { MessageType, EventType } from './types';
 import { getRampNumber, getHref, isEmpty, obfuscateDevData } from './utils';
-import { SessionStorageVault, LocalStorageVault } from './vault';
+import { SessionStorageVault, LocalStorageVault, StorageResult } from './vault';
 import {
     AsyncUploader,
     FetchUploader,
@@ -90,8 +90,12 @@ export class BatchUploader {
                 `${mpInstance._Store.storageName}-batches`
             );
 
-            // Load Events from Session Storage in case we have any in storage
-            this.eventsQueuedForProcessing.push(...this.eventVault.retrieve());
+            // Load Events from Session Storage in case we have any in storage.
+            // retrieve() returns null for empty/corrupt storage, so default to
+            // an empty array to keep the spread safe.
+            this.eventsQueuedForProcessing.push(
+                ...(this.eventVault.retrieve() ?? [])
+            );
         }
 
         const { SDKConfig, devToken } = this.mpInstance._Store;
@@ -426,7 +430,7 @@ export class BatchUploader {
         // Top Load any older Batches from Offline Storage so they go out first
         if (this.offlineStorageEnabled && this.batchVault) {
             this.batchesQueuedForProcessing.unshift(
-                ...this.batchVault.retrieve()
+                ...(this.batchVault.retrieve() ?? [])
             );
 
             // Remove batches from local storage before transmit to
@@ -472,27 +476,30 @@ export class BatchUploader {
     }
 
     private storeBatchesQueuedForProcessing(): void {
-        const batchesToStore = this.batchesQueuedForProcessing.slice();
+        const batches = this.batchesQueuedForProcessing;
 
         // Nothing to persist: reset offline storage to an empty state.
-        if (isEmpty(batchesToStore)) {
+        if (isEmpty(batches)) {
             this.batchVault.store([]);
             this.batchesQueuedForProcessing = [];
             return;
         }
 
-        let storedBatches = batchesToStore.slice();
+        // Drop oldest batches until storage accepts the payload. Only quota
+        // failures are recoverable by trimming; if storage is unavailable,
+        // dropping batches won't help, so retain them in memory.
+        for (let dropped = 0; dropped < batches.length; dropped++) {
+            const result = this.batchVault.store(batches.slice(dropped));
 
-        while (storedBatches.length) {
-            if (this.batchVault.store(storedBatches)) {
-                this.logDroppedOfflineBatches(
-                    batchesToStore.length - storedBatches.length
-                );
+            if (result === StorageResult.Success) {
+                this.logDroppedOfflineBatches(dropped);
                 this.batchesQueuedForProcessing = [];
                 return;
             }
 
-            storedBatches = storedBatches.slice(1);
+            if (result === StorageResult.Unavailable) {
+                break;
+            }
         }
 
         // Could not persist any batches; retain them in memory to retry later.

@@ -1,5 +1,22 @@
 import { isEmpty, isNumber } from './utils';
 
+// Outcome of a vault write so callers can react to the cause of a failure.
+// `Unavailable` covers storage being blocked/disabled (e.g. SecurityError),
+// where retrying with a smaller payload cannot succeed.
+export enum StorageResult {
+    Success = 'Success',
+    QuotaExceeded = 'QuotaExceeded',
+    Unavailable = 'Unavailable',
+}
+
+const isQuotaExceededError = (e: unknown): boolean =>
+    e instanceof DOMException &&
+    // Standard quota errors, plus Firefox's legacy name/code.
+    (e.code === 22 ||
+        e.code === 1014 ||
+        e.name === 'QuotaExceededError' ||
+        e.name === 'NS_ERROR_DOM_QUOTA_REACHED');
+
 export abstract class BaseVault<StorableItem> {
     public contents: StorableItem;
     protected readonly _storageKey: string;
@@ -25,7 +42,7 @@ export abstract class BaseVault<StorableItem> {
      * @method store
      * @param item {StorableItem}
      */
-    public store(item: StorableItem): boolean {
+    public store(item: StorableItem): StorageResult {
         let stringifiedItem: string;
 
         try {
@@ -37,9 +54,11 @@ export abstract class BaseVault<StorableItem> {
 
             this.storageObject.setItem(this._storageKey, stringifiedItem);
             this.contents = item;
-            return true;
+            return StorageResult.Success;
         } catch (e) {
-            return false;
+            return isQuotaExceededError(e)
+                ? StorageResult.QuotaExceeded
+                : StorageResult.Unavailable;
         }
     }
 
@@ -97,9 +116,9 @@ export class DisabledVault<StorableItem> extends BaseVault<StorableItem> {
         this.storageObject.removeItem(this._storageKey);
     }
 
-    public store(_item: StorableItem): boolean {
+    public store(_item: StorableItem): StorageResult {
         this.contents = null;
-        return true;
+        return StorageResult.Success;
     }
 
     public retrieve(): StorableItem | null {

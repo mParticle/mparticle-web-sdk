@@ -5,6 +5,7 @@ import {
     DisabledVault,
     LocalStorageVault,
     SessionStorageVault,
+    StorageResult,
 } from '../../src/vault';
 
 const testObject: Dictionary<Dictionary<string>> = {
@@ -83,7 +84,7 @@ describe('Vault', () => {
                 );
             });
 
-            it('should return false when storage throws', () => {
+            it('should return QuotaExceeded when storage is over quota', () => {
                 const storageKey = 'test-key-store-quota-error';
                 const vault = new SessionStorageVault<
                     Dictionary<Dictionary<string>>
@@ -103,7 +104,37 @@ describe('Vault', () => {
                 try {
                     const result = vault.store(testObject);
 
-                    expect(result).to.equal(false);
+                    expect(result).to.equal(StorageResult.QuotaExceeded);
+                    expect(vault.contents).to.equal(null);
+                } finally {
+                    Object.defineProperty(Storage.prototype, 'setItem', {
+                        configurable: true,
+                        value: originalSetItem,
+                    });
+                }
+            });
+
+            it('should return Unavailable when storage is disabled', () => {
+                const storageKey = 'test-key-store-unavailable';
+                const vault = new SessionStorageVault<
+                    Dictionary<Dictionary<string>>
+                >(storageKey);
+                const originalSetItem = Storage.prototype.setItem;
+
+                Object.defineProperty(Storage.prototype, 'setItem', {
+                    configurable: true,
+                    value: function() {
+                        throw new DOMException(
+                            'Storage disabled',
+                            'SecurityError'
+                        );
+                    },
+                });
+
+                try {
+                    const result = vault.store(testObject);
+
+                    expect(result).to.equal(StorageResult.Unavailable);
                     expect(vault.contents).to.equal(null);
                 } finally {
                     Object.defineProperty(Storage.prototype, 'setItem', {
@@ -288,7 +319,7 @@ describe('Vault', () => {
                 );
             });
 
-            it('should return false when storage throws', () => {
+            it('should return QuotaExceeded when storage is over quota', () => {
                 const storageKey = 'test-key-store-quota-error';
                 const vault = new LocalStorageVault<
                     Dictionary<Dictionary<string>>
@@ -308,7 +339,37 @@ describe('Vault', () => {
                 try {
                     const result = vault.store(testObject);
 
-                    expect(result).to.equal(false);
+                    expect(result).to.equal(StorageResult.QuotaExceeded);
+                    expect(vault.contents).to.equal(null);
+                } finally {
+                    Object.defineProperty(Storage.prototype, 'setItem', {
+                        configurable: true,
+                        value: originalSetItem,
+                    });
+                }
+            });
+
+            it('should return Unavailable when storage is disabled', () => {
+                const storageKey = 'test-key-store-unavailable';
+                const vault = new LocalStorageVault<
+                    Dictionary<Dictionary<string>>
+                >(storageKey);
+                const originalSetItem = Storage.prototype.setItem;
+
+                Object.defineProperty(Storage.prototype, 'setItem', {
+                    configurable: true,
+                    value: function() {
+                        throw new DOMException(
+                            'Storage disabled',
+                            'SecurityError'
+                        );
+                    },
+                });
+
+                try {
+                    const result = vault.store(testObject);
+
+                    expect(result).to.equal(StorageResult.Unavailable);
                     expect(vault.contents).to.equal(null);
                 } finally {
                     Object.defineProperty(Storage.prototype, 'setItem', {
