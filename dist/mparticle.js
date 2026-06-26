@@ -2371,13 +2371,18 @@ var mParticle = (function () {
        */
       BaseVault.prototype.store = function (item) {
         var stringifiedItem;
-        this.contents = item;
-        if (isNumber(item) || !isEmpty(item)) {
-          stringifiedItem = JSON.stringify(item);
-        } else {
-          stringifiedItem = '';
+        try {
+          if (isNumber(item) || !isEmpty(item)) {
+            stringifiedItem = JSON.stringify(item);
+          } else {
+            stringifiedItem = '';
+          }
+          this.storageObject.setItem(this._storageKey, stringifiedItem);
+          this.contents = item;
+          return true;
+        } catch (e) {
+          return false;
         }
-        this.storageObject.setItem(this._storageKey, stringifiedItem);
       };
       /**
        * Retrieve StorableItem from Storage
@@ -2385,10 +2390,13 @@ var mParticle = (function () {
        * @returns {StorableItem}
        */
       BaseVault.prototype.retrieve = function () {
-        // TODO: Handle cases where Local Storage is unavailable
         // https://go.mparticle.com/work/SQDSDKS-5022
-        var item = this.storageObject.getItem(this._storageKey);
-        this.contents = item ? JSON.parse(item) : null;
+        try {
+          var item = this.storageObject.getItem(this._storageKey);
+          this.contents = item ? JSON.parse(item) : null;
+        } catch (e) {
+          this.contents = null;
+        }
         return this.contents;
       };
       /**
@@ -2398,7 +2406,11 @@ var mParticle = (function () {
        */
       BaseVault.prototype.purge = function () {
         this.contents = null;
-        this.storageObject.removeItem(this._storageKey);
+        try {
+          this.storageObject.removeItem(this._storageKey);
+        } catch (e) {
+          // Storage persistence is best effort.
+        }
       };
       return BaseVault;
     }();
@@ -2427,6 +2439,7 @@ var mParticle = (function () {
       }
       DisabledVault.prototype.store = function (_item) {
         this.contents = null;
+        return true;
       };
       DisabledVault.prototype.retrieve = function () {
         return this.contents;
@@ -2933,9 +2946,7 @@ var mParticle = (function () {
                   // therefore NOT overwrite Offline Storage when beacon returns, so that we can retry
                   // uploading saved batches at a later time. Batches should only be removed from
                   // Local Storage once we can confirm they are successfully uploaded.
-                  this.batchVault.store(this.batchesQueuedForProcessing);
-                  // Clear batch queue since everything should be in Offline Storage
-                  this.batchesQueuedForProcessing = [];
+                  this.storeBatchesQueuedForProcessing();
                 }
                 if (triggerFuture && !this.destroyed) {
                   this.triggerUploadInterval(triggerFuture, false);
@@ -2946,6 +2957,29 @@ var mParticle = (function () {
         });
       };
 
+      BatchUploader.prototype.storeBatchesQueuedForProcessing = function () {
+        var batchesToStore = this.batchesQueuedForProcessing.slice();
+        var storedBatches = batchesToStore.slice();
+        while (storedBatches.length) {
+          if (this.batchVault.store(storedBatches)) {
+            this.logDroppedOfflineBatches(batchesToStore.length - storedBatches.length);
+            this.batchesQueuedForProcessing = [];
+            return;
+          }
+          storedBatches = storedBatches.slice(1);
+        }
+        if (this.batchVault.store([])) {
+          this.logDroppedOfflineBatches(batchesToStore.length);
+          this.batchesQueuedForProcessing = [];
+          return;
+        }
+        this.mpInstance.Logger.warning('Offline batch storage is unavailable. Retaining batches in memory.');
+      };
+      BatchUploader.prototype.logDroppedOfflineBatches = function (droppedBatchCount) {
+        if (droppedBatchCount > 0) {
+          this.mpInstance.Logger.warning('Offline batch storage is over quota. Dropped ' + "".concat(droppedBatchCount, " oldest batch(es)."));
+        }
+      };
       BatchUploader.prototype.uploadBatches = function (batches, useBeacon) {
         return __awaiter(this, void 0, void 0, function () {
           var uploads, uploadsToLog, i, fetchPayload, blob, response, e_1;
@@ -6059,7 +6093,11 @@ var mParticle = (function () {
           window.document.cookie = encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
         } else {
           if (mpInstance._Store.isLocalStorageAvailable) {
-            localStorage.setItem(mpInstance._Store.storageName, encodedPersistence);
+            try {
+              localStorage.setItem(mpInstance._Store.storageName, encodedPersistence);
+            } catch (e) {
+              mpInstance.Logger.error('Error saving persistence to localStorage.');
+            }
           }
         }
       };

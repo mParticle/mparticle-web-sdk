@@ -82,6 +82,36 @@ describe('Vault', () => {
                     JSON.stringify(testNumber),
                 );
             });
+
+            it('should return false when storage throws', () => {
+                const storageKey = 'test-key-store-quota-error';
+                const vault = new SessionStorageVault<
+                    Dictionary<Dictionary<string>>
+                >(storageKey);
+                const originalSetItem = Storage.prototype.setItem;
+
+                Object.defineProperty(Storage.prototype, 'setItem', {
+                    configurable: true,
+                    value: function() {
+                        throw new DOMException(
+                            'Quota exceeded',
+                            'QuotaExceededError'
+                        );
+                    },
+                });
+
+                try {
+                    const result = vault.store(testObject);
+
+                    expect(result).to.equal(false);
+                    expect(vault.contents).to.equal(null);
+                } finally {
+                    Object.defineProperty(Storage.prototype, 'setItem', {
+                        configurable: true,
+                        value: originalSetItem,
+                    });
+                }
+            });
         });
 
         describe('#retrieve', () => {
@@ -256,6 +286,36 @@ describe('Vault', () => {
                 expect(window.localStorage.getItem(storageKey)).to.equal(
                     JSON.stringify(testNumber),
                 );
+            });
+
+            it('should return false when storage throws', () => {
+                const storageKey = 'test-key-store-quota-error';
+                const vault = new LocalStorageVault<
+                    Dictionary<Dictionary<string>>
+                >(storageKey);
+                const originalSetItem = Storage.prototype.setItem;
+
+                Object.defineProperty(Storage.prototype, 'setItem', {
+                    configurable: true,
+                    value: function() {
+                        throw new DOMException(
+                            'Quota exceeded',
+                            'QuotaExceededError'
+                        );
+                    },
+                });
+
+                try {
+                    const result = vault.store(testObject);
+
+                    expect(result).to.equal(false);
+                    expect(vault.contents).to.equal(null);
+                } finally {
+                    Object.defineProperty(Storage.prototype, 'setItem', {
+                        configurable: true,
+                        value: originalSetItem,
+                    });
+                }
             });
         });
 

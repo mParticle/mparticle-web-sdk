@@ -25,17 +25,22 @@ export abstract class BaseVault<StorableItem> {
      * @method store
      * @param item {StorableItem}
      */
-    public store(item: StorableItem): void {
+    public store(item: StorableItem): boolean {
         let stringifiedItem: string;
-        this.contents = item;
 
-        if (isNumber(item) || !isEmpty(item)) {
-            stringifiedItem = JSON.stringify(item);
-        } else {
-            stringifiedItem = '';
+        try {
+            if (isNumber(item) || !isEmpty(item)) {
+                stringifiedItem = JSON.stringify(item);
+            } else {
+                stringifiedItem = '';
+            }
+
+            this.storageObject.setItem(this._storageKey, stringifiedItem);
+            this.contents = item;
+            return true;
+        } catch (e) {
+            return false;
         }
-
-        this.storageObject.setItem(this._storageKey, stringifiedItem);
     }
 
     /**
@@ -44,11 +49,14 @@ export abstract class BaseVault<StorableItem> {
      * @returns {StorableItem}
      */
     public retrieve(): StorableItem | null {
-        // TODO: Handle cases where Local Storage is unavailable
         // https://go.mparticle.com/work/SQDSDKS-5022
-        const item: string = this.storageObject.getItem(this._storageKey);
+        try {
+            const item: string = this.storageObject.getItem(this._storageKey);
 
-        this.contents = item ? JSON.parse(item) : null;
+            this.contents = item ? JSON.parse(item) : null;
+        } catch (e) {
+            this.contents = null;
+        }
 
         return this.contents;
     }
@@ -60,7 +68,12 @@ export abstract class BaseVault<StorableItem> {
      */
     public purge(): void {
         this.contents = null;
-        this.storageObject.removeItem(this._storageKey);
+
+        try {
+            this.storageObject.removeItem(this._storageKey);
+        } catch (e) {
+            // Storage persistence is best effort.
+        }
     }
 }
 
@@ -84,8 +97,9 @@ export class DisabledVault<StorableItem> extends BaseVault<StorableItem> {
         this.storageObject.removeItem(this._storageKey);
     }
 
-    public store(_item: StorableItem): void {
+    public store(_item: StorableItem): boolean {
         this.contents = null;
+        return true;
     }
 
     public retrieve(): StorableItem | null {

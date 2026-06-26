@@ -133,6 +133,29 @@ describe('persistence', () => {
             expect(localStorageData.gs.av, 'av').to.equal('2.3.4');
             expect(localStorageData.gs.ie, 'ie').to.equal(true);
         });
+
+        it('should not throw when saving persistence to localStorage fails', async () => {
+            mParticle.config.useCookieStorage = false;
+            mParticle.init(apiKey, mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const mpInstance = mParticle.getInstance();
+            const errorSpy = sinon.spy(mpInstance.Logger, 'error');
+            sinon.stub(Storage.prototype, 'setItem').throws(
+                new DOMException('Quota exceeded', 'QuotaExceededError')
+            );
+
+            expect(() => {
+                mpInstance._Persistence.savePersistence({
+                    gs: {},
+                } as IPersistenceMinified);
+            }).to.not.throw();
+            expect(
+                errorSpy.calledWith(
+                    'Error saving persistence to localStorage.'
+                )
+            ).to.equal(true);
+        });
     });
 
     describe('#swapCurrentUser', () => {

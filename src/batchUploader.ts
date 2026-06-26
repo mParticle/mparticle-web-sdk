@@ -463,13 +463,47 @@ export class BatchUploader {
             // uploading saved batches at a later time. Batches should only be removed from
             // Local Storage once we can confirm they are successfully uploaded.
             
-            this.batchVault.store(this.batchesQueuedForProcessing);
-            // Clear batch queue since everything should be in Offline Storage
-            this.batchesQueuedForProcessing = [];
+            this.storeBatchesQueuedForProcessing();
         }
 
         if (triggerFuture && !this.destroyed) {
             this.triggerUploadInterval(triggerFuture, false);
+        }
+    }
+
+    private storeBatchesQueuedForProcessing(): void {
+        const batchesToStore = this.batchesQueuedForProcessing.slice();
+        let storedBatches = batchesToStore.slice();
+
+        while (storedBatches.length) {
+            if (this.batchVault.store(storedBatches)) {
+                this.logDroppedOfflineBatches(
+                    batchesToStore.length - storedBatches.length
+                );
+                this.batchesQueuedForProcessing = [];
+                return;
+            }
+
+            storedBatches = storedBatches.slice(1);
+        }
+
+        if (this.batchVault.store([])) {
+            this.logDroppedOfflineBatches(batchesToStore.length);
+            this.batchesQueuedForProcessing = [];
+            return;
+        }
+
+        this.mpInstance.Logger.warning(
+            'Offline batch storage is unavailable. Retaining batches in memory.'
+        );
+    }
+
+    private logDroppedOfflineBatches(droppedBatchCount: number): void {
+        if (droppedBatchCount > 0) {
+            this.mpInstance.Logger.warning(
+                'Offline batch storage is over quota. Dropped ' +
+                    `${droppedBatchCount} oldest batch(es).`
+            );
         }
     }
 

@@ -853,10 +853,16 @@ export default function _Persistence(mpInstance) {
                 encodedCookiesWithExpirationAndPath;
         } else {
             if (mpInstance._Store.isLocalStorageAvailable) {
-                localStorage.setItem(
-                    mpInstance._Store.storageName,
-                    encodedPersistence
-                );
+                try {
+                    localStorage.setItem(
+                        mpInstance._Store.storageName,
+                        encodedPersistence
+                    );
+                } catch (e) {
+                    mpInstance.Logger.error(
+                        'Error saving persistence to localStorage.'
+                    );
+                }
             }
         }
     };
