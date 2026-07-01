@@ -8,6 +8,7 @@ import {
 import { Batch, CustomEventData } from '@mparticle/event-models';
 import Utils from './config/utils';
 import { BatchUploader } from '../../src/batchUploader';
+import { StorageResult } from '../../src/vault';
 import { expect } from 'chai';
 import _BatchValidator from '../../src/mockBatchCreator';
 
@@ -1029,6 +1030,172 @@ describe('batch uploader', () => {
                     .event_name,
                 'Batch 2: Custom Event Name'
             ).to.equal('Test Event 0');
+        });
+
+        it('should drop oldest batches until offline storage fits', async () => {
+            window.mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const mpInstance = window.mParticle.getInstance();
+            const uploader = new BatchUploader(mpInstance, 1000);
+            const batchValidator = new _BatchValidator();
+            const batch1 = batchValidator.returnBatch({
+                messageType: 4,
+                name: 'Test Event 1',
+            });
+            const batch2 = batchValidator.returnBatch({
+                messageType: 4,
+                name: 'Test Event 2',
+            });
+            const batch3 = batchValidator.returnBatch({
+                messageType: 4,
+                name: 'Test Event 3',
+            });
+            const storeStub = sinon
+                .stub((<any>uploader).batchVault, 'store')
+                .callsFake((batches: Batch[]) =>
+                    batches.length <= 2
+                        ? StorageResult.Success
+                        : StorageResult.QuotaExceeded
+                );
+            const warningSpy = sinon.spy(mpInstance.Logger, 'warning');
+
+            uploader.batchesQueuedForProcessing = [batch1, batch2, batch3];
+
+            (<any>uploader).storeBatchesQueuedForProcessing();
+
+            expect(storeStub.callCount).to.equal(2);
+            expect(storeStub.getCall(0).args[0]).to.eql([
+                batch1,
+                batch2,
+                batch3,
+            ]);
+            expect(storeStub.getCall(1).args[0]).to.eql([batch2, batch3]);
+            expect(uploader.batchesQueuedForProcessing).to.eql([]);
+            expect(
+                warningSpy.calledWith(
+                    'Offline batch storage is over quota. Dropped 1 oldest batch(es).'
+                )
+            ).to.equal(true);
+        });
+
+        it('should retain batches in memory without trimming when offline storage is unavailable', async () => {
+            window.mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const mpInstance = window.mParticle.getInstance();
+            const uploader = new BatchUploader(mpInstance, 1000);
+            const batchValidator = new _BatchValidator();
+            const batch1 = batchValidator.returnBatch({
+                messageType: 4,
+                name: 'Test Event 1',
+            });
+            const batch2 = batchValidator.returnBatch({
+                messageType: 4,
+                name: 'Test Event 2',
+            });
+            const batch3 = batchValidator.returnBatch({
+                messageType: 4,
+                name: 'Test Event 3',
+            });
+            const storeStub = sinon
+                .stub((<any>uploader).batchVault, 'store')
+                .returns(StorageResult.Unavailable);
+            const warningSpy = sinon.spy(mpInstance.Logger, 'warning');
+
+            uploader.batchesQueuedForProcessing = [batch1, batch2, batch3];
+
+            (<any>uploader).storeBatchesQueuedForProcessing();
+
+            // Storage being unavailable should short-circuit immediately rather
+            // than attempt to trim, so only the full payload is tried.
+            expect(storeStub.callCount).to.equal(1);
+            expect(storeStub.getCall(0).args[0]).to.eql([
+                batch1,
+                batch2,
+                batch3,
+            ]);
+            expect(uploader.batchesQueuedForProcessing).to.eql([
+                batch1,
+                batch2,
+                batch3,
+            ]);
+            expect(
+                warningSpy.calledWith(
+                    'Offline batch storage is unavailable. Retaining batches in memory.'
+                )
+            ).to.equal(true);
+        });
+
+        it('should retain batches and warn about quota when even a single batch exceeds quota', async () => {
+            window.mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const mpInstance = window.mParticle.getInstance();
+            const uploader = new BatchUploader(mpInstance, 1000);
+            const batchValidator = new _BatchValidator();
+            const batch1 = batchValidator.returnBatch({
+                messageType: 4,
+                name: 'Test Event 1',
+            });
+            const batch2 = batchValidator.returnBatch({
+                messageType: 4,
+                name: 'Test Event 2',
+            });
+            const storeStub = sinon
+                .stub((<any>uploader).batchVault, 'store')
+                .returns(StorageResult.QuotaExceeded);
+            const warningSpy = sinon.spy(mpInstance.Logger, 'warning');
+
+            uploader.batchesQueuedForProcessing = [batch1, batch2];
+
+            (<any>uploader).storeBatchesQueuedForProcessing();
+
+            // Trimming runs down to the newest batch and still can't fit, so
+            // every subset is attempted before retaining in memory.
+            expect(storeStub.callCount).to.equal(2);
+            expect(uploader.batchesQueuedForProcessing).to.eql([
+                batch1,
+                batch2,
+            ]);
+            expect(
+                warningSpy.calledWith(
+                    'Offline batch storage is over quota. Retaining batches in memory.'
+                )
+            ).to.equal(true);
+            expect(
+                warningSpy.calledWith(
+                    'Offline batch storage is unavailable. Retaining batches in memory.'
+                ),
+                'should not mislabel quota exhaustion as unavailable'
+            ).to.equal(false);
+        });
+
+        it('should not throw when offline storage retrieve returns null', async () => {
+            fetchMock.post(urls.events, 200);
+
+            window.mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const mpInstance = window.mParticle.getInstance();
+            const uploader = mpInstance._APIClient.uploader;
+
+            // Corrupt/empty offline storage parses to null. Spreading it
+            // unguarded would throw `null is not iterable` and leave the
+            // upload interval un-armed.
+            sinon.stub((<any>uploader).batchVault, 'retrieve').returns(null);
+
+            let threwError = false;
+            try {
+                await uploader.prepareAndUpload();
+            } catch (e) {
+                threwError = true;
+            }
+
+            expect(
+                threwError,
+                'prepareAndUpload should not throw on null retrieve'
+            ).to.equal(false);
         });
 
         it('should save batches in sequence to Local Storage when an HTTP 429 error is encountered', async () => {

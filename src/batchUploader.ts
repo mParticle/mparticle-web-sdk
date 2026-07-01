@@ -4,7 +4,7 @@ import { SDKEvent, SDKEventCustomFlags } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import { MessageType, EventType } from './types';
 import { getRampNumber, getHref, isEmpty, obfuscateDevData } from './utils';
-import { SessionStorageVault, LocalStorageVault } from './vault';
+import { SessionStorageVault, LocalStorageVault, StorageResult } from './vault';
 import {
     AsyncUploader,
     FetchUploader,
@@ -90,8 +90,12 @@ export class BatchUploader {
                 `${mpInstance._Store.storageName}-batches`
             );
 
-            // Load Events from Session Storage in case we have any in storage
-            this.eventsQueuedForProcessing.push(...this.eventVault.retrieve());
+            // Load Events from Session Storage in case we have any in storage.
+            // retrieve() returns null for empty/corrupt storage, so default to
+            // an empty array to keep the spread safe.
+            this.eventsQueuedForProcessing.push(
+                ...(this.eventVault.retrieve() ?? [])
+            );
         }
 
         const { SDKConfig, devToken } = this.mpInstance._Store;
@@ -426,7 +430,7 @@ export class BatchUploader {
         // Top Load any older Batches from Offline Storage so they go out first
         if (this.offlineStorageEnabled && this.batchVault) {
             this.batchesQueuedForProcessing.unshift(
-                ...this.batchVault.retrieve()
+                ...(this.batchVault.retrieve() ?? [])
             );
 
             // Remove batches from local storage before transmit to
@@ -463,13 +467,57 @@ export class BatchUploader {
             // uploading saved batches at a later time. Batches should only be removed from
             // Local Storage once we can confirm they are successfully uploaded.
             
-            this.batchVault.store(this.batchesQueuedForProcessing);
-            // Clear batch queue since everything should be in Offline Storage
-            this.batchesQueuedForProcessing = [];
+            this.storeBatchesQueuedForProcessing();
         }
 
         if (triggerFuture && !this.destroyed) {
             this.triggerUploadInterval(triggerFuture, false);
+        }
+    }
+
+    private storeBatchesQueuedForProcessing(): void {
+        const batches = this.batchesQueuedForProcessing;
+
+        // Nothing to persist: reset offline storage to an empty state.
+        if (isEmpty(batches)) {
+            this.batchVault.store([]);
+            this.batchesQueuedForProcessing = [];
+            return;
+        }
+
+        // Drop oldest batches until storage accepts the payload. Only quota
+        // failures are recoverable by trimming; if storage is unavailable,
+        // dropping batches won't help, so retain them in memory.
+        for (let dropped = 0; dropped < batches.length; dropped++) {
+            const result = this.batchVault.store(batches.slice(dropped));
+
+            if (result === StorageResult.Success) {
+                this.logDroppedOfflineBatches(dropped);
+                this.batchesQueuedForProcessing = [];
+                return;
+            }
+
+            if (result === StorageResult.Unavailable) {
+                this.mpInstance.Logger.warning(
+                    'Offline batch storage is unavailable. Retaining batches in memory.'
+                );
+                return;
+            }
+        }
+
+        // Every attempt stayed over quota, even down to the newest batch.
+        // Retain them in memory rather than dropping everything.
+        this.mpInstance.Logger.warning(
+            'Offline batch storage is over quota. Retaining batches in memory.'
+        );
+    }
+
+    private logDroppedOfflineBatches(droppedBatchCount: number): void {
+        if (droppedBatchCount > 0) {
+            this.mpInstance.Logger.warning(
+                'Offline batch storage is over quota. Dropped ' +
+                    `${droppedBatchCount} oldest batch(es).`
+            );
         }
     }
 

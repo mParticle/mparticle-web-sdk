@@ -1,5 +1,22 @@
 import { isEmpty, isNumber } from './utils';
 
+// Outcome of a vault write so callers can react to the cause of a failure.
+// `Unavailable` covers storage being blocked/disabled (e.g. SecurityError),
+// where retrying with a smaller payload cannot succeed.
+export enum StorageResult {
+    Success = 'Success',
+    QuotaExceeded = 'QuotaExceeded',
+    Unavailable = 'Unavailable',
+}
+
+const isQuotaExceededError = (e: unknown): boolean =>
+    e instanceof DOMException &&
+    // Standard quota errors, plus Firefox's legacy name/code.
+    (e.code === 22 ||
+        e.code === 1014 ||
+        e.name === 'QuotaExceededError' ||
+        e.name === 'NS_ERROR_DOM_QUOTA_REACHED');
+
 export abstract class BaseVault<StorableItem> {
     public contents: StorableItem;
     protected readonly _storageKey: string;
@@ -25,17 +42,24 @@ export abstract class BaseVault<StorableItem> {
      * @method store
      * @param item {StorableItem}
      */
-    public store(item: StorableItem): void {
+    public store(item: StorableItem): StorageResult {
         let stringifiedItem: string;
-        this.contents = item;
 
-        if (isNumber(item) || !isEmpty(item)) {
-            stringifiedItem = JSON.stringify(item);
-        } else {
-            stringifiedItem = '';
+        try {
+            if (isNumber(item) || !isEmpty(item)) {
+                stringifiedItem = JSON.stringify(item);
+            } else {
+                stringifiedItem = '';
+            }
+
+            this.storageObject.setItem(this._storageKey, stringifiedItem);
+            this.contents = item;
+            return StorageResult.Success;
+        } catch (e) {
+            return isQuotaExceededError(e)
+                ? StorageResult.QuotaExceeded
+                : StorageResult.Unavailable;
         }
-
-        this.storageObject.setItem(this._storageKey, stringifiedItem);
     }
 
     /**
@@ -44,11 +68,14 @@ export abstract class BaseVault<StorableItem> {
      * @returns {StorableItem}
      */
     public retrieve(): StorableItem | null {
-        // TODO: Handle cases where Local Storage is unavailable
         // https://go.mparticle.com/work/SQDSDKS-5022
-        const item: string = this.storageObject.getItem(this._storageKey);
+        try {
+            const item: string = this.storageObject.getItem(this._storageKey);
 
-        this.contents = item ? JSON.parse(item) : null;
+            this.contents = item ? JSON.parse(item) : null;
+        } catch (e) {
+            this.contents = null;
+        }
 
         return this.contents;
     }
@@ -60,7 +87,12 @@ export abstract class BaseVault<StorableItem> {
      */
     public purge(): void {
         this.contents = null;
-        this.storageObject.removeItem(this._storageKey);
+
+        try {
+            this.storageObject.removeItem(this._storageKey);
+        } catch (e) {
+            // Storage persistence is best effort.
+        }
     }
 }
 
@@ -84,8 +116,9 @@ export class DisabledVault<StorableItem> extends BaseVault<StorableItem> {
         this.storageObject.removeItem(this._storageKey);
     }
 
-    public store(_item: StorableItem): void {
+    public store(_item: StorableItem): StorageResult {
         this.contents = null;
+        return StorageResult.Success;
     }
 
     public retrieve(): StorableItem | null {
