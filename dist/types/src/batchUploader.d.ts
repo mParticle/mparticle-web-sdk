@@ -77,5 +77,7 @@ export declare class BatchUploader {
      * @param useBeacon whether to use the beacon API - used when the page is being unloaded
      */
     prepareAndUpload(triggerFuture?: boolean, useBeacon?: boolean): Promise<void>;
+    private storeBatchesQueuedForProcessing;
+    private logDroppedOfflineBatches;
     private uploadBatches;
 }

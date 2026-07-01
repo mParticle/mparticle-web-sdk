@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.71.1";
+    var version = "2.71.2";
 
     var Constants = {
       sdkVersion: version,
@@ -2353,6 +2353,20 @@ var mParticle = (function () {
       }
     }
 
+    // Outcome of a vault write so callers can react to the cause of a failure.
+    // `Unavailable` covers storage being blocked/disabled (e.g. SecurityError),
+    // where retrying with a smaller payload cannot succeed.
+    var StorageResult;
+    (function (StorageResult) {
+      StorageResult["Success"] = "Success";
+      StorageResult["QuotaExceeded"] = "QuotaExceeded";
+      StorageResult["Unavailable"] = "Unavailable";
+    })(StorageResult || (StorageResult = {}));
+    var isQuotaExceededError = function isQuotaExceededError(e) {
+      return e instanceof DOMException && (
+      // Standard quota errors, plus Firefox's legacy name/code.
+      e.code === 22 || e.code === 1014 || e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED');
+    };
     var BaseVault = /** @class */function () {
       /**
        *
@@ -2371,13 +2385,18 @@ var mParticle = (function () {
        */
       BaseVault.prototype.store = function (item) {
         var stringifiedItem;
-        this.contents = item;
-        if (isNumber(item) || !isEmpty(item)) {
-          stringifiedItem = JSON.stringify(item);
-        } else {
-          stringifiedItem = '';
+        try {
+          if (isNumber(item) || !isEmpty(item)) {
+            stringifiedItem = JSON.stringify(item);
+          } else {
+            stringifiedItem = '';
+          }
+          this.storageObject.setItem(this._storageKey, stringifiedItem);
+          this.contents = item;
+          return StorageResult.Success;
+        } catch (e) {
+          return isQuotaExceededError(e) ? StorageResult.QuotaExceeded : StorageResult.Unavailable;
         }
-        this.storageObject.setItem(this._storageKey, stringifiedItem);
       };
       /**
        * Retrieve StorableItem from Storage
@@ -2385,10 +2404,13 @@ var mParticle = (function () {
        * @returns {StorableItem}
        */
       BaseVault.prototype.retrieve = function () {
-        // TODO: Handle cases where Local Storage is unavailable
         // https://go.mparticle.com/work/SQDSDKS-5022
-        var item = this.storageObject.getItem(this._storageKey);
-        this.contents = item ? JSON.parse(item) : null;
+        try {
+          var item = this.storageObject.getItem(this._storageKey);
+          this.contents = item ? JSON.parse(item) : null;
+        } catch (e) {
+          this.contents = null;
+        }
         return this.contents;
       };
       /**
@@ -2398,7 +2420,11 @@ var mParticle = (function () {
        */
       BaseVault.prototype.purge = function () {
         this.contents = null;
-        this.storageObject.removeItem(this._storageKey);
+        try {
+          this.storageObject.removeItem(this._storageKey);
+        } catch (e) {
+          // Storage persistence is best effort.
+        }
       };
       return BaseVault;
     }();
@@ -2427,6 +2453,7 @@ var mParticle = (function () {
       }
       DisabledVault.prototype.store = function (_item) {
         this.contents = null;
+        return StorageResult.Success;
       };
       DisabledVault.prototype.retrieve = function () {
         return this.contents;
@@ -2598,7 +2625,7 @@ var mParticle = (function () {
        */
       function BatchUploader(mpInstance, uploadInterval) {
         var _a;
-        var _b;
+        var _b, _c;
         this.offlineStorageEnabled = false;
         this.lastASTEventTime = 0;
         this.AST_DEBOUNCE_MS = 1000; // 1 second debounce
@@ -2626,12 +2653,14 @@ var mParticle = (function () {
         if (this.offlineStorageEnabled && !noFunctional) {
           this.eventVault = new SessionStorageVault("".concat(mpInstance._Store.storageName, "-events"));
           this.batchVault = new LocalStorageVault("".concat(mpInstance._Store.storageName, "-batches"));
-          // Load Events from Session Storage in case we have any in storage
-          (_a = this.eventsQueuedForProcessing).push.apply(_a, this.eventVault.retrieve());
+          // Load Events from Session Storage in case we have any in storage.
+          // retrieve() returns null for empty/corrupt storage, so default to
+          // an empty array to keep the spread safe.
+          (_a = this.eventsQueuedForProcessing).push.apply(_a, (_c = this.eventVault.retrieve()) !== null && _c !== void 0 ? _c : []);
         }
-        var _c = this.mpInstance._Store,
-          SDKConfig = _c.SDKConfig,
-          devToken = _c.devToken;
+        var _d = this.mpInstance._Store,
+          SDKConfig = _d.SDKConfig,
+          devToken = _d.devToken;
         var baseUrl = this.mpInstance._Helpers.createServiceUrl(SDKConfig.v3SecureServiceUrl, devToken);
         this.uploadUrl = "".concat(baseUrl, "/events");
         this.uploader = window.fetch ? new FetchUploader(this.uploadUrl) : new XHRUploader(this.uploadUrl);
@@ -2882,6 +2911,7 @@ var mParticle = (function () {
        * @param useBeacon whether to use the beacon API - used when the page is being unloaded
        */
       BatchUploader.prototype.prepareAndUpload = function (triggerFuture, useBeacon) {
+        var _a;
         if (triggerFuture === void 0) {
           triggerFuture = false;
         }
@@ -2890,9 +2920,9 @@ var mParticle = (function () {
         }
         return __awaiter(this, void 0, void 0, function () {
           var currentUser, currentEvents, newBatches, batchesToUpload, batchesThatDidNotUpload;
-          var _a, _b, _c;
-          return __generator(this, function (_d) {
-            switch (_d.label) {
+          var _b, _c, _d;
+          return __generator(this, function (_e) {
+            switch (_e.label) {
               case 0:
                 currentUser = this.mpInstance.Identity.getCurrentUser();
                 currentEvents = this.eventsQueuedForProcessing;
@@ -2906,25 +2936,25 @@ var mParticle = (function () {
                 }
                 // Top Load any older Batches from Offline Storage so they go out first
                 if (this.offlineStorageEnabled && this.batchVault) {
-                  (_a = this.batchesQueuedForProcessing).unshift.apply(_a, this.batchVault.retrieve());
+                  (_b = this.batchesQueuedForProcessing).unshift.apply(_b, (_a = this.batchVault.retrieve()) !== null && _a !== void 0 ? _a : []);
                   // Remove batches from local storage before transmit to
                   // prevent duplication
                   this.batchVault.purge();
                 }
                 if (!isEmpty(newBatches)) {
-                  (_b = this.batchesQueuedForProcessing).push.apply(_b, newBatches);
+                  (_c = this.batchesQueuedForProcessing).push.apply(_c, newBatches);
                 }
                 batchesToUpload = this.batchesQueuedForProcessing;
                 this.batchesQueuedForProcessing = [];
                 return [4 /*yield*/, this.uploadBatches(batchesToUpload, useBeacon)];
               case 1:
-                batchesThatDidNotUpload = _d.sent();
+                batchesThatDidNotUpload = _e.sent();
                 // Batches that do not successfully upload are added back to the process queue
                 // in the order they were created so that we can attempt re-transmission in
                 // the same sequence. This is to prevent any potential data corruption.
                 if (!isEmpty(batchesThatDidNotUpload)) {
                   // TODO: https://go.mparticle.com/work/SQDSDKS-5165
-                  (_c = this.batchesQueuedForProcessing).unshift.apply(_c, batchesThatDidNotUpload);
+                  (_d = this.batchesQueuedForProcessing).unshift.apply(_d, batchesThatDidNotUpload);
                 }
                 // Update Offline Storage with current state of batch queue
                 if (!useBeacon && this.offlineStorageEnabled && this.batchVault) {
@@ -2933,9 +2963,7 @@ var mParticle = (function () {
                   // therefore NOT overwrite Offline Storage when beacon returns, so that we can retry
                   // uploading saved batches at a later time. Batches should only be removed from
                   // Local Storage once we can confirm they are successfully uploaded.
-                  this.batchVault.store(this.batchesQueuedForProcessing);
-                  // Clear batch queue since everything should be in Offline Storage
-                  this.batchesQueuedForProcessing = [];
+                  this.storeBatchesQueuedForProcessing();
                 }
                 if (triggerFuture && !this.destroyed) {
                   this.triggerUploadInterval(triggerFuture, false);
@@ -2946,6 +2974,38 @@ var mParticle = (function () {
         });
       };
 
+      BatchUploader.prototype.storeBatchesQueuedForProcessing = function () {
+        var batches = this.batchesQueuedForProcessing;
+        // Nothing to persist: reset offline storage to an empty state.
+        if (isEmpty(batches)) {
+          this.batchVault.store([]);
+          this.batchesQueuedForProcessing = [];
+          return;
+        }
+        // Drop oldest batches until storage accepts the payload. Only quota
+        // failures are recoverable by trimming; if storage is unavailable,
+        // dropping batches won't help, so retain them in memory.
+        for (var dropped = 0; dropped < batches.length; dropped++) {
+          var result = this.batchVault.store(batches.slice(dropped));
+          if (result === StorageResult.Success) {
+            this.logDroppedOfflineBatches(dropped);
+            this.batchesQueuedForProcessing = [];
+            return;
+          }
+          if (result === StorageResult.Unavailable) {
+            this.mpInstance.Logger.warning('Offline batch storage is unavailable. Retaining batches in memory.');
+            return;
+          }
+        }
+        // Every attempt stayed over quota, even down to the newest batch.
+        // Retain them in memory rather than dropping everything.
+        this.mpInstance.Logger.warning('Offline batch storage is over quota. Retaining batches in memory.');
+      };
+      BatchUploader.prototype.logDroppedOfflineBatches = function (droppedBatchCount) {
+        if (droppedBatchCount > 0) {
+          this.mpInstance.Logger.warning('Offline batch storage is over quota. Dropped ' + "".concat(droppedBatchCount, " oldest batch(es)."));
+        }
+      };
       BatchUploader.prototype.uploadBatches = function (batches, useBeacon) {
         return __awaiter(this, void 0, void 0, function () {
           var uploads, uploadsToLog, i, fetchPayload, blob, response, e_1;
@@ -6059,7 +6119,11 @@ var mParticle = (function () {
           window.document.cookie = encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
         } else {
           if (mpInstance._Store.isLocalStorageAvailable) {
-            localStorage.setItem(mpInstance._Store.storageName, encodedPersistence);
+            try {
+              localStorage.setItem(mpInstance._Store.storageName, encodedPersistence);
+            } catch (e) {
+              mpInstance.Logger.error('Error saving persistence to localStorage.');
+            }
           }
         }
       };

@@ -1,3 +1,8 @@
+export declare enum StorageResult {
+    Success = "Success",
+    QuotaExceeded = "QuotaExceeded",
+    Unavailable = "Unavailable"
+}
 export declare abstract class BaseVault<StorableItem> {
     contents: StorableItem;
     protected readonly _storageKey: string;
@@ -13,7 +18,7 @@ export declare abstract class BaseVault<StorableItem> {
      * @method store
      * @param item {StorableItem}
      */
-    store(item: StorableItem): void;
+    store(item: StorableItem): StorageResult;
     /**
      * Retrieve StorableItem from Storage
      * @method retrieve
@@ -35,7 +40,7 @@ export declare class SessionStorageVault<StorableItem> extends BaseVault<Storabl
 }
 export declare class DisabledVault<StorableItem> extends BaseVault<StorableItem> {
     constructor(storageKey: string);
-    store(_item: StorableItem): void;
+    store(_item: StorableItem): StorageResult;
     retrieve(): StorableItem | null;
     purge(): void;
 }
