@@ -1,3 +1,10 @@
+## [2.71.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.71.1...v2.71.2) (2026-07-01)
+
+
+### Bug Fixes
+
+* prevent storage quota errors during event logging ([#1287](https://github.com/mParticle/mparticle-web-sdk/issues/1287)) ([b481932](https://github.com/mParticle/mparticle-web-sdk/commit/b481932e466877bf58f148ff023232e8f8ce6f9c))
+
 ## [2.71.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.71.0...v2.71.1) (2026-06-24)
 
 
