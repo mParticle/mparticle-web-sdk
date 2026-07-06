@@ -1,3 +1,10 @@
+# [2.72.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.71.2...v2.72.0) (2026-07-06)
+
+
+### Features
+
+* auto-calculate commerce event total amount from products ([#1280](https://github.com/mParticle/mparticle-web-sdk/issues/1280)) ([5ad865d](https://github.com/mParticle/mparticle-web-sdk/commit/5ad865db59dbfa6e426676fd901dd78c9f9fca70))
+
 ## [2.71.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.71.1...v2.71.2) (2026-07-01)
 
 
