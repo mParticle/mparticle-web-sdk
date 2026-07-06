@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.71.2";
+    var version = "2.72.0";
 
     var Constants = {
       sdkVersion: version,
@@ -4441,6 +4441,25 @@ var mParticle = (function () {
           productAction.CheckoutOptions = transactionAttributes.Option;
         }
       };
+
+      // When the caller does not supply a transaction-level total via
+      // transactionAttributes.Revenue, derive it from the product list
+      // (quantity * price) plus shipping and tax. A total that the caller provided
+      // (including 0) is never overwritten.
+      this.calculateProductActionTotalAmount = function (productAction) {
+        if (!productAction || productAction.TotalAmount != null) {
+          return productAction;
+        }
+        var totalAmount = 0;
+        if (Array.isArray(productAction.ProductList)) {
+          productAction.ProductList.forEach(function (product) {
+            totalAmount += parseNumber(product.Quantity) * parseNumber(product.Price);
+          });
+        }
+        totalAmount += parseNumber(productAction.ShippingAmount) + parseNumber(productAction.TaxAmount);
+        productAction.TotalAmount = totalAmount;
+        return productAction;
+      };
       this.getProductActionEventName = function (productActionType) {
         switch (productActionType) {
           case Types.ProductActionType.AddToCart:
@@ -6434,6 +6453,12 @@ var mParticle = (function () {
           }
           if (attrs) {
             commerceEvent.EventAttributes = attrs;
+          }
+
+          // When no transaction total (Revenue) was provided, derive it from
+          // the products, shipping, and tax.
+          if (commerceEvent.ProductAction) {
+            mpInstance._Ecommerce.calculateProductActionTotalAmount(commerceEvent.ProductAction);
           }
           mpInstance._APIClient.sendEventToServer(commerceEvent, options);
 

@@ -2,6 +2,7 @@ export default function Ecommerce(mpInstance: any): void;
 export default class Ecommerce {
     constructor(mpInstance: any);
     convertTransactionAttributesToProductAction: (transactionAttributes: any, productAction: any) => void;
+    calculateProductActionTotalAmount: (productAction: any) => any;
     getProductActionEventName: (productActionType: any) => "AddToCart" | "AddToWishlist" | "Checkout" | "CheckoutOption" | "Click" | "Purchase" | "Refund" | "RemoveFromCart" | "RemoveFromWishlist" | "ViewDetail" | "ViewCart" | "AddShippingInfo" | "AddPaymentInfo" | "PaymentMethodSelected" | "PaymentAttempted" | "PaymentSucceeded" | "PaymentFailed" | "RefundInitiated" | "Unknown";
     getPromotionActionEventName: (promotionActionType: any) => "Unknown" | "PromotionClick" | "PromotionView";
     convertProductActionToEventType: (productActionType: any) => 0 | 20 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 21;
