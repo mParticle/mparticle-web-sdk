@@ -1,6 +1,6 @@
 import Types from './types';
 import Constants from './constants';
-import { extend } from './utils';
+import { extend, parseNumber } from './utils';
 
 var Messages = Constants.Messages;
 
@@ -45,6 +45,33 @@ export default function Ecommerce(mpInstance) {
         if (transactionAttributes.hasOwnProperty('Option')) {
             productAction.CheckoutOptions = transactionAttributes.Option;
         }
+    };
+
+    // When the caller does not supply a transaction-level total via
+    // transactionAttributes.Revenue, derive it from the product list
+    // (quantity * price) plus shipping and tax. A total that the caller provided
+    // (including 0) is never overwritten.
+    this.calculateProductActionTotalAmount = function(productAction) {
+        if (!productAction || productAction.TotalAmount != null) {
+            return productAction;
+        }
+
+        let totalAmount = 0;
+
+        if (Array.isArray(productAction.ProductList)) {
+            productAction.ProductList.forEach(function(product) {
+                totalAmount +=
+                    parseNumber(product.Quantity) * parseNumber(product.Price);
+            });
+        }
+
+        totalAmount +=
+            parseNumber(productAction.ShippingAmount) +
+            parseNumber(productAction.TaxAmount);
+
+        productAction.TotalAmount = totalAmount;
+
+        return productAction;
     };
 
     this.getProductActionEventName = function(productActionType) {
