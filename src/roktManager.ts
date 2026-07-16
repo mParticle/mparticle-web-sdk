@@ -216,11 +216,6 @@ export default class RoktManager {
             this.store?.setIntegrationName(kit.integrationName);
         }
 
-        this.loggingService?.log({
-            message: 'RoktManager: Kit attached, Rokt is ready',
-            code: ErrorCodes.ROKT_KIT_ATTACHED,
-        });
-
         this.processMessageQueue();
 
         try {
