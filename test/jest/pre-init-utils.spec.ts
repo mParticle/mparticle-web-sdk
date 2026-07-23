@@ -84,5 +84,44 @@ describe('pre-init-utils', () => {
             const readyQueue = [['Identity.login']];
             expect(() => processReadyQueue(readyQueue)).toThrowError("Unable to compute proper mParticle function TypeError: Cannot read properties of undefined (reading 'login')");
         });
+
+        it('should not mutate the queued item so it can be processed again', () => {
+            const functionSpy = jest.fn();
+            (window.mParticle as any) = {
+                fakeFunction: functionSpy,
+            };
+            const item = ['fakeFunction', 'foo'];
+
+            processReadyQueue([item]);
+            // The item must be left intact — a second drain must not see a stripped array.
+            expect(item).toEqual(['fakeFunction', 'foo']);
+
+            processReadyQueue([item]);
+            expect(functionSpy).toHaveBeenCalledTimes(2);
+            expect(functionSpy).toHaveBeenNthCalledWith(1, 'foo');
+            expect(functionSpy).toHaveBeenNthCalledWith(2, 'foo');
+        });
+
+        it('should not throw when the same queue is drained more than once (re-entrancy safe)', () => {
+            const functionSpy = jest.fn();
+            (window.mParticle as any) = {
+                fakeFunction: functionSpy,
+            };
+            const readyQueue = [['fakeFunction', 'foo']];
+
+            expect(() => {
+                processReadyQueue(readyQueue);
+                processReadyQueue(readyQueue);
+            }).not.toThrow();
+            expect(functionSpy).toHaveBeenCalledTimes(2);
+        });
+
+        it('should skip malformed queue items instead of throwing', () => {
+            (window.mParticle as any) = {};
+            // empty array -> method undefined; non-string method -> method.split would throw
+            expect(() => processReadyQueue([[]])).not.toThrow();
+            expect(() => processReadyQueue([[{} as any, 'arg']])).not.toThrow();
+            expect(() => processReadyQueue([[42 as any]])).not.toThrow();
+        });
     });
 });
