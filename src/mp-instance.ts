@@ -1560,7 +1560,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
                 roktOptions,
                 mpInstance.captureTiming,
                 mpInstance._ErrorReportingDispatcher,
-                mpInstance._LoggingDispatcher
+                mpInstance._LoggingDispatcher,
+                mpInstance._IntegrationCapture,
             );
         }
 

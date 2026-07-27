@@ -2555,6 +2555,108 @@ describe('RoktManager', () => {
                 `mParticle.Rokt selectPlacements called with attributes:\n${JSON.stringify({ email: 'string', customAttr: 'string' }, null, 2)}`
             );
         });
+
+        describe('passbackconversiontrackingid injection', () => {
+            let kit: IRoktKit;
+
+            beforeEach(() => {
+                kit = {
+                    launcher: {
+                        selectPlacements: jest.fn().mockResolvedValue({ close: jest.fn(), getPlacements: jest.fn() }),
+                        hashAttributes: jest.fn(),
+                        use: jest.fn(),
+                    },
+                    filters: undefined,
+                    filteredUser: undefined,
+                    userAttributes: undefined,
+                    selectPlacements: jest.fn().mockResolvedValue({ close: jest.fn(), getPlacements: jest.fn() }),
+                    hashAttributes: jest.fn(),
+                    setExtensionData: jest.fn(),
+                    use: jest.fn(),
+                    onShoppableAdsReady: jest.fn(),
+                };
+
+                roktManager.attachKit(kit);
+                roktManager['store'].identityCallInFlight = false;
+            });
+
+            it('should inject passbackconversiontrackingid from IntegrationCapture when not provided by partner', async () => {
+                roktManager['integrationCapture'] = {
+                    getClickIdsAsIntegrationAttributes: jest.fn().mockReturnValue({
+                        1277: { passbackconversiontrackingid: 'rclid-from-capture' },
+                    }),
+                } as any;
+
+                await roktManager.selectPlacements({
+                    attributes: { email: 'user@example.com' },
+                });
+
+                expect(kit.selectPlacements).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        attributes: expect.objectContaining({
+                            passbackconversiontrackingid: 'rclid-from-capture',
+                        }),
+                    }),
+                );
+            });
+
+            it('should not overwrite passbackconversiontrackingid when partner explicitly provides it', async () => {
+                roktManager['integrationCapture'] = {
+                    getClickIdsAsIntegrationAttributes: jest.fn().mockReturnValue({
+                        1277: { passbackconversiontrackingid: 'rclid-from-capture' },
+                    }),
+                } as any;
+
+                await roktManager.selectPlacements({
+                    attributes: {
+                        email: 'user@example.com',
+                        passbackconversiontrackingid: 'partner-provided-rclid',
+                    },
+                });
+
+                expect(kit.selectPlacements).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        attributes: expect.objectContaining({
+                            passbackconversiontrackingid: 'partner-provided-rclid',
+                        }),
+                    }),
+                );
+            });
+
+            it('should not inject passbackconversiontrackingid when IntegrationCapture has no Rokt attributes', async () => {
+                roktManager['integrationCapture'] = {
+                    getClickIdsAsIntegrationAttributes: jest.fn().mockReturnValue({}),
+                } as any;
+
+                await roktManager.selectPlacements({
+                    attributes: { email: 'user@example.com' },
+                });
+
+                expect(kit.selectPlacements).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        attributes: expect.not.objectContaining({
+                            passbackconversiontrackingid: expect.anything(),
+                        }),
+                    }),
+                );
+            });
+
+            it('should not inject passbackconversiontrackingid when IntegrationCapture is not provided', async () => {
+                roktManager['integrationCapture'] = undefined;
+
+                await roktManager.selectPlacements({
+                    attributes: { email: 'user@example.com' },
+                });
+
+                expect(kit.selectPlacements).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        attributes: expect.not.objectContaining({
+                            passbackconversiontrackingid: expect.anything(),
+                        }),
+                    }),
+                );
+            });
+        });
     });
 
     describe('#setExtensionData', () => {
