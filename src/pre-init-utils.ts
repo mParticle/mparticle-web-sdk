@@ -25,8 +25,20 @@ export const processReadyQueue = (readyQueue): Function[] => {
 };
 
 const processPreloadedItem = (readyQueueItem): void => {
-    const args = readyQueueItem;
+    // Operate on a copy of the queued item. The ready queue can be drained more
+    // than once (e.g. a synchronous cache-hit identify re-enters processReadyQueue
+    // before the outer drain resets the queue). Splicing the shared item array in
+    // place would corrupt it on the second pass — ["Identity.login", opts] becomes
+    // [opts] — so `method` turns into a non-string/undefined and `method.split('.')`
+    // throws. Copying keeps the original item intact for any repeat pass.
+    const args = readyQueueItem.slice();
     const method = args.splice(0, 1)[0];
+
+    // Skip malformed queue entries (empty array or non-string method) instead of
+    // throwing an uncaught TypeError from method.split() below.
+    if (typeof method !== 'string' || method.length === 0) {
+        return;
+    }
 
     // if the first argument is a method on the base mParticle object, run it
     if (typeof window !== 'undefined' && window.mParticle && window.mParticle[args[0]]) {
