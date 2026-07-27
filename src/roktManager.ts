@@ -18,6 +18,10 @@ import { UserIdentities } from "@mparticle/web-sdk";
 import { IdentityType, PerformanceMarkType } from "./types";
 import { ErrorCodes, IErrorReportingService, ILoggingService, WSDKErrorSeverity } from "./reporting/types";
 import { IRoktLauncherOptions, normalizeRoktLauncherOptions } from "./roktLauncherOptions";
+import { PARTNER_MODULE_IDS } from "./cookieSyncManager";
+import IntegrationCapture from "./integrationCapture";
+
+const PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export type RoktAttributeValueArray = Array<string | number | boolean>;
@@ -118,6 +122,7 @@ export default class RoktManager {
     private domain?: string;
     private mappedEmailShaIdentityType?: string | null;
     private captureTiming?: (metricsName: string) => void;
+    private integrationCapture?: IntegrationCapture;
     private onReadyCallback: (() => void) | null = null;
     private initialized: boolean = false;
     private isShoppableAdsLoaded: boolean = false;
@@ -152,7 +157,8 @@ export default class RoktManager {
         options?: IRoktOptions,
         captureTiming?: (metricsName: string) => void,
         errorReporter?: IErrorReportingService,
-        loggingService?: ILoggingService
+        loggingService?: ILoggingService,
+        integrationCapture?: IntegrationCapture,
     ): void {
         const { userAttributeFilters, settings } = roktConfig || {};
         const { placementAttributesMapping, hashedEmailUserIdentityType } = settings || {};
@@ -164,6 +170,7 @@ export default class RoktManager {
         this.errorReporter = errorReporter;
         this.loggingService = loggingService;
         this.captureTiming = captureTiming;
+        this.integrationCapture = integrationCapture;
 
         this.captureTiming?.(PerformanceMarkType.JointSdkRoktKitInit);
 
@@ -363,6 +370,15 @@ export default class RoktManager {
                     !enrichedAttributes[this.mappedEmailShaIdentityType]
                 ) {
                     enrichedAttributes.emailsha256 = hashedEmail;
+                }
+            }
+
+            if (!enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID]) {
+                this.integrationCapture?.capture();
+                const capturedAttrs = this.integrationCapture?.getClickIdsAsIntegrationAttributes();
+                const passbackId = capturedAttrs?.[PARTNER_MODULE_IDS.Rokt]?.[PASSBACK_CONVERSION_TRACKING_ID];
+                if (passbackId) {
+                    enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID] = passbackId;
                 }
             }
 
