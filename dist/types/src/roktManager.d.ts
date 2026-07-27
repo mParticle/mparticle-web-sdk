@@ -7,6 +7,7 @@ import { SDKLoggerApi } from "./sdkRuntimeModels";
 import { IStore, LocalSessionAttributes } from "./store";
 import { IErrorReportingService, ILoggingService } from "./reporting/types";
 import { IRoktLauncherOptions } from "./roktLauncherOptions";
+import IntegrationCapture from "./integrationCapture";
 export type RoktAttributeValueArray = Array<string | number | boolean>;
 export type RoktAttributeValueType = string | number | boolean | undefined | null;
 export type RoktAttributeValue = RoktAttributeValueType | RoktAttributeValueArray;
@@ -82,6 +83,7 @@ export default class RoktManager {
     private domain?;
     private mappedEmailShaIdentityType?;
     private captureTiming?;
+    private integrationCapture?;
     private onReadyCallback;
     private initialized;
     private isShoppableAdsLoaded;
@@ -103,7 +105,7 @@ export default class RoktManager {
      *
      * @throws Logs error to console if placementAttributesMapping parsing fails
      */
-    init(roktConfig: IKitConfigs, filteredUser: IMParticleUser, identityService: SDKIdentityApi, store: IStore, logger?: SDKLoggerApi, options?: IRoktOptions, captureTiming?: (metricsName: string) => void, errorReporter?: IErrorReportingService, loggingService?: ILoggingService): void;
+    init(roktConfig: IKitConfigs, filteredUser: IMParticleUser, identityService: SDKIdentityApi, store: IStore, logger?: SDKLoggerApi, options?: IRoktOptions, captureTiming?: (metricsName: string) => void, errorReporter?: IErrorReportingService, loggingService?: ILoggingService, integrationCapture?: IntegrationCapture): void;
     get isInitialized(): boolean;
     attachKit(kit: IRoktKit): void;
     /**

@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.72.0";
+    var version = "2.73.0";
 
     var Constants = {
       sdkVersion: version,
@@ -3086,7 +3086,6 @@ var mParticle = (function () {
       UNHANDLED_EXCEPTION: 'UNHANDLED_EXCEPTION',
       IDENTITY_REQUEST: 'IDENTITY_REQUEST',
       IDENTITY_MISMATCH: 'IDENTITY_MISMATCH',
-      ROKT_KIT_ATTACHED: 'ROKT_KIT_ATTACHED',
       MP_DEPRECATED_METHOD_USAGE: 'MP_DEPRECATED_METHOD_USAGE'
     };
     var WSDKErrorSeverity = {
@@ -7925,8 +7924,19 @@ var mParticle = (function () {
       return [];
     };
     var processPreloadedItem = function processPreloadedItem(readyQueueItem) {
-      var args = readyQueueItem;
+      // Operate on a copy of the queued item. The ready queue can be drained more
+      // than once (e.g. a synchronous cache-hit identify re-enters processReadyQueue
+      // before the outer drain resets the queue). Splicing the shared item array in
+      // place would corrupt it on the second pass — ["Identity.login", opts] becomes
+      // [opts] — so `method` turns into a non-string/undefined and `method.split('.')`
+      // throws. Copying keeps the original item intact for any repeat pass.
+      var args = readyQueueItem.slice();
       var method = args.splice(0, 1)[0];
+      // Skip malformed queue entries (empty array or non-string method) instead of
+      // throwing an uncaught TypeError from method.split() below.
+      if (typeof method !== 'string' || method.length === 0) {
+        return;
+      }
       // if the first argument is a method on the base mParticle object, run it
       if (typeof window !== 'undefined' && window.mParticle && window.mParticle[args[0]]) {
         window.mParticle[method].apply(window.mParticle, args);
@@ -10436,6 +10446,7 @@ var mParticle = (function () {
       return IntegrationCapture;
     }();
 
+    var PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
     var ON_SHOPPABLE_ADS_READY_METHOD = 'onShoppableAdsReady';
     // The purpose of this class is to create a link between the Core mParticle SDK and the
     // Rokt Web SDK via a Web Kit.
@@ -10478,7 +10489,7 @@ var mParticle = (function () {
        *
        * @throws Logs error to console if placementAttributesMapping parsing fails
        */
-      RoktManager.prototype.init = function (roktConfig, filteredUser, identityService, store, logger, options, captureTiming, errorReporter, loggingService) {
+      RoktManager.prototype.init = function (roktConfig, filteredUser, identityService, store, logger, options, captureTiming, errorReporter, loggingService, integrationCapture) {
         var _a, _b;
         var _c = roktConfig || {},
           userAttributeFilters = _c.userAttributeFilters,
@@ -10493,6 +10504,7 @@ var mParticle = (function () {
         this.errorReporter = errorReporter;
         this.loggingService = loggingService;
         this.captureTiming = captureTiming;
+        this.integrationCapture = integrationCapture;
         (_b = this.captureTiming) === null || _b === void 0 ? void 0 : _b.call(this, PerformanceMarkType.JointSdkRoktKitInit);
         this.filters = {
           userAttributeFilters: userAttributeFilters,
@@ -10531,7 +10543,7 @@ var mParticle = (function () {
         configurable: true
       });
       RoktManager.prototype.attachKit = function (kit) {
-        var _a, _b, _c, _d, _e;
+        var _a, _b, _c, _d;
         this.kit = kit;
         if ((_a = kit.settings) === null || _a === void 0 ? void 0 : _a.accountId) {
           this.store.setRoktAccountId(kit.settings.accountId);
@@ -10539,15 +10551,11 @@ var mParticle = (function () {
         if (kit.integrationName) {
           (_b = this.store) === null || _b === void 0 ? void 0 : _b.setIntegrationName(kit.integrationName);
         }
-        (_c = this.loggingService) === null || _c === void 0 ? void 0 : _c.log({
-          message: 'RoktManager: Kit attached, Rokt is ready',
-          code: ErrorCodes.ROKT_KIT_ATTACHED
-        });
         this.processMessageQueue();
         try {
-          (_d = this.onReadyCallback) === null || _d === void 0 ? void 0 : _d.call(this);
+          (_c = this.onReadyCallback) === null || _c === void 0 ? void 0 : _c.call(this);
         } catch (e) {
-          (_e = this.logger) === null || _e === void 0 ? void 0 : _e.error('RoktManager: Error in onReadyCallback: ' + e);
+          (_d = this.logger) === null || _d === void 0 ? void 0 : _d.error('RoktManager: Error in onReadyCallback: ' + e);
         }
       };
       /**
@@ -10566,11 +10574,11 @@ var mParticle = (function () {
        * });
        */
       RoktManager.prototype.selectPlacements = function (options) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
         return __awaiter(this, void 0, void 0, function () {
-          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities, msg, msg, errorMessage, finalUserIdentities, enrichedAttributes, hashedEmail, enrichedOptions;
+          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities, msg, msg, errorMessage, finalUserIdentities, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
           var _this = this;
-          return __generator(this, function (_k) {
+          return __generator(this, function (_o) {
             (_a = this.captureTiming) === null || _a === void 0 ? void 0 : _a.call(this, PerformanceMarkType.JointSdkSelectPlacements);
             // Queue if kit isn't ready OR if identity is in flight
             if (!this.isReady() || ((_b = this.store) === null || _b === void 0 ? void 0 : _b.identityCallInFlight)) {
@@ -10654,6 +10662,14 @@ var mParticle = (function () {
                 hashedEmail = finalUserIdentities[this.mappedEmailShaIdentityType];
                 if (hashedEmail && !enrichedAttributes.emailsha256 && !enrichedAttributes[this.mappedEmailShaIdentityType]) {
                   enrichedAttributes.emailsha256 = hashedEmail;
+                }
+              }
+              if (!enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID]) {
+                (_k = this.integrationCapture) === null || _k === void 0 ? void 0 : _k.capture();
+                capturedAttrs = (_l = this.integrationCapture) === null || _l === void 0 ? void 0 : _l.getClickIdsAsIntegrationAttributes();
+                passbackId = (_m = capturedAttrs === null || capturedAttrs === void 0 ? void 0 : capturedAttrs[PARTNER_MODULE_IDS.Rokt]) === null || _m === void 0 ? void 0 : _m[PASSBACK_CONVERSION_TRACKING_ID];
+                if (passbackId) {
+                  enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID] = passbackId;
                 }
               }
               this.filters.filteredUser = this.currentUser || this.filters.filteredUser || null;
@@ -12145,7 +12161,7 @@ var mParticle = (function () {
             domain: config === null || config === void 0 ? void 0 : config.domain
           };
           // https://go.mparticle.com/work/SQDSDKS-7339
-          mpInstance._RoktManager.init(roktConfig, roktFilteredUser, mpInstance.Identity, mpInstance._Store, mpInstance.Logger, roktOptions, mpInstance.captureTiming, mpInstance._ErrorReportingDispatcher, mpInstance._LoggingDispatcher);
+          mpInstance._RoktManager.init(roktConfig, roktFilteredUser, mpInstance.Identity, mpInstance._Store, mpInstance.Logger, roktOptions, mpInstance.captureTiming, mpInstance._ErrorReportingDispatcher, mpInstance._LoggingDispatcher, mpInstance._IntegrationCapture);
         }
         mpInstance._Forwarders.processForwarders(config, mpInstance._APIClient.prepareForwardingStats);
         mpInstance._Forwarders.processPixelConfigs(config);
