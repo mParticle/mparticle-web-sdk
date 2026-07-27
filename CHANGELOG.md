@@ -1,3 +1,15 @@
+# [2.73.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.72.0...v2.73.0) (2026-07-27)
+
+
+### Bug Fixes
+
+* **pre-init:** stop processPreloadedItem mutating the shared ready-queue item ([#1292](https://github.com/mParticle/mparticle-web-sdk/issues/1292)) ([f79940f](https://github.com/mParticle/mparticle-web-sdk/commit/f79940fadd236fd12f07b911b87c1aac53ff9e86))
+
+
+### Features
+
+* inject passbackconversiontrackingid into selectPlacements attributes ([#1295](https://github.com/mParticle/mparticle-web-sdk/issues/1295)) ([9e7b209](https://github.com/mParticle/mparticle-web-sdk/commit/9e7b209d34fe8f43a44fc723d1e9207cd0e17bff))
+
 # [2.72.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.71.2...v2.72.0) (2026-07-06)
 
 
