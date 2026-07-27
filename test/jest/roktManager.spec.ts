@@ -2582,6 +2582,7 @@ describe('RoktManager', () => {
 
             it('should inject passbackconversiontrackingid from IntegrationCapture when not provided by partner', async () => {
                 roktManager['integrationCapture'] = {
+                    capture: jest.fn(),
                     getClickIdsAsIntegrationAttributes: jest.fn().mockReturnValue({
                         1277: { passbackconversiontrackingid: 'rclid-from-capture' },
                     }),
@@ -2600,8 +2601,25 @@ describe('RoktManager', () => {
                 );
             });
 
+            it('should call capture() before reading to pick up late-arriving IDs', async () => {
+                const mockCapture = jest.fn();
+                roktManager['integrationCapture'] = {
+                    capture: mockCapture,
+                    getClickIdsAsIntegrationAttributes: jest.fn().mockReturnValue({
+                        1277: { passbackconversiontrackingid: 'fresh-rclid' },
+                    }),
+                } as any;
+
+                await roktManager.selectPlacements({
+                    attributes: { email: 'user@example.com' },
+                });
+
+                expect(mockCapture).toHaveBeenCalled();
+            });
+
             it('should not overwrite passbackconversiontrackingid when partner explicitly provides it', async () => {
                 roktManager['integrationCapture'] = {
+                    capture: jest.fn(),
                     getClickIdsAsIntegrationAttributes: jest.fn().mockReturnValue({
                         1277: { passbackconversiontrackingid: 'rclid-from-capture' },
                     }),
@@ -2625,6 +2643,7 @@ describe('RoktManager', () => {
 
             it('should not inject passbackconversiontrackingid when IntegrationCapture has no Rokt attributes', async () => {
                 roktManager['integrationCapture'] = {
+                    capture: jest.fn(),
                     getClickIdsAsIntegrationAttributes: jest.fn().mockReturnValue({}),
                 } as any;
 

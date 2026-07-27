@@ -374,6 +374,7 @@ export default class RoktManager {
             }
 
             if (!enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID]) {
+                this.integrationCapture?.capture();
                 const capturedAttrs = this.integrationCapture?.getClickIdsAsIntegrationAttributes();
                 const passbackId = capturedAttrs?.[PARTNER_MODULE_IDS.Rokt]?.[PASSBACK_CONVERSION_TRACKING_ID];
                 if (passbackId) {
