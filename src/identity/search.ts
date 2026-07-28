@@ -1,6 +1,6 @@
 import Constants, { HTTP_OK, HTTP_NOT_FOUND } from '../constants';
 import { SDKLoggerApi } from '../sdkRuntimeModels';
-import { Environment, isFunction } from '../utils';
+import { Environment, isFunction, getErrorMessage } from '../utils';
 import {
     AsyncUploader,
     FetchUploader,
@@ -111,8 +111,7 @@ export const sendSearchRequest = async (
             callback(result);
         } catch (e) {
             logger.error(
-                'Error invoking search callback: ' +
-                    ((e as Error)?.message || String(e)),
+                'Error invoking search callback: ' + getErrorMessage(e),
             );
         }
     };
@@ -216,7 +215,7 @@ export const sendSearchRequest = async (
 
         safeInvoke({ httpCode: response.status, body });
     } catch (e) {
-        const message = (e as Error)?.message || String(e);
+        const message = getErrorMessage(e);
         const reportMessage = 'Error sending search request: ' + message;
         logger.error(reportMessage);
         // Mirror the identity-route pattern in identityApiClient.ts: log to

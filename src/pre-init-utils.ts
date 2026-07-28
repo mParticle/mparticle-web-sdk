@@ -2,7 +2,7 @@ import { IPixelConfiguration } from './cookieSyncManager';
 import { MPForwarder } from './forwarders.interfaces';
 import { IntegrationDelays } from './mp-instance';
 import { SDKLoggerApi } from './sdkRuntimeModels';
-import { isEmpty, isFunction } from './utils';
+import { isEmpty, isFunction, getErrorMessage } from './utils';
 
 export interface IPreInit {
     readyQueue: Function[] | any[];
@@ -39,21 +39,13 @@ export const processReadyQueue = (
                 processPreloadedItem(readyQueueItem);
             }
         } catch (e) {
-            logger.error(formatReadyQueueItemError(e));
+            logger.error(
+                'Error processing ready queue item: ' + getErrorMessage(e)
+            );
         }
     });
 
     return [];
-};
-
-const formatReadyQueueItemError = (e: unknown): string => {
-    let detail = 'unknown error';
-    if (e instanceof Error) {
-        detail = e.message;
-    } else if (typeof e === 'string') {
-        detail = e;
-    }
-    return 'Error processing ready queue item: ' + detail;
 };
 
 const processPreloadedItem = (readyQueueItem): void => {

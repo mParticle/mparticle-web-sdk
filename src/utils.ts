@@ -625,6 +625,24 @@ function extend(...args: any[]): any {
     return target;
 }
 
+/**
+ * Normalize a caught value into a loggable string.
+ * Prefer Error.message and plain strings; anything else would stringify to
+ * "[object Object]" and tell us nothing, so fall back to a fixed label.
+ */
+const getErrorMessage = (
+    e: unknown,
+    fallback = 'unknown error'
+): string => {
+    if (e instanceof Error) {
+        return e.message;
+    }
+    if (typeof e === 'string') {
+        return e;
+    }
+    return fallback;
+};
+
 export {
     createCookieString,
     revertCookieString,
@@ -639,6 +657,7 @@ export {
     generateDeprecationMessage,
     generateHash,
     generateUniqueId,
+    getErrorMessage,
     getRampNumber,
     inArray,
     isObject,

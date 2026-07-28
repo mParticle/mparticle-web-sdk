@@ -1,5 +1,5 @@
 import Constants, { ONE_DAY_IN_SECONDS, MILLIS_IN_ONE_SEC } from './constants';
-import { Dictionary, Environment, parseNumber, isObject, generateHash, generateUniqueId, isEmpty, isFunction } from './utils';
+import { Dictionary, Environment, parseNumber, isObject, generateHash, generateUniqueId, isEmpty, isFunction, getErrorMessage } from './utils';
 import { BaseVault } from './vault';
 import Types from './types';
 import {
@@ -414,8 +414,7 @@ export const executeSearchRequest = (
                 });
             } catch (e) {
                 Logger.error(
-                    'Error invoking search callback: ' +
-                        ((e as Error)?.message || String(e)),
+                    'Error invoking search callback: ' + getErrorMessage(e),
                 );
             }
         }
