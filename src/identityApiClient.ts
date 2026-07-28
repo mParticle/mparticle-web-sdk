@@ -345,6 +345,7 @@ export default function IdentityAPIClient(
                 message: msg,
                 code: ErrorCodes.IDENTITY_REQUEST,
                 severity: WSDKErrorSeverity.ERROR,
+                stackTrace: (err as Error).stack,
             });
 
             mpInstance.processQueueOnIdentityFailure?.();

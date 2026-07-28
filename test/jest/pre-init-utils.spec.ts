@@ -82,7 +82,53 @@ describe('pre-init-utils', () => {
 
         it('should throw an error if it cannot compute the proper mParticle function', () => {
             const readyQueue = [['Identity.login']];
-            expect(() => processReadyQueue(readyQueue)).toThrowError("Unable to compute proper mParticle function TypeError: Cannot read properties of undefined (reading 'login')");
+            expect(() => processReadyQueue(readyQueue)).toThrowError(
+                'Unable to compute proper mParticle function - method not found'
+            );
+        });
+
+        it('should name the unresolved method path on the error stack', () => {
+            // The path travels on `stack` rather than `message` so the message
+            // stays low-cardinality for monitors while the path remains
+            // queryable via the reporting pipeline's stackTrace field.
+            (window.mParticle as any) = {};
+
+            let caught: Error | null = null;
+            try {
+                processReadyQueue([['Identity.login']]);
+            } catch (e) {
+                caught = e as Error;
+            }
+
+            expect(caught).not.toBeNull();
+            expect(caught!.message).toBe(
+                'Unable to compute proper mParticle function - method not found'
+            );
+            expect(caught!.stack).toContain(
+                'mParticle pre-init method not found: Identity.login'
+            );
+        });
+
+        it('should distinguish a resolved method that throws from an unresolved one', () => {
+            (window.mParticle as any) = {
+                Identity: {
+                    login: () => {
+                        throw new Error('login blew up');
+                    },
+                },
+            };
+
+            expect(() => processReadyQueue([['Identity.login']])).toThrowError(
+                'Unable to compute proper mParticle function Error: login blew up'
+            );
+        });
+
+        it('should treat a resolved non-function property as unresolved', () => {
+            (window.mParticle as any) = { Identity: { login: 'not-a-function' } };
+
+            expect(() => processReadyQueue([['Identity.login']])).toThrowError(
+                'Unable to compute proper mParticle function - method not found'
+            );
         });
 
         it('should not mutate the queued item so it can be processed again', () => {

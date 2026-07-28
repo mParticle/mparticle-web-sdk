@@ -11,6 +11,26 @@ export interface IPreInit {
     isDevelopmentMode?: boolean;
 }
 
+// Kept free of the method path so it stays low-cardinality for monitors and
+// grouping. The path itself travels on the error's `stack`, which the reporting
+// pipeline forwards to a dedicated stackTrace field.
+const UNRESOLVED_METHOD_MESSAGE =
+    'Unable to compute proper mParticle function - method not found';
+
+/**
+ * A queued entry named a method that does not resolve on `window.mParticle`.
+ * Distinct from a method that resolved and then threw on its own.
+ */
+const unresolvedMethodError = (method: string): Error => {
+    const error = new Error(UNRESOLVED_METHOD_MESSAGE);
+    error.stack =
+        'mParticle pre-init method not found: ' +
+        method +
+        '\n' +
+        (error.stack || '');
+    return error;
+};
+
 export const processReadyQueue = (readyQueue): Function[] => {
     if (!isEmpty(readyQueue)) {
         readyQueue.forEach(readyQueueItem => {
@@ -46,16 +66,25 @@ const processPreloadedItem = (readyQueueItem): void => {
         // otherwise, the method is on either eCommerce or Identity objects, ie. "eCommerce.setCurrencyCode", "Identity.login"
     } else {
         const methodArray = method.split('.');
+        let computedMPFunction = window.mParticle;
+        let context = window.mParticle;
+
+        // Track both the function and its context
+        for (const currentMethod of methodArray) {
+            context = computedMPFunction; // Keep track of the parent object
+            computedMPFunction = computedMPFunction?.[currentMethod];
+        }
+
+        // Resolution failures and failures thrown by a resolved method are
+        // different problems and are reported separately. Resolving with `?.`
+        // also stops a missing intermediate object (ie. "Identity" on
+        // "Identity.login") from surfacing as an incidental TypeError that
+        // named the property rather than the queued method.
+        if (!isFunction(computedMPFunction)) {
+            throw unresolvedMethodError(method);
+        }
+
         try {
-            let computedMPFunction = window.mParticle;
-            let context = window.mParticle;
-            
-            // Track both the function and its context
-            for (const currentMethod of methodArray) {
-                context = computedMPFunction;  // Keep track of the parent object
-                computedMPFunction = computedMPFunction[currentMethod];
-            }
-            
             // Apply the function with its proper context
             ((computedMPFunction as unknown) as Function).apply(context, args);
         } catch (e) {
