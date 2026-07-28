@@ -24,15 +24,37 @@ export const processReadyQueue = (readyQueue): Function[] => {
     // Splice the queue empty up front so a nested call observes [].
     const items = readyQueue.splice(0, readyQueue.length);
 
+    // Isolate each item so one throw cannot abort the rest of this pass.
+    // Drain-first already removed siblings from the shared queue; without a
+    // per-item catch they would be lost forever when forEach aborts.
     items.forEach(readyQueueItem => {
-        if (isFunction(readyQueueItem)) {
-            readyQueueItem();
-        } else if (Array.isArray(readyQueueItem)) {
-            processPreloadedItem(readyQueueItem);
+        try {
+            if (isFunction(readyQueueItem)) {
+                readyQueueItem();
+            } else if (Array.isArray(readyQueueItem)) {
+                processPreloadedItem(readyQueueItem);
+            }
+        } catch (e) {
+            logReadyQueueItemError(e);
         }
     });
 
     return [];
+};
+
+const logReadyQueueItemError = (e: unknown): void => {
+    const message =
+        'Error processing ready queue item: ' +
+        ((e as Error)?.message || String(e));
+    try {
+        const logger = (window as any)?.mParticle?.getInstance?.()?.Logger;
+        if (logger?.error) {
+            logger.error(message);
+            return;
+        }
+    } catch (_) {
+        // Fall through if instance/logger lookup fails.
+    }
 };
 
 const processPreloadedItem = (readyQueueItem): void => {

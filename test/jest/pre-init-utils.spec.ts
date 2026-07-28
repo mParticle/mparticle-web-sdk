@@ -80,9 +80,56 @@ describe('pre-init-utils', () => {
             expect(functionSpy2).toHaveBeenCalledWith('bar');
         });
 
-        it('should throw an error if it cannot compute the proper mParticle function', () => {
+        it('should not throw when it cannot compute the proper mParticle function', () => {
+            // processPreloadedItem still throws, but processReadyQueue catches
+            // per item so a bad entry cannot abort the drain.
             const readyQueue = [['Identity.login']];
-            expect(() => processReadyQueue(readyQueue)).toThrowError("Unable to compute proper mParticle function TypeError: Cannot read properties of undefined (reading 'login')");
+            expect(() => processReadyQueue(readyQueue)).not.toThrow();
+            expect(readyQueue).toEqual([]);
+        });
+
+        it('should continue processing siblings after an item throws', () => {
+            const afterSpy = jest.fn();
+            const loggerError = jest.fn();
+            (window.mParticle as any) = {
+                getInstance: () => ({ Logger: { error: loggerError } }),
+                afterMethod: afterSpy,
+            };
+
+            const readyQueue = [
+                ['Identity.login'], // unresolved → throws inside processPreloadedItem
+                ['afterMethod', 'kept'],
+            ];
+
+            expect(() => processReadyQueue(readyQueue)).not.toThrow();
+            expect(afterSpy).toHaveBeenCalledTimes(1);
+            expect(afterSpy).toHaveBeenCalledWith('kept');
+            expect(readyQueue).toEqual([]);
+            expect(loggerError).toHaveBeenCalledWith(
+                expect.stringContaining(
+                    'Error processing ready queue item: Unable to compute proper mParticle function'
+                )
+            );
+        });
+
+        it('should continue after a queued function throws', () => {
+            const afterSpy = jest.fn();
+            const loggerError = jest.fn();
+            (window.mParticle as any) = {
+                getInstance: () => ({ Logger: { error: loggerError } }),
+            };
+
+            processReadyQueue([
+                () => {
+                    throw new Error('callback blew up');
+                },
+                afterSpy,
+            ]);
+
+            expect(afterSpy).toHaveBeenCalledTimes(1);
+            expect(loggerError).toHaveBeenCalledWith(
+                'Error processing ready queue item: callback blew up'
+            );
         });
 
         it('should not mutate the queued item array itself', () => {
