@@ -85,7 +85,7 @@ describe('pre-init-utils', () => {
             expect(() => processReadyQueue(readyQueue)).toThrowError("Unable to compute proper mParticle function TypeError: Cannot read properties of undefined (reading 'login')");
         });
 
-        it('should not mutate the queued item so it can be processed again', () => {
+        it('should not mutate the queued item array itself', () => {
             const functionSpy = jest.fn();
             (window.mParticle as any) = {
                 fakeFunction: functionSpy,
@@ -93,16 +93,14 @@ describe('pre-init-utils', () => {
             const item = ['fakeFunction', 'foo'];
 
             processReadyQueue([item]);
-            // The item must be left intact — a second drain must not see a stripped array.
+            // Item-level copy keeps the call shape intact even though the
+            // containing queue is drained.
             expect(item).toEqual(['fakeFunction', 'foo']);
-
-            processReadyQueue([item]);
-            expect(functionSpy).toHaveBeenCalledTimes(2);
-            expect(functionSpy).toHaveBeenNthCalledWith(1, 'foo');
-            expect(functionSpy).toHaveBeenNthCalledWith(2, 'foo');
+            expect(functionSpy).toHaveBeenCalledTimes(1);
+            expect(functionSpy).toHaveBeenCalledWith('foo');
         });
 
-        it('should not throw when the same queue is drained more than once (re-entrancy safe)', () => {
+        it('should empty the shared queue so a second drain is a no-op', () => {
             const functionSpy = jest.fn();
             (window.mParticle as any) = {
                 fakeFunction: functionSpy,
@@ -113,7 +111,38 @@ describe('pre-init-utils', () => {
                 processReadyQueue(readyQueue);
                 processReadyQueue(readyQueue);
             }).not.toThrow();
+            expect(readyQueue).toEqual([]);
+            expect(functionSpy).toHaveBeenCalledTimes(1);
+        });
+
+        it('should not re-execute items when processReadyQueue re-enters on the same array', () => {
+            const functionSpy = jest.fn();
+            const readyQueue: any[] = [];
+
+            (window.mParticle as any) = {
+                // Mimic cache-hit identify: executing a queued method re-enters
+                // processReadyQueue on the shared ready-queue array before the
+                // outer call has returned / been reassigned.
+                fakeFunction: (...args: any[]) => {
+                    functionSpy(...args);
+                    processReadyQueue(readyQueue);
+                },
+            };
+
+            readyQueue.push(
+                ['fakeFunction', 'first'],
+                ['fakeFunction', 'second']
+            );
+
+            processReadyQueue(readyQueue);
+
+            expect(readyQueue).toEqual([]);
+            // Drain-first ensures the nested call sees an empty queue. Without
+            // it, the nested call would re-run remaining (or all) items and
+            // recurse via fakeFunction.
             expect(functionSpy).toHaveBeenCalledTimes(2);
+            expect(functionSpy).toHaveBeenNthCalledWith(1, 'first');
+            expect(functionSpy).toHaveBeenNthCalledWith(2, 'second');
         });
 
         it('should skip malformed queue items instead of throwing', () => {

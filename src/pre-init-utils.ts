@@ -12,25 +12,34 @@ export interface IPreInit {
 }
 
 export const processReadyQueue = (readyQueue): Function[] => {
-    if (!isEmpty(readyQueue)) {
-        readyQueue.forEach(readyQueueItem => {
-            if (isFunction(readyQueueItem)) {
-                readyQueueItem();
-            } else if (Array.isArray(readyQueueItem)) {
-                processPreloadedItem(readyQueueItem);
-            }
-        });
+    if (isEmpty(readyQueue)) {
+        return [];
     }
+
+    // Drain the shared queue in place before processing. Callers only replace
+    // `_preInit.readyQueue` with the returned `[]` *after* this function
+    // returns, so a synchronous re-entry (e.g. cache-hit identify →
+    // parseIdentityResponse → processReadyQueue) still sees the same array
+    // reference. Taking the items up front means that nested call observes an
+    // empty queue and cannot re-execute the same entries — which would
+    // otherwise duplicate Identity/event calls, or nest
+    // "Unable to compute proper mParticle function" errors when an item fails.
+    const items = readyQueue.splice(0, readyQueue.length);
+
+    items.forEach(readyQueueItem => {
+        if (isFunction(readyQueueItem)) {
+            readyQueueItem();
+        } else if (Array.isArray(readyQueueItem)) {
+            processPreloadedItem(readyQueueItem);
+        }
+    });
+
     return [];
 };
 
 const processPreloadedItem = (readyQueueItem): void => {
-    // Operate on a copy of the queued item. The ready queue can be drained more
-    // than once (e.g. a synchronous cache-hit identify re-enters processReadyQueue
-    // before the outer drain resets the queue). Splicing the shared item array in
-    // place would corrupt it on the second pass — ["Identity.login", opts] becomes
-    // [opts] — so `method` turns into a non-string/undefined and `method.split('.')`
-    // throws. Copying keeps the original item intact for any repeat pass.
+    // Operate on a copy so processPreloadedItem never mutates the caller's
+    // queued item array (defensive; the queue itself is drained above).
     const args = readyQueueItem.slice();
     const method = args.splice(0, 1)[0];
 
