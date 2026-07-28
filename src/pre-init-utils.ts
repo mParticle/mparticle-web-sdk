@@ -1,7 +1,7 @@
 import { IPixelConfiguration } from './cookieSyncManager';
 import { MPForwarder } from './forwarders.interfaces';
-import { Logger } from './logger';
 import { IntegrationDelays } from './mp-instance';
+import { SDKLoggerApi } from './sdkRuntimeModels';
 import { isEmpty, isFunction } from './utils';
 
 export interface IPreInit {
@@ -14,7 +14,7 @@ export interface IPreInit {
 
 export const processReadyQueue = (
     readyQueue,
-    logger: Logger
+    logger: SDKLoggerApi
 ): Function[] => {
     if (isEmpty(readyQueue)) {
         return [];

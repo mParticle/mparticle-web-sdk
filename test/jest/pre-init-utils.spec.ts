@@ -1,10 +1,10 @@
 import { processReadyQueue } from '../../src/pre-init-utils';
-import { Logger } from '../../src/logger';
+import { SDKLoggerApi } from '../../src/sdkRuntimeModels';
 
 describe('pre-init-utils', () => {
     describe('#processReadyQueue', () => {
-        const createMockLogger = (): Logger => {
-            return { error: jest.fn() } as unknown as Logger;
+        const createMockLogger = (): SDKLoggerApi => {
+            return { error: jest.fn() } as unknown as SDKLoggerApi;
         };
 
         it('should return an empty array if readyQueue is empty', () => {
