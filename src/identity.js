@@ -1657,7 +1657,8 @@ export default function Identity(mpInstance) {
         mpInstance._RoktManager.onIdentityComplete();
 
         mpInstance._preInit.readyQueue = processReadyQueue(
-            mpInstance._preInit.readyQueue
+            mpInstance._preInit.readyQueue,
+            mpInstance.Logger
         );
     };
 

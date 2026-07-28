@@ -162,7 +162,10 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
 
         if (self._Store?.identityCallFailed && self._RoktManager?.isReady()) {
             self._RoktManager.processMessageQueue();
-            self._preInit.readyQueue = processReadyQueue(self._preInit.readyQueue);
+            self._preInit.readyQueue = processReadyQueue(
+                self._preInit.readyQueue,
+                self.Logger
+            );
         }
     };
 
@@ -179,7 +182,10 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             !hasExplicitIdentifier(self._Store);
 
         if (noFunctionalWithoutId) {
-            self._preInit.readyQueue = processReadyQueue(self._preInit.readyQueue);
+            self._preInit.readyQueue = processReadyQueue(
+                self._preInit.readyQueue,
+                self.Logger
+            );
         }
     };
 
@@ -1599,7 +1605,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         );
 
         mpInstance._preInit.readyQueue = processReadyQueue(
-            mpInstance._preInit.readyQueue
+            mpInstance._preInit.readyQueue,
+            mpInstance.Logger
         );
     }
 

@@ -1,16 +1,21 @@
 import { processReadyQueue } from '../../src/pre-init-utils';
+import { Logger } from '../../src/logger';
 
 describe('pre-init-utils', () => {
     describe('#processReadyQueue', () => {
+        const createMockLogger = (): Logger => {
+            return { error: jest.fn() } as unknown as Logger;
+        };
+
         it('should return an empty array if readyQueue is empty', () => {
-            const result = processReadyQueue([]);
+            const result = processReadyQueue([], createMockLogger());
             expect(result).toEqual([]);
         });
 
         it('should process functions passed as arguments', () => {
             const functionSpy = jest.fn();
             const readyQueue: Function[] = [functionSpy, functionSpy, functionSpy];
-            const result = processReadyQueue(readyQueue);
+            const result = processReadyQueue(readyQueue, createMockLogger());
             expect(functionSpy).toHaveBeenCalledTimes(3);
             expect(result).toEqual([]);
         });
@@ -28,7 +33,7 @@ describe('pre-init-utils', () => {
                 functionSpy,
             ];
             
-            processReadyQueue(readyQueue);
+            processReadyQueue(readyQueue, createMockLogger());
             
             expect(functionSpy).toHaveBeenCalledTimes(2);
             expect(arraySpy).toHaveBeenCalledWith('arg1');
@@ -40,7 +45,7 @@ describe('pre-init-utils', () => {
                 fakeFunction: functionSpy,
             };
             const readyQueue = [['fakeFunction']];
-            processReadyQueue(readyQueue);
+            processReadyQueue(readyQueue, createMockLogger());
             expect(functionSpy).toHaveBeenCalled();
         });
 
@@ -51,7 +56,7 @@ describe('pre-init-utils', () => {
                 args: () => {},
             };
             const readyQueue = [['fakeFunction', 'args']];
-            processReadyQueue(readyQueue);
+            processReadyQueue(readyQueue, createMockLogger());
             expect(functionSpy).toHaveBeenCalledWith('args');
         });
 
@@ -63,7 +68,7 @@ describe('pre-init-utils', () => {
                 },
             };
             const readyQueue = [['fakeFunction.anotherFakeFunction', 'foo']];
-            processReadyQueue(readyQueue);
+            processReadyQueue(readyQueue, createMockLogger());
             expect(functionSpy).toHaveBeenCalledWith('foo');
         });
 
@@ -75,7 +80,7 @@ describe('pre-init-utils', () => {
                 anotherFakeFunction: functionSpy2,
             };
             const readyQueue = [['fakeFunction', 'foo'], ['anotherFakeFunction', 'bar']];
-            processReadyQueue(readyQueue);
+            processReadyQueue(readyQueue, createMockLogger());
             expect(functionSpy).toHaveBeenCalledWith('foo');
             expect(functionSpy2).toHaveBeenCalledWith('bar');
         });
@@ -84,15 +89,16 @@ describe('pre-init-utils', () => {
             // processPreloadedItem still throws, but processReadyQueue catches
             // per item so a bad entry cannot abort the drain.
             const readyQueue = [['Identity.login']];
-            expect(() => processReadyQueue(readyQueue)).not.toThrow();
+            expect(() =>
+                processReadyQueue(readyQueue, createMockLogger())
+            ).not.toThrow();
             expect(readyQueue).toEqual([]);
         });
 
         it('should continue processing siblings after an item throws', () => {
             const afterSpy = jest.fn();
-            const loggerError = jest.fn();
+            const logger = createMockLogger();
             (window.mParticle as any) = {
-                getInstance: () => ({ Logger: { error: loggerError } }),
                 afterMethod: afterSpy,
             };
 
@@ -101,11 +107,11 @@ describe('pre-init-utils', () => {
                 ['afterMethod', 'kept'],
             ];
 
-            expect(() => processReadyQueue(readyQueue)).not.toThrow();
+            expect(() => processReadyQueue(readyQueue, logger)).not.toThrow();
             expect(afterSpy).toHaveBeenCalledTimes(1);
             expect(afterSpy).toHaveBeenCalledWith('kept');
             expect(readyQueue).toEqual([]);
-            expect(loggerError).toHaveBeenCalledWith(
+            expect(logger.error).toHaveBeenCalledWith(
                 expect.stringContaining(
                     'Error processing ready queue item: Unable to compute proper mParticle function'
                 )
@@ -114,20 +120,20 @@ describe('pre-init-utils', () => {
 
         it('should continue after a queued function throws', () => {
             const afterSpy = jest.fn();
-            const loggerError = jest.fn();
-            (window.mParticle as any) = {
-                getInstance: () => ({ Logger: { error: loggerError } }),
-            };
+            const logger = createMockLogger();
 
-            processReadyQueue([
-                () => {
-                    throw new Error('callback blew up');
-                },
-                afterSpy,
-            ]);
+            processReadyQueue(
+                [
+                    () => {
+                        throw new Error('callback blew up');
+                    },
+                    afterSpy,
+                ],
+                logger
+            );
 
             expect(afterSpy).toHaveBeenCalledTimes(1);
-            expect(loggerError).toHaveBeenCalledWith(
+            expect(logger.error).toHaveBeenCalledWith(
                 'Error processing ready queue item: callback blew up'
             );
         });
@@ -139,7 +145,7 @@ describe('pre-init-utils', () => {
             };
             const item = ['fakeFunction', 'foo'];
 
-            processReadyQueue([item]);
+            processReadyQueue([item], createMockLogger());
             // Item-level copy keeps the call shape intact even though the
             // containing queue is drained.
             expect(item).toEqual(['fakeFunction', 'foo']);
@@ -153,10 +159,11 @@ describe('pre-init-utils', () => {
                 fakeFunction: functionSpy,
             };
             const readyQueue = [['fakeFunction', 'foo']];
+            const logger = createMockLogger();
 
             expect(() => {
-                processReadyQueue(readyQueue);
-                processReadyQueue(readyQueue);
+                processReadyQueue(readyQueue, logger);
+                processReadyQueue(readyQueue, logger);
             }).not.toThrow();
             expect(readyQueue).toEqual([]);
             expect(functionSpy).toHaveBeenCalledTimes(1);
@@ -173,6 +180,7 @@ describe('pre-init-utils', () => {
             const functionSpy = jest.fn();
             const readyQueue: any[] = [];
             let hasReentered = false;
+            const logger = createMockLogger();
 
             (window.mParticle as any) = {
                 fakeFunction: (...args: any[]) => {
@@ -182,7 +190,7 @@ describe('pre-init-utils', () => {
                     // recurse forever; with it we get a clear 4-vs-2 assertion.
                     if (!hasReentered) {
                         hasReentered = true;
-                        processReadyQueue(readyQueue);
+                        processReadyQueue(readyQueue, logger);
                     }
                 },
             };
@@ -192,7 +200,7 @@ describe('pre-init-utils', () => {
                 ['fakeFunction', 'second']
             );
 
-            processReadyQueue(readyQueue);
+            processReadyQueue(readyQueue, logger);
 
             // Primary symptom: without drain-first this is 4 (each item twice).
             expect(functionSpy).toHaveBeenCalledTimes(2);
@@ -203,10 +211,13 @@ describe('pre-init-utils', () => {
 
         it('should skip malformed queue items instead of throwing', () => {
             (window.mParticle as any) = {};
+            const logger = createMockLogger();
             // empty array -> method undefined; non-string method -> method.split would throw
-            expect(() => processReadyQueue([[]])).not.toThrow();
-            expect(() => processReadyQueue([[{} as any, 'arg']])).not.toThrow();
-            expect(() => processReadyQueue([[42 as any]])).not.toThrow();
+            expect(() => processReadyQueue([[]], logger)).not.toThrow();
+            expect(() =>
+                processReadyQueue([[{} as any, 'arg']], logger)
+            ).not.toThrow();
+            expect(() => processReadyQueue([[42 as any]], logger)).not.toThrow();
         });
     });
 });

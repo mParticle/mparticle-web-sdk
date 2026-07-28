@@ -1,5 +1,6 @@
 import { IPixelConfiguration } from './cookieSyncManager';
 import { MPForwarder } from './forwarders.interfaces';
+import { Logger } from './logger';
 import { IntegrationDelays } from './mp-instance';
 import { isEmpty, isFunction } from './utils';
 
@@ -11,7 +12,10 @@ export interface IPreInit {
     isDevelopmentMode?: boolean;
 }
 
-export const processReadyQueue = (readyQueue): Function[] => {
+export const processReadyQueue = (
+    readyQueue,
+    logger: Logger
+): Function[] => {
     if (isEmpty(readyQueue)) {
         return [];
     }
@@ -35,18 +39,14 @@ export const processReadyQueue = (readyQueue): Function[] => {
                 processPreloadedItem(readyQueueItem);
             }
         } catch (e) {
-            logReadyQueueItemError(e);
+            logger.error(formatReadyQueueItemError(e));
         }
     });
 
     return [];
 };
 
-const logReadyQueueItemError = (e: unknown): void => {
-    if (typeof window === 'undefined') {
-        return;
-    }
-
+const formatReadyQueueItemError = (e: unknown): string => {
     // Only Errors and strings are described; anything else would stringify to
     // "[object Object]" and tell us nothing.
     let detail = 'unknown error';
@@ -55,9 +55,7 @@ const logReadyQueueItemError = (e: unknown): void => {
     } else if (typeof e === 'string') {
         detail = e;
     }
-
-    const logger = (window as any)?.mParticle?.getInstance?.()?.Logger;
-    logger?.error?.('Error processing ready queue item: ' + detail);
+    return 'Error processing ready queue item: ' + detail;
 };
 
 const processPreloadedItem = (readyQueueItem): void => {
