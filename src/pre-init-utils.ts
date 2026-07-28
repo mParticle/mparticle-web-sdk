@@ -16,14 +16,12 @@ export const processReadyQueue = (readyQueue): Function[] => {
         return [];
     }
 
-    // Drain the shared queue in place before processing. Callers only replace
-    // `_preInit.readyQueue` with the returned `[]` *after* this function
-    // returns, so a synchronous re-entry (e.g. cache-hit identify →
-    // parseIdentityResponse → processReadyQueue) still sees the same array
-    // reference. Taking the items up front means that nested call observes an
-    // empty queue and cannot re-execute the same entries — which would
-    // otherwise duplicate Identity/event calls, or nest
-    // "Unable to compute proper mParticle function" errors when an item fails.
+    // Without draining first, sync re-entry (cache-hit identify →
+    // parseIdentityResponse → processReadyQueue) re-iterates the same array:
+    // callers only replace `_preInit.readyQueue` with [] after we return, so the
+    // nested call still sees every entry. That duplicates Identity/event calls
+    // and can nest "Unable to compute proper mParticle function" wraps.
+    // Splice the queue empty up front so a nested call observes [].
     const items = readyQueue.splice(0, readyQueue.length);
 
     items.forEach(readyQueueItem => {
