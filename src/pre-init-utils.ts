@@ -47,8 +47,6 @@ export const processReadyQueue = (
 };
 
 const formatReadyQueueItemError = (e: unknown): string => {
-    // Only Errors and strings are described; anything else would stringify to
-    // "[object Object]" and tell us nothing.
     let detail = 'unknown error';
     if (e instanceof Error) {
         detail = e.message;
