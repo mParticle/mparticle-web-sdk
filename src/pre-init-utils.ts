@@ -1,6 +1,7 @@
 import { IPixelConfiguration } from './cookieSyncManager';
 import { MPForwarder } from './forwarders.interfaces';
 import { IntegrationDelays } from './mp-instance';
+import { SDKLoggerApi } from './sdkRuntimeModels';
 import { isEmpty, isFunction } from './utils';
 
 export interface IPreInit {
@@ -11,26 +12,53 @@ export interface IPreInit {
     isDevelopmentMode?: boolean;
 }
 
-export const processReadyQueue = (readyQueue): Function[] => {
-    if (!isEmpty(readyQueue)) {
-        readyQueue.forEach(readyQueueItem => {
+export const processReadyQueue = (
+    readyQueue,
+    logger: SDKLoggerApi
+): Function[] => {
+    if (isEmpty(readyQueue)) {
+        return [];
+    }
+
+    // Without draining first, sync re-entry (cache-hit identify →
+    // parseIdentityResponse → processReadyQueue) re-iterates the same array:
+    // callers only replace `_preInit.readyQueue` with [] after we return, so the
+    // nested call still sees every entry. That duplicates Identity/event calls
+    // and can nest "Unable to compute proper mParticle function" wraps.
+    // Splice the queue empty up front so a nested call observes [].
+    const items = readyQueue.splice(0, readyQueue.length);
+
+    // Isolate each item so one throw cannot abort the rest of this pass.
+    // Drain-first already removed siblings from the shared queue; without a
+    // per-item catch they would be lost forever when forEach aborts.
+    items.forEach(readyQueueItem => {
+        try {
             if (isFunction(readyQueueItem)) {
                 readyQueueItem();
             } else if (Array.isArray(readyQueueItem)) {
                 processPreloadedItem(readyQueueItem);
             }
-        });
-    }
+        } catch (e) {
+            logger.error(formatReadyQueueItemError(e));
+        }
+    });
+
     return [];
 };
 
+const formatReadyQueueItemError = (e: unknown): string => {
+    let detail = 'unknown error';
+    if (e instanceof Error) {
+        detail = e.message;
+    } else if (typeof e === 'string') {
+        detail = e;
+    }
+    return 'Error processing ready queue item: ' + detail;
+};
+
 const processPreloadedItem = (readyQueueItem): void => {
-    // Operate on a copy of the queued item. The ready queue can be drained more
-    // than once (e.g. a synchronous cache-hit identify re-enters processReadyQueue
-    // before the outer drain resets the queue). Splicing the shared item array in
-    // place would corrupt it on the second pass — ["Identity.login", opts] becomes
-    // [opts] — so `method` turns into a non-string/undefined and `method.split('.')`
-    // throws. Copying keeps the original item intact for any repeat pass.
+    // Operate on a copy so processPreloadedItem never mutates the caller's
+    // queued item array (defensive; the queue itself is drained above).
     const args = readyQueueItem.slice();
     const method = args.splice(0, 1)[0];
 
