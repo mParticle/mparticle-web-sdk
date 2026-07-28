@@ -116,16 +116,27 @@ describe('pre-init-utils', () => {
         });
 
         it('should not re-execute items when processReadyQueue re-enters on the same array', () => {
+            // Symptom this guards against (pre drain-first fix):
+            //   readyQueue = [login-like, logEvent-like]
+            //   outer drain runs item[0] → sync parseIdentityResponse re-enters
+            //   processReadyQueue on the SAME array → item[0] and item[1] run
+            //   again, then outer continues and runs item[1] again.
+            // Observed: each queued method fires twice (4 spy calls below).
+            // With drain-first: nested call sees [], each method fires once.
             const functionSpy = jest.fn();
             const readyQueue: any[] = [];
+            let hasReentered = false;
 
             (window.mParticle as any) = {
-                // Mimic cache-hit identify: executing a queued method re-enters
-                // processReadyQueue on the shared ready-queue array before the
-                // outer call has returned / been reassigned.
                 fakeFunction: (...args: any[]) => {
                     functionSpy(...args);
-                    processReadyQueue(readyQueue);
+                    // One-shot re-entry mimics a single cache-hit identity
+                    // completing mid-drain. Without the guard this would
+                    // recurse forever; with it we get a clear 4-vs-2 assertion.
+                    if (!hasReentered) {
+                        hasReentered = true;
+                        processReadyQueue(readyQueue);
+                    }
                 },
             };
 
@@ -136,13 +147,11 @@ describe('pre-init-utils', () => {
 
             processReadyQueue(readyQueue);
 
-            expect(readyQueue).toEqual([]);
-            // Drain-first ensures the nested call sees an empty queue. Without
-            // it, the nested call would re-run remaining (or all) items and
-            // recurse via fakeFunction.
+            // Primary symptom: without drain-first this is 4 (each item twice).
             expect(functionSpy).toHaveBeenCalledTimes(2);
             expect(functionSpy).toHaveBeenNthCalledWith(1, 'first');
             expect(functionSpy).toHaveBeenNthCalledWith(2, 'second');
+            expect(readyQueue).toEqual([]);
         });
 
         it('should skip malformed queue items instead of throwing', () => {
