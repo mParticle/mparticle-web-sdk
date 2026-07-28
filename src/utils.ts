@@ -625,11 +625,6 @@ function extend(...args: any[]): any {
     return target;
 }
 
-/**
- * Normalize a caught value into a loggable string.
- * Prefer Error.message and plain strings; anything else would stringify to
- * "[object Object]" and tell us nothing, so fall back to a fixed label.
- */
 const getErrorMessage = (
     e: unknown,
     fallback = 'unknown error'
@@ -639,6 +634,14 @@ const getErrorMessage = (
     }
     if (typeof e === 'string') {
         return e;
+    }
+    // fetch-mock and some network libs reject with { message } rather than Error
+    if (
+        e &&
+        typeof e === 'object' &&
+        typeof (e as { message?: unknown }).message === 'string'
+    ) {
+        return (e as { message: string }).message;
     }
     return fallback;
 };

@@ -681,8 +681,15 @@ describe('Utils', () => {
             expect(getErrorMessage('plain string')).toBe('plain string');
         });
 
+        it('returns .message from plain objects (e.g. fetch-mock throws)', () => {
+            expect(getErrorMessage({ message: 'server error' })).toBe(
+                'server error'
+            );
+        });
+
         it('returns the default fallback for other values', () => {
             expect(getErrorMessage({ code: 1 })).toBe('unknown error');
+            expect(getErrorMessage({ message: 42 })).toBe('unknown error');
             expect(getErrorMessage(42)).toBe('unknown error');
             expect(getErrorMessage(null)).toBe('unknown error');
             expect(getErrorMessage(undefined)).toBe('unknown error');
