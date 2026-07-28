@@ -43,18 +43,21 @@ export const processReadyQueue = (readyQueue): Function[] => {
 };
 
 const logReadyQueueItemError = (e: unknown): void => {
-    const message =
-        'Error processing ready queue item: ' +
-        ((e as Error)?.message || String(e));
-    try {
-        const logger = (window as any)?.mParticle?.getInstance?.()?.Logger;
-        if (logger?.error) {
-            logger.error(message);
-            return;
-        }
-    } catch (_) {
-        // Fall through if instance/logger lookup fails.
+    if (typeof window === 'undefined') {
+        return;
     }
+
+    // Only Errors and strings are described; anything else would stringify to
+    // "[object Object]" and tell us nothing.
+    let detail = 'unknown error';
+    if (e instanceof Error) {
+        detail = e.message;
+    } else if (typeof e === 'string') {
+        detail = e;
+    }
+
+    const logger = (window as any)?.mParticle?.getInstance?.()?.Logger;
+    logger?.error?.('Error processing ready queue item: ' + detail);
 };
 
 const processPreloadedItem = (readyQueueItem): void => {
