@@ -10,6 +10,7 @@ import {
     AttributeValue,
     isEmpty,
     obfuscateDevData,
+    getErrorMessage,
 } from "./utils";
 import { SDKIdentityApi } from "./identity.interfaces";
 import { SDKLoggerApi } from "./sdkRuntimeModels";
@@ -338,8 +339,10 @@ export default class RoktManager {
                         }
                     );
                 } catch (error) {
-                    const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
-                    this.logger.error('Background identify threw an error: ' + errorMessage);
+                    this.logger.error(
+                        'Background identify threw an error: ' +
+                            getErrorMessage(error)
+                    );
                 }
             }
 
@@ -437,8 +440,9 @@ export default class RoktManager {
             return hashedAttributes;
             
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            this.logger.error(`Failed to hashAttributes, returning an empty object: ${errorMessage}`);
+            this.logger.error(
+                `Failed to hashAttributes, returning an empty object: ${getErrorMessage(error)}`
+            );
             return {};
         }
     }
@@ -452,8 +456,9 @@ export default class RoktManager {
         try {
             this.kit.setExtensionData<T>(extensionData);
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            throw new Error('Error setting extension data: ' + errorMessage);
+            throw new Error(
+                'Error setting extension data: ' + getErrorMessage(error)
+            );
         }
     }
 
@@ -478,8 +483,9 @@ export default class RoktManager {
         try {
             this.kit.onShoppableAdsReady(callback);
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            this.logger.error(`Failed to register onShoppableAdsReady callback: ${errorMessage}`);
+            this.logger.error(
+                `Failed to register onShoppableAdsReady callback: ${getErrorMessage(error)}`
+            );
         }
     }
 
@@ -517,8 +523,9 @@ export default class RoktManager {
             const normalizedValue = String(attribute).trim().toLocaleLowerCase();
             return await this.sha256Hex(normalizedValue);
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            this.logger.error(`Failed to hashSha256, returning undefined: ${errorMessage}`);
+            this.logger.error(
+                `Failed to hashSha256, returning undefined: ${getErrorMessage(error)}`
+            );
             return undefined;
         }
     }
@@ -607,8 +614,9 @@ export default class RoktManager {
             const reject = message.reject;
 
             const handleError = (error: unknown) => {
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                this.logger?.error(`RoktManager: Error processing message '${message.methodName}': ${errorMessage}`);
+                this.logger?.error(
+                    `RoktManager: Error processing message '${message.methodName}': ${getErrorMessage(error)}`
+                );
                 if (reject) {
                     reject(error);
                 }

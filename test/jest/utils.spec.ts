@@ -13,6 +13,7 @@ import {
     parseSettingsString,
     obfuscateData,
     obfuscateDevData,
+    getErrorMessage,
 } from '../../src/utils';
 import { deleteAllCookies } from './utils';
 
@@ -668,6 +669,34 @@ describe('Utils', () => {
 
         it('treats undefined isDevelopmentMode as false and returns obfuscated data', () => {
             expect(obfuscateDevData({ email: 'a@b.com' }, undefined)).toEqual({ email: 'string' });
+        });
+    });
+
+    describe('#getErrorMessage', () => {
+        it('returns Error.message for Error instances', () => {
+            expect(getErrorMessage(new Error('boom'))).toBe('boom');
+        });
+
+        it('returns the string when the caught value is a string', () => {
+            expect(getErrorMessage('plain string')).toBe('plain string');
+        });
+
+        it('returns .message from plain objects (e.g. fetch-mock throws)', () => {
+            expect(getErrorMessage({ message: 'server error' })).toBe(
+                'server error'
+            );
+        });
+
+        it('returns the default fallback for other values', () => {
+            expect(getErrorMessage({ code: 1 })).toBe('unknown error');
+            expect(getErrorMessage({ message: 42 })).toBe('unknown error');
+            expect(getErrorMessage(42)).toBe('unknown error');
+            expect(getErrorMessage(null)).toBe('unknown error');
+            expect(getErrorMessage(undefined)).toBe('unknown error');
+        });
+
+        it('uses a custom fallback when provided', () => {
+            expect(getErrorMessage({}, 'fallback')).toBe('fallback');
         });
     });
 });

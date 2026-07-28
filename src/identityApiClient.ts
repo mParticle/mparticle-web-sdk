@@ -6,7 +6,7 @@ import {
     IFetchPayload,
 } from './uploaders';
 import { CACHE_HEADER } from './identity-utils';
-import { obfuscateData, parseNumber, valueof } from './utils';
+import { obfuscateData, parseNumber, valueof, getErrorMessage } from './utils';
 import {
     IAliasCallback,
     IAliasRequest,
@@ -175,7 +175,7 @@ export default function IdentityAPIClient(
             Logger.verbose(message);
             invokeAliasCallback(aliasCallback, response.status, errorMessage);
         } catch (e) {
-            const errorMessage = (e as Error).message || e.toString();
+            const errorMessage = getErrorMessage(e);
             Logger.error('Error sending alias request to mParticle servers. ' + errorMessage);
             invokeAliasCallback(
                 aliasCallback,
@@ -338,7 +338,7 @@ export default function IdentityAPIClient(
                 mpInstance.captureTiming(`${requestCount}-identityRequestEnd`);
             }
 
-            const errorMessage = (err as Error).message || err.toString();
+            const errorMessage = getErrorMessage(err);
             const msg = 'Error sending identity request to servers' + ' - ' + errorMessage;
             Logger.error(msg);
             errorReporter?.report({

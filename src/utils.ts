@@ -625,6 +625,27 @@ function extend(...args: any[]): any {
     return target;
 }
 
+const getErrorMessage = (
+    e: unknown,
+    fallback = 'unknown error'
+): string => {
+    if (e instanceof Error) {
+        return e.message;
+    }
+    if (typeof e === 'string') {
+        return e;
+    }
+    // fetch-mock and some network libs reject with { message } rather than Error
+    if (
+        e &&
+        typeof e === 'object' &&
+        typeof (e as { message?: unknown }).message === 'string'
+    ) {
+        return (e as { message: string }).message;
+    }
+    return fallback;
+};
+
 export {
     createCookieString,
     revertCookieString,
@@ -639,6 +660,7 @@ export {
     generateDeprecationMessage,
     generateHash,
     generateUniqueId,
+    getErrorMessage,
     getRampNumber,
     inArray,
     isObject,
