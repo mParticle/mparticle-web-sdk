@@ -151,6 +151,7 @@ export interface IFeatureFlags {
     captureIntegrationSpecificIds?: boolean;
     'captureIntegrationSpecificIds.V2'?: string;
     astBackgroundEvents?: boolean;
+    autoLogPageView?: boolean;
 }
 
 // Temporary Interface until Store can be refactored as a class
@@ -766,7 +767,8 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
         AudienceAPI,
         CaptureIntegrationSpecificIds,
         CaptureIntegrationSpecificIdsV2,
-        AstBackgroundEvents
+        AstBackgroundEvents,
+        AutoLogPageView
     } = Constants.FeatureFlags;
 
     if (!config.flags) {
@@ -787,6 +789,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[CaptureIntegrationSpecificIds] = config.flags[CaptureIntegrationSpecificIds] === 'True';
     flags[CaptureIntegrationSpecificIdsV2] = (config.flags[CaptureIntegrationSpecificIdsV2] || 'none');
     flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
+    flags[AutoLogPageView] = config.flags[AutoLogPageView] === 'True';
     return flags;
 }
 

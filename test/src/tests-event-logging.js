@@ -495,6 +495,95 @@ describe('event logging', function() {
         pageViewEvent3.data.screen_name.should.equal('PageView');
     });
 
+    describe('automatic page view (AutoLogPageView feature flag)', () => {
+        it('should not log a page view on init when the flag is absent', async () => {
+            // Baseline: the default (flag-off) init should fire no PageView.
+            await waitForCondition(hasIdentifyReturned);
+
+            const pageViewEvent = findEventFromRequest(
+                fetchMock.calls(),
+                'screen_view'
+            );
+
+            Should(pageViewEvent).not.be.ok();
+        });
+
+        it('should not log a page view on init when the flag is not "True"', async () => {
+            mParticle._resetForTests(MPConfig);
+
+            window.mParticle.config.flags = {
+                autoLogPageView: 'False',
+            };
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const pageViewEvent = findEventFromRequest(
+                fetchMock.calls(),
+                'screen_view'
+            );
+
+            Should(pageViewEvent).not.be.ok();
+        });
+
+        it('should log exactly one page view on init when the flag is "True"', async () => {
+            mParticle._resetForTests(MPConfig);
+
+            window.mParticle.config.flags = {
+                autoLogPageView: 'True',
+            };
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const pageViewBatch = findBatch(fetchMock.calls(), 'screen_view');
+            const pageViewEvents = pageViewBatch.events.filter(
+                (event) => event.event_type === 'screen_view'
+            );
+
+            // Exactly one auto page view should be logged.
+            pageViewEvents.length.should.equal(1);
+
+            const pageViewEvent = pageViewEvents[0];
+            pageViewEvent.data.screen_name.should.equal('PageView');
+            pageViewEvent.data.should.have.property('custom_attributes');
+            pageViewEvent.data.custom_attributes.should.have.property(
+                'hostname',
+                window.location.hostname
+            );
+            pageViewEvent.data.custom_attributes.should.have.property(
+                'title',
+                window.document.title
+            );
+        });
+
+        it('should log the auto page view after the application state transition', async () => {
+            mParticle._resetForTests(MPConfig);
+
+            window.mParticle.config.flags = {
+                autoLogPageView: 'True',
+            };
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            // The auto page view fires via the internal logEvent path right after
+            // logAST(), so within a batch it must appear after the AST event and
+            // must not be stranded (it should reach the server, not the readyQueue).
+            const batch = findBatch(fetchMock.calls(), 'screen_view');
+            const astIndex = batch.events.findIndex(
+                (event) => event.event_type === 'application_state_transition'
+            );
+            const pageViewIndex = batch.events.findIndex(
+                (event) => event.event_type === 'screen_view'
+            );
+
+            pageViewIndex.should.be.above(-1);
+            astIndex.should.be.above(-1);
+            pageViewIndex.should.be.above(astIndex);
+        });
+    });
+
     it('should log opt out', async () => {
         await waitForCondition(hasIdentifyReturned);
 
