@@ -1578,7 +1578,6 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         mpInstance._Events.logAST();
 
         if (getFeatureFlag(AutoLogPageView)) {
-           console.warn('AUTO PageView');
             mpInstance._Events.logPageView();
         }
 
