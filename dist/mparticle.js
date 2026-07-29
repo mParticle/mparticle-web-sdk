@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.73.1";
+    var version = "2.74.0";
 
     var Constants = {
       sdkVersion: version,
@@ -383,7 +383,8 @@ var mParticle = (function () {
         //   - 'none'     → capture none
         //   - 'roktonly' → capture only Rokt-related IDs
         CaptureIntegrationSpecificIdsV2: 'captureIntegrationSpecificIds.V2',
-        AstBackgroundEvents: 'astBackgroundEvents'
+        AstBackgroundEvents: 'astBackgroundEvents',
+        AutoLogPageView: 'autoLogPageView'
       },
       DefaultInstance: 'default_instance',
       CCPAPurpose: 'data_sale_opt_out',
@@ -5403,7 +5404,8 @@ var mParticle = (function () {
         AudienceAPI = _a.AudienceAPI,
         CaptureIntegrationSpecificIds = _a.CaptureIntegrationSpecificIds,
         CaptureIntegrationSpecificIdsV2 = _a.CaptureIntegrationSpecificIdsV2,
-        AstBackgroundEvents = _a.AstBackgroundEvents;
+        AstBackgroundEvents = _a.AstBackgroundEvents,
+        AutoLogPageView = _a.AutoLogPageView;
       if (!config.flags) {
         return {};
       }
@@ -5419,6 +5421,7 @@ var mParticle = (function () {
       flags[CaptureIntegrationSpecificIds] = config.flags[CaptureIntegrationSpecificIds] === 'True';
       flags[CaptureIntegrationSpecificIdsV2] = config.flags[CaptureIntegrationSpecificIdsV2] || 'none';
       flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
+      flags[AutoLogPageView] = config.flags[AutoLogPageView] === 'True';
       return flags;
     }
     function processBaseUrls(config, flags, apiKey) {
@@ -6339,6 +6342,17 @@ var mParticle = (function () {
       this.logAST = function () {
         self.logEvent({
           messageType: Types.MessageType.AppStateTransition
+        });
+      };
+      this.logPageView = function () {
+        self.logEvent({
+          messageType: Types.MessageType.PageView,
+          name: 'PageView',
+          data: {
+            hostname: window.location.hostname,
+            title: window.document.title
+          },
+          eventType: Types.EventType.Unknown
         });
       };
       this.logCheckoutEvent = function (step, option, attrs, customFlags) {
@@ -12123,6 +12137,7 @@ var mParticle = (function () {
       var _a, _b, _c, _d;
       var kitBlocker = createKitBlocker(config, mpInstance);
       var getFeatureFlag = mpInstance._Helpers.getFeatureFlag;
+      var AutoLogPageView = Constants.FeatureFlags.AutoLogPageView;
       // Destroy previous batch uploader to prevent leaked timers and event listeners
       if ((_a = mpInstance._APIClient) === null || _a === void 0 ? void 0 : _a.uploader) {
         mpInstance._APIClient.uploader.destroy();
@@ -12190,6 +12205,9 @@ var mParticle = (function () {
         // Logs a session start or session end event accordingly
         mpInstance._SessionManager.initialize();
         mpInstance._Events.logAST();
+        if (getFeatureFlag(AutoLogPageView)) {
+          mpInstance._Events.logPageView();
+        }
         processIdentityCallback(mpInstance, currentUser, currentUserMPID, currentUserIdentities);
       }
       // We will continue to clear out the ready queue as part of the initial init flow
