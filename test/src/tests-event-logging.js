@@ -495,6 +495,124 @@ describe('event logging', function() {
         pageViewEvent3.data.screen_name.should.equal('PageView');
     });
 
+    describe('automatic page view (AutoLogPageView feature flag)', () => {
+        it('should not log a page view on init when the flag is absent', async () => {
+            // Baseline: the default (flag-off) init should fire no PageView.
+            await waitForCondition(hasIdentifyReturned);
+
+            const pageViewEvent = findEventFromRequest(
+                fetchMock.calls(),
+                'screen_view'
+            );
+
+            Should(pageViewEvent).not.be.ok();
+        });
+
+        it('should not log a page view on init when the flag is not "True"', async () => {
+            mParticle._resetForTests(MPConfig);
+
+            window.mParticle.config.flags = {
+                autoLogPageView: 'False',
+            };
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const pageViewEvent = findEventFromRequest(
+                fetchMock.calls(),
+                'screen_view'
+            );
+
+            Should(pageViewEvent).not.be.ok();
+        });
+
+        it('should log exactly one page view on init when the flag is "True"', async () => {
+            mParticle._resetForTests(MPConfig);
+
+            window.mParticle.config.flags = {
+                autoLogPageView: 'True',
+            };
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const pageViewBatch = findBatch(fetchMock.calls(), 'screen_view');
+            const pageViewEvents = pageViewBatch.events.filter(
+                (event) => event.event_type === 'screen_view'
+            );
+
+            // Exactly one auto page view should be logged.
+            pageViewEvents.length.should.equal(1);
+
+            const pageViewEvent = pageViewEvents[0];
+            pageViewEvent.data.screen_name.should.equal('PageView');
+            pageViewEvent.data.should.have.property('custom_attributes');
+            pageViewEvent.data.custom_attributes.should.have.property(
+                'hostname',
+                window.location.hostname
+            );
+            pageViewEvent.data.custom_attributes.should.have.property(
+                'title',
+                window.document.title
+            );
+        });
+
+        it('should log the auto page view after the application state transition', async () => {
+            mParticle._resetForTests(MPConfig);
+
+            window.mParticle.config.flags = {
+                autoLogPageView: 'True',
+            };
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            // The auto page view fires via _Events.logPageView right after
+            // logAST(). During init each lifecycle event is uploaded as its own
+            // batch, so we assert ordering across the sequence of upload
+            // requests: the screen_view must be sent after the AST (and must
+            // reach the server at all, rather than being stranded on the
+            // readyQueue).
+            const eventTypeSequence = fetchMock
+                .calls()
+                .filter((call) => call[1].method.toLowerCase() === 'post')
+                .map((call) => JSON.parse(call[1].body))
+                .filter((body) => body.events)
+                .flatMap((body) => body.events.map((event) => event.event_type));
+
+            const astIndex = eventTypeSequence.indexOf(
+                'application_state_transition'
+            );
+            const pageViewIndex = eventTypeSequence.indexOf('screen_view');
+
+            pageViewIndex.should.be.above(-1);
+            astIndex.should.be.above(-1);
+            pageViewIndex.should.be.above(astIndex);
+        });
+
+        it('should expose _Events.logPageView that logs the default PageView', async () => {
+            await waitForCondition(hasIdentifyReturned);
+
+            mParticle.getInstance()._Events.logPageView();
+
+            const pageViewEvent = findEventFromRequest(
+                fetchMock.calls(),
+                'screen_view'
+            );
+
+            Should(pageViewEvent).be.ok();
+            pageViewEvent.data.screen_name.should.equal('PageView');
+            pageViewEvent.data.custom_attributes.should.have.property(
+                'hostname',
+                window.location.hostname
+            );
+            pageViewEvent.data.custom_attributes.should.have.property(
+                'title',
+                window.document.title
+            );
+        });
+    });
+
     it('should log opt out', async () => {
         await waitForCondition(hasIdentifyReturned);
 

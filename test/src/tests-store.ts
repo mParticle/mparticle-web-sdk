@@ -1402,6 +1402,7 @@ describe('Store', () => {
                 captureIntegrationSpecificIds: false,
                 'captureIntegrationSpecificIds.V2': 'none',
                 astBackgroundEvents: true,
+                autoLogPageView: false,
             };
 
             expect(store.SDKConfig.flags).to.deep.equal(expectedResult);
@@ -1623,6 +1624,7 @@ describe('Store', () => {
                 captureIntegrationSpecificIds: false,
                 'captureIntegrationSpecificIds.V2': 'none',
                 astBackgroundEvents: false,
+                autoLogPageView: false,
             };
 
             expect(flags).to.deep.equal(expectedResult);
@@ -1639,6 +1641,7 @@ describe('Store', () => {
                 captureIntegrationSpecificIds: 'True',
                 'captureIntegrationSpecificIds.V2': 'all',
                 astBackgroundEvents: 'True',
+                autoLogPageView: 'True',
             };
 
             const flags = processFlags(
@@ -1655,6 +1658,7 @@ describe('Store', () => {
                 captureIntegrationSpecificIds: true,
                 'captureIntegrationSpecificIds.V2': 'all',
                 astBackgroundEvents: true,
+                autoLogPageView: true,
             };
 
             expect(flags).to.deep.equal(expectedResult);

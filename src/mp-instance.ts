@@ -1484,6 +1484,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
 function completeSDKInitialization(apiKey, config, mpInstance) {
     const kitBlocker = createKitBlocker(config, mpInstance);
     const { getFeatureFlag } = mpInstance._Helpers;
+    const { AutoLogPageView } = Constants.FeatureFlags;
 
     // Destroy previous batch uploader to prevent leaked timers and event listeners
     if (mpInstance._APIClient?.uploader) {
@@ -1581,6 +1582,10 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         // Logs a session start or session end event accordingly
         mpInstance._SessionManager.initialize();
         mpInstance._Events.logAST();
+
+        if (getFeatureFlag(AutoLogPageView)) {
+            mpInstance._Events.logPageView();
+        }
 
         processIdentityCallback(
             mpInstance,
