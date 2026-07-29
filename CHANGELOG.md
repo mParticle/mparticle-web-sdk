@@ -1,3 +1,10 @@
+## [2.73.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.73.0...v2.73.1) (2026-07-29)
+
+
+### Bug Fixes
+
+* **pre-init:** drain ready queue before processing to stop re-entrant re-execution ([#1296](https://github.com/mParticle/mparticle-web-sdk/issues/1296)) ([a304cd9](https://github.com/mParticle/mparticle-web-sdk/commit/a304cd961689958c6956205738fa697c4ec323b1))
+
 # [2.73.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.72.0...v2.73.0) (2026-07-27)
 
 
