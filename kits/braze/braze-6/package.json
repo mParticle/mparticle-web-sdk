@@ -1,6 +1,6 @@
 {
   "name": "@mparticle/web-braze-kit-6",
-  "version": "5.0.3",
+  "version": "6.0.0",
   "author": "mParticle Developers <developers@mparticle.com> (https://www.mparticle.com)",
   "description": "mParticle integration sdk for Braze",
   "main": "dist/BrazeKit.common.js",
@@ -25,6 +25,7 @@
   "devDependencies": {
     "@rollup/plugin-commonjs": "22.0.1",
     "@rollup/plugin-node-resolve": "13.3.0",
+    "@rollup/plugin-replace": "^5.0.0",
     "chai": "^4.2.0",
     "karma": "^5.1.0",
     "karma-chai": "^0.1.0",
