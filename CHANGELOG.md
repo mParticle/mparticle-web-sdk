@@ -1,3 +1,10 @@
+# [2.74.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.73.1...v2.74.0) (2026-07-29)
+
+
+### Features
+
+* auto-log page view on init behind AutoLogPageView feature flag ([#1299](https://github.com/mParticle/mparticle-web-sdk/issues/1299)) ([6844521](https://github.com/mParticle/mparticle-web-sdk/commit/68445212a83278430374d8962042513e35245ac9))
+
 ## [2.73.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.73.0...v2.73.1) (2026-07-29)
 
 
