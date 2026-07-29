@@ -11,6 +11,7 @@ export interface IEvents {
     logEvent(event: BaseEvent, eventOptions?: SDKEventOptions): void;
     logImpressionEvent(impression: SDKProductImpression, attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): any;
     logOptOut(): void;
+    logPageView(): void;
     logProductActionEvent(productActionType: valueof<typeof ProductActionType>, product: SDKProduct | SDKProduct[], attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, transactionAttributes?: TransactionAttributes, eventOptions?: SDKEventOptions): void;
     logPromotionEvent(promotionType: valueof<typeof PromotionActionType>, promotion: SDKPromotion, attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): void;
     logPurchaseEvent(transactionAttributes: TransactionAttributes, product: SDKProduct | SDKProduct[], attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags): void;

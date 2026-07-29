@@ -1402,6 +1402,7 @@ describe('Store', () => {
                 captureIntegrationSpecificIds: false,
                 'captureIntegrationSpecificIds.V2': 'none',
                 astBackgroundEvents: true,
+                autoLogPageView: false,
             };
 
             expect(store.SDKConfig.flags).to.deep.equal(expectedResult);

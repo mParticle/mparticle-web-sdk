@@ -99,6 +99,18 @@ export default function Events(mpInstance) {
         self.logEvent({ messageType: Types.MessageType.AppStateTransition });
     };
 
+    this.logPageView = function() {
+        self.logEvent({
+            messageType: Types.MessageType.PageView,
+            name: 'PageView',
+            data: {
+                hostname: window.location.hostname,
+                title: window.document.title,
+            },
+            eventType: Types.EventType.Unknown,
+        });
+    };
+
     this.logCheckoutEvent = function(step, option, attrs, customFlags) {
         var event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags

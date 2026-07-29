@@ -51,6 +51,7 @@ export interface IEvents {
         eventOptions?: SDKEventOptions
     );
     logOptOut(): void;
+    logPageView(): void;
     logProductActionEvent(
         productActionType: valueof<typeof ProductActionType>,
         product: SDKProduct | SDKProduct[],

@@ -567,20 +567,49 @@ describe('event logging', function() {
             mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
 
-            // The auto page view fires via the internal logEvent path right after
-            // logAST(), so within a batch it must appear after the AST event and
-            // must not be stranded (it should reach the server, not the readyQueue).
-            const batch = findBatch(fetchMock.calls(), 'screen_view');
-            const astIndex = batch.events.findIndex(
-                (event) => event.event_type === 'application_state_transition'
+            // The auto page view fires via _Events.logPageView right after
+            // logAST(). During init each lifecycle event is uploaded as its own
+            // batch, so we assert ordering across the sequence of upload
+            // requests: the screen_view must be sent after the AST (and must
+            // reach the server at all, rather than being stranded on the
+            // readyQueue).
+            const eventTypeSequence = fetchMock
+                .calls()
+                .filter((call) => call[1].method.toLowerCase() === 'post')
+                .map((call) => JSON.parse(call[1].body))
+                .filter((body) => body.events)
+                .flatMap((body) => body.events.map((event) => event.event_type));
+
+            const astIndex = eventTypeSequence.indexOf(
+                'application_state_transition'
             );
-            const pageViewIndex = batch.events.findIndex(
-                (event) => event.event_type === 'screen_view'
-            );
+            const pageViewIndex = eventTypeSequence.indexOf('screen_view');
 
             pageViewIndex.should.be.above(-1);
             astIndex.should.be.above(-1);
             pageViewIndex.should.be.above(astIndex);
+        });
+
+        it('should expose _Events.logPageView that logs the default PageView', async () => {
+            await waitForCondition(hasIdentifyReturned);
+
+            mParticle.getInstance()._Events.logPageView();
+
+            const pageViewEvent = findEventFromRequest(
+                fetchMock.calls(),
+                'screen_view'
+            );
+
+            Should(pageViewEvent).be.ok();
+            pageViewEvent.data.screen_name.should.equal('PageView');
+            pageViewEvent.data.custom_attributes.should.have.property(
+                'hostname',
+                window.location.hostname
+            );
+            pageViewEvent.data.custom_attributes.should.have.property(
+                'title',
+                window.document.title
+            );
         });
     });
 

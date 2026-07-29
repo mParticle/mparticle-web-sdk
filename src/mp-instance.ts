@@ -1478,6 +1478,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
 function completeSDKInitialization(apiKey, config, mpInstance) {
     const kitBlocker = createKitBlocker(config, mpInstance);
     const { getFeatureFlag } = mpInstance._Helpers;
+    const { AutoLogPageView } = Constants.FeatureFlags;
 
     // Destroy previous batch uploader to prevent leaked timers and event listeners
     if (mpInstance._APIClient?.uploader) {
@@ -1576,28 +1577,9 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         mpInstance._SessionManager.initialize();
         mpInstance._Events.logAST();
 
-        // When the AutoLogPageView feature flag is enabled, automatically log a
-        // single page view on init, immediately after the AST. We fire via the
-        // internal `_Events.logEvent` path rather than the public `logPageView`
-        // because `_Store.isInitialized` is still false here; the public method
-        // would defer the event onto the readyQueue and fire it out of lifecycle
-        // order. This mirrors the manual no-arg `logPageView` default (name
-        // 'PageView', attrs { hostname, title }); PageUrl is auto-stamped by
-        // createEventObject.
-        if (
-            mpInstance._Helpers.getFeatureFlag(
-                Constants.FeatureFlags.AutoLogPageView
-            )
-        ) {
-            mpInstance._Events.logEvent({
-                messageType: MessageType.PageView,
-                name: 'PageView',
-                data: {
-                    hostname: window.location.hostname,
-                    title: window.document.title,
-                },
-                eventType: EventType.Unknown,
-            });
+        if (getFeatureFlag(AutoLogPageView)) {
+           console.warn('AUTO PageView');
+            mpInstance._Events.logPageView();
         }
 
         processIdentityCallback(
