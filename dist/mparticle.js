@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.73.0";
+    var version = "2.73.1";
 
     var Constants = {
       sdkVersion: version,
@@ -1013,6 +1013,22 @@ var mParticle = (function () {
       }
       return target;
     }
+    var getErrorMessage = function getErrorMessage(e, fallback) {
+      if (fallback === void 0) {
+        fallback = 'unknown error';
+      }
+      if (e instanceof Error) {
+        return e.message;
+      }
+      if (typeof e === 'string') {
+        return e;
+      }
+      // fetch-mock and some network libs reject with { message } rather than Error
+      if (e && _typeof$1(e) === 'object' && typeof e.message === 'string') {
+        return e.message;
+      }
+      return fallback;
+    };
 
     var MessageType$1 = {
       SessionStart: 1,
@@ -3234,7 +3250,7 @@ var mParticle = (function () {
                 try {
                   callback(result);
                 } catch (e) {
-                  logger.error('Error invoking search callback: ' + ((e === null || e === void 0 ? void 0 : e.message) || String(e)));
+                  logger.error('Error invoking search callback: ' + getErrorMessage(e));
                 }
               };
               cleanedKnownIdentities = Validators.removeFalsyIdentityValues({
@@ -3323,7 +3339,7 @@ var mParticle = (function () {
               return [3 /*break*/, 10];
             case 9:
               e_2 = _a.sent();
-              message = (e_2 === null || e_2 === void 0 ? void 0 : e_2.message) || String(e_2);
+              message = getErrorMessage(e_2);
               reportMessage = 'Error sending search request: ' + message;
               logger.error(reportMessage);
               // Mirror the identity-route pattern in identityApiClient.ts: log to
@@ -3589,7 +3605,7 @@ var mParticle = (function () {
               httpCode: HTTPCodes$3.loggingDisabledOrMissingAPIKey
             });
           } catch (e) {
-            Logger.error('Error invoking search callback: ' + ((e === null || e === void 0 ? void 0 : e.message) || String(e)));
+            Logger.error('Error invoking search callback: ' + getErrorMessage(e));
           }
         }
         return;
@@ -7911,25 +7927,36 @@ var mParticle = (function () {
       return AudienceManager;
     }();
 
-    var processReadyQueue = function processReadyQueue(readyQueue) {
-      if (!isEmpty(readyQueue)) {
-        readyQueue.forEach(function (readyQueueItem) {
+    var processReadyQueue = function processReadyQueue(readyQueue, logger) {
+      if (isEmpty(readyQueue)) {
+        return [];
+      }
+      // Without draining first, sync re-entry (cache-hit identify →
+      // parseIdentityResponse → processReadyQueue) re-iterates the same array:
+      // callers only replace `_preInit.readyQueue` with [] after we return, so the
+      // nested call still sees every entry. That duplicates Identity/event calls
+      // and can nest "Unable to compute proper mParticle function" wraps.
+      // Splice the queue empty up front so a nested call observes [].
+      var items = readyQueue.splice(0, readyQueue.length);
+      // Isolate each item so one throw cannot abort the rest of this pass.
+      // Drain-first already removed siblings from the shared queue; without a
+      // per-item catch they would be lost forever when forEach aborts.
+      items.forEach(function (readyQueueItem) {
+        try {
           if (isFunction(readyQueueItem)) {
             readyQueueItem();
           } else if (Array.isArray(readyQueueItem)) {
             processPreloadedItem(readyQueueItem);
           }
-        });
-      }
+        } catch (e) {
+          logger.error('Error processing ready queue item: ' + getErrorMessage(e));
+        }
+      });
       return [];
     };
     var processPreloadedItem = function processPreloadedItem(readyQueueItem) {
-      // Operate on a copy of the queued item. The ready queue can be drained more
-      // than once (e.g. a synchronous cache-hit identify re-enters processReadyQueue
-      // before the outer drain resets the queue). Splicing the shared item array in
-      // place would corrupt it on the second pass — ["Identity.login", opts] becomes
-      // [opts] — so `method` turns into a non-string/undefined and `method.split('.')`
-      // throws. Copying keeps the original item intact for any repeat pass.
+      // Operate on a copy so processPreloadedItem never mutates the caller's
+      // queued item array (defensive; the queue itself is drained above).
       var args = readyQueueItem.slice();
       var method = args.splice(0, 1)[0];
       // Skip malformed queue entries (empty array or non-string method) instead of
@@ -8949,7 +8976,7 @@ var mParticle = (function () {
         }
         mpInstance._Store.isInitialized = true;
         mpInstance._RoktManager.onIdentityComplete();
-        mpInstance._preInit.readyQueue = processReadyQueue(mpInstance._preInit.readyQueue);
+        mpInstance._preInit.readyQueue = processReadyQueue(mpInstance._preInit.readyQueue, mpInstance.Logger);
       };
 
       // send a user identity change request on identify, login, logout, modify when any values change.
@@ -9975,7 +10002,7 @@ var mParticle = (function () {
                 return [3 /*break*/, 14];
               case 13:
                 e_2 = _b.sent();
-                errorMessage = e_2.message || e_2.toString();
+                errorMessage = getErrorMessage(e_2);
                 Logger.error('Error sending alias request to mParticle servers. ' + errorMessage);
                 invokeAliasCallback(aliasCallback, HTTPCodes$1.noHttpCoverage, errorMessage);
                 return [3 /*break*/, 14];
@@ -10107,7 +10134,7 @@ var mParticle = (function () {
                   requestCount = mpInstance._Store.identifyRequestCount;
                   mpInstance.captureTiming("".concat(requestCount, "-identityRequestEnd"));
                 }
-                errorMessage = err_1.message || err_1.toString();
+                errorMessage = getErrorMessage(err_1);
                 msg = 'Error sending identity request to servers' + ' - ' + errorMessage;
                 Logger.error(msg);
                 errorReporter === null || errorReporter === void 0 ? void 0 : errorReporter.report({
@@ -10576,7 +10603,7 @@ var mParticle = (function () {
       RoktManager.prototype.selectPlacements = function (options) {
         var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
         return __awaiter(this, void 0, void 0, function () {
-          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities, msg, msg, errorMessage, finalUserIdentities, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
+          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities, msg, msg, finalUserIdentities, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
           var _this = this;
           return __generator(this, function (_o) {
             (_a = this.captureTiming) === null || _a === void 0 ? void 0 : _a.call(this, PerformanceMarkType.JointSdkSelectPlacements);
@@ -10644,8 +10671,7 @@ var mParticle = (function () {
                     _this.processMessageQueue();
                   });
                 } catch (error) {
-                  errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
-                  this.logger.error('Background identify threw an error: ' + errorMessage);
+                  this.logger.error('Background identify threw an error: ' + getErrorMessage(error));
                 }
               }
               finalUserIdentities = __assign(__assign({}, currentUserIdentities), newIdentities);
@@ -10695,7 +10721,7 @@ var mParticle = (function () {
        */
       RoktManager.prototype.hashAttributes = function (attributes) {
         return __awaiter(this, void 0, void 0, function () {
-          var keys, hashPromises, results, hashedAttributes, _i, results_1, _a, key, attributeValue, hashedValue, error_1, errorMessage;
+          var keys, hashPromises, results, hashedAttributes, _i, results_1, _a, key, attributeValue, hashedValue, error_1;
           var _this = this;
           return __generator(this, function (_b) {
             switch (_b.label) {
@@ -10741,8 +10767,7 @@ var mParticle = (function () {
                 return [2 /*return*/, hashedAttributes];
               case 2:
                 error_1 = _b.sent();
-                errorMessage = error_1 instanceof Error ? error_1.message : String(error_1);
-                this.logger.error("Failed to hashAttributes, returning an empty object: ".concat(errorMessage));
+                this.logger.error("Failed to hashAttributes, returning an empty object: ".concat(getErrorMessage(error_1)));
                 return [2 /*return*/, {}];
               case 3:
                 return [2 /*return*/];
@@ -10759,8 +10784,7 @@ var mParticle = (function () {
         try {
           this.kit.setExtensionData(extensionData);
         } catch (error) {
-          var errorMessage = error instanceof Error ? error.message : String(error);
-          throw new Error('Error setting extension data: ' + errorMessage);
+          throw new Error('Error setting extension data: ' + getErrorMessage(error));
         }
       };
       RoktManager.prototype.use = function (name) {
@@ -10781,8 +10805,7 @@ var mParticle = (function () {
         try {
           this.kit.onShoppableAdsReady(callback);
         } catch (error) {
-          var errorMessage = error instanceof Error ? error.message : String(error);
-          this.logger.error("Failed to register onShoppableAdsReady callback: ".concat(errorMessage));
+          this.logger.error("Failed to register onShoppableAdsReady callback: ".concat(getErrorMessage(error)));
         }
       };
       RoktManager.prototype.flushOnShoppableAdsReadyMessageQueue = function (kit) {
@@ -10810,7 +10833,7 @@ var mParticle = (function () {
        */
       RoktManager.prototype.hashSha256 = function (attribute) {
         return __awaiter(this, void 0, void 0, function () {
-          var normalizedValue, error_2, errorMessage;
+          var normalizedValue, error_2;
           return __generator(this, function (_a) {
             switch (_a.label) {
               case 0:
@@ -10827,8 +10850,7 @@ var mParticle = (function () {
                 return [2 /*return*/, _a.sent()];
               case 3:
                 error_2 = _a.sent();
-                errorMessage = error_2 instanceof Error ? error_2.message : String(error_2);
-                this.logger.error("Failed to hashSha256, returning undefined: ".concat(errorMessage));
+                this.logger.error("Failed to hashSha256, returning undefined: ".concat(getErrorMessage(error_2)));
                 return [2 /*return*/, undefined];
               case 4:
                 return [2 /*return*/];
@@ -10909,8 +10931,7 @@ var mParticle = (function () {
           var reject = message.reject;
           var handleError = function handleError(error) {
             var _a;
-            var errorMessage = error instanceof Error ? error.message : String(error);
-            (_a = _this.logger) === null || _a === void 0 ? void 0 : _a.error("RoktManager: Error processing message '".concat(message.methodName, "': ").concat(errorMessage));
+            (_a = _this.logger) === null || _a === void 0 ? void 0 : _a.error("RoktManager: Error processing message '".concat(message.methodName, "': ").concat(getErrorMessage(error)));
             if (reject) {
               reject(error);
             }
@@ -11148,7 +11169,7 @@ var mParticle = (function () {
         }
         if (((_b = self._Store) === null || _b === void 0 ? void 0 : _b.identityCallFailed) && ((_c = self._RoktManager) === null || _c === void 0 ? void 0 : _c.isReady())) {
           self._RoktManager.processMessageQueue();
-          self._preInit.readyQueue = processReadyQueue(self._preInit.readyQueue);
+          self._preInit.readyQueue = processReadyQueue(self._preInit.readyQueue, self.Logger);
         }
       };
       /**
@@ -11161,7 +11182,7 @@ var mParticle = (function () {
         }
         var noFunctionalWithoutId = ((_b = self._CookieConsentManager) === null || _b === void 0 ? void 0 : _b.getNoFunctional()) && !hasExplicitIdentifier(self._Store);
         if (noFunctionalWithoutId) {
-          self._preInit.readyQueue = processReadyQueue(self._preInit.readyQueue);
+          self._preInit.readyQueue = processReadyQueue(self._preInit.readyQueue, self.Logger);
         }
       };
       // required for forwarders once they reference the mparticle instance
@@ -12178,7 +12199,7 @@ var mParticle = (function () {
         // Sync $NoTargeting user attribute on re-init when no identity call is made
         // if for some reason there was a change in boolean between init calls
         (_c = mpInstance._CookieConsentManager) === null || _c === void 0 ? void 0 : _c.syncNoTargetingAttribute(mpInstance.Identity.getCurrentUser());
-        mpInstance._preInit.readyQueue = processReadyQueue(mpInstance._preInit.readyQueue);
+        mpInstance._preInit.readyQueue = processReadyQueue(mpInstance._preInit.readyQueue, mpInstance.Logger);
       }
       // For noFunctional sessions with no identity, drain any pre-init ready callbacks
       // that were queued before _CookieConsentManager was available to evaluate the condition.
