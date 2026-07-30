@@ -1,18 +1,5 @@
 import resolve from 'rollup-plugin-node-resolve';
 import commonjs from 'rollup-plugin-commonjs';
-import replace from 'rollup-plugin-replace';
-import pkg from './package.json';
-
-const plugins = [
-    replace({
-        'process.env.PACKAGE_VERSION': JSON.stringify(pkg.version),
-        preventAssignment: true,
-    }),
-    resolve({
-        browser: true,
-    }),
-    commonjs(),
-];
 
 export default [
     {
@@ -24,7 +11,12 @@ export default [
             name: 'mpBrazeKitV3',
             strict: false,
         },
-        plugins,
+        plugins: [
+            resolve({
+                browser: true,
+            }),
+            commonjs(),
+        ],
     },
     {
         input: 'src/BrazeKit-dev.js',
@@ -35,6 +27,11 @@ export default [
             name: 'mpBrazeKitV3',
             strict: false,
         },
-        plugins,
+        plugins: [
+            resolve({
+                browser: true,
+            }),
+            commonjs(),
+        ],
     },
 ];

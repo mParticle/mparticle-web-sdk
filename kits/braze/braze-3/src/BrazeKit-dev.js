@@ -17,7 +17,7 @@ window.appboy = require('@braze/web-sdk');
 var name = 'Appboy',
     suffix = 'v3',
     moduleId = 28,
-    version = process.env.PACKAGE_VERSION,
+    version = '3.0.9',
     MessageType = {
         PageView: 3,
         PageEvent: 4,
