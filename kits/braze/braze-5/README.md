@@ -3,7 +3,7 @@
 ⚠️⚠️⚠️
 # Notice! Opt in is now available for Braze Web SDK V5 - Action Required
 
-You can now select what version of the Braze SDK you want to use when setting up a Braze connection in the mParticle UI.  Braze occasionally makes breaking changes to their SDK, so if you call `braze` directly in your code, you will have to update your code to ensure your website performs as expected when updating versions of Braze.
+You can now select what version of the Braze SDK you want to use when setting up a Braze connection in the mParticle UI.  Braze occasionally makes breaking changes to their SDK, so if you call `appboy` directly in your code, you will have to update your code to ensure your website performs as expected when updating versions of Braze.
 
 Please review the [Braze Changelog](https://www.braze.com/docs/developer_guide/platform_integration_guides/web/changelog#500) and [V5 migration guide](https://github.com/braze-inc/braze-web-sdk/blob/master/UPGRADE_GUIDE.md) to learn about the differences between V4 and V5 and what changes you will need to make in your code. The most significant breaking changes are the removal of the deprecated `enableHtmlInAppMessages` initialization option (replaced by `allowUserSuppliedJavascript`), in addition to the removal and renaming of several APIs.
 
