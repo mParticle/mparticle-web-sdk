@@ -37,6 +37,7 @@ describe('RoktManager', () => {
         _Store: {
             setLocalSessionAttributes: jest.fn(),
             getLocalSessionAttributes: jest.fn().mockReturnValue({}),
+            getTimeOnSite: jest.fn().mockReturnValue(0),
             identityCallInFlight: false,
         },
         Logger: {
@@ -882,7 +883,8 @@ describe('RoktManager', () => {
             const expectedMappedOptions = {
                 attributes: {
                     mapped_key: 'test_value',  // This key should be mapped
-                    other_attr: 'other_value'  // This key should remain unchanged
+                    other_attr: 'other_value',  // This key should remain unchanged
+                    active_time_on_site_ms: 0  // Injected active time-on-site
                 }
             };
 
@@ -1011,7 +1013,10 @@ describe('RoktManager', () => {
             } as IRoktSelectPlacementsOptions;
 
             roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith({
+                ...options,
+                attributes: { active_time_on_site_ms: 0 },
+            });
         });
 
         it('should call kit.selectPlacements with passed in attributes', async () => {
@@ -1044,7 +1049,10 @@ describe('RoktManager', () => {
             };
 
             await roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith({
+                ...options,
+                attributes: { ...options.attributes, active_time_on_site_ms: 0 },
+            });
         });
 
         it('should queue the selectPlacements method if no launcher or kit is attached', () => {
@@ -1111,7 +1119,10 @@ describe('RoktManager', () => {
             
             expect(roktManager['kit']).not.toBeNull();
             expect(roktManager['messageQueue'].size).toBe(0);
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith({
+                ...options,
+                attributes: { active_time_on_site_ms: 0 },
+            });
             expect(result).toEqual(expectedResult);
         });
 
@@ -1153,8 +1164,12 @@ describe('RoktManager', () => {
             };
 
             roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
-            expect(kit.launcher.selectPlacements).toHaveBeenCalledWith(options);
+            const expectedOptions = {
+                ...options,
+                attributes: { ...options.attributes, active_time_on_site_ms: 0 },
+            };
+            expect(kit.selectPlacements).toHaveBeenCalledWith(expectedOptions);
+            expect(kit.launcher.selectPlacements).toHaveBeenCalledWith(expectedOptions);
         });
 
         it('should pass sandbox flag as an attribute through to kit.selectPlacements', () => {
@@ -1185,7 +1200,10 @@ describe('RoktManager', () => {
             };
 
             roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options); 
+            expect(kit.selectPlacements).toHaveBeenCalledWith({
+                ...options,
+                attributes: { ...options.attributes, active_time_on_site_ms: 0 },
+            });
         });
 
         it('should NOT override global sandbox in placement attributes when initialized as true', () => {
@@ -1218,7 +1236,10 @@ describe('RoktManager', () => {
             roktManager.selectPlacements(options);
 
             expect(roktManager['sandbox']).toBeTruthy();
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith({
+                ...options,
+                attributes: { ...options.attributes, active_time_on_site_ms: 0 },
+            });
         });
 
         it('should set sandbox in placement attributes when not initialized globally', () => {
@@ -1250,7 +1271,10 @@ describe('RoktManager', () => {
             };
 
             roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith({
+                ...options,
+                attributes: { ...options.attributes, active_time_on_site_ms: 0 },
+            });
         });
 
         it('should pass mapped attributes to kit.launcher.selectPlacements', () => {
@@ -1296,6 +1320,7 @@ describe('RoktManager', () => {
                     firstname: 'John',
                     lastname: 'Doe',
                     score: 42,
+                    active_time_on_site_ms: 0,
                 }
             };
 
@@ -1330,7 +1355,10 @@ describe('RoktManager', () => {
             };
 
             roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith({
+                ...options,
+                attributes: { ...options.attributes, active_time_on_site_ms: 0 },
+            });
         });
 
         it('should set the mapped attributes on the current user via setUserAttributes', async () => {
@@ -1422,7 +1450,10 @@ describe('RoktManager', () => {
             };
 
             await roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+            expect(kit.selectPlacements).toHaveBeenCalledWith({
+                ...options,
+                attributes: { ...options.attributes, active_time_on_site_ms: 0 },
+            });
             expect(setUserAttributesSpy).not.toHaveBeenCalledWith({
                 sandbox: true
             });
@@ -2671,6 +2702,79 @@ describe('RoktManager', () => {
                     expect.objectContaining({
                         attributes: expect.not.objectContaining({
                             passbackconversiontrackingid: expect.anything(),
+                        }),
+                    }),
+                );
+            });
+        });
+
+        describe('active_time_on_site_ms injection', () => {
+            let kit: IRoktKit;
+
+            beforeEach(() => {
+                kit = {
+                    launcher: {
+                        selectPlacements: jest.fn().mockResolvedValue({ close: jest.fn(), getPlacements: jest.fn() }),
+                        hashAttributes: jest.fn(),
+                        use: jest.fn(),
+                    },
+                    filters: undefined,
+                    filteredUser: undefined,
+                    userAttributes: undefined,
+                    selectPlacements: jest.fn().mockResolvedValue({ close: jest.fn(), getPlacements: jest.fn() }),
+                    hashAttributes: jest.fn(),
+                    setExtensionData: jest.fn(),
+                    use: jest.fn(),
+                    onShoppableAdsReady: jest.fn(),
+                };
+
+                roktManager.attachKit(kit);
+                roktManager['store'].identityCallInFlight = false;
+            });
+
+            it('should inject active_time_on_site_ms from the store time-on-site value', async () => {
+                (roktManager['store'].getTimeOnSite as jest.Mock).mockReturnValue(12345);
+
+                await roktManager.selectPlacements({
+                    attributes: { email: 'user@example.com' },
+                });
+
+                expect(kit.selectPlacements).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        attributes: expect.objectContaining({
+                            active_time_on_site_ms: 12345,
+                        }),
+                    }),
+                );
+            });
+
+            it('should inject active_time_on_site_ms as 0 when the timer reports no active time', async () => {
+                (roktManager['store'].getTimeOnSite as jest.Mock).mockReturnValue(0);
+
+                await roktManager.selectPlacements({
+                    attributes: { email: 'user@example.com' },
+                });
+
+                expect(kit.selectPlacements).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        attributes: expect.objectContaining({
+                            active_time_on_site_ms: 0,
+                        }),
+                    }),
+                );
+            });
+
+            it('should inject active_time_on_site_ms as 0 when getTimeOnSite is unavailable on the store', async () => {
+                (roktManager['store'] as Partial<IStore>).getTimeOnSite = undefined;
+
+                await roktManager.selectPlacements({
+                    attributes: { email: 'user@example.com' },
+                });
+
+                expect(kit.selectPlacements).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        attributes: expect.objectContaining({
+                            active_time_on_site_ms: 0,
                         }),
                     }),
                 );

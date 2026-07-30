@@ -357,6 +357,7 @@ export default class RoktManager {
             const enrichedAttributes: RoktAttributes = {
                 ...mappedAttributes,
                 ...(sandboxValue !== null ? { sandbox: sandboxValue } : {}),
+                active_time_on_site_ms: this.store?.getTimeOnSite?.() ?? 0,
             };
 
             // Propagate email from current user identities if not already in attributes

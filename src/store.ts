@@ -232,6 +232,7 @@ export interface IStore {
     setUserIdentities?(mpid: MPID, userIdentities: UserIdentities): void;
     getRoktAccountId?(): string;
     setRoktAccountId?(accountId: string): void;
+    getTimeOnSite?(): number;
     getIntegrationName?(): string;
     setIntegrationName?(integrationName: string): void;
 
@@ -682,6 +683,12 @@ export default function Store(
     this.setIntegrationName = (integrationName: string) => {
         this.integrationName = integrationName;
     };
+
+    // Active foreground time-on-site in ms. Mirrors the ActiveTimeOnSite value
+    // stamped on events (see serverModel/batchUploader) so selectPlacements can
+    // forward it downstream. Falls back to 0 when the timer is unavailable.
+    this.getTimeOnSite = () =>
+        mpInstance._timeOnSiteTimer?.getTimeInForeground() || 0;
 
     this.addMpidToSessionHistory = (mpid: MPID, previousMPID?: MPID): void => {
         const indexOfMPID = this.currentSessionMPIDs.indexOf(mpid);
