@@ -883,8 +883,7 @@ describe('RoktManager', () => {
             const expectedMappedOptions = {
                 attributes: {
                     mapped_key: 'test_value',  // This key should be mapped
-                    other_attr: 'other_value',  // This key should remain unchanged
-                    active_time_on_site_ms: 0  // Injected active time-on-site
+                    other_attr: 'other_value'  // This key should remain unchanged
                 }
             };
 
@@ -1015,7 +1014,7 @@ describe('RoktManager', () => {
             roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith({
                 ...options,
-                attributes: { active_time_on_site_ms: 0 },
+                attributes: {},
             });
         });
 
@@ -1051,7 +1050,7 @@ describe('RoktManager', () => {
             await roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith({
                 ...options,
-                attributes: { ...options.attributes, active_time_on_site_ms: 0 },
+                attributes: { ...options.attributes },
             });
         });
 
@@ -1121,7 +1120,7 @@ describe('RoktManager', () => {
             expect(roktManager['messageQueue'].size).toBe(0);
             expect(kit.selectPlacements).toHaveBeenCalledWith({
                 ...options,
-                attributes: { active_time_on_site_ms: 0 },
+                attributes: {},
             });
             expect(result).toEqual(expectedResult);
         });
@@ -1166,7 +1165,7 @@ describe('RoktManager', () => {
             roktManager.selectPlacements(options);
             const expectedOptions = {
                 ...options,
-                attributes: { ...options.attributes, active_time_on_site_ms: 0 },
+                attributes: { ...options.attributes },
             };
             expect(kit.selectPlacements).toHaveBeenCalledWith(expectedOptions);
             expect(kit.launcher.selectPlacements).toHaveBeenCalledWith(expectedOptions);
@@ -1202,7 +1201,7 @@ describe('RoktManager', () => {
             roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith({
                 ...options,
-                attributes: { ...options.attributes, active_time_on_site_ms: 0 },
+                attributes: { ...options.attributes },
             });
         });
 
@@ -1238,7 +1237,7 @@ describe('RoktManager', () => {
             expect(roktManager['sandbox']).toBeTruthy();
             expect(kit.selectPlacements).toHaveBeenCalledWith({
                 ...options,
-                attributes: { ...options.attributes, active_time_on_site_ms: 0 },
+                attributes: { ...options.attributes },
             });
         });
 
@@ -1273,7 +1272,7 @@ describe('RoktManager', () => {
             roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith({
                 ...options,
-                attributes: { ...options.attributes, active_time_on_site_ms: 0 },
+                attributes: { ...options.attributes },
             });
         });
 
@@ -1320,7 +1319,6 @@ describe('RoktManager', () => {
                     firstname: 'John',
                     lastname: 'Doe',
                     score: 42,
-                    active_time_on_site_ms: 0,
                 }
             };
 
@@ -1357,7 +1355,7 @@ describe('RoktManager', () => {
             roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith({
                 ...options,
-                attributes: { ...options.attributes, active_time_on_site_ms: 0 },
+                attributes: { ...options.attributes },
             });
         });
 
@@ -1452,7 +1450,7 @@ describe('RoktManager', () => {
             await roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith({
                 ...options,
-                attributes: { ...options.attributes, active_time_on_site_ms: 0 },
+                attributes: { ...options.attributes },
             });
             expect(setUserAttributesSpy).not.toHaveBeenCalledWith({
                 sandbox: true
@@ -2748,7 +2746,7 @@ describe('RoktManager', () => {
                 );
             });
 
-            it('should inject active_time_on_site_ms as 0 when the timer reports no active time', async () => {
+            it('should omit active_time_on_site_ms when the timer reports no active time', async () => {
                 (roktManager['store'].getTimeOnSite as jest.Mock).mockReturnValue(0);
 
                 await roktManager.selectPlacements({
@@ -2757,14 +2755,14 @@ describe('RoktManager', () => {
 
                 expect(kit.selectPlacements).toHaveBeenCalledWith(
                     expect.objectContaining({
-                        attributes: expect.objectContaining({
-                            active_time_on_site_ms: 0,
+                        attributes: expect.not.objectContaining({
+                            active_time_on_site_ms: expect.anything(),
                         }),
                     }),
                 );
             });
 
-            it('should inject active_time_on_site_ms as 0 when getTimeOnSite is unavailable on the store', async () => {
+            it('should omit active_time_on_site_ms when getTimeOnSite is unavailable on the store', async () => {
                 (roktManager['store'] as Partial<IStore>).getTimeOnSite = undefined;
 
                 await roktManager.selectPlacements({
@@ -2773,8 +2771,8 @@ describe('RoktManager', () => {
 
                 expect(kit.selectPlacements).toHaveBeenCalledWith(
                     expect.objectContaining({
-                        attributes: expect.objectContaining({
-                            active_time_on_site_ms: 0,
+                        attributes: expect.not.objectContaining({
+                            active_time_on_site_ms: expect.anything(),
                         }),
                     }),
                 );
