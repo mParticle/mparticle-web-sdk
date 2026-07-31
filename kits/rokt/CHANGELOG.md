@@ -1,3 +1,170 @@
+## [1.28.3](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.28.2...v1.28.3) (2026-07-01)
+
+
+### Bug Fixes
+
+* use integration domain for reporting endpoints ([#105](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/105)) ([c3ec2e9](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/c3ec2e9c7fc35cfb76a6b2463ecf01ebdba4e36f))
+
+## [1.28.2](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.28.1...v1.28.2) (2026-06-25)
+
+
+### Bug Fixes
+
+* classify log-delivery failures instead of reporting them as errors ([#104](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/104)) ([cec8445](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/cec8445160899b61f493c58413449ca62409171f))
+
+## [1.28.1](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.28.0...v1.28.1) (2026-06-22)
+
+# [1.28.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.27.0...v1.28.0) (2026-05-27)
+
+
+### Features
+
+* include identity info in pseudo identity event payloads ([#95](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/95)) ([2f2793b](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/2f2793b5b4f95584589eac902aacb41e33f41031))
+
+# [1.27.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.26.3...v1.27.0) (2026-05-27)
+
+
+### Bug Fixes
+
+* prevent cached commerce attributes in Rokt placements ([#100](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/100)) ([7c59fc5](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/7c59fc503cdb5938854e031ea1f0cfb06d09de03))
+
+
+### Features
+
+* enrich commerce event action from Rokt.CommerceEventType ([#97](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/97)) ([1535005](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/153500530c70f098b61999abcb5675152fb0ceaa))
+
+## [1.26.3](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.26.2...v1.26.3) (2026-05-26)
+
+
+### Bug Fixes
+
+* Remove ROKT_DOMAIN gate from logging ([#99](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/99)) ([cef82cd](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/cef82cd7ca1a3c302d5f5cb85d680d58ac702901))
+
+## [1.26.2](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.26.1...v1.26.2) (2026-05-22)
+
+
+### Bug Fixes
+
+* use mParticle config logging flag ([#98](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/98)) ([1973f5c](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/1973f5cc72c861896d4147a7f179508555c21530))
+
+## [1.26.1](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.26.0...v1.26.1) (2026-05-12)
+
+
+### Bug Fixes
+
+* search workspace for cached Rokt users ([#94](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/94)) ([00f3f73](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/00f3f734e57a1a232841482287f84bdeb37ab634))
+
+# [1.26.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.25.1...v1.26.0) (2026-05-05)
+
+
+### Bug Fixes
+
+* Support more identities in search ([#93](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/93)) ([1526325](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/1526325de752804d811d74ed9a1b95d7171f3383))
+
+
+### Features
+
+* Add Workspace IDSync search on user identification ([#92](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/92)) ([f742616](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/f742616704ff5fea12d1043c8d45762e065f4a6b))
+
+## [1.25.1](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.25.0...v1.25.1) (2026-04-27)
+
+
+### Bug Fixes
+
+* Enable Thank You Element Partner Event listening before RoktKit is ready ([#91](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/91)) ([bced30e](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/bced30e278c6f9a906a45a3734c0d2af67cfee69))
+
+# [1.25.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.24.1...v1.25.0) (2026-04-23)
+
+
+### Features
+
+* Embed Thank You Element in Joint SDK ([#90](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/90)) ([035f0f9](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/035f0f9d5b7aba345b636839e9ab982128658dbf))
+
+## [1.24.1](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.24.0...v1.24.1) (2026-04-16)
+
+
+### Bug Fixes
+
+* align identity events with mParticle batch schema ([#88](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/88)) ([ddcfa61](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/ddcfa61084ea6f392071cb85feecb42703bc3093))
+
+# [1.24.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.23.0...v1.24.0) (2026-04-09)
+
+
+### Features
+
+* add batch stream wrapper function ([#86](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/86)) ([c361fa2](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/c361fa2aba7d13b55d3cc0918ee0e4f0e4db5106))
+
+# [1.23.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.22.0...v1.23.0) (2026-04-08)
+
+
+### Features
+
+* migrate toolchain to TypeScript 5.5, Vite, Vitest, and ESLint v9 ([#84](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/84)) ([58f6b41](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/58f6b418c0ee898f4264de14abfd0a9c11b1ca37))
+
+# [1.22.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.21.0...v1.22.0) (2026-04-07)
+
+
+### Features
+
+* implement Rokt reporting service in kit ([#70](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/70)) ([efb8905](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/efb8905155db9a9fb580f15c4b196cdd51aecd2c))
+
+# [1.21.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.20.0...v1.21.0) (2026-04-03)
+
+
+### Features
+
+* send set_user_attributes event ([#82](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/82)) ([9995f09](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/9995f09a008a5acc6355306e109a683f8d80cd91))
+
+# [1.20.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.19.0...v1.20.0) (2026-03-30)
+
+
+### Features
+
+* support sending login, logout, identify, and modify_user events ([#81](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/81)) ([78061a5](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/78061a54a85feb25c3e27dff445eae7f6c855b90))
+
+# [1.19.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.18.1...v1.19.0) (2026-03-25)
+
+
+### Bug Fixes
+
+* Update adblock measurement target origin ([#68](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/68)) ([8a524c2](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/8a524c21c82a48d756d35ef294ad9342ab7ac4ba))
+
+
+### Features
+
+* add /verify skill and AGENTS.md for agent guidance ([#69](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/69)) ([21134b0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/21134b05eae9868c08d412fc1f95bd62f3583cee)), closes [hi#level](https://github.com/hi/issues/level)
+* add defensive queue to _sendEventStream to prevent event loss ([#78](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/78)) ([82b8dfc](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/82b8dfc4248d05795be0bad117a16de0f6a4f694))
+* enrich event stream with Kit userAttributes ([#79](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/79)) ([7c27cd3](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/7c27cd30a22328a2b117d9c39e5f256784f0e1af))
+
+## [1.18.1](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.18.0...v1.18.1) (2026-03-24)
+
+
+### Bug Fixes
+
+* Add logSelectPlacementsEvent to falsey selection value ([#76](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/76)) ([8a0d0b1](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/8a0d0b1f41e4c0c45622ef2754464ff6b4ef6ddd))
+
+# [1.18.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.17.0...v1.18.0) (2026-03-24)
+
+
+### Bug Fixes
+
+* **ci:** add contents read permission for pr-notify workflow ([#73](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/73)) ([7c84013](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/7c84013f3b8e1b26eae4d298e624abea4d2eea1d))
+* **ci:** add id-token permission for pr-notify workflow ([#72](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/72)) ([fa278ff](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/fa278ff2f3cdd2def3f370151627abddeb1ba73e))
+
+
+### Features
+
+* pass mParticle session ID to Rokt SDK on launcher creation ([#74](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/74)) ([1a5b591](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/1a5b59199caa15ac5261b9bec77b13f66d9e5d0f))
+* sync Rokt session ID to mParticle via setIntegrationAttribute ([#67](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/67)) ([021b2a5](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/021b2a544e2db4eece85190b0f98231445d27a50))
+
+# [1.17.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.16.0...v1.17.0) (2026-03-12)
+
+
+### Features
+
+* Add Event Stream function ([#64](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/64)) ([1fea071](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/1fea071e4ded678e11afcf54046dbcfc6c1c3df2))
+* Improve observability through additional init signals ([#61](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/61)) ([83bdc6d](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/83bdc6df254f3060587aaa57443d4154c20a666b))
+
 # [1.16.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.15.0...v1.16.0) (2026-02-24)
 
 
