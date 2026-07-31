@@ -1012,10 +1012,7 @@ describe('RoktManager', () => {
             } as IRoktSelectPlacementsOptions;
 
             roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith({
-                ...options,
-                attributes: {},
-            });
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
         it('should call kit.selectPlacements with passed in attributes', async () => {
@@ -1048,10 +1045,7 @@ describe('RoktManager', () => {
             };
 
             await roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith({
-                ...options,
-                attributes: { ...options.attributes },
-            });
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
         it('should queue the selectPlacements method if no launcher or kit is attached', () => {
@@ -1118,10 +1112,7 @@ describe('RoktManager', () => {
             
             expect(roktManager['kit']).not.toBeNull();
             expect(roktManager['messageQueue'].size).toBe(0);
-            expect(kit.selectPlacements).toHaveBeenCalledWith({
-                ...options,
-                attributes: {},
-            });
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
             expect(result).toEqual(expectedResult);
         });
 
@@ -1163,12 +1154,8 @@ describe('RoktManager', () => {
             };
 
             roktManager.selectPlacements(options);
-            const expectedOptions = {
-                ...options,
-                attributes: { ...options.attributes },
-            };
-            expect(kit.selectPlacements).toHaveBeenCalledWith(expectedOptions);
-            expect(kit.launcher.selectPlacements).toHaveBeenCalledWith(expectedOptions);
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
+            expect(kit.launcher.selectPlacements).toHaveBeenCalledWith(options);
         });
 
         it('should pass sandbox flag as an attribute through to kit.selectPlacements', () => {
@@ -1199,10 +1186,7 @@ describe('RoktManager', () => {
             };
 
             roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith({
-                ...options,
-                attributes: { ...options.attributes },
-            });
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
         it('should NOT override global sandbox in placement attributes when initialized as true', () => {
@@ -1235,10 +1219,7 @@ describe('RoktManager', () => {
             roktManager.selectPlacements(options);
 
             expect(roktManager['sandbox']).toBeTruthy();
-            expect(kit.selectPlacements).toHaveBeenCalledWith({
-                ...options,
-                attributes: { ...options.attributes },
-            });
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
         it('should set sandbox in placement attributes when not initialized globally', () => {
@@ -1270,10 +1251,7 @@ describe('RoktManager', () => {
             };
 
             roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith({
-                ...options,
-                attributes: { ...options.attributes },
-            });
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
         it('should pass mapped attributes to kit.launcher.selectPlacements', () => {
@@ -1353,10 +1331,7 @@ describe('RoktManager', () => {
             };
 
             roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith({
-                ...options,
-                attributes: { ...options.attributes },
-            });
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
         it('should set the mapped attributes on the current user via setUserAttributes', async () => {
@@ -1448,10 +1423,7 @@ describe('RoktManager', () => {
             };
 
             await roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith({
-                ...options,
-                attributes: { ...options.attributes },
-            });
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
             expect(setUserAttributesSpy).not.toHaveBeenCalledWith({
                 sandbox: true
             });
