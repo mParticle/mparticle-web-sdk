@@ -1,3 +1,10 @@
+# [2.75.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.74.0...v2.75.0) (2026-07-31)
+
+
+### Features
+
+* forward active time-on-site to Rokt selectPlacements ([#1303](https://github.com/mParticle/mparticle-web-sdk/issues/1303)) ([11c71a0](https://github.com/mParticle/mparticle-web-sdk/commit/11c71a0f926a23df51e80ed112001ed2b4670eef))
+
 # [2.74.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.73.1...v2.74.0) (2026-07-29)
 
 
