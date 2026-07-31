@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.74.0";
+    var version = "2.75.0";
 
     var Constants = {
       sdkVersion: version,
@@ -5345,6 +5345,10 @@ var mParticle = (function () {
       };
       this.setIntegrationName = function (integrationName) {
         _this.integrationName = integrationName;
+      };
+      this.getTimeOnSite = function () {
+        var _a;
+        return (_a = mpInstance._timeOnSiteTimer) === null || _a === void 0 ? void 0 : _a.getTimeInForeground();
       };
       this.addMpidToSessionHistory = function (mpid, previousMPID) {
         var indexOfMPID = _this.currentSessionMPIDs.indexOf(mpid);
@@ -10615,11 +10619,11 @@ var mParticle = (function () {
        * });
        */
       RoktManager.prototype.selectPlacements = function (options) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p;
         return __awaiter(this, void 0, void 0, function () {
-          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities, msg, msg, finalUserIdentities, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
+          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities, msg, msg, finalUserIdentities, timeOnSite, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
           var _this = this;
-          return __generator(this, function (_o) {
+          return __generator(this, function (_q) {
             (_a = this.captureTiming) === null || _a === void 0 ? void 0 : _a.call(this, PerformanceMarkType.JointSdkSelectPlacements);
             // Queue if kit isn't ready OR if identity is in flight
             if (!this.isReady() || ((_b = this.store) === null || _b === void 0 ? void 0 : _b.identityCallInFlight)) {
@@ -10690,8 +10694,11 @@ var mParticle = (function () {
               }
               finalUserIdentities = __assign(__assign({}, currentUserIdentities), newIdentities);
               this.setUserAttributes(mappedAttributes);
-              enrichedAttributes = __assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
+              timeOnSite = (_l = (_k = this.store) === null || _k === void 0 ? void 0 : _k.getTimeOnSite) === null || _l === void 0 ? void 0 : _l.call(_k);
+              enrichedAttributes = __assign(__assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
                 sandbox: sandboxValue
+              } : {}), timeOnSite ? {
+                active_time_on_site_ms: timeOnSite
               } : {});
               // Propagate email from current user identities if not already in attributes
               if (finalUserIdentities.email && !enrichedAttributes.email) {
@@ -10705,9 +10712,9 @@ var mParticle = (function () {
                 }
               }
               if (!enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID]) {
-                (_k = this.integrationCapture) === null || _k === void 0 ? void 0 : _k.capture();
-                capturedAttrs = (_l = this.integrationCapture) === null || _l === void 0 ? void 0 : _l.getClickIdsAsIntegrationAttributes();
-                passbackId = (_m = capturedAttrs === null || capturedAttrs === void 0 ? void 0 : capturedAttrs[PARTNER_MODULE_IDS.Rokt]) === null || _m === void 0 ? void 0 : _m[PASSBACK_CONVERSION_TRACKING_ID];
+                (_m = this.integrationCapture) === null || _m === void 0 ? void 0 : _m.capture();
+                capturedAttrs = (_o = this.integrationCapture) === null || _o === void 0 ? void 0 : _o.getClickIdsAsIntegrationAttributes();
+                passbackId = (_p = capturedAttrs === null || capturedAttrs === void 0 ? void 0 : capturedAttrs[PARTNER_MODULE_IDS.Rokt]) === null || _p === void 0 ? void 0 : _p[PASSBACK_CONVERSION_TRACKING_ID];
                 if (passbackId) {
                   enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID] = passbackId;
                 }
