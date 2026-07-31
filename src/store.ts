@@ -232,7 +232,7 @@ export interface IStore {
     setUserIdentities?(mpid: MPID, userIdentities: UserIdentities): void;
     getRoktAccountId?(): string;
     setRoktAccountId?(accountId: string): void;
-    getTimeOnSite?(): number;
+    getTimeOnSite?(): number | undefined;
     getIntegrationName?(): string;
     setIntegrationName?(integrationName: string): void;
 
@@ -685,7 +685,7 @@ export default function Store(
     };
 
     this.getTimeOnSite = () =>
-        mpInstance._timeOnSiteTimer?.getTimeInForeground() || 0;
+        mpInstance._timeOnSiteTimer?.getTimeInForeground();
 
     this.addMpidToSessionHistory = (mpid: MPID, previousMPID?: MPID): void => {
         const indexOfMPID = this.currentSessionMPIDs.indexOf(mpid);

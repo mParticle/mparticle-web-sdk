@@ -37,7 +37,7 @@ describe('RoktManager', () => {
         _Store: {
             setLocalSessionAttributes: jest.fn(),
             getLocalSessionAttributes: jest.fn().mockReturnValue({}),
-            getTimeOnSite: jest.fn().mockReturnValue(0),
+            getTimeOnSite: jest.fn().mockReturnValue(undefined),
             identityCallInFlight: false,
         },
         Logger: {
@@ -2718,8 +2718,8 @@ describe('RoktManager', () => {
                 );
             });
 
-            it('should omit active_time_on_site_ms when the timer reports no active time', async () => {
-                (roktManager['store'].getTimeOnSite as jest.Mock).mockReturnValue(0);
+            it('should omit active_time_on_site_ms when the timer is not initialized', async () => {
+                (roktManager['store'].getTimeOnSite as jest.Mock).mockReturnValue(undefined);
 
                 await roktManager.selectPlacements({
                     attributes: { email: 'user@example.com' },
@@ -2729,6 +2729,22 @@ describe('RoktManager', () => {
                     expect.objectContaining({
                         attributes: expect.not.objectContaining({
                             active_time_on_site_ms: expect.anything(),
+                        }),
+                    }),
+                );
+            });
+
+            it('should inject active_time_on_site_ms when the timer reports zero active time', async () => {
+                (roktManager['store'].getTimeOnSite as jest.Mock).mockReturnValue(0);
+
+                await roktManager.selectPlacements({
+                    attributes: { email: 'user@example.com' },
+                });
+
+                expect(kit.selectPlacements).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        attributes: expect.objectContaining({
+                            active_time_on_site_ms: 0,
                         }),
                     }),
                 );
