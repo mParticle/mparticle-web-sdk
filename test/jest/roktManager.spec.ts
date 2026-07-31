@@ -2734,7 +2734,7 @@ describe('RoktManager', () => {
                 );
             });
 
-            it('should inject active_time_on_site_ms when the timer reports zero active time', async () => {
+            it('should omit active_time_on_site_ms when the timer reports zero active time', async () => {
                 (roktManager['store'].getTimeOnSite as jest.Mock).mockReturnValue(0);
 
                 await roktManager.selectPlacements({
@@ -2743,8 +2743,8 @@ describe('RoktManager', () => {
 
                 expect(kit.selectPlacements).toHaveBeenCalledWith(
                     expect.objectContaining({
-                        attributes: expect.objectContaining({
-                            active_time_on_site_ms: 0,
+                        attributes: expect.not.objectContaining({
+                            active_time_on_site_ms: expect.anything(),
                         }),
                     }),
                 );
