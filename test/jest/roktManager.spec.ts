@@ -37,6 +37,7 @@ describe('RoktManager', () => {
         _Store: {
             setLocalSessionAttributes: jest.fn(),
             getLocalSessionAttributes: jest.fn().mockReturnValue({}),
+            getTimeOnSite: jest.fn().mockReturnValue(undefined),
             identityCallInFlight: false,
         },
         Logger: {
@@ -1185,7 +1186,7 @@ describe('RoktManager', () => {
             };
 
             roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options); 
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
         it('should NOT override global sandbox in placement attributes when initialized as true', () => {
@@ -2671,6 +2672,95 @@ describe('RoktManager', () => {
                     expect.objectContaining({
                         attributes: expect.not.objectContaining({
                             passbackconversiontrackingid: expect.anything(),
+                        }),
+                    }),
+                );
+            });
+        });
+
+        describe('active_time_on_site_ms injection', () => {
+            let kit: IRoktKit;
+
+            beforeEach(() => {
+                kit = {
+                    launcher: {
+                        selectPlacements: jest.fn().mockResolvedValue({ close: jest.fn(), getPlacements: jest.fn() }),
+                        hashAttributes: jest.fn(),
+                        use: jest.fn(),
+                    },
+                    filters: undefined,
+                    filteredUser: undefined,
+                    userAttributes: undefined,
+                    selectPlacements: jest.fn().mockResolvedValue({ close: jest.fn(), getPlacements: jest.fn() }),
+                    hashAttributes: jest.fn(),
+                    setExtensionData: jest.fn(),
+                    use: jest.fn(),
+                    onShoppableAdsReady: jest.fn(),
+                };
+
+                roktManager.attachKit(kit);
+                roktManager['store'].identityCallInFlight = false;
+            });
+
+            it('should inject active_time_on_site_ms from the store time-on-site value', async () => {
+                (roktManager['store'].getTimeOnSite as jest.Mock).mockReturnValue(12345);
+
+                await roktManager.selectPlacements({
+                    attributes: { email: 'user@example.com' },
+                });
+
+                expect(kit.selectPlacements).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        attributes: expect.objectContaining({
+                            active_time_on_site_ms: 12345,
+                        }),
+                    }),
+                );
+            });
+
+            it('should omit active_time_on_site_ms when the timer is not initialized', async () => {
+                (roktManager['store'].getTimeOnSite as jest.Mock).mockReturnValue(undefined);
+
+                await roktManager.selectPlacements({
+                    attributes: { email: 'user@example.com' },
+                });
+
+                expect(kit.selectPlacements).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        attributes: expect.not.objectContaining({
+                            active_time_on_site_ms: expect.anything(),
+                        }),
+                    }),
+                );
+            });
+
+            it('should omit active_time_on_site_ms when the timer reports zero active time', async () => {
+                (roktManager['store'].getTimeOnSite as jest.Mock).mockReturnValue(0);
+
+                await roktManager.selectPlacements({
+                    attributes: { email: 'user@example.com' },
+                });
+
+                expect(kit.selectPlacements).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        attributes: expect.not.objectContaining({
+                            active_time_on_site_ms: expect.anything(),
+                        }),
+                    }),
+                );
+            });
+
+            it('should omit active_time_on_site_ms when getTimeOnSite is unavailable on the store', async () => {
+                (roktManager['store'] as Partial<IStore>).getTimeOnSite = undefined;
+
+                await roktManager.selectPlacements({
+                    attributes: { email: 'user@example.com' },
+                });
+
+                expect(kit.selectPlacements).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        attributes: expect.not.objectContaining({
+                            active_time_on_site_ms: expect.anything(),
                         }),
                     }),
                 );

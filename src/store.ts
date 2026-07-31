@@ -232,6 +232,7 @@ export interface IStore {
     setUserIdentities?(mpid: MPID, userIdentities: UserIdentities): void;
     getRoktAccountId?(): string;
     setRoktAccountId?(accountId: string): void;
+    getTimeOnSite?(): number | undefined;
     getIntegrationName?(): string;
     setIntegrationName?(integrationName: string): void;
 
@@ -682,6 +683,9 @@ export default function Store(
     this.setIntegrationName = (integrationName: string) => {
         this.integrationName = integrationName;
     };
+
+    this.getTimeOnSite = () =>
+        mpInstance._timeOnSiteTimer?.getTimeInForeground();
 
     this.addMpidToSessionHistory = (mpid: MPID, previousMPID?: MPID): void => {
         const indexOfMPID = this.currentSessionMPIDs.indexOf(mpid);
