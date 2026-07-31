@@ -354,12 +354,12 @@ export default class RoktManager {
 
             this.setUserAttributes(mappedAttributes);
 
-            const timeOnSite = this.store?.getTimeOnSite?.() || null;
+            const timeOnSite = this.store?.getTimeOnSite?.();
 
             const enrichedAttributes: RoktAttributes = {
                 ...mappedAttributes,
                 ...(sandboxValue !== null ? { sandbox: sandboxValue } : {}),
-                ...(timeOnSite !== null ? { active_time_on_site_ms: timeOnSite } : {}),
+                ...(timeOnSite ? { active_time_on_site_ms: timeOnSite } : {}),
             };
 
             // Propagate email from current user identities if not already in attributes
