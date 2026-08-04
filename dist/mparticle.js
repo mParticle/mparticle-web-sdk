@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.75.0";
+    var version = "2.75.1";
 
     var Constants = {
       sdkVersion: version,
@@ -4253,11 +4253,12 @@ var mParticle = (function () {
       return new Date().getTime() > new Date(lastSyncDate).getTime() + frequencyCap * DAYS_IN_MILLISECONDS;
     };
 
-    function logDeprecatedMethodUsage(usage, logger, loggingDispatcher) {
+    function logDeprecatedMethodUsage(usage, logger, errorReporter) {
       logger.warning(usage.warningMessage);
-      loggingDispatcher === null || loggingDispatcher === void 0 ? void 0 : loggingDispatcher.log({
+      errorReporter === null || errorReporter === void 0 ? void 0 : errorReporter.report({
         message: usage.methodName,
-        code: ErrorCodes.MP_DEPRECATED_METHOD_USAGE
+        code: ErrorCodes.MP_DEPRECATED_METHOD_USAGE,
+        severity: WSDKErrorSeverity.WARNING
       });
     }
 
@@ -4294,7 +4295,7 @@ var mParticle = (function () {
         logDeprecatedMethodUsage({
           methodName: 'SessionManager.getSession()',
           warningMessage: generateDeprecationMessage('SessionManager.getSession()', false, 'SessionManager.getSessionId()')
-        }, mpInstance.Logger, mpInstance._LoggingDispatcher);
+        }, mpInstance.Logger, mpInstance._ErrorReportingDispatcher);
         return this.getSessionId();
       };
       this.getSessionId = function () {
@@ -8781,7 +8782,7 @@ var mParticle = (function () {
             logDeprecatedMethodUsage({
               methodName: 'Identity.getCurrentUser().getCart()',
               warningMessage: 'Deprecated function Identity.getCurrentUser().getCart() will be removed in future releases'
-            }, mpInstance.Logger, mpInstance._LoggingDispatcher);
+            }, mpInstance.Logger, mpInstance._ErrorReportingDispatcher);
             return self.mParticleUserCart();
           },
           /**
@@ -8848,7 +8849,7 @@ var mParticle = (function () {
             logDeprecatedMethodUsage({
               methodName: 'Identity.getCurrentUser().getCart().add()',
               warningMessage: generateDeprecationMessage('Identity.getCurrentUser().getCart().add()', true, 'eCommerce.logProductAction()', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking')
-            }, mpInstance.Logger, mpInstance._LoggingDispatcher);
+            }, mpInstance.Logger, mpInstance._ErrorReportingDispatcher);
           },
           /**
            * Removes a cart product from the current user cart
@@ -8859,7 +8860,7 @@ var mParticle = (function () {
             logDeprecatedMethodUsage({
               methodName: 'Identity.getCurrentUser().getCart().remove()',
               warningMessage: generateDeprecationMessage('Identity.getCurrentUser().getCart().remove()', true, 'eCommerce.logProductAction()', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking')
-            }, mpInstance.Logger, mpInstance._LoggingDispatcher);
+            }, mpInstance.Logger, mpInstance._ErrorReportingDispatcher);
           },
           /**
            * Clears the user's cart
@@ -8870,7 +8871,7 @@ var mParticle = (function () {
             logDeprecatedMethodUsage({
               methodName: 'Identity.getCurrentUser().getCart().clear()',
               warningMessage: generateDeprecationMessage('Identity.getCurrentUser().getCart().clear()', true, '', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking')
-            }, mpInstance.Logger, mpInstance._LoggingDispatcher);
+            }, mpInstance.Logger, mpInstance._ErrorReportingDispatcher);
           },
           /**
            * Returns all cart products
@@ -8882,7 +8883,7 @@ var mParticle = (function () {
             logDeprecatedMethodUsage({
               methodName: 'Identity.getCurrentUser().getCart().getCartProducts()',
               warningMessage: generateDeprecationMessage('Identity.getCurrentUser().getCart().getCartProducts()', true, 'eCommerce.logProductAction()', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking')
-            }, mpInstance.Logger, mpInstance._LoggingDispatcher);
+            }, mpInstance.Logger, mpInstance._ErrorReportingDispatcher);
             return [];
           }
         };
@@ -8955,7 +8956,7 @@ var mParticle = (function () {
             newUser = mpInstance.Identity.getCurrentUser();
 
             // https://go.mparticle.com/work/SQDSDKS-6359
-            tryOnUserAlias(prevUser, newUser, identityApiData, mpInstance.Logger, mpInstance._LoggingDispatcher);
+            tryOnUserAlias(prevUser, newUser, identityApiData, mpInstance.Logger, mpInstance._ErrorReportingDispatcher);
             var persistence = mpInstance._Persistence.getPersistence();
             if (newUser) {
               mpInstance._Persistence.storeDataInMemory(persistence, newUser.getMPID());
@@ -9088,13 +9089,13 @@ var mParticle = (function () {
     }
 
     // https://go.mparticle.com/work/SQDSDKS-6359
-    function tryOnUserAlias(previousUser, newUser, identityApiData, logger, loggingDispatcher) {
+    function tryOnUserAlias(previousUser, newUser, identityApiData, logger, errorReporter) {
       if (identityApiData && identityApiData.onUserAlias && isFunction(identityApiData.onUserAlias)) {
         try {
           logDeprecatedMethodUsage({
             methodName: 'onUserAlias',
             warningMessage: generateDeprecationMessage('onUserAlias')
-          }, logger, loggingDispatcher);
+          }, logger, errorReporter);
           identityApiData.onUserAlias(previousUser, newUser);
         } catch (e) {
           logger.error('There was an error with your onUserAlias function - ' + e);
@@ -9378,7 +9379,7 @@ var mParticle = (function () {
           logDeprecatedMethodUsage({
             methodName: 'Consent.removeCCPAState',
             warningMessage: 'removeCCPAState is deprecated and will be removed in a future release; use removeCCPAConsentState instead'
-          }, mpInstance.Logger, mpInstance._LoggingDispatcher);
+          }, mpInstance.Logger, mpInstance._ErrorReportingDispatcher);
           // @ts-ignore
           return removeCCPAConsentState();
         }
@@ -11688,7 +11689,7 @@ var mParticle = (function () {
             logDeprecatedMethodUsage({
               methodName: 'mPInstance.eCommerce.Cart.add()',
               warningMessage: generateDeprecationMessage('eCommerce.Cart.add()', true, 'eCommerce.logProductAction()', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking')
-            }, self.Logger, self._LoggingDispatcher);
+            }, self.Logger, self._ErrorReportingDispatcher);
           },
           /**
            * Removes a product from the cart
@@ -11701,7 +11702,7 @@ var mParticle = (function () {
             logDeprecatedMethodUsage({
               methodName: 'mPInstance.eCommerce.Cart.remove()',
               warningMessage: generateDeprecationMessage('eCommerce.Cart.remove()', true, 'eCommerce.logProductAction()', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking')
-            }, self.Logger, self._LoggingDispatcher);
+            }, self.Logger, self._ErrorReportingDispatcher);
           },
           /**
            * Clears the cart
@@ -11712,7 +11713,7 @@ var mParticle = (function () {
             logDeprecatedMethodUsage({
               methodName: 'mPInstance.eCommerce.Cart.clear()',
               warningMessage: generateDeprecationMessage('eCommerce.Cart.clear()', true, '', 'https://docs.mparticle.com/developers/sdk/web/commerce-tracking')
-            }, self.Logger, self._LoggingDispatcher);
+            }, self.Logger, self._ErrorReportingDispatcher);
           }
         },
         /**
@@ -11801,7 +11802,7 @@ var mParticle = (function () {
           logDeprecatedMethodUsage({
             methodName: 'mParticle.logCheckout',
             warningMessage: 'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead'
-          }, self.Logger, self._LoggingDispatcher);
+          }, self.Logger, self._ErrorReportingDispatcher);
           if (!self._Store.isInitialized) {
             self.ready(function () {
               self.eCommerce.logCheckout(step, option, attrs, customFlags);
@@ -11845,7 +11846,7 @@ var mParticle = (function () {
           logDeprecatedMethodUsage({
             methodName: 'mParticle.logPurchase',
             warningMessage: 'mParticle.logPurchase is deprecated, please use mParticle.logProductAction instead'
-          }, self.Logger, self._LoggingDispatcher);
+          }, self.Logger, self._ErrorReportingDispatcher);
           if (!self._Store.isInitialized) {
             self.ready(function () {
               self.eCommerce.logPurchase(transactionAttributes, product, clearCart, attrs, customFlags);
@@ -11909,7 +11910,7 @@ var mParticle = (function () {
           logDeprecatedMethodUsage({
             methodName: 'mParticle.logRefund',
             warningMessage: 'mParticle.logRefund is deprecated, please use mParticle.logProductAction instead'
-          }, self.Logger, self._LoggingDispatcher);
+          }, self.Logger, self._ErrorReportingDispatcher);
           if (!self._Store.isInitialized) {
             self.ready(function () {
               self.eCommerce.logRefund(transactionAttributes, product, clearCart, attrs, customFlags);
