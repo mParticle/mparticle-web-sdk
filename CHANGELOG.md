@@ -1,3 +1,10 @@
+## [2.75.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.75.0...v2.75.1) (2026-08-04)
+
+
+### Bug Fixes
+
+* report deprecated method usage as WARNING ([#1305](https://github.com/mParticle/mparticle-web-sdk/issues/1305)) ([0ff02d9](https://github.com/mParticle/mparticle-web-sdk/commit/0ff02d98d644d4389862663d181b7c14e5d353cf))
+
 # [2.75.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.74.0...v2.75.0) (2026-07-31)
 
 
