@@ -326,14 +326,14 @@ describe('Braze Forwarder', function() {
     });
 
     it('should have a property of suffix', function() {
-        window.mParticle.forwarder.should.have.property('suffix', 'v5');
+        window.mParticle.forwarder.should.have.property('suffix', 'v6');
     });
 
     it('should register a forwarder with version number onto a config', function() {
         var config = {};
         brazeInstance.register(config);
         config.should.have.property('kits');
-        config.kits.should.have.property('Appboy-v5');
+        config.kits.should.have.property('Appboy-v6');
     });
 
     it('should open a new session and refresh in app messages upon initialization', function() {
@@ -1096,10 +1096,9 @@ describe('Braze Forwarder', function() {
         window.braze.getUser().emailSet.should.equal('test2@gmail.com');
 
         // We support $Age as a reserved attribute for Braze. However, since
-        // Braze's API expects a year from us, this test will break every year,
-        // since setting the age = 10 in 2021 will mean the user is born in 2011,
-        // but setting it in 2023 means the year is 2013.
-        window.braze.getUser().yearOfBirth.should.equal(2015);
+        // Braze's API expects a year from us, the expected value changes with
+        // the current year: new Date().getFullYear() - 10.
+        window.braze.getUser().yearOfBirth.should.equal(new Date().getFullYear() - 10);
         window.braze.getUser().dayOfBirth.should.equal(1);
         window.braze.getUser().monthOfBirth.should.equal(1);
         window.braze.getUser().phoneSet.should.equal('1234567890');
