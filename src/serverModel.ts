@@ -311,6 +311,7 @@ export default function ServerModel(
                         event.name
                     ),
                     ActiveTimeOnSite: mpInstance._timeOnSiteTimer?.getTimeInForeground(),
+                    TotalTimeOnSite: mpInstance._Store.getTotalTimeOnSite(),
                     PageUrl: getHref() || null,
                     SourceMessageId:
                         event.sourceMessageId ||

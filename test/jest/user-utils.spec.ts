@@ -215,6 +215,7 @@ describe('user-utils', () => {
                 Debug: true,
                 CurrencyCode: 'USD',
                 ActiveTimeOnSite: 10,
+                TotalTimeOnSite: 15,
             };
 
             appendUserInfo(user, event);
