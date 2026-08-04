@@ -1260,7 +1260,7 @@ export default function Identity(mpInstance) {
                             'Deprecated function Identity.getCurrentUser().getCart() will be removed in future releases',
                     },
                     mpInstance.Logger,
-                    mpInstance._LoggingDispatcher
+                    mpInstance._ErrorReportingDispatcher
                 );
                 return self.mParticleUserCart();
             },
@@ -1352,7 +1352,7 @@ export default function Identity(mpInstance) {
                         ),
                     },
                     mpInstance.Logger,
-                    mpInstance._LoggingDispatcher
+                    mpInstance._ErrorReportingDispatcher
                 );
             },
             /**
@@ -1373,7 +1373,7 @@ export default function Identity(mpInstance) {
                         ),
                     },
                     mpInstance.Logger,
-                    mpInstance._LoggingDispatcher
+                    mpInstance._ErrorReportingDispatcher
                 );
             },
             /**
@@ -1394,7 +1394,7 @@ export default function Identity(mpInstance) {
                         ),
                     },
                     mpInstance.Logger,
-                    mpInstance._LoggingDispatcher
+                    mpInstance._ErrorReportingDispatcher
                 );
             },
             /**
@@ -1416,7 +1416,7 @@ export default function Identity(mpInstance) {
                         ),
                     },
                     mpInstance.Logger,
-                    mpInstance._LoggingDispatcher
+                    mpInstance._ErrorReportingDispatcher
                 );
                 return [];
             },
@@ -1571,7 +1571,7 @@ export default function Identity(mpInstance) {
                     newUser,
                     identityApiData,
                     mpInstance.Logger,
-                    mpInstance._LoggingDispatcher
+                    mpInstance._ErrorReportingDispatcher
                 );
 
                 const persistence = mpInstance._Persistence.getPersistence();
@@ -1812,7 +1812,7 @@ function tryOnUserAlias(
     newUser,
     identityApiData,
     logger,
-    loggingDispatcher
+    errorReporter
 ) {
     if (
         identityApiData &&
@@ -1826,7 +1826,7 @@ function tryOnUserAlias(
                     warningMessage: generateDeprecationMessage('onUserAlias'),
                 },
                 logger,
-                loggingDispatcher
+                errorReporter
             );
             identityApiData.onUserAlias(previousUser, newUser);
         } catch (e) {

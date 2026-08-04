@@ -131,9 +131,9 @@ describe('LoggingDispatcher', () => {
 });
 
 describe('logDeprecatedMethodUsage', () => {
-    it('keeps the console warning and emits structured usage details', () => {
+    it('keeps the console warning and reports structured usage as a warning', () => {
         const warning = jest.fn();
-        const log = jest.fn();
+        const report = jest.fn();
 
         logDeprecatedMethodUsage(
             {
@@ -141,19 +141,20 @@ describe('logDeprecatedMethodUsage', () => {
                 warningMessage: 'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead',
             },
             { warning },
-            { log }
+            { report }
         );
 
         expect(warning).toHaveBeenCalledWith(
             'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead'
         );
-        expect(log).toHaveBeenCalledWith({
+        expect(report).toHaveBeenCalledWith({
             message: 'mParticle.logCheckout',
             code: ErrorCodes.MP_DEPRECATED_METHOD_USAGE,
+            severity: WSDKErrorSeverity.WARNING,
         });
     });
 
-    it('does not require a registered logging dispatcher', () => {
+    it('does not require a registered error reporter', () => {
         const warning = jest.fn();
 
         expect(() => logDeprecatedMethodUsage(
