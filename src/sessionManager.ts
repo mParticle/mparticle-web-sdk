@@ -78,7 +78,7 @@ export default function SessionManager(
                 ),
             },
             mpInstance.Logger,
-            mpInstance._LoggingDispatcher
+            mpInstance._ErrorReportingDispatcher
         );
         return this.getSessionId();
     };

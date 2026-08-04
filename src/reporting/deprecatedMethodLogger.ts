@@ -1,4 +1,4 @@
-import { ErrorCodes, ILoggingService } from './types';
+import { ErrorCodes, IErrorReportingService, WSDKErrorSeverity } from './types';
 import { SDKLoggerApi } from '../sdkRuntimeModels';
 
 interface DeprecatedMethodUsage {
@@ -9,11 +9,12 @@ interface DeprecatedMethodUsage {
 export function logDeprecatedMethodUsage(
     usage: DeprecatedMethodUsage,
     logger: Pick<SDKLoggerApi, 'warning'>,
-    loggingDispatcher: ILoggingService | undefined
+    errorReporter: IErrorReportingService | undefined
 ): void {
     logger.warning(usage.warningMessage);
-    loggingDispatcher?.log({
+    errorReporter?.report({
         message: usage.methodName,
         code: ErrorCodes.MP_DEPRECATED_METHOD_USAGE,
+        severity: WSDKErrorSeverity.WARNING,
     });
 }

@@ -792,7 +792,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                         ),
                     },
                     self.Logger,
-                    self._LoggingDispatcher
+                    self._ErrorReportingDispatcher
                 );
             },
             /**
@@ -814,7 +814,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                         ),
                     },
                     self.Logger,
-                    self._LoggingDispatcher
+                    self._ErrorReportingDispatcher
                 );
             },
             /**
@@ -834,7 +834,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                         ),
                     },
                     self.Logger,
-                    self._LoggingDispatcher
+                    self._ErrorReportingDispatcher
                 );
             },
         },
@@ -970,7 +970,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                     warningMessage: 'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead',
                 },
                 self.Logger,
-                self._LoggingDispatcher
+                self._ErrorReportingDispatcher
             );
 
             if (!self._Store.isInitialized) {
@@ -1055,7 +1055,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                     warningMessage: 'mParticle.logPurchase is deprecated, please use mParticle.logProductAction instead',
                 },
                 self.Logger,
-                self._LoggingDispatcher
+                self._ErrorReportingDispatcher
             );
             if (!self._Store.isInitialized) {
                 self.ready(function() {
@@ -1172,7 +1172,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                     warningMessage: 'mParticle.logRefund is deprecated, please use mParticle.logProductAction instead',
                 },
                 self.Logger,
-                self._LoggingDispatcher
+                self._ErrorReportingDispatcher
             );
             if (!self._Store.isInitialized) {
                 self.ready(function() {
