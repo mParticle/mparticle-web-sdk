@@ -91,6 +91,7 @@ export default class _BatchValidator {
                     isDevelopmentMode: false,
                     onCreateBatch: mockFunction,
                 },
+                getTotalTimeOnSite: mockFunction,
             },
             config: null,
             eCommerce: null,
