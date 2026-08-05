@@ -33,6 +33,14 @@ export default defineConfig({
     test: {
         environment: 'jsdom',
         globals: true,
+        // Node >= 25 enables an experimental `localStorage` global that is
+        // undefined unless --localstorage-file is passed. Its presence on
+        // globalThis makes Vitest skip copying jsdom's working implementation,
+        // so window.localStorage ends up undefined and page-view tests fail.
+        // Disable Node's webstorage in the test workers so jsdom's Storage is
+        // used, matching real browser behavior (and Node 24, which upstream
+        // CI pins).
+        execArgv: ['--no-experimental-webstorage'],
         setupFiles: ['./test/vitest.setup.ts'],
         include: ['test/src/**/*.spec.ts', 'src/**/*.spec.ts'],
         // More-specific alias must come first so @mparticle/web-sdk/internal

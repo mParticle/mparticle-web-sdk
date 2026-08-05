@@ -1190,6 +1190,78 @@ describe('Rokt Forwarder', () => {
         });
       });
 
+      it('should forward active_time_on_site_ms on the current call without caching it', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {
+            loyaltyTier: 'gold',
+          },
+        );
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            active_time_on_site_ms: 12345,
+            page: 'checkout',
+          },
+        });
+
+        expect((window as any).Rokt.selectPlacementsCalled).toBe(true);
+        expect((window as any).Rokt.selectPlacementsOptions).toEqual({
+          identifier: 'test-placement',
+          attributes: {
+            loyaltyTier: 'gold',
+            active_time_on_site_ms: 12345,
+            page: 'checkout',
+            mpid: '123',
+          },
+        });
+        expect((window as any).mParticle.forwarder.userAttributes).toEqual({
+          loyaltyTier: 'gold',
+          page: 'checkout',
+        });
+      });
+
+      it('should not re-send a stale cached active_time_on_site_ms on a later call', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            active_time_on_site_ms: 12345,
+          },
+        });
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            active_time_on_site_ms: 67890,
+          },
+        });
+
+        expect((window as any).Rokt.selectPlacementsOptions).toEqual({
+          identifier: 'test-placement',
+          attributes: {
+            active_time_on_site_ms: 67890,
+            mpid: '123',
+          },
+        });
+        expect((window as any).mParticle.forwarder.userAttributes).toEqual({});
+      });
+
       it('should not cache denylisted commerce attributes set through setUserAttribute', async () => {
         await (window as any).mParticle.forwarder.init(
           {
@@ -4829,9 +4901,7 @@ describe('Rokt Forwarder', () => {
         EventDataType: MessageType.PageEvent,
       });
 
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({
-        'foo-mapped-flag': true,
-      });
+      expect((window as any).mParticle._Store.localSessionAttributes['foo-mapped-flag']).toBe(true);
     });
 
     it('should set local session attribute only when placementEventAttributeMapping conditions match (URL contains)', async () => {
@@ -4872,7 +4942,7 @@ describe('Rokt Forwarder', () => {
           URL: 'https://example.com/home',
         },
       });
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({});
+      expect((window as any).mParticle._Store.localSessionAttributes.saleSeeker).toBeUndefined();
 
       (window as any).mParticle._Store.localSessionAttributes = {};
       (window as any).mParticle.forwarder.process({
@@ -4883,9 +4953,7 @@ describe('Rokt Forwarder', () => {
           URL: 'https://example.com/sale/items',
         },
       });
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({
-        saleSeeker: true,
-      });
+      expect((window as any).mParticle._Store.localSessionAttributes.saleSeeker).toBe(true);
     });
 
     it('should support event attribute mapping when conditions are not defined', async () => {
@@ -4921,9 +4989,7 @@ describe('Rokt Forwarder', () => {
         },
       });
 
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({
-        hasUrl: true,
-      });
+      expect((window as any).mParticle._Store.localSessionAttributes.hasUrl).toBe(true);
     });
 
     it('should not set local session attribute when mapped attribute key is missing from event and no conditions have been defined', async () => {
@@ -4959,7 +5025,7 @@ describe('Rokt Forwarder', () => {
         },
       });
 
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({});
+      expect((window as any).mParticle._Store.localSessionAttributes.hasUrl).toBeUndefined();
     });
 
     it('should support exists operator for placementEventAttributeMapping conditions', async () => {
@@ -4996,9 +5062,7 @@ describe('Rokt Forwarder', () => {
         },
       });
 
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({
-        hasUrl: true,
-      });
+      expect((window as any).mParticle._Store.localSessionAttributes.hasUrl).toBe(true);
 
       (window as any).mParticle._Store.localSessionAttributes = {};
       (window as any).mParticle.forwarder.process({
@@ -5010,7 +5074,7 @@ describe('Rokt Forwarder', () => {
         },
       });
 
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({});
+      expect((window as any).mParticle._Store.localSessionAttributes.hasUrl).toBeUndefined();
     });
 
     it('should evaluate equals for placementEventAttributeMapping conditions', async () => {
@@ -5051,9 +5115,7 @@ describe('Rokt Forwarder', () => {
           number_of_products: 2,
         },
       });
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({
-        multipleproducts: true,
-      });
+      expect((window as any).mParticle._Store.localSessionAttributes.multipleproducts).toBe(true);
 
       (window as any).mParticle._Store.localSessionAttributes = {};
       (window as any).mParticle.forwarder.process({
@@ -5064,9 +5126,7 @@ describe('Rokt Forwarder', () => {
           number_of_products: '2',
         },
       });
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({
-        multipleproducts: true,
-      });
+      expect((window as any).mParticle._Store.localSessionAttributes.multipleproducts).toBe(true);
     });
 
     it('should evaluate contains for placementEventAttributeMapping conditions', async () => {
@@ -5107,9 +5167,7 @@ describe('Rokt Forwarder', () => {
           number_of_products: 2,
         },
       });
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({
-        containsNumber: true,
-      });
+      expect((window as any).mParticle._Store.localSessionAttributes.containsNumber).toBe(true);
     });
 
     it('should correctly match attribute values for different type cases', async () => {
@@ -5225,11 +5283,9 @@ describe('Rokt Forwarder', () => {
         },
       });
 
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({
-        lowerCaseMatches: true,
-        zeroMatches: true,
-        digitMatches: true,
-      });
+      expect((window as any).mParticle._Store.localSessionAttributes.lowerCaseMatches).toBe(true);
+      expect((window as any).mParticle._Store.localSessionAttributes.zeroMatches).toBe(true);
+      expect((window as any).mParticle._Store.localSessionAttributes.digitMatches).toBe(true);
     });
 
     it('should not match when attribute key is missing or EventAttributes is absent', async () => {
@@ -5271,7 +5327,7 @@ describe('Rokt Forwarder', () => {
         },
       });
 
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({});
+      expect((window as any).mParticle._Store.localSessionAttributes.shouldNotMatch).toBeUndefined();
 
       (window as any).mParticle._Store.localSessionAttributes = {};
       (window as any).mParticle.forwarder.process({
@@ -5280,7 +5336,7 @@ describe('Rokt Forwarder', () => {
         EventDataType: MessageType.PageView,
       });
 
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({});
+      expect((window as any).mParticle._Store.localSessionAttributes.shouldNotMatch).toBeUndefined();
     });
 
     it('should require ALL rules for the same mapped key to match (AND across rules)', async () => {
@@ -5336,7 +5392,7 @@ describe('Rokt Forwarder', () => {
           URL: 'https://example.com/sale',
         },
       });
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({});
+      expect((window as any).mParticle._Store.localSessionAttributes.saleSeeker).toBeUndefined();
 
       (window as any).mParticle._Store.localSessionAttributes = {};
       (window as any).mParticle.forwarder.process({
@@ -5347,9 +5403,7 @@ describe('Rokt Forwarder', () => {
           URL: 'https://example.com/sale/items',
         },
       });
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({
-        saleSeeker: true,
-      });
+      expect((window as any).mParticle._Store.localSessionAttributes.saleSeeker).toBe(true);
     });
 
     it('should set multiple local session attributes for the same event attribute key', async () => {
@@ -5402,9 +5456,7 @@ describe('Rokt Forwarder', () => {
           URL: 'https://example.com/sale',
         },
       });
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({
-        saleSeeker: true,
-      });
+      expect((window as any).mParticle._Store.localSessionAttributes.saleSeeker).toBe(true);
 
       (window as any).mParticle._Store.localSessionAttributes = {};
       (window as any).mParticle.forwarder.process({
@@ -5415,10 +5467,8 @@ describe('Rokt Forwarder', () => {
           URL: 'https://example.com/sale/items',
         },
       });
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({
-        saleSeeker: true,
-        saleSeeker1: true,
-      });
+      expect((window as any).mParticle._Store.localSessionAttributes.saleSeeker).toBe(true);
+      expect((window as any).mParticle._Store.localSessionAttributes.saleSeeker1).toBe(true);
     });
 
     it('should treat falsy attribute values as existing', async () => {
@@ -5471,11 +5521,9 @@ describe('Rokt Forwarder', () => {
         },
       });
 
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({
-        zeroExists: true,
-        falseExists: true,
-        emptyStringExists: true,
-      });
+      expect((window as any).mParticle._Store.localSessionAttributes.zeroExists).toBe(true);
+      expect((window as any).mParticle._Store.localSessionAttributes.falseExists).toBe(true);
+      expect((window as any).mParticle._Store.localSessionAttributes.emptyStringExists).toBe(true);
     });
 
     it('should not match when condition has an unrecognized operator', async () => {
@@ -5517,7 +5565,7 @@ describe('Rokt Forwarder', () => {
         },
       });
 
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({});
+      expect((window as any).mParticle._Store.localSessionAttributes.shouldNotMatch).toBeUndefined();
     });
 
     it('should support both placementEventMapping and placementEventAttributeMapping together', async () => {
@@ -5564,9 +5612,7 @@ describe('Rokt Forwarder', () => {
         },
       });
 
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({
-        hasUrl: true,
-      });
+      expect((window as any).mParticle._Store.localSessionAttributes.hasUrl).toBe(true);
 
       (window as any).mParticle._Store.localSessionAttributes = {};
       (window as any).mParticle.forwarder.process({
@@ -5578,10 +5624,8 @@ describe('Rokt Forwarder', () => {
         },
       });
 
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({
-        hasUrl: true,
-        'foo-mapped-flag': true,
-      });
+      expect((window as any).mParticle._Store.localSessionAttributes.hasUrl).toBe(true);
+      expect((window as any).mParticle._Store.localSessionAttributes['foo-mapped-flag']).toBe(true);
 
       (window as any).mParticle._Store.localSessionAttributes = {};
       (window as any).mParticle.forwarder.process({
@@ -5590,8 +5634,685 @@ describe('Rokt Forwarder', () => {
         EventDataType: MessageType.PageEvent,
       });
 
-      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({
-        'foo-mapped-flag': true,
+      expect((window as any).mParticle._Store.localSessionAttributes['foo-mapped-flag']).toBe(true);
+    });
+
+    describe('page view capture', () => {
+      const readStoredPageViews = () => {
+        const raw = window.localStorage.getItem('mpPageViews');
+        return raw === null ? null : JSON.parse(raw);
+      };
+
+      beforeEach(() => {
+        window.localStorage.clear();
+      });
+
+      afterEach(() => {
+        window.localStorage.clear();
+      });
+
+      it('appends a page view record with the expected fields when the event is a PageView', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-1',
+          Timestamp: 1712345678000,
+          ActiveTimeOnSite: 4200,
+          EventAttributes: {
+            hostname: 'example.com',
+            title: 'Home',
+          },
+        });
+
+        expect(readStoredPageViews()).toEqual([
+          {
+            pageUrl: window.location.href,
+            sourceMessageId: 'source-message-id-1',
+            timestamp: 1712345678000,
+            activeTimeOnSite: 4200,
+          },
+        ]);
+      });
+
+      it('omits activeTimeOnSite when the source value is non-finite', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        // A NaN source would serialize to "null" (JSON.stringify(NaN) === 'null')
+        // and read back as a non-number. Rather than coerce to 0 — which would be
+        // indistinguishable from a genuine zero and get diffed against the next
+        // record, fabricating a dwell time — we omit the field so it stays
+        // "unknown". Only finite numbers ever enter storage.
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-nan',
+          Timestamp: 1712345678000,
+          ActiveTimeOnSite: NaN,
+        });
+
+        expect(readStoredPageViews()).toEqual([
+          {
+            pageUrl: window.location.href,
+            sourceMessageId: 'source-message-id-nan',
+            timestamp: 1712345678000,
+          },
+        ]);
+      });
+
+      it('does not append a page view record for a non-PageView event', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Video Watched',
+          EventCategory: EventType.Other,
+          EventDataType: MessageType.PageEvent,
+          SourceMessageId: 'source-message-id-2',
+          Timestamp: 1712345679000,
+          ActiveTimeOnSite: 100,
+        });
+
+        expect(readStoredPageViews()).toBeNull();
+      });
+
+      it('caps the stored history at 25 records, evicting oldest first', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        for (let i = 0; i < 30; i++) {
+          (window as any).mParticle.forwarder.process({
+            EventName: 'Page ' + i,
+            EventCategory: EventType.Unknown,
+            EventDataType: MessageType.PageView,
+            SourceMessageId: 'source-message-id-' + i,
+            Timestamp: 1712345678000 + i,
+            ActiveTimeOnSite: i,
+          });
+        }
+
+        const stored = readStoredPageViews();
+        // 30 written, capped at 25 — the 5 oldest evicted, newest always retained.
+        expect(stored.length).toBe(25);
+        expect(stored[0].sourceMessageId).toBe('source-message-id-5');
+        expect(stored[stored.length - 1].sourceMessageId).toBe('source-message-id-29');
+      });
+
+      it('clears the stored page-view history on a SessionEnd event', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-1',
+          Timestamp: 1712345678000,
+          ActiveTimeOnSite: 4200,
+        });
+
+        expect(readStoredPageViews()).not.toBeNull();
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Session End',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.SessionEnd,
+          SourceMessageId: 'source-message-id-session-end',
+          Timestamp: 1712345679000,
+          ActiveTimeOnSite: 4300,
+        });
+
+        expect(readStoredPageViews()).toBeNull();
+      });
+
+      it('captures the page view but returns the not-ready signal when the kit is not ready', () => {
+        // Force a not-ready state: capture must still run (kit-owned storage),
+        // but process() must tell the core SDK the forwarder is not ready.
+        (window as any).mParticle.forwarder.isInitialized = false;
+        (window as any).mParticle.forwarder.launcher = null;
+
+        const result = (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-not-ready',
+          Timestamp: 1712345678000,
+          ActiveTimeOnSite: 4200,
+        });
+
+        expect(result).toContain('Kit not ready');
+        expect(readStoredPageViews()).toEqual([
+          {
+            pageUrl: window.location.href,
+            sourceMessageId: 'source-message-id-not-ready',
+            timestamp: 1712345678000,
+            activeTimeOnSite: 4200,
+          },
+        ]);
+      });
+
+      it('does not capture page views when targeting is disabled (noTargeting launcher option)', async () => {
+        (window as any).mParticle.Rokt.launcherOptions = {
+          noTargeting: true,
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-1',
+          Timestamp: 1712345678000,
+          ActiveTimeOnSite: 4200,
+        });
+
+        expect(readStoredPageViews()).toBeNull();
+      });
+
+      it('does not throw and reports a warning when localStorage writes throw', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        const reportSpy = vi.spyOn((window as any).mParticle.forwarder.errorReportingService, 'report');
+        const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+          throw new Error('QuotaExceededError');
+        });
+
+        try {
+          expect(() => {
+            (window as any).mParticle.forwarder.process({
+              EventName: 'Home Page',
+              EventCategory: EventType.Unknown,
+              EventDataType: MessageType.PageView,
+              SourceMessageId: 'source-message-id-throws',
+              Timestamp: 1712345678000,
+              ActiveTimeOnSite: 10,
+            });
+          }).not.toThrow();
+        } finally {
+          setItemSpy.mockRestore();
+        }
+
+        // Nothing is persisted, but the forwarder keeps running.
+        expect(readStoredPageViews()).toBeNull();
+        // The write failure is surfaced as a WARNING.
+        expect(reportSpy).toHaveBeenCalledWith(
+          expect.objectContaining({ code: 'PAGE_VIEW_CAPTURE_FAILED', severity: 'WARNING' }),
+        );
+        reportSpy.mockRestore();
+      });
+
+      it('captures page views independently of setLocalSessionAttribute availability', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        delete (window as any).mParticle.Rokt.setLocalSessionAttribute;
+
+        expect(() => {
+          (window as any).mParticle.forwarder.process({
+            EventName: 'Home Page',
+            EventCategory: EventType.Unknown,
+            EventDataType: MessageType.PageView,
+            SourceMessageId: 'source-message-id-3',
+            Timestamp: 1712345678000,
+            ActiveTimeOnSite: 10,
+          });
+        }).not.toThrow();
+
+        // Page-view capture no longer depends on mParticle's session-attribute
+        // store, so it persists even when setLocalSessionAttribute is absent.
+        expect(readStoredPageViews()).toEqual([
+          {
+            pageUrl: window.location.href,
+            sourceMessageId: 'source-message-id-3',
+            timestamp: 1712345678000,
+            activeTimeOnSite: 10,
+          },
+        ]);
+      });
+
+      it('surfaces stored page views through selectPlacements as page_events without any placement mapping configured', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle._Store.localSessionAttributes = {};
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-4',
+          Timestamp: 1712345678000,
+          ActiveTimeOnSite: 4200,
+        });
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+        // The raw nested store must not ride along; only the flat page_events array is sent,
+        // JSON-stringified to satisfy the primitives-only Rokt attribute contract.
+        expect(forwardedAttributes.mpPageViews).toBeUndefined();
+        expect(JSON.parse(forwardedAttributes.page_events)).toEqual([
+          {
+            pageUrl: window.location.href,
+            sourceMessageId: 'source-message-id-4',
+            timestamp: 1712345678000,
+            activeTimeOnSite: 4200,
+          },
+        ]);
+      });
+
+      it('does not add a page_events attribute when no page views are stored', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle._Store.localSessionAttributes = {};
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+        expect(forwardedAttributes.page_events).toBeUndefined();
+        expect(forwardedAttributes.mpPageViews).toBeUndefined();
+      });
+
+      it('surfaces activeTimeOnPage as the active-time diff to the next page view', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle._Store.localSessionAttributes = {};
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-7',
+          Timestamp: 1712345678000,
+          ActiveTimeOnSite: 1000,
+        });
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Product Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-8',
+          Timestamp: 1712345679000,
+          ActiveTimeOnSite: 4200,
+        });
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+        // First page's time-on-page is how long it was viewed before the next page:
+        // 4200 - 1000 = 3200. The last (still-open) page has no activeTimeOnPage.
+        expect(JSON.parse(forwardedAttributes.page_events)).toEqual([
+          {
+            pageUrl: window.location.href,
+            sourceMessageId: 'source-message-id-7',
+            timestamp: 1712345678000,
+            activeTimeOnSite: 1000,
+            activeTimeOnPage: 3200,
+          },
+          {
+            pageUrl: window.location.href,
+            sourceMessageId: 'source-message-id-8',
+            timestamp: 1712345679000,
+            activeTimeOnSite: 4200,
+          },
+        ]);
+      });
+
+      it('computes a consecutive activeTimeOnPage diff for each non-last page view', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle._Store.localSessionAttributes = {};
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Page A',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-9',
+          Timestamp: 1712345678000,
+          ActiveTimeOnSite: 1000,
+        });
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Page B',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-10',
+          Timestamp: 1712345679000,
+          ActiveTimeOnSite: 2500,
+        });
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Page C',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-11',
+          Timestamp: 1712345680000,
+          ActiveTimeOnSite: 9000,
+        });
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+        const pageEvents = JSON.parse(forwardedAttributes.page_events);
+        expect(pageEvents[0].activeTimeOnPage).toBe(1500); // 2500 - 1000
+        expect(pageEvents[1].activeTimeOnPage).toBe(6500); // 9000 - 2500
+        expect(pageEvents[2].activeTimeOnPage).toBeUndefined(); // still open
+      });
+
+      it('omits activeTimeOnPage when the active-time diff would be negative', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle._Store.localSessionAttributes = {};
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Page A',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-12',
+          Timestamp: 1712345678000,
+          ActiveTimeOnSite: 5000,
+        });
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Page B',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-13',
+          Timestamp: 1712345679000,
+          ActiveTimeOnSite: 1000,
+        });
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+        const pageEvents = JSON.parse(forwardedAttributes.page_events);
+        // 1000 - 5000 = -4000 → omitted rather than emitting a misleading value.
+        expect(pageEvents[0].activeTimeOnPage).toBeUndefined();
+        expect(pageEvents[1].activeTimeOnPage).toBeUndefined();
+      });
+
+      it('does not fabricate an activeTimeOnPage when a record is missing activeTimeOnSite', async () => {
+        // Seed a record with no activeTimeOnSite (the non-finite-source case)
+        // followed by one that has it. A coerced-to-0 first record would diff
+        // against the next (300000 - 0) and invent a 5-minute dwell that never
+        // happened; "unknown" must stay distinguishable from a genuine zero.
+        window.localStorage.setItem(
+          'mpPageViews',
+          JSON.stringify([
+            {
+              pageUrl: 'https://example.com/a',
+              sourceMessageId: 'missing-ats',
+              timestamp: 1712345678000,
+            },
+            {
+              pageUrl: 'https://example.com/b',
+              sourceMessageId: 'has-ats',
+              timestamp: 1712345679000,
+              activeTimeOnSite: 300000,
+            },
+          ]),
+        );
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle._Store.localSessionAttributes = {};
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+        const pageEvents = JSON.parse(forwardedAttributes.page_events);
+        // First record has no activeTimeOnSite and therefore no derived dwell time.
+        expect(pageEvents[0].activeTimeOnSite).toBeUndefined();
+        expect(pageEvents[0].activeTimeOnPage).toBeUndefined();
+        // Second record keeps its finite value; still-open so no activeTimeOnPage.
+        expect(pageEvents[1].activeTimeOnSite).toBe(300000);
+        expect(pageEvents[1].activeTimeOnPage).toBeUndefined();
+      });
+
+      it('clears stored page views on init when targeting is disabled', async () => {
+        // Seed a stored page view from a period when targeting was permitted.
+        window.localStorage.setItem(
+          'mpPageViews',
+          JSON.stringify([
+            {
+              pageUrl: 'https://example.com/',
+              sourceMessageId: 'seeded',
+              timestamp: 1712345678000,
+              activeTimeOnSite: 4200,
+            },
+          ]),
+        );
+
+        (window as any).mParticle.Rokt.launcherOptions = {
+          noTargeting: true,
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        // Init clears leftover behavioral signals once, so a later re-enable
+        // starts fresh — nothing remains to surface.
+        expect(readStoredPageViews()).toBeNull();
+
+        (window as any).mParticle._Store.localSessionAttributes = {};
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+        expect(forwardedAttributes.page_events).toBeUndefined();
+      });
+
+      it('strips query params from the captured pageUrl', async () => {
+        const originalLocation = window.location;
+        // Query params commonly carry PII (emails, tokens); they must not be captured.
+        Object.defineProperty(window, 'location', {
+          value: new URL('https://www.example.com/checkout?email=user@test.com&token=secret#section'),
+          writable: true,
+          configurable: true,
+        });
+
+        try {
+          await (window as any).mParticle.forwarder.init(
+            {
+              accountId: '123456',
+            },
+            reportService.cb,
+            true,
+            null,
+            {},
+          );
+
+          await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+          (window as any).mParticle._Store.localSessionAttributes = {};
+          (window as any).mParticle.forwarder.process({
+            EventName: 'Checkout',
+            EventCategory: EventType.Unknown,
+            EventDataType: MessageType.PageView,
+            SourceMessageId: 'source-message-id-14',
+            Timestamp: 1712345678000,
+            ActiveTimeOnSite: 4200,
+          });
+
+          await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+          const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+          expect(JSON.parse(forwardedAttributes.page_events)[0].pageUrl).toBe(
+            'https://www.example.com/checkout#section',
+          );
+        } finally {
+          Object.defineProperty(window, 'location', {
+            value: originalLocation,
+            writable: true,
+            configurable: true,
+          });
+        }
+      });
+
+      it('captures a page view fired before the launcher finishes loading (kit not yet ready)', () => {
+        // Reproduces the race where the core SDK routes the initial page-load
+        // pageview to process() after it marks the forwarder active but before
+        // the async launcher round-trip flips isInitialized/launcher. In that
+        // window isKitReady() is false — the pageview must still be persisted
+        // to kit-owned localStorage, not dropped.
+        (window as any).mParticle.forwarder.isInitialized = false;
+        (window as any).mParticle.forwarder.launcher = null;
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-race',
+          Timestamp: 1712345678000,
+          ActiveTimeOnSite: 4200,
+        });
+
+        expect(readStoredPageViews()).toEqual([
+          {
+            pageUrl: window.location.href,
+            sourceMessageId: 'source-message-id-race',
+            timestamp: 1712345678000,
+            activeTimeOnSite: 4200,
+          },
+        ]);
       });
     });
   });
@@ -5809,6 +6530,8 @@ describe('Rokt Forwarder', () => {
       expect(isSelectPlacementsAttributePersistenceDenied('paymentServiceProvider')).toBe(true);
       expect(isSelectPlacementsAttributePersistenceDenied('cartItems')).toBe(true);
       expect(isSelectPlacementsAttributePersistenceDenied('conversionType')).toBe(true);
+      expect(isSelectPlacementsAttributePersistenceDenied('active_time_on_site_ms')).toBe(true);
+      expect(isSelectPlacementsAttributePersistenceDenied('Active_Time_On_Site_Ms')).toBe(true);
     });
 
     it('should return false for attributes that are not denylisted', () => {
