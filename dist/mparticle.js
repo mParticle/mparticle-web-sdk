@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.75.1";
+    var version = "2.76.0";
 
     var Constants = {
       sdkVersion: version,
@@ -2271,6 +2271,7 @@ var mParticle = (function () {
         location: convertSDKLocation(sdkEvent.Location),
         source_message_id: sdkEvent.SourceMessageId,
         active_time_on_site_ms: sdkEvent.ActiveTimeOnSite,
+        total_time_on_site_ms: sdkEvent.TotalTimeOnSite,
         page_url: sdkEvent.PageUrl
       };
       return commonEventData;
@@ -2728,12 +2729,13 @@ var mParticle = (function () {
       };
       // https://go.mparticle.com/work/SQDSDKS-7133
       BatchUploader.prototype.createBackgroundASTEvent = function () {
+        var _a;
         var now = Date.now();
-        var _a = this.mpInstance,
-          _Store = _a._Store,
-          Identity = _a.Identity,
-          _timeOnSiteTimer = _a._timeOnSiteTimer,
-          _Helpers = _a._Helpers;
+        var _b = this.mpInstance,
+          _Store = _b._Store,
+          Identity = _b.Identity,
+          _timeOnSiteTimer = _b._timeOnSiteTimer,
+          _Helpers = _b._Helpers;
         var sessionId = _Store.sessionId,
           deviceId = _Store.deviceId,
           sessionStartDate = _Store.sessionStartDate,
@@ -2757,6 +2759,7 @@ var mParticle = (function () {
           SessionStartDate: (sessionStartDate === null || sessionStartDate === void 0 ? void 0 : sessionStartDate.getTime()) || now,
           Debug: SDKConfig.isDevelopmentMode,
           ActiveTimeOnSite: (_timeOnSiteTimer === null || _timeOnSiteTimer === void 0 ? void 0 : _timeOnSiteTimer.getTimeInForeground()) || 0,
+          TotalTimeOnSite: ((_a = _Store.getTotalTimeOnSite) === null || _a === void 0 ? void 0 : _a.call(_Store)) || 0,
           PageUrl: getHref() || null,
           IsBackgroundAST: true
         };
@@ -5351,6 +5354,9 @@ var mParticle = (function () {
         var _a;
         return (_a = mpInstance._timeOnSiteTimer) === null || _a === void 0 ? void 0 : _a.getTimeInForeground();
       };
+      this.getTotalTimeOnSite = function () {
+        return _this.sessionStartDate ? Date.now() - _this.sessionStartDate.getTime() : undefined;
+      };
       this.addMpidToSessionHistory = function (mpid, previousMPID) {
         var indexOfMPID = _this.currentSessionMPIDs.indexOf(mpid);
         if (mpid && previousMPID !== mpid && indexOfMPID < 0) {
@@ -7614,7 +7620,7 @@ var mParticle = (function () {
         return jsonObject;
       };
       this.createEventObject = function (event, user) {
-        var _a;
+        var _a, _b, _c;
         var uploadObject = {};
         var eventObject = {};
         //  The `optOut` variable is passed later in this method to the `uploadObject`
@@ -7652,6 +7658,7 @@ var mParticle = (function () {
               EventCategory: event.eventType,
               EventAttributes: mpInstance._Helpers.sanitizeAttributes(event.data, event.name),
               ActiveTimeOnSite: (_a = mpInstance._timeOnSiteTimer) === null || _a === void 0 ? void 0 : _a.getTimeInForeground(),
+              TotalTimeOnSite: (_c = (_b = mpInstance._Store).getTotalTimeOnSite) === null || _c === void 0 ? void 0 : _c.call(_b),
               PageUrl: getHref() || null,
               SourceMessageId: event.sourceMessageId || mpInstance._Helpers.generateUniqueId(),
               EventDataType: event.messageType,
@@ -10620,11 +10627,11 @@ var mParticle = (function () {
        * });
        */
       RoktManager.prototype.selectPlacements = function (options) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r;
         return __awaiter(this, void 0, void 0, function () {
-          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities, msg, msg, finalUserIdentities, timeOnSite, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
+          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities, msg, msg, finalUserIdentities, timeOnSite, totalTimeOnSite, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
           var _this = this;
-          return __generator(this, function (_q) {
+          return __generator(this, function (_s) {
             (_a = this.captureTiming) === null || _a === void 0 ? void 0 : _a.call(this, PerformanceMarkType.JointSdkSelectPlacements);
             // Queue if kit isn't ready OR if identity is in flight
             if (!this.isReady() || ((_b = this.store) === null || _b === void 0 ? void 0 : _b.identityCallInFlight)) {
@@ -10696,10 +10703,13 @@ var mParticle = (function () {
               finalUserIdentities = __assign(__assign({}, currentUserIdentities), newIdentities);
               this.setUserAttributes(mappedAttributes);
               timeOnSite = (_l = (_k = this.store) === null || _k === void 0 ? void 0 : _k.getTimeOnSite) === null || _l === void 0 ? void 0 : _l.call(_k);
-              enrichedAttributes = __assign(__assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
+              totalTimeOnSite = (_o = (_m = this.store) === null || _m === void 0 ? void 0 : _m.getTotalTimeOnSite) === null || _o === void 0 ? void 0 : _o.call(_m);
+              enrichedAttributes = __assign(__assign(__assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
                 sandbox: sandboxValue
               } : {}), timeOnSite ? {
                 active_time_on_site_ms: timeOnSite
+              } : {}), totalTimeOnSite ? {
+                total_time_on_site_ms: totalTimeOnSite
               } : {});
               // Propagate email from current user identities if not already in attributes
               if (finalUserIdentities.email && !enrichedAttributes.email) {
@@ -10713,9 +10723,9 @@ var mParticle = (function () {
                 }
               }
               if (!enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID]) {
-                (_m = this.integrationCapture) === null || _m === void 0 ? void 0 : _m.capture();
-                capturedAttrs = (_o = this.integrationCapture) === null || _o === void 0 ? void 0 : _o.getClickIdsAsIntegrationAttributes();
-                passbackId = (_p = capturedAttrs === null || capturedAttrs === void 0 ? void 0 : capturedAttrs[PARTNER_MODULE_IDS.Rokt]) === null || _p === void 0 ? void 0 : _p[PASSBACK_CONVERSION_TRACKING_ID];
+                (_p = this.integrationCapture) === null || _p === void 0 ? void 0 : _p.capture();
+                capturedAttrs = (_q = this.integrationCapture) === null || _q === void 0 ? void 0 : _q.getClickIdsAsIntegrationAttributes();
+                passbackId = (_r = capturedAttrs === null || capturedAttrs === void 0 ? void 0 : capturedAttrs[PARTNER_MODULE_IDS.Rokt]) === null || _r === void 0 ? void 0 : _r[PASSBACK_CONVERSION_TRACKING_ID];
                 if (passbackId) {
                   enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID] = passbackId;
                 }
@@ -12461,7 +12471,8 @@ var mParticle = (function () {
             SDKConfig: {
               isDevelopmentMode: false,
               onCreateBatch: mockFunction
-            }
+            },
+            getTotalTimeOnSite: mockFunction
           },
           config: null,
           eCommerce: null,

@@ -60,6 +60,7 @@ export interface SDKEvent {
     LaunchReferral?: string;
     ExpandedEventCount: number;
     ActiveTimeOnSite: number;
+    TotalTimeOnSite: number;
     PageUrl?: string;
     IsBackgroundAST?: boolean;
     AlreadySentToForwarders?: boolean;

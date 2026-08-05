@@ -146,6 +146,7 @@ export interface IStore {
     getRoktAccountId?(): string;
     setRoktAccountId?(accountId: string): void;
     getTimeOnSite?(): number | undefined;
+    getTotalTimeOnSite?(): number | undefined;
     getIntegrationName?(): string;
     setIntegrationName?(integrationName: string): void;
     addMpidToSessionHistory?(mpid: MPID, previousMpid?: MPID): void;
