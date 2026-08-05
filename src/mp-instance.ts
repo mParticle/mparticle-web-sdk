@@ -57,6 +57,7 @@ import { LoggingDispatcher } from './reporting/loggingDispatcher';
 import { IErrorReportingService, ILoggingService } from './reporting/types';
 import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
 import { normalizeRoktLauncherOptions } from './roktLauncherOptions';
+import { PageViewTracker } from './pageViewTracker';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -87,6 +88,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _IdentityAPIClient: typeof IdentityAPIClient;
     _IntegrationCapture: IntegrationCapture;
     _NativeSdkHelpers: INativeSdkHelpers;
+    _PageViewTracker?: PageViewTracker;
     _Persistence: IPersistence;
     _CookieConsentManager: ICookieConsentManager;
     _ErrorReportingDispatcher: ErrorReportingDispatcher;
@@ -1584,7 +1586,20 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         mpInstance._Events.logAST();
 
         if (getFeatureFlag(AutoLogPageView)) {
+            // Fire the initial (landing) page view immediately, mirroring the
+            // MPA behavior.
             mpInstance._Events.logPageView();
+
+            // Start the SPA page-change tracker so subsequent client-side
+            // navigations (pushState/replaceState/popstate/hashchange) also
+            // auto-log a page view. Idempotent: tears down internally first.
+            if (!mpInstance._PageViewTracker) {
+                mpInstance._PageViewTracker = new PageViewTracker(mpInstance);
+            }
+            mpInstance._PageViewTracker.init();
+        } else if (mpInstance._PageViewTracker) {
+            // Flag flipped off on a re-init: stop tracking and clean up.
+            mpInstance._PageViewTracker.teardown();
         }
 
         processIdentityCallback(
