@@ -1,3 +1,10 @@
+# [2.76.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.75.1...v2.76.0) (2026-08-05)
+
+
+### Features
+
+* add TotalTimeOnSite measurement ([#1306](https://github.com/mParticle/mparticle-web-sdk/issues/1306)) ([5dbdcfb](https://github.com/mParticle/mparticle-web-sdk/commit/5dbdcfb123e7c5c717a43f36f0bf937d5e1977f8))
+
 ## [2.75.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.75.0...v2.75.1) (2026-08-04)
 
 
