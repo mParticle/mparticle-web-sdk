@@ -464,7 +464,8 @@ describe('batch uploader', () => {
                     Debug: false,
                     DeviceId: 'test-device',
                     Timestamp: 0,
-                    ActiveTimeOnSite: 10
+                    ActiveTimeOnSite: 10,
+                    TotalTimeOnSite: 15
                 };
 
                 uploader.queueEvent(event);
@@ -784,7 +785,8 @@ describe('batch uploader', () => {
                 Debug: false,
                 DeviceId: 'test-device',
                 Timestamp: 0,
-                ActiveTimeOnSite: 10
+                ActiveTimeOnSite: 10,
+                TotalTimeOnSite: 15
             };
 
             const expectedEvent = [event];
@@ -835,7 +837,8 @@ describe('batch uploader', () => {
                 Debug: false,
                 DeviceId: 'test-device',
                 Timestamp: 0,
-                ActiveTimeOnSite: 10
+                ActiveTimeOnSite: 10,
+                TotalTimeOnSite: 15
             };
 
             uploader.queueEvent(event);

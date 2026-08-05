@@ -664,6 +664,7 @@ export function convertBaseEventData(
         location: convertSDKLocation(sdkEvent.Location),
         source_message_id: sdkEvent.SourceMessageId,
         active_time_on_site_ms: sdkEvent.ActiveTimeOnSite,
+        total_time_on_site_ms: sdkEvent.TotalTimeOnSite,
         page_url: sdkEvent.PageUrl,
     };
 
