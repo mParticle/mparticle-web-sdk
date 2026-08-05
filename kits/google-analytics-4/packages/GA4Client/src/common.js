@@ -52,7 +52,7 @@ function Common() {
 
 Common.prototype.forwarderSettings = null;
 
-Common.prototype.mergeObjects = function() {
+Common.prototype.mergeObjects = function () {
     var resObj = {};
     for (var i = 0; i < arguments.length; i += 1) {
         var obj = arguments[i],
@@ -64,7 +64,7 @@ Common.prototype.mergeObjects = function() {
     return resObj;
 };
 
-Common.prototype.truncateAttributes = function(
+Common.prototype.truncateAttributes = function (
     attributes,
     keyLimit,
     valueLimit
@@ -72,7 +72,7 @@ Common.prototype.truncateAttributes = function(
     var truncatedAttributes = {};
 
     if (!isEmpty(attributes)) {
-        Object.keys(attributes).forEach(function(attribute) {
+        Object.keys(attributes).forEach(function (attribute) {
             var key = truncateString(attribute, keyLimit);
             var valueLimitOverride;
             switch (key) {
@@ -96,7 +96,7 @@ Common.prototype.truncateAttributes = function(
     return truncatedAttributes;
 };
 
-Common.prototype.limitAttributes = function(attributes, limitNumber) {
+Common.prototype.limitAttributes = function (attributes, limitNumber) {
     if (isEmpty(attributes)) {
         return {};
     }
@@ -107,7 +107,7 @@ Common.prototype.limitAttributes = function(attributes, limitNumber) {
 
     var limitedAttributes = attributeKeys
         .slice(0, limitNumber)
-        .reduce(function(obj, key) {
+        .reduce(function (obj, key) {
             obj[key] = attributes[key];
             return obj;
         }, {});
@@ -115,11 +115,11 @@ Common.prototype.limitAttributes = function(attributes, limitNumber) {
     return limitedAttributes;
 };
 
-Common.prototype.limitEventAttributes = function(attributes) {
+Common.prototype.limitEventAttributes = function (attributes) {
     return this.limitAttributes(attributes, EVENT_ATTRIBUTE_MAX_NUMBER);
 };
 
-Common.prototype.limitProductAttributes = function(attributes) {
+Common.prototype.limitProductAttributes = function (attributes) {
     var productAttributes = {};
     var reservedAttributes = {};
 
@@ -139,13 +139,13 @@ Common.prototype.limitProductAttributes = function(attributes) {
     return this.mergeObjects(limitedProductAttributes, reservedAttributes);
 };
 
-Common.prototype.getEventConsentState = function(eventConsentState) {
+Common.prototype.getEventConsentState = function (eventConsentState) {
     return eventConsentState && eventConsentState.getGDPRConsentState
         ? eventConsentState.getGDPRConsentState()
         : {};
 };
 
-Common.prototype.maybeSendConsentUpdateToGoogle = function(consentState) {
+Common.prototype.maybeSendConsentUpdateToGoogle = function (consentState) {
     // If consent payload is empty,
     // we never sent an initial default consent state
     // so we shouldn't send an update.
@@ -154,10 +154,11 @@ Common.prototype.maybeSendConsentUpdateToGoogle = function(consentState) {
         this.consentMappings &&
         !this.isEmpty(consentState)
     ) {
-        var updatedConsentPayload = this.consentHandler.generateConsentStatePayloadFromMappings(
-            consentState,
-            this.consentMappings
-        );
+        var updatedConsentPayload =
+            this.consentHandler.generateConsentStatePayloadFromMappings(
+                consentState,
+                this.consentMappings
+            );
 
         var eventConsentAsString = JSON.stringify(updatedConsentPayload);
 
@@ -168,17 +169,17 @@ Common.prototype.maybeSendConsentUpdateToGoogle = function(consentState) {
     }
 };
 
-Common.prototype.sendDefaultConsentPayloadToGoogle = function(consentPayload) {
+Common.prototype.sendDefaultConsentPayloadToGoogle = function (consentPayload) {
     this.consentPayloadAsString = JSON.stringify(consentPayload);
 
     gtag('consent', 'default', consentPayload);
 };
 
-Common.prototype.truncateEventName = function(eventName) {
+Common.prototype.truncateEventName = function (eventName) {
     return truncateString(eventName, EVENT_NAME_MAX_LENGTH);
 };
 
-Common.prototype.truncateEventAttributes = function(eventAttributes) {
+Common.prototype.truncateEventAttributes = function (eventAttributes) {
     return this.truncateAttributes(
         eventAttributes,
         EVENT_ATTRIBUTE_KEY_MAX_LENGTH,
@@ -186,7 +187,7 @@ Common.prototype.truncateEventAttributes = function(eventAttributes) {
     );
 };
 
-Common.prototype.standardizeParameters = function(parameters) {
+Common.prototype.standardizeParameters = function (parameters) {
     var standardizedParameters = {};
     for (var key in parameters) {
         var standardizedKey = this.standardizeName(key);
@@ -195,16 +196,10 @@ Common.prototype.standardizeParameters = function(parameters) {
     return standardizedParameters;
 };
 
-Common.prototype.standardizeName = function(name) {
-    if (
-        window.GoogleAnalytics4Kit.hasOwnProperty(
-            'setCustomNameStandardization'
-        )
-    ) {
+Common.prototype.standardizeName = function (name) {
+    if (window.GoogleAnalytics4Kit.hasOwnProperty('setCustomNameStandardization')) {
         try {
-            name = window.GoogleAnalytics4Kit.setCustomNameStandardization(
-                name
-            );
+            name = window.GoogleAnalytics4Kit.setCustomNameStandardization(name);
         } catch (e) {
             console.warn(
                 'Error calling setCustomNameStandardization callback. Check your callback.  Data will still be sent without user-defined standardization. See our docs for proper use - https://docs.mparticle.com/integrations/google-analytics-4/event/',
@@ -251,7 +246,7 @@ Common.prototype.standardizeName = function(name) {
     function removeForbiddenPrefix(name) {
         var str = name.slice();
 
-        FORBIDDEN_PREFIXES.forEach(function(prefix) {
+        FORBIDDEN_PREFIXES.forEach(function (prefix) {
             if (str.indexOf(prefix) === 0) {
                 str = str.replace(prefix, '');
             }
@@ -272,16 +267,15 @@ Common.prototype.standardizeName = function(name) {
         !doesNameStartsWithLetter(standardizedName) ||
         doesNameStartWithForbiddenPrefix(standardizedName)
     ) {
-        standardizedName = removeNonAlphabetCharacterFromStart(
-            standardizedName
-        );
+        standardizedName =
+            removeNonAlphabetCharacterFromStart(standardizedName);
         standardizedName = removeForbiddenPrefix(standardizedName);
     }
 
     return standardizedName;
 };
 
-Common.prototype.truncateUserAttributes = function(userAttributes) {
+Common.prototype.truncateUserAttributes = function (userAttributes) {
     return this.truncateAttributes(
         userAttributes,
         USER_ATTRIBUTE_KEY_MAX_LENGTH,
@@ -289,7 +283,7 @@ Common.prototype.truncateUserAttributes = function(userAttributes) {
     );
 };
 
-Common.prototype.getUserId = function(
+Common.prototype.getUserId = function (
     user,
     externalUserIdentityType,
     hashUserId
@@ -376,7 +370,7 @@ Common.prototype.getUserId = function(
     }
 };
 
-Common.prototype.cloneObject = function(obj) {
+Common.prototype.cloneObject = function (obj) {
     return JSON.parse(JSON.stringify(obj));
 };
 

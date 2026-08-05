@@ -17,7 +17,11 @@ function EventHandler(common) {
     this.common = common || {};
 }
 EventHandler.prototype.logEvent = function(event) {
-    var ignoredEvents = ['click', 'change', 'submit'];
+    var ignoredEvents = [
+        'click',
+        'change',
+        'submit'
+    ];
 
     if (ignoredEvents.includes(event.EventName.toLowerCase())) {
         return;

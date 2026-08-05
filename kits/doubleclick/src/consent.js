@@ -25,7 +25,7 @@ function ConsentHandler(common) {
     this.common = common || {};
 }
 
-ConsentHandler.prototype.getUserConsentState = function() {
+ConsentHandler.prototype.getUserConsentState = function () {
     var userConsentState = {};
 
     if (mParticle.Identity && mParticle.Identity.getCurrentUser) {
@@ -35,7 +35,8 @@ ConsentHandler.prototype.getUserConsentState = function() {
             return {};
         }
 
-        var consentState = mParticle.Identity.getCurrentUser().getConsentState();
+        var consentState =
+            mParticle.Identity.getCurrentUser().getConsentState();
 
         if (consentState && consentState.getGDPRConsentState) {
             userConsentState = consentState.getGDPRConsentState();
@@ -45,7 +46,7 @@ ConsentHandler.prototype.getUserConsentState = function() {
     return userConsentState;
 };
 
-ConsentHandler.prototype.getConsentSettings = function() {
+ConsentHandler.prototype.getConsentSettings = function () {
     var consentSettings = {};
 
     var googleToMpConsentSettingsMapping = {
@@ -57,7 +58,7 @@ ConsentHandler.prototype.getConsentSettings = function() {
 
     var settings = this.common.settings;
 
-    Object.keys(googleToMpConsentSettingsMapping).forEach(function(
+    Object.keys(googleToMpConsentSettingsMapping).forEach(function (
         googleConsentKey
     ) {
         var mpConsentSettingKey =
@@ -73,7 +74,7 @@ ConsentHandler.prototype.getConsentSettings = function() {
     return consentSettings;
 };
 
-ConsentHandler.prototype.generateConsentStatePayloadFromMappings = function(
+ConsentHandler.prototype.generateConsentStatePayloadFromMappings = function (
     consentState,
     mappings
 ) {

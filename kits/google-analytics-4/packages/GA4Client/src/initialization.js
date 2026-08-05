@@ -11,7 +11,7 @@ var initialization = {
     userIdentities example: { 1: 'customerId', 2: 'facebookId', 7: 'emailid@email.com' }
     additional identityTypes can be found at https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/src/types.js#L88-L101
 */
-    initForwarder: function(
+    initForwarder: function (
         forwarderSettings,
         testMode,
         userAttributes,
@@ -55,7 +55,7 @@ var initialization = {
 
         window.dataLayer = window.dataLayer || [];
 
-        window.gtag = function() {
+        window.gtag = function () {
             window.dataLayer.push(arguments);
         };
         gtag('js', new Date());
@@ -74,7 +74,7 @@ var initialization = {
         }
         gtag('config', measurementId, configSettings);
 
-        gtag('get', measurementId, 'client_id', function(clientId) {
+        gtag('get', measurementId, 'client_id', function (clientId) {
             setClientId(clientId, initialization.moduleId);
         });
 
@@ -89,7 +89,7 @@ var initialization = {
                 document.getElementsByTagName('body')[0]
             ).appendChild(clientScript);
 
-            clientScript.onload = function() {
+            clientScript.onload = function () {
                 isInitialized = true;
 
                 if (window.dataLayer && gtag && eventQueue.length > 0) {
@@ -103,21 +103,23 @@ var initialization = {
             isInitialized = true;
         }
 
-        common.consentPayloadDefaults = common.consentHandler.getConsentSettings();
+        common.consentPayloadDefaults =
+            common.consentHandler.getConsentSettings();
         var defaultConsentPayload = common.cloneObject(
             common.consentPayloadDefaults
         );
         var updatedConsentState = common.consentHandler.getUserConsentState();
-        var updatedDefaultConsentPayload = common.consentHandler.generateConsentStatePayloadFromMappings(
-            updatedConsentState,
-            common.consentMappings
-        );
+        var updatedDefaultConsentPayload =
+            common.consentHandler.generateConsentStatePayloadFromMappings(
+                updatedConsentState,
+                common.consentMappings
+            );
 
         // If a default consent payload exists (as selected in the mParticle UI), set it as the default
         if (!common.isEmpty(defaultConsentPayload)) {
             common.sendDefaultConsentPayloadToGoogle(defaultConsentPayload);
-            // If a default consent payload does not exist, but the user currently has updated their consent,
-            // send that as the default because a default must be sent
+        // If a default consent payload does not exist, but the user currently has updated their consent,
+        // send that as the default because a default must be sent
         } else if (!common.isEmpty(updatedDefaultConsentPayload)) {
             common.sendDefaultConsentPayloadToGoogle(
                 updatedDefaultConsentPayload

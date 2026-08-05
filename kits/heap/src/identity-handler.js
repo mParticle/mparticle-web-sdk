@@ -27,8 +27,7 @@ IdentityHandler.prototype.onUserIdentified = function(mParticleUser) {
     }
 
     var identitiesObject = mParticleUser.getUserIdentities();
-    var identity =
-        identitiesObject.userIdentities[this.common.userIdentificationType];
+    var identity = identitiesObject.userIdentities[this.common.userIdentificationType];
 
     if (identity) {
         window.heap.identify(identity);

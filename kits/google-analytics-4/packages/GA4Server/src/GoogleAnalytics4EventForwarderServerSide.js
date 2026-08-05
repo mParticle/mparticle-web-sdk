@@ -15,6 +15,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
+
 // This GA4 server side kit loads gtag, gets the client id, and sets it as an integration attribute on the core sdk.
 // This kit does not have a `processEvent` method because no events should be sent client side.
 

@@ -12,13 +12,12 @@
 //  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
-var Initialization = require('./integration-builder/initialization')
-    .initialization;
+var Initialization = require('./integration-builder/initialization').initialization;
 
 var name = Initialization.name,
     moduleId = Initialization.moduleId;
 
-var constructor = function() {
+var constructor = function () {
     var self = this,
         isInitialized = false,
         forwarderSettings;
@@ -46,26 +45,19 @@ var constructor = function() {
                 Initialization.createConsentEvents();
                 Initialization.createVendorConsentEvents();
             } catch (e) {
-                return {
-                    error:
-                        'Error setting user identity on forwarder ' +
-                        name +
-                        '; ' +
-                        e,
-                };
+                return {error: 'Error setting user identity on forwarder ' + name + '; ' + e};
             }
-        } else {
-            return (
-                "Can't set new user identities on forwader " +
-                name +
-                ', not initialized'
-            );
+        }
+        else {
+            return 'Can\'t set new user identities on forwader ' + name + ', not initialized';
         }
     }
 
     this.init = initForwarder;
     this.onUserIdentified = onUserIdentified;
-    this.process = function() {};
+    this.process = function() {
+
+    };
 };
 
 function getId() {
@@ -73,39 +65,31 @@ function getId() {
 }
 
 function isObject(val) {
-    return (
-        val != null && typeof val === 'object' && Array.isArray(val) === false
-    );
+    return val != null && typeof val === 'object' && Array.isArray(val) === false;
 }
 
 function register(config) {
     if (!config) {
-        console.log(
-            'You must pass a config object to register the kit ' + name
-        );
+        console.log('You must pass a config object to register the kit ' + name);
         return;
     }
 
     if (!isObject(config)) {
-        console.log(
-            "'config' must be an object. You passed in a " + typeof config
-        );
+        console.log('\'config\' must be an object. You passed in a ' + typeof config);
         return;
     }
 
     if (isObject(config.kits)) {
         config.kits[name] = {
-            constructor: constructor,
+            constructor: constructor
         };
     } else {
         config.kits = {};
         config.kits[name] = {
-            constructor: constructor,
+            constructor: constructor
         };
     }
-    console.log(
-        'Successfully registered ' + name + ' to your mParticle configuration'
-    );
+    console.log('Successfully registered ' + name + ' to your mParticle configuration');
 }
 
 if (typeof window !== 'undefined') {
@@ -113,11 +97,11 @@ if (typeof window !== 'undefined') {
         window.mParticle.addForwarder({
             name: name,
             constructor: constructor,
-            getId: getId,
+            getId: getId
         });
     }
 }
 
 module.exports = {
-    register: register,
+    register: register
 };

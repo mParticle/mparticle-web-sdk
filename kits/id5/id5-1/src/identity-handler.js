@@ -25,7 +25,9 @@ IdentityHandler.prototype.onUserIdentified = function() {};
 IdentityHandler.prototype.onIdentifyComplete = function() {};
 
 //Must re-initialize ID5 with partner identities(pd) in the config to collect an updated ID5 ID
-IdentityHandler.prototype.onLoginComplete = function(mParticleUser) {
+IdentityHandler.prototype.onLoginComplete = function(
+    mParticleUser
+) {
     var partnerData = this.common.buildPartnerData(mParticleUser);
 
     if (partnerData) {
@@ -33,34 +35,31 @@ IdentityHandler.prototype.onLoginComplete = function(mParticleUser) {
             partnerId: this.common.partnerId,
             pd: partnerData,
             consentData: {
-                allowedVendors: this.common.allowedVendors,
-            },
-        });
+                allowedVendors: this.common.allowedVendors
+            }
+        })
         var logId5Id = this.common.logId5Id;
 
-        id5Instance.onAvailable(
-            function(status) {
-                logId5Id(status.getUserId());
-            }.bind(logId5Id)
-        );
+        id5Instance.onAvailable(function(status){
+            logId5Id(status.getUserId());
+        }.bind(logId5Id));
     }
 };
 
 //Must re-initialize ID5 without partner identities (pd) in the config to revert to an anonymous ID5 ID
-IdentityHandler.prototype.onLogoutComplete = function() {
+IdentityHandler.prototype.onLogoutComplete = function(
+) {
     var id5Instance = window.ID5.init({
         partnerId: this.common.partnerId,
         consentData: {
-            allowedVendors: this.common.allowedVendors,
-        },
-    });
+            allowedVendors: this.common.allowedVendors
+        }
+    })
     var logId5Id = this.common.logId5Id;
 
-    id5Instance.onAvailable(
-        function(status) {
-            logId5Id(status.getUserId());
-        }.bind(logId5Id)
-    );
+    id5Instance.onAvailable(function(status){
+        logId5Id(status.getUserId());
+    }.bind(logId5Id));
 };
 
 IdentityHandler.prototype.onModifyComplete = function() {};

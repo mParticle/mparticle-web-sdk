@@ -3,14 +3,13 @@ function EventHandler(common) {
 }
 
 // TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-5715
-EventHandler.prototype.sendEventToGA4 = function(eventName, eventAttributes) {
+EventHandler.prototype.sendEventToGA4 = function (eventName, eventAttributes) {
     var standardizedEventName;
     var standardizedAttributes;
     if (this.common.forwarderSettings.enableDataCleansing) {
         standardizedEventName = this.common.standardizeName(eventName);
-        standardizedAttributes = this.common.standardizeParameters(
-            eventAttributes
-        );
+        standardizedAttributes =
+            this.common.standardizeParameters(eventAttributes);
     } else {
         standardizedEventName = eventName;
         standardizedAttributes = eventAttributes;
@@ -21,7 +20,8 @@ EventHandler.prototype.sendEventToGA4 = function(eventName, eventAttributes) {
     );
 
     if (this.common.forwarderSettings.measurementId) {
-        standardizedAttributes.send_to = this.common.forwarderSettings.measurementId;
+        standardizedAttributes.send_to =
+            this.common.forwarderSettings.measurementId;
     }
 
     gtag(
@@ -31,7 +31,7 @@ EventHandler.prototype.sendEventToGA4 = function(eventName, eventAttributes) {
     );
 };
 
-EventHandler.prototype.logEvent = function(event) {
+EventHandler.prototype.logEvent = function (event) {
     var eventConsentState = this.common.getEventConsentState(
         event.ConsentState
     );
@@ -39,11 +39,11 @@ EventHandler.prototype.logEvent = function(event) {
     this.sendEventToGA4(event.EventName, event.EventAttributes);
 };
 
-EventHandler.prototype.logError = function() {
+EventHandler.prototype.logError = function () {
     console.warn('Google Analytics 4 does not support error events.');
 };
 
-EventHandler.prototype.logPageView = function(event) {
+EventHandler.prototype.logPageView = function (event) {
     var TITLE = 'GA4.Title';
     var LOCATION = 'GA4.Location';
     var REFERRER = 'GA4.Referrer';

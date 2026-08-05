@@ -14,21 +14,18 @@ CommerceHandler.prototype.logCommerceEvent = function(event) {
     );
 
     expandedEcommerceEvents.forEach(function(expandedEvent) {
-        if (
-            !self.common.useFullStack &&
-            optimizelyWebXEvents.events[expandedEvent.EventName]
-        ) {
+        if (!self.common.useFullStack && optimizelyWebXEvents.events[expandedEvent.EventName]) {
+
             var optimizelyWebXEvent = {
                 type: 'event',
                 eventName: event.EventName,
-                tags: {},
+                tags: {}
             };
             optimizelyWebXEvent.tags = expandedEvent.EventAttributes || {};
             if (
                 event.EventCategory ===
                     mParticle.CommerceEventType.ProductPurchase ||
-                event.EventCategory ===
-                    mParticle.CommerceEventType.ProductRefund
+                event.EventCategory === mParticle.CommerceEventType.ProductRefund
             ) {
                 if (expandedEvent.EventName.indexOf('Total') > -1) {
                     if (
@@ -83,12 +80,7 @@ CommerceHandler.prototype.logCommerceEvent = function(event) {
 
         // if optimizely full stack is being used
         if (self.common.useFullStack && window.optimizelyClientInstance) {
-            if (
-                optimizelyFullStackEvents.events[expandedEvent.EventName] ||
-                optimizelyFullStackEvents.events[
-                    event.CustomFlags['OptimizelyFullStack.EventName']
-                ]
-            ) {
+            if (optimizelyFullStackEvents.events[expandedEvent.EventName] || optimizelyFullStackEvents.events[event.CustomFlags['OptimizelyFullStack.EventName']]) {
                 var eventKey = expandedEvent.EventName,
                     userId,
                     userAttributes = self.common.userAttributes,
@@ -103,8 +95,7 @@ CommerceHandler.prototype.logCommerceEvent = function(event) {
                 if (
                     event.EventCategory ===
                         mParticle.CommerceEventType.ProductPurchase ||
-                    event.EventCategory ===
-                        mParticle.CommerceEventType.ProductRefund
+                    event.EventCategory === mParticle.CommerceEventType.ProductRefund
                 ) {
                     if (expandedEvent.EventName.indexOf('Total') > -1) {
                         if (
@@ -112,9 +103,7 @@ CommerceHandler.prototype.logCommerceEvent = function(event) {
                             event.CustomFlags['OptimizelyFullStack.EventName']
                         ) {
                             eventKey =
-                                event.CustomFlags[
-                                    'OptimizelyFullStack.EventName'
-                                ];
+                                event.CustomFlags['OptimizelyFullStack.EventName'];
                         } else {
                             eventKey = expandedEvent.EventName;
                         }
@@ -125,8 +114,7 @@ CommerceHandler.prototype.logCommerceEvent = function(event) {
                             expandedEvent.EventAttributes['Total Amount']
                         ) {
                             eventTags.revenue =
-                                expandedEvent.EventAttributes['Total Amount'] *
-                                100;
+                                expandedEvent.EventAttributes['Total Amount'] * 100;
                         }
                         // other individual product events should not have revenue tags
                         // which are added via the expandCommerceEvent method above
@@ -136,9 +124,7 @@ CommerceHandler.prototype.logCommerceEvent = function(event) {
                             event.CustomFlags['OptimizelyFullStack.EventName']
                         ) {
                             eventKey =
-                                event.CustomFlags[
-                                    'OptimizelyFullStack.EventName'
-                                ];
+                                event.CustomFlags['OptimizelyFullStack.EventName'];
                         }
                         if (eventTags.revenue) {
                             delete eventTags.revenue;
@@ -154,14 +140,10 @@ CommerceHandler.prototype.logCommerceEvent = function(event) {
                             event.CustomFlags['OptimizelyFullStack.EventName'];
                     }
                 }
-                window['optimizelyClientInstance'].track(
-                    eventKey,
-                    userId,
-                    userAttributes,
-                    eventTags
-                );
+                window['optimizelyClientInstance'].track(eventKey, userId, userAttributes, eventTags);
             }
         }
+
     });
 };
 

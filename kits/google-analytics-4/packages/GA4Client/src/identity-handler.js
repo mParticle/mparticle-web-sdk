@@ -21,7 +21,7 @@ For more userIdentity types, see http://docs.mparticle.com/developers/sdk/javasc
 function IdentityHandler(common) {
     this.common = common || {};
 }
-IdentityHandler.prototype.onUserIdentified = function(mParticleUser) {
+IdentityHandler.prototype.onUserIdentified = function (mParticleUser) {
     var configSettings = {};
     var userId = this.common.getUserId(
         mParticleUser,
@@ -38,19 +38,19 @@ IdentityHandler.prototype.onUserIdentified = function(mParticleUser) {
         user_id: userId,
     });
 };
-IdentityHandler.prototype.onIdentifyComplete = function(
+IdentityHandler.prototype.onIdentifyComplete = function (
     mParticleUser,
     identityApiRequest
 ) {};
-IdentityHandler.prototype.onLoginComplete = function(
+IdentityHandler.prototype.onLoginComplete = function (
     mParticleUser,
     identityApiRequest
 ) {};
-IdentityHandler.prototype.onLogoutComplete = function(
+IdentityHandler.prototype.onLogoutComplete = function (
     mParticleUser,
     identityApiRequest
 ) {};
-IdentityHandler.prototype.onModifyComplete = function(
+IdentityHandler.prototype.onModifyComplete = function (
     mParticleUser,
     identityApiRequest
 ) {};
@@ -59,7 +59,7 @@ IdentityHandler.prototype.onModifyComplete = function(
     kits is only reachable via the onSetUserIdentity method below. We recommend
     filling out `onSetUserIdentity` for maximum compatibility
 */
-IdentityHandler.prototype.onSetUserIdentity = function(
+IdentityHandler.prototype.onSetUserIdentity = function (
     forwarderSettings,
     id,
     type

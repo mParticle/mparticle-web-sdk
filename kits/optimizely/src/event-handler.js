@@ -7,13 +7,10 @@ function EventHandler(common) {
 }
 
 EventHandler.prototype.logEvent = function(event) {
-    if (
-        !this.common.useFullStack &&
-        optimizelyWebXEvents.events[event.EventName]
-    ) {
+    if (!this.common.useFullStack && optimizelyWebXEvents.events[event.EventName]) {
         var optimizelyWebXEvent = {
             type: 'event',
-            eventName: event.EventName,
+            eventName: event.EventName
         };
 
         if (event.EventAttributes) {
@@ -21,18 +18,13 @@ EventHandler.prototype.logEvent = function(event) {
         }
 
         if (event.CustomFlags && event.CustomFlags['Optimizely.Value']) {
-            optimizelyWebXEvent.tags.value =
-                event.CustomFlags['Optimizely.Value'];
+            optimizelyWebXEvent.tags.value = event.CustomFlags['Optimizely.Value'];
         }
         window['optimizely'].push(optimizelyWebXEvent);
     }
 
     // if optimizely full stack is being used
-    if (
-        this.common.useFullStack &&
-        window.optimizelyClientInstance &&
-        optimizelyFullStackEvents.events[event.EventName]
-    ) {
+    if (this.common.useFullStack && window.optimizelyClientInstance && optimizelyFullStackEvents.events[event.EventName]) {
         var eventKey = event.EventName,
             userId,
             userAttributes = this.common.userAttributes,
@@ -46,32 +38,21 @@ EventHandler.prototype.logEvent = function(event) {
             eventTags = event.EventAttributes;
         }
 
-        if (
-            event.CustomFlags &&
-            event.CustomFlags['OptimizelyFullStack.Value']
-        ) {
+        if (event.CustomFlags && event.CustomFlags['OptimizelyFullStack.Value']) {
             eventTags.value = event.CustomFlags['OptimizelyFullStack.Value'];
         }
 
-        window['optimizelyClientInstance'].track(
-            eventKey,
-            userId,
-            userAttributes,
-            eventTags
-        );
+        window['optimizelyClientInstance'].track(eventKey, userId, userAttributes, eventTags);
     }
 };
 
 EventHandler.prototype.logPageView = function(event) {
     var self = this;
 
-    if (
-        !self.common.useFullStack &&
-        optimizelyWebXEvents.pages[event.EventName]
-    ) {
+    if (!self.common.useFullStack && optimizelyWebXEvents.pages[event.EventName]) {
         var optimizelyWebXEvent = {
             type: 'page',
-            pageName: event.EventName,
+            pageName: event.EventName
         };
 
         if (event.EventAttributes) {

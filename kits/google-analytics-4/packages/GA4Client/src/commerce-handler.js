@@ -31,7 +31,7 @@ var ADD_SHIPPING_INFO = 'add_shipping_info',
     ADD_PAYMENT_INFO = 'add_payment_info',
     VIEW_CART = 'view_cart';
 
-CommerceHandler.prototype.logCommerceEvent = function(event) {
+CommerceHandler.prototype.logCommerceEvent = function (event) {
     var needsCurrency = true,
         needsValue = true,
         ga4CommerceEventParameters = {},
@@ -142,7 +142,7 @@ CommerceHandler.prototype.logCommerceEvent = function(event) {
     );
 };
 
-CommerceHandler.prototype.sendCommerceEventToGA4 = function(
+CommerceHandler.prototype.sendCommerceEventToGA4 = function (
     eventName,
     eventAttributes
 ) {
@@ -158,7 +158,7 @@ CommerceHandler.prototype.sendCommerceEventToGA4 = function(
 // Google previously had a CheckoutOption event, and now this has been split into 2 GA4 events - add_shipping_info and add_payment_info
 // Since MP still uses CheckoutOption, we must map this to the 2 events using custom flags.  To prevent any data loss from customers
 // migrating from UA to GA4, we will set a default `set_checkout_option` which matches Firebase's data model.
-CommerceHandler.prototype.logCheckoutOptionEvent = function(
+CommerceHandler.prototype.logCheckoutOptionEvent = function (
     event,
     affiliation
 ) {
@@ -213,11 +213,11 @@ CommerceHandler.prototype.logCheckoutOptionEvent = function(
     );
 };
 
-CommerceHandler.prototype.logPromotionEvent = function(event) {
+CommerceHandler.prototype.logPromotionEvent = function (event) {
     var self = this;
     try {
         var ga4CommerceEventParameters;
-        event.PromotionAction.PromotionList.forEach(function(promotion) {
+        event.PromotionAction.PromotionList.forEach(function (promotion) {
             ga4CommerceEventParameters = buildPromotion(promotion);
 
             ga4CommerceEventParameters = self.common.mergeObjects(
@@ -241,11 +241,11 @@ CommerceHandler.prototype.logPromotionEvent = function(event) {
     }
 };
 
-CommerceHandler.prototype.logImpressionEvent = function(event, affiliation) {
+CommerceHandler.prototype.logImpressionEvent = function (event, affiliation) {
     var self = this;
     try {
         var ga4CommerceEventParameters;
-        event.ProductImpressions.forEach(function(impression) {
+        event.ProductImpressions.forEach(function (impression) {
             ga4CommerceEventParameters = parseImpression(
                 impression,
                 affiliation
@@ -272,7 +272,7 @@ CommerceHandler.prototype.logImpressionEvent = function(event, affiliation) {
     }
 };
 
-CommerceHandler.prototype.logViewCart = function(event, affiliation) {
+CommerceHandler.prototype.logViewCart = function (event, affiliation) {
     var ga4CommerceEventParameters = buildViewCart(event, affiliation);
     ga4CommerceEventParameters = this.common.mergeObjects(
         ga4CommerceEventParameters,
@@ -490,7 +490,7 @@ function parsePromotion(_promotion) {
 function buildProductsList(products, affiliation) {
     var productsList = [];
 
-    products.forEach(function(product) {
+    products.forEach(function (product) {
         productsList.push(parseProduct(product, affiliation));
     });
 
