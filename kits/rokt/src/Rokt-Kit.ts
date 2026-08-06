@@ -61,6 +61,17 @@ interface RoktExtensionEntry {
   value: string;
 }
 
+interface PageEvent {
+  pageUrl: string;
+  sourceMessageId: string;
+  timestamp: number;
+  activeTimeOnSite?: number;
+  // Derived at transmission not at capture based
+  // on the next page view's activeTimeOnSite,
+  // so it is absent on stored records.
+  activeTimeOnPage?: number;
+}
+
 interface RoktSelection {
   context?: {
     sessionId?: Promise<string>;
@@ -244,6 +255,19 @@ const ROKT_INTEGRATION_SCRIPT_ID = 'rokt-launcher';
 const ROKT_THANK_YOU_ELEMENT_SCRIPT_ID = 'rokt-thank-you-element';
 const USER_IDENTIFIED_IN_WORKSPACE_KEY = 'userIdentifiedInWorkspace';
 
+const MESSAGE_TYPE_PAGE_VIEW = 3; // mParticle MessageType.PageView
+const MESSAGE_TYPE_SESSION_END = 2; // mParticle MessageType.SessionEnd
+// localStorage key under which captured page views are persisted (as a JSON
+// string). The kit owns this storage directly — separate from mParticle's
+// cookie/localStorage — so page-view capture does not affect mParticle
+// persistence or cookie sync. Distinct from PAGE_EVENTS_KEY, which is the
+// flattened wire shape sent to Rokt on selectPlacements.
+const LS_PAGE_VIEWS_KEY = 'mpPageViews';
+// Fixed cap on the number of persisted page views (oldest evicted first). Code
+// constant, not a kit setting — change it here.
+const PAGE_VIEWS_MAX_COUNT = 25;
+const PAGE_EVENTS_KEY = 'page_events';
+
 // Bound on how long selectPlacements will wait for an in-flight Workspace
 // IDSync search before proceeding without the userIdentifiedInWorkspace flag.
 // Long enough to cover the typical /v1/search round-trip (~50ms); short enough that a
@@ -286,6 +310,27 @@ function mp(): MParticleExtended {
 // ============================================================
 // Module-level utility functions
 // ============================================================
+
+function readPageViewsStorage(): PageEvent[] {
+  try {
+    const stored = window.localStorage.getItem(LS_PAGE_VIEWS_KEY);
+    if (stored === null) {
+      return [];
+    }
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? (parsed as PageEvent[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePageViewsStorage(pageViews: PageEvent[]): void {
+  window.localStorage.setItem(LS_PAGE_VIEWS_KEY, JSON.stringify(pageViews));
+}
+
+function clearPageViewsStorage(): void {
+  window.localStorage.removeItem(LS_PAGE_VIEWS_KEY);
+}
 
 function generateLauncherScript(domain: string | undefined, extensions: string[]): string {
   const launcherPath = '/wsdk/integrations/launcher.js';
@@ -448,6 +493,19 @@ function isEmpty(value: unknown): boolean {
 
 function isString(value: unknown): value is string {
   return typeof value === 'string';
+}
+
+// Strips the query string from a page-view URL before it is persisted and sent
+// to Rokt, since query params commonly carry PII (emails, tokens, order refs).
+// Returns the input unchanged if it can't be parsed as a URL.
+function sanitizeUrl(href: string): string {
+  try {
+    const url = new URL(href);
+    url.search = '';
+    return url.toString();
+  } catch {
+    return href;
+  }
 }
 
 function generateIntegrationName(customIntegrationName?: string): string {
@@ -845,6 +903,41 @@ class RoktKit implements KitInterface {
     }
   }
 
+  private capturePageView(event: SDKEvent): void {
+    let pageUrl: string | undefined;
+
+    try {
+      pageUrl = sanitizeUrl(window.location.href);
+
+      const pageViews = readPageViewsStorage();
+
+      const pageView: PageEvent = {
+        pageUrl,
+        sourceMessageId: event.SourceMessageId,
+        timestamp: event.Timestamp,
+      };
+
+      if (Number.isFinite(event.ActiveTimeOnSite)) {
+        pageView.activeTimeOnSite = event.ActiveTimeOnSite;
+      }
+
+      pageViews.push(pageView);
+
+      while (pageViews.length > PAGE_VIEWS_MAX_COUNT) {
+        pageViews.shift();
+      }
+
+      writePageViewsStorage(pageViews);
+    } catch (err) {
+      this.errorReportingService?.report({
+        message: `Rokt Kit: Failed to capture page view for ${pageUrl}`,
+        code: 'PAGE_VIEW_CAPTURE_FAILED',
+        severity: WSDKErrorSeverity.INFO,
+        stackTrace: err instanceof Error ? err.stack : undefined,
+      });
+    }
+  }
+
   private isLauncherReadyToAttach(): boolean {
     return !!window.Rokt && typeof window.Rokt.createLauncher === 'function';
   }
@@ -866,10 +959,35 @@ class RoktKit implements KitInterface {
     if (!mp().Rokt || typeof mp().Rokt.getLocalSessionAttributes !== 'function') {
       return {};
     }
-    if (isEmpty(this.placementEventMappingLookup) && isEmpty(this.placementEventAttributeMappingLookup)) {
-      return {};
-    }
     return mp().Rokt.getLocalSessionAttributes!();
+  }
+
+  private buildPageEvents(pageViews: PageEvent[]): PageEvent[] {
+    return pageViews.map((pageView, index) => {
+      const pageEvent: PageEvent = {
+        pageUrl: pageView.pageUrl,
+        sourceMessageId: pageView.sourceMessageId,
+        timestamp: pageView.timestamp,
+      };
+
+      const activeTimeOnSite = pageView.activeTimeOnSite;
+      const hasActiveTime = activeTimeOnSite !== undefined && Number.isFinite(activeTimeOnSite);
+      if (hasActiveTime) {
+        pageEvent.activeTimeOnSite = activeTimeOnSite;
+      }
+
+      const next = pageViews[index + 1];
+      const nextActiveTimeOnSite = next?.activeTimeOnSite;
+      const hasNextActiveTimeOnSite = nextActiveTimeOnSite !== undefined && Number.isFinite(nextActiveTimeOnSite);
+
+      if (hasActiveTime && hasNextActiveTimeOnSite) {
+        const diff = nextActiveTimeOnSite - activeTimeOnSite;
+        if (diff >= 0) {
+          pageEvent.activeTimeOnPage = diff;
+        }
+      }
+      return pageEvent;
+    });
   }
 
   private replaceOtherIdentityWithEmailsha256(userIdentities: IUserIdentities): Record<string, string> {
@@ -1007,6 +1125,12 @@ class RoktKit implements KitInterface {
     return !!(this.isInitialized && this.launcher);
   }
 
+  // When the partner has opted out of targeting (noTargeting launcher option),
+  // the kit must not collect behavioral targeting signals such as page views.
+  private isTargetingDisabled(): boolean {
+    return (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.noTargeting === true;
+  }
+
   private isPartnerInLocalLauncherTestGroup(): boolean {
     return !!(mp().config && mp().config!.isLocalLauncherEnabled && this.isAssignedToSampleGroup());
   }
@@ -1091,6 +1215,19 @@ class RoktKit implements KitInterface {
     this.errorReportingService = errorReportingService;
     this.loggingService = loggingService;
 
+    if (this.isTargetingDisabled()) {
+      try {
+        clearPageViewsStorage();
+      } catch (err) {
+        this.errorReportingService?.report({
+          message: 'Rokt Kit: Failed to clear page views when targeting is disabled',
+          code: 'PAGE_VIEW_CAPTURE_FAILED',
+          severity: WSDKErrorSeverity.INFO,
+          stackTrace: err instanceof Error ? err.stack : undefined,
+        });
+      }
+    }
+
     if (mp()._registerErrorReportingService) {
       mp()._registerErrorReportingService!(errorReportingService);
     }
@@ -1162,9 +1299,31 @@ class RoktKit implements KitInterface {
   }
 
   public process(event: SDKEvent): string {
+    if (!this.isTargetingDisabled()) {
+      if (event.EventDataType === MESSAGE_TYPE_PAGE_VIEW) {
+        this.capturePageView(event);
+      }
+
+      if (event.EventDataType === MESSAGE_TYPE_SESSION_END) {
+        try {
+          clearPageViewsStorage();
+        } catch (err) {
+          this.errorReportingService?.report({
+            message: 'Rokt Kit: Failed to clear page views on session end',
+            code: 'PAGE_VIEW_CAPTURE_FAILED',
+            severity: WSDKErrorSeverity.INFO,
+            stackTrace: err instanceof Error ? err.stack : undefined,
+          });
+        }
+      }
+    }
+
+    // The forwarding work below (LSA mapping) depends on the launcher, so guard
+    // it here and surface the not-ready signal to the core SDK.
     if (!this.isKitReady()) {
       return 'Kit not ready for forwarder: ' + name;
     }
+
     if (typeof mp().Rokt?.setLocalSessionAttribute === 'function') {
       if (!isEmpty(this.placementEventAttributeMappingLookup)) {
         this.applyPlacementEventAttributeMapping(event);
@@ -1373,13 +1532,15 @@ class RoktKit implements KitInterface {
 
     const filteredUserIdentities = this.returnUserIdentities(filteredUser);
 
-    const localSessionAttributes = this.returnLocalSessionAttributes();
+    const sessionAttributes = this.returnLocalSessionAttributes();
+    const pageEvents = this.buildPageEvents(readPageViewsStorage());
 
     const selectPlacementsAttributes: Record<string, unknown> = {
       ...(filteredUserIdentities as Record<string, unknown>),
       ...filteredAttributes,
       ...optimizelyAttributes,
-      ...localSessionAttributes,
+      ...sessionAttributes,
+      ...(pageEvents.length ? { [PAGE_EVENTS_KEY]: JSON.stringify(pageEvents) } : {}),
       ...(this.userIdentifiedInWorkspace ? { [USER_IDENTIFIED_IN_WORKSPACE_KEY]: true } : {}),
       mpid,
     };
