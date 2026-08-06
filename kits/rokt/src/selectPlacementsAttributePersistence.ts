@@ -1,4 +1,5 @@
 const SELECT_PLACEMENTS_ATTRIBUTE_PERSISTENCE_DENY_LIST = [
+  'active_time_on_site_ms',
   'billingaddress1',
   'billingaddress2',
   'billingcity',
