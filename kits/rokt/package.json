@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-rokt-kit",
-    "version": "1.28.3",
+    "version": "1.30.2",
     "description": "mParticle integration kit for Rokt",
     "main": "dist/Rokt-Kit.common.js",
     "module": "dist/Rokt-Kit.esm.js",
@@ -18,7 +18,7 @@
         "dist/Rokt-Kit.iife.js",
         "dist/Rokt-Kit.d.ts"
     ],
-    "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt",
+    "repository": "https://github.com/mParticle/mparticle-web-sdk",
     "scripts": {
         "build": "vite build",
         "build:watch": "vite build --watch",
@@ -30,7 +30,6 @@
     },
     "publishConfig": {
         "access": "public",
-        "provenance": true,
         "registry": "https://registry.npmjs.org"
     },
     "peerDependencies": {
