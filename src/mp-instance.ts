@@ -1586,19 +1586,13 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         mpInstance._Events.logAST();
 
         if (getFeatureFlag(AutoLogPageView)) {
-            // Fire the initial (landing) page view immediately, mirroring the
-            // MPA behavior.
             mpInstance._Events.logPageView();
 
-            // Start the SPA page-change tracker so subsequent client-side
-            // navigations (pushState/replaceState/popstate/hashchange) also
-            // auto-log a page view. Idempotent: tears down internally first.
             if (!mpInstance._PageViewTracker) {
                 mpInstance._PageViewTracker = new PageViewTracker(mpInstance);
             }
             mpInstance._PageViewTracker.init();
         } else if (mpInstance._PageViewTracker) {
-            // Flag flipped off on a re-init: stop tracking and clean up.
             mpInstance._PageViewTracker.teardown();
         }
 

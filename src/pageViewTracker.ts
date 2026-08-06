@@ -1,47 +1,25 @@
 import { IMParticleWebSDKInstance } from './mp-instance';
 
-/**
- * PageViewTracker detects client-side (SPA) navigations and fires an
- * auto-logged page view for each one, when the AutoLogPageView feature flag
- * is enabled.
- *
- * No framework detection is needed: every client-side router ultimately
- * drives navigation through the same browser primitives —
- *   - history.pushState()  (forward navigation)
- *   - history.replaceState() (redirects / canonicalization)
- *   - popstate  (back / forward buttons)
- *   - hashchange (hash routers)
- *
- * pushState/replaceState fire no native event, so we monkey-patch them
- * (the standard technique used by GA4, Segment, Amplitude, Datadog RUM) and
- * listen for popstate/hashchange. Navigations are deduped by pathname. MPAs
- * never trigger these, so with the flag off the tracker is never constructed
- * and the listeners stay inert.
- *
- * Modeled on BatchUploader: the constructor is side-effect-free; init() does
- * the patching/listening and tears down internally first for idempotency.
- *
- * NOTE (POC): every detection stage emits console.warn('Rokt APV:', ...) so we
- * can validate the detection logic locally. These logs are for the prototype
- * only and would be removed before shipping.
- */
-
 type HistoryStateMethod = History['pushState'];
+
+const WRAPPED_MARKER = '__mpApvWrapped__';
+
+type MarkedHistoryMethod = HistoryStateMethod & {
+    [WRAPPED_MARKER]?: boolean;
+};
 
 export class PageViewTracker {
     mpInstance: IMParticleWebSDKInstance;
 
-    // The path we last fired for; used to dedupe repeated navigations to the
-    // same pathname. Seeded in init() with the landing page.
     private lastPath: string | null = null;
-
     private isActive = false;
 
-    // Original references so we can restore on teardown (good-neighbor patch).
     private originalPushState: HistoryStateMethod | null = null;
     private originalReplaceState: HistoryStateMethod | null = null;
 
-    // Named listener refs so teardown removes exactly what init added.
+    private pushStateWrapper: HistoryStateMethod | null = null;
+    private replaceStateWrapper: HistoryStateMethod | null = null;
+
     private popStateListener: (() => void) | null = null;
     private hashChangeListener: (() => void) | null = null;
 
@@ -49,10 +27,6 @@ export class PageViewTracker {
         this.mpInstance = mpInstance;
     }
 
-    /**
-     * Guards against non-browser / webview contexts where the History API is
-     * unavailable.
-     */
     private isSupportedEnvironment(): boolean {
         return (
             typeof window !== 'undefined' &&
@@ -63,134 +37,167 @@ export class PageViewTracker {
     }
 
     public init(): void {
+        this.mpInstance.Logger.verbose(
+            'mParticle APV: [init] PageViewTracker Init'
+        );
         if (!this.isSupportedEnvironment()) {
-            // eslint-disable-next-line no-console
-            console.warn(
-                'Rokt APV: [init] unsupported environment (no History API), not starting'
+            this.mpInstance.Logger.verbose(
+                'mParticle APV: [init] unsupported environment (no History API), not starting'
             );
             return;
         }
 
-        // Idempotent: tear down any prior patch/listeners first so repeated
-        // init() calls (e.g. re-init) don't stack wrappers or listeners.
-        // eslint-disable-next-line no-console
-        console.warn('Rokt APV: [init] starting (teardown-first for idempotency)');
-        this.teardown();
+        if (this.isActive) {
+            this.mpInstance.Logger.verbose(
+                'mParticle APV: [init] starting (teardown-first for idempotency)'
+            );
+            this.teardown();
+        }
 
         this.isActive = true;
 
-        // Seed lastPath with the current landing page so the first real
-        // navigation registers as a change rather than a spurious fire.
-        this.lastPath = window.location.pathname;
-        // eslint-disable-next-line no-console
-        console.warn('Rokt APV: [init] seeded lastPath', {
-            lastPath: this.lastPath,
-        });
+        const { pathname, search, hash } = window.location;
+        this.lastPath = pathname + search + hash;
+
+        this.mpInstance.Logger.verbose(
+            `mParticle APV: [init] seeded lastPath: ${this.lastPath}`
+        );
 
         this.patchHistoryMethods();
         this.addNavigationListeners();
 
-        // eslint-disable-next-line no-console
-        console.warn(
-            'Rokt APV: [init] patched pushState/replaceState + listening for popstate/hashchange'
+        this.mpInstance.Logger.verbose(
+            'mParticle APV: [init] patched pushState/replaceState + listening for popstate/hashchange'
         );
     }
 
     private patchHistoryMethods(): void {
-        this.originalPushState = window.history.pushState;
-        this.originalReplaceState = window.history.replaceState;
-
         const self = this;
 
-        // Wrap with original.apply(this, args) so the router's own behavior is
-        // untouched, then handle the navigation. Patch both identically —
-        // path-changing replaceState (redirects) should also log a view;
-        // under-counting is worse than a rare extra view.
-        window.history.pushState = function(
+        const installed = window.history.pushState as MarkedHistoryMethod;
+        if (installed[WRAPPED_MARKER]) {
+            this.mpInstance.Logger.verbose(
+                'mParticle APV: [patch] history already wrapped, skipping to avoid double-wrap'
+            );
+            return;
+        }
+
+        const originalPushState = window.history.pushState;
+        const originalReplaceState = window.history.replaceState;
+        this.originalPushState = originalPushState;
+        this.originalReplaceState = originalReplaceState;
+
+        const pushStateWrapper = function(
             this: History,
             ...args: Parameters<HistoryStateMethod>
         ): void {
-            const result = self.originalPushState!.apply(this, args);
-            self.handleNavigation('pushState');
+            const result = originalPushState.apply(this, args);
+            self.safeHandleNavigation('pushState');
             return result;
         };
 
-        window.history.replaceState = function(
+        const replaceStateWrapper = function(
             this: History,
             ...args: Parameters<HistoryStateMethod>
         ): void {
-            const result = self.originalReplaceState!.apply(this, args);
-            self.handleNavigation('replaceState');
+            const result = originalReplaceState.apply(this, args);
+            self.safeHandleNavigation('replaceState');
             return result;
         };
+
+        Object.defineProperty(pushStateWrapper, WRAPPED_MARKER, {
+            value: true,
+            enumerable: false,
+        });
+        Object.defineProperty(replaceStateWrapper, WRAPPED_MARKER, {
+            value: true,
+            enumerable: false,
+        });
+
+        this.pushStateWrapper = pushStateWrapper;
+        this.replaceStateWrapper = replaceStateWrapper;
+
+        try {
+            window.history.pushState = pushStateWrapper;
+            window.history.replaceState = replaceStateWrapper;
+        } catch (e) {
+            this.mpInstance.Logger.verbose(
+                `mParticle APV: [error] failed to patch history methods (frozen/sealed), rolling back: ${e}`
+            );
+            try {
+                if (window.history.pushState === pushStateWrapper) {
+                    window.history.pushState = originalPushState;
+                }
+                if (window.history.replaceState === replaceStateWrapper) {
+                    window.history.replaceState = originalReplaceState;
+                }
+            } catch (restoreError) {
+                this.mpInstance.Logger.verbose(
+                    `mParticle APV: [error] failed to restore history methods after patch failure: ${restoreError}`
+                );
+            }
+            this.pushStateWrapper = null;
+            this.replaceStateWrapper = null;
+            this.originalPushState = null;
+            this.originalReplaceState = null;
+        }
     }
 
     private addNavigationListeners(): void {
-        this.popStateListener = () => this.handleNavigation('popstate');
-        this.hashChangeListener = () => this.handleNavigation('hashchange');
+        this.popStateListener = () => this.safeHandleNavigation('popstate');
+        this.hashChangeListener = () => this.safeHandleNavigation('hashchange');
 
         window.addEventListener('popstate', this.popStateListener);
         window.addEventListener('hashchange', this.hashChangeListener);
     }
 
-    /**
-     * Called by every navigation primitive. Captures the candidate path
-     * synchronously, dedupes by pathname, and defers the fire to the next
-     * macrotask so the SPA's document.title has settled.
-     */
-    private handleNavigation(source: string): void {
-        const candidatePath = window.location.pathname;
+    private safeHandleNavigation(source: string): void {
+        try {
+            this.handleNavigation(source);
+        } catch (e) {
+            this.mpInstance.Logger.verbose(
+                `mParticle APV: [error] navigation handler threw (${source}), page view skipped: ${e}`
+            );
+        }
+    }
 
-        // eslint-disable-next-line no-console
-        console.warn('Rokt APV: [detect] navigation signal', {
-            source,
-            candidatePath,
-            lastPath: this.lastPath,
-        });
+    private handleNavigation(source: string): void {
+        const { pathname, search, hash } = window.location;
+        const candidatePath = pathname + search + hash;
+
+        this.mpInstance.Logger.verbose(
+            `mParticle APV: [detect] navigation signal (source: ${source}, candidatePath: ${candidatePath}, lastPath: ${this.lastPath})`
+        );
 
         if (candidatePath === this.lastPath) {
-            // eslint-disable-next-line no-console
-            console.warn('Rokt APV: [dedupe] pathname unchanged, skipping', {
-                source,
-                path: candidatePath,
-            });
+            this.mpInstance.Logger.verbose(
+                `mParticle APV: [dedupe] pathname unchanged, skipping (source: ${source}, path: ${candidatePath})`
+            );
             return;
         }
 
-        // eslint-disable-next-line no-console
-        console.warn('Rokt APV: [accept] pathname changed, scheduling fire', {
-            source,
-            from: this.lastPath,
-            to: candidatePath,
-        });
+        this.mpInstance.Logger.verbose(
+            `mParticle APV: [accept] pathname changed, scheduling fire (source: ${source}, from: ${this.lastPath}, to: ${candidatePath})`
+        );
         this.lastPath = candidatePath;
 
-        // Defer via setTimeout(fn, 0) — chosen over requestAnimationFrame
-        // (throttled in background tabs) and queueMicrotask (may run before the
-        // render commit, yielding a stale title).
         setTimeout(() => {
             if (!this.isActive) {
-                // eslint-disable-next-line no-console
-                console.warn(
-                    'Rokt APV: [defer] fire aborted, tracker inactive (torn down before flush)'
+                this.mpInstance.Logger.verbose(
+                    'mParticle APV: [defer] fire aborted, tracker inactive (torn down before flush)'
                 );
                 return;
             }
-            // eslint-disable-next-line no-console
-            console.warn('Rokt APV: [fire] deferred flush -> _Events.logPageView()', {
-                path: candidatePath,
-                title: window.document.title,
-            });
+
+            this.mpInstance._SessionManager.resetSessionTimer();
+
+            this.mpInstance.Logger.verbose(
+                `mParticle APV: [fire] deferred flush -> _Events.logPageView() (path: ${candidatePath}, title: ${window.document.title})`
+            );
             this.mpInstance._Events.logPageView();
         }, 0);
     }
 
-    /**
-     * Removes listeners unconditionally and restores the original history
-     * methods only if the wrapper is still ours (someone may have patched on
-     * top of us). Otherwise we simply mark inactive so the deferred callback
-     * no-ops.
-     */
     public teardown(): void {
         if (this.popStateListener) {
             window.removeEventListener('popstate', this.popStateListener);
@@ -202,25 +209,25 @@ export class PageViewTracker {
         }
 
         const ourWrapperStillInstalled =
-            this.originalPushState !== null &&
-            window.history.pushState !== this.originalPushState;
+            this.pushStateWrapper !== null &&
+            window.history.pushState === this.pushStateWrapper;
 
         if (this.originalPushState && this.originalReplaceState) {
             if (ourWrapperStillInstalled) {
                 window.history.pushState = this.originalPushState;
                 window.history.replaceState = this.originalReplaceState;
-                // eslint-disable-next-line no-console
-                console.warn(
-                    'Rokt APV: [teardown] restored original pushState/replaceState'
+                this.mpInstance.Logger.verbose(
+                    'mParticle APV: [teardown] restored original pushState/replaceState'
                 );
             } else {
-                // eslint-disable-next-line no-console
-                console.warn(
-                    'Rokt APV: [teardown] wrapper no longer ours; leaving history methods, gating callback to no-op'
+                this.mpInstance.Logger.verbose(
+                    'mParticle APV: [teardown] wrapper no longer ours; leaving history methods, gating callback to no-op'
                 );
             }
             this.originalPushState = null;
             this.originalReplaceState = null;
+            this.pushStateWrapper = null;
+            this.replaceStateWrapper = null;
         }
 
         this.isActive = false;
