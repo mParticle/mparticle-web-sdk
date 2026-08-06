@@ -2,6 +2,13 @@
 
 --
 
+## 6.1.0 - 2026-08-05
+
+-   feat: Forward Braze recommended eCommerce events (opt-in) [#66](https://github.com/mparticle-integrations/mparticle-javascript-integration-braze/pull/66)
+    * Enable **Use eCommerce Recommended Events** on the Braze connection to forward add to cart, remove from cart, checkout, product view, purchase and refund using [Braze's recommended eCommerce schema](https://www.braze.com/docs/developer_guide/analytics/logging_ecommerce_events/#web). When the setting is off (the default), commerce forwarding is unchanged.
+    * Bundles Braze Web SDK 6.9.0, which is the first version to accept `tax`, `shipping` and `subtotal_value` as top level attributes.
+    * Honors the Cart ID, Checkout ID, Subtotal Value, Image URL and Product URL attribute settings, so the values can be read from whichever event or product attribute the customer already sends.
+
 ## 5.0.3 - 2025-08-11
 
 -   feat: Add support to forward subscriptionGroupIds [(#57)](https://github.com/mparticle-integrations/mparticle-javascript-integration-braze/pull/57))

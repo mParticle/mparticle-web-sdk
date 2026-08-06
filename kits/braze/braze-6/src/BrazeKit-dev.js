@@ -17,7 +17,7 @@ window.braze = require('@braze/web-sdk');
 var name = 'Appboy',
     suffix = 'v6',
     moduleId = 28,
-    version = '6.0.0',
+    version = '6.1.0',
     MessageType = {
         PageView: 3,
         PageEvent: 4,
@@ -75,6 +75,34 @@ var constructor = function() {
 
     var bundleCommerceEventData = false;
     var forwardSkuAsProductName = false;
+    var useEcommerceRecommendedEvents = false;
+
+    var RECOMMENDED_ECOMMERCE_SOURCE = 'web';
+    var RECOMMENDED_CART_UPDATED_EVENT_NAME = 'ecommerce.cart_updated';
+    var RECOMMENDED_CHECKOUT_STARTED_EVENT_NAME = 'ecommerce.checkout_started';
+    var RECOMMENDED_PRODUCT_VIEWED_EVENT_NAME = 'ecommerce.product_viewed';
+    var RECOMMENDED_ORDER_PLACED_EVENT_NAME = 'ecommerce.order_placed';
+    var RECOMMENDED_ORDER_REFUNDED_EVENT_NAME = 'ecommerce.order_refunded';
+    var RECOMMENDED_IMAGE_URL_ATTRIBUTES = ['image_url', 'Image URL'];
+    var RECOMMENDED_PRODUCT_URL_ATTRIBUTES = ['product_url', 'Product URL'];
+    var RECOMMENDED_CART_ID_ATTRIBUTE = 'cart_id';
+    var RECOMMENDED_CHECKOUT_ID_ATTRIBUTE = 'checkout_id';
+    var RECOMMENDED_SUBTOTAL_VALUE_ATTRIBUTE = 'subtotal_value';
+    // Attribute-name overrides from the connection settings. Each is the
+    // customer-configured attribute that holds the value, or null when
+    // unconfigured, in which case the defaults above are used.
+    var mappedCartIdAttribute = null;
+    var mappedCheckoutIdAttribute = null;
+    var mappedImageUrlAttribute = null;
+    var mappedProductUrlAttribute = null;
+    var mappedSubtotalValueAttribute = null;
+    // Custom attributes promoted to typed recommended-event fields; excluded from metadata.
+    var RECOMMENDED_PROMOTED_METADATA_ATTRIBUTES = [
+        'cart_id',
+        'checkout_id',
+        'total_discounts',
+        'subtotal_value',
+    ];
 
     var brazeConsentKeys = [
         '$google_ad_user_data',
@@ -253,6 +281,554 @@ var constructor = function() {
         return [eventNamePrefix, eventName].join(' - ');
     }
 
+    // The Braze Web SDK only exposes logEcommerceEvent in v6.8.0+. Guard against
+    // older host SDKs so we can fall back to legacy forwarding when unsupported.
+    function recommendedEcommerceEventsSupported() {
+        return typeof braze.logEcommerceEvent === 'function';
+    }
+
+    // The forwarder event carries the session id, so prefer it over reaching for a
+    // global: it needs no feature detection and works on every core SDK version.
+    //
+    // The previous implementation relied on mParticle.getSession(), which is not
+    // exposed on the global object by any core version (verified on 2.23.0 and
+    // 2.75.0), so the lookup silently returned null and every cart/checkout fell
+    // back to a freshly generated id, leaving Braze unable to correlate a cart
+    // across add/remove/checkout/order. mParticle.sessionManager.getSession() is
+    // the supported public accessor, kept here only as a secondary fallback.
+    function getSessionIdForBraze(event) {
+        if (event && event.SessionId) {
+            return String(event.SessionId);
+        }
+        try {
+            if (
+                mParticle &&
+                mParticle.sessionManager &&
+                typeof mParticle.sessionManager.getSession === 'function'
+            ) {
+                return mParticle.sessionManager.getSession();
+            }
+        } catch (e) {
+            // no-op: session id is a best-effort fallback
+        }
+        return null;
+    }
+
+    function generateEcommerceId() {
+        if (
+            typeof window !== 'undefined' &&
+            window.crypto &&
+            typeof window.crypto.randomUUID === 'function'
+        ) {
+            return window.crypto.randomUUID();
+        }
+        return (
+            'mp-' +
+            new Date().getTime() +
+            '-' +
+            Math.floor(Math.random() * 1000000000)
+        );
+    }
+
+    // Attribute-mapping settings are "custom JSON" (setting data type 7). The config
+    // API delivers them with the quotes HTML-escaped, so they must be decoded before
+    // parsing (same as decodeSubscriptionGroupMappings, decodeClusterSetting and the
+    // consent mapping):
+    //   [{&quot;jsmap&quot;:null,&quot;map&quot;:null,
+    //     &quot;maptype&quot;:&quot;EventAttributeClass.Name&quot;,
+    //     &quot;value&quot;:&quot;attr_name&quot;}]
+    //
+    // maptype varies by what the setting selects (EventAttributeClass.Name for the
+    // cart/checkout/subtotal settings, ProductAttributeSelector.Name for the URL
+    // ones) and is deliberately ignored: the settings are single-select, so the
+    // first entry with a value is the mapping. This matches the iOS kit and avoids
+    // maptype strings drifting out of sync with the platform.
+    //
+    // Never throws: a malformed setting must not break event forwarding.
+    function getMappedAttributeName(settingValue) {
+        if (!settingValue) {
+            return null;
+        }
+        // No-op when the value is already unescaped, so both shapes work.
+        var decodedSetting = settingValue.replace(/&quot;/g, '"');
+        try {
+            var mappings = JSON.parse(decodedSetting);
+            if (!Array.isArray(mappings)) {
+                return null;
+            }
+            for (var i = 0; i < mappings.length; i++) {
+                var mapping = mappings[i];
+                if (
+                    mapping &&
+                    typeof mapping.value === 'string' &&
+                    mapping.value !== ''
+                ) {
+                    return mapping.value;
+                }
+            }
+            return null;
+        } catch (e) {
+            // Deliberately stricter than the iOS kit, which treats an unparseable
+            // setting as a plain attribute name. The config API always sends the
+            // JSON array form, so a string that does not parse is malformed rather
+            // than a bare name, and returning null keeps the documented default
+            // attribute in play instead of looking up a garbage key.
+            kitLogger(
+                'Braze kit could not parse attribute mapping setting',
+                settingValue
+            );
+            return null;
+        }
+    }
+
+    function getEcommerceCustomAttribute(event, key) {
+        var attributes = event.EventAttributes || {};
+        if (attributes[key] != null && attributes[key] !== '') {
+            return String(attributes[key]);
+        }
+        return null;
+    }
+
+    function getRecommendedCartId(event) {
+        // Fall back to the mParticle session id, then a generated id, matching the
+        // Android and iOS kits (a missing session id is unlikely but possible).
+        return (
+            getEcommerceCustomAttribute(
+                event,
+                mappedCartIdAttribute || RECOMMENDED_CART_ID_ATTRIBUTE
+            ) ||
+            getSessionIdForBraze(event) ||
+            generateEcommerceId()
+        );
+    }
+
+    function getRecommendedCheckoutId(event) {
+        return (
+            getEcommerceCustomAttribute(
+                event,
+                mappedCheckoutIdAttribute || RECOMMENDED_CHECKOUT_ID_ATTRIBUTE
+            ) ||
+            getSessionIdForBraze(event) ||
+            generateEcommerceId()
+        );
+    }
+
+    function getRecommendedOrderId(event) {
+        if (event.ProductAction && event.ProductAction.TransactionId) {
+            return String(event.ProductAction.TransactionId);
+        }
+        return getSessionIdForBraze(event) || generateEcommerceId();
+    }
+
+    function getRecommendedProductList(event) {
+        if (event.ProductAction && event.ProductAction.ProductList) {
+            return event.ProductAction.ProductList;
+        }
+        return [];
+    }
+
+    // Product quantity is a count, so coerce to an integer >= 1 (mirrors the
+    // Android kit's toLong().coerceAtLeast(1)).
+    function getRecommendedQuantity(product) {
+        var quantity = parseInt(product.Quantity, 10);
+        if (isNaN(quantity) || quantity < 1) {
+            quantity = 1;
+        }
+        return quantity;
+    }
+
+    function getRecommendedTotalValue(event) {
+        if (
+            event.ProductAction &&
+            event.ProductAction.TotalAmount != null &&
+            event.ProductAction.TotalAmount !== ''
+        ) {
+            return parseFloat(event.ProductAction.TotalAmount) || 0;
+        }
+        var total = 0;
+        getRecommendedProductList(event).forEach(function(product) {
+            total +=
+                (parseFloat(product.Price) || 0) *
+                getRecommendedQuantity(product);
+        });
+        return total;
+    }
+
+    function getRecommendedTotalDiscounts(event) {
+        var value = getEcommerceCustomAttribute(event, 'total_discounts');
+        if (value == null) {
+            return null;
+        }
+        var parsed = parseFloat(value);
+        return isNaN(parsed) ? null : parsed;
+    }
+
+    function parseRecommendedFloat(value) {
+        if (value == null || value === '') {
+            return null;
+        }
+        var parsed = parseFloat(value);
+        return isNaN(parsed) ? null : parsed;
+    }
+
+    function getRecommendedTax(event) {
+        return parseRecommendedFloat(
+            event.ProductAction && event.ProductAction.TaxAmount
+        );
+    }
+
+    function getRecommendedShipping(event) {
+        return parseRecommendedFloat(
+            event.ProductAction && event.ProductAction.ShippingAmount
+        );
+    }
+
+    // mParticle has no native subtotal field, so subtotal_value is sourced from a
+    // `subtotal_value` commerce custom attribute (like cart_id/total_discounts).
+    function getRecommendedSubtotalValue(event) {
+        return parseRecommendedFloat(
+            getEcommerceCustomAttribute(
+                event,
+                mappedSubtotalValueAttribute ||
+                    RECOMMENDED_SUBTOTAL_VALUE_ATTRIBUTE
+            )
+        );
+    }
+
+    // tax, shipping, and subtotal_value are optional recognized top-level attributes
+    // on cart_updated/checkout_started/order_placed. Set only when present.
+    function applyRecommendedMonetaryAttributes(properties, event) {
+        var tax = getRecommendedTax(event);
+        if (tax != null) {
+            properties.tax = tax;
+        }
+        var shipping = getRecommendedShipping(event);
+        if (shipping != null) {
+            properties.shipping = shipping;
+        }
+        var subtotalValue = getRecommendedSubtotalValue(event);
+        if (subtotalValue != null) {
+            properties.subtotal_value = subtotalValue;
+        }
+    }
+
+    // product_viewed and order_refunded have no recognized top-level tax/shipping/
+    // subtotal_value fields, so when present these are preserved in metadata rather
+    // than dropped.
+    function buildRecommendedMonetaryMetadata(event) {
+        var metadata = {};
+        var tax = getRecommendedTax(event);
+        if (tax != null) {
+            metadata.tax = tax;
+        }
+        var shipping = getRecommendedShipping(event);
+        if (shipping != null) {
+            metadata.shipping = shipping;
+        }
+        var subtotalValue = getRecommendedSubtotalValue(event);
+        if (subtotalValue != null) {
+            metadata.subtotal_value = subtotalValue;
+        }
+        return metadata;
+    }
+
+    function getRecommendedVariantId(product) {
+        return String(product.Variant || product.Sku);
+    }
+
+    // A configured attribute name takes precedence over the built-in defaults, and
+    // is also excluded from metadata so a promoted value is not emitted twice.
+    function getRecommendedImageUrlAttributes() {
+        return mappedImageUrlAttribute
+            ? [mappedImageUrlAttribute].concat(RECOMMENDED_IMAGE_URL_ATTRIBUTES)
+            : RECOMMENDED_IMAGE_URL_ATTRIBUTES;
+    }
+
+    function getRecommendedProductUrlAttributes() {
+        return mappedProductUrlAttribute
+            ? [mappedProductUrlAttribute].concat(
+                  RECOMMENDED_PRODUCT_URL_ATTRIBUTES
+              )
+            : RECOMMENDED_PRODUCT_URL_ATTRIBUTES;
+    }
+
+    function getRecommendedPromotedEventAttributes() {
+        var promoted = RECOMMENDED_PROMOTED_METADATA_ATTRIBUTES.slice();
+        if (mappedCartIdAttribute) {
+            promoted.push(mappedCartIdAttribute);
+        }
+        if (mappedCheckoutIdAttribute) {
+            promoted.push(mappedCheckoutIdAttribute);
+        }
+        if (mappedSubtotalValueAttribute) {
+            promoted.push(mappedSubtotalValueAttribute);
+        }
+        return promoted;
+    }
+
+    function getRecommendedProductAttribute(product, keys) {
+        var attributes = product.Attributes || {};
+        for (var i = 0; i < keys.length; i++) {
+            var value = attributes[keys[i]];
+            if (value != null && value !== '') {
+                return String(value);
+            }
+        }
+        return null;
+    }
+
+    function emptyObjectToUndefined(obj) {
+        return obj && Object.keys(obj).length ? obj : undefined;
+    }
+
+    function buildRecommendedProductMetadata(product) {
+        var metadata = {};
+        if (product.Brand) {
+            metadata.brand = product.Brand;
+        }
+        if (product.Category) {
+            metadata.category = product.Category;
+        }
+        if (product.CouponCode) {
+            metadata.coupon_code = product.CouponCode;
+        }
+        if (product.Position != null) {
+            metadata.position = product.Position;
+        }
+        metadata.sku = product.Sku;
+        var attributes = product.Attributes || {};
+        Object.keys(attributes).forEach(function(key) {
+            if (
+                getRecommendedImageUrlAttributes().indexOf(key) === -1 &&
+                getRecommendedProductUrlAttributes().indexOf(key) === -1 &&
+                attributes[key] != null &&
+                attributes[key] !== ''
+            ) {
+                metadata[key] = attributes[key];
+            }
+        });
+        return metadata;
+    }
+
+    function buildRecommendedEventMetadata(event) {
+        var metadata = {};
+        var attributes = event.EventAttributes || {};
+        Object.keys(attributes).forEach(function(key) {
+            // Skip attributes already promoted to typed recommended-event fields to avoid
+            // emitting them both at the top level and inside metadata.
+            if (
+                getRecommendedPromotedEventAttributes().indexOf(key) === -1 &&
+                attributes[key] != null &&
+                attributes[key] !== ''
+            ) {
+                metadata[key] = attributes[key];
+            }
+        });
+        var productAction = event.ProductAction || {};
+        if (productAction.Affiliation) {
+            metadata.affiliation = productAction.Affiliation;
+        }
+        if (productAction.CouponCode) {
+            metadata.coupon_code = productAction.CouponCode;
+        }
+        // tax/shipping are recognized top-level recommended-event attributes
+        // (see applyRecommendedMonetaryAttributes), so they are not duplicated here.
+        return metadata;
+    }
+
+    function buildRecommendedLineItem(product) {
+        var lineItem = {
+            product_id: String(product.Sku),
+            product_name: String(product.Name),
+            variant_id: getRecommendedVariantId(product),
+            quantity: getRecommendedQuantity(product),
+            price: parseFloat(product.Price) || 0,
+        };
+        var imageUrl = getRecommendedProductAttribute(
+            product,
+            getRecommendedImageUrlAttributes()
+        );
+        if (imageUrl) {
+            lineItem.image_url = imageUrl;
+        }
+        var productUrl = getRecommendedProductAttribute(
+            product,
+            getRecommendedProductUrlAttributes()
+        );
+        if (productUrl) {
+            lineItem.product_url = productUrl;
+        }
+        var metadata = emptyObjectToUndefined(
+            buildRecommendedProductMetadata(product)
+        );
+        if (metadata) {
+            lineItem.metadata = metadata;
+        }
+        return lineItem;
+    }
+
+    function buildRecommendedLineItems(productList) {
+        return (productList || []).map(buildRecommendedLineItem);
+    }
+
+    // Forwards a commerce event using Braze's recommended eCommerce schema.
+    // Returns true/false when the event was handled, or null to signal the caller
+    // to fall back to legacy forwarding (no products, or an unsupported action).
+    function logRecommendedCommerceEvent(event) {
+        var productList = getRecommendedProductList(event);
+        if (!productList.length) {
+            return null;
+        }
+        var currency = event.CurrencyCode || 'USD';
+        var source = RECOMMENDED_ECOMMERCE_SOURCE;
+        var eventMetadata = emptyObjectToUndefined(
+            buildRecommendedEventMetadata(event)
+        );
+        var reportEvent = false;
+        var properties;
+
+        switch (event.EventCategory) {
+            case CommerceEventType.ProductAddToCart:
+            case CommerceEventType.ProductRemoveFromCart:
+                properties = {
+                    cart_id: getRecommendedCartId(event),
+                    currency: currency,
+                    source: source,
+                    total_value: getRecommendedTotalValue(event),
+                    products: buildRecommendedLineItems(productList),
+                    action:
+                        event.EventCategory ===
+                        CommerceEventType.ProductAddToCart
+                            ? 'add'
+                            : 'remove',
+                };
+                applyRecommendedMonetaryAttributes(properties, event);
+                if (eventMetadata) {
+                    properties.metadata = eventMetadata;
+                }
+                reportEvent = braze.logEcommerceEvent({
+                    name: RECOMMENDED_CART_UPDATED_EVENT_NAME,
+                    properties: properties,
+                });
+                break;
+            case CommerceEventType.ProductCheckout:
+                properties = {
+                    checkout_id: getRecommendedCheckoutId(event),
+                    currency: currency,
+                    source: source,
+                    total_value: getRecommendedTotalValue(event),
+                    products: buildRecommendedLineItems(productList),
+                    cart_id: getRecommendedCartId(event),
+                };
+                applyRecommendedMonetaryAttributes(properties, event);
+                if (eventMetadata) {
+                    properties.metadata = eventMetadata;
+                }
+                reportEvent = braze.logEcommerceEvent({
+                    name: RECOMMENDED_CHECKOUT_STARTED_EVENT_NAME,
+                    properties: properties,
+                });
+                break;
+            case CommerceEventType.ProductViewDetail:
+                reportEvent = false;
+                productList.forEach(function(product) {
+                    var viewedProperties = {
+                        product_id: String(product.Sku),
+                        product_name: String(product.Name),
+                        variant_id: getRecommendedVariantId(product),
+                        price: parseFloat(product.Price) || 0,
+                        currency: currency,
+                        source: source,
+                    };
+                    var imageUrl = getRecommendedProductAttribute(
+                        product,
+                        getRecommendedImageUrlAttributes()
+                    );
+                    if (imageUrl) {
+                        viewedProperties.image_url = imageUrl;
+                    }
+                    var productUrl = getRecommendedProductAttribute(
+                        product,
+                        getRecommendedProductUrlAttributes()
+                    );
+                    if (productUrl) {
+                        viewedProperties.product_url = productUrl;
+                    }
+                    var viewedMetadata = emptyObjectToUndefined(
+                        mergeObjects(
+                            mergeObjects(
+                                buildRecommendedProductMetadata(product),
+                                eventMetadata || {}
+                            ),
+                            buildRecommendedMonetaryMetadata(event)
+                        )
+                    );
+                    if (viewedMetadata) {
+                        viewedProperties.metadata = viewedMetadata;
+                    }
+                    reportEvent =
+                        braze.logEcommerceEvent({
+                            name: RECOMMENDED_PRODUCT_VIEWED_EVENT_NAME,
+                            properties: viewedProperties,
+                        }) === true || reportEvent;
+                });
+                break;
+            case CommerceEventType.ProductPurchase:
+                properties = {
+                    order_id: getRecommendedOrderId(event),
+                    currency: currency,
+                    source: source,
+                    total_value: getRecommendedTotalValue(event),
+                    products: buildRecommendedLineItems(productList),
+                    cart_id: getRecommendedCartId(event),
+                };
+                var totalDiscounts = getRecommendedTotalDiscounts(event);
+                if (totalDiscounts != null) {
+                    properties.total_discounts = totalDiscounts;
+                }
+                applyRecommendedMonetaryAttributes(properties, event);
+                if (eventMetadata) {
+                    properties.metadata = eventMetadata;
+                }
+                reportEvent = braze.logEcommerceEvent({
+                    name: RECOMMENDED_ORDER_PLACED_EVENT_NAME,
+                    properties: properties,
+                });
+                break;
+            case CommerceEventType.ProductRefund:
+                // Braze has no typed order_refunded event; forward it as a custom
+                // event that mirrors the recommended ecommerce.order_refunded schema.
+                var refundProperties = {
+                    order_id: getRecommendedOrderId(event),
+                    total_value: getRecommendedTotalValue(event),
+                    currency: currency,
+                    source: source,
+                    products: buildRecommendedLineItems(productList),
+                };
+                var refundDiscounts = getRecommendedTotalDiscounts(event);
+                if (refundDiscounts != null) {
+                    refundProperties.total_discounts = refundDiscounts;
+                }
+                var refundMetadata = emptyObjectToUndefined(
+                    mergeObjects(
+                        eventMetadata || {},
+                        buildRecommendedMonetaryMetadata(event)
+                    )
+                );
+                if (refundMetadata) {
+                    refundProperties.metadata = refundMetadata;
+                }
+                reportEvent = braze.logCustomEvent(
+                    RECOMMENDED_ORDER_REFUNDED_EVENT_NAME,
+                    refundProperties
+                );
+                break;
+            default:
+                return null;
+        }
+        return reportEvent === true;
+    }
+
     function logBrazePageViewEvent(event) {
         var sanitizedEventName,
             sanitizedAttrs,
@@ -403,6 +979,18 @@ var constructor = function() {
     // a purchase event or a non-purchase commerce event
     function logCommerceEvent(event) {
         var reportEvent = false;
+        // When opted in (and the host Braze SDK supports it), forward supported
+        // commerce actions using Braze's recommended eCommerce schema. Unsupported
+        // actions (or a host SDK without the API) fall back to legacy forwarding.
+        if (
+            useEcommerceRecommendedEvents &&
+            recommendedEcommerceEventsSupported()
+        ) {
+            var recommendedResult = logRecommendedCommerceEvent(event);
+            if (recommendedResult !== null) {
+                return recommendedResult === true;
+            }
+        }
         if (event.EventCategory === CommerceEventType.ProductPurchase) {
             reportEvent = logPurchaseEvent(event);
             return reportEvent === true;
@@ -882,6 +1470,25 @@ var constructor = function() {
                 forwarderSettings.bundleCommerceEventData === 'True';
             forwardSkuAsProductName =
                 forwarderSettings.forwardSkuAsProductName === 'True';
+            useEcommerceRecommendedEvents =
+                forwarderSettings.useEcommerceRecommendedEvents === 'True';
+            // Customer-configured attribute names for the recommended eCommerce
+            // fields. Unset settings leave these null and the defaults apply.
+            mappedCartIdAttribute = getMappedAttributeName(
+                forwarderSettings.cartIdAttribute
+            );
+            mappedCheckoutIdAttribute = getMappedAttributeName(
+                forwarderSettings.checkoutIdAttribute
+            );
+            mappedImageUrlAttribute = getMappedAttributeName(
+                forwarderSettings.imageUrlAttribute
+            );
+            mappedProductUrlAttribute = getMappedAttributeName(
+                forwarderSettings.productUrlAttribute
+            );
+            mappedSubtotalValueAttribute = getMappedAttributeName(
+                forwarderSettings.subtotalValueAttribute
+            );
             reportingService = service;
             // 30 min is Braze default
             options.sessionTimeoutInSeconds =
