@@ -1,10 +1,3 @@
-# [2.3.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-google-tag-manager/compare/v2.2.0...v2.3.0) (2026-03-16)
-
-
-### Features
-
-* add new consent settings ([#53](https://github.com/mparticle-integrations/mparticle-javascript-integration-google-tag-manager/issues/53)) ([9568261](https://github.com/mparticle-integrations/mparticle-javascript-integration-google-tag-manager/commit/9568261148bd0c3ab759766c7368d8cad62abf43))
-
 # [2.2.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-google-tag-manager/compare/v2.1.2...v2.2.0) (2024-09-30)
 
 
