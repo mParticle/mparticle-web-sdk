@@ -1,0 +1,60 @@
+{
+    "name": "@mparticle/web-rokt-pay-plus-kit",
+    "version": "1.1.0",
+    "description": "mParticle web kit that re-emits the events an advertiser already logs to the embedding Rokt Pay+ plugin via postMessage.",
+    "main": "dist/RoktPayPlus-Kit.common.js",
+    "module": "dist/RoktPayPlus-Kit.esm.js",
+    "browser": "dist/RoktPayPlus-Kit.iife.js",
+    "types": "dist/RoktPayPlus-Kit.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/RoktPayPlus-Kit.d.ts",
+            "import": "./dist/RoktPayPlus-Kit.esm.js",
+            "require": "./dist/RoktPayPlus-Kit.common.js"
+        }
+    },
+    "files": [
+        "dist/RoktPayPlus-Kit.common.js",
+        "dist/RoktPayPlus-Kit.esm.js",
+        "dist/RoktPayPlus-Kit.iife.js",
+        "dist/RoktPayPlus-Kit.d.ts"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/mParticle/mparticle-web-sdk.git"
+    },
+    "scripts": {
+        "build": "vite build",
+        "build:watch": "vite build --watch",
+        "typecheck": "tsc --noEmit",
+        "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
+        "lint:fix": "eslint \"src/**/*.ts\" \"test/**/*.ts\" --fix",
+        "test": "vitest run",
+        "test:watch": "vitest"
+    },
+    "publishConfig": {
+        "access": "public",
+        "registry": "https://registry.npmjs.org"
+    },
+    "peerDependencies": {
+        "@mparticle/web-sdk": "^3.0.0"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.23.0",
+        "@mparticle/web-sdk": "^2.73.1",
+        "@types/node": "^20.11.5",
+        "@typescript-eslint/eslint-plugin": "^8.28.0",
+        "@typescript-eslint/parser": "^8.28.0",
+        "eslint": "^9.23.0",
+        "eslint-config-prettier": "^9.1.0",
+        "eslint-plugin-prettier": "^5.2.1",
+        "globals": "^15.14.0",
+        "jsdom": "^24.1.0",
+        "prettier": "^3.3.3",
+        "typescript": "^5.6.3",
+        "vite": "^6.0.0",
+        "vite-plugin-dts": "~3.8.1",
+        "vitest": "^4.0.0"
+    },
+    "license": "Apache-2.0"
+}
