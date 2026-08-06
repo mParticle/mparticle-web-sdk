@@ -35,6 +35,7 @@ export default defineConfig({
         globals: true,
         setupFiles: ['./test/vitest.setup.ts'],
         include: ['test/src/**/*.spec.ts', 'src/**/*.spec.ts'],
+        execArgv: ['--no-experimental-webstorage'],
         // More-specific alias must come first so @mparticle/web-sdk/internal
         // resolves to the monorepo source types rather than falling through to
         // the main bundle alias.
