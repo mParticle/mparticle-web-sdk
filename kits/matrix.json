@@ -118,5 +118,9 @@
   {
     "name": "Adobe",
     "local_path": "kits/adobe"
+  },
+  {
+    "name": "Rokt Pay Plus",
+    "local_path": "kits/roktpayplus"
   }
 ]
