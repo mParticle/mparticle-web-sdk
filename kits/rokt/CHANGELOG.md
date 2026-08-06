@@ -1,3 +1,26 @@
+## [1.30.2](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.30.1...v1.30.2) (2026-08-05)
+
+
+### Bug Fixes
+
+* lower PAGE_VIEW_CAPTURE_FAILED severity from WARNING to INFO ([#111](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/111)) ([12e179d](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/12e179d2ae13c58927917be4f7685217666a2a52))
+
+## [1.30.1](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.30.0...v1.30.1) (2026-08-05)
+
+# [1.30.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.29.0...v1.30.0) (2026-08-04)
+
+
+### Features
+
+* capture page views and surface as page_events in selectPlacements ([#109](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/109)) ([098aabe](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/098aabe86d13b5f9a83d46885d8ed83f09bf3122))
+
+# [1.29.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.28.3...v1.29.0) (2026-07-31)
+
+
+### Features
+
+* prevent caching of active_time_on_site_ms attribute ([#106](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/106)) ([315c4f9](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/315c4f9016a31076a53b8fa97a9e35bf31b5c953))
+
 ## [1.28.3](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.28.2...v1.28.3) (2026-07-01)
 
 
