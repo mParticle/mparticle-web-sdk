@@ -1,5 +1,6 @@
 import { PageViewTracker } from '../../src/pageViewTracker';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
+import { MessageType } from '../../src/types';
 
 // Capture the genuinely-native history methods at import time, before any
 // tracker has a chance to monkey-patch them. Used to reset state between tests
@@ -11,7 +12,7 @@ const WRAPPED_MARKER = '__mpApvWrapped__';
 
 describe('PageViewTracker', () => {
     let mpInstance: IMParticleWebSDKInstance;
-    let logPageView: jest.Mock;
+    let logEvent: jest.Mock;
     let resetSessionTimer: jest.Mock;
     let verbose: jest.Mock;
 
@@ -35,14 +36,14 @@ describe('PageViewTracker', () => {
         jest.useFakeTimers();
         trackers = [];
 
-        logPageView = jest.fn();
+        logEvent = jest.fn();
         resetSessionTimer = jest.fn();
         verbose = jest.fn();
 
         mpInstance = ({
             Logger: { verbose },
             _SessionManager: { resetSessionTimer },
-            _Events: { logPageView },
+            _Events: { logEvent },
         } as unknown) as IMParticleWebSDKInstance;
     });
 
@@ -243,7 +244,7 @@ describe('PageViewTracker', () => {
             window.history.replaceState({}, '', '/');
             jest.runAllTimers();
 
-            expect(logPageView).not.toHaveBeenCalled();
+            expect(logEvent).not.toHaveBeenCalled();
         });
 
         // Q9.2 - Query-only change fires exactly one view via the full-URL key.
@@ -251,7 +252,7 @@ describe('PageViewTracker', () => {
             window.history.pushState({}, '', '/?tab=settings');
             jest.runAllTimers();
 
-            expect(logPageView).toHaveBeenCalledTimes(1);
+            expect(logEvent).toHaveBeenCalledTimes(1);
         });
 
         // Q9.2 - Hash-only change fires exactly one view via the full-URL key.
@@ -259,7 +260,7 @@ describe('PageViewTracker', () => {
             window.history.pushState({}, '', '/#/details');
             jest.runAllTimers();
 
-            expect(logPageView).toHaveBeenCalledTimes(1);
+            expect(logEvent).toHaveBeenCalledTimes(1);
         });
 
         // Q9.3 - A real path change produces one deferred view after flush.
@@ -267,10 +268,10 @@ describe('PageViewTracker', () => {
             window.history.pushState({}, '', '/products');
 
             // Deferred: nothing fires synchronously.
-            expect(logPageView).not.toHaveBeenCalled();
+            expect(logEvent).not.toHaveBeenCalled();
 
             jest.runAllTimers();
-            expect(logPageView).toHaveBeenCalledTimes(1);
+            expect(logEvent).toHaveBeenCalledTimes(1);
         });
 
         it('should update lastPath synchronously when a change is accepted', () => {
@@ -283,7 +284,7 @@ describe('PageViewTracker', () => {
             window.dispatchEvent(new PopStateEvent('popstate'));
             jest.runAllTimers();
 
-            expect(logPageView).toHaveBeenCalledTimes(1);
+            expect(logEvent).toHaveBeenCalledTimes(1);
         });
 
         it('should fire a view on hashchange navigation', () => {
@@ -291,14 +292,14 @@ describe('PageViewTracker', () => {
             window.dispatchEvent(new HashChangeEvent('hashchange'));
             jest.runAllTimers();
 
-            expect(logPageView).toHaveBeenCalledTimes(1);
+            expect(logEvent).toHaveBeenCalledTimes(1);
         });
 
         it('should fire a view via replaceState when the path changes', () => {
             window.history.replaceState({}, '', '/replaced');
             jest.runAllTimers();
 
-            expect(logPageView).toHaveBeenCalledTimes(1);
+            expect(logEvent).toHaveBeenCalledTimes(1);
         });
     });
 
@@ -315,7 +316,48 @@ describe('PageViewTracker', () => {
             jest.runAllTimers();
 
             // /a is the seed; /b and /c are the two accepted changes.
-            expect(logPageView).toHaveBeenCalledTimes(2);
+            expect(logEvent).toHaveBeenCalledTimes(2);
+        });
+
+        // Each deferred fire must carry the path captured when its navigation
+        // was accepted, not the final live location. Before the fix both fires
+        // read window.location at flush time and both reported '/c'.
+        it('should record each intermediate path, not the final URL', () => {
+            navigateNatively('/a');
+            const tracker = createTracker();
+            tracker.init();
+
+            window.history.pushState({}, '', '/b');
+            window.history.pushState({}, '', '/c');
+
+            jest.runAllTimers();
+
+            const paths = logEvent.mock.calls.map(([event]) => event.data.path);
+            expect(paths).toEqual(['/b', '/c']);
+        });
+    });
+
+    describe('page view payload', () => {
+        it('should fire a PageView event carrying path, title, and hostname', () => {
+            navigateNatively('/');
+            const tracker = createTracker();
+            tracker.init();
+
+            window.document.title = 'Next Page';
+            window.history.pushState({}, '', '/next?q=1#top');
+            jest.runAllTimers();
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            const [event] = logEvent.mock.calls[0];
+            expect(event).toMatchObject({
+                messageType: MessageType.PageView,
+                name: 'PageView',
+                data: {
+                    hostname: 'localhost',
+                    title: 'Next Page',
+                    path: '/next?q=1#top',
+                },
+            });
         });
     });
 
@@ -334,12 +376,12 @@ describe('PageViewTracker', () => {
             resetSessionTimer.mockImplementation(() =>
                 callOrder.push('resetSessionTimer')
             );
-            logPageView.mockImplementation(() => callOrder.push('logPageView'));
+            logEvent.mockImplementation(() => callOrder.push('logEvent'));
 
             window.history.pushState({}, '', '/next');
             jest.runAllTimers();
 
-            expect(callOrder).toEqual(['resetSessionTimer', 'logPageView']);
+            expect(callOrder).toEqual(['resetSessionTimer', 'logEvent']);
         });
 
         it('should abort a queued fire if torn down before the timer flushes', () => {
@@ -349,7 +391,7 @@ describe('PageViewTracker', () => {
             tracker.teardown();
             jest.runAllTimers();
 
-            expect(logPageView).not.toHaveBeenCalled();
+            expect(logEvent).not.toHaveBeenCalled();
             expect(resetSessionTimer).not.toHaveBeenCalled();
         });
 
@@ -429,6 +471,26 @@ describe('PageViewTracker', () => {
             expect(tracker['isActive']).toBe(false);
         });
 
+        // A third party may patch only one of the two methods. Teardown must
+        // decide per-method: leave the foreign pushState in place while still
+        // restoring our untouched replaceState (otherwise it leaks, and a
+        // later re-init stacks a second wrapper on top of it).
+        it('should restore replaceState even when pushState is foreign', () => {
+            const tracker = createTracker();
+            tracker.init();
+
+            const foreignWrapper = function() {
+                /* someone else's wrapper */
+            } as History['pushState'];
+            window.history.pushState = foreignWrapper;
+
+            tracker.teardown();
+
+            expect(window.history.pushState).toBe(foreignWrapper);
+            expect(window.history.replaceState).toBe(NATIVE_REPLACE_STATE);
+            expect(tracker['isActive']).toBe(false);
+        });
+
         it('should be safe to call before init()', () => {
             const tracker = createTracker();
             expect(() => tracker.teardown()).not.toThrow();
@@ -445,7 +507,7 @@ describe('PageViewTracker', () => {
             window.dispatchEvent(new PopStateEvent('popstate'));
             jest.runAllTimers();
 
-            expect(logPageView).not.toHaveBeenCalled();
+            expect(logEvent).not.toHaveBeenCalled();
         });
     });
 });

@@ -1,4 +1,5 @@
 import { IMParticleWebSDKInstance } from './mp-instance';
+import { EventType, MessageType } from './types';
 
 type HistoryStateMethod = History['pushState'];
 
@@ -181,6 +182,13 @@ export class PageViewTracker {
         );
         this.lastPath = candidatePath;
 
+        // Snapshot the path now: it is already settled at this point, and a
+        // same-tick navigation would otherwise overwrite window.location
+        // before the deferred flush reads it. The title is intentionally read
+        // later (in the deferred flush) so the router's post-navigation render
+        // commit has a chance to update document.title first.
+        const capturedPath = candidatePath;
+
         setTimeout(() => {
             if (!this.isActive) {
                 this.mpInstance.Logger.verbose(
@@ -190,12 +198,29 @@ export class PageViewTracker {
             }
 
             this.mpInstance._SessionManager.resetSessionTimer();
-
-            this.mpInstance.Logger.verbose(
-                `mParticle APV: [fire] deferred flush -> _Events.logPageView() (path: ${candidatePath}, title: ${window.document.title})`
-            );
-            this.mpInstance._Events.logPageView();
+            this.firePageView(capturedPath);
         }, 0);
+    }
+
+    // Mirrors the event shape of the public mParticle.logPageView(), but carries
+    // the captured SPA path rather than reading the live location.
+    private firePageView(path: string): void {
+        const title = window.document.title;
+
+        this.mpInstance.Logger.verbose(
+            `mParticle APV: [fire] deferred flush -> _Events.logEvent(PageView) (path: ${path}, title: ${title})`
+        );
+
+        this.mpInstance._Events.logEvent({
+            messageType: MessageType.PageView,
+            name: 'PageView',
+            data: {
+                hostname: window.location.hostname,
+                title,
+                path,
+            },
+            eventType: EventType.Unknown,
+        });
     }
 
     public teardown(): void {
@@ -208,25 +233,39 @@ export class PageViewTracker {
             this.hashChangeListener = null;
         }
 
-        const ourWrapperStillInstalled =
+        const pushStateStillOurs =
             this.pushStateWrapper !== null &&
             window.history.pushState === this.pushStateWrapper;
-
-        if (this.originalPushState && this.originalReplaceState) {
-            if (ourWrapperStillInstalled) {
+        if (this.originalPushState) {
+            if (pushStateStillOurs) {
                 window.history.pushState = this.originalPushState;
-                window.history.replaceState = this.originalReplaceState;
                 this.mpInstance.Logger.verbose(
-                    'mParticle APV: [teardown] restored original pushState/replaceState'
+                    'mParticle APV: [teardown] restored original pushState'
                 );
             } else {
                 this.mpInstance.Logger.verbose(
-                    'mParticle APV: [teardown] wrapper no longer ours; leaving history methods, gating callback to no-op'
+                    'mParticle APV: [teardown] pushState no longer ours; leaving in place, gating callback to no-op'
                 );
             }
             this.originalPushState = null;
-            this.originalReplaceState = null;
             this.pushStateWrapper = null;
+        }
+
+        const replaceStateStillOurs =
+            this.replaceStateWrapper !== null &&
+            window.history.replaceState === this.replaceStateWrapper;
+        if (this.originalReplaceState) {
+            if (replaceStateStillOurs) {
+                window.history.replaceState = this.originalReplaceState;
+                this.mpInstance.Logger.verbose(
+                    'mParticle APV: [teardown] restored original replaceState'
+                );
+            } else {
+                this.mpInstance.Logger.verbose(
+                    'mParticle APV: [teardown] replaceState no longer ours; leaving in place, gating callback to no-op'
+                );
+            }
+            this.originalReplaceState = null;
             this.replaceStateWrapper = null;
         }
 
