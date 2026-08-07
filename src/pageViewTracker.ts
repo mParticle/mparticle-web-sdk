@@ -57,8 +57,7 @@ export class PageViewTracker {
 
         this.isActive = true;
 
-        const { pathname, search, hash } = window.location;
-        this.lastPath = pathname + search + hash;
+        this.lastPath = this.getCurrentKey();
 
         this.mpInstance.Logger.verbose(
             `mParticle APV: [init] seeded lastPath: ${this.lastPath}`
@@ -162,9 +161,13 @@ export class PageViewTracker {
         }
     }
 
-    private handleNavigation(source: string): void {
+    private getCurrentKey(): string {
         const { pathname, search, hash } = window.location;
-        const candidatePath = pathname + search + hash;
+        return pathname + search + hash;
+    }
+
+    private handleNavigation(source: string): void {
+        const candidatePath = this.getCurrentKey();
 
         this.mpInstance.Logger.verbose(
             `mParticle APV: [detect] navigation signal (source: ${source}, candidatePath: ${candidatePath}, lastPath: ${this.lastPath})`
