@@ -1,3 +1,4 @@
+console.info('[mParticle QA kit path smoke] Loaded kits/kissmetrics/dist/KissMetricsForwarder.iife.js from monorepo GitHub path');
 var mpKissMetricsKit = (function (exports) {
   /*!
    * isobject <https://github.com/jonschlinkert/isobject>

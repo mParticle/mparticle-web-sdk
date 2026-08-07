@@ -1,3 +1,4 @@
+console.info('[mParticle QA kit path smoke] Loaded kits/device-match/dist/DeviceMatchEventForwarder.iife.js from monorepo GitHub path');
 var mpDeviceMatchKit = (function (exports) {
   /*!
    * isobject <https://github.com/jonschlinkert/isobject>

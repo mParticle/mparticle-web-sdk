@@ -1,3 +1,4 @@
+console.info('[mParticle QA kit path smoke] Loaded kits/heap/dist/HeapKit.iife.js from monorepo GitHub path');
 var HeapKit = (function (exports) {
     'use strict';
 

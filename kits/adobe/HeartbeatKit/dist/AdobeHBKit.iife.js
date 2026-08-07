@@ -1,3 +1,4 @@
+console.info('[mParticle QA kit path smoke] Loaded kits/adobe/HeartbeatKit/dist/AdobeHBKit.iife.js from monorepo GitHub path');
 var mpAdobeHBKit = (function (exports) {
     function Common() {
         this.playheadPosition = 0;

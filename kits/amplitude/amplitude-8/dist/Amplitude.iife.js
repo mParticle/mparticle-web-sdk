@@ -1,3 +1,4 @@
+console.info('[mParticle QA kit path smoke] Loaded kits/amplitude/amplitude-8/dist/Amplitude.iife.js from monorepo GitHub path');
 var mpAmplitudeKit = (function (exports) {
 
     /* eslint-disable no-undef*/
