@@ -57,6 +57,7 @@ import { LoggingDispatcher } from './reporting/loggingDispatcher';
 import { IErrorReportingService, ILoggingService } from './reporting/types';
 import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
 import { normalizeRoktLauncherOptions } from './roktLauncherOptions';
+import { PageViewTracker } from './pageViewTracker';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -87,6 +88,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _IdentityAPIClient: typeof IdentityAPIClient;
     _IntegrationCapture: IntegrationCapture;
     _NativeSdkHelpers: INativeSdkHelpers;
+    _PageViewTracker?: PageViewTracker;
     _Persistence: IPersistence;
     _CookieConsentManager: ICookieConsentManager;
     _ErrorReportingDispatcher: ErrorReportingDispatcher;
@@ -1585,6 +1587,13 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
 
         if (getFeatureFlag(AutoLogPageView)) {
             mpInstance._Events.logPageView();
+
+            if (!mpInstance._PageViewTracker) {
+                mpInstance._PageViewTracker = new PageViewTracker(mpInstance);
+            }
+            mpInstance._PageViewTracker.init();
+        } else if (mpInstance._PageViewTracker) {
+            mpInstance._PageViewTracker.teardown();
         }
 
         processIdentityCallback(
