@@ -1,3 +1,4 @@
+console.info('[mParticle QA kit path smoke] Loaded kits/google-analytics-4/packages/GA4Client/dist/GoogleAnalytics4EventForwarderClientSide-Kit.iife.js from monorepo GitHub path');
 var GoogleAnalytics4Kit = (function (exports) {
     'use strict';
 

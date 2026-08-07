@@ -1,3 +1,4 @@
+console.info('[mParticle QA kit path smoke] Loaded kits/google-tag-manager/dist/GoogleTagManager-Kit.iife.js from monorepo GitHub path');
 var GoogleTagManagerKit = (function (exports) {
     'use strict';
 

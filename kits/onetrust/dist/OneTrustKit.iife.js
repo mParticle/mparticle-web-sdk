@@ -1,3 +1,4 @@
+console.info('[mParticle QA kit path smoke] Loaded kits/onetrust/dist/OneTrustKit.iife.js from monorepo GitHub path');
 var mpOneTrustKit = (function (exports) {
     /* eslint-disable no-undef */
     var CONSENT_REGULATIONS = {
