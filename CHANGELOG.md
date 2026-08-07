@@ -1,3 +1,10 @@
+# [2.77.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.76.0...v2.77.0) (2026-08-07)
+
+
+### Features
+
+* detect SPA page changes for AutoLogPageView ([#1308](https://github.com/mParticle/mparticle-web-sdk/issues/1308)) ([9fdd97c](https://github.com/mParticle/mparticle-web-sdk/commit/9fdd97cecd61692bb7a31a85c4a64c8bbe050362))
+
 # [2.76.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.75.1...v2.76.0) (2026-08-05)
 
 
