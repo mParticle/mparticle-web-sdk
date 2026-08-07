@@ -22,7 +22,6 @@ export class PageViewTracker {
     private replaceStateWrapper: HistoryStateMethod | null = null;
 
     private popStateListener: (() => void) | null = null;
-    private hashChangeListener: (() => void) | null = null;
 
     constructor(mpInstance: IMParticleWebSDKInstance) {
         this.mpInstance = mpInstance;
@@ -67,7 +66,7 @@ export class PageViewTracker {
         this.addNavigationListeners();
 
         this.mpInstance.Logger.verbose(
-            'mParticle APV: [init] patched pushState/replaceState + listening for popstate/hashchange'
+            'mParticle APV: [init] patched pushState/replaceState + listening for popstate'
         );
     }
 
@@ -145,10 +144,7 @@ export class PageViewTracker {
 
     private addNavigationListeners(): void {
         this.popStateListener = () => this.safeHandleNavigation('popstate');
-        this.hashChangeListener = () => this.safeHandleNavigation('hashchange');
-
         window.addEventListener('popstate', this.popStateListener);
-        window.addEventListener('hashchange', this.hashChangeListener);
     }
 
     private safeHandleNavigation(source: string): void {
@@ -162,8 +158,7 @@ export class PageViewTracker {
     }
 
     private getCurrentKey(): string {
-        const { pathname, search, hash } = window.location;
-        return pathname + search + hash;
+        return window.location.pathname;
     }
 
     private handleNavigation(source: string): void {
@@ -231,11 +226,6 @@ export class PageViewTracker {
             window.removeEventListener('popstate', this.popStateListener);
             this.popStateListener = null;
         }
-        if (this.hashChangeListener) {
-            window.removeEventListener('hashchange', this.hashChangeListener);
-            this.hashChangeListener = null;
-        }
-
         const pushStateStillOurs =
             this.pushStateWrapper !== null &&
             window.history.pushState === this.pushStateWrapper;

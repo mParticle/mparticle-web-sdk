@@ -110,13 +110,13 @@ describe('PageViewTracker', () => {
     });
 
     describe('#init', () => {
-        it('should seed lastPath with the full relative URL at init time', () => {
+        it('should seed lastPath with the pathname only at init time', () => {
             navigateNatively('/dashboard?tab=1#section');
 
             const tracker = createTracker();
             tracker.init();
 
-            expect(tracker['lastPath']).toBe('/dashboard?tab=1#section');
+            expect(tracker['lastPath']).toBe('/dashboard');
             expect(tracker['isActive']).toBe(true);
         });
 
@@ -132,7 +132,7 @@ describe('PageViewTracker', () => {
                 'popstate',
                 expect.any(Function)
             );
-            expect(addEventListenerSpy).toHaveBeenCalledWith(
+            expect(addEventListenerSpy).not.toHaveBeenCalledWith(
                 'hashchange',
                 expect.any(Function)
             );
@@ -209,13 +209,9 @@ describe('PageViewTracker', () => {
                 expect(tracker['pushStateWrapper']).toBeNull();
                 expect(tracker['originalPushState']).toBeNull();
 
-                // ...but navigation listeners are still registered.
+                // ...but the navigation listener is still registered.
                 expect(addEventListenerSpy).toHaveBeenCalledWith(
                     'popstate',
-                    expect.any(Function)
-                );
-                expect(addEventListenerSpy).toHaveBeenCalledWith(
-                    'hashchange',
                     expect.any(Function)
                 );
             } finally {
@@ -247,20 +243,22 @@ describe('PageViewTracker', () => {
             expect(logEvent).not.toHaveBeenCalled();
         });
 
-        // Q9.2 - Query-only change fires exactly one view via the full-URL key.
-        it('should fire one view on a query-string-only change', () => {
+        // Dedup keys on pathname only, so a query-string-only change is treated
+        // as the same page and does not fire.
+        it('should not fire a view on a query-string-only change', () => {
             window.history.pushState({}, '', '/?tab=settings');
             jest.runAllTimers();
 
-            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent).not.toHaveBeenCalled();
         });
 
-        // Q9.2 - Hash-only change fires exactly one view via the full-URL key.
-        it('should fire one view on a hash-only change', () => {
+        // Hash support is deferred to a follow-up; a hash-only change leaves the
+        // pathname unchanged and does not fire.
+        it('should not fire a view on a hash-only change', () => {
             window.history.pushState({}, '', '/#/details');
             jest.runAllTimers();
 
-            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent).not.toHaveBeenCalled();
         });
 
         // Q9.3 - A real path change produces one deferred view after flush.
@@ -287,12 +285,14 @@ describe('PageViewTracker', () => {
             expect(logEvent).toHaveBeenCalledTimes(1);
         });
 
-        it('should fire a view on hashchange navigation', () => {
+        // Hash support is deferred to a follow-up: the tracker no longer listens
+        // for hashchange, so a hash-route navigation does not fire.
+        it('should not fire a view on hashchange navigation', () => {
             navigateNatively('/#/new-hash');
             window.dispatchEvent(new HashChangeEvent('hashchange'));
             jest.runAllTimers();
 
-            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent).not.toHaveBeenCalled();
         });
 
         it('should fire a view via replaceState when the path changes', () => {
@@ -355,7 +355,7 @@ describe('PageViewTracker', () => {
                 data: {
                     hostname: 'localhost',
                     title: 'Next Page',
-                    path: '/next?q=1#top',
+                    path: '/next',
                 },
             });
         });
@@ -433,10 +433,6 @@ describe('PageViewTracker', () => {
             expect(window.history.replaceState).toBe(NATIVE_REPLACE_STATE);
             expect(removeEventListenerSpy).toHaveBeenCalledWith(
                 'popstate',
-                expect.any(Function)
-            );
-            expect(removeEventListenerSpy).toHaveBeenCalledWith(
-                'hashchange',
                 expect.any(Function)
             );
             expect(tracker['isActive']).toBe(false);
