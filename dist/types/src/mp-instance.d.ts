@@ -20,6 +20,7 @@ import RoktManager from './roktManager';
 import { ICookieConsentManager } from './cookieConsentManager';
 import { ErrorReportingDispatcher } from './reporting/errorReportingDispatcher';
 import { LoggingDispatcher } from './reporting/loggingDispatcher';
+import { PageViewTracker } from './pageViewTracker';
 export interface IErrorLogMessage {
     message?: string;
     name?: string;
@@ -44,6 +45,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _IdentityAPIClient: typeof IdentityAPIClient;
     _IntegrationCapture: IntegrationCapture;
     _NativeSdkHelpers: INativeSdkHelpers;
+    _PageViewTracker?: PageViewTracker;
     _Persistence: IPersistence;
     _CookieConsentManager: ICookieConsentManager;
     _ErrorReportingDispatcher: ErrorReportingDispatcher;

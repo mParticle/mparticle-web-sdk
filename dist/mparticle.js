@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.76.0";
+    var version = "2.77.0";
 
     var Constants = {
       sdkVersion: version,
@@ -11145,6 +11145,188 @@ var mParticle = (function () {
       return LoggingDispatcher;
     }();
 
+    var WRAPPED_MARKER = '__mpApvWrapped__';
+    var PageViewTracker = /** @class */function () {
+      function PageViewTracker(mpInstance) {
+        this.lastPath = null;
+        this.isActive = false;
+        this.originalPushState = null;
+        this.originalReplaceState = null;
+        this.pushStateWrapper = null;
+        this.replaceStateWrapper = null;
+        this.popStateListener = null;
+        this.mpInstance = mpInstance;
+      }
+      PageViewTracker.prototype.isSupportedEnvironment = function () {
+        return typeof window !== 'undefined' && typeof window.history !== 'undefined' && typeof window.history.pushState === 'function' && typeof window.addEventListener === 'function';
+      };
+      PageViewTracker.prototype.init = function () {
+        this.mpInstance.Logger.verbose('mParticle APV: [init] PageViewTracker Init');
+        if (!this.isSupportedEnvironment()) {
+          this.mpInstance.Logger.verbose('mParticle APV: [init] unsupported environment (no History API), not starting');
+          return;
+        }
+        if (this.isActive) {
+          this.mpInstance.Logger.verbose('mParticle APV: [init] starting (teardown-first for idempotency)');
+          this.teardown();
+        }
+        this.isActive = true;
+        this.lastPath = this.getCurrentKey();
+        this.mpInstance.Logger.verbose("mParticle APV: [init] seeded lastPath: ".concat(this.lastPath));
+        this.patchHistoryMethods();
+        this.addNavigationListeners();
+        this.mpInstance.Logger.verbose('mParticle APV: [init] patched pushState/replaceState + listening for popstate');
+      };
+      PageViewTracker.prototype.patchHistoryMethods = function () {
+        var self = this;
+        var installed = window.history.pushState;
+        if (installed[WRAPPED_MARKER]) {
+          this.mpInstance.Logger.verbose('mParticle APV: [patch] history already wrapped, skipping to avoid double-wrap');
+          return;
+        }
+        var originalPushState = window.history.pushState;
+        var originalReplaceState = window.history.replaceState;
+        this.originalPushState = originalPushState;
+        this.originalReplaceState = originalReplaceState;
+        var pushStateWrapper = function pushStateWrapper() {
+          var args = [];
+          for (var _i = 0; _i < arguments.length; _i++) {
+            args[_i] = arguments[_i];
+          }
+          var result = originalPushState.apply(this, args);
+          self.safeHandleNavigation('pushState');
+          return result;
+        };
+        var replaceStateWrapper = function replaceStateWrapper() {
+          var args = [];
+          for (var _i = 0; _i < arguments.length; _i++) {
+            args[_i] = arguments[_i];
+          }
+          var result = originalReplaceState.apply(this, args);
+          self.safeHandleNavigation('replaceState');
+          return result;
+        };
+        Object.defineProperty(pushStateWrapper, WRAPPED_MARKER, {
+          value: true,
+          enumerable: false
+        });
+        Object.defineProperty(replaceStateWrapper, WRAPPED_MARKER, {
+          value: true,
+          enumerable: false
+        });
+        this.pushStateWrapper = pushStateWrapper;
+        this.replaceStateWrapper = replaceStateWrapper;
+        try {
+          window.history.pushState = pushStateWrapper;
+          window.history.replaceState = replaceStateWrapper;
+        } catch (e) {
+          this.mpInstance.Logger.verbose("mParticle APV: [error] failed to patch history methods (frozen/sealed), rolling back: ".concat(e));
+          try {
+            if (window.history.pushState === pushStateWrapper) {
+              window.history.pushState = originalPushState;
+            }
+            if (window.history.replaceState === replaceStateWrapper) {
+              window.history.replaceState = originalReplaceState;
+            }
+          } catch (restoreError) {
+            this.mpInstance.Logger.verbose("mParticle APV: [error] failed to restore history methods after patch failure: ".concat(restoreError));
+          }
+          this.pushStateWrapper = null;
+          this.replaceStateWrapper = null;
+          this.originalPushState = null;
+          this.originalReplaceState = null;
+        }
+      };
+      PageViewTracker.prototype.addNavigationListeners = function () {
+        var _this = this;
+        this.popStateListener = function () {
+          return _this.safeHandleNavigation('popstate');
+        };
+        window.addEventListener('popstate', this.popStateListener);
+      };
+      PageViewTracker.prototype.safeHandleNavigation = function (source) {
+        try {
+          this.handleNavigation(source);
+        } catch (e) {
+          this.mpInstance.Logger.verbose("mParticle APV: [error] navigation handler threw (".concat(source, "), page view skipped: ").concat(e));
+        }
+      };
+      PageViewTracker.prototype.getCurrentKey = function () {
+        return window.location.pathname;
+      };
+      PageViewTracker.prototype.handleNavigation = function (source) {
+        var _this = this;
+        var candidatePath = this.getCurrentKey();
+        this.mpInstance.Logger.verbose("mParticle APV: [detect] navigation signal (source: ".concat(source, ", candidatePath: ").concat(candidatePath, ", lastPath: ").concat(this.lastPath, ")"));
+        if (candidatePath === this.lastPath) {
+          this.mpInstance.Logger.verbose("mParticle APV: [dedupe] pathname unchanged, skipping (source: ".concat(source, ", path: ").concat(candidatePath, ")"));
+          return;
+        }
+        this.mpInstance.Logger.verbose("mParticle APV: [accept] pathname changed, scheduling fire (source: ".concat(source, ", from: ").concat(this.lastPath, ", to: ").concat(candidatePath, ")"));
+        this.lastPath = candidatePath;
+        // Snapshot the path now: it is already settled at this point, and a
+        // same-tick navigation would otherwise overwrite window.location
+        // before the deferred flush reads it. The title is intentionally read
+        // later (in the deferred flush) so the router's post-navigation render
+        // commit has a chance to update document.title first.
+        var capturedPath = candidatePath;
+        setTimeout(function () {
+          if (!_this.isActive) {
+            _this.mpInstance.Logger.verbose('mParticle APV: [defer] fire aborted, tracker inactive (torn down before flush)');
+            return;
+          }
+          _this.mpInstance._SessionManager.resetSessionTimer();
+          _this.firePageView(capturedPath);
+        }, 0);
+      };
+      // Mirrors the event shape of the public mParticle.logPageView(), but carries
+      // the captured SPA path rather than reading the live location.
+      PageViewTracker.prototype.firePageView = function (path) {
+        var title = window.document.title;
+        this.mpInstance.Logger.verbose("mParticle APV: [fire] deferred flush -> _Events.logEvent(PageView) (path: ".concat(path, ", title: ").concat(title, ")"));
+        this.mpInstance._Events.logEvent({
+          messageType: MessageType$1.PageView,
+          name: 'PageView',
+          data: {
+            hostname: window.location.hostname,
+            title: title,
+            path: path
+          },
+          eventType: EventType.Unknown
+        });
+      };
+      PageViewTracker.prototype.teardown = function () {
+        if (this.popStateListener) {
+          window.removeEventListener('popstate', this.popStateListener);
+          this.popStateListener = null;
+        }
+        var pushStateStillOurs = this.pushStateWrapper !== null && window.history.pushState === this.pushStateWrapper;
+        if (this.originalPushState) {
+          if (pushStateStillOurs) {
+            window.history.pushState = this.originalPushState;
+            this.mpInstance.Logger.verbose('mParticle APV: [teardown] restored original pushState');
+          } else {
+            this.mpInstance.Logger.verbose('mParticle APV: [teardown] pushState no longer ours; leaving in place, gating callback to no-op');
+          }
+          this.originalPushState = null;
+          this.pushStateWrapper = null;
+        }
+        var replaceStateStillOurs = this.replaceStateWrapper !== null && window.history.replaceState === this.replaceStateWrapper;
+        if (this.originalReplaceState) {
+          if (replaceStateStillOurs) {
+            window.history.replaceState = this.originalReplaceState;
+            this.mpInstance.Logger.verbose('mParticle APV: [teardown] restored original replaceState');
+          } else {
+            this.mpInstance.Logger.verbose('mParticle APV: [teardown] replaceState no longer ours; leaving in place, gating callback to no-op');
+          }
+          this.originalReplaceState = null;
+          this.replaceStateWrapper = null;
+        }
+        this.isActive = false;
+      };
+      return PageViewTracker;
+    }();
+
     var Messages = Constants.Messages,
       HTTPCodes = Constants.HTTPCodes,
       FeatureFlags = Constants.FeatureFlags,
@@ -12225,6 +12407,12 @@ var mParticle = (function () {
         mpInstance._Events.logAST();
         if (getFeatureFlag(AutoLogPageView)) {
           mpInstance._Events.logPageView();
+          if (!mpInstance._PageViewTracker) {
+            mpInstance._PageViewTracker = new PageViewTracker(mpInstance);
+          }
+          mpInstance._PageViewTracker.init();
+        } else if (mpInstance._PageViewTracker) {
+          mpInstance._PageViewTracker.teardown();
         }
         processIdentityCallback(mpInstance, currentUser, currentUserMPID, currentUserIdentities);
       }
