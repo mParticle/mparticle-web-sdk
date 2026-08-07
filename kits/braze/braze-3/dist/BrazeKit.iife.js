@@ -1,3 +1,4 @@
+console.info('[mParticle QA kit path smoke] Loaded kits/braze/braze-3/dist/BrazeKit.iife.js from monorepo GitHub path');
 var mpBrazeKitV3 = (function (exports) {
 	var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 

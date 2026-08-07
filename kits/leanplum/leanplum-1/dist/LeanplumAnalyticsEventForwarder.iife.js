@@ -1,3 +1,4 @@
+console.info('[mParticle QA kit path smoke] Loaded kits/leanplum/leanplum-1/dist/LeanplumAnalyticsEventForwarder.iife.js from monorepo GitHub path');
 var mpLeanplumKit = (function (exports) {
   /*!
    * isobject <https://github.com/jonschlinkert/isobject>

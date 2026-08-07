@@ -1,3 +1,4 @@
+console.info('[mParticle QA kit path smoke] Loaded kits/inspectlet/dist/Inspectlet.iife.js from monorepo GitHub path');
 var mpInspectletKit = (function (exports) {
   /*!
    * isobject <https://github.com/jonschlinkert/isobject>

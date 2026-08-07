@@ -1,3 +1,4 @@
+console.info('[mParticle QA kit path smoke] Loaded kits/facebook/dist/FacebookEventForwarder.iife.js from monorepo GitHub path');
 var mpFacebookKit = (function (exports) {
   /*!
    * isobject <https://github.com/jonschlinkert/isobject>

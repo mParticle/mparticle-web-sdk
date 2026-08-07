@@ -1,3 +1,4 @@
+console.info('[mParticle QA kit path smoke] Loaded kits/id5/id5-1/dist/ID5Kit.iife.js from monorepo GitHub path');
 var ID5Kit = (function (exports) {
 	'use strict';
 
