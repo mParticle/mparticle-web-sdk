@@ -9,7 +9,6 @@ import {
     IUserAttributeChangeEvent,
     IUserIdentityChangeEvent,
     IMParticleUser,
-    mParticleUserCart,
     IIdentityResponse,
 } from './identity-user-interfaces';
 import { IdentitySearchCallback } from './identity/search';
@@ -295,9 +294,4 @@ export interface IIdentity {
         user: IMParticleUser,
         method: IdentityAPIMethod
     ): void;
-
-    /**
-     * @deprecated
-     */
-    mParticleUserCart(): mParticleUserCart;
 }

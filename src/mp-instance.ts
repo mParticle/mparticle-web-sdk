@@ -57,7 +57,6 @@ import CookieConsentManager, { ICookieConsentManager } from './cookieConsentMana
 import { ErrorReportingDispatcher } from './reporting/errorReportingDispatcher';
 import { LoggingDispatcher } from './reporting/loggingDispatcher';
 import { IErrorReportingService, ILoggingService } from './reporting/types';
-import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
 import { normalizeRoktLauncherOptions } from './roktLauncherOptions';
 import {
     hasInitialPageViewFired,
@@ -781,78 +780,6 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
      */
     this.eCommerce = {
         /**
-         * Invoke these methods on the mParticle.eCommerce.Cart object.
-         * Example: mParticle.eCommerce.Cart.add(...)
-         * @class mParticle.eCommerce.Cart
-         * @deprecated
-         */
-        Cart: {
-            /**
-             * Adds a product to the cart
-             * @method add
-             * @param {Object} product The product you want to add to the cart
-             * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
-             * @deprecated
-             */
-            add: function(product, logEventBoolean) {
-                logDeprecatedMethodUsage(
-                    {
-                        methodName: 'mPInstance.eCommerce.Cart.add()',
-                        warningMessage: generateDeprecationMessage(
-                            'eCommerce.Cart.add()',
-                            true,
-                            'eCommerce.logProductAction()',
-                            'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                        ),
-                    },
-                    self.Logger,
-                    self._ErrorReportingDispatcher
-                );
-            },
-            /**
-             * Removes a product from the cart
-             * @method remove
-             * @param {Object} product The product you want to add to the cart
-             * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
-             * @deprecated
-             */
-            remove: function(product, logEventBoolean) {
-                logDeprecatedMethodUsage(
-                    {
-                        methodName: 'mPInstance.eCommerce.Cart.remove()',
-                        warningMessage: generateDeprecationMessage(
-                            'eCommerce.Cart.remove()',
-                            true,
-                            'eCommerce.logProductAction()',
-                            'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                        ),
-                    },
-                    self.Logger,
-                    self._ErrorReportingDispatcher
-                );
-            },
-            /**
-             * Clears the cart
-             * @method clear
-             * @deprecated
-             */
-            clear: function() {
-                logDeprecatedMethodUsage(
-                    {
-                        methodName: 'mPInstance.eCommerce.Cart.clear()',
-                        warningMessage: generateDeprecationMessage(
-                            'eCommerce.Cart.clear()',
-                            true,
-                            '',
-                            'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                        ),
-                    },
-                    self.Logger,
-                    self._ErrorReportingDispatcher
-                );
-            },
-        },
-        /**
          * Sets the currency code
          * @for mParticle.eCommerce
          * @method setCurrencyCode
@@ -968,42 +895,6 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             );
         },
         /**
-         * Logs a checkout action
-         * @for mParticle.eCommerce
-         * @method logCheckout
-         * @param {Number} step checkout step number
-         * @param {String} checkout option string
-         * @param {Object} attrs
-         * @param {Object} [customFlags] Custom flags for the event
-         * @deprecated
-         */
-        logCheckout: function(step, option, attrs, customFlags) {
-            logDeprecatedMethodUsage(
-                {
-                    methodName: 'mParticle.logCheckout',
-                    warningMessage: 'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead',
-                },
-                self.Logger,
-                self._ErrorReportingDispatcher
-            );
-
-            if (!self._Store.isInitialized) {
-                self.ready(function() {
-                    self.eCommerce.logCheckout(
-                        step,
-                        option,
-                        attrs,
-                        customFlags
-                    );
-                });
-
-                return;
-            }
-
-            self._SessionManager.resetSessionTimer();
-            self._Events.logCheckoutEvent(step, option, attrs, customFlags);
-        },
-        /**
          * Logs a product action
          * @for mParticle.eCommerce
          * @method logProductAction
@@ -1054,7 +945,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
          * @param {Boolean} [clearCart] boolean to clear the cart after logging or not. Defaults to false
          * @param {Object} [attrs] other attributes related to the product purchase
          * @param {Object} [customFlags] Custom flags for the event
-         * @deprecated
+         * @deprecated Use `logProductAction` with `ProductActionType.Purchase` instead.
          */
         logPurchase: function(
             transactionAttributes,
@@ -1066,7 +957,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             logDeprecatedMethodUsage(
                 {
                     methodName: 'mParticle.logPurchase',
-                    warningMessage: 'mParticle.logPurchase is deprecated, please use mParticle.logProductAction instead',
+                    warningMessage: 'mParticle.logPurchase is deprecated, please use mParticle.logProductAction with ProductActionType.Purchase instead',
                 },
                 self.Logger,
                 self._ErrorReportingDispatcher
@@ -1160,52 +1051,6 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 attrs,
                 customFlags,
                 eventOptions
-            );
-        },
-        /**
-         * Logs a refund
-         * @for mParticle.eCommerce
-         * @method logRefund
-         * @param {Object} transactionAttributes transaction attributes related to the refund
-         * @param {Object} product product being refunded
-         * @param {Boolean} [clearCart] boolean to clear the cart after refund is logged. Defaults to false.
-         * @param {Object} [attrs] attributes related to the refund
-         * @param {Object} [customFlags] Custom flags for the event
-         * @deprecated
-         */
-        logRefund: function(
-            transactionAttributes,
-            product,
-            clearCart,
-            attrs,
-            customFlags
-        ) {
-            logDeprecatedMethodUsage(
-                {
-                    methodName: 'mParticle.logRefund',
-                    warningMessage: 'mParticle.logRefund is deprecated, please use mParticle.logProductAction instead',
-                },
-                self.Logger,
-                self._ErrorReportingDispatcher
-            );
-            if (!self._Store.isInitialized) {
-                self.ready(function() {
-                    self.eCommerce.logRefund(
-                        transactionAttributes,
-                        product,
-                        clearCart,
-                        attrs,
-                        customFlags
-                    );
-                });
-                return;
-            }
-            self._SessionManager.resetSessionTimer();
-            self._Events.logRefundEvent(
-                transactionAttributes,
-                product,
-                attrs,
-                customFlags
             );
         },
         expandCommerceEvent: function(event) {

@@ -337,21 +337,6 @@ export default function Ecommerce(
         }
     };
 
-    this.buildProductList = function(
-        event: SDKEvent,
-        product: SDKProduct | SDKProduct[]
-    ): SDKProduct[] {
-        if (product) {
-            if (Array.isArray(product)) {
-                return product;
-            }
-
-            return [product];
-        }
-
-        return event.ShoppingCart.ProductList;
-    };
-
     this.createProduct = function(
         name: string,
         sku: string | number,
@@ -665,7 +650,6 @@ export default function Ecommerce(
             baseEvent.EventName = 'eCommerce - ';
 
             baseEvent.CurrencyCode = mpInstance._Store.currencyCode;
-            baseEvent.ShoppingCart = [];
             baseEvent.CustomFlags = extend(baseEvent.CustomFlags, customFlags);
 
             return baseEvent;

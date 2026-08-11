@@ -164,33 +164,6 @@ export default function Events(
         });
     };
 
-    this.logCheckoutEvent = function(
-        step: number,
-        option?: string,
-        attrs?: SDKEventAttrs,
-        customFlags?: SDKEventCustomFlags
-    ): void {
-        const event = mpInstance._Ecommerce.createCommerceEventObject(
-            customFlags
-        );
-
-        if (event) {
-            event.EventName += mpInstance._Ecommerce.getProductActionEventName(
-                Types.ProductActionType.Checkout
-            );
-            event.EventCategory = Types.CommerceEventType.ProductCheckout;
-            event.ProductAction = {
-                ProductActionType: Types.ProductActionType
-                    .Checkout as SDKProductActionType,
-                CheckoutStep: step,
-                CheckoutOptions: option,
-                ProductList: [],
-            };
-
-            self.logCommerceEvent(event, attrs);
-        }
-    };
-
     this.logProductActionEvent = function(
         productActionType: valueof<typeof ProductActionType>,
         product: SDKProduct | SDKProduct[],
@@ -287,49 +260,8 @@ export default function Events(
             event.ProductAction = {
                 ProductActionType: Types.ProductActionType
                     .Purchase as SDKProductActionType,
+                ProductList: Array.isArray(product) ? product : [product],
             };
-            event.ProductAction.ProductList = mpInstance._Ecommerce.buildProductList(
-                event,
-                product
-            );
-
-            mpInstance._Ecommerce.convertTransactionAttributesToProductAction(
-                transactionAttributes,
-                event.ProductAction
-            );
-
-            self.logCommerceEvent(event, attrs);
-        }
-    };
-
-    this.logRefundEvent = function(
-        transactionAttributes: TransactionAttributes,
-        product: SDKProduct | SDKProduct[],
-        attrs?: SDKEventAttrs,
-        customFlags?: SDKEventCustomFlags
-    ): void {
-        if (!transactionAttributes) {
-            mpInstance.Logger.error(Messages.ErrorMessages.TransactionRequired);
-            return;
-        }
-
-        const event = mpInstance._Ecommerce.createCommerceEventObject(
-            customFlags
-        );
-
-        if (event) {
-            event.EventName += mpInstance._Ecommerce.getProductActionEventName(
-                Types.ProductActionType.Refund
-            );
-            event.EventCategory = Types.CommerceEventType.ProductRefund;
-            event.ProductAction = {
-                ProductActionType: Types.ProductActionType
-                    .Refund as SDKProductActionType,
-            };
-            event.ProductAction.ProductList = mpInstance._Ecommerce.buildProductList(
-                event,
-                product
-            );
 
             mpInstance._Ecommerce.convertTransactionAttributesToProductAction(
                 transactionAttributes,
