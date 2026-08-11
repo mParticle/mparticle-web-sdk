@@ -958,7 +958,9 @@ describe('eCommerce', function() {
         mParticle.eCommerce.logProductAction(
             mParticle.ProductActionType.Checkout,
             product,
-            eventAttributes
+            eventAttributes,
+            null,
+            { Step: 4, Option: 'Visa' }
         );
         window.MockForwarder1.instance.receivedEvent.should.have.property(
             'ProductAction'
@@ -979,6 +981,8 @@ describe('eCommerce', function() {
         );
         const attributes = productEvent.EventAttributes;
 
+        attributes.should.have.property('Checkout Step', 4);
+        attributes.should.have.property('Checkout Options', 'Visa');
         attributes.should.have.property('Coupon Code', 'foo-productcouponcode');
         attributes.should.have.property('Brand', 'foo-brand');
         attributes.should.have.property('Category', 'foo-category');
