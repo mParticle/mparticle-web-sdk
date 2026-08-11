@@ -56,6 +56,7 @@ describe('mParticle stubs', function() {
         mParticle.eCommerce.logImpression();
         mParticle.eCommerce.logProductAction();
         mParticle.eCommerce.logPromotion();
+        mParticle.eCommerce.logPurchase();
         mParticle.eCommerce.setCurrencyCode();
 
         done();
