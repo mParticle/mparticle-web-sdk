@@ -86,7 +86,6 @@ export interface SDKEvent {
     ProductAction?: SDKProductAction;
     PromotionAction?: SDKPromotionAction;
     ProductImpressions?: SDKProductImpression[];
-    ShoppingCart?: SDKShoppingCart;
     UserIdentityChanges?: ISDKUserIdentityChanges;
     UserAttributeChanges?: ISDKUserAttributeChangeData;
     CurrencyCode: string;
@@ -108,10 +107,6 @@ export interface SDKGeoLocation {
 export interface SDKDataPlan {
     PlanVersion?: number | null;
     PlanId?: string | null;
-}
-
-export interface SDKShoppingCart {
-    ProductList?: SDKProduct[];
 }
 
 export interface SDKPromotionAction {
@@ -337,7 +332,6 @@ export interface SDKInitConfig
     identityUrl?: string;
     integrationDelayTimeout?: number;
     isIOS?: boolean;
-    maxProducts?: number;
     requestConfig?: boolean;
     sessionTimeout?: number;
     useNativeSdk?: boolean;
