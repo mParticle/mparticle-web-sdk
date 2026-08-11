@@ -932,7 +932,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
          * @param {Boolean} [clearCart] boolean to clear the cart after logging or not. Defaults to false
          * @param {Object} [attrs] other attributes related to the product purchase
          * @param {Object} [customFlags] Custom flags for the event
-         * @deprecated
+         * @deprecated Use `logProductAction` with `ProductActionType.Purchase` instead.
          */
         logPurchase: function(
             transactionAttributes,
@@ -944,7 +944,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             logDeprecatedMethodUsage(
                 {
                     methodName: 'mParticle.logPurchase',
-                    warningMessage: 'mParticle.logPurchase is deprecated, please use mParticle.logProductAction instead',
+                    warningMessage: 'mParticle.logPurchase is deprecated, please use mParticle.logProductAction with ProductActionType.Purchase instead',
                 },
                 self.Logger,
                 self._ErrorReportingDispatcher

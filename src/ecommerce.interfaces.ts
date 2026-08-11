@@ -82,8 +82,8 @@ export interface SDKECommerceAPI extends IECommerceShared {
     ): void;
     setCurrencyCode(code: string): void;
 
-    /*
-     * @deprecated
+    /**
+     * @deprecated Use `logProductAction` with `ProductActionType.Purchase` instead.
      */
     logPurchase(
         transactionAttributes: TransactionAttributes,
