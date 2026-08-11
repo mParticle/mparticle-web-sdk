@@ -81,6 +81,17 @@ export interface SDKECommerceAPI extends IECommerceShared {
         eventOptions?: SDKEventOptions
     ): void;
     setCurrencyCode(code: string): void;
+
+    /*
+     * @deprecated
+     */
+    logPurchase(
+        transactionAttributes: TransactionAttributes,
+        product: SDKProduct | SDKProduct[],
+        clearCart?: boolean,
+        attrs?: SDKEventAttrs,
+        customFlags?: SDKEventCustomFlags
+    ): void;
 }
 
 interface ExtractedActionAttributes {

@@ -272,6 +272,21 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
                 eventOptions
             );
         },
+        logPurchase: function(
+            transactionAttributes,
+            product,
+            clearCart,
+            attrs,
+            customFlags
+        ) {
+            self.getInstance().eCommerce.logPurchase(
+                transactionAttributes,
+                product,
+                clearCart,
+                attrs,
+                customFlags
+            );
+        },
         logPromotion: function(
             type,
             promotion,

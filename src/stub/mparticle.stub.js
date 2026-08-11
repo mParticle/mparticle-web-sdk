@@ -37,6 +37,7 @@ let mParticle = {
         logImpression: voidFunction,
         logProductAction: voidFunction,
         logPromotion: voidFunction,
+        logPurchase: voidFunction,
         setCurrencyCode: voidFunction,
     },
     Consent: {

@@ -56,6 +56,7 @@ import { ErrorReportingDispatcher } from './reporting/errorReportingDispatcher';
 import { LoggingDispatcher } from './reporting/loggingDispatcher';
 import { IErrorReportingService, ILoggingService } from './reporting/types';
 import { normalizeRoktLauncherOptions } from './roktLauncherOptions';
+import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -920,6 +921,56 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 customFlags,
                 transactionAttributes,
                 eventOptions
+            );
+        },
+        /**
+         * Logs a product purchase
+         * @for mParticle.eCommerce
+         * @method logPurchase
+         * @param {Object} transactionAttributes transactionAttributes object
+         * @param {Object} product the product being purchased
+         * @param {Boolean} [clearCart] boolean to clear the cart after logging or not. Defaults to false
+         * @param {Object} [attrs] other attributes related to the product purchase
+         * @param {Object} [customFlags] Custom flags for the event
+         * @deprecated
+         */
+        logPurchase: function(
+            transactionAttributes,
+            product,
+            clearCart,
+            attrs,
+            customFlags
+        ) {
+            logDeprecatedMethodUsage(
+                {
+                    methodName: 'mParticle.logPurchase',
+                    warningMessage: 'mParticle.logPurchase is deprecated, please use mParticle.logProductAction instead',
+                },
+                self.Logger,
+                self._ErrorReportingDispatcher
+            );
+            if (!self._Store.isInitialized) {
+                self.ready(function() {
+                    self.eCommerce.logPurchase(
+                        transactionAttributes,
+                        product,
+                        clearCart,
+                        attrs,
+                        customFlags
+                    );
+                });
+                return;
+            }
+            if (!transactionAttributes || !product) {
+                self.Logger.error(Messages.ErrorMessages.BadLogPurchase);
+                return;
+            }
+            self._SessionManager.resetSessionTimer();
+            self._Events.logPurchaseEvent(
+                transactionAttributes,
+                product,
+                attrs,
+                customFlags
             );
         },
         /**

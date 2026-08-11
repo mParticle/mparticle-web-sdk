@@ -111,6 +111,35 @@ export default function Events(mpInstance) {
         });
     };
 
+    this.logPurchaseEvent = function(
+        transactionAttributes,
+        product,
+        attrs,
+        customFlags
+    ) {
+        var event = mpInstance._Ecommerce.createCommerceEventObject(
+            customFlags
+        );
+
+        if (event) {
+            event.EventName += mpInstance._Ecommerce.getProductActionEventName(
+                Types.ProductActionType.Purchase
+            );
+            event.EventCategory = Types.CommerceEventType.ProductPurchase;
+            event.ProductAction = {
+                ProductActionType: Types.ProductActionType.Purchase,
+                ProductList: Array.isArray(product) ? product : [product],
+            };
+
+            mpInstance._Ecommerce.convertTransactionAttributesToProductAction(
+                transactionAttributes,
+                event.ProductAction
+            );
+
+            self.logCommerceEvent(event, attrs);
+        }
+    };
+
     this.logProductActionEvent = function(
         productActionType,
         product,
