@@ -433,22 +433,6 @@ export function convertImpressions(
     return impressions;
 }
 
-export function convertShoppingCart(
-    sdkEvent: SDKEvent
-): EventsApi.ShoppingCart | null {
-    if (
-        !sdkEvent.ShoppingCart ||
-        !sdkEvent.ShoppingCart.ProductList ||
-        !sdkEvent.ShoppingCart.ProductList.length
-    ) {
-        return null;
-    }
-    const shoppingCart: EventsApi.ShoppingCart = {
-        products: convertProducts(sdkEvent.ShoppingCart.ProductList),
-    };
-    return shoppingCart;
-}
-
 export function convertCommerceEvent(
     sdkEvent: SDKEvent
 ): EventsApi.CommerceEvent {
@@ -460,7 +444,6 @@ export function convertCommerceEvent(
         product_action: convertProductAction(sdkEvent),
         promotion_action: convertPromotionAction(sdkEvent),
         product_impressions: convertImpressions(sdkEvent),
-        shopping_cart: convertShoppingCart(sdkEvent),
         currency_code: sdkEvent.CurrencyCode,
     };
 

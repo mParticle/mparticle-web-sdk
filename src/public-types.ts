@@ -67,7 +67,6 @@ export type {
 // eCommerce
 export type {
     SDKECommerceAPI,
-    SDKCart,
 } from './ecommerce.interfaces';
 
 export type {
