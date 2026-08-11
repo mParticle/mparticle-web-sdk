@@ -9,7 +9,6 @@ import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
 import { IMParticleUser } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
-import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
 
 const { CCPAPurpose } = Constants;
 
