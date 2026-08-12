@@ -237,30 +237,13 @@ const createCookieSyncUrl = (
 };
 
 // Google's cookie matching service requires `google_hm` values to be web-safe
-// base64 (RFC 4648 §5) without padding (e.g. `MTIzNDU2` for '123456'), otherwise
-// the write to the hosted match table fails with a decode error:
-// https://developers.google.com/authorized-buyers/rtb/cookie-guide
-// Swaps characters in a single pass; String#replaceAll is not available in our
-// ES5 browser targets, and the padding length is derived arithmetically so no
-// regex scan is needed.
-const WEB_SAFE_BASE64_REPLACEMENTS: Dictionary<string> = {
-    '+': '-',
-    '/': '_',
-};
-
-const toWebSafeBase64 = (value: string): string => {
-    const base64 = btoa(value);
-    const paddingLength = (3 - (value.length % 3)) % 3;
-    const unpaddedLength = base64.length - paddingLength;
-    const webSafeChars: string[] = [];
-
-    for (let i = 0; i < unpaddedLength; i++) {
-        const char = base64.charAt(i);
-        webSafeChars.push(WEB_SAFE_BASE64_REPLACEMENTS[char] || char);
-    }
-
-    return webSafeChars.join('');
-};
+// base64 (RFC 4648 §5) without padding, otherwise the write to the hosted
+// match table fails: https://developers.google.com/authorized-buyers/rtb/cookie-guide
+// (String#replaceAll is not available in our ES5 browser targets.)
+const toWebSafeBase64 = (value: string): string =>
+    btoa(value).replace(/[+/=]/g, c =>
+        c === '+' ? '-' : c === '/' ? '_' : ''
+    );
 
 // FIXME: REFACTOR for V3
 // only used in store.js to sanitize server-side formatting of

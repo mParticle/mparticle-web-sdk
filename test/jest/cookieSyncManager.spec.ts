@@ -878,6 +878,11 @@ describe('CookieSyncManager', () => {
                     'https://cm.g.doubleclick.net/pixel?google_nid=abc123',
                 ],
                 [
+                    "is 'True' (server contract)",
+                    { enableHmTag: 'True' },
+                    'https://cm.g.doubleclick.net/pixel?google_nid=abc123&google_hm=dGVzdE1QSUQ',
+                ],
+                [
                     "is 'true' (case-insensitive)",
                     { enableHmTag: 'true' },
                     'https://cm.g.doubleclick.net/pixel?google_nid=abc123&google_hm=dGVzdE1QSUQ',
