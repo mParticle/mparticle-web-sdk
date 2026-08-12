@@ -1,10 +1,5 @@
 import Constants, { HTTP_ACCEPTED, HTTP_BAD_REQUEST, HTTP_OK, HTTP_SERVER_ERROR } from './constants';
-import {
-    AsyncUploader,
-    FetchUploader,
-    XHRUploader,
-    IFetchPayload,
-} from './uploaders';
+import { AsyncUploader, FetchUploader, XHRUploader, IFetchPayload } from './uploaders';
 import { CACHE_HEADER } from './identity-utils';
 import { obfuscateData, parseNumber, valueof, getErrorMessage } from './utils';
 import {
@@ -14,16 +9,8 @@ import {
     IIdentity,
     IIdentityAPIRequestData,
 } from './identity.interfaces';
-import {
-    IdentityApiData,
-    MPID,
-    UserIdentities,
-} from '@mparticle/web-sdk';
-import {
-    IdentityCallback,
-    IdentityResultBody,
-    IIdentityResponse,
-} from './identity-user-interfaces';
+import { IdentityApiData, MPID, UserIdentities } from '@mparticle/web-sdk';
+import { IdentityCallback, IdentityResultBody, IIdentityResponse } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { ErrorCodes, WSDKErrorSeverity } from './reporting/types';
 
@@ -32,10 +19,7 @@ const { HTTPCodes, Messages, IdentityMethods } = Constants;
 const { Modify } = IdentityMethods;
 
 export interface IIdentityApiClient {
-    sendAliasRequest: (
-        aliasRequest: IAliasRequest,
-        aliasCallback: IAliasCallback
-    ) => Promise<void>;
+    sendAliasRequest: (aliasRequest: IAliasRequest, aliasCallback: IAliasCallback) => Promise<void>;
     sendIdentityRequest: (
         identityApiRequest: IIdentityAPIRequestData,
         method: IdentityAPIMethod,
@@ -43,13 +27,10 @@ export interface IIdentityApiClient {
         originalIdentityApiData: IdentityApiData,
         parseIdentityResponse: IIdentity['parseIdentityResponse'],
         mpid: MPID,
-        knownIdentities: UserIdentities
+        knownIdentities: UserIdentities,
     ) => Promise<void>;
     getUploadUrl: (method: IdentityAPIMethod, mpid: MPID) => string;
-    getIdentityResponseFromFetch: (
-        response: Response,
-        responseBody: IdentityResultBody
-    ) => IIdentityResponse;
+    getIdentityResponseFromFetch: (response: Response, responseBody: IdentityResultBody) => IIdentityResponse;
     getIdentityResponseFromXHR: (response: XMLHttpRequest) => IIdentityResponse;
 }
 
@@ -72,8 +53,8 @@ interface IdentityApiError {
 }
 
 interface IdentityApiErrorResponse {
-    Errors: IdentityApiError[],
-    ErrorCode: string,
+    Errors: Array<IdentityApiError>;
+    ErrorCode: string;
     StatusCode: valueof<HTTP_STATUS_CODES>;
     RequestId: string;
 }
@@ -81,14 +62,8 @@ interface IdentityApiErrorResponse {
 // All Identity Api Responses have the same structure, except for Alias
 interface IAliasErrorResponse extends IdentityApiError {}
 
-export default function IdentityAPIClient(
-    this: IIdentityApiClient,
-    mpInstance: IMParticleWebSDKInstance
-) {
-    this.sendAliasRequest = async function(
-        aliasRequest: IAliasRequest,
-        aliasCallback: IAliasCallback
-    ) {
+export default function IdentityAPIClient(this: IIdentityApiClient, mpInstance: IMParticleWebSDKInstance) {
+    this.sendAliasRequest = async function (aliasRequest: IAliasRequest, aliasCallback: IAliasCallback) {
         const { Logger } = mpInstance;
         const { invokeAliasCallback } = mpInstance._Helpers;
         const { aliasUrl } = mpInstance._Store.SDKConfig;
@@ -98,9 +73,7 @@ export default function IdentityAPIClient(
 
         // https://go.mparticle.com/work/SQDSDKS-6750
         const uploadUrl = `https://${aliasUrl}${apiKey}/Alias`;
-        const uploader: AsyncUploader = window.fetch
-            ? new FetchUploader(uploadUrl)
-            : new XHRUploader(uploadUrl);
+        const uploader: AsyncUploader = window.fetch ? new FetchUploader(uploadUrl) : new XHRUploader(uploadUrl);
 
         // https://go.mparticle.com/work/SQDSDKS-6568
         const uploadPayload: IFetchPayload = {
@@ -127,7 +100,7 @@ export default function IdentityAPIClient(
                     message = 'Received Alias Response from server: ' + JSON.stringify(response.status);
                     break;
 
-                // Our Alias Request API will 400 if there is an issue with the request body (ie timestamps are too far 
+                // Our Alias Request API will 400 if there is an issue with the request body (ie timestamps are too far
                 // in the past or MPIDs don't exist).
                 // A 400 will return an error in the response body and will go through the happy path to report the error
                 case HTTP_BAD_REQUEST:
@@ -142,11 +115,9 @@ export default function IdentityAPIClient(
                     } else {
                         // https://go.mparticle.com/work/SQDSDKS-6568
                         // XHRUploader returns the response as a string that we need to parse
-                        const xhrResponse = (response as unknown) as XMLHttpRequest;
-        
-                        aliasResponseBody = xhrResponse.responseText
-                            ? JSON.parse(xhrResponse.responseText)
-                            : '';
+                        const xhrResponse = response as unknown as XMLHttpRequest;
+
+                        aliasResponseBody = xhrResponse.responseText ? JSON.parse(xhrResponse.responseText) : '';
                     }
 
                     const errorResponse: IAliasErrorResponse = aliasResponseBody as unknown as IAliasErrorResponse;
@@ -158,18 +129,17 @@ export default function IdentityAPIClient(
                     message =
                         'Issue with sending Alias Request to mParticle Servers, received HTTP Code of ' +
                         response.status;
-                    
+
                     if (errorResponse?.code) {
                         message += ' - ' + errorResponse.code;
                     }
 
                     break;
-                    
+
                 // Any unhandled errors, such as 500 or 429, will be caught here as well
                 default: {
                     throw new Error('Received HTTP Code of ' + response.status);
                 }
-
             }
 
             Logger.verbose(message);
@@ -177,29 +147,25 @@ export default function IdentityAPIClient(
         } catch (e) {
             const errorMessage = getErrorMessage(e);
             Logger.error('Error sending alias request to mParticle servers. ' + errorMessage);
-            invokeAliasCallback(
-                aliasCallback,
-                HTTPCodes.noHttpCoverage,
-                errorMessage,
-            );
+            invokeAliasCallback(aliasCallback, HTTPCodes.noHttpCoverage, errorMessage);
         }
     };
 
-    this.sendIdentityRequest = async function(
+    this.sendIdentityRequest = async function (
         identityApiRequest: IIdentityAPIRequestData,
         method: IdentityAPIMethod,
         callback: IdentityCallback,
         originalIdentityApiData: IdentityApiData,
         parseIdentityResponse: IIdentity['parseIdentityResponse'],
         mpid: MPID,
-        knownIdentities: UserIdentities
+        knownIdentities: UserIdentities,
     ) {
         if (mpInstance._RoktManager?.isInitialized) {
             mpInstance._Store.identifyRequestCount = (mpInstance._Store.identifyRequestCount || 0) + 1;
             const requestCount = mpInstance._Store.identifyRequestCount;
             mpInstance.captureTiming(`${requestCount}-identityRequestStart`);
         }
-        
+
         const { invokeCallback } = mpInstance._Helpers;
         const { Logger, _ErrorReportingDispatcher: errorReporter } = mpInstance;
         Logger.verbose(Messages.InformationMessages.SendIdentityBegin);
@@ -213,7 +179,7 @@ export default function IdentityAPIClient(
             invokeCallback(
                 callback,
                 HTTPCodes.activeIdentityRequest,
-                'There is currently an Identity request processing. Please wait for this to return before requesting again'
+                'There is currently an Identity request processing. Please wait for this to return before requesting again',
             );
             return;
         }
@@ -221,9 +187,7 @@ export default function IdentityAPIClient(
         const previousMPID = mpid || null;
         const uploadUrl = this.getUploadUrl(method, mpid);
 
-        const uploader: AsyncUploader = window.fetch
-            ? new FetchUploader(uploadUrl)
-            : new XHRUploader(uploadUrl);
+        const uploader: AsyncUploader = window.fetch ? new FetchUploader(uploadUrl) : new XHRUploader(uploadUrl);
 
         // https://go.mparticle.com/work/SQDSDKS-6568
         const fetchPayload: IdentityApiRequestPayload = {
@@ -246,37 +210,33 @@ export default function IdentityAPIClient(
             switch (response.status) {
                 case HTTP_ACCEPTED:
                 case HTTP_OK:
-
-                // Our Identity API will return a 400 error if there is an issue with the requeest body
-                // such as if the body is empty or one of the attributes is missing or malformed
-                // A 400 will return an error in the response body and will go through the happy path to report the error
                 case HTTP_BAD_REQUEST:
-                        
+                    // Our Identity API will return a 400 error if there is an issue with the requeest body
+                    // such as if the body is empty or one of the attributes is missing or malformed
+                    // A 400 will return an error in the response body and will go through the happy path to report the error
+
                     // FetchUploader returns the response as a JSON object that we have to await
                     if (response.json) {
                         // https://go.mparticle.com/work/SQDSDKS-6568
                         // FetchUploader returns the response as a JSON object that we have to await
                         const responseBody: IdentityResultBody = await response.json();
 
-                        identityResponse = this.getIdentityResponseFromFetch(
-                            response,
-                            responseBody
-                        );
+                        identityResponse = this.getIdentityResponseFromFetch(response, responseBody);
                     } else {
-                        identityResponse = this.getIdentityResponseFromXHR(
-                            (response as unknown) as XMLHttpRequest
-                        );
+                        identityResponse = this.getIdentityResponseFromXHR(response as unknown as XMLHttpRequest);
                     }
 
                     if (identityResponse.status === HTTP_BAD_REQUEST) {
-                        const errorResponse: IdentityApiErrorResponse = identityResponse.responseText as unknown as IdentityApiErrorResponse;
-                        message = 'Issue with sending Identity Request to mParticle Servers, received HTTP Code of ' + identityResponse.status;
+                        const errorResponse: IdentityApiErrorResponse =
+                            identityResponse.responseText as unknown as IdentityApiErrorResponse;
+                        message =
+                            'Issue with sending Identity Request to mParticle Servers, received HTTP Code of ' +
+                            identityResponse.status;
 
                         if (errorResponse?.Errors) {
                             const errorMessage = errorResponse.Errors.map((error) => error.message).join(', ');
                             message += ' - ' + errorMessage;
                         }
-
                     } else if (Logger.isVerbose()) {
                         const responseText = identityResponse.responseText;
                         const { isDevelopmentMode } = mpInstance._Store.SDKConfig;
@@ -284,14 +244,14 @@ export default function IdentityAPIClient(
                         if (!isDevelopmentMode && responseText?.matched_identities) {
                             responseToLog = {
                                 ...responseText,
-                                matched_identities: obfuscateData(responseText.matched_identities)
+                                matched_identities: obfuscateData(responseText.matched_identities),
                             };
                         }
                         message = 'Received Identity Response from server: ' + JSON.stringify(responseToLog);
                     }
 
                     break;
-                    
+
                 // Our Identity API will return:
                 // 401 if the `x-mp-key` is incorrect or missing
                 // 403 if the there is a permission or account issue related to the `x-mp-key`
@@ -301,7 +261,7 @@ export default function IdentityAPIClient(
                     if (response.status >= HTTP_SERVER_ERROR) {
                         throw new Error('Received HTTP Code of ' + response.status);
                     }
-                    
+
                     mpInstance._Store.identityCallInFlight = false;
                     mpInstance._Store.identityCallFailed = false;
                     const errorMessage = 'Received HTTP Code of ' + response.status;
@@ -328,7 +288,7 @@ export default function IdentityAPIClient(
                 originalIdentityApiData,
                 method,
                 knownIdentities,
-                false
+                false,
             );
         } catch (err) {
             mpInstance._Store.identityCallInFlight = false;
@@ -353,38 +313,25 @@ export default function IdentityAPIClient(
     };
 
     this.getUploadUrl = (method: IdentityAPIMethod, mpid: MPID) => {
-        const uploadServiceUrl: string = mpInstance._Helpers.createServiceUrl(
-            mpInstance._Store.SDKConfig.identityUrl
-        );
+        const uploadServiceUrl: string = mpInstance._Helpers.createServiceUrl(mpInstance._Store.SDKConfig.identityUrl);
 
         const uploadUrl: string =
-            method === Modify
-                ? uploadServiceUrl + mpid + '/' + method
-                : uploadServiceUrl + method;
+            method === Modify ? uploadServiceUrl + mpid + '/' + method : uploadServiceUrl + method;
 
         return uploadUrl;
     };
 
-    this.getIdentityResponseFromFetch = (
-        response: Response,
-        responseBody: IdentityResultBody
-    ): IIdentityResponse => ({
+    this.getIdentityResponseFromFetch = (response: Response, responseBody: IdentityResultBody): IIdentityResponse => ({
         status: response.status,
         responseText: responseBody,
         cacheMaxAge: parseInt(response.headers.get(CACHE_HEADER)) || 0,
         expireTimestamp: 0,
     });
 
-    this.getIdentityResponseFromXHR = (
-        response: XMLHttpRequest
-    ): IIdentityResponse => ({
+    this.getIdentityResponseFromXHR = (response: XMLHttpRequest): IIdentityResponse => ({
         status: response.status,
-        responseText: response.responseText
-            ? JSON.parse(response.responseText)
-            : {},
-        cacheMaxAge: parseNumber(
-            response.getResponseHeader(CACHE_HEADER) || ''
-        ),
+        responseText: response.responseText ? JSON.parse(response.responseText) : {},
+        cacheMaxAge: parseNumber(response.getResponseHeader(CACHE_HEADER) || ''),
         expireTimestamp: 0,
     });
 }

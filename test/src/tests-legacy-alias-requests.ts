@@ -3,21 +3,11 @@ import { expect } from 'chai';
 import Utils from './config/utils';
 import Constants, { HTTP_ACCEPTED, HTTP_BAD_REQUEST, HTTP_OK } from '../../src/constants';
 import fetchMock from 'fetch-mock/esm/client';
-import {
-    urls,
-    apiKey,
-    testMPID,
-    MPConfig,
-    workspaceCookieName,
-} from './config/constants';
+import { urls, apiKey, testMPID, MPConfig, workspaceCookieName } from './config/constants';
 import { IAliasRequest } from '../../src/identity.interfaces';
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 
-const {
-    setCookie,
-    waitForCondition,
-    hasIdentifyReturned,
-} = Utils;
+const { setCookie, waitForCondition, hasIdentifyReturned } = Utils;
 
 const { HTTPCodes } = Constants;
 
@@ -26,16 +16,16 @@ declare global {
         mParticle: IMParticleInstanceManager;
         fetchMock: any;
     }
-}    
+}
 
 const mParticle = window.mParticle as IMParticleInstanceManager;
 
-describe('legacy Alias Requests', function() {
+describe('legacy Alias Requests', function () {
     let mockServer;
     let clock;
     const originalFetch = window.fetch;
 
-    beforeEach(function() {
+    beforeEach(function () {
         mParticle._resetForTests(MPConfig);
         delete window.fetch;
         delete mParticle.config.useCookieStorage;
@@ -48,22 +38,14 @@ describe('legacy Alias Requests', function() {
             now: new Date().getTime(),
         });
 
-        mockServer.respondWith(urls.events, [
-            HTTP_OK,
-            {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-        ]);
+        mockServer.respondWith(urls.events, [HTTP_OK, {}, JSON.stringify({ mpid: testMPID, is_logged_in: false })]);
 
-        mockServer.respondWith(urls.identify, [
-            HTTP_OK,
-            {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-        ]);
+        mockServer.respondWith(urls.identify, [HTTP_OK, {}, JSON.stringify({ mpid: testMPID, is_logged_in: false })]);
 
         mParticle.init(apiKey, window.mParticle.config);
     });
 
-    afterEach(function() {
+    afterEach(function () {
         mockServer.restore();
         fetchMock.restore();
         sinon.restore();
@@ -93,9 +75,7 @@ describe('legacy Alias Requests', function() {
         expect(requestBody['request_id']).to.not.equal(null);
         expect(requestBody['request_type']).to.equal('alias');
         expect(requestBody['environment']).to.equal('production');
-        expect(requestBody['api_key']).to.equal(
-            mParticle.getInstance()._Store.devToken
-        );
+        expect(requestBody['api_key']).to.equal(mParticle.getInstance()._Store.devToken);
         const dataBody = requestBody['data'];
         expect(dataBody).to.not.equal(null);
         expect(dataBody['destination_mpid']).to.equal('destinationMpid');
@@ -132,7 +112,7 @@ describe('legacy Alias Requests', function() {
         let warnMessage = null;
 
         mParticle.config.logger = {
-            warning: function(msg) {
+            warning: function (msg) {
                 warnMessage = msg;
             },
         };
@@ -140,42 +120,34 @@ describe('legacy Alias Requests', function() {
         let callbackResult;
 
         // intentionally missing sourceMpid
-        let aliasRequest: IAliasRequest = ({
+        let aliasRequest: IAliasRequest = {
             destinationMpid: 'destinationMpid',
             startTime: 3,
             endTime: 4,
-        } as unknown) as IAliasRequest;
+        } as unknown as IAliasRequest;
 
-        mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+        mParticle.Identity.aliasUsers(aliasRequest, function (callback) {
             callbackResult = callback;
         });
         callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
-        expect(callbackResult.message).to.equal(
-            Constants.Messages.ValidationMessages.AliasMissingMpid
-        );
-        expect(warnMessage).to.equal(
-            Constants.Messages.ValidationMessages.AliasMissingMpid
-        );
+        expect(callbackResult.message).to.equal(Constants.Messages.ValidationMessages.AliasMissingMpid);
+        expect(warnMessage).to.equal(Constants.Messages.ValidationMessages.AliasMissingMpid);
         callbackResult = null;
         warnMessage = null;
 
         // intentionally missing destinationMpid
-        aliasRequest = ({
+        aliasRequest = {
             sourceMpid: 'sourceMpid',
             startTime: 3,
             endTime: 4,
-        } as unknown) as IAliasRequest;
+        } as unknown as IAliasRequest;
 
-        mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+        mParticle.Identity.aliasUsers(aliasRequest, function (callback) {
             callbackResult = callback;
         });
         callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
-        expect(callbackResult.message).to.equal(
-            Constants.Messages.ValidationMessages.AliasMissingMpid
-        );
-        expect(warnMessage).to.equal(
-            Constants.Messages.ValidationMessages.AliasMissingMpid
-        );
+        expect(callbackResult.message).to.equal(Constants.Messages.ValidationMessages.AliasMissingMpid);
+        expect(warnMessage).to.equal(Constants.Messages.ValidationMessages.AliasMissingMpid);
         callbackResult = null;
         warnMessage = null;
 
@@ -186,17 +158,13 @@ describe('legacy Alias Requests', function() {
             startTime: 3,
             endTime: 4,
         };
-        mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+        mParticle.Identity.aliasUsers(aliasRequest, function (callback) {
             callbackResult = callback;
         });
 
         callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
-        expect(callbackResult.message).to.equal(
-            Constants.Messages.ValidationMessages.AliasNonUniqueMpid
-        );
-        expect(warnMessage).to.equal(
-            Constants.Messages.ValidationMessages.AliasNonUniqueMpid
-        );
+        expect(callbackResult.message).to.equal(Constants.Messages.ValidationMessages.AliasNonUniqueMpid);
+        expect(warnMessage).to.equal(Constants.Messages.ValidationMessages.AliasNonUniqueMpid);
         callbackResult = null;
         warnMessage = null;
 
@@ -207,35 +175,27 @@ describe('legacy Alias Requests', function() {
             startTime: 4,
             endTime: 3,
         };
-        mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+        mParticle.Identity.aliasUsers(aliasRequest, function (callback) {
             callbackResult = callback;
         });
         callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
-        expect(callbackResult.message).to.equal(
-            Constants.Messages.ValidationMessages.AliasStartBeforeEndTime
-        );
-        expect(warnMessage).to.equal(
-            Constants.Messages.ValidationMessages.AliasStartBeforeEndTime
-        );
+        expect(callbackResult.message).to.equal(Constants.Messages.ValidationMessages.AliasStartBeforeEndTime);
+        expect(warnMessage).to.equal(Constants.Messages.ValidationMessages.AliasStartBeforeEndTime);
         callbackResult = null;
         warnMessage = null;
 
         // intentionally missing endTime and startTime
-        aliasRequest = ({
+        aliasRequest = {
             destinationMpid: 'destinationMpid',
             sourceMpid: 'sourceMpid',
-        } as unknown) as IAliasRequest;
+        } as unknown as IAliasRequest;
 
-        mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+        mParticle.Identity.aliasUsers(aliasRequest, function (callback) {
             callbackResult = callback;
         });
         callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
-        expect(callbackResult.message).to.equal(
-            Constants.Messages.ValidationMessages.AliasMissingTime
-        );
-        expect(warnMessage).to.equal(
-            Constants.Messages.ValidationMessages.AliasMissingTime
-        );
+        expect(callbackResult.message).to.equal(Constants.Messages.ValidationMessages.AliasMissingTime);
+        expect(warnMessage).to.equal(Constants.Messages.ValidationMessages.AliasMissingTime);
         callbackResult = null;
         warnMessage = null;
 
@@ -249,14 +209,13 @@ describe('legacy Alias Requests', function() {
 
         mockServer.respondWith(urls.alias, [HTTP_ACCEPTED, {}, JSON.stringify({})]);
 
-        mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+        mParticle.Identity.aliasUsers(aliasRequest, function (callback) {
             callbackResult = callback;
             callbackResult.httpCode.should.equal(HTTP_ACCEPTED);
             expect(callbackResult.message).to.equal(undefined);
             expect(warnMessage).to.equal(null);
             callbackResult = null;
         });
-
     });
 
     it('should parse error info from Alias Requests', () => {
@@ -280,8 +239,8 @@ describe('legacy Alias Requests', function() {
             startTime: 3,
             endTime: 4,
         };
-        
-        mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+
+        mParticle.Identity.aliasUsers(aliasRequest, function (callback) {
             callbackResult = callback;
             callbackResult.httpCode.should.equal(HTTP_BAD_REQUEST);
             callbackResult.message.should.equal(errorMessage);
@@ -313,10 +272,7 @@ describe('legacy Alias Requests', function() {
         const destinationUser = mParticle.Identity.getCurrentUser();
         const sourceUser = mParticle.Identity.getUser('1');
 
-        const aliasRequest = mParticle.Identity.createAliasRequest(
-            sourceUser,
-            destinationUser
-        );
+        const aliasRequest = mParticle.Identity.createAliasRequest(sourceUser, destinationUser);
         expect(aliasRequest.sourceMpid).to.equal('1');
         expect(aliasRequest.destinationMpid).to.equal('2');
         expect(aliasRequest.startTime).to.equal(200);
@@ -350,10 +306,7 @@ describe('legacy Alias Requests', function() {
         const destinationUser = mParticle.Identity.getCurrentUser();
         const sourceUser = mParticle.Identity.getUser('2');
 
-        const aliasRequest = mParticle.Identity.createAliasRequest(
-            sourceUser,
-            destinationUser
-        );
+        const aliasRequest = mParticle.Identity.createAliasRequest(sourceUser, destinationUser);
         expect(aliasRequest.sourceMpid).to.equal('2');
         expect(aliasRequest.destinationMpid).to.equal('3');
         //should grab the earliest fst out of any user if user does not have fst
@@ -389,16 +342,11 @@ describe('legacy Alias Requests', function() {
         const destinationUser = mParticle.Identity.getCurrentUser();
         const sourceUser = mParticle.Identity.getUser('1');
 
-        const aliasRequest = mParticle.Identity.createAliasRequest(
-            sourceUser,
-            destinationUser
-        );
+        const aliasRequest = mParticle.Identity.createAliasRequest(sourceUser, destinationUser);
         expect(aliasRequest.sourceMpid).to.equal('1');
         expect(aliasRequest.destinationMpid).to.equal('2');
         const oldestAllowedStartTime =
-            new Date().getTime() -
-            mParticle.getInstance()._Store.SDKConfig.aliasMaxWindow *
-                millisPerDay;
+            new Date().getTime() - mParticle.getInstance()._Store.SDKConfig.aliasMaxWindow * millisPerDay;
         expect(aliasRequest.startTime).to.equal(oldestAllowedStartTime);
         expect(aliasRequest.endTime).to.equal(new Date().getTime());
         clock.restore();
@@ -411,7 +359,7 @@ describe('legacy Alias Requests', function() {
         let warnMessage = null;
 
         mParticle.config.logger = {
-            warning: function(msg) {
+            warning: function (msg) {
                 warnMessage = msg;
             },
         };
@@ -439,22 +387,17 @@ describe('legacy Alias Requests', function() {
         const destinationUser = mParticle.Identity.getCurrentUser();
         const sourceUser = mParticle.Identity.getUser('1');
 
-        const aliasRequest = mParticle.Identity.createAliasRequest(
-            sourceUser,
-            destinationUser
-        );
+        const aliasRequest = mParticle.Identity.createAliasRequest(sourceUser, destinationUser);
         expect(aliasRequest.sourceMpid).to.equal('1');
         expect(aliasRequest.destinationMpid).to.equal('2');
         const oldestAllowedStartTime =
-            new Date().getTime() -
-            mParticle.getInstance()._Store.SDKConfig.aliasMaxWindow *
-                millisPerDay;
+            new Date().getTime() - mParticle.getInstance()._Store.SDKConfig.aliasMaxWindow * millisPerDay;
         expect(aliasRequest.startTime).to.equal(oldestAllowedStartTime);
         expect(aliasRequest.endTime).to.equal(300);
         expect(warnMessage).to.equal(
             'Source User has not been seen in the last ' +
                 mParticle.getInstance()._Store.SDKConfig.maxAliasWindow +
-                ' days, Alias Request will likely fail'
+                ' days, Alias Request will likely fail',
         );
 
         clock.restore();
@@ -468,7 +411,7 @@ describe('legacy Alias Requests', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         mockServer.requests = [];
-        
+
         const aliasRequest = {
             destinationMpid: 'destinationMpid',
             sourceMpid: 'sourceMpid',
@@ -483,41 +426,41 @@ describe('legacy Alias Requests', function() {
         const requestBody = JSON.parse(request.requestBody);
         expect(requestBody.environment).to.equal('development');
     });
-  
+
     it('should have default urls if no custom urls are set in config object, but use custom urls when they are set', async () => {
-        window.mParticle.config.v3SecureServiceUrl =
-            'testtesttest-custom-v3secureserviceurl/v3/JS/';
-        window.mParticle.config.configUrl =
-            'foo-custom-configUrl/v2/JS/';
+        window.mParticle.config.v3SecureServiceUrl = 'testtesttest-custom-v3secureserviceurl/v3/JS/';
+        window.mParticle.config.configUrl = 'foo-custom-configUrl/v2/JS/';
         window.mParticle.config.identityUrl = 'custom-identityUrl/';
         window.mParticle.config.aliasUrl = 'custom-aliasUrl/';
 
-        mockServer.respondWith('https://testtesttest-custom-v3secureserviceurl/v3/JS/test_key/events', HTTP_OK, JSON.stringify({ mpid: testMPID, Store: {}}));
+        mockServer.respondWith(
+            'https://testtesttest-custom-v3secureserviceurl/v3/JS/test_key/events',
+            HTTP_OK,
+            JSON.stringify({ mpid: testMPID, Store: {} }),
+        );
         clock.restore();
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
 
-        mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(window.mParticle.config.v3SecureServiceUrl)
-        mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(window.mParticle.config.configUrl)
-        mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(window.mParticle.config.identityUrl)
-        mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(window.mParticle.config.aliasUrl)
+        mParticle
+            .getInstance()
+            ._Store.SDKConfig.v3SecureServiceUrl.should.equal(window.mParticle.config.v3SecureServiceUrl);
+        mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(window.mParticle.config.configUrl);
+        mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(window.mParticle.config.identityUrl);
+        mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(window.mParticle.config.aliasUrl);
 
         mockServer.requests = [];
         // test events endpoint
         mParticle.logEvent('Test Event');
         mockServer.requests[0].url.should.equal(
-            'https://' +
-                window.mParticle.config.v3SecureServiceUrl +
-                'test_key/events'
+            'https://' + window.mParticle.config.v3SecureServiceUrl + 'test_key/events',
         );
 
         // test Identity endpoint
         mockServer.requests = [];
         mParticle.getInstance()._Store.identityCallInFlight = false;
         mParticle.Identity.login({ userIdentities: { customerid: 'test1' } });
-        mockServer.requests[0].url.should.equal(
-            'https://' + window.mParticle.config.identityUrl + 'login'
-        );
+        mockServer.requests[0].url.should.equal('https://' + window.mParticle.config.identityUrl + 'login');
 
         // test alias endpoint
         mockServer.requests = [];
@@ -529,9 +472,6 @@ describe('legacy Alias Requests', function() {
             endTime: 4,
         });
 
-        mockServer.requests[0].url.should.equal(
-            'https://' + window.mParticle.config.aliasUrl + 'test_key/Alias'
-        );
+        mockServer.requests[0].url.should.equal('https://' + window.mParticle.config.aliasUrl + 'test_key/Alias');
     });
-
 });

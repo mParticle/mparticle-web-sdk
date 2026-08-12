@@ -4,29 +4,11 @@
 
 import Types from './types';
 import Constants from './constants';
-import {
-    BaseEvent,
-    SDKEvent,
-    SDKEventCustomFlags,
-    SDKGeoLocation,
-    SDKProduct,
-} from './sdkRuntimeModels';
-import {
-    parseNumber,
-    parseStringOrNumber,
-    Dictionary,
-    isValidCustomFlagProperty,
-    extend,
-    getHref,
-} from './utils';
+import { BaseEvent, SDKEvent, SDKEventCustomFlags, SDKGeoLocation, SDKProduct } from './sdkRuntimeModels';
+import { parseNumber, parseStringOrNumber, Dictionary, isValidCustomFlagProperty, extend, getHref } from './utils';
 import { IntegrationAttributes, ServerSettings } from './store';
 import { MPID } from '@mparticle/web-sdk';
-import {
-    IConsentStateV2DTO,
-    IGDPRConsentStateV2DTO,
-    IPrivacyV2DTO,
-    SDKConsentState,
-} from './consent';
+import { IConsentStateV2DTO, IGDPRConsentStateV2DTO, IPrivacyV2DTO, SDKConsentState } from './consent';
 import { IMParticleUser, ISDKUserIdentity } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { appendUserInfo } from './user-utils';
@@ -52,9 +34,9 @@ export interface IServerV2DTO {
     et?: number;
 
     // https://go.mparticle.com/work/SQDSDKS-5196
-    ua?: Dictionary<string | string[]>;
+    ua?: Dictionary<string | Array<string>>;
 
-    ui?: ISDKUserIdentity[];
+    ui?: Array<ISDKUserIdentity>;
     ia?: Dictionary<Dictionary<string>>;
     str?: ServerSettings;
     sdk?: string;
@@ -71,22 +53,22 @@ export interface IServerV2DTO {
     cgid?: string;
     das?: string;
     mpid?: MPID;
-    smpids?: MPID[];
+    smpids?: Array<MPID>;
     con?: IConsentStateV2DTO;
     fr?: boolean;
     iu?: boolean; // isUpgrade
     at?: number;
     lr?: string;
-    flags?: Dictionary<string[]>;
+    flags?: Dictionary<Array<string>>;
     cu?: string;
     sc?: {
-        pl: IProductV2DTO[];
+        pl: Array<IProductV2DTO>;
     };
     pd?: {
         an: number;
         cs: number;
         co: string;
-        pl: IProductV2DTO[];
+        pl: Array<IProductV2DTO>;
         ta: string;
         ti: string;
         tcc: string;
@@ -96,9 +78,9 @@ export interface IServerV2DTO {
     };
     pm?: {
         an: string;
-        pl: IPromotionV2DTO[];
+        pl: Array<IPromotionV2DTO>;
     };
-    pi?: IProductImpressionV2DTO[];
+    pi?: Array<IProductImpressionV2DTO>;
     pet?: number;
 }
 
@@ -125,7 +107,7 @@ export interface IPromotionV2DTO {
 
 export interface IProductImpressionV2DTO {
     pil: string;
-    pl: IProductV2DTO[];
+    pl: Array<IProductV2DTO>;
 }
 
 export interface IUploadObject extends SDKEvent {
@@ -147,15 +129,15 @@ export interface IServerModel {
 
 // TODO: Make this a pure function that returns a new object
 function convertCustomFlags(event: SDKEvent, dto: IServerV2DTO) {
-    var valueArray: string[] = [];
+    let valueArray: Array<string> = [];
     dto.flags = {};
 
-    for (var prop in event.CustomFlags) {
+    for (const prop in event.CustomFlags) {
         valueArray = [];
 
         if (event.CustomFlags.hasOwnProperty(prop)) {
             if (Array.isArray(event.CustomFlags[prop])) {
-                event.CustomFlags[prop].forEach(customFlagProperty => {
+                event.CustomFlags[prop].forEach((customFlagProperty) => {
                     if (isValidCustomFlagProperty(customFlagProperty)) {
                         valueArray.push(customFlagProperty.toString());
                     }
@@ -187,36 +169,31 @@ function convertProductToV2DTO(product: SDKProduct): IProductV2DTO {
     };
 }
 
-function convertProductListToV2DTO(productList: SDKProduct[]): IProductV2DTO[] {
+function convertProductListToV2DTO(productList: Array<SDKProduct>): Array<IProductV2DTO> {
     if (!productList) {
         return [];
     }
 
-    return productList.map(function(product) {
+    return productList.map(function (product) {
         return convertProductToV2DTO(product);
     });
 }
 
-export default function ServerModel(
-    this: IServerModel,
-    mpInstance: IMParticleWebSDKInstance
-) {
-    var self = this;
+export default function ServerModel(this: IServerModel, mpInstance: IMParticleWebSDKInstance) {
+    const self = this;
 
-    this.convertToConsentStateV2DTO = function(
-        state: SDKConsentState
-    ): IConsentStateV2DTO {
+    this.convertToConsentStateV2DTO = function (state: SDKConsentState): IConsentStateV2DTO {
         if (!state) {
             return null;
         }
-        var jsonObject: IConsentStateV2DTO = {};
-        var gdprConsentState = state.getGDPRConsentState();
+        const jsonObject: IConsentStateV2DTO = {};
+        const gdprConsentState = state.getGDPRConsentState();
         if (gdprConsentState) {
-            var gdpr: IGDPRConsentStateV2DTO = {};
+            const gdpr: IGDPRConsentStateV2DTO = {};
             jsonObject.gdpr = gdpr;
-            for (var purpose in gdprConsentState) {
+            for (const purpose in gdprConsentState) {
                 if (gdprConsentState.hasOwnProperty(purpose)) {
-                    var gdprConsent = gdprConsentState[purpose];
+                    const gdprConsent = gdprConsentState[purpose];
                     jsonObject.gdpr[purpose] = {} as IPrivacyV2DTO;
                     if (typeof gdprConsent.Consented === 'boolean') {
                         gdpr[purpose].c = gdprConsent.Consented;
@@ -237,7 +214,7 @@ export default function ServerModel(
             }
         }
 
-        var ccpaConsentState = state.getCCPAConsentState();
+        const ccpaConsentState = state.getCCPAConsentState();
         if (ccpaConsentState) {
             jsonObject.ccpa = {
                 data_sale_opt_out: {
@@ -253,21 +230,15 @@ export default function ServerModel(
         return jsonObject as IConsentStateV2DTO;
     };
 
-    this.createEventObject = function(
-        event: BaseEvent,
-        user?: IMParticleUser
-    ): SDKEvent | IUploadObject {
-        var uploadObject: Partial<IUploadObject> = {};
-        var eventObject: Partial<SDKEvent> = {};
+    this.createEventObject = function (event: BaseEvent, user?: IMParticleUser): SDKEvent | IUploadObject {
+        let uploadObject: Partial<IUploadObject> = {};
+        let eventObject: Partial<SDKEvent> = {};
 
         //  The `optOut` variable is passed later in this method to the `uploadObject`
         //  so that it can be used to denote whether or not a user has "opted out" of being
         //  tracked. If this is an `optOut` Event, we set `optOut` to the inverse of the SDK's
         // `isEnabled` boolean which is controlled via `MPInstanceManager.setOptOut`.
-        var optOut =
-            event.messageType === Types.MessageType.OptOut
-                ? !mpInstance._Store.isEnabled
-                : null;
+        const optOut = event.messageType === Types.MessageType.OptOut ? !mpInstance._Store.isEnabled : null;
 
         // TODO: Why is Webview Bridge Enabled or Opt Out necessary here?
         if (
@@ -275,25 +246,31 @@ export default function ServerModel(
             event.messageType === Types.MessageType.OptOut ||
             mpInstance._Store.webviewBridgeEnabled
         ) {
-            let customFlags: SDKEventCustomFlags = {...event.customFlags};
+            let customFlags: SDKEventCustomFlags = { ...event.customFlags };
             let integrationAttributes: IntegrationAttributes = mpInstance._Store.integrationAttributes;
 
             const { getFeatureFlag } = mpInstance._Helpers;
             // https://go.mparticle.com/work/SQDSDKS-5053
             // https://go.mparticle.com/work/SQDSDKS-7639
-            const integrationSpecificIds = getFeatureFlag && (getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds) as boolean);
-            const integrationSpecificIdsV2 = getFeatureFlag && ((getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2) as string) || '');
-            const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None) || integrationSpecificIds === true;     
+            const integrationSpecificIds =
+                getFeatureFlag && (getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds) as boolean);
+            const integrationSpecificIdsV2 =
+                getFeatureFlag &&
+                ((getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2) as string) || '');
+            const isIntegrationCaptureEnabled =
+                (integrationSpecificIdsV2 &&
+                    integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None) ||
+                integrationSpecificIds === true;
             if (isIntegrationCaptureEnabled) {
                 // Attempt to recapture click IDs in case a third party integration
                 // has added or updated  new click IDs since the last event was sent.
                 mpInstance._IntegrationCapture.capture();
                 const transformedClickIDs = mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
                 customFlags = { ...transformedClickIDs, ...customFlags };
-                const transformedIntegrationAttributes = mpInstance._IntegrationCapture.getClickIdsAsIntegrationAttributes();
+                const transformedIntegrationAttributes =
+                    mpInstance._IntegrationCapture.getClickIdsAsIntegrationAttributes();
                 integrationAttributes = { ...transformedIntegrationAttributes, ...integrationAttributes };
             }
-            
 
             if (event.hasOwnProperty('toEventAPIObject')) {
                 eventObject = event.toEventAPIObject();
@@ -302,20 +279,13 @@ export default function ServerModel(
                     // This is an artifact from v2 events where SessionStart/End and AST event
                     //  names are numbers (1, 2, or 10), but going forward with v3, these lifecycle
                     //  events do not have names, but are denoted by their `event_type`
-                    EventName:
-                        event.name ||
-                        String(event.messageType),
+                    EventName: event.name || String(event.messageType),
                     EventCategory: event.eventType,
-                    EventAttributes: mpInstance._Helpers.sanitizeAttributes(
-                        event.data,
-                        event.name
-                    ),
+                    EventAttributes: mpInstance._Helpers.sanitizeAttributes(event.data, event.name),
                     ActiveTimeOnSite: mpInstance._timeOnSiteTimer?.getTimeInForeground(),
                     TotalTimeOnSite: mpInstance._Store.getTotalTimeOnSite?.(),
                     PageUrl: getHref() || null,
-                    SourceMessageId:
-                        event.sourceMessageId ||
-                        mpInstance._Helpers.generateUniqueId(),
+                    SourceMessageId: event.sourceMessageId || mpInstance._Helpers.generateUniqueId(),
                     EventDataType: event.messageType,
                     CustomFlags: customFlags,
                     UserAttributeChanges: event.userAttributeChanges,
@@ -333,9 +303,7 @@ export default function ServerModel(
                 Store: mpInstance._Store.serverSettings,
                 SDKVersion: Constants.sdkVersion,
                 SessionId: mpInstance._Store.sessionId,
-                SessionStartDate: mpInstance._Store.sessionStartDate
-                    ? mpInstance._Store.sessionStartDate.getTime()
-                    : 0,
+                SessionStartDate: mpInstance._Store.sessionStartDate ? mpInstance._Store.sessionStartDate.getTime() : 0,
                 Debug: mpInstance._Store.SDKConfig.isDevelopmentMode,
                 Location: mpInstance._Store.currentPosition,
                 OptOut: optOut,
@@ -345,11 +313,9 @@ export default function ServerModel(
                 Package: mpInstance._Store.SDKConfig.package,
                 ClientGeneratedId: mpInstance._Store.clientId,
                 DeviceId: mpInstance._Store.deviceId,
-                IntegrationAttributes: integrationAttributes, 
+                IntegrationAttributes: integrationAttributes,
                 CurrencyCode: mpInstance._Store.currencyCode,
-                DataPlan: mpInstance._Store.SDKConfig.dataPlan
-                    ? mpInstance._Store.SDKConfig.dataPlan
-                    : {},
+                DataPlan: mpInstance._Store.SDKConfig.dataPlan ? mpInstance._Store.SDKConfig.dataPlan : {},
             };
 
             if (eventObject.EventDataType === MessageType.AppStateTransition) {
@@ -359,22 +325,19 @@ export default function ServerModel(
 
             // FIXME: Remove duplicate occurence
             eventObject.CurrencyCode = mpInstance._Store.currencyCode;
-            var currentUser = user || mpInstance.Identity.getCurrentUser();
+            const currentUser = user || mpInstance.Identity.getCurrentUser();
             appendUserInfo(currentUser, eventObject as SDKEvent);
 
             if (event.messageType === Types.MessageType.SessionEnd) {
                 eventObject.SessionLength =
-                    mpInstance._Store.dateLastEventSent.getTime() -
-                    mpInstance._Store.sessionStartDate.getTime();
-                eventObject.currentSessionMPIDs =
-                    mpInstance._Store.currentSessionMPIDs;
+                    mpInstance._Store.dateLastEventSent.getTime() - mpInstance._Store.sessionStartDate.getTime();
+                eventObject.currentSessionMPIDs = mpInstance._Store.currentSessionMPIDs;
 
                 // Session attributes are assigned on a session level, but only uploaded
                 // when a session ends. As there is no way to attach event attributes to
                 // a `SessionEnd` event, we are uploading the session level attributes
                 // as event level attributes in a `SessionEnd` event.
-                eventObject.EventAttributes =
-                    mpInstance._Store.sessionAttributes;
+                eventObject.EventAttributes = mpInstance._Store.sessionAttributes;
 
                 // TODO: We should move this out of here to avoid side effects
                 mpInstance._Store.currentSessionMPIDs = [];
@@ -389,8 +352,8 @@ export default function ServerModel(
         return null;
     };
 
-    this.convertEventToV2DTO = function(event: IUploadObject): IServerV2DTO {
-        var dto: Partial<IServerV2DTO> = {
+    this.convertEventToV2DTO = function (event: IUploadObject): IServerV2DTO {
+        const dto: Partial<IServerV2DTO> = {
             n: event.EventName,
             et: event.EventCategory,
             ua: event.UserAttributes,
@@ -422,7 +385,7 @@ export default function ServerModel(
             }
         }
 
-        var consent = self.convertToConsentStateV2DTO(event.ConsentState);
+        const consent = self.convertToConsentStateV2DTO(event.ConsentState);
         if (consent) {
             dto.con = consent;
         }
@@ -448,41 +411,27 @@ export default function ServerModel(
             // TODO: If Cart is deprecated, we should deprecate this too
             if (event.ShoppingCart) {
                 dto.sc = {
-                    pl: convertProductListToV2DTO(
-                        event.ShoppingCart.ProductList
-                    ),
+                    pl: convertProductListToV2DTO(event.ShoppingCart.ProductList),
                 };
             }
 
             if (event.ProductAction) {
                 dto.pd = {
                     an: event.ProductAction.ProductActionType,
-                    cs: mpInstance._Helpers.parseNumber(
-                        event.ProductAction.CheckoutStep
-                    ),
+                    cs: mpInstance._Helpers.parseNumber(event.ProductAction.CheckoutStep),
                     co: event.ProductAction.CheckoutOptions,
-                    pl: convertProductListToV2DTO(
-                        event.ProductAction.ProductList
-                    ),
+                    pl: convertProductListToV2DTO(event.ProductAction.ProductList),
                     ti: event.ProductAction.TransactionId,
                     ta: event.ProductAction.Affiliation,
                     tcc: event.ProductAction.CouponCode,
-                    tr: mpInstance._Helpers.parseNumber(
-                        event.ProductAction.TotalAmount
-                    ),
-                    ts: mpInstance._Helpers.parseNumber(
-                        event.ProductAction.ShippingAmount
-                    ),
-                    tt: mpInstance._Helpers.parseNumber(
-                        event.ProductAction.TaxAmount
-                    ),
+                    tr: mpInstance._Helpers.parseNumber(event.ProductAction.TotalAmount),
+                    ts: mpInstance._Helpers.parseNumber(event.ProductAction.ShippingAmount),
+                    tt: mpInstance._Helpers.parseNumber(event.ProductAction.TaxAmount),
                 };
             } else if (event.PromotionAction) {
                 dto.pm = {
                     an: event.PromotionAction.PromotionActionType,
-                    pl: event.PromotionAction.PromotionList.map(function(
-                        promotion
-                    ) {
+                    pl: event.PromotionAction.PromotionList.map(function (promotion) {
                         return {
                             id: promotion.Id,
                             nm: promotion.Name,
@@ -492,7 +441,7 @@ export default function ServerModel(
                     }),
                 };
             } else if (event.ProductImpressions) {
-                dto.pi = event.ProductImpressions.map(function(impression) {
+                dto.pi = event.ProductImpressions.map(function (impression) {
                     return {
                         pil: impression.ProductImpressionList,
                         pl: convertProductListToV2DTO(impression.ProductList),

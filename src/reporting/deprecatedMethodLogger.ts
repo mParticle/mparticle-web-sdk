@@ -9,7 +9,7 @@ interface DeprecatedMethodUsage {
 export function logDeprecatedMethodUsage(
     usage: DeprecatedMethodUsage,
     logger: Pick<SDKLoggerApi, 'warning'>,
-    errorReporter: IErrorReportingService | undefined
+    errorReporter: IErrorReportingService | undefined,
 ): void {
     logger.warning(usage.warningMessage);
     errorReporter?.report({

@@ -1,25 +1,23 @@
 import Constants, { ONE_DAY_IN_SECONDS, MILLIS_IN_ONE_SEC } from './constants';
-import { Dictionary, Environment, parseNumber, isObject, generateHash, generateUniqueId, isEmpty, isFunction, getErrorMessage } from './utils';
+import {
+    Dictionary,
+    Environment,
+    parseNumber,
+    isObject,
+    generateHash,
+    generateUniqueId,
+    isEmpty,
+    isFunction,
+    getErrorMessage,
+} from './utils';
 import { BaseVault } from './vault';
 import Types from './types';
-import {
-    IdentityApiData,
-    UserIdentities,
-    IdentityCallback,
-} from '@mparticle/web-sdk';
+import { IdentityApiData, UserIdentities, IdentityCallback } from '@mparticle/web-sdk';
 import { IdentityAPIMethod, IIdentityRequest } from './identity.interfaces';
-import {
-    IdentityResultBody,
-    IIdentityResponse,
-    IMParticleUser,
-} from './identity-user-interfaces';
+import { IdentityResultBody, IIdentityResponse, IMParticleUser } from './identity-user-interfaces';
 import { IStore } from './store';
 import type { IMParticleWebSDKInstance } from './mp-instance';
-import {
-    IIdentitySearchRequestBody,
-    IdentitySearchCallback,
-    sendSearchRequest,
-} from './identity/search';
+import { IIdentitySearchRequestBody, IdentitySearchCallback, sendSearchRequest } from './identity/search';
 
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 const { HTTPCodes, Messages } = Constants;
@@ -35,7 +33,7 @@ export type IParseCachedIdentityResponse = (
     identityApiData: IdentityApiData,
     identityMethod: string,
     knownIdentities: IKnownIdentities,
-    fromCachedIdentity: boolean
+    fromCachedIdentity: boolean,
 ) => void;
 
 export interface IKnownIdentities extends UserIdentities {
@@ -54,7 +52,7 @@ export const cacheOrClearIdCache = (
     knownIdentities: IKnownIdentities,
     idCache: BaseVault<Dictionary<ICachedIdentityCall>>,
     identityResponse: IIdentityResponse,
-    parsingCachedResponse: boolean
+    parsingCachedResponse: boolean,
 ): void => {
     // when parsing a response that has already been cached, simply return instead of attempting another cache
     if (parsingCachedResponse) {
@@ -67,13 +65,7 @@ export const cacheOrClearIdCache = (
     switch (method) {
         case Login:
         case Identify:
-            cacheIdentityRequest(
-                method,
-                knownIdentities,
-                expireTimestamp,
-                idCache,
-                identityResponse
-            );
+            cacheIdentityRequest(method, knownIdentities, expireTimestamp, idCache, identityResponse);
             break;
         case Modify:
         case Logout:
@@ -87,11 +79,10 @@ export const cacheIdentityRequest = (
     identities: IKnownIdentities,
     expireTimestamp: number,
     idCache: IdentityCache,
-    identityResponse: IIdentityResponse
+    identityResponse: IIdentityResponse,
 ): void => {
     const { responseText, status } = identityResponse;
-    const cache: Dictionary<ICachedIdentityCall> =
-        idCache.retrieve() || ({} as Dictionary<ICachedIdentityCall>);
+    const cache: Dictionary<ICachedIdentityCall> = idCache.retrieve() || ({} as Dictionary<ICachedIdentityCall>);
     const cacheKey = concatenateIdentities(method, identities);
     const hashedKey = generateHash(cacheKey);
 
@@ -112,36 +103,28 @@ export const cacheIdentityRequest = (
 // We need to ensure that identities are concatenated in a deterministic way, so
 // we sort the identities based on their enum.
 // we create an array, set the user identity at the index of the user identity type
-export const concatenateIdentities = (
-    method: IdentityAPIMethod,
-    userIdentities: IKnownIdentities
-): string => {
+export const concatenateIdentities = (method: IdentityAPIMethod, userIdentities: IKnownIdentities): string => {
     const DEVICE_APPLICATION_STAMP = 'device_application_stamp';
     // set DAS first since it is not an official identity type
-    let cacheKey: string = `${method}:${DEVICE_APPLICATION_STAMP}=${userIdentities.device_application_stamp};`;
+    const cacheKey: string = `${method}:${DEVICE_APPLICATION_STAMP}=${userIdentities.device_application_stamp};`;
     const idLength: number = Object.keys(userIdentities).length;
     let concatenatedIdentities: string = '';
 
     if (idLength) {
-        let userIDArray: Array<string> = new Array();
+        const userIDArray: Array<string> = [];
         // create an array where each index is equal to the user identity type
-        for (let key in userIdentities) {
+        for (const key in userIdentities) {
             if (key === DEVICE_APPLICATION_STAMP) {
                 continue;
             } else {
-                userIDArray[Types.IdentityType.getIdentityType(key)] =
-                    userIdentities[key];
+                userIDArray[Types.IdentityType.getIdentityType(key)] = userIdentities[key];
             }
         }
 
-        concatenatedIdentities = userIDArray.reduce(
-            (prevValue: string, currentValue: string, index: number) => {
-                const idName: string =
-                    Types.IdentityType.getIdentityName(index);
-                return `${prevValue}${idName}=${currentValue};`;
-            },
-            cacheKey
-        );
+        concatenatedIdentities = userIDArray.reduce((prevValue: string, currentValue: string, index: number) => {
+            const idName: string = Types.IdentityType.getIdentityName(index);
+            return `${prevValue}${idName}=${currentValue};`;
+        }, cacheKey);
     }
 
     return concatenatedIdentities;
@@ -150,7 +133,7 @@ export const concatenateIdentities = (
 export const hasValidCachedIdentity = (
     method: IdentityAPIMethod,
     proposedUserIdentities: IKnownIdentities,
-    idCache?: IdentityCache
+    idCache?: IdentityCache,
 ): boolean => {
     // There is an edge case where multiple identity calls are taking place
     // before identify fires, so there may not be a cache.  See what happens when
@@ -164,10 +147,7 @@ export const hasValidCachedIdentity = (
         return false;
     }
 
-    const cacheKey: string = concatenateIdentities(
-        method,
-        proposedUserIdentities
-    );
+    const cacheKey: string = concatenateIdentities(method, proposedUserIdentities);
     const hashedKey = generateHash(cacheKey);
 
     // if cache doesn't have the cacheKey, there is no valid cached identity
@@ -190,12 +170,9 @@ export const hasValidCachedIdentity = (
 export const getCachedIdentity = (
     method: IdentityAPIMethod,
     proposedUserIdentities: IKnownIdentities,
-    idCache: IdentityCache
+    idCache: IdentityCache,
 ): IIdentityResponse | null => {
-    const cacheKey: string = concatenateIdentities(
-        method,
-        proposedUserIdentities
-    );
+    const cacheKey: string = concatenateIdentities(method, proposedUserIdentities);
     const hashedKey = generateHash(cacheKey);
 
     const cache = idCache.retrieve();
@@ -209,16 +186,12 @@ export const getCachedIdentity = (
 };
 
 // https://go.mparticle.com/work/SQDSDKS-6079
-export const createKnownIdentities = (
-    identityApiData: IdentityApiData,
-    deviceId: string
-): IKnownIdentities => {
+export const createKnownIdentities = (identityApiData: IdentityApiData, deviceId: string): IKnownIdentities => {
     const identitiesResult: IKnownIdentities = {};
 
     if (isObject(identityApiData?.userIdentities)) {
-        for (let identity in identityApiData.userIdentities) {
-            identitiesResult[identity] =
-                identityApiData.userIdentities[identity];
+        for (const identity in identityApiData.userIdentities) {
+            identitiesResult[identity] = identityApiData.userIdentities[identity];
         }
     }
     identitiesResult.device_application_stamp = deviceId;
@@ -226,16 +199,13 @@ export const createKnownIdentities = (
     return identitiesResult;
 };
 
-export const removeExpiredIdentityCacheDates = (
-    idCache: BaseVault<Dictionary<ICachedIdentityCall>>
-) => {
-    const cache: Dictionary<ICachedIdentityCall> =
-        idCache.retrieve() || ({} as Dictionary<ICachedIdentityCall>);
+export const removeExpiredIdentityCacheDates = (idCache: BaseVault<Dictionary<ICachedIdentityCall>>) => {
+    const cache: Dictionary<ICachedIdentityCall> = idCache.retrieve() || ({} as Dictionary<ICachedIdentityCall>);
 
     const currentTime: number = new Date().getTime();
 
     // Iterate over the cache and remove any key/value pairs that are expired
-    for (let key in cache) {
+    for (const key in cache) {
         if (cache[key].expireTimestamp < currentTime) {
             delete cache[key];
         }
@@ -251,32 +221,16 @@ export const tryCacheIdentity = (
     mpid: string,
     callback: IdentityCallback,
     identityApiData: IdentityApiData,
-    identityMethod: IdentityAPIMethod
+    identityMethod: IdentityAPIMethod,
 ): boolean => {
     // https://go.mparticle.com/work/SQDSDKS-6095
-    const shouldReturnCachedIdentity = hasValidCachedIdentity(
-        identityMethod,
-        knownIdentities,
-        idCache
-    );
+    const shouldReturnCachedIdentity = hasValidCachedIdentity(identityMethod, knownIdentities, idCache);
 
     // If Identity is cached, then immediately parse the identity response
     if (shouldReturnCachedIdentity) {
-        const cachedIdentity = getCachedIdentity(
-            identityMethod,
-            knownIdentities,
-            idCache
-        );
+        const cachedIdentity = getCachedIdentity(identityMethod, knownIdentities, idCache);
 
-        parseIdentityResponse(
-            cachedIdentity,
-            mpid,
-            callback,
-            identityApiData,
-            identityMethod,
-            knownIdentities,
-            true
-        );
+        parseIdentityResponse(cachedIdentity, mpid, callback, identityApiData, identityMethod, knownIdentities, true);
 
         return true;
     }
@@ -291,29 +245,22 @@ const parseIdentityResponse = (responseText: string): IdentityResultBody =>
 
 type Sha256IdentityAlias = 'email_sha256' | 'mobile_sha256';
 
-const SHA256_IDENTITY_ALIASES: Readonly<
-    Record<Sha256IdentityAlias, keyof UserIdentities>
-> = {
+const SHA256_IDENTITY_ALIASES: Readonly<Record<Sha256IdentityAlias, keyof UserIdentities>> = {
     email_sha256: 'other',
     mobile_sha256: 'other2',
 };
 
-type UserIdentitiesWithAliases = UserIdentities &
-    Partial<Record<Sha256IdentityAlias, string | null>>;
+type UserIdentitiesWithAliases = UserIdentities & Partial<Record<Sha256IdentityAlias, string | null>>;
 
-export const normalizeUserIdentityKeys = (
-    userIdentities: UserIdentitiesWithAliases
-): UserIdentities => {
+export const normalizeUserIdentityKeys = (userIdentities: UserIdentitiesWithAliases): UserIdentities => {
     const normalized: UserIdentitiesWithAliases = { ...userIdentities };
-    (Object.keys(SHA256_IDENTITY_ALIASES) as Sha256IdentityAlias[]).forEach(
-        (alias) => {
-            if (alias in normalized) {
-                const value = normalized[alias];
-                delete normalized[alias];
-                normalized[SHA256_IDENTITY_ALIASES[alias]] = value;
-            }
+    (Object.keys(SHA256_IDENTITY_ALIASES) as Array<Sha256IdentityAlias>).forEach((alias) => {
+        if (alias in normalized) {
+            const value = normalized[alias];
+            delete normalized[alias];
+            normalized[SHA256_IDENTITY_ALIASES[alias]] = value;
         }
-    );
+    });
     return normalized;
 };
 
@@ -321,10 +268,7 @@ export const normalizeUserIdentityKeys = (
 // object key insertion order. The two sides come from different sources
 // (numeric IdentityType iteration vs. partner-provided / alias-normalized
 // order)
-const identitiesEqual = (
-    a?: UserIdentities,
-    b?: UserIdentities
-): boolean => {
+const identitiesEqual = (a?: UserIdentities, b?: UserIdentities): boolean => {
     const aKeys = Object.keys(a ?? {});
     const bKeys = Object.keys(b ?? {});
     if (aKeys.length !== bKeys.length) return false;
@@ -333,18 +277,15 @@ const identitiesEqual = (
 
 export const hasIdentityRequestChanged = (
     currentUser: IMParticleUser,
-    newIdentityRequest: IdentityApiData
+    newIdentityRequest: IdentityApiData,
 ): boolean => {
     if (!currentUser || !newIdentityRequest?.userIdentities) {
         return false;
     }
 
-    const currentUserIdentities =
-        currentUser.getUserIdentities().userIdentities;
+    const currentUserIdentities = currentUser.getUserIdentities().userIdentities;
 
-    const newIdentities = normalizeUserIdentityKeys(
-        newIdentityRequest.userIdentities
-    );
+    const newIdentities = normalizeUserIdentityKeys(newIdentityRequest.userIdentities);
 
     return !identitiesEqual(currentUserIdentities, newIdentities);
 };
@@ -413,9 +354,7 @@ export const executeSearchRequest = (
                     httpCode: HTTPCodes.loggingDisabledOrMissingAPIKey,
                 });
             } catch (e) {
-                Logger.error(
-                    'Error invoking search callback: ' + getErrorMessage(e),
-                );
+                Logger.error('Error invoking search callback: ' + getErrorMessage(e));
             }
         }
         return;
@@ -427,9 +366,7 @@ export const executeSearchRequest = (
     const serviceUrl: string = _Helpers.createServiceUrl(identityUrl);
     const searchUrl: string = serviceUrl + 'search?cb=1';
 
-    const environment: Environment = isDevelopmentMode
-        ? 'development'
-        : 'production';
+    const environment: Environment = isDevelopmentMode ? 'development' : 'production';
 
     sendSearchRequest(
         knownIdentities,

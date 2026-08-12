@@ -1,22 +1,14 @@
 import { Batch } from '@mparticle/event-models';
 import { expect } from 'chai';
 import { Dictionary } from '../../src/utils';
-import {
-    DisabledVault,
-    LocalStorageVault,
-    SessionStorageVault,
-    StorageResult,
-} from '../../src/vault';
+import { DisabledVault, LocalStorageVault, SessionStorageVault, StorageResult } from '../../src/vault';
 
 const testObject: Dictionary<Dictionary<string>> = {
     foo: { foo: 'bar', buzz: 'bazz' },
     pinky: { narf: 'poit' },
 };
 
-const testArray: Dictionary<string>[] = [
-    { foo: 'bar', buzz: 'bazz' },
-    { narf: 'poit' },
-];
+const testArray: Array<Dictionary<string>> = [{ foo: 'bar', buzz: 'bazz' }, { narf: 'poit' }];
 
 const testString = 'foo';
 const testNumber = 123;
@@ -31,31 +23,23 @@ describe('Vault', () => {
             it('should store an object', () => {
                 const storageKey = 'test-key-store-object';
 
-                const vault = new SessionStorageVault<
-                    Dictionary<Dictionary<string>>
-                >(storageKey);
+                const vault = new SessionStorageVault<Dictionary<Dictionary<string>>>(storageKey);
 
                 vault.store(testObject);
 
                 expect(vault.contents).to.equal(testObject);
-                expect(window.sessionStorage.getItem(storageKey)).to.equal(
-                    JSON.stringify(testObject),
-                );
+                expect(window.sessionStorage.getItem(storageKey)).to.equal(JSON.stringify(testObject));
             });
 
             it('should store an array', () => {
                 const storageKey = 'test-key-store-array';
 
-                const vault = new SessionStorageVault<Dictionary<string>[]>(
-                    storageKey,
-                );
+                const vault = new SessionStorageVault<Array<Dictionary<string>>>(storageKey);
 
                 vault.store(testArray);
 
                 expect(vault.contents).to.equal(testArray);
-                expect(window.sessionStorage.getItem(storageKey)).to.equal(
-                    JSON.stringify(testArray),
-                );
+                expect(window.sessionStorage.getItem(storageKey)).to.equal(JSON.stringify(testArray));
             });
 
             it('should store a string', () => {
@@ -66,9 +50,7 @@ describe('Vault', () => {
                 vault.store(testString);
 
                 expect(vault.contents).to.equal(testString);
-                expect(window.sessionStorage.getItem(storageKey)).to.equal(
-                    JSON.stringify(testString),
-                );
+                expect(window.sessionStorage.getItem(storageKey)).to.equal(JSON.stringify(testString));
             });
 
             it('should store a number', () => {
@@ -79,25 +61,18 @@ describe('Vault', () => {
                 vault.store(testNumber);
 
                 expect(vault.contents).to.equal(testNumber);
-                expect(window.sessionStorage.getItem(storageKey)).to.equal(
-                    JSON.stringify(testNumber),
-                );
+                expect(window.sessionStorage.getItem(storageKey)).to.equal(JSON.stringify(testNumber));
             });
 
             it('should return QuotaExceeded when storage is over quota', () => {
                 const storageKey = 'test-key-store-quota-error';
-                const vault = new SessionStorageVault<
-                    Dictionary<Dictionary<string>>
-                >(storageKey);
+                const vault = new SessionStorageVault<Dictionary<Dictionary<string>>>(storageKey);
                 const originalSetItem = Storage.prototype.setItem;
 
                 Object.defineProperty(Storage.prototype, 'setItem', {
                     configurable: true,
-                    value: function() {
-                        throw new DOMException(
-                            'Quota exceeded',
-                            'QuotaExceededError'
-                        );
+                    value: function () {
+                        throw new DOMException('Quota exceeded', 'QuotaExceededError');
                     },
                 });
 
@@ -116,18 +91,13 @@ describe('Vault', () => {
 
             it('should return Unavailable when storage is disabled', () => {
                 const storageKey = 'test-key-store-unavailable';
-                const vault = new SessionStorageVault<
-                    Dictionary<Dictionary<string>>
-                >(storageKey);
+                const vault = new SessionStorageVault<Dictionary<Dictionary<string>>>(storageKey);
                 const originalSetItem = Storage.prototype.setItem;
 
                 Object.defineProperty(Storage.prototype, 'setItem', {
                     configurable: true,
-                    value: function() {
-                        throw new DOMException(
-                            'Storage disabled',
-                            'SecurityError'
-                        );
+                    value: function () {
+                        throw new DOMException('Storage disabled', 'SecurityError');
                     },
                 });
 
@@ -149,14 +119,9 @@ describe('Vault', () => {
             it('should retrieve an object', () => {
                 const storageKey = 'test-key-retrieve-object';
 
-                window.sessionStorage.setItem(
-                    storageKey,
-                    JSON.stringify(testObject),
-                );
+                window.sessionStorage.setItem(storageKey, JSON.stringify(testObject));
 
-                const vault = new SessionStorageVault<
-                    Dictionary<Dictionary<string>>
-                >(storageKey);
+                const vault = new SessionStorageVault<Dictionary<Dictionary<string>>>(storageKey);
 
                 const retrievedItem = vault.retrieve();
 
@@ -169,14 +134,9 @@ describe('Vault', () => {
             it('should retrieve an array', () => {
                 const storageKey = 'test-key-retrieve-array';
 
-                window.sessionStorage.setItem(
-                    storageKey,
-                    JSON.stringify(testArray),
-                );
+                window.sessionStorage.setItem(storageKey, JSON.stringify(testArray));
 
-                const vault = new SessionStorageVault<Dictionary<string>[]>(
-                    storageKey,
-                );
+                const vault = new SessionStorageVault<Array<Dictionary<string>>>(storageKey);
 
                 const retrievedItem = vault.retrieve();
 
@@ -186,10 +146,7 @@ describe('Vault', () => {
             it('should retrieve a string', () => {
                 const storageKey = 'test-key-retrieve-string';
 
-                window.sessionStorage.setItem(
-                    storageKey,
-                    JSON.stringify(testString),
-                );
+                window.sessionStorage.setItem(storageKey, JSON.stringify(testString));
 
                 const vault = new SessionStorageVault<string>(storageKey);
 
@@ -201,10 +158,7 @@ describe('Vault', () => {
             it('should retrieve an number', () => {
                 const storageKey = 'test-key-retrieve-number';
 
-                window.sessionStorage.setItem(
-                    storageKey,
-                    JSON.stringify(testNumber),
-                );
+                window.sessionStorage.setItem(storageKey, JSON.stringify(testNumber));
 
                 const vault = new SessionStorageVault<number>(storageKey);
 
@@ -218,41 +172,27 @@ describe('Vault', () => {
             it('should purge an object', () => {
                 const storageKey = 'test-key-purge-object';
 
-                window.sessionStorage.setItem(
-                    storageKey,
-                    JSON.stringify(testObject),
-                );
+                window.sessionStorage.setItem(storageKey, JSON.stringify(testObject));
 
-                const vault = new SessionStorageVault<
-                    Dictionary<Dictionary<string>>
-                >(storageKey);
+                const vault = new SessionStorageVault<Dictionary<Dictionary<string>>>(storageKey);
 
                 vault.purge();
 
                 expect(vault.contents).to.equal(null);
-                expect(window.sessionStorage.getItem(storageKey)).to.equal(
-                    null,
-                );
+                expect(window.sessionStorage.getItem(storageKey)).to.equal(null);
             });
 
             it('should purge an array', () => {
                 const storageKey = 'test-key-retrieve-array';
 
-                window.sessionStorage.setItem(
-                    storageKey,
-                    JSON.stringify(testArray),
-                );
+                window.sessionStorage.setItem(storageKey, JSON.stringify(testArray));
 
-                const vault = new SessionStorageVault<Dictionary<string>[]>(
-                    storageKey,
-                );
+                const vault = new SessionStorageVault<Array<Dictionary<string>>>(storageKey);
 
                 vault.purge();
 
                 expect(vault.contents).to.equal(null);
-                expect(window.sessionStorage.getItem(storageKey)).to.equal(
-                    null,
-                );
+                expect(window.sessionStorage.getItem(storageKey)).to.equal(null);
             });
         });
     });
@@ -266,31 +206,23 @@ describe('Vault', () => {
             it('should store an object', () => {
                 const storageKey = 'test-key-store-object';
 
-                const vault = new LocalStorageVault<
-                    Dictionary<Dictionary<string>>
-                >(storageKey);
+                const vault = new LocalStorageVault<Dictionary<Dictionary<string>>>(storageKey);
 
                 vault.store(testObject);
 
                 expect(vault.contents).to.equal(testObject);
-                expect(window.localStorage.getItem(storageKey)).to.equal(
-                    JSON.stringify(testObject),
-                );
+                expect(window.localStorage.getItem(storageKey)).to.equal(JSON.stringify(testObject));
             });
 
             it('should store an array', () => {
                 const storageKey = 'test-key-store-array';
 
-                const vault = new LocalStorageVault<Dictionary<string>[]>(
-                    storageKey,
-                );
+                const vault = new LocalStorageVault<Array<Dictionary<string>>>(storageKey);
 
                 vault.store(testArray);
 
                 expect(vault.contents).to.equal(testArray);
-                expect(window.localStorage.getItem(storageKey)).to.equal(
-                    JSON.stringify(testArray),
-                );
+                expect(window.localStorage.getItem(storageKey)).to.equal(JSON.stringify(testArray));
             });
 
             it('should store a string', () => {
@@ -301,9 +233,7 @@ describe('Vault', () => {
                 vault.store(testString);
 
                 expect(vault.contents).to.equal(testString);
-                expect(window.localStorage.getItem(storageKey)).to.equal(
-                    JSON.stringify(testString),
-                );
+                expect(window.localStorage.getItem(storageKey)).to.equal(JSON.stringify(testString));
             });
 
             it('should store a number', () => {
@@ -314,25 +244,18 @@ describe('Vault', () => {
                 vault.store(testNumber);
 
                 expect(vault.contents).to.equal(testNumber);
-                expect(window.localStorage.getItem(storageKey)).to.equal(
-                    JSON.stringify(testNumber),
-                );
+                expect(window.localStorage.getItem(storageKey)).to.equal(JSON.stringify(testNumber));
             });
 
             it('should return QuotaExceeded when storage is over quota', () => {
                 const storageKey = 'test-key-store-quota-error';
-                const vault = new LocalStorageVault<
-                    Dictionary<Dictionary<string>>
-                >(storageKey);
+                const vault = new LocalStorageVault<Dictionary<Dictionary<string>>>(storageKey);
                 const originalSetItem = Storage.prototype.setItem;
 
                 Object.defineProperty(Storage.prototype, 'setItem', {
                     configurable: true,
-                    value: function() {
-                        throw new DOMException(
-                            'Quota exceeded',
-                            'QuotaExceededError'
-                        );
+                    value: function () {
+                        throw new DOMException('Quota exceeded', 'QuotaExceededError');
                     },
                 });
 
@@ -351,18 +274,13 @@ describe('Vault', () => {
 
             it('should return Unavailable when storage is disabled', () => {
                 const storageKey = 'test-key-store-unavailable';
-                const vault = new LocalStorageVault<
-                    Dictionary<Dictionary<string>>
-                >(storageKey);
+                const vault = new LocalStorageVault<Dictionary<Dictionary<string>>>(storageKey);
                 const originalSetItem = Storage.prototype.setItem;
 
                 Object.defineProperty(Storage.prototype, 'setItem', {
                     configurable: true,
-                    value: function() {
-                        throw new DOMException(
-                            'Storage disabled',
-                            'SecurityError'
-                        );
+                    value: function () {
+                        throw new DOMException('Storage disabled', 'SecurityError');
                     },
                 });
 
@@ -384,14 +302,9 @@ describe('Vault', () => {
             it('should retrieve an object', () => {
                 const storageKey = 'test-key-retrieve-object';
 
-                window.localStorage.setItem(
-                    storageKey,
-                    JSON.stringify(testObject),
-                );
+                window.localStorage.setItem(storageKey, JSON.stringify(testObject));
 
-                const vault = new LocalStorageVault<
-                    Dictionary<Dictionary<string>>
-                >(storageKey);
+                const vault = new LocalStorageVault<Dictionary<Dictionary<string>>>(storageKey);
 
                 const retrievedItem = vault.retrieve();
 
@@ -404,14 +317,9 @@ describe('Vault', () => {
             it('should retrieve an array', () => {
                 const storageKey = 'test-key-retrieve-array';
 
-                window.localStorage.setItem(
-                    storageKey,
-                    JSON.stringify(testArray),
-                );
+                window.localStorage.setItem(storageKey, JSON.stringify(testArray));
 
-                const vault = new LocalStorageVault<Dictionary<string>[]>(
-                    storageKey,
-                );
+                const vault = new LocalStorageVault<Array<Dictionary<string>>>(storageKey);
 
                 const retrievedItem = vault.retrieve();
 
@@ -421,10 +329,7 @@ describe('Vault', () => {
             it('should retrieve a string', () => {
                 const storageKey = 'test-key-retrieve-string';
 
-                window.localStorage.setItem(
-                    storageKey,
-                    JSON.stringify(testString),
-                );
+                window.localStorage.setItem(storageKey, JSON.stringify(testString));
 
                 const vault = new LocalStorageVault<string>(storageKey);
 
@@ -436,10 +341,7 @@ describe('Vault', () => {
             it('should retrieve an number', () => {
                 const storageKey = 'test-key-retrieve-number';
 
-                window.localStorage.setItem(
-                    storageKey,
-                    JSON.stringify(testNumber),
-                );
+                window.localStorage.setItem(storageKey, JSON.stringify(testNumber));
 
                 const vault = new LocalStorageVault<number>(storageKey);
 
@@ -453,14 +355,9 @@ describe('Vault', () => {
             it('should purge an object', () => {
                 const storageKey = 'test-key-purge-object';
 
-                window.localStorage.setItem(
-                    storageKey,
-                    JSON.stringify(testObject),
-                );
+                window.localStorage.setItem(storageKey, JSON.stringify(testObject));
 
-                const vault = new LocalStorageVault<
-                    Dictionary<Dictionary<string>>
-                >(storageKey);
+                const vault = new LocalStorageVault<Dictionary<Dictionary<string>>>(storageKey);
 
                 vault.purge();
 
@@ -471,14 +368,9 @@ describe('Vault', () => {
             it('should purge an array', () => {
                 const storageKey = 'test-key-retrieve-array';
 
-                window.localStorage.setItem(
-                    storageKey,
-                    JSON.stringify(testArray),
-                );
+                window.localStorage.setItem(storageKey, JSON.stringify(testArray));
 
-                const vault = new LocalStorageVault<Dictionary<string>[]>(
-                    storageKey,
-                );
+                const vault = new LocalStorageVault<Array<Dictionary<string>>>(storageKey);
 
                 vault.purge();
 
@@ -512,9 +404,7 @@ describe('Vault', () => {
                 vault.store('newValue');
 
                 expect(vault.contents).to.equal(null);
-                expect(window.localStorage.getItem(storageKey)).to.equal(
-                    'existingItem',
-                );
+                expect(window.localStorage.getItem(storageKey)).to.equal('existingItem');
             });
         });
 
@@ -533,9 +423,7 @@ describe('Vault', () => {
 
                 const retrievedItem = vault.retrieve();
                 expect(retrievedItem).to.equal(null);
-                expect(window.localStorage.getItem(storageKey)).to.equal(
-                    'existingItem',
-                );
+                expect(window.localStorage.getItem(storageKey)).to.equal('existingItem');
             });
         });
 
@@ -598,7 +486,7 @@ describe('Vault', () => {
                 source_request_id: 'source-request-id-5',
             };
 
-            const vault = new LocalStorageVault<Partial<Batch>[]>(storageKey);
+            const vault = new LocalStorageVault<Array<Partial<Batch>>>(storageKey);
 
             vault.store([batch1, batch2, batch3, batch4, batch5]);
 

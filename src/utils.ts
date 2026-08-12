@@ -14,13 +14,11 @@ export type Dictionary<V = any> = Record<string, V>;
 
 export type Environment = valueof<typeof Constants.Environment>;
 
-const createCookieString = (value: string): string =>
-    replaceCommasWithPipes(replaceQuotesWithApostrophes(value));
+const createCookieString = (value: string): string => replaceCommasWithPipes(replaceQuotesWithApostrophes(value));
 
-const revertCookieString = (value: string): string =>
-    replacePipesWithCommas(replaceApostrophesWithQuotes(value));
+const revertCookieString = (value: string): string => replacePipesWithCommas(replaceApostrophesWithQuotes(value));
 
-const inArray = (items: any[], name: any): boolean => {
+const inArray = (items: Array<any>, name: any): boolean => {
     if (!items) {
         return false;
     }
@@ -30,7 +28,7 @@ const inArray = (items: any[], name: any): boolean => {
     if (Array.prototype.indexOf) {
         return items.indexOf(name, 0) >= 0;
     } else {
-        for (var n = items.length; i < n; i++) {
+        for (let n = items.length; i < n; i++) {
             if (i in items && items[i] === name) {
                 return true;
             }
@@ -42,11 +40,8 @@ const inArray = (items: any[], name: any): boolean => {
 
 const findKeyInObject = (obj: any, key: string): string => {
     if (key && obj) {
-        for (var prop in obj) {
-            if (
-                obj.hasOwnProperty(prop) &&
-                prop.toLowerCase() === key.toLowerCase()
-            ) {
+        for (const prop in obj) {
+            if (obj.hasOwnProperty(prop) && prop.toLowerCase() === key.toLowerCase()) {
                 return prop;
             }
         }
@@ -61,7 +56,7 @@ const generateDeprecationMessage = (
     alternateMethod?: string,
     docsUrl?: string,
 ): string => {
-    const messageArray: string[] = [methodName];
+    const messageArray: Array<string> = [methodName];
 
     if (isDeprecated) {
         messageArray.push(Messages.DeprecationMessages.MethodHasBeenDeprecated);
@@ -71,11 +66,11 @@ const generateDeprecationMessage = (
 
     if (alternateMethod) {
         messageArray.push(Messages.DeprecationMessages.AlternativeMethodPrefix);
-        messageArray.push(alternateMethod + ".");
+        messageArray.push(alternateMethod + '.');
     }
 
     if (docsUrl) {
-        messageArray.push("See - " + docsUrl);
+        messageArray.push('See - ' + docsUrl);
     }
 
     return messageArray.join(' ');
@@ -92,7 +87,7 @@ function generateHash(name: string): number {
     name = name.toString().toLowerCase();
 
     if (Array.prototype.reduce) {
-        return name.split('').reduce(function(a: number, b: string) {
+        return name.split('').reduce(function (a: number, b: string) {
             a = (a << 5) - a + b.charCodeAt(0);
             return a & a;
         }, 0);
@@ -116,11 +111,11 @@ const generateRandomValue = (value?: string): string => {
     let a: number;
 
     if (window.crypto && window.crypto.getRandomValues) {
-        // @ts-ignore
+        // @ts-expect-error getRandomValues returns a typed array, not a string
         randomValue = window.crypto.getRandomValues(new Uint8Array(1)); // eslint-disable-line no-undef
     }
     if (randomValue) {
-        // @ts-ignore
+        // @ts-expect-error randomValue is treated as a numeric array for the hash nibble
         return (a ^ (randomValue[0] % 16 >> (a / 4))).toString(16);
     }
 
@@ -140,7 +135,7 @@ const generateUniqueId = (a: string = ''): string =>
           // -1e11 -> //-100000000000,
           `${1e7}-${1e3}-${4e3}-${8e3}-${1e11}`.replace(
               /[018]/g, // zeroes, ones, and eights with
-              generateUniqueId // random hex digits
+              generateUniqueId, // random hex digits
           );
 
 /**
@@ -157,7 +152,7 @@ const getRampNumber = (value?: string): number => {
 };
 
 const isObject = (value: any): boolean => {
-    var objType = Object.prototype.toString.call(value);
+    const objType = Object.prototype.toString.call(value);
     return objType === '[object Object]' || objType === '[object Error]';
 };
 
@@ -165,11 +160,11 @@ const parseNumber = (value: string | number): number => {
     if (isNaN(value as number) || !isFinite(value as number)) {
         return 0;
     }
-    var floatValue = parseFloat(value as string);
+    const floatValue = parseFloat(value as string);
     return isNaN(floatValue) ? 0 : floatValue;
 };
 
-const parseSettingsString = (settingsString: string): Dictionary<string>[] => {
+const parseSettingsString = (settingsString: string): Array<Dictionary<string>> => {
     try {
         return settingsString ? JSON.parse(settingsString.replace(/&quot;/g, '"')) : [];
     } catch (error) {
@@ -177,9 +172,7 @@ const parseSettingsString = (settingsString: string): Dictionary<string>[] => {
     }
 };
 
-const parseStringOrNumber = (
-    value: string | number
-): string | number | null => {
+const parseStringOrNumber = (value: string | number): string | number | null => {
     if (isStringOrNumber(value)) {
         return value;
     } else {
@@ -187,46 +180,33 @@ const parseStringOrNumber = (
     }
 };
 
-const replaceCommasWithPipes = (value: string): string =>
-    value.replace(/,/g, '|');
+const replaceCommasWithPipes = (value: string): string => value.replace(/,/g, '|');
 
-const replacePipesWithCommas = (value: string): string =>
-    value.replace(/\|/g, ',');
+const replacePipesWithCommas = (value: string): string => value.replace(/\|/g, ',');
 
-const replaceApostrophesWithQuotes = (value: string): string =>
-    value.replace(/\'/g, '"');
+const replaceApostrophesWithQuotes = (value: string): string => value.replace(/\'/g, '"');
 
-const replaceQuotesWithApostrophes = (value: string): string =>
-    value.replace(/\"/g, "'");
+const replaceQuotesWithApostrophes = (value: string): string => value.replace(/\"/g, "'");
 
 const replaceMPID = (value: string, mpid: MPID): string => value.replace('%%mpid%%', mpid);
 
 const replaceAmpWithAmpersand = (value: string): string => value.replace(/&amp;/g, '&');
 
-const createCookieSyncUrl = (
-    mpid: MPID,
-    pixelUrl: string,
-    redirectUrl?: string,
-    domain?: string
-): string => {
+const createCookieSyncUrl = (mpid: MPID, pixelUrl: string, redirectUrl?: string, domain?: string): string => {
     const modifiedPixelUrl = replaceAmpWithAmpersand(pixelUrl);
-    const modifiedDirectUrl = redirectUrl
-        ? replaceAmpWithAmpersand(redirectUrl)
-        : null;
+    const modifiedDirectUrl = redirectUrl ? replaceAmpWithAmpersand(redirectUrl) : null;
 
-    let url = replaceMPID(modifiedPixelUrl, mpid);
-    
-    const redirect = modifiedDirectUrl
-        ? replaceMPID(modifiedDirectUrl, mpid)
-        : '';
-    
+    const url = replaceMPID(modifiedPixelUrl, mpid);
+
+    const redirect = modifiedDirectUrl ? replaceMPID(modifiedDirectUrl, mpid) : '';
+
     let fullUrl = url + encodeURIComponent(redirect);
-    
+
     if (domain) {
         const separator = fullUrl.includes('?') ? '&' : '?';
         fullUrl += `${separator}domain=${domain}`;
     }
-    
+
     return fullUrl;
 };
 
@@ -242,15 +222,11 @@ const returnConvertedBoolean = (data: string | boolean | number) => {
     }
 };
 
-const decoded = (s: string): string =>
-    decodeURIComponent(s.replace(/\+/g, ' '));
+const decoded = (s: string): string => decodeURIComponent(s.replace(/\+/g, ' '));
 
 const converted = (s: string): string => {
     if (s.indexOf('"') === 0) {
-        s = s
-            .slice(1, -1)
-            .replace(/\\"/g, '"')
-            .replace(/\\\\/g, '\\');
+        s = s.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
     }
 
     return s;
@@ -262,9 +238,8 @@ const isBoolean = (value: any): boolean => typeof value === 'boolean';
 const isFunction = (fn: any): boolean => typeof fn === 'function';
 const isValidAttributeValue = (value: any): boolean => {
     return value !== undefined && !isObject(value) && !Array.isArray(value);
-}
-const isValidCustomFlagProperty = (value: any): boolean =>
-    isNumber(value) || isString(value) || isBoolean(value);
+};
+const isValidCustomFlagProperty = (value: any): boolean => isNumber(value) || isString(value) || isBoolean(value);
 
 const toDataPlanSlug = (value: any): string =>
     // Make sure we are only acting on strings or numbers
@@ -277,26 +252,22 @@ const toDataPlanSlug = (value: any): string =>
 
 const isDataPlanSlug = (str: string): boolean => str === toDataPlanSlug(str);
 
-const isStringOrNumber = (value: any): boolean =>
-    isString(value) || isNumber(value);
+const isStringOrNumber = (value: any): boolean => isString(value) || isNumber(value);
 
 const isEmpty = (value: Dictionary<any> | string | null | undefined): boolean =>
     value == null || !(Object.keys(value) || value).length;
 
-const mergeObjects = <T extends object>(...objects: T[]): T => {
+const mergeObjects = <T extends object>(...objects: Array<T>): T => {
     return Object.assign({}, ...objects);
 };
 
-const moveElementToEnd = <T>(array: T[], index: number): T[] =>
+const moveElementToEnd = <T>(array: Array<T>, index: number): Array<T> =>
     array.slice(0, index).concat(array.slice(index + 1), array[index]);
 
-const queryStringParser = (
-    url: string,
-    keys: string[] = []
-): Dictionary<string> => {
+const queryStringParser = (url: string, keys: Array<string> = []): Dictionary<string> => {
     let urlParams: URLSearchParams | URLSearchParamsFallback;
-    let results: Dictionary<string> = {};
-    let lowerCaseUrlParams: Dictionary<string> = {};
+    const results: Dictionary<string> = {};
+    const lowerCaseUrlParams: Dictionary<string> = {};
 
     if (!url) return results;
 
@@ -314,7 +285,7 @@ const queryStringParser = (
     if (isEmpty(keys)) {
         return lowerCaseUrlParams;
     } else {
-        keys.forEach(key => {
+        keys.forEach((key) => {
             const value = lowerCaseUrlParams[key.toLowerCase()];
             if (value) {
                 results[key] = value;
@@ -335,7 +306,7 @@ const queryStringParserFallback = (url: string): URLSearchParamsFallback => {
     const queryString = url.split('?')[1] || '';
     const pairs = queryString.split('&');
 
-    pairs.forEach(pair => {
+    pairs.forEach((pair) => {
         const [key, ...valueParts] = pair.split('=');
         const value = valueParts.join('=');
         if (key && value !== undefined) {
@@ -348,11 +319,11 @@ const queryStringParserFallback = (url: string): URLSearchParamsFallback => {
     });
 
     return {
-        get: function(key: string) {
+        get: function (key: string) {
             return params[key];
         },
-        forEach: function(callback: (value: string, key: string) => void) {
-            for (var key in params) {
+        forEach: function (callback: (value: string, key: string) => void) {
+            for (const key in params) {
                 if (params.hasOwnProperty(key)) {
                     callback(params[key], key);
                 }
@@ -362,14 +333,14 @@ const queryStringParserFallback = (url: string): URLSearchParamsFallback => {
 };
 
 // Get cookies as a dictionary
-const getCookies = (keys?: string[]): Dictionary<string> => {
+const getCookies = (keys?: Array<string>): Dictionary<string> => {
     // Helper function to parse cookies from document.cookie
-    const parseCookies = (): string[] => {
+    const parseCookies = (): Array<string> => {
         try {
             if (typeof window === 'undefined') {
                 return [];
             }
-            return window.document.cookie.split(';').map(cookie => cookie.trim());
+            return window.document.cookie.split(';').map((cookie) => cookie.trim());
         } catch (e) {
             console.error('Unable to parse cookies', e);
             return [];
@@ -377,10 +348,7 @@ const getCookies = (keys?: string[]): Dictionary<string> => {
     };
 
     // Helper function to filter cookies by keys
-    const filterCookies = (
-        cookies: string[],
-        keys?: string[]
-    ): Dictionary<string> => {
+    const filterCookies = (cookies: Array<string>, keys?: Array<string>): Dictionary<string> => {
         const results: Dictionary<string> = {};
         for (const cookie of cookies) {
             const [key, value] = cookie.split('=');
@@ -392,22 +360,20 @@ const getCookies = (keys?: string[]): Dictionary<string> => {
     };
 
     // Parse cookies from document.cookie
-    const parsedCookies: string[] = parseCookies();
+    const parsedCookies: Array<string> = parseCookies();
 
     // Filter cookies by keys if provided
     return filterCookies(parsedCookies, keys);
 };
 
 const getHref = (): string => {
-    return typeof window !== 'undefined' && window.location
-        ? window.location.href
-        : '';
+    return typeof window !== 'undefined' && window.location ? window.location.href : '';
 };
 
 const filterDictionaryWithHash = <T>(
     dictionary: Dictionary<T>,
-    filterList: any[],
-    hashFn: (key: string) => any
+    filterList: Array<any>,
+    hashFn: (key: string) => any,
 ): Dictionary<T> => {
     const filtered = {};
 
@@ -423,14 +389,15 @@ const filterDictionaryWithHash = <T>(
     }
 
     return filtered;
-}
+};
 
 const parseConfig = (config: SDKInitConfig, moduleName: string, moduleId: number): IKitConfigs | null => {
-    return config.kitConfigs?.find((kitConfig: IKitConfigs) =>
-        kitConfig.name === moduleName &&
-        kitConfig.moduleId === moduleId
-    ) || null;
-}
+    return (
+        config.kitConfigs?.find(
+            (kitConfig: IKitConfigs) => kitConfig.name === moduleName && kitConfig.moduleId === moduleId,
+        ) || null
+    );
+};
 
 /**
  * Obfuscates an object by replacing all primitive values with their type names,
@@ -455,7 +422,7 @@ const obfuscateData = (value: any): any => {
 
     // Handle arrays - recursively obfuscate each element
     if (Array.isArray(value)) {
-        return value.map(item => obfuscateData(item));
+        return value.map((item) => obfuscateData(item));
     }
 
     // Handle objects - recursively obfuscate each property
@@ -493,24 +460,15 @@ const obfuscateDevData = (data: any, isDevelopmentMode?: boolean): any =>
 
 // Standalone version of jQuery.extend, from https://github.com/dansdom/extend
 // https://go.mparticle.com/work/SQDSDKS-6047
-function extend(...args: any[]): any {
+function extend(...args: Array<any>): any {
     const objectHelper = {
         hasOwn: Object.prototype.hasOwnProperty,
         class2type: {} as Record<string, string>,
         type(obj: any): string {
-            return obj == null
-                ? String(obj)
-                : objectHelper.class2type[
-                      Object.prototype.toString.call(obj)
-                  ] || 'object';
+            return obj == null ? String(obj) : objectHelper.class2type[Object.prototype.toString.call(obj)] || 'object';
         },
         isPlainObject(obj: any): boolean {
-            if (
-                !obj ||
-                objectHelper.type(obj) !== 'object' ||
-                obj.nodeType ||
-                objectHelper.isWindow(obj)
-            ) {
+            if (!obj || objectHelper.type(obj) !== 'object' || obj.nodeType || objectHelper.isWindow(obj)) {
                 return false;
             }
 
@@ -518,10 +476,7 @@ function extend(...args: any[]): any {
                 if (
                     obj.constructor &&
                     !objectHelper.hasOwn.call(obj, 'constructor') &&
-                    !objectHelper.hasOwn.call(
-                        obj.constructor.prototype,
-                        'isPrototypeOf'
-                    )
+                    !objectHelper.hasOwn.call(obj.constructor.prototype, 'isPrototypeOf')
                 ) {
                     return false;
                 }
@@ -533,13 +488,11 @@ function extend(...args: any[]): any {
             for (key in obj) {
             } // eslint-disable-line no-empty
 
-            return (
-                key === undefined || objectHelper.hasOwn.call(obj, key)
-            );
+            return key === undefined || objectHelper.hasOwn.call(obj, key);
         },
         isArray:
             Array.isArray ||
-            function(obj: any): boolean {
+            function (obj: any): boolean {
                 return objectHelper.type(obj) === 'array';
             },
         isFunction(obj: any): boolean {
@@ -579,11 +532,7 @@ function extend(...args: any[]): any {
     for (; i < length; i++) {
         if ((options = args[i]) != null) {
             for (name in options) {
-                if (
-                    name === '__proto__' ||
-                    name === 'constructor' ||
-                    name === 'prototype'
-                ) {
+                if (name === '__proto__' || name === 'constructor' || name === 'prototype') {
                     continue;
                 }
 
@@ -598,20 +547,12 @@ function extend(...args: any[]): any {
                     continue;
                 }
 
-                if (
-                    deep &&
-                    copy &&
-                    (objectHelper.isPlainObject(copy) ||
-                        (copyIsArray = objectHelper.isArray(copy)))
-                ) {
+                if (deep && copy && (objectHelper.isPlainObject(copy) || (copyIsArray = objectHelper.isArray(copy)))) {
                     if (copyIsArray) {
                         copyIsArray = false;
                         clone = src && objectHelper.isArray(src) ? src : [];
                     } else {
-                        clone =
-                            src && objectHelper.isPlainObject(src)
-                                ? src
-                                : {};
+                        clone = src && objectHelper.isPlainObject(src) ? src : {};
                     }
 
                     target[name] = extend(deep, clone, copy);
@@ -625,10 +566,7 @@ function extend(...args: any[]): any {
     return target;
 }
 
-const getErrorMessage = (
-    e: unknown,
-    fallback = 'unknown error'
-): string => {
+const getErrorMessage = (e: unknown, fallback = 'unknown error'): string => {
     if (e instanceof Error) {
         return e.message;
     }
@@ -636,11 +574,7 @@ const getErrorMessage = (
         return e;
     }
     // fetch-mock and some network libs reject with { message } rather than Error
-    if (
-        e &&
-        typeof e === 'object' &&
-        typeof (e as { message?: unknown }).message === 'string'
-    ) {
+    if (e && typeof e === 'object' && typeof (e as { message?: unknown }).message === 'string') {
         return (e as { message: string }).message;
     }
     return fallback;

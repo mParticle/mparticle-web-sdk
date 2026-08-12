@@ -1,13 +1,6 @@
-import {
-    IMParticleUser,
-    IdentityModifyResultBody,
-    IdentityResultBody,
-} from '../../src/identity-user-interfaces';
+import { IMParticleUser, IdentityModifyResultBody, IdentityResultBody } from '../../src/identity-user-interfaces';
 import { SDKIdentityTypeEnum } from '../../src/identity.interfaces';
-import {
-    hasMPIDAndUserLoginChanged,
-    hasMPIDChanged,
-} from '../../src/user-utils';
+import { hasMPIDAndUserLoginChanged, hasMPIDChanged } from '../../src/user-utils';
 import { SDKEvent } from '../../src/sdkRuntimeModels';
 import { appendUserInfo } from '../../src/user-utils';
 import { isObject, parseNumber } from '../../src/utils';
@@ -19,8 +12,8 @@ describe('user-utils', () => {
         mockMPInstance = {
             _Helpers: {
                 isObject,
-                parseNumber
-            }
+                parseNumber,
+            },
         };
     });
 
@@ -30,49 +23,43 @@ describe('user-utils', () => {
         });
 
         it('returns true if previousUser and newUser have different mpids', () => {
-            const previousUser = ({
+            const previousUser = {
                 getMPID: () => '123',
-            } as unknown) as IMParticleUser;
+            } as unknown as IMParticleUser;
 
-            const newUser = ({
+            const newUser = {
                 getMPID: () => '456',
-            } as unknown) as IMParticleUser;
+            } as unknown as IMParticleUser;
 
-            expect(
-                hasMPIDAndUserLoginChanged(previousUser, newUser)
-            ).toBeTruthy();
+            expect(hasMPIDAndUserLoginChanged(previousUser, newUser)).toBeTruthy();
         });
 
         it('returns false if previousUser and newUser have the same MPID', () => {
-            const previousUser = ({
+            const previousUser = {
                 getMPID: () => '123',
                 isLoggedIn: () => false,
-            } as unknown) as IMParticleUser;
+            } as unknown as IMParticleUser;
 
-            const newUser = ({
+            const newUser = {
                 getMPID: () => '123',
                 isLoggedIn: () => false,
-            } as unknown) as IMParticleUser;
+            } as unknown as IMParticleUser;
 
-            expect(
-                hasMPIDAndUserLoginChanged(previousUser, newUser)
-            ).toBeFalsy();
+            expect(hasMPIDAndUserLoginChanged(previousUser, newUser)).toBeFalsy();
         });
 
         it('returns true if previousUser and newUser have the same MPID but different login states', () => {
-            const previousUser = ({
+            const previousUser = {
                 getMPID: () => '123',
                 isLoggedIn: () => true,
-            } as unknown) as IMParticleUser;
+            } as unknown as IMParticleUser;
 
-            const newUser = ({
+            const newUser = {
                 getMPID: () => '123',
                 isLoggedIn: () => false,
-            } as unknown) as IMParticleUser;
+            } as unknown as IMParticleUser;
 
-            expect(
-                hasMPIDAndUserLoginChanged(previousUser, newUser)
-            ).toBeTruthy();
+            expect(hasMPIDAndUserLoginChanged(previousUser, newUser)).toBeTruthy();
         });
     });
 
@@ -92,52 +79,48 @@ describe('user-utils', () => {
         });
 
         it('returns false if prevUser has an MPID and the new MPID is null or undefined', () => {
-            const prevUser = ({
+            const prevUser = {
                 getMPID: () => '123',
-            } as unknown) as IMParticleUser;
+            } as unknown as IMParticleUser;
 
-            expect(
-                hasMPIDChanged(prevUser, { ...identityResultBody, mpid: null })
-            ).toBeFalsy();
+            expect(hasMPIDChanged(prevUser, { ...identityResultBody, mpid: null })).toBeFalsy();
 
             expect(
                 hasMPIDChanged(prevUser, {
                     ...identityResultBody,
                     mpid: undefined,
-                })
+                }),
             ).toBeFalsy();
         });
 
         it('returns false if prevUser has an MPID and the identity result is empty', () => {
-            const prevUser = ({
+            const prevUser = {
                 getMPID: () => '123',
-            } as unknown) as IMParticleUser;
+            } as unknown as IMParticleUser;
 
-            expect(
-                hasMPIDChanged(prevUser, {} as IdentityResultBody)
-            ).toBeFalsy();
+            expect(hasMPIDChanged(prevUser, {} as IdentityResultBody)).toBeFalsy();
         });
 
         it('returns true if prevUser has an MPID and the new MPID is different', () => {
-            const prevUser = ({
+            const prevUser = {
                 getMPID: () => '456',
-            } as unknown) as IMParticleUser;
+            } as unknown as IMParticleUser;
 
             expect(hasMPIDChanged(prevUser, identityResultBody)).toBeTruthy();
         });
 
         it('returns false if prevUser has an MPID and the new MPID is the same', () => {
-            const prevUser = ({
+            const prevUser = {
                 getMPID: () => '123',
-            } as unknown) as IMParticleUser;
+            } as unknown as IMParticleUser;
 
             expect(hasMPIDChanged(prevUser, identityResultBody)).toBeFalsy();
         });
 
         it('returns false if prevUser has an MPID but the result is a modify result', () => {
-            const prevUser = ({
+            const prevUser = {
                 getMPID: () => '123',
-            } as unknown) as IMParticleUser;
+            } as unknown as IMParticleUser;
 
             const modifyResults: IdentityModifyResultBody = {
                 change_results: {
@@ -145,15 +128,13 @@ describe('user-utils', () => {
                     modified_mpid: '123',
                 },
             };
-            expect(
-                hasMPIDChanged(prevUser, modifyResults as IdentityResultBody)
-            ).toBeFalsy();
+            expect(hasMPIDChanged(prevUser, modifyResults as IdentityResultBody)).toBeFalsy();
         });
     });
 
     describe('appendUserInfo', () => {
         it('should append User Identities and Attributes to event', () => {
-            const user = ({
+            const user = {
                 getUserIdentities: () => {
                     return {
                         userIdentities: {
@@ -197,7 +178,7 @@ describe('user-utils', () => {
                         },
                     };
                 },
-            } as unknown) as IMParticleUser;
+            } as unknown as IMParticleUser;
 
             const event: SDKEvent = {
                 EventName: 'Test Event',

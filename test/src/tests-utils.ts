@@ -29,19 +29,15 @@ import { expect } from 'chai';
 describe('Utils', () => {
     describe('#createCookieString', () => {
         it('should create a valid cookie string', () => {
-            const before =
-                '{"cgid":"abc","das":"def","dt":"hij","ie":true,"les":1505932333024,"sid":"klm"}';
-            const after =
-                "{'cgid':'abc'|'das':'def'|'dt':'hij'|'ie':true|'les':1505932333024|'sid':'klm'}";
+            const before = '{"cgid":"abc","das":"def","dt":"hij","ie":true,"les":1505932333024,"sid":"klm"}';
+            const after = "{'cgid':'abc'|'das':'def'|'dt':'hij'|'ie':true|'les':1505932333024|'sid':'klm'}";
             expect(createCookieString(before)).to.equal(after);
         });
     });
     describe('#revertCookieString', () => {
         it('should create a revert cookie string', () => {
-            const before =
-                '{"cgid":"abc","das":"def","dt":"hij","ie":true,"les":1505932333024,"sid":"klm"}';
-            const after =
-                "{'cgid':'abc'|'das':'def'|'dt':'hij'|'ie':true|'les':1505932333024|'sid':'klm'}";
+            const before = '{"cgid":"abc","das":"def","dt":"hij","ie":true,"les":1505932333024,"sid":"klm"}';
+            const after = "{'cgid':'abc'|'das':'def'|'dt':'hij'|'ie':true|'les':1505932333024|'sid':'klm'}";
             expect(revertCookieString(after)).to.equal(before);
         });
     });
@@ -52,12 +48,8 @@ describe('Utils', () => {
             expect(generateHash('false')).to.equal(97196323);
             expect(generateHash('3569038')).to.equal(-412991536);
             expect(generateHash('TestHash')).to.equal(-1146196832);
-            expect(generateHash('mParticle'), 'mParticle String').to.equal(
-                1744810483,
-            );
-            expect(
-                generateHash('d71b49a6-4248-4581-afff-abb28dada53d'),
-            ).to.equal(635757846);
+            expect(generateHash('mParticle'), 'mParticle String').to.equal(1744810483);
+            expect(generateHash('d71b49a6-4248-4581-afff-abb28dada53d')).to.equal(635757846);
         });
 
         it('returns 0 when hashing undefined or null', () => {
@@ -65,9 +57,7 @@ describe('Utils', () => {
             expect(generateHash(undefined)).to.equal(0);
 
             // Use bad values to verify expected fail cases
-            expect(typeof generateHash(false as unknown as string)).to.equal(
-                'number',
-            );
+            expect(typeof generateHash(false as unknown as string)).to.equal('number');
             expect(generateHash(false as unknown as string)).to.not.equal(0);
         });
     });
@@ -97,12 +87,8 @@ describe('Utils', () => {
         it('returns a ramp number', () => {
             expect(getRampNumber()).to.equal(100);
             expect(getRampNumber(null)).to.equal(100);
-            expect(
-                getRampNumber('2b907d8b-cefe-4530-a6fe-60a381f2e066'),
-            ).to.equal(60);
-            expect(
-                getRampNumber('d71b49a6-4248-4581-afff-abb28dada53d'),
-            ).to.equal(47);
+            expect(getRampNumber('2b907d8b-cefe-4530-a6fe-60a381f2e066')).to.equal(60);
+            expect(getRampNumber('d71b49a6-4248-4581-afff-abb28dada53d')).to.equal(47);
 
             const uniqueId = generateUniqueId();
             const result = getRampNumber(uniqueId);
@@ -167,10 +153,8 @@ describe('Utils', () => {
 
     describe('#replaceCommasWithPipes', () => {
         it('should replace commas with pipes', () => {
-            const pipes =
-                '{"cgid":"abc"|"das":"def"|"dt":"hij"|"ie":true|"les":1505932333024|"sid":"klm"}';
-            const commas =
-                '{"cgid":"abc","das":"def","dt":"hij","ie":true,"les":1505932333024,"sid":"klm"}';
+            const pipes = '{"cgid":"abc"|"das":"def"|"dt":"hij"|"ie":true|"les":1505932333024|"sid":"klm"}';
+            const commas = '{"cgid":"abc","das":"def","dt":"hij","ie":true,"les":1505932333024,"sid":"klm"}';
 
             expect(replaceCommasWithPipes(commas)).to.equal(pipes);
         });
@@ -178,10 +162,8 @@ describe('Utils', () => {
 
     describe('#replacePipesWithCommas', () => {
         it('should replace pipes with commas', () => {
-            const pipes =
-                '{"cgid":"abc"|"das":"def"|"dt":"hij"|"ie":true|"les":1505932333024|"sid":"klm"}';
-            const commas =
-                '{"cgid":"abc","das":"def","dt":"hij","ie":true,"les":1505932333024,"sid":"klm"}';
+            const pipes = '{"cgid":"abc"|"das":"def"|"dt":"hij"|"ie":true|"les":1505932333024|"sid":"klm"}';
+            const commas = '{"cgid":"abc","das":"def","dt":"hij","ie":true,"les":1505932333024,"sid":"klm"}';
 
             expect(replacePipesWithCommas(pipes)).to.equal(commas);
         });
@@ -189,10 +171,8 @@ describe('Utils', () => {
 
     describe('#replaceApostrophesWithQuotes', () => {
         it('should replace apostrophes with quotes', () => {
-            const quotes =
-                '{"cgid":"abc"|"das":"def"|"dt":"hij"|"ie":true|"les":1505932333024|"sid":"klm"}';
-            const apostrophes =
-                "{'cgid':'abc'|'das':'def'|'dt':'hij'|'ie':true|'les':1505932333024|'sid':'klm'}";
+            const quotes = '{"cgid":"abc"|"das":"def"|"dt":"hij"|"ie":true|"les":1505932333024|"sid":"klm"}';
+            const apostrophes = "{'cgid':'abc'|'das':'def'|'dt':'hij'|'ie':true|'les':1505932333024|'sid':'klm'}";
 
             expect(replaceApostrophesWithQuotes(apostrophes)).to.equal(quotes);
         });
@@ -200,10 +180,8 @@ describe('Utils', () => {
 
     describe('#replaceQuotesWithApostrophes', () => {
         it('should replace quotes with apostrophes', () => {
-            const quotes =
-                '{"cgid":"abc"|"das":"def"|"dt":"hij"|"ie":true|"les":1505932333024|"sid":"klm"}';
-            const apostrophes =
-                "{'cgid':'abc'|'das':'def'|'dt':'hij'|'ie':true|'les':1505932333024|'sid':'klm'}";
+            const quotes = '{"cgid":"abc"|"das":"def"|"dt":"hij"|"ie":true|"les":1505932333024|"sid":"klm"}';
+            const apostrophes = "{'cgid':'abc'|'das':'def'|'dt':'hij'|'ie':true|'les':1505932333024|'sid':'klm'}";
 
             expect(replaceQuotesWithApostrophes(quotes)).to.equal(apostrophes);
         });
@@ -273,7 +251,7 @@ describe('Utils', () => {
             const cookieString =
                 "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='";
             expect(converted(cookieString)).to.eq(
-                "{\'sid\':\'1992BDBB-AD74-49DB-9B20-5EC8037E72DE\'|\'ie\':1|\'ua\':\'eyJ0ZXN\'0Ijoiwq7igJkifQ==\'",
+                "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='",
             );
         });
     });
@@ -283,16 +261,10 @@ describe('Utils', () => {
             expect(toDataPlanSlug('string')).to.equal('string');
             expect(toDataPlanSlug('42')).to.equal('42');
             expect(toDataPlanSlug(37)).to.equal('37');
-            expect(toDataPlanSlug('string with spaces')).to.equal(
-                'string_with_spaces',
-            );
-            expect(toDataPlanSlug('kabob-case-string')).to.equal(
-                'kabob_case_string',
-            );
+            expect(toDataPlanSlug('string with spaces')).to.equal('string_with_spaces');
+            expect(toDataPlanSlug('kabob-case-string')).to.equal('kabob_case_string');
             expect(toDataPlanSlug('PascalSlug')).to.equal('pascalslug');
-            expect(toDataPlanSlug('under_score_slug')).to.equal(
-                'under_score_slug',
-            );
+            expect(toDataPlanSlug('under_score_slug')).to.equal('under_score_slug');
         });
 
         it('should convert non-strings to an empty string', () => {
@@ -390,9 +362,7 @@ describe('Utils', () => {
                 isValidCustomFlagProperty(function () {}),
                 'function',
             ).to.equal(false);
-            expect(isValidCustomFlagProperty(undefined), 'undefined').to.equal(
-                false,
-            );
+            expect(isValidCustomFlagProperty(undefined), 'undefined').to.equal(false);
         });
     });
 
@@ -447,13 +417,7 @@ describe('Utils', () => {
             const array = ['foo', 'bar', 'baz', 'fizz', 'buzz'];
             const index = 2;
 
-            expect(moveElementToEnd(array, index)).to.deep.equal([
-                'foo',
-                'bar',
-                'fizz',
-                'buzz',
-                'baz',
-            ]);
+            expect(moveElementToEnd(array, index)).to.deep.equal(['foo', 'bar', 'fizz', 'buzz', 'baz']);
         });
     });
 });

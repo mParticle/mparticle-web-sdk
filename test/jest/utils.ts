@@ -1,4 +1,4 @@
-import { KitRegistrationConfig, RegisteredKit, UnregisteredKit } from "../../src/forwarders.interfaces";
+import { KitRegistrationConfig, RegisteredKit, UnregisteredKit } from '../../src/forwarders.interfaces';
 
 export class MockForwarder {
     public name: string;
@@ -7,7 +7,7 @@ export class MockForwarder {
     public processCalled: boolean = false;
     public setUserIdentityCalled: boolean = false;
     public onUserIdentifiedCalled: boolean = false;
-    
+
     public setOptOutCalled: boolean = false;
     public setUserAttributeCalled: boolean = false;
     public reportingService = null;
@@ -34,22 +34,13 @@ export class MockForwarder {
                 constructor: this.constructor as () => RegisteredKit,
             };
         }
-    }
+    };
 
     public getId = (): number => {
         return this.moduleId;
-    }
+    };
 
-    public init = ((
-        settings,
-        reportingService,
-        testMode,
-        id,
-        userAttributes,
-        userIdentities,
-        appVersion,
-        appName
-    ) => {
+    public init = (settings, reportingService, testMode, id, userAttributes, userIdentities, appVersion, appName) => {
         this.reportingService = reportingService;
         this.initCalled = true;
 
@@ -60,7 +51,7 @@ export class MockForwarder {
         this.appName = appName;
         this.settings = settings;
         this.testMode = testMode;
-    })
+    };
 }
 
 export const MockSideloadedKit = MockForwarder;
@@ -68,13 +59,13 @@ export const MockSideloadedKit = MockForwarder;
 export interface IMockSideloadedKit extends MockForwarder {}
 
 export interface IMockSideloadedKitConstructor {
-    new(unregisteredKitInstance: UnregisteredKit): IMockSideloadedKit;
+    new (unregisteredKitInstance: UnregisteredKit): IMockSideloadedKit;
 }
 
-export const deleteAllCookies = ():void => {
-    document.cookie.split(';').forEach(cookie => {
+export const deleteAllCookies = (): void => {
+    document.cookie.split(';').forEach((cookie) => {
         const eqPos = cookie.indexOf('=');
         const name = eqPos > -1 ? cookie.substring(0, eqPos) : cookie;
         document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT';
     });
-}
+};

@@ -9,10 +9,11 @@ Run the full lint and test battery to verify the current state of the codebase.
 
 ## Steps
 
-1. Run lint first:
+1. Run lint and format checks first:
 
 ```bash
 npm run lint
+npm run prettier
 ```
 
 2. If lint passes, run both test suites in parallel. Each suite handles its own build internally.
@@ -30,6 +31,7 @@ npm run test
 | Check       | Status |
 |-------------|--------|
 | Lint        | PASS / FAIL |
+| Prettier    | PASS / FAIL |
 | Jest Tests  | PASS / FAIL |
 | Karma Tests | PASS / FAIL |
 

@@ -168,7 +168,7 @@ Feature Flags & Kit Configs (runtime)
   - ES Modules for modern bundlers with tree-shaking support
   - Stub for capturing API calls before SDK loads
 - **Testing**: Karma (browser integration), Jest (TypeScript modules), BrowserStack (cross-browser)
-- **Code Quality**: ESLint, Prettier, GTS (Google TypeScript Style)
+- **Code Quality**: ESLint 9 (flat config, aligned with sdk-web), Prettier 3
 - **Package Manager**: npm
 
 ### Project Structure
@@ -247,20 +247,23 @@ function setProperty() { }
 **Code Style (Prettier):**
 - Tab width: 4 spaces
 - Quotes: Single quotes (`'`)
-- Trailing commas: ES5 style
-- Line length: 80 characters (suggested)
+- Trailing commas: all
+- Line length: 120 characters (Prettier `printWidth`); ESLint `max-len` is 200
 
 **ESLint Rules:**
-- Prettier enforcement enabled
-- No unused variables
-- Avoid console.log in production code; prefer Logger (not currently enforced by ESLint)
+- ESLint 9 flat config (`eslint.config.mjs`), aligned with sdk-web
+- `@typescript-eslint/recommended` plus explicit member accessibility, generic array types, and member ordering
+- Interface names should use an `I` prefix (warning); private members should use a leading underscore
+- Avoid `console.log` in production code; prefer Logger (not currently enforced by ESLint)
 
 **Linting & Code Quality Commands:**
 
 ```bash
 # Linting
-npm run lint                # ESLint check (both .js and .ts files)
-npm run prettier            # Prettier check (.js files only)
+npm run lint                # ESLint check (src, test/src, test/jest)
+npm run lint:fix            # ESLint auto-fix
+npm run prettier            # Prettier check (.js and .ts)
+npm run format              # Prettier write (.js and .ts)
 
 # Bundle Analysis
 npm run bundle              # Uglify + gzip for size reporting
@@ -269,11 +272,11 @@ npm run gzip                # Gzip bundle
 ```
 
 **Linting by File Type:**
-- **JavaScript (.js)**: ESLint + Prettier
-- **TypeScript (.ts)**: ESLint + GTS (Google TypeScript Style)
+- **JavaScript (.js)**: ESLint recommended
+- **TypeScript (.ts)**: ESLint + `@typescript-eslint` (sdk-web rule set)
 
 **Pre-commit Hooks:**
-- ESLint runs automatically before commits
+- husky + lint-staged run Prettier and ESLint on staged `.js`/`.ts` files
 - Commit will fail if linting errors exist
 
 ### Instance-Based Architecture

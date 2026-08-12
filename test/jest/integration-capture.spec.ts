@@ -1,6 +1,4 @@
-import IntegrationCapture, {
-    facebookClickIdProcessor,
-} from '../../src/integrationCapture';
+import IntegrationCapture, { facebookClickIdProcessor } from '../../src/integrationCapture';
 import { deleteAllCookies } from './utils';
 
 describe('Integration Capture', () => {
@@ -28,18 +26,14 @@ describe('Integration Capture', () => {
                 'wbraid',
                 'ttclid',
                 'ScCid',
-                '_scid'
+                '_scid',
             ]);
         });
 
         it('should initialize with a filtered list of integration attribute mappings', () => {
             const integrationCapture = new IntegrationCapture('all');
             const mappings = integrationCapture.filteredIntegrationAttributeMappings;
-            expect(Object.keys(mappings)).toEqual([
-                'rtid',
-                'rclid', 
-                'RoktTransactionId'
-            ]);
+            expect(Object.keys(mappings)).toEqual(['rtid', 'rclid', 'RoktTransactionId']);
         });
 
         it('should initialize with a filtered list of integration attribute mappings for roktonly', () => {
@@ -47,17 +41,7 @@ describe('Integration Capture', () => {
             const mappings = integrationCapture.filteredIntegrationAttributeMappings;
             const expectedKeys = ['rtid', 'rclid', 'RoktTransactionId'];
             expect(Object.keys(mappings).sort()).toEqual([...expectedKeys].sort());
-            const excludedKeys = [
-                'fbclid',
-                '_fbp',
-                '_fbc',
-                'gclid',
-                'gbraid',
-                'wbraid',
-                'ttclid',
-                'ScCid',
-                '_scid',
-            ];
+            const excludedKeys = ['fbclid', '_fbp', '_fbc', 'gclid', 'gbraid', 'wbraid', 'ttclid', 'ScCid', '_scid'];
             for (const key of excludedKeys) {
                 expect(mappings).not.toHaveProperty(key);
             }
@@ -76,7 +60,7 @@ describe('Integration Capture', () => {
         });
 
         afterEach(() => {
-            window.location = originalLocation;
+            (window as any).location = originalLocation;
             deleteAllCookies();
             window.localStorage.clear();
         });
@@ -127,8 +111,18 @@ describe('Integration Capture', () => {
             const clickIdLocalStorage = integrationCapture.captureLocalStorage();
 
             // fbclid is formatted with timestamp/domain index
-            expect(clickIds).toMatchObject({ fbclid: 'fb.2.42.abc', gclid: 'g1', rtid: 'rt1', rclid: 'rc1', ScCid: 'snap1' });
-            expect(clickIdCookies).toMatchObject({ _fbp: '54321', _fbc: 'fb.1.1554763741205.abcdef', RoktTransactionId: 'xyz' });
+            expect(clickIds).toMatchObject({
+                fbclid: 'fb.2.42.abc',
+                gclid: 'g1',
+                rtid: 'rt1',
+                rclid: 'rc1',
+                ScCid: 'snap1',
+            });
+            expect(clickIdCookies).toMatchObject({
+                _fbp: '54321',
+                _fbc: 'fb.1.1554763741205.abcdef',
+                RoktTransactionId: 'xyz',
+            });
             expect(clickIdLocalStorage).toEqual({ RoktTransactionId: 'ls-rok' });
         });
 
@@ -176,7 +170,7 @@ describe('Integration Capture', () => {
         });
 
         afterEach(() => {
-            window.location = originalLocation;
+            (window as any).location = originalLocation;
             window.localStorage.clear();
             jest.restoreAllMocks();
         });
@@ -201,7 +195,7 @@ describe('Integration Capture', () => {
                 'wbraid=09876',
                 'rtid=84324',
                 'rclid=7183717',
-                'ScCid=1234'
+                'ScCid=1234',
             ].join('&');
 
             const url = new URL(`https://www.example.com/?${queryParams}`);
@@ -225,8 +219,8 @@ describe('Integration Capture', () => {
                 rtid: '84324',
                 rclid: '7183717',
                 wbraid: '09876',
-                ScCid:'1234'
-            }); 
+                ScCid: '1234',
+            });
         });
 
         describe('Google Click Ids', () => {
@@ -314,88 +308,84 @@ describe('Integration Capture', () => {
         });
 
         describe('Facebook Click Ids', () => {
-        it('should format fbclid correctly', () => {
-            jest.spyOn(Date, 'now').mockImplementation(() => 42);
+            it('should format fbclid correctly', () => {
+                jest.spyOn(Date, 'now').mockImplementation(() => 42);
 
-            const url = new URL(
-                'https://www.example.com/?fbclid=AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'
-            );
+                const url = new URL('https://www.example.com/?fbclid=AbCdEfGhIjKlMnOpQrStUvWxYz1234567890');
 
-            window.document.cookie = '_cookie1=1234';
-            window.document.cookie = '_cookie2=39895811.9165333198';
-            window.document.cookie = 'baz=qux';
+                window.document.cookie = '_cookie1=1234';
+                window.document.cookie = '_cookie2=39895811.9165333198';
+                window.document.cookie = 'baz=qux';
 
-            window.location.href = url.href;
-            window.location.search = url.search;
+                window.location.href = url.href;
+                window.location.search = url.search;
 
-            const integrationCapture = new IntegrationCapture('all');
-            integrationCapture.capture();
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
 
-            expect(integrationCapture.clickIds).toEqual({
-                fbclid:
-                    'fb.2.42.AbCdEfGhIjKlMnOpQrStUvWxYz1234567890',
+                expect(integrationCapture.clickIds).toEqual({
+                    fbclid: 'fb.2.42.AbCdEfGhIjKlMnOpQrStUvWxYz1234567890',
+                });
             });
-        });
 
-        it('should pass the _fbc value unaltered', () => {
-            const url = new URL('https://www.example.com/?foo=bar');
+            it('should pass the _fbc value unaltered', () => {
+                const url = new URL('https://www.example.com/?foo=bar');
 
-            window.document.cookie = '_cookie1=1234';
-            window.document.cookie = '_cookie2=39895811.9165333198';
-            window.document.cookie =
-                '_fbc=fb.1.1554763741205.AbCdEfGhIjKlMnOpQrStUvWxYz1234567890';
-            window.document.cookie = 'baz=qux';
+                window.document.cookie = '_cookie1=1234';
+                window.document.cookie = '_cookie2=39895811.9165333198';
+                window.document.cookie = '_fbc=fb.1.1554763741205.AbCdEfGhIjKlMnOpQrStUvWxYz1234567890';
+                window.document.cookie = 'baz=qux';
 
-            window.location.href = url.href;
-            window.location.search = url.search;
+                window.location.href = url.href;
+                window.location.search = url.search;
 
-            const integrationCapture = new IntegrationCapture('all');
-            integrationCapture.capture();
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
 
-            expect(integrationCapture.clickIds).toEqual({
-                _fbc: 'fb.1.1554763741205.AbCdEfGhIjKlMnOpQrStUvWxYz1234567890',
+                expect(integrationCapture.clickIds).toEqual({
+                    _fbc: 'fb.1.1554763741205.AbCdEfGhIjKlMnOpQrStUvWxYz1234567890',
+                });
             });
-        });
 
-        it('should pass the _fbp value unaltered', () => {
-            const url = new URL('https://www.example.com/?foo=bar');
+            it('should pass the _fbp value unaltered', () => {
+                const url = new URL('https://www.example.com/?foo=bar');
 
-            window.document.cookie = '_cookie1=1234';
-            window.document.cookie = '_cookie2=39895811.9165333198';
-            window.document.cookie = '_fbp=54321';
-            window.document.cookie = 'baz=qux';
+                window.document.cookie = '_cookie1=1234';
+                window.document.cookie = '_cookie2=39895811.9165333198';
+                window.document.cookie = '_fbp=54321';
+                window.document.cookie = 'baz=qux';
 
-            window.location.href = url.href;
-            window.location.search = url.search;
+                window.location.href = url.href;
+                window.location.search = url.search;
 
-            const integrationCapture = new IntegrationCapture('all');
-            integrationCapture.capture();
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
 
-            expect(integrationCapture.clickIds).toEqual({
-                _fbp: '54321',
+                expect(integrationCapture.clickIds).toEqual({
+                    _fbp: '54321',
+                });
             });
-        });
 
-        it('should prioritize fbclid over _fbc', () => {
-            jest.spyOn(Date, 'now').mockImplementation(() => 42);
+            it('should prioritize fbclid over _fbc', () => {
+                jest.spyOn(Date, 'now').mockImplementation(() => 42);
 
-            const url = new URL('https://www.example.com/?fbclid=12345&');
+                const url = new URL('https://www.example.com/?fbclid=12345&');
 
-            window.document.cookie = '_cookie1=1234';
-            window.document.cookie = '_cookie2=39895811.9165333198';
-            window.document.cookie = '_fbc=fb.1.23.654321';
-            window.document.cookie = 'baz=qux';
+                window.document.cookie = '_cookie1=1234';
+                window.document.cookie = '_cookie2=39895811.9165333198';
+                window.document.cookie = '_fbc=fb.1.23.654321';
+                window.document.cookie = 'baz=qux';
 
-            window.location.href = url.href;
-            window.location.search = url.search;
+                window.location.href = url.href;
+                window.location.search = url.search;
 
-            const integrationCapture = new IntegrationCapture('all');
-            integrationCapture.capture();
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
 
-            expect(integrationCapture.clickIds).toEqual({
-                fbclid: 'fb.2.42.12345',
+                expect(integrationCapture.clickIds).toEqual({
+                    fbclid: 'fb.2.42.12345',
+                });
             });
-        });
         });
 
         describe('Rokt Click Ids', () => {
@@ -465,7 +455,7 @@ describe('Integration Capture', () => {
                 jest.spyOn(Date, 'now').mockImplementation(() => 42);
 
                 const url = new URL('https://www.example.com/?rtid=54321');
-                
+
                 window.document.cookie = 'RoktTransactionId=12345';
 
                 window.location.href = url.href;
@@ -519,7 +509,7 @@ describe('Integration Capture', () => {
                 jest.spyOn(Date, 'now').mockImplementation(() => 42);
 
                 const url = new URL('https://www.example.com/?rclid=7183717');
-                
+
                 window.location.href = url.href;
                 window.location.search = url.search;
 
@@ -552,7 +542,6 @@ describe('Integration Capture', () => {
                 });
             });
         });
-
     });
 
     describe('#captureQueryParams', () => {
@@ -570,7 +559,7 @@ describe('Integration Capture', () => {
         });
 
         afterEach(() => {
-            window.location = originalLocation;
+            (window as any).location = originalLocation;
             jest.restoreAllMocks();
         });
 
@@ -578,7 +567,7 @@ describe('Integration Capture', () => {
             jest.spyOn(Date, 'now').mockImplementation(() => 42);
 
             const url = new URL(
-                'https://www.example.com/?ttclid=12345&fbclid=67890&gclid=54321&rclid=7183717&rtid=54321'
+                'https://www.example.com/?ttclid=12345&fbclid=67890&gclid=54321&rclid=7183717&rtid=54321',
             );
 
             window.location.href = url.href;
@@ -597,9 +586,7 @@ describe('Integration Capture', () => {
         });
 
         it('should NOT capture query params if they are not mapped', () => {
-            const url = new URL(
-                'https://www.example.com/?invalidid=12345&foo=bar'
-            );
+            const url = new URL('https://www.example.com/?invalidid=12345&foo=bar');
 
             window.location.href = url.href;
             window.location.search = url.search;
@@ -610,15 +597,13 @@ describe('Integration Capture', () => {
         });
 
         it('should format fbclid correctly with the same timestamp on subsequent captures', () => {
-            const url = new URL(
-                'https://www.example.com/?fbclid=AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'
-            ); 
+            const url = new URL('https://www.example.com/?fbclid=AbCdEfGhIjKlMnOpQrStUvWxYz1234567890');
 
             window.location.href = url.href;
             window.location.search = url.search;
 
             const integrationCapture = new IntegrationCapture('all');
-            integrationCapture.capture();   
+            integrationCapture.capture();
 
             const firstCapture = integrationCapture.captureQueryParams();
 
@@ -779,9 +764,9 @@ describe('Integration Capture', () => {
             const integrationAttributes = integrationCapture.getClickIdsAsIntegrationAttributes();
 
             expect(integrationAttributes).toEqual({
-                '1277': {
-                    'passbackconversiontrackingid': '12345',
-                }
+                1277: {
+                    passbackconversiontrackingid: '12345',
+                },
             });
         });
     });
@@ -789,16 +774,11 @@ describe('Integration Capture', () => {
     describe('#facebookClickIdProcessor', () => {
         it('returns a formatted clickId if it is passed in as a partial click id', () => {
             const partialClickId = 'AbCdEfGhIjKlMnOpQrStUvWxYz1234567890';
-            const expectedClickId =
-                'fb.2.1554763741205.AbCdEfGhIjKlMnOpQrStUvWxYz1234567890';
+            const expectedClickId = 'fb.2.1554763741205.AbCdEfGhIjKlMnOpQrStUvWxYz1234567890';
 
-            expect(
-                facebookClickIdProcessor(
-                    partialClickId,
-                    'https://www.example.com/',
-                    1554763741205,
-                )
-            ).toEqual(expectedClickId);
+            expect(facebookClickIdProcessor(partialClickId, 'https://www.example.com/', 1554763741205)).toEqual(
+                expectedClickId,
+            );
         });
 
         it('should start with a prefix of `fb`', () => {
@@ -812,9 +792,7 @@ describe('Integration Capture', () => {
 
             const expectedClickId = 'fb.1.1554763741205.AbCdEfGhIjKlMnOpQrStUvWxYz1234567890';
 
-            expect(facebookClickIdProcessor(partialClickId, url, 1554763741205)).toEqual(
-                expectedClickId
-            );
+            expect(facebookClickIdProcessor(partialClickId, url, 1554763741205)).toEqual(expectedClickId);
         });
 
         it('should have `2` in the second portion if the host is www.example.com', () => {
@@ -823,9 +801,7 @@ describe('Integration Capture', () => {
 
             const expectedClickId = 'fb.2.1554763741205.AbCdEfGhIjKlMnOpQrStUvWxYz1234567890';
 
-            expect(facebookClickIdProcessor(partialClickId, url, 1554763741205)).toEqual(
-                expectedClickId
-            );
+            expect(facebookClickIdProcessor(partialClickId, url, 1554763741205)).toEqual(expectedClickId);
         });
 
         it('should have `2` in the second portion if the host is nested subdomains', () => {
@@ -834,26 +810,19 @@ describe('Integration Capture', () => {
 
             const expectedClickId = 'fb.2.1554763741205.AbCdEfGhIjKlMnOpQrStUvWxYz1234567890';
 
-            expect(facebookClickIdProcessor(partialClickId, url, 1554763741205)).toEqual(
-                expectedClickId
-            );
+            expect(facebookClickIdProcessor(partialClickId, url, 1554763741205)).toEqual(expectedClickId);
         });
 
         it('returns an empty string if the clickId or url is not valid', () => {
             const expectedClickId = '';
 
             expect(facebookClickIdProcessor(null, null)).toEqual(expectedClickId);
-            expect(facebookClickIdProcessor(undefined, undefined)).toEqual(
-                expectedClickId
-            );
+            expect(facebookClickIdProcessor(undefined, undefined)).toEqual(expectedClickId);
             expect(facebookClickIdProcessor('', '')).toEqual(expectedClickId);
-            expect(
-                facebookClickIdProcessor((NaN as unknown) as string, (NaN as unknown) as string)
-            ).toEqual(expectedClickId);
-            expect(facebookClickIdProcessor((0 as unknown) as string, (0 as unknown) as string)).toEqual(
-                expectedClickId
+            expect(facebookClickIdProcessor(NaN as unknown as string, NaN as unknown as string)).toEqual(
+                expectedClickId,
             );
+            expect(facebookClickIdProcessor(0 as unknown as string, 0 as unknown as string)).toEqual(expectedClickId);
         });
     });
 });
-

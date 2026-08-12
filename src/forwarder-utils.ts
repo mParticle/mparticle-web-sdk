@@ -1,16 +1,9 @@
-import Types, {
-    EventType,
-    getMessageTypeFromEventType,
-    getIdentityTypeFromBatchKey,
-} from './types';
+import Types, { EventType, getMessageTypeFromEventType, getIdentityTypeFromBatchKey } from './types';
 import { inArray, valueof } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import * as EventsApi from '@mparticle/event-models';
 import { IKitFilterSettings } from './configAPIClient';
-import {
-    getEventNameFromBatchEvent,
-    getEventCategoryFromBatchEvent,
-} from './sdkToEventsApiConverter';
+import { getEventNameFromBatchEvent, getEventCategoryFromBatchEvent } from './sdkToEventsApiConverter';
 
 type ForwarderFilterConfig = Pick<
     IKitFilterSettings,
@@ -23,16 +16,13 @@ type ForwarderFilterConfig = Pick<
     | 'filteringEventAttributeValue'
 >;
 
-const FORWARDING_RULE_MESSAGE_TYPES: number[] = [
+const FORWARDING_RULE_MESSAGE_TYPES: Array<number> = [
     Types.MessageType.PageEvent,
     Types.MessageType.PageView,
     Types.MessageType.Commerce,
 ];
 
-function inFilteredList(
-    filterList: number[] | undefined,
-    hash: number
-): boolean {
+function inFilteredList(filterList: Array<number> | undefined, hash: number): boolean {
     if (filterList && filterList.length) {
         return inArray(filterList, hash);
     }
@@ -42,7 +32,7 @@ function inFilteredList(
 export function isBlockedByForwardingRule(
     messageType: number,
     attributes: Record<string, unknown> | null,
-    forwarder: ForwarderFilterConfig
+    forwarder: ForwarderFilterConfig,
 ): boolean {
     if (
         !FORWARDING_RULE_MESSAGE_TYPES.includes(messageType) ||
@@ -58,19 +48,12 @@ export function isBlockedByForwardingRule(
     if (attributes) {
         for (const prop in attributes) {
             if (attributes.hasOwnProperty(prop)) {
-                const hashedName = KitFilterHelper.hashAttributeConditionalForwarding(
-                    prop
-                );
+                const hashedName = KitFilterHelper.hashAttributeConditionalForwarding(prop);
 
-                if (
-                    hashedName ===
-                    forwarder.filteringEventAttributeValue.eventAttributeName
-                ) {
+                if (hashedName === forwarder.filteringEventAttributeValue.eventAttributeName) {
                     foundProp = {
                         name: hashedName,
-                        value: KitFilterHelper.hashAttributeConditionalForwarding(
-                            attributes[prop] as string
-                        ),
+                        value: KitFilterHelper.hashAttributeConditionalForwarding(attributes[prop] as string),
                     };
                     break;
                 }
@@ -79,14 +62,9 @@ export function isBlockedByForwardingRule(
     }
 
     const isMatch =
-        foundProp !== null &&
-        foundProp.value ===
-            forwarder.filteringEventAttributeValue.eventAttributeValue;
+        foundProp !== null && foundProp.value === forwarder.filteringEventAttributeValue.eventAttributeValue;
 
-    const shouldInclude =
-        forwarder.filteringEventAttributeValue.includeOnMatch === true
-            ? isMatch
-            : !isMatch;
+    const shouldInclude = forwarder.filteringEventAttributeValue.includeOnMatch === true ? isMatch : !isMatch;
 
     return !shouldInclude;
 }
@@ -95,7 +73,7 @@ export function isBlockedByEventFilter(
     messageType: number,
     hashedEventName: number,
     hashedEventType: number,
-    forwarder: ForwarderFilterConfig
+    forwarder: ForwarderFilterConfig,
 ): boolean {
     if (
         messageType === Types.MessageType.PageEvent &&
@@ -122,13 +100,13 @@ export function filterEventAttributes(
     eventCategory: number,
     eventName: string,
     attributes: Record<string, unknown> | null,
-    forwarder: ForwarderFilterConfig
+    forwarder: ForwarderFilterConfig,
 ): Record<string, unknown> | null {
     if (!attributes) {
         return attributes;
     }
 
-    let filterList: number[] | undefined;
+    let filterList: Array<number> | undefined;
     if (messageType === Types.MessageType.PageEvent) {
         filterList = forwarder.attributeFilters;
     } else if (messageType === Types.MessageType.PageView) {
@@ -145,7 +123,7 @@ export function filterEventAttributes(
             const hash = KitFilterHelper.hashEventAttributeKey(
                 eventCategory as valueof<typeof EventType>,
                 eventName,
-                attrName
+                attrName,
             );
 
             if (!inArray(filterList, hash)) {
@@ -158,71 +136,42 @@ export function filterEventAttributes(
 
 export function filterUserIdentities(
     userIdentities: Array<{ Type: number }> | undefined,
-    filterList: number[]
+    filterList: Array<number>,
 ): Array<{ Type: number }> {
     if (!userIdentities || !userIdentities.length) {
         return userIdentities || [];
     }
 
-    return userIdentities.filter(function(userIdentity) {
-        return !inArray(
-            filterList,
-            KitFilterHelper.hashUserIdentity(userIdentity.Type)
-        );
+    return userIdentities.filter(function (userIdentity) {
+        return !inArray(filterList, KitFilterHelper.hashUserIdentity(userIdentity.Type));
     });
 }
 
-export function isBatchEventAllowed(
-    batchEvent: EventsApi.BaseEvent,
-    forwarder: ForwarderFilterConfig
-): boolean {
+export function isBatchEventAllowed(batchEvent: EventsApi.BaseEvent, forwarder: ForwarderFilterConfig): boolean {
     if (!batchEvent || !(batchEvent as any).data) {
         return true;
     }
 
-    const messageType = getMessageTypeFromEventType(
-        (batchEvent as any).event_type
-    );
+    const messageType = getMessageTypeFromEventType((batchEvent as any).event_type);
     const eventName = getEventNameFromBatchEvent(batchEvent);
     const eventCategory = getEventCategoryFromBatchEvent(batchEvent);
 
-    if (
-        isBlockedByForwardingRule(
-            messageType,
-            (batchEvent as any).data.custom_attributes,
-            forwarder
-        )
-    ) {
+    if (isBlockedByForwardingRule(messageType, (batchEvent as any).data.custom_attributes, forwarder)) {
         return false;
     }
 
-    const hashedEventName = KitFilterHelper.hashEventName(
-        eventName,
-        eventCategory as valueof<typeof EventType>
-    );
-    const hashedEventType = KitFilterHelper.hashEventType(
-        eventCategory as valueof<typeof EventType>
-    );
+    const hashedEventName = KitFilterHelper.hashEventName(eventName, eventCategory as valueof<typeof EventType>);
+    const hashedEventType = KitFilterHelper.hashEventType(eventCategory as valueof<typeof EventType>);
 
-    return !isBlockedByEventFilter(
-        messageType,
-        hashedEventName,
-        hashedEventType,
-        forwarder
-    );
+    return !isBlockedByEventFilter(messageType, hashedEventName, hashedEventType, forwarder);
 }
 
-export function filterBatchEventAttributes(
-    batchEvent: EventsApi.BaseEvent,
-    forwarder: ForwarderFilterConfig
-): void {
+export function filterBatchEventAttributes(batchEvent: EventsApi.BaseEvent, forwarder: ForwarderFilterConfig): void {
     if (!batchEvent || !(batchEvent as any).data) {
         return;
     }
 
-    const messageType = getMessageTypeFromEventType(
-        (batchEvent as any).event_type
-    );
+    const messageType = getMessageTypeFromEventType((batchEvent as any).event_type);
     const eventName = getEventNameFromBatchEvent(batchEvent);
     const eventCategory = getEventCategoryFromBatchEvent(batchEvent);
 
@@ -231,13 +180,13 @@ export function filterBatchEventAttributes(
         eventCategory,
         eventName,
         (batchEvent as any).data.custom_attributes,
-        forwarder
+        forwarder,
     );
 }
 
 export function filterBatchIdentities(
     userIdentities: Record<string, unknown> | undefined,
-    filterList: number[] | undefined
+    filterList: Array<number> | undefined,
 ): Record<string, unknown> | undefined {
     if (!userIdentities || !filterList) {
         return userIdentities;
@@ -248,10 +197,7 @@ export function filterBatchIdentities(
         if (userIdentities.hasOwnProperty(key)) {
             const identityType = getIdentityTypeFromBatchKey(key);
 
-            if (
-                identityType === -1 ||
-                !inArray(filterList, identityType)
-            ) {
+            if (identityType === -1 || !inArray(filterList, identityType)) {
                 filtered[key] = userIdentities[key];
             }
         }

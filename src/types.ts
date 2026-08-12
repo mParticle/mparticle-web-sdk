@@ -159,9 +159,7 @@ export const IdentityType = {
         }
     },
 
-    getIdentityType: (
-        identityName: string
-    ): valueof<typeof IdentityType> | boolean => {
+    getIdentityType: (identityName: string): valueof<typeof IdentityType> | boolean => {
         switch (identityName) {
             case 'other':
                 return IdentityType.Other;
@@ -264,23 +262,19 @@ export const IdentityType = {
     },
 
     // Strips out functions from Identity Types for easier lookups
-    getValuesAsStrings: (): string[] =>
+    getValuesAsStrings: (): Array<string> =>
         Object.values(IdentityType)
-            .map(value => (isNumber(value) ? value.toString() : undefined))
-            .filter(value => value !== undefined) as string[],
+            .map((value) => (isNumber(value) ? value.toString() : undefined))
+            .filter((value) => value !== undefined) as Array<string>,
 
-    getNewIdentitiesByName: (
-        newIdentitiesByType: IdentitiesByType
-    ): IdentitiesByType => {
+    getNewIdentitiesByName: (newIdentitiesByType: IdentitiesByType): IdentitiesByType => {
         const newIdentitiesByName: IdentitiesByType = {};
-        const identityTypeValuesAsStrings: string[] = IdentityType.getValuesAsStrings();
+        const identityTypeValuesAsStrings: Array<string> = IdentityType.getValuesAsStrings();
 
         for (const key in newIdentitiesByType) {
             // IdentityTypes are stored as numbers but are passed in as strings
             if (identityTypeValuesAsStrings.includes(key)) {
-                const identityNameKey = IdentityType.getIdentityName(
-                    parseNumber(key)
-                );
+                const identityNameKey = IdentityType.getIdentityName(parseNumber(key));
                 newIdentitiesByName[identityNameKey] = newIdentitiesByType[key];
             }
         }
@@ -473,11 +467,9 @@ export const PerformanceMarkType = {
     SdkStart: 'mp:sdkStart' as const,
     JointSdkSelectPlacements: 'mp:jointSdkSelectPlacements' as const,
     JointSdkRoktKitInit: 'mp:jointSdkRoktKitInit' as const,
-}
+};
 
-export function getMessageTypeFromEventType(
-    eventType: string
-): number {
+export function getMessageTypeFromEventType(eventType: string): number {
     switch (eventType) {
         case 'custom_event':
             return MessageType.PageEvent;
@@ -504,9 +496,7 @@ export function getMessageTypeFromEventType(
     }
 }
 
-export function getEventCategoryFromCustomEventType(
-    customEventType: string
-): number {
+export function getEventCategoryFromCustomEventType(customEventType: string): number {
     switch (customEventType) {
         case 'navigation':
             return EventType.Navigation;
@@ -558,9 +548,7 @@ export function getEventCategoryFromCustomEventType(
     }
 }
 
-export function getIdentityTypeFromBatchKey(
-    key: string
-): number {
+export function getIdentityTypeFromBatchKey(key: string): number {
     switch (key) {
         case 'other':
             return IdentityType.Other;

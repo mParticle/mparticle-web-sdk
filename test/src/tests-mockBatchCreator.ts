@@ -6,18 +6,18 @@ describe('Create a batch from a base event', () => {
     const batchValidator = new _BatchValidator();
     const baseEvent: BaseEvent = {
         messageType: 4,
-        name: 'testEvent'
-    }
-    
+        name: 'testEvent',
+    };
+
     it('creates a batch with base event ', () => {
         let batch = batchValidator.returnBatch(baseEvent);
 
         expect(batch).to.have.property('environment').equal('production');
         expect(batch).to.have.property('source_request_id').equal('mockId');
         expect(batch).to.have.property('mpid').equal('0');
-        expect(batch).to.have.property('timestamp_unixtime_ms')
+        expect(batch).to.have.property('timestamp_unixtime_ms');
         expect(batch).to.have.property('mp_deviceid');
-        expect(batch).to.have.property('sdk_version')
+        expect(batch).to.have.property('sdk_version');
         expect(batch).to.have.property('application_info');
         expect(batch).to.have.property('device_info');
         expect(batch).to.have.property('user_attributes');
@@ -37,18 +37,16 @@ describe('Create a batch from a base event', () => {
         expect(batch.events[0].data).to.have.property('custom_attributes');
         expect(batch.events[0].data).to.have.property('location');
 
-
         baseEvent.eventType = 1;
         batch = batchValidator.returnBatch(baseEvent);
         expect(batch.events[0].data).to.have.property('custom_event_type', 'navigation');
-
 
         baseEvent.data = { attrFoo: 'attrBar' };
         batch = batchValidator.returnBatch(baseEvent);
         expect(batch.events[0].data).to.have.property('custom_attributes');
         expect(batch.events[0].data.custom_attributes).to.have.property('attrFoo', 'attrBar');
-        
-        baseEvent.customFlags = { flagFoo: 'flagBar' }
+
+        baseEvent.customFlags = { flagFoo: 'flagBar' };
         batch = batchValidator.returnBatch(baseEvent);
         expect(batch.events[0].data).to.have.property('custom_flags');
         expect(batch.events[0].data.custom_flags).to.have.property('flagFoo', 'flagBar');

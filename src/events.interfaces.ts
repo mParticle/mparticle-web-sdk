@@ -1,9 +1,4 @@
-import {
-    Callback,
-    SDKEventAttrs,
-    SDKEventOptions,
-    TransactionAttributes,
-} from '@mparticle/web-sdk';
+import { Callback, SDKEventAttrs, SDKEventOptions, TransactionAttributes } from '@mparticle/web-sdk';
 import {
     BaseEvent,
     SDKEvent,
@@ -24,7 +19,7 @@ export interface IEvents {
         selector: string | Node,
         eventName: EventHandlerFunction<string> | string,
         data: EventHandlerFunction<SDKEventAttrs> | SDKEventAttrs,
-        eventType: valueof<typeof EventType>
+        eventType: valueof<typeof EventType>,
     ): void;
     logAST(): void;
     logCheckoutEvent(
@@ -36,48 +31,44 @@ export interface IEvents {
         option?: string,
 
         attrs?: SDKEventAttrs,
-        customFlags?: SDKEventCustomFlags
+        customFlags?: SDKEventCustomFlags,
     ): void;
-    logCommerceEvent(
-        commerceEvent: SDKEvent,
-        attrs?: SDKEventAttrs,
-        options?: SDKEventOptions
-    ): void;
+    logCommerceEvent(commerceEvent: SDKEvent, attrs?: SDKEventAttrs, options?: SDKEventOptions): void;
     logEvent(event: BaseEvent, eventOptions?: SDKEventOptions): void;
     logImpressionEvent(
         impression: SDKProductImpression,
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
-        eventOptions?: SDKEventOptions
+        eventOptions?: SDKEventOptions,
     );
     logOptOut(): void;
     logPageView(): void;
     logProductActionEvent(
         productActionType: valueof<typeof ProductActionType>,
-        product: SDKProduct | SDKProduct[],
+        product: SDKProduct | Array<SDKProduct>,
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         transactionAttributes?: TransactionAttributes,
-        eventOptions?: SDKEventOptions
+        eventOptions?: SDKEventOptions,
     ): void;
     logPromotionEvent(
         promotionType: valueof<typeof PromotionActionType>,
         promotion: SDKPromotion,
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
-        eventOptions?: SDKEventOptions
+        eventOptions?: SDKEventOptions,
     ): void;
     logPurchaseEvent(
         transactionAttributes: TransactionAttributes,
-        product: SDKProduct | SDKProduct[],
+        product: SDKProduct | Array<SDKProduct>,
         attrs?: SDKEventAttrs,
-        customFlags?: SDKEventCustomFlags
+        customFlags?: SDKEventCustomFlags,
     ): void;
     logRefundEvent(
         transactionAttributes: TransactionAttributes,
-        product: SDKProduct | SDKProduct[],
+        product: SDKProduct | Array<SDKProduct>,
         attrs?: SDKEventAttrs,
-        customFlags?: SDKEventCustomFlags
+        customFlags?: SDKEventCustomFlags,
     ): void;
     startTracking(callback: Callback): void;
     stopTracking(): void;

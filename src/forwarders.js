@@ -14,95 +14,66 @@ const { Modify, Identify, Login, Logout } = Constants.IdentityMethods;
 
 export default function Forwarders(mpInstance, kitBlocker) {
     var self = this;
-    this.forwarderStatsUploader = new APIClient(
-        mpInstance,
-        kitBlocker
-    ).initializeForwarderStatsUploader();
+    this.forwarderStatsUploader = new APIClient(mpInstance, kitBlocker).initializeForwarderStatsUploader();
 
     const UserAttributeActionTypes = {
         setUserAttribute: 'setUserAttribute',
         removeUserAttribute: 'removeUserAttribute',
     };
 
-    this.initForwarders = function(userIdentities, forwardingStatsCallback) {
+    this.initForwarders = function (userIdentities, forwardingStatsCallback) {
         var user = mpInstance.Identity.getCurrentUser();
-        if (
-            !mpInstance._Store.webviewBridgeEnabled &&
-            mpInstance._Store.configuredForwarders
-        ) {
+        if (!mpInstance._Store.webviewBridgeEnabled && mpInstance._Store.configuredForwarders) {
             // Some js libraries require that they be loaded first, or last, etc
-            mpInstance._Store.configuredForwarders.sort(function(x, y) {
+            mpInstance._Store.configuredForwarders.sort(function (x, y) {
                 x.settings.PriorityValue = x.settings.PriorityValue || 0;
                 y.settings.PriorityValue = y.settings.PriorityValue || 0;
-                return (
-                    -1 * (x.settings.PriorityValue - y.settings.PriorityValue)
-                );
+                return -1 * (x.settings.PriorityValue - y.settings.PriorityValue);
             });
 
-            mpInstance._Store.activeForwarders = mpInstance._Store.configuredForwarders.filter(
-                function(forwarder) {
-                    if (
-                        !mpInstance._Consent.isEnabledForUserConsent(
-                            forwarder.filteringConsentRuleValues,
-                            user
-                        )
-                    ) {
-                        return false;
-                    }
-                    if (
-                        !self.isEnabledForUserAttributes(
-                            forwarder.filteringUserAttributeValue,
-                            user
-                        )
-                    ) {
-                        return false;
-                    }
-                    if (
-                        !self.isEnabledForUnknownUser(
-                            forwarder.excludeAnonymousUser,
-                            user
-                        )
-                    ) {
-                        return false;
-                    }
-
-                    var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(
-                        userIdentities,
-                        forwarder.userIdentityFilters
-                    );
-                    const filteredUserAttributes = KitFilterHelper.filterUserAttributes(
-                        user ? user.getAllUserAttributes() : {},
-                        forwarder.userAttributeFilters
-                    );
-                    if (!forwarder.initialized) {
-                        forwarder.logger = mpInstance.Logger;
-                        forwarder.init(
-                            forwarder.settings,
-                            forwardingStatsCallback,
-                            false,
-                            null,
-                            filteredUserAttributes,
-                            filteredUserIdentities,
-                            mpInstance._Store.SDKConfig.appVersion,
-                            mpInstance._Store.SDKConfig.appName,
-                            mpInstance._Store.SDKConfig.customFlags,
-                            mpInstance._Store.clientId
-                        );
-                        forwarder.initialized = true;
-                    }
-
-                    return true;
+            mpInstance._Store.activeForwarders = mpInstance._Store.configuredForwarders.filter(function (forwarder) {
+                if (!mpInstance._Consent.isEnabledForUserConsent(forwarder.filteringConsentRuleValues, user)) {
+                    return false;
                 }
-            );
+                if (!self.isEnabledForUserAttributes(forwarder.filteringUserAttributeValue, user)) {
+                    return false;
+                }
+                if (!self.isEnabledForUnknownUser(forwarder.excludeAnonymousUser, user)) {
+                    return false;
+                }
+
+                var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(
+                    userIdentities,
+                    forwarder.userIdentityFilters,
+                );
+                const filteredUserAttributes = KitFilterHelper.filterUserAttributes(
+                    user ? user.getAllUserAttributes() : {},
+                    forwarder.userAttributeFilters,
+                );
+                if (!forwarder.initialized) {
+                    forwarder.logger = mpInstance.Logger;
+                    forwarder.init(
+                        forwarder.settings,
+                        forwardingStatsCallback,
+                        false,
+                        null,
+                        filteredUserAttributes,
+                        filteredUserIdentities,
+                        mpInstance._Store.SDKConfig.appVersion,
+                        mpInstance._Store.SDKConfig.appName,
+                        mpInstance._Store.SDKConfig.customFlags,
+                        mpInstance._Store.clientId,
+                    );
+                    forwarder.initialized = true;
+                }
+
+                return true;
+            });
         }
     };
 
-    this.isEnabledForUserAttributes = function(filterObject, user) {
-        if (
-            !filterObject ||
-            !mpInstance._Helpers.isObject(filterObject) ||
-            !Object.keys(filterObject).length
-        ) {
+    this.isEnabledForUserAttributes = function (filterObject, user) {
+        if (!filterObject || !mpInstance._Helpers.isObject(filterObject) || !Object.keys(filterObject).length) {
             return true;
         }
 
@@ -117,19 +88,11 @@ export default function Forwarders(mpInstance, kitBlocker) {
         var isMatch = false;
 
         try {
-            if (
-                userAttributes &&
-                mpInstance._Helpers.isObject(userAttributes) &&
-                Object.keys(userAttributes).length
-            ) {
+            if (userAttributes && mpInstance._Helpers.isObject(userAttributes) && Object.keys(userAttributes).length) {
                 for (var attrName in userAttributes) {
                     if (userAttributes.hasOwnProperty(attrName)) {
-                        attrHash = KitFilterHelper.hashAttributeConditionalForwarding(
-                            attrName
-                        );
-                        valueHash = KitFilterHelper.hashAttributeConditionalForwarding(
-                            userAttributes[attrName]
-                        );
+                        attrHash = KitFilterHelper.hashAttributeConditionalForwarding(attrName);
+                        valueHash = KitFilterHelper.hashAttributeConditionalForwarding(userAttributes[attrName]);
 
                         if (
                             attrHash === filterObject.userAttributeName &&
@@ -153,7 +116,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
         }
     };
 
-    this.isEnabledForUnknownUser = function(excludeAnonymousUserBoolean, user) {
+    this.isEnabledForUnknownUser = function (excludeAnonymousUserBoolean, user) {
         if (!user || !user.isLoggedIn()) {
             if (excludeAnonymousUserBoolean) {
                 return false;
@@ -162,9 +125,9 @@ export default function Forwarders(mpInstance, kitBlocker) {
         return true;
     };
 
-    this.applyToForwarders = function(functionName, functionArgs) {
+    this.applyToForwarders = function (functionName, functionArgs) {
         if (mpInstance._Store.activeForwarders.length) {
-            mpInstance._Store.activeForwarders.forEach(function(forwarder) {
+            mpInstance._Store.activeForwarders.forEach(function (forwarder) {
                 var forwarderFunction = forwarder[functionName];
                 if (forwarderFunction) {
                     try {
@@ -181,51 +144,26 @@ export default function Forwarders(mpInstance, kitBlocker) {
         }
     };
 
-    this.sendEventToForwarders = function(event) {
+    this.sendEventToForwarders = function (event) {
         let clonedEvent;
         let hashedEventName;
         let hashedEventType;
 
-        if (
-            !mpInstance._Store.webviewBridgeEnabled &&
-            mpInstance._Store.activeForwarders
-        ) {
-            hashedEventName = KitFilterHelper.hashEventName(
-                event.EventName,
-                event.EventCategory
-            );
-            hashedEventType = KitFilterHelper.hashEventType(
-                event.EventCategory
-            );
+        if (!mpInstance._Store.webviewBridgeEnabled && mpInstance._Store.activeForwarders) {
+            hashedEventName = KitFilterHelper.hashEventName(event.EventName, event.EventCategory);
+            hashedEventType = KitFilterHelper.hashEventType(event.EventCategory);
 
-            for (
-                let i = 0;
-                i < mpInstance._Store.activeForwarders.length;
-                i++
-            ) {
+            for (let i = 0; i < mpInstance._Store.activeForwarders.length; i++) {
                 const forwarder = mpInstance._Store.activeForwarders[i];
 
-                if (
-                    isBlockedByForwardingRule(
-                        event.EventDataType,
-                        event.EventAttributes,
-                        forwarder
-                    )
-                ) {
+                if (isBlockedByForwardingRule(event.EventDataType, event.EventAttributes, forwarder)) {
                     continue;
                 }
 
                 // Clone the event object, as we could be sending different attributes to each forwarder
                 clonedEvent = extend(true, {}, event);
 
-                if (
-                    isBlockedByEventFilter(
-                        event.EventDataType,
-                        hashedEventName,
-                        hashedEventType,
-                        forwarder
-                    )
-                ) {
+                if (isBlockedByEventFilter(event.EventDataType, hashedEventName, hashedEventType, forwarder)) {
                     continue;
                 }
 
@@ -234,25 +172,23 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     event.EventCategory,
                     event.EventName,
                     clonedEvent.EventAttributes,
-                    forwarder
+                    forwarder,
                 );
 
                 // Check user identity filtering rules
                 clonedEvent.UserIdentities = filterUserIdentities(
                     clonedEvent.UserIdentities,
-                    forwarder.userIdentityFilters
+                    forwarder.userIdentityFilters,
                 );
 
                 // Check user attribute filtering rules
                 clonedEvent.UserAttributes = KitFilterHelper.filterUserAttributes(
                     clonedEvent.UserAttributes,
-                    forwarder.userAttributeFilters
+                    forwarder.userAttributeFilters,
                 );
 
                 if (forwarder.process) {
-                    mpInstance.Logger.verbose(
-                        'Sending message to forwarder: ' + forwarder.name
-                    );
+                    mpInstance.Logger.verbose('Sending message to forwarder: ' + forwarder.name);
                     const result = forwarder.process(clonedEvent);
 
                     if (result) {
@@ -263,37 +199,22 @@ export default function Forwarders(mpInstance, kitBlocker) {
         }
     };
 
-    this.handleForwarderUserAttributes = function(functionNameKey, key, value) {
-        if (
-            (kitBlocker && kitBlocker.isAttributeKeyBlocked(key)) ||
-            !mpInstance._Store.activeForwarders.length
-        ) {
+    this.handleForwarderUserAttributes = function (functionNameKey, key, value) {
+        if ((kitBlocker && kitBlocker.isAttributeKeyBlocked(key)) || !mpInstance._Store.activeForwarders.length) {
             return;
         }
 
-        mpInstance._Store.activeForwarders.forEach(function(forwarder) {
+        mpInstance._Store.activeForwarders.forEach(function (forwarder) {
             const forwarderFunction = forwarder[functionNameKey];
-            if (
-                !forwarderFunction ||
-                KitFilterHelper.isFilteredUserAttribute(
-                    key,
-                    forwarder.userAttributeFilters
-                )
-            ) {
+            if (!forwarderFunction || KitFilterHelper.isFilteredUserAttribute(key, forwarder.userAttributeFilters)) {
                 return;
             }
             try {
                 let result;
 
-                if (
-                    functionNameKey ===
-                    UserAttributeActionTypes.setUserAttribute
-                ) {
+                if (functionNameKey === UserAttributeActionTypes.setUserAttribute) {
                     result = forwarder.setUserAttribute(key, value);
-                } else if (
-                    functionNameKey ===
-                    UserAttributeActionTypes.removeUserAttribute
-                ) {
+                } else if (functionNameKey === UserAttributeActionTypes.removeUserAttribute) {
                     result = forwarder.removeUserAttribute(key);
                 }
 
@@ -307,18 +228,15 @@ export default function Forwarders(mpInstance, kitBlocker) {
     };
 
     // TODO: https://go.mparticle.com/work/SQDSDKS-6036
-    this.setForwarderUserIdentities = function(userIdentities) {
-        mpInstance._Store.activeForwarders.forEach(function(forwarder) {
+    this.setForwarderUserIdentities = function (userIdentities) {
+        mpInstance._Store.activeForwarders.forEach(function (forwarder) {
             var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(
                 userIdentities,
-                forwarder.userIdentityFilters
+                forwarder.userIdentityFilters,
             );
             if (forwarder.setUserIdentity) {
-                filteredUserIdentities.forEach(function(identity) {
-                    var result = forwarder.setUserIdentity(
-                        identity.Identity,
-                        identity.Type
-                    );
+                filteredUserIdentities.forEach(function (identity) {
+                    var result = forwarder.setUserIdentity(identity.Identity, identity.Type);
                     if (result) {
                         mpInstance.Logger.verbose(result);
                     }
@@ -327,14 +245,9 @@ export default function Forwarders(mpInstance, kitBlocker) {
         });
     };
 
-    this.setForwarderOnUserIdentified = function(user) {
-        mpInstance._Store.activeForwarders.forEach(function(forwarder) {
-            var filteredUser = filteredMparticleUser(
-                user.getMPID(),
-                forwarder,
-                mpInstance,
-                kitBlocker
-            );
+    this.setForwarderOnUserIdentified = function (user) {
+        mpInstance._Store.activeForwarders.forEach(function (forwarder) {
+            var filteredUser = filteredMparticleUser(user.getMPID(), forwarder, mpInstance, kitBlocker);
             if (forwarder.onUserIdentified) {
                 var result = forwarder.onUserIdentified(filteredUser);
                 if (result) {
@@ -344,55 +257,38 @@ export default function Forwarders(mpInstance, kitBlocker) {
         });
     };
 
-    this.setForwarderOnIdentityComplete = function(user, identityMethod) {
+    this.setForwarderOnIdentityComplete = function (user, identityMethod) {
         var result;
 
-        mpInstance._Store.activeForwarders.forEach(function(forwarder) {
-            var filteredUser = filteredMparticleUser(
-                user.getMPID(),
-                forwarder,
-                mpInstance,
-                kitBlocker
-            );
+        mpInstance._Store.activeForwarders.forEach(function (forwarder) {
+            var filteredUser = filteredMparticleUser(user.getMPID(), forwarder, mpInstance, kitBlocker);
 
             const filteredUserIdentities = filteredUser.getUserIdentities();
 
             if (identityMethod === Identify) {
                 if (forwarder.onIdentifyComplete) {
-                    result = forwarder.onIdentifyComplete(
-                        filteredUser,
-                        filteredUserIdentities
-                    );
+                    result = forwarder.onIdentifyComplete(filteredUser, filteredUserIdentities);
                     if (result) {
                         mpInstance.Logger.verbose(result);
                     }
                 }
             } else if (identityMethod === Login) {
                 if (forwarder.onLoginComplete) {
-                    result = forwarder.onLoginComplete(
-                        filteredUser,
-                        filteredUserIdentities
-                    );
+                    result = forwarder.onLoginComplete(filteredUser, filteredUserIdentities);
                     if (result) {
                         mpInstance.Logger.verbose(result);
                     }
                 }
             } else if (identityMethod === Logout) {
                 if (forwarder.onLogoutComplete) {
-                    result = forwarder.onLogoutComplete(
-                        filteredUser,
-                        filteredUserIdentities
-                    );
+                    result = forwarder.onLogoutComplete(filteredUser, filteredUserIdentities);
                     if (result) {
                         mpInstance.Logger.verbose(result);
                     }
                 }
             } else if (identityMethod === Modify) {
                 if (forwarder.onModifyComplete) {
-                    result = forwarder.onModifyComplete(
-                        filteredUser,
-                        filteredUserIdentities
-                    );
+                    result = forwarder.onModifyComplete(filteredUser, filteredUserIdentities);
                     if (result) {
                         mpInstance.Logger.verbose(result);
                     }
@@ -401,12 +297,11 @@ export default function Forwarders(mpInstance, kitBlocker) {
         });
     };
 
-    this.getForwarderStatsQueue = function() {
-        return mpInstance._Persistence.forwardingStatsBatches
-            .forwardingStatsEventQueue;
+    this.getForwarderStatsQueue = function () {
+        return mpInstance._Persistence.forwardingStatsBatches.forwardingStatsEventQueue;
     };
 
-    this.setForwarderStatsQueue = function(queue) {
+    this.setForwarderStatsQueue = function (queue) {
         mpInstance._Persistence.forwardingStatsBatches.forwardingStatsEventQueue = queue;
     };
 
@@ -416,19 +311,14 @@ export default function Forwarders(mpInstance, kitBlocker) {
     // There are 2 types of kits:
     //   1. UI-enabled kits
     //   2. Sideloaded kits.
-    this.processForwarders = function(config, forwardingStatsCallback) {
+    this.processForwarders = function (config, forwardingStatsCallback) {
         if (!config) {
-            mpInstance.Logger.warning(
-                'No config was passed. Cannot process forwarders'
-            );
+            mpInstance.Logger.warning('No config was passed. Cannot process forwarders');
         } else {
             this.processUIEnabledKits(config);
             this.processSideloadedKits(config);
 
-            self.initForwarders(
-                mpInstance._Store.SDKConfig.identifyRequest.userIdentities,
-                forwardingStatsCallback
-            );
+            self.initForwarders(mpInstance._Store.SDKConfig.identifyRequest.userIdentities, forwardingStatsCallback);
         }
     };
 
@@ -438,33 +328,28 @@ export default function Forwarders(mpInstance, kitBlocker) {
     // The kit configuration will be compared with the kit constructors to determine
     // if there is a match before being initialized.
     // Only kits that are configured properly can be active and used for kit forwarding.
-    this.processUIEnabledKits = function(config) {
+    this.processUIEnabledKits = function (config) {
         let kits = this.returnKitConstructors();
 
         try {
             if (Array.isArray(config.kitConfigs) && config.kitConfigs.length) {
-                config.kitConfigs.forEach(function(kitConfig) {
+                config.kitConfigs.forEach(function (kitConfig) {
                     self.configureUIEnabledKit(kitConfig, kits);
                 });
             }
         } catch (e) {
-            mpInstance.Logger.error(
-                'MP Kits not configured propertly. Kits may not be initialized. ' +
-                    e
-            );
+            mpInstance.Logger.error('MP Kits not configured propertly. Kits may not be initialized. ' + e);
         }
     };
 
-    this.returnKitConstructors = function() {
+    this.returnKitConstructors = function () {
         let kits = {};
         // If there are kits inside of mpInstance._Store.SDKConfig.kits, then mParticle is self hosted
         if (!isEmpty(mpInstance._Store.SDKConfig.kits)) {
             kits = mpInstance._Store.SDKConfig.kits;
             // otherwise mParticle is loaded via script tag
         } else if (!isEmpty(mpInstance._preInit.forwarderConstructors)) {
-            mpInstance._preInit.forwarderConstructors.forEach(function(
-                kitConstructor
-            ) {
+            mpInstance._preInit.forwarderConstructors.forEach(function (kitConstructor) {
                 // A suffix is added to a kitConstructor and kit config if there are multiple different
                 // versions of a client kit.  This matches the suffix in the DB.  As an example
                 // the GA4 kit has a client kit and a server side kit which has a client side
@@ -483,7 +368,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
         return kits;
     };
 
-    this.configureUIEnabledKit = function(configuration, kits) {
+    this.configureUIEnabledKit = function (configuration, kits) {
         let newKit = null;
         const config = configuration;
 
@@ -497,10 +382,8 @@ export default function Forwarders(mpInstance, kitBlocker) {
 
             if (name === kitNameWithConfigSuffix || name === config.name) {
                 if (
-                    config.isDebug ===
-                        mpInstance._Store.SDKConfig.isDevelopmentMode ||
-                    config.isSandbox ===
-                        mpInstance._Store.SDKConfig.isDevelopmentMode
+                    config.isDebug === mpInstance._Store.SDKConfig.isDevelopmentMode ||
+                    config.isSandbox === mpInstance._Store.SDKConfig.isDevelopmentMode
                 ) {
                     newKit = this.returnConfiguredKit(kits[name], config);
 
@@ -518,35 +401,28 @@ export default function Forwarders(mpInstance, kitBlocker) {
     // In the future, when all kits are moved to the mpConfig rather than
     // there being a separate process for MP configured kits and
     // sideloaded kits, this will need to be refactored.
-    this.processSideloadedKits = function(mpConfig) {
+    this.processSideloadedKits = function (mpConfig) {
         try {
             if (Array.isArray(mpConfig.sideloadedKits)) {
                 const registeredSideloadedKits = { kits: {} };
                 const unregisteredSideloadedKits = mpConfig.sideloadedKits;
 
-                unregisteredSideloadedKits.forEach(function(unregisteredKit) {
+                unregisteredSideloadedKits.forEach(function (unregisteredKit) {
                     try {
                         // Register each sideloaded kit, which adds a key of the sideloaded kit name
                         // and a value of the sideloaded kit constructor.
-                        unregisteredKit.kitInstance.register(
-                            registeredSideloadedKits
-                        );
+                        unregisteredKit.kitInstance.register(registeredSideloadedKits);
                         const kitName = unregisteredKit.kitInstance.name;
                         // Then add the kit filters to each registered kit.
-                        registeredSideloadedKits.kits[kitName].filters =
-                            unregisteredKit.filterDictionary;
+                        registeredSideloadedKits.kits[kitName].filters = unregisteredKit.filterDictionary;
                     } catch (e) {
-                        console.error(
-                            'Error registering sideloaded kit ' +
-                                unregisteredKit.kitInstance.name
-                        );
+                        console.error('Error registering sideloaded kit ' + unregisteredKit.kitInstance.name);
                     }
                 });
 
                 // Then configure each registered kit
                 for (const registeredKitKey in registeredSideloadedKits.kits) {
-                    const registeredKit =
-                        registeredSideloadedKits.kits[registeredKitKey];
+                    const registeredKit = registeredSideloadedKits.kits[registeredKitKey];
                     self.configureSideloadedKit(registeredKit);
                 }
 
@@ -558,21 +434,16 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 }
             }
         } catch (e) {
-            mpInstance.Logger.error(
-                'Sideloaded Kits not configured propertly. Kits may not be initialized. ' +
-                    e
-            );
+            mpInstance.Logger.error('Sideloaded Kits not configured propertly. Kits may not be initialized. ' + e);
         }
     };
 
     // kits can be included via mParticle UI, or via sideloaded kit config API
-    this.configureSideloadedKit = function(kitConstructor) {
-        mpInstance._Store.configuredForwarders.push(
-            this.returnConfiguredKit(kitConstructor, kitConstructor.filters)
-        );
+    this.configureSideloadedKit = function (kitConstructor) {
+        mpInstance._Store.configuredForwarders.push(this.returnConfiguredKit(kitConstructor, kitConstructor.filters));
     };
 
-    this.returnConfiguredKit = function(forwarder, config = {}) {
+    this.returnConfiguredKit = function (forwarder, config = {}) {
         const newForwarder = new forwarder.constructor();
         newForwarder.id = config.moduleId;
 
@@ -590,51 +461,43 @@ export default function Forwarders(mpInstance, kitBlocker) {
         newForwarder.attributeFilters = config.attributeFilters || [];
 
         newForwarder.screenNameFilters = config.screenNameFilters || [];
-        newForwarder.screenAttributeFilters =
-            config.screenAttributeFilters || [];
+        newForwarder.screenAttributeFilters = config.screenAttributeFilters || [];
 
         newForwarder.userIdentityFilters = config.userIdentityFilters || [];
         newForwarder.userAttributeFilters = config.userAttributeFilters || [];
 
-        newForwarder.filteringEventAttributeValue =
-            config.filteringEventAttributeValue || {};
-        newForwarder.filteringUserAttributeValue =
-            config.filteringUserAttributeValue || {};
+        newForwarder.filteringEventAttributeValue = config.filteringEventAttributeValue || {};
+        newForwarder.filteringUserAttributeValue = config.filteringUserAttributeValue || {};
         newForwarder.eventSubscriptionId = config.eventSubscriptionId || null;
-        newForwarder.filteringConsentRuleValues =
-            config.filteringConsentRuleValues || {};
-        newForwarder.excludeAnonymousUser =
-            config.excludeAnonymousUser || false;
+        newForwarder.filteringConsentRuleValues = config.filteringConsentRuleValues || {};
+        newForwarder.excludeAnonymousUser = config.excludeAnonymousUser || false;
         return newForwarder;
     };
 
-    this.configurePixel = function(settings) {
+    this.configurePixel = function (settings) {
         if (
-            settings.isDebug ===
-                mpInstance._Store.SDKConfig.isDevelopmentMode ||
-            settings.isProduction !==
-                mpInstance._Store.SDKConfig.isDevelopmentMode
+            settings.isDebug === mpInstance._Store.SDKConfig.isDevelopmentMode ||
+            settings.isProduction !== mpInstance._Store.SDKConfig.isDevelopmentMode
         ) {
             mpInstance._Store.pixelConfigurations.push(settings);
         }
     };
 
-    this.processPixelConfigs = function(config) {
+    this.processPixelConfigs = function (config) {
         try {
             if (!isEmpty(config.pixelConfigs)) {
-                config.pixelConfigs.forEach(function(pixelConfig) {
+                config.pixelConfigs.forEach(function (pixelConfig) {
                     self.configurePixel(pixelConfig);
                 });
             }
         } catch (e) {
             mpInstance.Logger.error(
-                'Cookie Sync configs not configured propertly. Cookie Sync may not be initialized. ' +
-                    e
+                'Cookie Sync configs not configured propertly. Cookie Sync may not be initialized. ' + e,
             );
         }
     };
 
-    this.sendSingleForwardingStatsToServer = async forwardingStatsData => {
+    this.sendSingleForwardingStatsToServer = async (forwardingStatsData) => {
         // https://go.mparticle.com/work/SQDSDKS-6568
         const fetchPayload = {
             method: 'post',
@@ -653,9 +516,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
             // https://go.mparticle.com/work/SQDSDKS-6670
             message = 'Successfully sent forwarding stats to mParticle Servers';
         } else {
-            message =
-                'Issue with forwarding stats to mParticle Servers, received HTTP Code of ' +
-                response.statusText;
+            message = 'Issue with forwarding stats to mParticle Servers, received HTTP Code of ' + response.statusText;
         }
 
         mpInstance?.Logger?.verbose(message);

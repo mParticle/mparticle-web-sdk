@@ -14,7 +14,7 @@ describe('pre-init-utils', () => {
 
         it('should process functions passed as arguments', () => {
             const functionSpy = jest.fn();
-            const readyQueue: Function[] = [functionSpy, functionSpy, functionSpy];
+            const readyQueue: Array<Function> = [functionSpy, functionSpy, functionSpy];
             const result = processReadyQueue(readyQueue, createMockLogger());
             expect(functionSpy).toHaveBeenCalledTimes(3);
             expect(result).toEqual([]);
@@ -26,15 +26,11 @@ describe('pre-init-utils', () => {
             (window.mParticle as any) = {
                 arrayMethod: arraySpy,
             };
-            
-            const readyQueue = [
-                functionSpy,
-                ['arrayMethod', 'arg1'],
-                functionSpy,
-            ];
-            
+
+            const readyQueue = [functionSpy, ['arrayMethod', 'arg1'], functionSpy];
+
             processReadyQueue(readyQueue, createMockLogger());
-            
+
             expect(functionSpy).toHaveBeenCalledTimes(2);
             expect(arraySpy).toHaveBeenCalledWith('arg1');
         });
@@ -79,7 +75,10 @@ describe('pre-init-utils', () => {
                 fakeFunction: functionSpy,
                 anotherFakeFunction: functionSpy2,
             };
-            const readyQueue = [['fakeFunction', 'foo'], ['anotherFakeFunction', 'bar']];
+            const readyQueue = [
+                ['fakeFunction', 'foo'],
+                ['anotherFakeFunction', 'bar'],
+            ];
             processReadyQueue(readyQueue, createMockLogger());
             expect(functionSpy).toHaveBeenCalledWith('foo');
             expect(functionSpy2).toHaveBeenCalledWith('bar');
@@ -89,9 +88,7 @@ describe('pre-init-utils', () => {
             // processPreloadedItem still throws, but processReadyQueue catches
             // per item so a bad entry cannot abort the drain.
             const readyQueue = [['Identity.login']];
-            expect(() =>
-                processReadyQueue(readyQueue, createMockLogger())
-            ).not.toThrow();
+            expect(() => processReadyQueue(readyQueue, createMockLogger())).not.toThrow();
             expect(readyQueue).toEqual([]);
         });
 
@@ -113,8 +110,8 @@ describe('pre-init-utils', () => {
             expect(readyQueue).toEqual([]);
             expect(logger.error).toHaveBeenCalledWith(
                 expect.stringContaining(
-                    'Error processing ready queue item: Unable to compute proper mParticle function'
-                )
+                    'Error processing ready queue item: Unable to compute proper mParticle function',
+                ),
             );
         });
 
@@ -129,13 +126,11 @@ describe('pre-init-utils', () => {
                     },
                     afterSpy,
                 ],
-                logger
+                logger,
             );
 
             expect(afterSpy).toHaveBeenCalledTimes(1);
-            expect(logger.error).toHaveBeenCalledWith(
-                'Error processing ready queue item: callback blew up'
-            );
+            expect(logger.error).toHaveBeenCalledWith('Error processing ready queue item: callback blew up');
         });
 
         it('should not mutate the queued item array itself', () => {
@@ -178,12 +173,12 @@ describe('pre-init-utils', () => {
             // Observed: each queued method fires twice (4 spy calls below).
             // With drain-first: nested call sees [], each method fires once.
             const functionSpy = jest.fn();
-            const readyQueue: any[] = [];
+            const readyQueue: Array<any> = [];
             let hasReentered = false;
             const logger = createMockLogger();
 
             (window.mParticle as any) = {
-                fakeFunction: (...args: any[]) => {
+                fakeFunction: (...args: Array<any>) => {
                     functionSpy(...args);
                     // One-shot re-entry mimics a single cache-hit identity
                     // completing mid-drain. Without the guard this would
@@ -195,10 +190,7 @@ describe('pre-init-utils', () => {
                 },
             };
 
-            readyQueue.push(
-                ['fakeFunction', 'first'],
-                ['fakeFunction', 'second']
-            );
+            readyQueue.push(['fakeFunction', 'first'], ['fakeFunction', 'second']);
 
             processReadyQueue(readyQueue, logger);
 
@@ -214,9 +206,7 @@ describe('pre-init-utils', () => {
             const logger = createMockLogger();
             // empty array -> method undefined; non-string method -> method.split would throw
             expect(() => processReadyQueue([[]], logger)).not.toThrow();
-            expect(() =>
-                processReadyQueue([[{} as any, 'arg']], logger)
-            ).not.toThrow();
+            expect(() => processReadyQueue([[{} as any, 'arg']], logger)).not.toThrow();
             expect(() => processReadyQueue([[42 as any]], logger)).not.toThrow();
         });
     });

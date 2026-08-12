@@ -31,7 +31,7 @@ describe('Persistence', () => {
         } as unknown as IMParticleWebSDKInstance;
 
         Store.call(store, {} as SDKInitConfig, mockMPInstance, 'apikey');
-        
+
         store.isLocalStorageAvailable = true;
         store.SDKConfig.useCookieStorage = true;
         store.webviewBridgeEnabled = false;

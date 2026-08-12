@@ -1,6 +1,13 @@
 import { ErrorReportingDispatcher } from '../../src/reporting/errorReportingDispatcher';
 import { LoggingDispatcher } from '../../src/reporting/loggingDispatcher';
-import { IErrorReportingService, ILoggingService, ISDKError, ISDKLogEntry, WSDKErrorSeverity, ErrorCodes } from '../../src/reporting/types';
+import {
+    IErrorReportingService,
+    ILoggingService,
+    ISDKError,
+    ISDKLogEntry,
+    WSDKErrorSeverity,
+    ErrorCodes,
+} from '../../src/reporting/types';
 import { logDeprecatedMethodUsage } from '../../src/reporting/deprecatedMethodLogger';
 
 describe('ErrorReportingDispatcher', () => {
@@ -141,11 +148,11 @@ describe('logDeprecatedMethodUsage', () => {
                 warningMessage: 'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead',
             },
             { warning },
-            { report }
+            { report },
         );
 
         expect(warning).toHaveBeenCalledWith(
-            'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead'
+            'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead',
         );
         expect(report).toHaveBeenCalledWith({
             message: 'mParticle.logCheckout',
@@ -157,16 +164,18 @@ describe('logDeprecatedMethodUsage', () => {
     it('does not require a registered error reporter', () => {
         const warning = jest.fn();
 
-        expect(() => logDeprecatedMethodUsage(
-            {
-                methodName: 'onUserAlias',
-                warningMessage: 'onUserAlias is a deprecated method and will be removed in future releases.',
-            },
-            { warning },
-            undefined
-        )).not.toThrow();
+        expect(() =>
+            logDeprecatedMethodUsage(
+                {
+                    methodName: 'onUserAlias',
+                    warningMessage: 'onUserAlias is a deprecated method and will be removed in future releases.',
+                },
+                { warning },
+                undefined,
+            ),
+        ).not.toThrow();
         expect(warning).toHaveBeenCalledWith(
-            'onUserAlias is a deprecated method and will be removed in future releases.'
+            'onUserAlias is a deprecated method and will be removed in future releases.',
         );
     });
 });

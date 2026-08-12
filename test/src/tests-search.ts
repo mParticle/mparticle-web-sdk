@@ -5,10 +5,7 @@ import { apiKey, MPConfig, urls, testMPID } from './config/constants';
 import Constants from '../../src/constants';
 import { Logger } from '../../src/logger';
 import { IMParticleInstanceManager, SDKLoggerApi } from '../../src/sdkRuntimeModels';
-import {
-    IIdentitySearchResult,
-    sendSearchRequest,
-} from '../../src/identity/search';
+import { IIdentitySearchResult, sendSearchRequest } from '../../src/identity/search';
 import { buildIdentitySearchEnvelope } from '../../src/identity-utils';
 import Utils from './config/utils';
 const { fetchMockSuccess } = Utils;
@@ -71,14 +68,7 @@ describe('search', () => {
             });
 
             const callback = sinon.spy();
-            await sendSearchRequest(
-                { email: 'user@example.com' },
-                apiKey,
-                buildEnvelope,
-                searchUrl,
-                callback,
-                logger,
-            );
+            await sendSearchRequest({ email: 'user@example.com' }, apiKey, buildEnvelope, searchUrl, callback, logger);
 
             expect(callback.calledOnce).to.eq(true);
             const result = callback.getCall(0).args[0] as IIdentitySearchResult;
@@ -158,14 +148,7 @@ describe('search', () => {
             const callback = sinon.spy();
             const requestBuilderSpy = sinon.spy(buildEnvelope);
 
-            await sendSearchRequest(
-                { email: 'user@example.com' },
-                '',
-                requestBuilderSpy,
-                searchUrl,
-                callback,
-                logger,
-            );
+            await sendSearchRequest({ email: 'user@example.com' }, '', requestBuilderSpy, searchUrl, callback, logger);
 
             expect(fetchMock.calls(searchUrl).length).to.equal(0);
             expect(requestBuilderSpy.called).to.eq(false);
@@ -185,7 +168,7 @@ describe('search', () => {
                     apiKey,
                     requestBuilderSpy,
                     searchUrl,
-                    (undefined as unknown) as any,
+                    undefined as unknown as any,
                     logger,
                 );
             } catch (e) {
@@ -199,26 +182,12 @@ describe('search', () => {
         it('invokes the callback with noHttpCoverage when no identifier has a non-empty string value (no network)', async () => {
             const callback = sinon.spy();
 
-            await sendSearchRequest(
-                ({} as any),
-                apiKey,
-                buildEnvelope,
-                searchUrl,
-                callback,
-                logger,
-            );
+            await sendSearchRequest({} as any, apiKey, buildEnvelope, searchUrl, callback, logger);
+
+            await sendSearchRequest({ email: '' } as any, apiKey, buildEnvelope, searchUrl, callback, logger);
 
             await sendSearchRequest(
-                ({ email: '' } as any),
-                apiKey,
-                buildEnvelope,
-                searchUrl,
-                callback,
-                logger,
-            );
-
-            await sendSearchRequest(
-                ({ email: 12345, other: null } as any),
+                { email: 12345, other: null } as any,
                 apiKey,
                 buildEnvelope,
                 searchUrl,
@@ -253,9 +222,7 @@ describe('search', () => {
             );
 
             expect(fetchMock.calls(searchUrl).length).to.equal(1);
-            const sentBody = JSON.parse(
-                fetchMock.calls(searchUrl)[0][1].body as string,
-            );
+            const sentBody = JSON.parse(fetchMock.calls(searchUrl)[0][1].body as string);
             expect(sentBody.known_identities).to.deep.equal({
                 other: 'sha256:abc123',
                 customerid: 'cust-1',
@@ -277,11 +244,11 @@ describe('search', () => {
 
             const callback = sinon.spy();
             await sendSearchRequest(
-                ({
+                {
                     email: 'valid@example.com',
                     customerid: null,
                     other: '',
-                } as any),
+                } as any,
                 apiKey,
                 buildEnvelope,
                 searchUrl,
@@ -290,9 +257,7 @@ describe('search', () => {
             );
 
             expect(fetchMock.calls(searchUrl).length).to.equal(1);
-            const sentBody = JSON.parse(
-                fetchMock.calls(searchUrl)[0][1].body as string,
-            );
+            const sentBody = JSON.parse(fetchMock.calls(searchUrl)[0][1].body as string);
             // `other: ''` stripped, `customerid: null` preserved on the wire.
             expect(sentBody.known_identities).to.deep.equal({
                 email: 'valid@example.com',
@@ -392,14 +357,7 @@ describe('search', () => {
             });
 
             const callback = sinon.spy();
-            await sendSearchRequest(
-                { email: 'user@example.com' },
-                apiKey,
-                buildEnvelope,
-                searchUrl,
-                callback,
-                logger,
-            );
+            await sendSearchRequest({ email: 'user@example.com' }, apiKey, buildEnvelope, searchUrl, callback, logger);
 
             expect(callback.calledOnce).to.eq(true);
             const result = callback.getCall(0).args[0] as IIdentitySearchResult;
@@ -451,9 +409,7 @@ describe('search', () => {
         });
 
         it('is exposed on the Identity namespace', () => {
-            expect(typeof (window.mParticle.Identity as any).search).to.equal(
-                'function',
-            );
+            expect(typeof (window.mParticle.Identity as any).search).to.equal('function');
         });
 
         it('issues a POST to /v1/search with the caller-supplied x-mp-key and a known_identities email', async () => {
@@ -463,16 +419,12 @@ describe('search', () => {
             });
 
             const callback = sinon.spy();
-            (window.mParticle.Identity as any).search(
-                workspaceApiKey,
-                { email: 'user@example.com' },
-                callback,
-            );
+            (window.mParticle.Identity as any).search(workspaceApiKey, { email: 'user@example.com' }, callback);
 
             // fetch-mock + the response.json() await chain need a few ticks
             // before the callback resolves; flush the microtask queue.
             await fetchMock.flush(true);
-            await new Promise(resolve => setTimeout(resolve, 10));
+            await new Promise((resolve) => setTimeout(resolve, 10));
 
             const lastCall = fetchMock.lastCall(searchUrl);
             expect(lastCall, 'POST was issued to /v1/search').to.be.ok;
@@ -500,10 +452,7 @@ describe('search', () => {
 
         it('does not throw and logs an error when called without a callback', () => {
             expect(() =>
-                (window.mParticle.Identity as any).search(
-                    workspaceApiKey,
-                    { email: 'user@example.com' },
-                ),
+                (window.mParticle.Identity as any).search(workspaceApiKey, { email: 'user@example.com' }),
             ).to.not.throw();
         });
 
@@ -514,13 +463,9 @@ describe('search', () => {
             });
 
             const callback = sinon.spy();
-            (window.mParticle.Identity as any).search(
-                '',
-                { email: 'user@example.com' },
-                callback,
-            );
+            (window.mParticle.Identity as any).search('', { email: 'user@example.com' }, callback);
 
-            await new Promise(resolve => setTimeout(resolve, 10));
+            await new Promise((resolve) => setTimeout(resolve, 10));
 
             expect(fetchMock.calls(searchUrl).length).to.equal(0);
             expect(callback.calledOnce).to.eq(true);
@@ -536,18 +481,14 @@ describe('search', () => {
 
             // Wait for init's /identify round-trip to finish so setOptOut isn't
             // queued by `queueIfNotInitialized` (it's a no-op until the SDK is ready).
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise((resolve) => setTimeout(resolve, 50));
 
             window.mParticle.setOptOut(true);
 
             const callback = sinon.spy();
-            (window.mParticle.Identity as any).search(
-                workspaceApiKey,
-                { email: 'user@example.com' },
-                callback,
-            );
+            (window.mParticle.Identity as any).search(workspaceApiKey, { email: 'user@example.com' }, callback);
 
-            await new Promise(resolve => setTimeout(resolve, 10));
+            await new Promise((resolve) => setTimeout(resolve, 10));
 
             expect(fetchMock.calls(searchUrl).length).to.equal(0);
             expect(callback.calledOnce).to.eq(true);

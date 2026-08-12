@@ -15,11 +15,7 @@ export interface IMPSideloadedKit {
 
     addEventTypeFilter(eventType: valueof<typeof EventType>): void;
     addEventNameFilter(eventType: valueof<typeof EventType>, eventName: string): void;
-    addEventAttributeFilter(
-        eventType: valueof<typeof EventType>,
-        eventName: string,
-        customAttributeKey: string
-    ): void;
+    addEventAttributeFilter(eventType: valueof<typeof EventType>, eventName: string, customAttributeKey: string): void;
     addScreenNameFilter(screenName: string): void;
     addScreenAttributeFilter(screenName: string, screenAttribute: string): void;
     addUserIdentityFilter(userIdentity: typeof IdentityType): void;
@@ -29,10 +25,10 @@ export interface IMPSideloadedKit {
 // This constructor is necessary to be able ot call new on mParticle.SideloadedKit
 // https://stackoverflow.com/questions/13407036/how-does-interfaces-with-construct-signatures-work
 export interface IMPSideloadedKitConstructor {
-    new(unregisteredKitInstance: UnregisteredKit): IMPSideloadedKit;
+    new (unregisteredKitInstance: UnregisteredKit): IMPSideloadedKit;
 }
 
-export default class MPSideloadedKit implements IMPSideloadedKit{
+export default class MPSideloadedKit implements IMPSideloadedKit {
     public kitInstance: UnregisteredKit;
     public filterDictionary: IKitFilterSettings = {
         eventTypeFilters: [],
@@ -63,63 +59,41 @@ export default class MPSideloadedKit implements IMPSideloadedKit{
         this.filterDictionary.eventTypeFilters.push(hashedEventType);
     }
 
-    public addEventNameFilter(
-        eventType: valueof<typeof EventType>,
-        eventName: string
-    ): void {
-        const hashedEventName = KitFilterHelper.hashEventName(
-            eventName,
-            eventType
-        );
+    public addEventNameFilter(eventType: valueof<typeof EventType>, eventName: string): void {
+        const hashedEventName = KitFilterHelper.hashEventName(eventName, eventType);
         this.filterDictionary.eventNameFilters.push(hashedEventName);
     }
 
     public addEventAttributeFilter(
         eventType: valueof<typeof EventType>,
         eventName: string,
-        customAttributeKey: string
+        customAttributeKey: string,
     ): void {
-        const hashedEventAttribute = KitFilterHelper.hashEventAttributeKey(
-            eventType,
-            eventName,
-            customAttributeKey
-        );
+        const hashedEventAttribute = KitFilterHelper.hashEventAttributeKey(eventType, eventName, customAttributeKey);
         this.filterDictionary.attributeFilters.push(hashedEventAttribute);
     }
 
     public addScreenNameFilter(screenName: string): void {
-        const hashedScreenName = KitFilterHelper.hashEventName(
-            screenName,
-            EventType.Unknown,
-        );
+        const hashedScreenName = KitFilterHelper.hashEventName(screenName, EventType.Unknown);
         this.filterDictionary.screenNameFilters.push(hashedScreenName);
     }
 
-    public addScreenAttributeFilter(
-        screenName: string,
-        screenAttribute: string
-    ): void {
+    public addScreenAttributeFilter(screenName: string, screenAttribute: string): void {
         const hashedScreenAttribute = KitFilterHelper.hashEventAttributeKey(
             EventType.Unknown,
             screenName,
-            screenAttribute
+            screenAttribute,
         );
-        this.filterDictionary.screenAttributeFilters.push(
-            hashedScreenAttribute
-        );
+        this.filterDictionary.screenAttributeFilters.push(hashedScreenAttribute);
     }
 
     public addUserIdentityFilter(userIdentity: typeof IdentityType): void {
-        const hashedIdentityType = KitFilterHelper.hashUserIdentity(
-            userIdentity
-        );
+        const hashedIdentityType = KitFilterHelper.hashUserIdentity(userIdentity);
         this.filterDictionary.userIdentityFilters.push(hashedIdentityType);
     }
 
     public addUserAttributeFilter(userAttributeKey: string): void {
-        const hashedUserAttributeKey = KitFilterHelper.hashUserAttribute(
-            userAttributeKey
-        );
+        const hashedUserAttributeKey = KitFilterHelper.hashUserAttribute(userAttributeKey);
         this.filterDictionary.userAttributeFilters.push(hashedUserAttributeKey);
     }
 }

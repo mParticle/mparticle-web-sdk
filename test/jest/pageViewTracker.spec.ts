@@ -19,7 +19,7 @@ describe('PageViewTracker', () => {
     // Every tracker built during a test is registered here so afterEach can
     // tear it down. Trackers add global window listeners in init(); without
     // teardown those listeners leak across tests and fire on later navigations.
-    let trackers: PageViewTracker[];
+    let trackers: Array<PageViewTracker>;
 
     const createTracker = (): PageViewTracker => {
         const tracker = new PageViewTracker(mpInstance);
@@ -40,18 +40,18 @@ describe('PageViewTracker', () => {
         resetSessionTimer = jest.fn();
         verbose = jest.fn();
 
-        mpInstance = ({
+        mpInstance = {
             Logger: { verbose },
             _SessionManager: { resetSessionTimer },
             _Events: { logEvent },
-        } as unknown) as IMParticleWebSDKInstance;
+        } as unknown as IMParticleWebSDKInstance;
     });
 
     afterEach(() => {
         // Tear down every tracker so its window listeners don't leak into the
         // next test. Swallow errors from trackers whose mocks were rigged to
         // throw.
-        trackers.forEach(tracker => {
+        trackers.forEach((tracker) => {
             try {
                 tracker.teardown();
             } catch (e) {
@@ -128,14 +128,8 @@ describe('PageViewTracker', () => {
 
             expect(window.history.pushState).not.toBe(NATIVE_PUSH_STATE);
             expect(window.history.replaceState).not.toBe(NATIVE_REPLACE_STATE);
-            expect(addEventListenerSpy).toHaveBeenCalledWith(
-                'popstate',
-                expect.any(Function)
-            );
-            expect(addEventListenerSpy).not.toHaveBeenCalledWith(
-                'hashchange',
-                expect.any(Function)
-            );
+            expect(addEventListenerSpy).toHaveBeenCalledWith('popstate', expect.any(Function));
+            expect(addEventListenerSpy).not.toHaveBeenCalledWith('hashchange', expect.any(Function));
         });
 
         // Q9.4 - Double init() patches only once without stacking (idempotency).
@@ -158,7 +152,7 @@ describe('PageViewTracker', () => {
     describe('#patchHistoryMethods', () => {
         // Q9.5 - A second wrapper/instance already present skips patching.
         it('should skip patching when history is already wrapped (marker guard)', () => {
-            const foreignWrapper = function() {
+            const foreignWrapper = function () {
                 /* someone else's wrapper */
             } as History['pushState'];
             Object.defineProperty(foreignWrapper, WRAPPED_MARKER, {
@@ -173,17 +167,14 @@ describe('PageViewTracker', () => {
             expect(window.history.pushState).toBe(foreignWrapper);
             expect(tracker['originalPushState']).toBeNull();
             expect(tracker['pushStateWrapper']).toBeNull();
-            expect(verbose).toHaveBeenCalledWith(
-                expect.stringContaining('already wrapped')
-            );
+            expect(verbose).toHaveBeenCalledWith(expect.stringContaining('already wrapped'));
         });
 
         it('should mark its wrapper as non-enumerable', () => {
             const tracker = createTracker();
             tracker.init();
 
-            const wrapper = window.history.pushState as History['pushState'] &
-                Record<string, unknown>;
+            const wrapper = window.history.pushState as History['pushState'] & Record<string, unknown>;
             expect(wrapper[WRAPPED_MARKER]).toBe(true);
             expect(Object.keys(wrapper)).not.toContain(WRAPPED_MARKER);
         });
@@ -210,10 +201,7 @@ describe('PageViewTracker', () => {
                 expect(tracker['originalPushState']).toBeNull();
 
                 // ...but the navigation listener is still registered.
-                expect(addEventListenerSpy).toHaveBeenCalledWith(
-                    'popstate',
-                    expect.any(Function)
-                );
+                expect(addEventListenerSpy).toHaveBeenCalledWith('popstate', expect.any(Function));
             } finally {
                 // Restore writability so afterEach can reset.
                 Object.defineProperty(window.history, 'pushState', {
@@ -372,10 +360,8 @@ describe('PageViewTracker', () => {
 
         // Q9.11 - Navigation triggers resetSessionTimer() to renew the session.
         it('should call resetSessionTimer before logging the page view', () => {
-            const callOrder: string[] = [];
-            resetSessionTimer.mockImplementation(() =>
-                callOrder.push('resetSessionTimer')
-            );
+            const callOrder: Array<string> = [];
+            resetSessionTimer.mockImplementation(() => callOrder.push('resetSessionTimer'));
             logEvent.mockImplementation(() => callOrder.push('logEvent'));
 
             window.history.pushState({}, '', '/next');
@@ -402,17 +388,13 @@ describe('PageViewTracker', () => {
                 tracker as PageViewTracker & {
                     handleNavigation: () => void;
                 },
-                'handleNavigation'
+                'handleNavigation',
             ).mockImplementation(() => {
                 throw new Error('boom');
             });
 
-            expect(() =>
-                window.history.pushState({}, '', '/explode')
-            ).not.toThrow();
-            expect(verbose).toHaveBeenCalledWith(
-                expect.stringContaining('navigation handler threw')
-            );
+            expect(() => window.history.pushState({}, '', '/explode')).not.toThrow();
+            expect(verbose).toHaveBeenCalledWith(expect.stringContaining('navigation handler threw'));
         });
     });
 
@@ -420,10 +402,7 @@ describe('PageViewTracker', () => {
         // Q9.6 - After init() then teardown, the original is restored when
         // still our wrapper.
         it('should restore native history methods and remove listeners', () => {
-            const removeEventListenerSpy = jest.spyOn(
-                window,
-                'removeEventListener'
-            );
+            const removeEventListenerSpy = jest.spyOn(window, 'removeEventListener');
 
             const tracker = createTracker();
             tracker.init();
@@ -431,26 +410,20 @@ describe('PageViewTracker', () => {
 
             expect(window.history.pushState).toBe(NATIVE_PUSH_STATE);
             expect(window.history.replaceState).toBe(NATIVE_REPLACE_STATE);
-            expect(removeEventListenerSpy).toHaveBeenCalledWith(
-                'popstate',
-                expect.any(Function)
-            );
+            expect(removeEventListenerSpy).toHaveBeenCalledWith('popstate', expect.any(Function));
             expect(tracker['isActive']).toBe(false);
         });
 
         // Q9.7 - Teardown with another wrapper on top leaves the original in
         // place but still removes listeners.
         it('should leave a foreign wrapper in place but still clean up', () => {
-            const removeEventListenerSpy = jest.spyOn(
-                window,
-                'removeEventListener'
-            );
+            const removeEventListenerSpy = jest.spyOn(window, 'removeEventListener');
 
             const tracker = createTracker();
             tracker.init();
 
             // A third party patches pushState on top of ours after init.
-            const foreignWrapper = function() {
+            const foreignWrapper = function () {
                 /* someone else's wrapper */
             } as History['pushState'];
             window.history.pushState = foreignWrapper;
@@ -460,10 +433,7 @@ describe('PageViewTracker', () => {
             // Our wrapper is no longer installed, so we must not clobber the
             // foreign one by restoring the native method.
             expect(window.history.pushState).toBe(foreignWrapper);
-            expect(removeEventListenerSpy).toHaveBeenCalledWith(
-                'popstate',
-                expect.any(Function)
-            );
+            expect(removeEventListenerSpy).toHaveBeenCalledWith('popstate', expect.any(Function));
             expect(tracker['isActive']).toBe(false);
         });
 
@@ -475,7 +445,7 @@ describe('PageViewTracker', () => {
             const tracker = createTracker();
             tracker.init();
 
-            const foreignWrapper = function() {
+            const foreignWrapper = function () {
                 /* someone else's wrapper */
             } as History['pushState'];
             window.history.pushState = foreignWrapper;

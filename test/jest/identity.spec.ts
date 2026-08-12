@@ -44,16 +44,13 @@ describe('Identity', () => {
         it('defines SDKIdentityTypeEnum', () => {
             const google: SDKIdentityTypeEnum = SDKIdentityTypeEnum.google;
             const facebook: SDKIdentityTypeEnum = SDKIdentityTypeEnum.facebook;
-            const microsoft: SDKIdentityTypeEnum =
-                SDKIdentityTypeEnum.microsoft;
-            const customerId: SDKIdentityTypeEnum =
-                SDKIdentityTypeEnum.customerId;
+            const microsoft: SDKIdentityTypeEnum = SDKIdentityTypeEnum.microsoft;
+            const customerId: SDKIdentityTypeEnum = SDKIdentityTypeEnum.customerId;
             const twitter: SDKIdentityTypeEnum = SDKIdentityTypeEnum.twitter;
             const yahoo: SDKIdentityTypeEnum = SDKIdentityTypeEnum.yahoo;
             const email: SDKIdentityTypeEnum = SDKIdentityTypeEnum.email;
             const alias: SDKIdentityTypeEnum = SDKIdentityTypeEnum.alias;
-            const facebookCustomAudienceId: SDKIdentityTypeEnum =
-                SDKIdentityTypeEnum.facebookCustomAudienceId;
+            const facebookCustomAudienceId: SDKIdentityTypeEnum = SDKIdentityTypeEnum.facebookCustomAudienceId;
 
             const other: SDKIdentityTypeEnum = SDKIdentityTypeEnum.other;
             const otherId2: SDKIdentityTypeEnum = SDKIdentityTypeEnum.otherId2;
@@ -64,15 +61,11 @@ describe('Identity', () => {
             const otherId7: SDKIdentityTypeEnum = SDKIdentityTypeEnum.otherId7;
             const otherId8: SDKIdentityTypeEnum = SDKIdentityTypeEnum.otherId8;
             const otherId9: SDKIdentityTypeEnum = SDKIdentityTypeEnum.otherId9;
-            const otherId10: SDKIdentityTypeEnum =
-                SDKIdentityTypeEnum.otherId10;
+            const otherId10: SDKIdentityTypeEnum = SDKIdentityTypeEnum.otherId10;
 
-            const mobileNumber: SDKIdentityTypeEnum =
-                SDKIdentityTypeEnum.mobileNumber;
-            const phoneNumber2: SDKIdentityTypeEnum =
-                SDKIdentityTypeEnum.phoneNumber2;
-            const phoneNumber3: SDKIdentityTypeEnum =
-                SDKIdentityTypeEnum.phoneNumber3;
+            const mobileNumber: SDKIdentityTypeEnum = SDKIdentityTypeEnum.mobileNumber;
+            const phoneNumber2: SDKIdentityTypeEnum = SDKIdentityTypeEnum.phoneNumber2;
+            const phoneNumber3: SDKIdentityTypeEnum = SDKIdentityTypeEnum.phoneNumber3;
 
             expect(google).toEqual('google');
             expect(facebook).toEqual('facebook');
@@ -82,9 +75,7 @@ describe('Identity', () => {
             expect(yahoo).toEqual('yahoo');
             expect(email).toEqual('email');
             expect(alias).toEqual('alias');
-            expect(facebookCustomAudienceId).toEqual(
-                'facebookcustomaudienceid'
-            );
+            expect(facebookCustomAudienceId).toEqual('facebookcustomaudienceid');
 
             expect(other).toEqual('other');
             expect(otherId2).toEqual('other2');

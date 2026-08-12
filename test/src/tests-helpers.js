@@ -1,23 +1,17 @@
-import {
-    urls,
-    apiKey,
-    testMPID,
-    mParticle,
-    MPConfig,
-} from './config/constants';
+import { urls, apiKey, testMPID, mParticle, MPConfig } from './config/constants';
 import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import Utils from './config/utils';
 
 const { waitForCondition, fetchMockSuccess, hasIdentityCallInflightReturned } = Utils;
 
-describe('helpers', function() {
+describe('helpers', function () {
     let sandbox;
 
-    beforeEach(function() {
+    beforeEach(function () {
         mParticle._resetForTests(MPConfig);
         fetchMock.config.overwriteRoutes = true;
-        
+
         // Create a fresh sandbox for each test to avoid spy conflicts
         sandbox = sinon.createSandbox();
 
@@ -35,7 +29,7 @@ describe('helpers', function() {
         mParticle.init(apiKey, window.mParticle.config);
     });
 
-    afterEach(function() {
+    afterEach(function () {
         fetchMock.restore();
         // Restore all spies/stubs created by this test's sandbox
         if (sandbox) {
@@ -44,24 +38,12 @@ describe('helpers', function() {
     });
 
     it('should correctly validate an attribute value', () => {
-        const validatedString = mParticle
-            .getInstance()
-            ._Helpers.Validators.isValidAttributeValue('testValue1');
-        const validatedNumber = mParticle
-            .getInstance()
-            ._Helpers.Validators.isValidAttributeValue(1);
-        const validatedNull = mParticle
-            .getInstance()
-            ._Helpers.Validators.isValidAttributeValue(null);
-        const validatedObject = mParticle
-            .getInstance()
-            ._Helpers.Validators.isValidAttributeValue({});
-        const validatedArray = mParticle
-            .getInstance()
-            ._Helpers.Validators.isValidAttributeValue([]);
-        const validatedUndefined = mParticle
-            .getInstance()
-            ._Helpers.Validators.isValidAttributeValue(undefined);
+        const validatedString = mParticle.getInstance()._Helpers.Validators.isValidAttributeValue('testValue1');
+        const validatedNumber = mParticle.getInstance()._Helpers.Validators.isValidAttributeValue(1);
+        const validatedNull = mParticle.getInstance()._Helpers.Validators.isValidAttributeValue(null);
+        const validatedObject = mParticle.getInstance()._Helpers.Validators.isValidAttributeValue({});
+        const validatedArray = mParticle.getInstance()._Helpers.Validators.isValidAttributeValue([]);
+        const validatedUndefined = mParticle.getInstance()._Helpers.Validators.isValidAttributeValue(undefined);
 
         validatedString.should.be.ok();
         validatedNumber.should.be.ok();
@@ -74,13 +56,13 @@ describe('helpers', function() {
     it('should return event name in warning when sanitizing invalid attributes', async () => {
         await waitForCondition(hasIdentityCallInflightReturned);
         const bond = sandbox.spy(mParticle.getInstance().Logger, 'warning');
-        mParticle.logEvent('eventName', mParticle.EventType.Location, {invalidValue: {}});
+        mParticle.logEvent('eventName', mParticle.EventType.Location, { invalidValue: {} });
 
         bond.called.should.eql(true);
         bond.callCount.should.equal(1);
 
         bond.getCalls()[0].args[0].should.eql(
-            "For 'eventName', the corresponding attribute value of 'invalidValue' must be a string, number, boolean, or null."
+            "For 'eventName', the corresponding attribute value of 'invalidValue' must be a string, number, boolean, or null.",
         );
     });
 
@@ -92,17 +74,17 @@ describe('helpers', function() {
             1,
             1,
             'variant',
-        'category',
-        'brand',
-        'position',
-        'couponCode',
-        {invalidValue: {}}
-        )
+            'category',
+            'brand',
+            'position',
+            'couponCode',
+            { invalidValue: {} },
+        );
         bond.called.should.eql(true);
         bond.callCount.should.equal(1);
 
         bond.getCalls()[0].args[0].should.eql(
-            "For 'productName', the corresponding attribute value of 'invalidValue' must be a string, number, boolean, or null."
+            "For 'productName', the corresponding attribute value of 'invalidValue' must be a string, number, boolean, or null.",
         );
     });
 
@@ -114,14 +96,18 @@ describe('helpers', function() {
         const product1 = mParticle.eCommerce.createProduct('prod1', 'prod1sku', 999);
         const product2 = mParticle.eCommerce.createProduct('prod2', 'prod2sku', 799);
 
-        const customAttributes = {invalidValue: {}};
-        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.AddToCart, [product1, product2], customAttributes);
+        const customAttributes = { invalidValue: {} };
+        mParticle.eCommerce.logProductAction(
+            mParticle.ProductActionType.AddToCart,
+            [product1, product2],
+            customAttributes,
+        );
 
         bond.called.should.eql(true);
         bond.callCount.should.equal(1);
 
         bond.getCalls()[0].args[0].should.eql(
-            "For 'eCommerce - AddToCart', the corresponding attribute value of 'invalidValue' must be a string, number, boolean, or null."
+            "For 'eCommerce - AddToCart', the corresponding attribute value of 'invalidValue' must be a string, number, boolean, or null.",
         );
     });
 
@@ -135,15 +121,9 @@ describe('helpers', function() {
         const identifyResult = mParticle
             .getInstance()
             ._Helpers.Validators.validateIdentities(identityApiData, 'identify');
-        const logoutResult = mParticle
-            .getInstance()
-            ._Helpers.Validators.validateIdentities(identityApiData, 'logout');
-        const loginResult = mParticle
-            .getInstance()
-            ._Helpers.Validators.validateIdentities(identityApiData, 'login');
-        const modifyResult = mParticle
-            .getInstance()
-            ._Helpers.Validators.validateIdentities(identityApiData, 'modify');
+        const logoutResult = mParticle.getInstance()._Helpers.Validators.validateIdentities(identityApiData, 'logout');
+        const loginResult = mParticle.getInstance()._Helpers.Validators.validateIdentities(identityApiData, 'login');
+        const modifyResult = mParticle.getInstance()._Helpers.Validators.validateIdentities(identityApiData, 'modify');
 
         identifyResult.valid.should.equal(true);
         logoutResult.valid.should.equal(true);
@@ -157,21 +137,11 @@ describe('helpers', function() {
         const object = {};
         const array = [];
 
-        const stringResult = mParticle
-            .getInstance()
-            ._Helpers.parseStringOrNumber(string);
-        const numberResult = mParticle
-            .getInstance()
-            ._Helpers.parseStringOrNumber(number);
-        const objectResult = mParticle
-            .getInstance()
-            ._Helpers.parseStringOrNumber(object);
-        const arrayResult = mParticle
-            .getInstance()
-            ._Helpers.parseStringOrNumber(array);
-        const nullResult = mParticle
-            .getInstance()
-            ._Helpers.parseStringOrNumber(null);
+        const stringResult = mParticle.getInstance()._Helpers.parseStringOrNumber(string);
+        const numberResult = mParticle.getInstance()._Helpers.parseStringOrNumber(number);
+        const objectResult = mParticle.getInstance()._Helpers.parseStringOrNumber(object);
+        const arrayResult = mParticle.getInstance()._Helpers.parseStringOrNumber(array);
+        const nullResult = mParticle.getInstance()._Helpers.parseStringOrNumber(null);
 
         stringResult.should.equal(string);
         numberResult.should.equal(number);
@@ -197,13 +167,10 @@ describe('helpers', function() {
         filteredIdentities.length.should.equal(3);
         filteredIdentities[0].should.have.property('Identity', '123');
         filteredIdentities[0].should.have.property('Type', 1);
-        filteredIdentities[1].should.have.property(
-            'Identity',
-            'test@gmail.com'
-        );
+        filteredIdentities[1].should.have.property('Identity', 'test@gmail.com');
         filteredIdentities[1].should.have.property('Type', 7);
         filteredIdentities[2].should.have.property('Identity', 'abc');
-        filteredIdentities[2].should.have.property('Type', 0);        
+        filteredIdentities[2].should.have.property('Type', 0);
     });
 
     it('should return the appropriate boolean for if events should be delayed by an integration', () => {
@@ -225,18 +192,10 @@ describe('helpers', function() {
             10: false,
         };
 
-        const result1 = mParticle
-            .getInstance()
-            ._Helpers.isDelayedByIntegration(integrationDelays1);
-        const result2 = mParticle
-            .getInstance()
-            ._Helpers.isDelayedByIntegration(integrationDelays2);
-        const result3 = mParticle
-            .getInstance()
-            ._Helpers.isDelayedByIntegration(integrationDelays3);
-        const result4 = mParticle
-            .getInstance()
-            ._Helpers.isDelayedByIntegration(integrationDelays4);
+        const result1 = mParticle.getInstance()._Helpers.isDelayedByIntegration(integrationDelays1);
+        const result2 = mParticle.getInstance()._Helpers.isDelayedByIntegration(integrationDelays2);
+        const result3 = mParticle.getInstance()._Helpers.isDelayedByIntegration(integrationDelays3);
+        const result4 = mParticle.getInstance()._Helpers.isDelayedByIntegration(integrationDelays4);
 
         result1.should.equal(true);
         result2.should.equal(true);
@@ -246,21 +205,16 @@ describe('helpers', function() {
 
     it('should return false if integration delay object is empty', () => {
         const emptyIntegrationDelays = {};
-        const result1 = mParticle
-            .getInstance()
-            ._Helpers.isDelayedByIntegration(emptyIntegrationDelays);
+        const result1 = mParticle.getInstance()._Helpers.isDelayedByIntegration(emptyIntegrationDelays);
 
         result1.should.equal(false);
     });
 
     it('should return 0 when hashing undefined or null', () => {
-        mParticle.generateHash(undefined)
-            .should.equal(0);
-        mParticle.generateHash(null)
-            .should.equal(0);
+        mParticle.generateHash(undefined).should.equal(0);
+        mParticle.generateHash(null).should.equal(0);
         (typeof mParticle.generateHash(false)).should.equal('number');
-        mParticle.generateHash(false)
-            .should.not.equal(0);
+        mParticle.generateHash(false).should.not.equal(0);
     });
 
     it('should generate random value', () => {
@@ -271,7 +225,7 @@ describe('helpers', function() {
         randomValue.should.be.ok();
         //old browsers may return undefined despite
         //defining the getRandomValues API.
-        window.crypto.getRandomValues = function(a) {
+        window.crypto.getRandomValues = function (a) {
             a = undefined;
             return a;
         };
@@ -281,16 +235,12 @@ describe('helpers', function() {
     });
 
     it('should create a storage name based on default mParticle storage version + apiKey if apiKey is passed in', () => {
-        const cookieName = mParticle
-            .getInstance()
-            ._Helpers.createMainStorageName(apiKey);
+        const cookieName = mParticle.getInstance()._Helpers.createMainStorageName(apiKey);
         cookieName.should.equal('mprtcl-v4_test_key');
     });
 
     it('should create a storage name based on default mParticle storage version if no apiKey is passed in', () => {
-        const cookieName = mParticle
-            .getInstance()
-            ._Helpers.createMainStorageName();
+        const cookieName = mParticle.getInstance()._Helpers.createMainStorageName();
         cookieName.should.equal('mprtcl-v4');
     });
 });

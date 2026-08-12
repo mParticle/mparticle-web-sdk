@@ -5,7 +5,7 @@ import _BatchValidator from '../../src/mockBatchCreator';
 import fetchMock from 'fetch-mock/esm/client';
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 import { CustomEvent } from '@mparticle/event-models';
-const { fetchMockSuccess, waitForCondition, hasIdentifyReturned  } = Utils;
+const { fetchMockSuccess, waitForCondition, hasIdentifyReturned } = Utils;
 
 declare global {
     interface Window {
@@ -36,7 +36,6 @@ describe('batch uploader', () => {
     });
 
     describe('Upload Workflow', () => {
-
         it('should organize events in the order they are processed and maintain that order when uploading', async () => {
             // Batches should be uploaded in the order they were created to prevent
             // any potential corruption.
@@ -47,16 +46,13 @@ describe('batch uploader', () => {
             window.mParticle.init(apiKey, window.mParticle.config);
 
             await waitForCondition(hasIdentifyReturned);
-            
+
             window.mParticle.logEvent('Test Event 0');
 
             // Manually initiate the upload process - turn event into batches and upload the batch
             window.mParticle.upload();
 
-            expect(
-                fetchMock.called(),
-                'FetchMock should have been called'
-            ).to.equal(true);
+            expect(fetchMock.called(), 'FetchMock should have been called').to.equal(true);
 
             const batch1 = JSON.parse(fetchMock.lastCall()[1].body as string);
 
@@ -64,9 +60,7 @@ describe('batch uploader', () => {
             // in this exact order
             expect(batch1.events.length).to.equal(3);
             expect(batch1.events[0].event_type).to.equal('session_start');
-            expect(batch1.events[1].event_type).to.equal(
-                'application_state_transition'
-            );
+            expect(batch1.events[1].event_type).to.equal('application_state_transition');
             expect(batch1.events[2].data.event_name).to.equal('Test Event 0');
 
             // Log a second batch of events
@@ -74,7 +68,7 @@ describe('batch uploader', () => {
             window.mParticle.logEvent('Test Event 2');
             window.mParticle.logEvent('Test Event 3');
 
-            // Manually initiate the upload process - turn event into batches and upload the batch 
+            // Manually initiate the upload process - turn event into batches and upload the batch
             window.mParticle.upload();
 
             const batch2 = JSON.parse(fetchMock.lastCall()[1].body as string);
@@ -89,7 +83,7 @@ describe('batch uploader', () => {
             window.mParticle.logEvent('Test Event 4');
             window.mParticle.logEvent('Test Event 5');
 
-            // Manually initiate the upload process - turn event into batches and upload the batch 
+            // Manually initiate the upload process - turn event into batches and upload the batch
             window.mParticle.upload();
 
             const batch3 = JSON.parse(fetchMock.lastCall()[1].body as string);
@@ -118,13 +112,10 @@ describe('batch uploader', () => {
             // Adds a custom event to Batch 1
             window.mParticle.logEvent('Test Event 0');
 
-            // Manually initiate the upload process - turn event into batches and upload the batch 
+            // Manually initiate the upload process - turn event into batches and upload the batch
             window.mParticle.upload();
 
-            expect(
-                fetchMock.called(),
-                'FetchMock should have been called'
-            ).to.equal(true);
+            expect(fetchMock.called(), 'FetchMock should have been called').to.equal(true);
 
             const batch1 = JSON.parse(fetchMock.calls()[0][1].body as string);
 
@@ -132,9 +123,7 @@ describe('batch uploader', () => {
             // in this exact order
             expect(batch1.events.length).to.equal(3);
             expect(batch1.events[0].event_type).to.equal('session_start');
-            expect(batch1.events[1].event_type).to.equal(
-                'application_state_transition'
-            );
+            expect(batch1.events[1].event_type).to.equal('application_state_transition');
             expect(batch1.events[2].data.event_name).to.equal('Test Event 0');
 
             // Batch 2
@@ -157,39 +146,21 @@ describe('batch uploader', () => {
             clock.restore();
 
             setTimeout(() => {
-                const batchQueue =
-                    window.mParticle.getInstance()._APIClient.uploader
-                        .batchesQueuedForProcessing;
+                const batchQueue = window.mParticle.getInstance()._APIClient.uploader.batchesQueuedForProcessing;
 
                 expect(batchQueue.length).to.equal(3);
 
-                expect(batchQueue[0].events[0].event_type).to.equal(
-                    'session_start'
-                );
-                expect(batchQueue[0].events[1].event_type).to.equal(
-                    'application_state_transition'
-                );
+                expect(batchQueue[0].events[0].event_type).to.equal('session_start');
+                expect(batchQueue[0].events[1].event_type).to.equal('application_state_transition');
                 expect((batchQueue[0].events[2] as CustomEvent).data.event_name).to.equal('Test Event 0');
 
-                expect((batchQueue[1].events[0] as CustomEvent).data.event_name).to.equal(
-                    'Test Event 1'
-                );
-                expect((batchQueue[1].events[1] as CustomEvent).data.event_name).to.equal(
-                    'Test Event 2'
-                );
-                expect((batchQueue[1].events[2] as CustomEvent).data.event_name).to.equal(
-                    'Test Event 3'
-                );
+                expect((batchQueue[1].events[0] as CustomEvent).data.event_name).to.equal('Test Event 1');
+                expect((batchQueue[1].events[1] as CustomEvent).data.event_name).to.equal('Test Event 2');
+                expect((batchQueue[1].events[2] as CustomEvent).data.event_name).to.equal('Test Event 3');
 
-                expect((batchQueue[2].events[0] as CustomEvent).data.event_name).to.equal(
-                    'Test Event 4'
-                );
-                expect((batchQueue[2].events[1] as CustomEvent).data.event_name).to.equal(
-                    'Test Event 5'
-                );
-                expect((batchQueue[2].events[2] as CustomEvent).data.event_name).to.equal(
-                    'Test Event 6'
-                );
+                expect((batchQueue[2].events[0] as CustomEvent).data.event_name).to.equal('Test Event 4');
+                expect((batchQueue[2].events[1] as CustomEvent).data.event_name).to.equal('Test Event 5');
+                expect((batchQueue[2].events[2] as CustomEvent).data.event_name).to.equal('Test Event 6');
             }, 0);
         });
 
@@ -216,7 +187,7 @@ describe('batch uploader', () => {
             // Adds a custom event to Batch 1
             window.mParticle.logEvent('Test Event 0');
 
-            // Manually initiate the upload process - turn event into batches and upload the batch 
+            // Manually initiate the upload process - turn event into batches and upload the batch
             window.mParticle.upload();
 
             // Batch 2
@@ -224,7 +195,7 @@ describe('batch uploader', () => {
             window.mParticle.logEvent('Test Event 2');
             window.mParticle.logEvent('Test Event 3');
 
-            // Manually initiate the upload process - turn event into batches and upload the batch 
+            // Manually initiate the upload process - turn event into batches and upload the batch
             window.mParticle.upload();
 
             // Batch 3
@@ -232,7 +203,7 @@ describe('batch uploader', () => {
             window.mParticle.logEvent('Test Event 5');
             window.mParticle.logEvent('Test Event 6');
 
-            // Manually initiate the upload process - turn event into batches and upload the batch 
+            // Manually initiate the upload process - turn event into batches and upload the batch
             window.mParticle.upload();
 
             // Reset timer so the setTimeout can trigger
@@ -243,31 +214,17 @@ describe('batch uploader', () => {
                 // 2 should be waiting for retry
                 expect(fetchMock.calls().length).to.equal(3);
 
-                const batchQueue =
-                    window.mParticle.getInstance()._APIClient.uploader
-                        .batchesQueuedForProcessing;
+                const batchQueue = window.mParticle.getInstance()._APIClient.uploader.batchesQueuedForProcessing;
 
                 expect(batchQueue.length).to.equal(2);
 
-                expect((batchQueue[0].events[0] as CustomEvent).data.event_name).to.equal(
-                    'Test Event 1'
-                );
-                expect((batchQueue[0].events[1] as CustomEvent).data.event_name).to.equal(
-                    'Test Event 2'
-                );
-                expect((batchQueue[0].events[2] as CustomEvent).data.event_name).to.equal(
-                    'Test Event 3'
-                );
+                expect((batchQueue[0].events[0] as CustomEvent).data.event_name).to.equal('Test Event 1');
+                expect((batchQueue[0].events[1] as CustomEvent).data.event_name).to.equal('Test Event 2');
+                expect((batchQueue[0].events[2] as CustomEvent).data.event_name).to.equal('Test Event 3');
 
-                expect((batchQueue[1].events[0] as CustomEvent).data.event_name).to.equal(
-                    'Test Event 4'
-                );
-                expect((batchQueue[1].events[1] as CustomEvent).data.event_name).to.equal(
-                    'Test Event 5'
-                );
-                expect((batchQueue[1].events[2] as CustomEvent).data.event_name).to.equal(
-                    'Test Event 6'
-                );
+                expect((batchQueue[1].events[0] as CustomEvent).data.event_name).to.equal('Test Event 4');
+                expect((batchQueue[1].events[1] as CustomEvent).data.event_name).to.equal('Test Event 5');
+                expect((batchQueue[1].events[2] as CustomEvent).data.event_name).to.equal('Test Event 6');
             }, 0);
         });
     });

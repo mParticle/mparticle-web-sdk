@@ -1,33 +1,36 @@
-import { Dictionary, generateHash, inArray, valueof, filterDictionaryWithHash } from "./utils";
+import { Dictionary, generateHash, inArray, valueof, filterDictionaryWithHash } from './utils';
 // TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-5381
-import { EventType, IdentityType } from "./types";
+import { EventType, IdentityType } from './types';
 
 export default class KitFilterHelper {
-    static hashEventType(eventType: valueof<typeof EventType>): number {
+    public static hashEventType(eventType: valueof<typeof EventType>): number {
         return generateHash(eventType as unknown as string);
-    };
+    }
 
-    static hashEventName(eventName: string, eventType: valueof<typeof EventType>): number {
+    public static hashEventName(eventName: string, eventType: valueof<typeof EventType>): number {
         return generateHash(eventType + eventName);
-    };
+    }
 
-    static hashEventAttributeKey(eventType: valueof<typeof EventType>, eventName: string, customAttributeName: string): number {
+    public static hashEventAttributeKey(
+        eventType: valueof<typeof EventType>,
+        eventName: string,
+        customAttributeName: string,
+    ): number {
         return generateHash(eventType + eventName + customAttributeName);
     }
-    
-    static hashUserAttribute(userAttributeKey: string): number {
+
+    public static hashUserAttribute(userAttributeKey: string): number {
         return generateHash(userAttributeKey);
     }
 
     // User Identities are not actually hashed, this method is named this way to
     // be consistent with the filter class. UserIdentityType is also a number
-    static hashUserIdentity(userIdentity: typeof IdentityType): typeof IdentityType {
+    public static hashUserIdentity(userIdentity: typeof IdentityType): typeof IdentityType {
         return userIdentity;
     }
 
-    static hashConsentPurpose(prefix: string, purpose: string){
-        return generateHash(prefix + purpose)
-
+    public static hashConsentPurpose(prefix: string, purpose: string) {
+        return generateHash(prefix + purpose);
     }
 
     // The methods below are for conditional forwarding, a type of filter
@@ -36,26 +39,32 @@ export default class KitFilterHelper {
     // The backend returns the hashes as strings for conditional forwarding
     // but returns "regular" filters as arrays of numbers
     // See IFilteringEventAttributeValue in configApiClient.ts as an example
-    static hashAttributeConditionalForwarding(attribute: string): string {
+    public static hashAttributeConditionalForwarding(attribute: string): string {
         return generateHash(attribute).toString();
     }
 
-    static hashConsentPurposeConditionalForwarding(prefix: string, purpose: string): string {
+    public static hashConsentPurposeConditionalForwarding(prefix: string, purpose: string): string {
         return this.hashConsentPurpose(prefix, purpose).toString();
     }
 
-    static readonly filterUserAttributes = (userAttributes: Dictionary<string>, filterList: number[]): Dictionary<string> => {
+    public static readonly filterUserAttributes = (
+        userAttributes: Dictionary<string>,
+        filterList: Array<number>,
+    ): Dictionary<string> => {
         return filterDictionaryWithHash(userAttributes, filterList, (key: string) => this.hashUserAttribute(key));
-    }
+    };
 
-    static readonly filterUserIdentities = (userIdentities: Dictionary<string>, filterList: number[]): Dictionary<string> => {
-        return filterDictionaryWithHash(userIdentities, filterList, (key: string) => this.hashUserIdentity(
-            IdentityType.getIdentityType(key)
-        ));
-    }
-    
-    static readonly isFilteredUserAttribute = (userAttributeKey: string, filterList: number[]): boolean => {
+    public static readonly filterUserIdentities = (
+        userIdentities: Dictionary<string>,
+        filterList: Array<number>,
+    ): Dictionary<string> => {
+        return filterDictionaryWithHash(userIdentities, filterList, (key: string) =>
+            this.hashUserIdentity(IdentityType.getIdentityType(key)),
+        );
+    };
+
+    public static readonly isFilteredUserAttribute = (userAttributeKey: string, filterList: Array<number>): boolean => {
         const hashedUserAttribute = this.hashUserAttribute(userAttributeKey);
         return filterList && inArray(filterList, hashedUserAttribute);
-    }
+    };
 }

@@ -1,17 +1,8 @@
 import Constants, { HTTP_OK, HTTP_NOT_FOUND } from '../constants';
 import { SDKLoggerApi } from '../sdkRuntimeModels';
 import { Environment, isFunction, getErrorMessage } from '../utils';
-import {
-    AsyncUploader,
-    FetchUploader,
-    IFetchPayload,
-    XHRUploader,
-} from '../uploaders';
-import {
-    ErrorCodes,
-    IErrorReportingService,
-    WSDKErrorSeverity,
-} from '../reporting/types';
+import { AsyncUploader, FetchUploader, IFetchPayload, XHRUploader } from '../uploaders';
+import { ErrorCodes, IErrorReportingService, WSDKErrorSeverity } from '../reporting/types';
 import { IdentityApiData, UserIdentities } from '@mparticle/web-sdk';
 import Validators from '../validators';
 
@@ -100,9 +91,7 @@ export const sendSearchRequest = async (
     // Validate the callback up front. If it isn't a function we have nowhere
     // to deliver a result to, so log and bail out without invoking anything.
     if (!isFunction(callback)) {
-        logger.error(
-            'search called without a callback function; skipping request.',
-        );
+        logger.error('search called without a callback function; skipping request.');
         return;
     }
 
@@ -110,9 +99,7 @@ export const sendSearchRequest = async (
         try {
             callback(result);
         } catch (e) {
-            logger.error(
-                'Error invoking search callback: ' + getErrorMessage(e),
-            );
+            logger.error('Error invoking search callback: ' + getErrorMessage(e));
         }
     };
 
@@ -123,23 +110,15 @@ export const sendSearchRequest = async (
 
     // No usable identifier -> deliver httpCode: noHttpCoverage so callers
     // waiting on the callback (e.g. to clear a loading state) don't hang.
-    if (
-        !Object.values(cleanedKnownIdentities ?? {}).some(
-            (v) => typeof v === 'string' && v.length > 0,
-        )
-    ) {
-        logger.verbose(
-            'Identity search called with empty identifiers; skipping request.',
-        );
+    if (!Object.values(cleanedKnownIdentities ?? {}).some((v) => typeof v === 'string' && v.length > 0)) {
+        logger.verbose('Identity search called with empty identifiers; skipping request.');
         safeInvoke({ httpCode: HTTPCodes.noHttpCoverage });
         return;
     }
 
     // No API key -> same: deliver noHttpCoverage rather than hanging.
     if (!apiKey) {
-        logger.verbose(
-            'search called without a workspace API key; skipping request.',
-        );
+        logger.verbose('search called without a workspace API key; skipping request.');
         safeInvoke({ httpCode: HTTPCodes.noHttpCoverage });
         return;
     }
@@ -168,10 +147,7 @@ export const sendSearchRequest = async (
         };
 
         const api: AsyncUploader =
-            uploader ||
-            (window.fetch
-                ? new FetchUploader(searchUrl)
-                : new XHRUploader(searchUrl));
+            uploader || (window.fetch ? new FetchUploader(searchUrl) : new XHRUploader(searchUrl));
 
         logger.verbose('Sending search request to ' + searchUrl);
         const response: Response = await api.upload(fetchPayload, searchUrl);
@@ -184,19 +160,15 @@ export const sendSearchRequest = async (
             try {
                 body = (await response.json()) as IIdentitySearchResponseBody;
             } catch (e) {
-                logger.verbose(
-                    'search response had no parseable JSON body.',
-                );
+                logger.verbose('search response had no parseable JSON body.');
             }
         } else {
-            const xhrLike = (response as unknown) as XMLHttpRequest;
+            const xhrLike = response as unknown as XMLHttpRequest;
             if (xhrLike?.responseText) {
                 try {
                     body = JSON.parse(xhrLike.responseText) as IIdentitySearchResponseBody;
                 } catch (e) {
-                    logger.verbose(
-                        'search XHR response was not valid JSON.',
-                    );
+                    logger.verbose('search XHR response was not valid JSON.');
                 }
             }
         }
@@ -208,9 +180,7 @@ export const sendSearchRequest = async (
             // intentionally not logged as an error.
             logger.verbose('search received 404 (no match).');
         } else {
-            logger.verbose(
-                'search received non-success status ' + response.status,
-            );
+            logger.verbose('search received non-success status ' + response.status);
         }
 
         safeInvoke({ httpCode: response.status, body });

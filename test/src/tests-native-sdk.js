@@ -33,13 +33,13 @@ const expectedAliasPayloadWithMpidScope = JSON.stringify({
     Scope: 'mpid',
 });
 
-describe('native-sdk methods', function() {
-    beforeEach(function() {
+describe('native-sdk methods', function () {
+    beforeEach(function () {
         mParticle._resetForTests(MPConfig);
     });
 
-    describe('Helper methods', function() {
-        beforeEach(function() {
+    describe('Helper methods', function () {
+        beforeEach(function () {
             delete window.mParticleAndroid_bridgeName_v2;
             delete window.webkit;
             delete window.mParticle.uiwebviewBridgeName;
@@ -53,7 +53,7 @@ describe('native-sdk methods', function() {
             window.mParticle.isIOS = null;
         });
 
-        after(function() {
+        after(function () {
             delete window.mParticleAndroid_bridgeName_v2;
             delete window.webkit;
             delete window.mParticle.uiwebviewBridgeName;
@@ -63,54 +63,33 @@ describe('native-sdk methods', function() {
         });
 
         it('isBridgeV2Available returns false if no bridges exist on window', () => {
-            mParticle
-                .getInstance()
-                ._NativeSdkHelpers.isBridgeV2Available('bridgeName')
-                .should.equal(false);
+            mParticle.getInstance()._NativeSdkHelpers.isBridgeV2Available('bridgeName').should.equal(false);
         });
 
         it('isBridgeV2Available returns true if iOS bridge messageHandler bridge exists on window', () => {
-            mParticle
-                .getInstance()
-                ._NativeSdkHelpers.isBridgeV2Available('bridgeName')
-                .should.equal(false);
+            mParticle.getInstance()._NativeSdkHelpers.isBridgeV2Available('bridgeName').should.equal(false);
             window.webkit = {
                 messageHandlers: {
                     mParticle_bridgeName_v2: { postMessage: null },
                 },
             };
 
-            mParticle
-                .getInstance()
-                ._NativeSdkHelpers.isBridgeV2Available('bridgeName')
-                .should.equal(true);
+            mParticle.getInstance()._NativeSdkHelpers.isBridgeV2Available('bridgeName').should.equal(true);
             delete window.webkit;
         });
 
         it('isBridgeV2Available returns true if iOS bridge nonMessageHandler bridge exists on window', () => {
-            mParticle
-                .getInstance()
-                ._NativeSdkHelpers.isBridgeV2Available('bridgeName')
-                .should.equal(false);
+            mParticle.getInstance()._NativeSdkHelpers.isBridgeV2Available('bridgeName').should.equal(false);
             window.mParticle.uiwebviewBridgeName = 'mParticle_bridgeName_v2';
 
-            mParticle
-                .getInstance()
-                ._NativeSdkHelpers.isBridgeV2Available('bridgeName')
-                .should.equal(true);
+            mParticle.getInstance()._NativeSdkHelpers.isBridgeV2Available('bridgeName').should.equal(true);
             delete window.webkit;
         });
 
         it('isBridgeV2Available returns true if Android bridge exists on window', () => {
-            mParticle
-                .getInstance()
-                ._NativeSdkHelpers.isBridgeV2Available('bridgeName')
-                .should.equal(false);
+            mParticle.getInstance()._NativeSdkHelpers.isBridgeV2Available('bridgeName').should.equal(false);
             window.mParticleAndroid_bridgeName_v2 = new mParticleAndroid();
-            mParticle
-                .getInstance()
-                ._NativeSdkHelpers.isBridgeV2Available('bridgeName')
-                .should.equal(true);
+            mParticle.getInstance()._NativeSdkHelpers.isBridgeV2Available('bridgeName').should.equal(true);
             delete window.mParticleAndroid_bridgeName_v2;
         });
 
@@ -121,10 +100,7 @@ describe('native-sdk methods', function() {
 
             mParticle
                 .getInstance()
-                ._NativeSdkHelpers.isWebviewEnabled(
-                    'bridgeName',
-                    window.mParticle.config.minWebviewBridgeVersion
-                )
+                ._NativeSdkHelpers.isWebviewEnabled('bridgeName', window.mParticle.config.minWebviewBridgeVersion)
                 .should.equal(true);
         });
 
@@ -137,10 +113,7 @@ describe('native-sdk methods', function() {
 
             mParticle
                 .getInstance()
-                ._NativeSdkHelpers.isWebviewEnabled(
-                    'bridgeName',
-                    window.mParticle.config.minWebviewBridgeVersion
-                )
+                ._NativeSdkHelpers.isWebviewEnabled('bridgeName', window.mParticle.config.minWebviewBridgeVersion)
                 .should.equal(true);
         });
 
@@ -155,10 +128,7 @@ describe('native-sdk methods', function() {
 
             mParticle
                 .getInstance()
-                ._NativeSdkHelpers.isWebviewEnabled(
-                    'bridgeName',
-                    window.mParticle.config.minWebviewBridgeVersion
-                )
+                ._NativeSdkHelpers.isWebviewEnabled('bridgeName', window.mParticle.config.minWebviewBridgeVersion)
                 .should.equal(true);
         });
 
@@ -168,10 +138,7 @@ describe('native-sdk methods', function() {
 
             mParticle
                 .getInstance()
-                ._NativeSdkHelpers.isWebviewEnabled(
-                    'bridgeName',
-                    mParticle.minWebviewBridgeVersion
-                )
+                ._NativeSdkHelpers.isWebviewEnabled('bridgeName', mParticle.minWebviewBridgeVersion)
                 .should.equal(true);
         });
 
@@ -181,10 +148,7 @@ describe('native-sdk methods', function() {
 
             mParticle
                 .getInstance()
-                ._NativeSdkHelpers.isWebviewEnabled(
-                    'bridgeName',
-                    mParticle.minWebviewBridgeVersion
-                )
+                ._NativeSdkHelpers.isWebviewEnabled('bridgeName', mParticle.minWebviewBridgeVersion)
                 .should.equal(true);
         });
 
@@ -195,10 +159,7 @@ describe('native-sdk methods', function() {
 
             mParticle
                 .getInstance()
-                ._NativeSdkHelpers.isWebviewEnabled(
-                    'bridgeName',
-                    window.mParticle.config.minWebviewBridgeVersion
-                )
+                ._NativeSdkHelpers.isWebviewEnabled('bridgeName', window.mParticle.config.minWebviewBridgeVersion)
                 .should.equal(false);
         });
 
@@ -209,10 +170,7 @@ describe('native-sdk methods', function() {
 
             mParticle
                 .getInstance()
-                ._NativeSdkHelpers.isWebviewEnabled(
-                    'bridgeName',
-                    window.mParticle.config.minWebviewBridgeVersion
-                )
+                ._NativeSdkHelpers.isWebviewEnabled('bridgeName', window.mParticle.config.minWebviewBridgeVersion)
                 .should.equal(false);
 
             delete mParticle.isIOS;
@@ -224,10 +182,7 @@ describe('native-sdk methods', function() {
 
             mParticle
                 .getInstance()
-                ._NativeSdkHelpers.isWebviewEnabled(
-                    'bridgeName',
-                    mParticle.minWebviewBridgeVersion
-                )
+                ._NativeSdkHelpers.isWebviewEnabled('bridgeName', mParticle.minWebviewBridgeVersion)
                 .should.equal(true);
         });
 
@@ -241,10 +196,7 @@ describe('native-sdk methods', function() {
 
             mParticle
                 .getInstance()
-                ._NativeSdkHelpers.isWebviewEnabled(
-                    'bridgeName',
-                    mParticle.minWebviewBridgeVersion
-                )
+                ._NativeSdkHelpers.isWebviewEnabled('bridgeName', mParticle.minWebviewBridgeVersion)
                 .should.equal(true);
         });
 
@@ -254,10 +206,7 @@ describe('native-sdk methods', function() {
 
             mParticle
                 .getInstance()
-                ._NativeSdkHelpers.isWebviewEnabled(
-                    'bridgeName',
-                    mParticle.minWebviewBridgeVersion
-                )
+                ._NativeSdkHelpers.isWebviewEnabled('bridgeName', mParticle.minWebviewBridgeVersion)
                 .should.equal(true);
 
             delete mParticle.isIOS;
@@ -269,10 +218,7 @@ describe('native-sdk methods', function() {
 
             mParticle
                 .getInstance()
-                ._NativeSdkHelpers.isWebviewEnabled(
-                    'bridgeName',
-                    mParticle.minWebviewBridgeVersion
-                )
+                ._NativeSdkHelpers.isWebviewEnabled('bridgeName', mParticle.minWebviewBridgeVersion)
                 .should.equal(true);
         });
 
@@ -286,10 +232,7 @@ describe('native-sdk methods', function() {
 
             mParticle
                 .getInstance()
-                ._NativeSdkHelpers.isWebviewEnabled(
-                    'bridgeName',
-                    mParticle.minWebviewBridgeVersion
-                )
+                ._NativeSdkHelpers.isWebviewEnabled('bridgeName', mParticle.minWebviewBridgeVersion)
                 .should.equal(true);
         });
 
@@ -299,10 +242,7 @@ describe('native-sdk methods', function() {
 
             mParticle
                 .getInstance()
-                ._NativeSdkHelpers.isWebviewEnabled(
-                    'bridgeName',
-                    mParticle.minWebviewBridgeVersion
-                )
+                ._NativeSdkHelpers.isWebviewEnabled('bridgeName', mParticle.minWebviewBridgeVersion)
                 .should.equal(true);
         });
 
@@ -315,15 +255,15 @@ describe('native-sdk methods', function() {
                 .getInstance()
                 ._NativeSdkHelpers.isWebviewEnabled(
                     mParticle.requiredWebviewBridgeName,
-                    mParticle.minWebviewBridgeVersion
+                    mParticle.minWebviewBridgeVersion,
                 )
                 .should.equal(false);
             delete mParticle.isIOS;
         });
     });
 
-    describe('bridge version 1', function() {
-        beforeEach(function() {
+    describe('bridge version 1', function () {
+        beforeEach(function () {
             window.mParticleAndroid = null;
             window.mParticle.isIOS = null;
             window.mParticleAndroid = new mParticleAndroid();
@@ -338,23 +278,15 @@ describe('native-sdk methods', function() {
             mParticle.getInstance()._Store.SDKConfig.isIOS.should.equal(true);
         });
 
-        it('invoke setSessionAttributes of $src_key/$src_env of apikey/\'webview\' to the Android\'s on init if apiKey is available', () => {
+        it("invoke setSessionAttributes of $src_key/$src_env of apikey/'webview' to the Android's on init if apiKey is available", () => {
             window.mParticleAndroid = new mParticleAndroid();
             window.mParticle.init(apiKey, window.mParticle.config);
 
             window.mParticleAndroid.sessionAttrData.length.should.equal(2);
-            JSON.parse(
-                window.mParticleAndroid.sessionAttrData[0]
-            ).should.have.property('key', '$src_env');
-            JSON.parse(
-                window.mParticleAndroid.sessionAttrData[0]
-            ).should.have.property('value', 'webview');
-            JSON.parse(
-                window.mParticleAndroid.sessionAttrData[1]
-            ).should.have.property('key', '$src_key');
-            JSON.parse(
-                window.mParticleAndroid.sessionAttrData[1]
-            ).should.have.property('value', apiKey);
+            JSON.parse(window.mParticleAndroid.sessionAttrData[0]).should.have.property('key', '$src_env');
+            JSON.parse(window.mParticleAndroid.sessionAttrData[0]).should.have.property('value', 'webview');
+            JSON.parse(window.mParticleAndroid.sessionAttrData[1]).should.have.property('key', '$src_key');
+            JSON.parse(window.mParticleAndroid.sessionAttrData[1]).should.have.property('value', apiKey);
         });
 
         it('invoke only setSessionAttributes of $src_key/$src_env if apikey is missing from webview', () => {
@@ -362,12 +294,8 @@ describe('native-sdk methods', function() {
             window.mParticle.init(null, window.mParticle.config);
 
             window.mParticleAndroid.sessionAttrData.length.should.equal(1);
-            JSON.parse(
-                window.mParticleAndroid.sessionAttrData[0]
-            ).should.have.property('key', '$src_env');
-            JSON.parse(
-                window.mParticleAndroid.sessionAttrData[0]
-            ).should.have.property('value', 'webview');
+            JSON.parse(window.mParticleAndroid.sessionAttrData[0]).should.have.property('key', '$src_env');
+            JSON.parse(window.mParticleAndroid.sessionAttrData[0]).should.have.property('value', 'webview');
         });
 
         it('should invoke setSessionAttributes on Android and pass through proper data', () => {
@@ -375,12 +303,8 @@ describe('native-sdk methods', function() {
 
             mParticle.setSessionAttribute('key', 'value');
 
-            window.mParticleAndroid.setSessionAttributeCalled.should.equal(
-                true
-            );
-            window.mParticleAndroid.sessionAttrData[0].should.equal(
-                JSON.stringify({ key: 'key', value: 'value' })
-            );
+            window.mParticleAndroid.setSessionAttributeCalled.should.equal(true);
+            window.mParticleAndroid.sessionAttrData[0].should.equal(JSON.stringify({ key: 'key', value: 'value' }));
         });
 
         it('should invoke logEvent on Android and pass through proper event', () => {
@@ -398,16 +322,11 @@ describe('native-sdk methods', function() {
         });
 
         it('should invoke setAttribute on Android and pass through proper data', () => {
-            mParticle.Identity.getCurrentUser().setUserAttribute(
-                'key',
-                'value'
-            );
+            mParticle.Identity.getCurrentUser().setUserAttribute('key', 'value');
 
             window.mParticleAndroid.setUserAttributeCalled.should.equal(true);
 
-            window.mParticleAndroid.userAttrData[0].should.equal(
-                JSON.stringify({ key: 'key', value: 'value' })
-            );
+            window.mParticleAndroid.userAttrData[0].should.equal(JSON.stringify({ key: 'key', value: 'value' }));
             window.mParticleAndroid.resetUserAttributes();
         });
 
@@ -417,25 +336,16 @@ describe('native-sdk methods', function() {
                 age: 21,
             });
             window.mParticleAndroid.setUserAttributeCalled.should.equal(true);
-            window.mParticleAndroid.userAttrData[0].should.equal(
-                JSON.stringify({ key: 'gender', value: 'male' })
-            );
-            window.mParticleAndroid.userAttrData[1].should.equal(
-                JSON.stringify({ key: 'age', value: 21 })
-            );
+            window.mParticleAndroid.userAttrData[0].should.equal(JSON.stringify({ key: 'gender', value: 'male' }));
+            window.mParticleAndroid.userAttrData[1].should.equal(JSON.stringify({ key: 'age', value: 21 }));
         });
 
         it('should invoke removeAttributes on native SDK', () => {
-            mParticle.Identity.getCurrentUser().setUserAttribute(
-                'key',
-                'value'
-            );
+            mParticle.Identity.getCurrentUser().setUserAttribute('key', 'value');
             mParticle.Identity.getCurrentUser().removeUserAttribute('key');
 
             window.mParticleAndroid.setUserAttributeCalled.should.equal(true);
-            window.mParticleAndroid.removeUserAttributeCalled.should.equal(
-                true
-            );
+            window.mParticleAndroid.removeUserAttributeCalled.should.equal(true);
         });
 
         it('should not sync cookies when in a mobile web view for Android', () => {
@@ -458,7 +368,7 @@ describe('native-sdk methods', function() {
             Should(data).not.be.ok();
         });
 
-        it('should send a JSON object to the native SDK\'s Identity methods', () => {
+        it("should send a JSON object to the native SDK's Identity methods", () => {
             let result,
                 identityAPIRequest = {
                     userIdentities: {
@@ -467,7 +377,7 @@ describe('native-sdk methods', function() {
                     },
                 };
 
-            const callback = function(resp) {
+            const callback = function (resp) {
                 result = resp;
             };
 
@@ -491,11 +401,7 @@ describe('native-sdk methods', function() {
             result.httpCode.should.equal(-5);
 
             const JSONData = JSON.stringify(
-                mParticle
-                    .getInstance()
-                    ._Identity.IdentityRequest.convertToNative(
-                        identityAPIRequest
-                    )
+                mParticle.getInstance()._Identity.IdentityRequest.convertToNative(identityAPIRequest),
             );
 
             window.mParticleAndroid.loginData.should.equal(JSONData);
@@ -504,35 +410,31 @@ describe('native-sdk methods', function() {
         });
 
         it('should send events via the mParticle.ready method ', () => {
-            mParticle.ready(function() {
+            mParticle.ready(function () {
                 mParticle.logEvent('test');
             });
 
             window.mParticleAndroid.logEventCalled.should.equal(true);
-            JSON.parse(window.mParticleAndroid.event).EventName.should.equal(
-                'test'
-            );
+            JSON.parse(window.mParticleAndroid.event).EventName.should.equal('test');
         });
     });
 
-    describe('bridge version 2', function() {
-        describe('android', function() {
+    describe('bridge version 2', function () {
+        describe('android', function () {
             let mParticleAndroidV2Bridge;
-            beforeEach(function() {
+            beforeEach(function () {
                 window.mParticleAndroid = null;
                 window.mParticle.isIOS = null;
                 window.mParticle.config.minWebviewBridgeVersion = 2;
-                window.mParticle.config.requiredWebviewBridgeName =
-                    'bridgeName';
+                window.mParticle.config.requiredWebviewBridgeName = 'bridgeName';
                 window.mParticleAndroid_bridgeName_v2 = new mParticleAndroid();
-                mParticleAndroidV2Bridge =
-                    window.mParticleAndroid_bridgeName_v2;
+                mParticleAndroidV2Bridge = window.mParticleAndroid_bridgeName_v2;
 
                 window.mParticle.init(apiKey, window.mParticle.config);
                 mParticle.config = {};
             });
 
-            afterEach(function() {
+            afterEach(function () {
                 delete window.mParticle.config;
                 delete window.mParticleAndroid_bridgeName_v2;
             });
@@ -542,9 +444,7 @@ describe('native-sdk methods', function() {
 
                 mParticleAndroidV2Bridge.logEventCalled.should.equal(true);
                 (typeof mParticleAndroidV2Bridge.event).should.equal('string');
-                JSON.parse(
-                    mParticleAndroidV2Bridge.event
-                ).should.have.properties([
+                JSON.parse(mParticleAndroidV2Bridge.event).should.have.properties([
                     'EventName',
                     'EventCategory',
                     'EventAttributes',
@@ -554,17 +454,10 @@ describe('native-sdk methods', function() {
             });
 
             it('should invoke setAttribute on Android and pass through proper data', () => {
-                mParticle.Identity.getCurrentUser().setUserAttribute(
-                    'key',
-                    'value'
-                );
+                mParticle.Identity.getCurrentUser().setUserAttribute('key', 'value');
 
-                mParticleAndroidV2Bridge.setUserAttributeCalled.should.equal(
-                    true
-                );
-                mParticleAndroidV2Bridge.userAttrData[0].should.equal(
-                    JSON.stringify({ key: 'key', value: 'value' })
-                );
+                mParticleAndroidV2Bridge.setUserAttributeCalled.should.equal(true);
+                mParticleAndroidV2Bridge.userAttrData[0].should.equal(JSON.stringify({ key: 'key', value: 'value' }));
                 mParticleAndroidV2Bridge.resetUserAttributes();
             });
 
@@ -573,41 +466,26 @@ describe('native-sdk methods', function() {
                     gender: 'male',
                     age: 21,
                 });
-                mParticleAndroidV2Bridge.setUserAttributeCalled.should.equal(
-                    true
-                );
-                mParticleAndroidV2Bridge.userAttrData[0].should.equal(
-                    JSON.stringify({ key: 'gender', value: 'male' })
-                );
-                mParticleAndroidV2Bridge.userAttrData[1].should.equal(
-                    JSON.stringify({ key: 'age', value: 21 })
-                );
+                mParticleAndroidV2Bridge.setUserAttributeCalled.should.equal(true);
+                mParticleAndroidV2Bridge.userAttrData[0].should.equal(JSON.stringify({ key: 'gender', value: 'male' }));
+                mParticleAndroidV2Bridge.userAttrData[1].should.equal(JSON.stringify({ key: 'age', value: 21 }));
                 mParticleAndroidV2Bridge.resetUserAttributes();
             });
 
             it('should invoke removeAttributes on Android', () => {
-                mParticle.Identity.getCurrentUser().setUserAttribute(
-                    'key',
-                    'value'
-                );
+                mParticle.Identity.getCurrentUser().setUserAttribute('key', 'value');
                 mParticle.Identity.getCurrentUser().removeUserAttribute('key');
 
-                mParticleAndroidV2Bridge.setUserAttributeCalled.should.equal(
-                    true
-                );
-                mParticleAndroidV2Bridge.removeUserAttributeCalled.should.equal(
-                    true
-                );
+                mParticleAndroidV2Bridge.setUserAttributeCalled.should.equal(true);
+                mParticleAndroidV2Bridge.removeUserAttributeCalled.should.equal(true);
             });
 
             it('should invoke setSessionAttributes on Android and pass through proper data', () => {
                 mParticle.setSessionAttribute('key', 'value');
 
-                mParticleAndroidV2Bridge.setSessionAttributeCalled.should.equal(
-                    true
-                );
+                mParticleAndroidV2Bridge.setSessionAttributeCalled.should.equal(true);
                 mParticleAndroidV2Bridge.sessionAttrData[2].should.equal(
-                    JSON.stringify({ key: 'key', value: 'value' })
+                    JSON.stringify({ key: 'key', value: 'value' }),
                 );
             });
 
@@ -630,7 +508,7 @@ describe('native-sdk methods', function() {
                 Should(data).not.be.ok();
             });
 
-            it('should send a JSON object to the Android\'s Identity methods', () => {
+            it("should send a JSON object to the Android's Identity methods", () => {
                 let result,
                     identityAPIRequest = {
                         userIdentities: {
@@ -639,7 +517,7 @@ describe('native-sdk methods', function() {
                         },
                     };
 
-                const callback = function(resp) {
+                const callback = function (resp) {
                     result = resp;
                 };
 
@@ -663,11 +541,7 @@ describe('native-sdk methods', function() {
                 result.httpCode.should.equal(-5);
 
                 const JSONData = JSON.stringify(
-                    mParticle
-                        .getInstance()
-                        ._Identity.IdentityRequest.convertToNative(
-                            identityAPIRequest
-                        )
+                    mParticle.getInstance()._Identity.IdentityRequest.convertToNative(identityAPIRequest),
                 );
 
                 mParticleAndroidV2Bridge.loginData.should.equal(JSONData);
@@ -678,19 +552,13 @@ describe('native-sdk methods', function() {
             it("should send a JSON object to the Android's Alias method", () => {
                 let callbackResult;
 
-                mParticle.Identity.aliasUsers(aliasRequestFixture, function(callback) {
+                mParticle.Identity.aliasUsers(aliasRequestFixture, function (callback) {
                     callbackResult = callback;
                 });
-                mParticleAndroidV2Bridge.aliasUsers.should.equal(
-                    expectedAliasPayloadWithDeviceScope
-                );
+                mParticleAndroidV2Bridge.aliasUsers.should.equal(expectedAliasPayloadWithDeviceScope);
 
-                callbackResult.httpCode.should.equal(
-                    HTTPCodes.nativeIdentityRequest
-                );
-                callbackResult.message.should.equal(
-                    'Alias request sent to native sdk'
-                );
+                callbackResult.httpCode.should.equal(HTTPCodes.nativeIdentityRequest);
+                callbackResult.message.should.equal('Alias request sent to native sdk');
             });
 
             it("should send a JSON object with scope to the Android's Alias method when scope is provided", () => {
@@ -700,45 +568,27 @@ describe('native-sdk methods', function() {
                     scope: 'mpid',
                 };
 
-                mParticle.Identity.aliasUsers(aliasRequestWithMPIDScope, function(callback) {
+                mParticle.Identity.aliasUsers(aliasRequestWithMPIDScope, function (callback) {
                     callbackResult = callback;
                 });
-                mParticleAndroidV2Bridge.aliasUsers.should.equal(
-                    expectedAliasPayloadWithMpidScope
-                );
+                mParticleAndroidV2Bridge.aliasUsers.should.equal(expectedAliasPayloadWithMpidScope);
 
-                callbackResult.httpCode.should.equal(
-                    HTTPCodes.nativeIdentityRequest
-                );
-                callbackResult.message.should.equal(
-                    'Alias request sent to native sdk'
-                );
+                callbackResult.httpCode.should.equal(HTTPCodes.nativeIdentityRequest);
+                callbackResult.message.should.equal('Alias request sent to native sdk');
             });
 
             it('should send events via the mParticle.ready method ', () => {
-                mParticle.ready(function() {
+                mParticle.ready(function () {
                     mParticle.logEvent('test');
                 });
 
                 mParticleAndroidV2Bridge.logEventCalled.should.equal(true);
-                JSON.parse(
-                    mParticleAndroidV2Bridge.event
-                ).EventName.should.equal('test');
+                JSON.parse(mParticleAndroidV2Bridge.event).EventName.should.equal('test');
             });
 
             it('should send an event with a product list when calling logPurchase', () => {
-                const product = mParticle.eCommerce.createProduct(
-                    'product1',
-                    'sku',
-                    10,
-                    1
-                );
-                const product2 = mParticle.eCommerce.createProduct(
-                    'product2',
-                    'sku',
-                    10,
-                    1
-                );
+                const product = mParticle.eCommerce.createProduct('product1', 'sku', 10, 1);
+                const product2 = mParticle.eCommerce.createProduct('product2', 'sku', 10, 1);
 
                 mParticle.eCommerce.Cart.add([product, product2]);
 
@@ -748,7 +598,7 @@ describe('native-sdk methods', function() {
                     'coupon',
                     1798,
                     10,
-                    5
+                    5,
                 );
                 const clearCartBoolean = true;
                 const customAttributes = { value: 10 };
@@ -759,15 +609,11 @@ describe('native-sdk methods', function() {
                     [product, product2],
                     clearCartBoolean,
                     customAttributes,
-                    customFlags
+                    customFlags,
                 );
 
-                JSON.parse(
-                    mParticleAndroidV2Bridge.event
-                ).ProductAction.ProductList[0].Name.should.equal('product1');
-                JSON.parse(
-                    mParticleAndroidV2Bridge.event
-                ).ProductAction.ProductList[1].Name.should.equal('product2');
+                JSON.parse(mParticleAndroidV2Bridge.event).ProductAction.ProductList[0].Name.should.equal('product1');
+                JSON.parse(mParticleAndroidV2Bridge.event).ProductAction.ProductList[1].Name.should.equal('product2');
             });
 
             it('should invoke upload on native SDK', () => {
@@ -777,21 +623,19 @@ describe('native-sdk methods', function() {
             });
         });
 
-        describe('iOS', function() {
+        describe('iOS', function () {
             let mParticleIOSV2Bridge;
-            beforeEach(function() {
+            beforeEach(function () {
                 window.mParticleAndroid = null;
                 window.mParticle.isIOS = null;
                 window.mParticle.config.minWebviewBridgeVersion = 2;
-                window.mParticle.config.requiredWebviewBridgeName =
-                    'bridgeName';
+                window.mParticle.config.requiredWebviewBridgeName = 'bridgeName';
                 window.webkit = {
                     messageHandlers: {
                         mParticle_bridgeName_v2: new mParticleIOS(),
                     },
                 };
-                mParticleIOSV2Bridge =
-                    window.webkit.messageHandlers.mParticle_bridgeName_v2;
+                mParticleIOSV2Bridge = window.webkit.messageHandlers.mParticle_bridgeName_v2;
 
                 mParticle.enableWebviewBridge = true;
                 window.mParticle.init(apiKey, window.mParticle.config);
@@ -799,7 +643,7 @@ describe('native-sdk methods', function() {
                 mParticleIOSV2Bridge.reset();
             });
 
-            afterEach(function() {
+            afterEach(function () {
                 delete window.webkit;
                 delete mParticle.requiredWebviewBridgeName;
                 delete mParticle.enableWebviewBridge;
@@ -808,15 +652,9 @@ describe('native-sdk methods', function() {
             it('should invoke logEvent on iOS SDK and pass through proper event', () => {
                 mParticle.logEvent('testEvent');
 
-                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(
-                    ['path', 'value']
-                );
-                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal(
-                    'logEvent'
-                );
-                JSON.parse(
-                    mParticleIOSV2Bridge.data[0]
-                ).value.should.have.properties([
+                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(['path', 'value']);
+                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal('logEvent');
+                JSON.parse(mParticleIOSV2Bridge.data[0]).value.should.have.properties([
                     'EventName',
                     'EventCategory',
                     'EventAttributes',
@@ -826,22 +664,11 @@ describe('native-sdk methods', function() {
             });
 
             it('should invoke setAttribute on iOS SDK and pass through proper data', () => {
-                mParticle.Identity.getCurrentUser().setUserAttribute(
-                    'key',
-                    'value'
-                );
-                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(
-                    ['path', 'value']
-                );
-                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal(
-                    'setUserAttribute'
-                );
-                JSON.parse(
-                    mParticleIOSV2Bridge.data[0]
-                ).value.should.have.property('key', 'key');
-                JSON.parse(
-                    mParticleIOSV2Bridge.data[0]
-                ).value.should.have.property('value', 'value');
+                mParticle.Identity.getCurrentUser().setUserAttribute('key', 'value');
+                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(['path', 'value']);
+                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal('setUserAttribute');
+                JSON.parse(mParticleIOSV2Bridge.data[0]).value.should.have.property('key', 'key');
+                JSON.parse(mParticleIOSV2Bridge.data[0]).value.should.have.property('value', 'value');
             });
 
             it('should invoke setAttribute on iOS SDK and pass through proper data when invoking setUserAttributes', () => {
@@ -850,80 +677,37 @@ describe('native-sdk methods', function() {
                     age: 21,
                 });
 
-                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(
-                    ['path', 'value']
-                );
-                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal(
-                    'setUserAttribute'
-                );
-                JSON.parse(
-                    mParticleIOSV2Bridge.data[0]
-                ).value.should.have.property('key', 'gender');
-                JSON.parse(
-                    mParticleIOSV2Bridge.data[0]
-                ).value.should.have.property('value', 'male');
-                JSON.parse(mParticleIOSV2Bridge.data[1]).should.have.properties(
-                    ['path', 'value']
-                );
-                JSON.parse(mParticleIOSV2Bridge.data[1]).path.should.equal(
-                    'setUserAttribute'
-                );
-                JSON.parse(
-                    mParticleIOSV2Bridge.data[1]
-                ).value.should.have.property('key', 'age');
-                JSON.parse(
-                    mParticleIOSV2Bridge.data[1]
-                ).value.should.have.property('value', 21);
+                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(['path', 'value']);
+                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal('setUserAttribute');
+                JSON.parse(mParticleIOSV2Bridge.data[0]).value.should.have.property('key', 'gender');
+                JSON.parse(mParticleIOSV2Bridge.data[0]).value.should.have.property('value', 'male');
+                JSON.parse(mParticleIOSV2Bridge.data[1]).should.have.properties(['path', 'value']);
+                JSON.parse(mParticleIOSV2Bridge.data[1]).path.should.equal('setUserAttribute');
+                JSON.parse(mParticleIOSV2Bridge.data[1]).value.should.have.property('key', 'age');
+                JSON.parse(mParticleIOSV2Bridge.data[1]).value.should.have.property('value', 21);
             });
 
             it('should invoke removeAttributes on iOS SDK', () => {
-                mParticle.Identity.getCurrentUser().setUserAttribute(
-                    'key',
-                    'value'
-                );
+                mParticle.Identity.getCurrentUser().setUserAttribute('key', 'value');
                 mParticle.Identity.getCurrentUser().removeUserAttribute('key');
 
-                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(
-                    ['path', 'value']
-                );
-                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal(
-                    'setUserAttribute'
-                );
-                JSON.parse(
-                    mParticleIOSV2Bridge.data[0]
-                ).value.should.have.property('key', 'key');
-                JSON.parse(
-                    mParticleIOSV2Bridge.data[0]
-                ).value.should.have.property('value', 'value');
-                JSON.parse(mParticleIOSV2Bridge.data[1]).should.have.properties(
-                    ['path', 'value']
-                );
-                JSON.parse(mParticleIOSV2Bridge.data[1]).path.should.equal(
-                    'removeUserAttribute'
-                );
-                JSON.parse(
-                    mParticleIOSV2Bridge.data[1]
-                ).value.should.have.property('key', 'key');
-                JSON.parse(
-                    mParticleIOSV2Bridge.data[1]
-                ).value.should.have.property('value', null);
+                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(['path', 'value']);
+                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal('setUserAttribute');
+                JSON.parse(mParticleIOSV2Bridge.data[0]).value.should.have.property('key', 'key');
+                JSON.parse(mParticleIOSV2Bridge.data[0]).value.should.have.property('value', 'value');
+                JSON.parse(mParticleIOSV2Bridge.data[1]).should.have.properties(['path', 'value']);
+                JSON.parse(mParticleIOSV2Bridge.data[1]).path.should.equal('removeUserAttribute');
+                JSON.parse(mParticleIOSV2Bridge.data[1]).value.should.have.property('key', 'key');
+                JSON.parse(mParticleIOSV2Bridge.data[1]).value.should.have.property('value', null);
             });
 
             it('should invoke setSessionAttributes on ios SDK and pass through proper data', () => {
                 mParticle.setSessionAttribute('key', 'value');
 
-                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(
-                    ['path', 'value']
-                );
-                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal(
-                    'setSessionAttribute'
-                );
-                JSON.parse(
-                    mParticleIOSV2Bridge.data[0]
-                ).value.should.have.property('key', 'key');
-                JSON.parse(
-                    mParticleIOSV2Bridge.data[0]
-                ).value.should.have.property('value', 'value');                
+                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(['path', 'value']);
+                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal('setSessionAttribute');
+                JSON.parse(mParticleIOSV2Bridge.data[0]).value.should.have.property('key', 'key');
+                JSON.parse(mParticleIOSV2Bridge.data[0]).value.should.have.property('value', 'value');
             });
 
             it('should not sync cookies when in a mobile web view', () => {
@@ -945,7 +729,7 @@ describe('native-sdk methods', function() {
                 Should(data).not.be.ok();
             });
 
-            it('should send a JSON object to the ios SDK\'s Identity methods', () => {
+            it("should send a JSON object to the ios SDK's Identity methods", () => {
                 let result,
                     identityAPIRequest = {
                         userIdentities: {
@@ -954,78 +738,58 @@ describe('native-sdk methods', function() {
                         },
                     };
 
-                const callback = function(resp) {
+                const callback = function (resp) {
                     result = resp;
                 };
 
                 const JSONData = JSON.stringify(
-                    mParticle
-                        .getInstance()
-                        ._Identity.IdentityRequest.convertToNative(
-                            identityAPIRequest
-                        )
+                    mParticle.getInstance()._Identity.IdentityRequest.convertToNative(identityAPIRequest),
                 );
 
                 mParticle.Identity.login(identityAPIRequest, callback);
                 result.body.should.equal('Login request sent to native sdk');
                 result.httpCode.should.equal(-5);
                 result = null;
-                JSON.stringify(
-                    JSON.parse(mParticleIOSV2Bridge.data[0]).value
-                ).should.equal(JSONData);
+                JSON.stringify(JSON.parse(mParticleIOSV2Bridge.data[0]).value).should.equal(JSONData);
                 mParticleIOSV2Bridge.reset();
 
                 mParticle.Identity.logout(identityAPIRequest, callback);
                 result.body.should.equal('Logout request sent to native sdk');
                 result.httpCode.should.equal(-5);
                 result = null;
-                JSON.stringify(
-                    JSON.parse(mParticleIOSV2Bridge.data[0]).value
-                ).should.equal(JSONData);
+                JSON.stringify(JSON.parse(mParticleIOSV2Bridge.data[0]).value).should.equal(JSONData);
                 mParticleIOSV2Bridge.reset();
 
                 mParticle.Identity.modify(identityAPIRequest, callback);
                 result.body.should.equal('Modify request sent to native sdk');
                 result.httpCode.should.equal(-5);
                 result = null;
-                JSON.stringify(
-                    JSON.parse(mParticleIOSV2Bridge.data[0]).value
-                ).should.equal(JSONData);
+                JSON.stringify(JSON.parse(mParticleIOSV2Bridge.data[0]).value).should.equal(JSONData);
                 mParticleIOSV2Bridge.reset();
 
                 mParticle.Identity.identify(identityAPIRequest, callback);
                 result.body.should.equal('Identify request sent to native sdk');
                 result.httpCode.should.equal(-5);
-                JSON.stringify(
-                    JSON.parse(mParticleIOSV2Bridge.data[0]).value
-                ).should.equal(JSONData);
+                JSON.stringify(JSON.parse(mParticleIOSV2Bridge.data[0]).value).should.equal(JSONData);
                 mParticleIOSV2Bridge.reset();
             });
 
             it("should send a JSON object to the iOS SDK's Alias method", () => {
                 let callbackResult;
 
-                mParticle.Identity.aliasUsers(aliasRequestFixture, function(callback) {
+                mParticle.Identity.aliasUsers(aliasRequestFixture, function (callback) {
                     callbackResult = callback;
                 });
 
-                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(
-                    ['path', 'value']
+                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(['path', 'value']);
+                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal('aliasUsers');
+                JSON.stringify(JSON.parse(mParticleIOSV2Bridge.data[0]).value).should.equal(
+                    expectedAliasPayloadWithDeviceScope,
                 );
-                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal(
-                    'aliasUsers'
-                );
-                JSON.stringify(
-                    JSON.parse(mParticleIOSV2Bridge.data[0]).value
-                ).should.equal(expectedAliasPayloadWithDeviceScope);
                 mParticleIOSV2Bridge.reset();
 
-                callbackResult.httpCode.should.equal(
-                    HTTPCodes.nativeIdentityRequest
-                );
-                callbackResult.message.should.equal(
-                    'Alias request sent to native sdk'
-                );
+                callbackResult.httpCode.should.equal(HTTPCodes.nativeIdentityRequest);
+                callbackResult.message.should.equal('Alias request sent to native sdk');
             });
 
             it("should send a JSON object with scope to the iOS SDK's Alias method when scope is provided", () => {
@@ -1035,55 +799,32 @@ describe('native-sdk methods', function() {
                     scope: 'mpid',
                 };
 
-                mParticle.Identity.aliasUsers(aliasRequestWithMPIDScope, function(callback) {
+                mParticle.Identity.aliasUsers(aliasRequestWithMPIDScope, function (callback) {
                     callbackResult = callback;
                 });
 
-                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(
-                    ['path', 'value']
+                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(['path', 'value']);
+                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal('aliasUsers');
+                JSON.stringify(JSON.parse(mParticleIOSV2Bridge.data[0]).value).should.equal(
+                    expectedAliasPayloadWithMpidScope,
                 );
-                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal(
-                    'aliasUsers'
-                );
-                JSON.stringify(
-                    JSON.parse(mParticleIOSV2Bridge.data[0]).value
-                ).should.equal(expectedAliasPayloadWithMpidScope);
                 mParticleIOSV2Bridge.reset();
 
-                callbackResult.httpCode.should.equal(
-                    HTTPCodes.nativeIdentityRequest
-                );
-                callbackResult.message.should.equal(
-                    'Alias request sent to native sdk'
-                );
+                callbackResult.httpCode.should.equal(HTTPCodes.nativeIdentityRequest);
+                callbackResult.message.should.equal('Alias request sent to native sdk');
             });
 
             it('should send events via the mParticle.ready method ', () => {
-                mParticle.ready(function() {
+                mParticle.ready(function () {
                     mParticle.logEvent('test');
                 });
-                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(
-                    ['path', 'value']
-                );
-                JSON.parse(
-                    mParticleIOSV2Bridge.data[0]
-                ).value.should.have.property('EventName', 'test');
-
+                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(['path', 'value']);
+                JSON.parse(mParticleIOSV2Bridge.data[0]).value.should.have.property('EventName', 'test');
             });
 
             it('should send an event with a product list when calling logPurchase', () => {
-                const product = mParticle.eCommerce.createProduct(
-                    'product1',
-                    'sku',
-                    10,
-                    1
-                );
-                const product2 = mParticle.eCommerce.createProduct(
-                    'product2',
-                    'sku',
-                    10,
-                    1
-                );
+                const product = mParticle.eCommerce.createProduct('product1', 'sku', 10, 1);
+                const product2 = mParticle.eCommerce.createProduct('product2', 'sku', 10, 1);
                 mParticle.eCommerce.logProductAction(mParticle.ProductActionType.AddToCart, [product, product2]);
 
                 const transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
@@ -1092,7 +833,7 @@ describe('native-sdk methods', function() {
                     'coupon',
                     1798,
                     10,
-                    5
+                    5,
                 );
                 const clearCartBoolean = true;
                 const customAttributes = { value: 10 };
@@ -1103,38 +844,25 @@ describe('native-sdk methods', function() {
                     [product, product2],
                     clearCartBoolean,
                     customAttributes,
-                    customFlags
+                    customFlags,
                 );
 
-                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal(
-                    'logEvent'
+                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal('logEvent');
+                JSON.parse(mParticleIOSV2Bridge.data[0]).value.ProductAction.ProductList.length.should.equal(2);
+                JSON.parse(mParticleIOSV2Bridge.data[0]).value.ProductAction.ProductList[0].Name.should.equal(
+                    'product1',
                 );
-                JSON.parse(
-                    mParticleIOSV2Bridge.data[0]
-                ).value.ProductAction.ProductList.length.should.equal(2);
-                JSON.parse(
-                    mParticleIOSV2Bridge.data[0]
-                ).value.ProductAction.ProductList[0].Name.should.equal(
-                    'product1'
-                );
-                JSON.parse(
-                    mParticleIOSV2Bridge.data[0]
-                ).value.ProductAction.ProductList[1].Name.should.equal(
-                    'product2'
+                JSON.parse(mParticleIOSV2Bridge.data[0]).value.ProductAction.ProductList[1].Name.should.equal(
+                    'product2',
                 );
             });
 
             it('should invoke upload on iOS SDK', () => {
                 mParticle.upload();
 
+                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(['path', 'value']);
+                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal('upload');
 
-                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(
-                    ['path', 'value']
-                );
-                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal(
-                    'upload'
-                );
-                
                 (JSON.parse(mParticleIOSV2Bridge.data[0]).value === null).should.equal(true);
             });
         });

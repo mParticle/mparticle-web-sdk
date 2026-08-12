@@ -1,29 +1,14 @@
 import * as EventsApi from '@mparticle/event-models';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
-import {
-    MPConfiguration,
-    MPID,
-    SDKEventOptions,
-    SDKEventAttrs,
-    Callback,
-} from '@mparticle/web-sdk';
-import {
-    IntegrationAttribute,
-    IntegrationAttributes,
-    IStore,
-    WrapperSDKTypes,
-} from './store';
+import { MPConfiguration, MPID, SDKEventOptions, SDKEventAttrs, Callback } from '@mparticle/web-sdk';
+import { IntegrationAttribute, IntegrationAttributes, IStore, WrapperSDKTypes } from './store';
 import Validators from './validators';
 import { Dictionary, valueof } from './utils';
 import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
 import MPSideloadedKit from './sideloadedKit';
 import { ISessionManager } from './sessionManager';
-import {
-    ConfiguredKit,
-    MPForwarder,
-    UnregisteredKit,
-} from './forwarders.interfaces';
+import { ConfiguredKit, MPForwarder, UnregisteredKit } from './forwarders.interfaces';
 import { SDKIdentityApi, IAliasCallback } from './identity.interfaces';
 import {
     ISDKUserAttributeChangeData,
@@ -44,11 +29,7 @@ import {
 import { IPixelConfiguration } from './cookieSyncManager';
 import _BatchValidator from './mockBatchCreator';
 import { SDKECommerceAPI } from './ecommerce.interfaces';
-import {
-    IErrorLogMessage,
-    IMParticleWebSDKInstance,
-    IntegrationDelays,
-} from './mp-instance';
+import { IErrorLogMessage, IMParticleWebSDKInstance, IntegrationDelays } from './mp-instance';
 import Constants from './constants';
 import RoktManager, { IRoktLauncherOptions } from './roktManager';
 import { IConsoleLogger } from './logger';
@@ -63,7 +44,7 @@ export interface SDKEvent {
     EventName: string;
     EventCategory: number;
     UserAttributes?: ISDKUserAttributes;
-    UserIdentities?: ISDKUserIdentity[];
+    UserIdentities?: Array<ISDKUserIdentity>;
     SourceMessageId: string;
     MPID: string;
     EventAttributes?: { [key: string]: string };
@@ -71,7 +52,7 @@ export interface SDKEvent {
     SessionId: string;
     SessionStartDate: number;
     SessionLength?: number;
-    currentSessionMPIDs?: string[];
+    currentSessionMPIDs?: Array<string>;
     Timestamp: number;
     EventDataType: number;
     Debug: boolean;
@@ -85,7 +66,7 @@ export interface SDKEvent {
     IntegrationAttributes?: IntegrationAttributes;
     ProductAction?: SDKProductAction;
     PromotionAction?: SDKPromotionAction;
-    ProductImpressions?: SDKProductImpression[];
+    ProductImpressions?: Array<SDKProductImpression>;
     ShoppingCart?: SDKShoppingCart;
     UserIdentityChanges?: ISDKUserIdentityChanges;
     UserAttributeChanges?: ISDKUserAttributeChangeData;
@@ -111,12 +92,12 @@ export interface SDKDataPlan {
 }
 
 export interface SDKShoppingCart {
-    ProductList?: SDKProduct[];
+    ProductList?: Array<SDKProduct>;
 }
 
 export interface SDKPromotionAction {
     PromotionActionType: string;
-    PromotionList?: SDKPromotion[];
+    PromotionList?: Array<SDKPromotion>;
 }
 
 export interface SDKPromotion {
@@ -133,7 +114,7 @@ export interface SDKImpression {
 
 export interface SDKProductImpression {
     ProductImpressionList?: string;
-    ProductList?: SDKProduct[];
+    ProductList?: Array<SDKProduct>;
 }
 
 export enum SDKProductActionType {
@@ -162,7 +143,7 @@ export interface SDKProductAction {
     ProductActionType: SDKProductActionType;
     CheckoutStep?: number;
     CheckoutOptions?: string;
-    ProductList?: SDKProduct[];
+    ProductList?: Array<SDKProduct>;
     TransactionId?: string;
     Affiliation?: string;
     CouponCode?: string;
@@ -199,15 +180,11 @@ export interface MParticleWebSDK {
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
     Consent: SDKConsentApi;
-    _resetForTests(
-        MPConfig?: SDKInitConfig,
-        keepPersistence?: boolean,
-        instance?: IMParticleWebSDKInstance
-    ): void;
+    _resetForTests(MPConfig?: SDKInitConfig, keepPersistence?: boolean, instance?: IMParticleWebSDKInstance): void;
     configurePixel(config: IPixelConfiguration): void;
     endSession(): void;
     init(apiKey: string, config: SDKInitConfig, instanceName?: string): void;
-    _getActiveForwarders(): ConfiguredKit[];
+    _getActiveForwarders(): Array<ConfiguredKit>;
     _getIntegrationDelays(): IntegrationDelays;
     _setIntegrationDelay(module: number, shouldDelayIntegration: boolean): void;
     _setWrapperSDKInfo(name: WrapperSDKTypes, version: string): void;
@@ -227,27 +204,17 @@ export interface MParticleWebSDK {
         eventType?: valueof<typeof EventType>,
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
-        eventOptions?: SDKEventOptions
+        eventOptions?: SDKEventOptions,
     ): void;
     logBaseEvent(event: BaseEvent, eventOptions?: SDKEventOptions): void;
     logError(error: IErrorLogMessage, attrs?: SDKEventAttrs): void;
-    logLink(
-        selector: string,
-        eventName: string,
-        eventType: valueof<typeof EventType>,
-        eventInfo: SDKEventAttrs
-    ): void;
-    logForm(
-        selector: string,
-        eventName: string,
-        eventType: valueof<typeof EventType>,
-        eventInfo: SDKEventAttrs
-    ): void;
+    logLink(selector: string, eventName: string, eventType: valueof<typeof EventType>, eventInfo: SDKEventAttrs): void;
+    logForm(selector: string, eventName: string, eventType: valueof<typeof EventType>, eventInfo: SDKEventAttrs): void;
     logPageView(
         eventName?: string,
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
-        eventOptions?: SDKEventOptions
+        eventOptions?: SDKEventOptions,
     ): void;
     setOptOut(isOptingOut: boolean): void;
     eCommerce: SDKECommerceAPI;
@@ -266,10 +233,7 @@ export interface MParticleWebSDK {
 
     stopTrackingLocation(): void;
     generateHash(value: string): string;
-    setIntegrationAttribute(
-        integrationModuleId: number,
-        attrs: IntegrationAttribute
-    ): void;
+    setIntegrationAttribute(integrationModuleId: number, attrs: IntegrationAttribute): void;
     getIntegrationAttributes(integrationModuleId: number): IntegrationAttribute;
     captureTiming(metricName: string): void;
     _registerErrorReportingService(service: IErrorReportingService): void;
@@ -317,17 +281,16 @@ export const LogLevelType = {
 // the sdk is initialized.
 // Currently, this extends MPConfiguration in @types/mparticle__web-sdk
 // and the two will be merged in once the Store module is refactored
-export interface SDKInitConfig
-    extends Omit<MPConfiguration, 'dataPlan' | 'logLevel' | 'identityCallback'> {
+export interface SDKInitConfig extends Omit<MPConfiguration, 'dataPlan' | 'logLevel' | 'identityCallback'> {
     dataPlan?: DataPlanConfig | KitBlockerDataPlan; // TODO: These should be eventually split into two different attributes
     logLevel?: LogLevelType;
 
-    kitConfigs?: IKitConfigs[];
+    kitConfigs?: Array<IKitConfigs>;
     kits?: Dictionary<UnregisteredKit>;
-    sideloadedKits?: MPForwarder[];
+    sideloadedKits?: Array<MPForwarder>;
     dataPlanOptions?: KitBlockerOptions;
     flags?: Dictionary;
-    pixelConfigs?: IPixelConfiguration[];
+    pixelConfigs?: Array<IPixelConfiguration>;
 
     aliasMaxWindow?: number;
     deviceId?: string;
@@ -356,7 +319,7 @@ export interface SDKInitConfig
     launcherOptions?: IRoktLauncherOptions;
     isLoggingEnabled?: boolean;
 
-    rq?: Function[] | any[];
+    rq?: Array<Function> | Array<any>;
     logger?: IConsoleLogger;
 }
 
@@ -371,23 +334,15 @@ export interface SDKHelpersApi {
     createMainStorageName?(workspaceToken: string): string;
     createServiceUrl(url: string, devToken?: string): string;
     createXHR?(cb: () => void): XMLHttpRequest;
-    extend?(...args: any[]);
+    extend?(...args: Array<any>);
     findKeyInObject?(obj: any, key: string): string;
     parseNumber?(value: string | number): number;
     generateUniqueId();
     generateHash?(value: string): string;
     // https://go.mparticle.com/work/SQDSDKS-6317
     getFeatureFlag?(feature: string): boolean | string; // TODO: Feature Constants should be converted to enum
-    invokeAliasCallback(
-        aliasCallback: IAliasCallback,
-        number: number,
-        errorMessage: string
-    ): void;
-    isDelayedByIntegration?(
-        delayedIntegrations: Dictionary<boolean>,
-        timeoutStart: number,
-        now: number
-    ): boolean;
+    invokeAliasCallback(aliasCallback: IAliasCallback, number: number, errorMessage: string): void;
+    isDelayedByIntegration?(delayedIntegrations: Dictionary<boolean>, timeoutStart: number, now: number): boolean;
     isEventType?(type: valueof<typeof EventType>): boolean;
     isObject?(item: any);
     invokeCallback?(
@@ -395,12 +350,9 @@ export interface SDKHelpersApi {
         code: number,
         body: string,
         mParticleUser?: IMParticleUser,
-        previousMpid?: MPID
+        previousMpid?: MPID,
     ): void;
-    sanitizeAttributes?(
-        attrs: SDKEventAttrs,
-        name: string
-    ): Dictionary<string> | null;
+    sanitizeAttributes?(attrs: SDKEventAttrs, name: string): Dictionary<string> | null;
     Validators: typeof Validators;
 }
 

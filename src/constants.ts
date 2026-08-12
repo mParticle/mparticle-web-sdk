@@ -7,8 +7,7 @@ const Constants = {
     Messages: {
         DeprecationMessages: {
             MethodHasBeenDeprecated: 'has been deprecated.',
-            MethodMarkedForDeprecationPostfix:
-                'is a deprecated method and will be removed in future releases.',
+            MethodMarkedForDeprecationPostfix: 'is a deprecated method and will be removed in future releases.',
             AlternativeMethodPrefix: 'Please use the alternate method:',
         },
         ErrorMessages: {
@@ -27,8 +26,7 @@ const Constants = {
             BadKey: 'Key value cannot be object or array',
             BadLogPurchase:
                 'Transaction attributes and a product are both required to log a purchase, https://docs.mparticle.com/?javascript#measuring-transactions',
-            AudienceAPINotEnabled:
-                'Your workspace is not enabled to retrieve user audiences.',
+            AudienceAPINotEnabled: 'Your workspace is not enabled to retrieve user audiences.',
         },
         InformationMessages: {
             CookieSearch: 'Searching for cookie',
@@ -52,14 +50,10 @@ const Constants = {
             StartingLogCommerceEvent: 'Starting to log commerce event',
             StartingAliasRequest: 'Starting to Alias MPIDs',
             LoadingConfig: 'Loading configuration options',
-            AbandonLogEvent:
-                'Cannot log event, logging disabled or developer token not set',
-            AbandonAliasUsers:
-                'Cannot Alias Users, logging disabled or developer token not set',
-            AbandonStartSession:
-                'Cannot start session, logging disabled or developer token not set',
-            AbandonEndSession:
-                'Cannot end session, logging disabled or developer token not set',
+            AbandonLogEvent: 'Cannot log event, logging disabled or developer token not set',
+            AbandonAliasUsers: 'Cannot Alias Users, logging disabled or developer token not set',
+            AbandonStartSession: 'Cannot start session, logging disabled or developer token not set',
+            AbandonEndSession: 'Cannot end session, logging disabled or developer token not set',
             NoSessionToEnd: 'Cannot end session, no active session found',
         },
         ValidationMessages: {
@@ -74,14 +68,10 @@ const Constants = {
                 'There is an invalid identity key on your `userIdentities` object within the identityRequest. Request not sent to server. Please fix and try again.',
             UserIdentitiesInvalidValues:
                 'All user identity values must be strings or null. Request not sent to server. Please fix and try again.',
-            AliasMissingMpid:
-                'Alias Request must contain both a destinationMpid and a sourceMpid',
-            AliasNonUniqueMpid:
-                "Alias Request's destinationMpid and sourceMpid must be unique",
-            AliasMissingTime:
-                'Alias Request must have both a startTime and an endTime',
-            AliasStartBeforeEndTime:
-                "Alias Request's endTime must be later than its startTime",
+            AliasMissingMpid: 'Alias Request must contain both a destinationMpid and a sourceMpid',
+            AliasNonUniqueMpid: "Alias Request's destinationMpid and sourceMpid must be unique",
+            AliasMissingTime: 'Alias Request must have both a startTime and an endTime',
+            AliasStartBeforeEndTime: "Alias Request's endTime must be later than its startTime",
         },
     },
     NativeSdkPaths: {
