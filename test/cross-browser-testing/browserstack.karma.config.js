@@ -70,7 +70,23 @@ module.exports = function(config) {
     config.set({
       browserStack: {
         username: process.env.BS_USERNAME,
-        accessKey: process.env.BS_ACCESS_KEY
+        accessKey: process.env.BS_ACCESS_KEY,
+        // In CI, the BrowserStackLocal tunnel is started by the
+        // browserstack/github-actions setup-local step with a unique
+        // local-identifier. Sessions must be pinned to that identifier;
+        // otherwise BrowserStack routes their localhost traffic through an
+        // arbitrary active tunnel for the account, so concurrent workflow
+        // runs hijack each other's tunnels (browsers that never capture,
+        // "ghost" browsers from other runs, and mid-run transport errors).
+        // Locally (no BROWSERSTACK_LOCAL_IDENTIFIER), karma still starts and
+        // owns its own tunnel as before.
+        ...(process.env.BROWSERSTACK_LOCAL_IDENTIFIER
+            ? {
+                  startTunnel: false,
+                  'browserstack.localIdentifier':
+                      process.env.BROWSERSTACK_LOCAL_IDENTIFIER,
+              }
+            : {}),
       },
       autoWatch: false,
       customLaunchers,
