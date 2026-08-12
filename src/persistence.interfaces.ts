@@ -110,7 +110,7 @@ export interface IPersistence {
     saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDates): void;
     savePersistence(persistance: IPersistenceMinified): void;
     getPersistence(): IPersistenceMinified;
-    getFirstSeenTime(mpid: MPID): string | null;
+    getFirstSeenTime(mpid: MPID): number | null;
     setFirstSeenTime(mpid: MPID, time: number): void;
     getLastSeenTime(mpid: MPID): number | null;
     setLastSeenTime(mpid: MPID, time: number): void;

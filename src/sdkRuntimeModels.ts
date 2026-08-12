@@ -96,7 +96,7 @@ export interface SDKShoppingCart {
 }
 
 export interface SDKPromotionAction {
-    PromotionActionType: string;
+    PromotionActionType: number;
     PromotionList?: Array<SDKPromotion>;
 }
 
