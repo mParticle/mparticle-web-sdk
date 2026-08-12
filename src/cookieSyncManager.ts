@@ -2,6 +2,7 @@ import {
     Dictionary,
     isEmpty,
     createCookieSyncUrl,
+    toWebSafeBase64,
 } from './utils';
 import Constants from './constants';
 import { MPID } from '@mparticle/web-sdk';
@@ -95,6 +96,7 @@ export default function CookieSyncManager(
                 pixelUrl,
                 redirectUrl,
                 moduleId,
+                settings,
                 // Tells you how often we should do a cookie sync (in days)
                 frequencyCap,
             } = pixelSettings;
@@ -137,8 +139,17 @@ export default function CookieSyncManager(
             // It is optional but to simplify the code, we add it for all Trade
             // // Desk cookie syncs.
             const domain = moduleId === PARTNER_MODULE_IDS.TradeDesk ? window.location.hostname : undefined;
-            // Add domain parameter for Trade Desk
-            const fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl, domain);
+
+            // Google Marketing Platform accepts a web-safe base64-encoded MPID via the
+            // `google_hm` query parameter, but only for accounts provisioned for Google
+            // Hosted Matching — Google returns errors otherwise. It is therefore gated
+            // behind the opt-in `enableHmTag` setting (off by default), which the server
+            // delivers as the string 'True' when the UI toggle is enabled.
+            const enableHmTag = settings?.enableHmTag?.toLowerCase() === 'true';
+            const isDoubleClickModule = moduleId === PARTNER_MODULE_IDS.DoubleclickDFP;
+            const base64Mpid = isDoubleClickModule && enableHmTag ? toWebSafeBase64(mpid) : undefined;
+
+            const fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl, domain, base64Mpid);
 
             self.performCookieSync(
                 fullUrl,

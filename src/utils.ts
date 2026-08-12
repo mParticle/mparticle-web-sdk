@@ -207,7 +207,8 @@ const createCookieSyncUrl = (
     mpid: MPID,
     pixelUrl: string,
     redirectUrl?: string,
-    domain?: string
+    domain?: string,
+    base64Mpid?: string
 ): string => {
     const modifiedPixelUrl = replaceAmpWithAmpersand(pixelUrl);
     const modifiedDirectUrl = redirectUrl
@@ -215,20 +216,38 @@ const createCookieSyncUrl = (
         : null;
 
     let url = replaceMPID(modifiedPixelUrl, mpid);
-    
+
     const redirect = modifiedDirectUrl
         ? replaceMPID(modifiedDirectUrl, mpid)
         : '';
-    
+
     let fullUrl = url + encodeURIComponent(redirect);
-    
+
     if (domain) {
         const separator = fullUrl.includes('?') ? '&' : '?';
         fullUrl += `${separator}domain=${domain}`;
     }
-    
+
+    if (base64Mpid) {
+        const separator = fullUrl.includes('?') ? '&' : '?';
+        fullUrl += `${separator}google_hm=${base64Mpid}`;
+    }
+
     return fullUrl;
 };
+
+// Google's cookie matching service requires `google_hm` values to be web-safe
+// base64 (RFC 4648 §5) without padding, otherwise the write to the hosted
+// match table fails: https://developers.google.com/authorized-buyers/rtb/cookie-guide
+// (String#replaceAll is not available in our ES5 browser targets.)
+const WEB_SAFE_BASE64_REPLACEMENTS: Dictionary<string> = {
+    '+': '-',
+    '/': '_',
+    '=': '',
+};
+
+const toWebSafeBase64 = (value: string): string =>
+    btoa(value).replace(/[+/=]/g, c => WEB_SAFE_BASE64_REPLACEMENTS[c]);
 
 // FIXME: REFACTOR for V3
 // only used in store.js to sanitize server-side formatting of
@@ -650,6 +669,7 @@ export {
     createCookieString,
     revertCookieString,
     createCookieSyncUrl,
+    toWebSafeBase64,
     valueof,
     AttributeValue,
     converted,
