@@ -897,6 +897,56 @@ describe('CookieSyncManager', () => {
 
             expect(loggerSpy).toHaveBeenCalledWith('Performing cookie sync');
         });
+
+        it('should log an error instead of throwing when the tracking pixel cannot be created', () => {
+            // Legacy EdgeHTML throws synchronously when an invalid URL is
+            // assigned to img.src. performCookieSync must contain the error so
+            // public API calls (identify, setConsentState) do not throw.
+            const mockImage = {
+                onload: jest.fn(),
+            };
+            Object.defineProperty(mockImage, 'src', {
+                set() {
+                    throw new Error('Invalid argument.');
+                },
+            });
+            jest.spyOn(document, 'createElement').mockReturnValue(
+                mockImage as unknown as HTMLImageElement
+            );
+
+            const errorSpy = jest.fn();
+            const saveSpy = jest.fn();
+
+            const mockMPInstance = ({
+                _Persistence: {
+                    saveUserCookieSyncDatesToPersistence: saveSpy,
+                },
+                Logger: {
+                    verbose: jest.fn(),
+                    error: errorSpy,
+                },
+            } as unknown) as IMParticleWebSDKInstance;
+
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+
+            const cookieSyncDates: CookieSyncDates = {};
+            expect(() =>
+                cookieSyncManager.performCookieSync(
+                    'https://test.com%3Fredirect%3Dhttps%3A%2F%2Fredirect.com',
+                    42,
+                    '1234',
+                    cookieSyncDates,
+                )
+            ).not.toThrow();
+
+            expect(errorSpy).toHaveBeenCalledWith(
+                'Error performing cookie sync for module ID 42: Invalid argument.'
+            );
+
+            // A failed pixel must not record a sync date
+            expect(cookieSyncDates[42]).toBeUndefined();
+            expect(saveSpy).not.toHaveBeenCalled();
+        });
     });
 
     describe('#isLastSyncDateExpired', () => {

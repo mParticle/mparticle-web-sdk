@@ -156,18 +156,32 @@ export default function CookieSyncManager(
         mpid: MPID,
         cookieSyncDates: CookieSyncDates,
     ): void => {
-        const img = document.createElement('img');
+        try {
+            const img = document.createElement('img');
 
-        mpInstance.Logger.verbose(InformationMessages.CookieSync);
-        img.onload = function() {
-            cookieSyncDates[moduleId] = new Date().getTime();
+            mpInstance.Logger.verbose(InformationMessages.CookieSync);
+            img.onload = function() {
+                cookieSyncDates[moduleId] = new Date().getTime();
 
-            mpInstance._Persistence.saveUserCookieSyncDatesToPersistence(
-                mpid,
-                cookieSyncDates
+                mpInstance._Persistence.saveUserCookieSyncDatesToPersistence(
+                    mpid,
+                    cookieSyncDates
+                );
+            };
+            img.src = url;
+        } catch (error) {
+            // Pixel URLs come from server-side configuration, and some browsers
+            // (e.g. legacy EdgeHTML) throw synchronously when an invalid URL is
+            // assigned to img.src. Contain the error so a single bad pixel cannot
+            // break public API calls (identify, setConsentState) or prevent the
+            // remaining pixels from syncing.
+            mpInstance.Logger.error(
+                'Error performing cookie sync for module ID ' +
+                    moduleId +
+                    ': ' +
+                    ((error as Error).message || error)
             );
-        };
-        img.src = url;
+        }
     };
 }
 
