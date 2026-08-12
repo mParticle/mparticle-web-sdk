@@ -1,3 +1,10 @@
+# [2.78.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.77.0...v2.78.0) (2026-08-12)
+
+
+### Features
+
+* Add base64-encoded MPID query parameter for Google Marketing Pl… ([#1246](https://github.com/mParticle/mparticle-web-sdk/issues/1246)) ([cde8f34](https://github.com/mParticle/mparticle-web-sdk/commit/cde8f34168dd41e7f0f811070393002e1cc53d18)), closes [#1318](https://github.com/mParticle/mparticle-web-sdk/issues/1318) [String#replaceAll](https://github.com/String/issues/replaceAll) [String#replace](https://github.com/String/issues/replace) [String#replaceAll](https://github.com/String/issues/replaceAll)
+
 # [2.77.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.76.0...v2.77.0) (2026-08-07)
 
 
