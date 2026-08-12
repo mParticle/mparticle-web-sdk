@@ -146,10 +146,8 @@ export default function CookieSyncManager(
             // behind the opt-in `enableHmTag` setting (off by default), which the server
             // delivers as the string 'True' when the UI toggle is enabled.
             const enableHmTag = settings?.enableHmTag?.toLowerCase() === 'true';
-            const base64Mpid =
-                moduleId === PARTNER_MODULE_IDS.DoubleclickDFP && enableHmTag
-                    ? toWebSafeBase64(mpid)
-                    : undefined;
+            const isDoubleClickModule = moduleId === PARTNER_MODULE_IDS.DoubleclickDFP;
+            const base64Mpid = isDoubleClickModule && enableHmTag ? toWebSafeBase64(mpid) : undefined;
 
             const fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl, domain, base64Mpid);
 
