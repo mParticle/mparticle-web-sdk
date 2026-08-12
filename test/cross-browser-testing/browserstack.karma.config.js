@@ -85,6 +85,11 @@ module.exports = function(config) {
       browserConsoleLogOptions,
       client: {
         captureConsole,
+        mocha: {
+          // Increase from the 2 second default: tests on loaded BrowserStack
+          // VMs run slower than locally and time out spuriously
+          timeout: 10000,
+        },
       },
       junitReporter: {
         outputDir: 'reports/',
