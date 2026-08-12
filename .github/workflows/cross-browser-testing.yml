@@ -4,10 +4,21 @@
 name: 'BrowserStack Test'
 on: [push, pull_request, workflow_dispatch]
 
+# Cancel superseded runs for the same ref to reduce pressure on the limited
+# pool of BrowserStack parallel sessions, which causes queueing, tunnel
+# disconnects, and browser capture timeouts.
+concurrency:
+  group: browserstack-test-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   browserstack-test:
     name: 'BrowserStack Test'
     runs-on: ubuntu-latest
+    # A healthy run takes < 15 minutes. Without a timeout, karma occasionally
+    # waits on half-open BrowserStack tunnel sockets until GitHub's 6 hour
+    # default cancels the job.
+    timeout-minutes: 30
     steps:
 
       - name: 'BrowserStack Env Setup'  # Invokes the setup-env action
