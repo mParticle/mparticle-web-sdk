@@ -356,7 +356,7 @@ export function convertPromotionAction(sdkEvent: SDKEvent): EventsApi.PromotionA
         return null;
     }
     const promotionAction: EventsApi.PromotionAction = {
-        action: sdkEvent.PromotionAction.PromotionActionType as EventsApi.PromotionActionActionEnum,
+        action: sdkEvent.PromotionAction.PromotionActionType as unknown as EventsApi.PromotionActionActionEnum,
         promotions: convertPromotions(sdkEvent.PromotionAction.PromotionList),
     };
     return promotionAction;
