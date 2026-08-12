@@ -5,7 +5,8 @@
         "declaration": false,
         "forceConsistentCasingInFileNames": true,
         "lib": ["es5", "es6", "dom"],
-        "module": "commonjs",
+        // Rollup's TypeScript plugin must emit ES modules for IIFE/CJS/ESM bundles.
+        "module": "ESNext",
         "noEmitOnError": true,
         "noFallthroughCasesInSwitch": true,
         "noImplicitReturns": true,
