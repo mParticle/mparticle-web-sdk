@@ -27,7 +27,8 @@ declare const replaceApostrophesWithQuotes: (value: string) => string;
 declare const replaceQuotesWithApostrophes: (value: string) => string;
 declare const replaceMPID: (value: string, mpid: MPID) => string;
 declare const replaceAmpWithAmpersand: (value: string) => string;
-declare const createCookieSyncUrl: (mpid: MPID, pixelUrl: string, redirectUrl?: string, domain?: string) => string;
+declare const createCookieSyncUrl: (mpid: MPID, pixelUrl: string, redirectUrl?: string, domain?: string, base64Mpid?: string) => string;
+declare const toWebSafeBase64: (value: string) => string;
 declare const returnConvertedBoolean: (data: string | boolean | number) => boolean;
 declare const decoded: (s: string) => string;
 declare const converted: (s: string) => string;
@@ -79,4 +80,4 @@ declare const obfuscateData: (value: any) => any;
  * // Returns: { email: 'string' }
  */
 declare const obfuscateDevData: (data: any, isDevelopmentMode?: boolean) => any;
-export { createCookieString, revertCookieString, createCookieSyncUrl, valueof, AttributeValue, converted, decoded, obfuscateDevData, filterDictionaryWithHash, findKeyInObject, generateDeprecationMessage, generateHash, generateUniqueId, getRampNumber, inArray, isObject, isStringOrNumber, obfuscateData, parseConfig, parseNumber, parseSettingsString, parseStringOrNumber, replaceCommasWithPipes, replacePipesWithCommas, replaceApostrophesWithQuotes, replaceQuotesWithApostrophes, returnConvertedBoolean, toDataPlanSlug, isString, isNumber, isFunction, isDataPlanSlug, isEmpty, isValidAttributeValue, isValidCustomFlagProperty, mergeObjects, moveElementToEnd, queryStringParser, getCookies, getHref, replaceMPID, replaceAmpWithAmpersand, };
+export { createCookieString, revertCookieString, createCookieSyncUrl, toWebSafeBase64, valueof, AttributeValue, converted, decoded, obfuscateDevData, filterDictionaryWithHash, findKeyInObject, generateDeprecationMessage, generateHash, generateUniqueId, getRampNumber, inArray, isObject, isStringOrNumber, obfuscateData, parseConfig, parseNumber, parseSettingsString, parseStringOrNumber, replaceCommasWithPipes, replacePipesWithCommas, replaceApostrophesWithQuotes, replaceQuotesWithApostrophes, returnConvertedBoolean, toDataPlanSlug, isString, isNumber, isFunction, isDataPlanSlug, isEmpty, isValidAttributeValue, isValidCustomFlagProperty, mergeObjects, moveElementToEnd, queryStringParser, getCookies, getHref, replaceMPID, replaceAmpWithAmpersand, };

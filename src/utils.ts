@@ -240,11 +240,19 @@ const createCookieSyncUrl = (
 // base64 (RFC 4648 §5) without padding (e.g. `MTIzNDU2` for '123456'), otherwise
 // the write to the hosted match table fails with a decode error:
 // https://developers.google.com/authorized-buyers/rtb/cookie-guide
-const toWebSafeBase64 = (value: string): string =>
-    btoa(value)
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
+// Uses ES5-safe split/join (no String#replaceAll in our browser targets) and
+// derives the padding length arithmetically to avoid regex scans.
+const toWebSafeBase64 = (value: string): string => {
+    const base64 = btoa(value);
+    const paddingLength = (3 - (value.length % 3)) % 3;
+
+    return base64
+        .slice(0, base64.length - paddingLength)
+        .split('+')
+        .join('-')
+        .split('/')
+        .join('_');
+};
 
 // FIXME: REFACTOR for V3
 // only used in store.js to sanitize server-side formatting of
