@@ -95,6 +95,12 @@ module.exports = function(config) {
       // 2000 ms (default) timeout 
       browserDisconnectTimeout: 50000,
       browserDisconnectTolerance: 5,
+      // BrowserStack can queue sessions when parallel slots are busy, so allow
+      // browsers longer than the 60s default to connect before killing the run
+      captureTimeout: 300000,
+      // Tolerate mid-run stalls on slow BrowserStack VMs without treating
+      // them as disconnects (default is 30s of silence)
+      browserNoActivityTimeout: 120000,
       concurrency: 5,
     });
 };
