@@ -778,10 +778,11 @@ describe('CookieSyncManager', () => {
         });
 
         describe('Google Marketing Platform (DoubleclickDFP) base64 MPID', () => {
-            it('should add base64-encoded MPID parameter for DoubleclickDFP (module ID 41)', () => {
+            it('should add a web-safe base64-encoded MPID parameter for DoubleclickDFP (module ID 41) when enableHmTag is enabled', () => {
                 const gmpPixelSettings: IPixelConfiguration = {
                     ...pixelSettings,
                     moduleId: PARTNER_MODULE_IDS.DoubleclickDFP, // 41
+                    settings: { enableHmTag: 'True' },
                     pixelUrl: 'https://cm.g.doubleclick.net/pixel?google_nid=abc123',
                     redirectUrl: '',
                 };
@@ -813,17 +814,20 @@ describe('CookieSyncManager', () => {
                 cookieSyncManager.attemptCookieSync(testMPID, true);
 
                 expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
-                    `https://cm.g.doubleclick.net/pixel?google_nid=abc123&google_hm=${btoa(testMPID)}`,
+                    // btoa('testMPID') is 'dGVzdE1QSUQ=' — google_hm must be the
+                    // web-safe, unpadded form per Google's cookie matching spec
+                    'https://cm.g.doubleclick.net/pixel?google_nid=abc123&google_hm=dGVzdE1QSUQ',
                     '41',
                     testMPID,
                     {},
                 );
             });
 
-            it('should not add base64 MPID parameter for non-DoubleclickDFP partners', () => {
+            it('should not add base64 MPID parameter for non-DoubleclickDFP partners even when enableHmTag is enabled', () => {
                 const appNexusPixelSettings: IPixelConfiguration = {
                     ...pixelSettings,
                     moduleId: PARTNER_MODULE_IDS.AppNexus, // 50
+                    settings: { enableHmTag: 'True' },
                     pixelUrl: 'https://ib.adnxs.com/cookie_sync?adv=abc123',
                     redirectUrl: '',
                 };
@@ -858,6 +862,184 @@ describe('CookieSyncManager', () => {
                     'https://ib.adnxs.com/cookie_sync?adv=abc123',
                     '50',
                     testMPID,
+                    {},
+                );
+            });
+
+            it('should not add google_hm for DoubleclickDFP when the enableHmTag setting is absent', () => {
+                const gmpPixelSettings: IPixelConfiguration = {
+                    ...pixelSettings,
+                    moduleId: PARTNER_MODULE_IDS.DoubleclickDFP, // 41
+                    settings: {},
+                    pixelUrl: 'https://cm.g.doubleclick.net/pixel?google_nid=abc123',
+                    redirectUrl: '',
+                };
+
+                const mockMPInstance = ({
+                    _Store: {
+                        webviewBridgeEnabled: false,
+                        pixelConfigurations: [gmpPixelSettings],
+                    },
+                    _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
+                    _Persistence: {
+                        getPersistence: () => ({testMPID: {
+                            csd: {}
+                        }}),
+                    },
+                    _Consent: {
+                        isEnabledForUserConsent: jest.fn().mockReturnValue(true),
+                    },
+                    Identity: {
+                        getCurrentUser: jest.fn().mockReturnValue({
+                            getMPID: () => testMPID,
+                        }),
+                    },
+                } as unknown) as IMParticleWebSDKInstance;
+
+                const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+                cookieSyncManager.performCookieSync = jest.fn();
+
+                cookieSyncManager.attemptCookieSync(testMPID, true);
+
+                expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
+                    'https://cm.g.doubleclick.net/pixel?google_nid=abc123',
+                    '41',
+                    testMPID,
+                    {},
+                );
+            });
+
+            it('should not add google_hm for DoubleclickDFP when the enableHmTag setting is "False"', () => {
+                const gmpPixelSettings: IPixelConfiguration = {
+                    ...pixelSettings,
+                    moduleId: PARTNER_MODULE_IDS.DoubleclickDFP, // 41
+                    settings: { enableHmTag: 'False' },
+                    pixelUrl: 'https://cm.g.doubleclick.net/pixel?google_nid=abc123',
+                    redirectUrl: '',
+                };
+
+                const mockMPInstance = ({
+                    _Store: {
+                        webviewBridgeEnabled: false,
+                        pixelConfigurations: [gmpPixelSettings],
+                    },
+                    _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
+                    _Persistence: {
+                        getPersistence: () => ({testMPID: {
+                            csd: {}
+                        }}),
+                    },
+                    _Consent: {
+                        isEnabledForUserConsent: jest.fn().mockReturnValue(true),
+                    },
+                    Identity: {
+                        getCurrentUser: jest.fn().mockReturnValue({
+                            getMPID: () => testMPID,
+                        }),
+                    },
+                } as unknown) as IMParticleWebSDKInstance;
+
+                const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+                cookieSyncManager.performCookieSync = jest.fn();
+
+                cookieSyncManager.attemptCookieSync(testMPID, true);
+
+                expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
+                    'https://cm.g.doubleclick.net/pixel?google_nid=abc123',
+                    '41',
+                    testMPID,
+                    {},
+                );
+            });
+
+            it('should treat the enableHmTag setting value case-insensitively', () => {
+                const gmpPixelSettings: IPixelConfiguration = {
+                    ...pixelSettings,
+                    moduleId: PARTNER_MODULE_IDS.DoubleclickDFP, // 41
+                    settings: { enableHmTag: 'true' },
+                    pixelUrl: 'https://cm.g.doubleclick.net/pixel?google_nid=abc123',
+                    redirectUrl: '',
+                };
+
+                const mockMPInstance = ({
+                    _Store: {
+                        webviewBridgeEnabled: false,
+                        pixelConfigurations: [gmpPixelSettings],
+                    },
+                    _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
+                    _Persistence: {
+                        getPersistence: () => ({testMPID: {
+                            csd: {}
+                        }}),
+                    },
+                    _Consent: {
+                        isEnabledForUserConsent: jest.fn().mockReturnValue(true),
+                    },
+                    Identity: {
+                        getCurrentUser: jest.fn().mockReturnValue({
+                            getMPID: () => testMPID,
+                        }),
+                    },
+                } as unknown) as IMParticleWebSDKInstance;
+
+                const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+                cookieSyncManager.performCookieSync = jest.fn();
+
+                cookieSyncManager.attemptCookieSync(testMPID, true);
+
+                expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
+                    'https://cm.g.doubleclick.net/pixel?google_nid=abc123&google_hm=dGVzdE1QSUQ',
+                    '41',
+                    testMPID,
+                    {},
+                );
+            });
+
+            it('should strip base64 padding from the google_hm value', () => {
+                // Realistic MPIDs are signed 64-bit integers whose base64 form
+                // always carries `=` padding, which Google rejects
+                const paddedMpid = '-1234567890123456789';
+
+                const gmpPixelSettings: IPixelConfiguration = {
+                    ...pixelSettings,
+                    moduleId: PARTNER_MODULE_IDS.DoubleclickDFP, // 41
+                    settings: { enableHmTag: 'True' },
+                    pixelUrl: 'https://cm.g.doubleclick.net/pixel?google_nid=abc123',
+                    redirectUrl: '',
+                };
+
+                const mockMPInstance = ({
+                    _Store: {
+                        webviewBridgeEnabled: false,
+                        pixelConfigurations: [gmpPixelSettings],
+                    },
+                    _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
+                    _Persistence: {
+                        getPersistence: () => ({testMPID: {
+                            csd: {}
+                        }}),
+                    },
+                    _Consent: {
+                        isEnabledForUserConsent: jest.fn().mockReturnValue(true),
+                    },
+                    Identity: {
+                        getCurrentUser: jest.fn().mockReturnValue({
+                            getMPID: () => paddedMpid,
+                        }),
+                    },
+                } as unknown) as IMParticleWebSDKInstance;
+
+                const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+                cookieSyncManager.performCookieSync = jest.fn();
+
+                cookieSyncManager.attemptCookieSync(paddedMpid, true);
+
+                expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
+                    // btoa(paddedMpid) is 'LTEyMzQ1Njc4OTAxMjM0NTY3ODk=' — the
+                    // trailing padding must be stripped
+                    'https://cm.g.doubleclick.net/pixel?google_nid=abc123&google_hm=LTEyMzQ1Njc4OTAxMjM0NTY3ODk',
+                    '41',
+                    paddedMpid,
                     {},
                 );
             });

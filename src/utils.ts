@@ -236,6 +236,16 @@ const createCookieSyncUrl = (
     return fullUrl;
 };
 
+// Google's cookie matching service requires `google_hm` values to be web-safe
+// base64 (RFC 4648 §5) without padding (e.g. `MTIzNDU2` for '123456'), otherwise
+// the write to the hosted match table fails with a decode error:
+// https://developers.google.com/authorized-buyers/rtb/cookie-guide
+const toWebSafeBase64 = (value: string): string =>
+    btoa(value)
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+
 // FIXME: REFACTOR for V3
 // only used in store.js to sanitize server-side formatting of
 // booleans when checking for `isDevelopmentMode`
@@ -501,6 +511,7 @@ export {
     createCookieString,
     revertCookieString,
     createCookieSyncUrl,
+    toWebSafeBase64,
     valueof,
     AttributeValue,
     converted,

@@ -7,6 +7,7 @@ import {
     replaceMPID,
     replaceAmpWithAmpersand,
     createCookieSyncUrl,
+    toWebSafeBase64,
     inArray,
     filterDictionaryWithHash,
     parseConfig,
@@ -267,6 +268,26 @@ describe('Utils', () => {
         it('should not add domain parameter when domain is empty string', () => {
             const simplePixelUrl = 'https://test.com/pixel';
             expect(createCookieSyncUrl('testMPID', simplePixelUrl, null, '')).toBe('https://test.com/pixel');
+        });
+    });
+
+    describe('#toWebSafeBase64', () => {
+        it('should strip base64 padding', () => {
+            // btoa values are 'dGVzdE1QSUQ=' and 'LTEyMzQ1Njc4OTAxMjM0NTY3ODk=' respectively
+            expect(toWebSafeBase64('testMPID')).toBe('dGVzdE1QSUQ');
+            expect(toWebSafeBase64('-1234567890123456789')).toBe(
+                'LTEyMzQ1Njc4OTAxMjM0NTY3ODk'
+            );
+        });
+
+        it('should replace + and / with web-safe - and _', () => {
+            // btoa value is '+/AA'
+            expect(toWebSafeBase64(String.fromCharCode(0xfb, 0xf0, 0x00))).toBe('-_AA');
+        });
+
+        it('should leave already web-safe values unchanged', () => {
+            // btoa('123456') === 'MTIzNDU2' — Google's documented example
+            expect(toWebSafeBase64('123456')).toBe('MTIzNDU2');
         });
     });
 
