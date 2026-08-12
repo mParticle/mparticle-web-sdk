@@ -566,7 +566,13 @@ var pluses = /\+/g,
             document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT';
         }
     },
-    waitForCondition = function async(conditionFn, timeout = 200, interval = 10) {
+    waitForCondition = function async(
+        conditionFn,
+        // 200ms is enough on local machines, but loaded BrowserStack VMs
+        // regularly need longer for mocked async work to settle
+        timeout = 3000,
+        interval = 10
+    ) {
         return new Promise((resolve, reject) => {
             const startTime = Date.now();
 
