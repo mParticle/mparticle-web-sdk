@@ -459,56 +459,70 @@ describe('Old model to batch model conversion', () => {
         expect(event.data.custom_event_type).to.equal('media')
     });
 
-    it('Set width and height to 0 when window is defined but screen is not defined', () => {
-        const originalScreen = window.screen;
-        delete window.screen;
-
-        const sdkEvent: SDKEvent = {
-            EventName: "Pause Event",
-            EventCategory: 8,
-            ExpandedEventCount: 0,
-            EventDataType: 4,
-            EventAttributes: {
-                content_duration: '120000',
-                content_id: "1234567",
-                content_title: "My sweet sweet media",
-                content_type: "Video",
-                media_session_id: "07be2e14-7e05-4053-bcb5-94950365822d",
-                playhead_position: '7023.335999999999',
-                stream_type: "OnDemand",
-            },
-            ConsentState: null,
-            CurrencyCode: null,
-            CustomFlags: {},
-            DataPlan: {},
-            Debug: true,
-            DeviceId: "0edd580e-d887-44e4-89ae-cd65aa0ee933",
-            Location: null,
-            MPID: "-8433569646818451201",
-            OptOut: null,
-            SDKVersion: "2.11.15",
-            SourceMessageId: 'testSMID',
-            SessionId: "64102C03-592F-440D-8BCC-1D27AAA6B188",
-            SessionStartDate: 1603211322698,
-            Timestamp: 1603212299414,
-            ActiveTimeOnSite: 10,
-            UserAttributes: {},
-            UserIdentities: [],
-            IsFirstRun: true,
+    it('Set width and height to 0 when window is defined but screen is not defined', function(this: Mocha.Context) {
+        // On EdgeHTML and IE, window.screen is a non-configurable host object.
+        // Deleting it throws mid-test and leaves window.screen access broken for
+        // the remainder of the run, which silently breaks every subsequent batch
+        // upload (convertEvents reads window.screen). This test covers a pure JS
+        // branch of convertEvents rather than browser behavior, so skipping it on
+        // EdgeHTML/IE does not lose browser-specific coverage.
+        if (/(?:Edge|Trident)\//.test(window.navigator.userAgent)) {
+            this.skip();
         }
 
-        const batch = Converter.convertEvents(
-            '-8433569646818451201',
-            [sdkEvent],
-            window.mParticle.getInstance()
-        );
+        const originalScreen = window.screen;
 
-        expect(batch).to.be.ok;
-        expect(batch.device_info.screen_height).to.equal(0);
-        expect(batch.device_info.screen_width).to.equal(0);
+        try {
+            delete window.screen;
 
-        // set screen back on
-        window.screen = originalScreen;
+            const sdkEvent: SDKEvent = {
+                EventName: "Pause Event",
+                EventCategory: 8,
+                ExpandedEventCount: 0,
+                EventDataType: 4,
+                EventAttributes: {
+                    content_duration: '120000',
+                    content_id: "1234567",
+                    content_title: "My sweet sweet media",
+                    content_type: "Video",
+                    media_session_id: "07be2e14-7e05-4053-bcb5-94950365822d",
+                    playhead_position: '7023.335999999999',
+                    stream_type: "OnDemand",
+                },
+                ConsentState: null,
+                CurrencyCode: null,
+                CustomFlags: {},
+                DataPlan: {},
+                Debug: true,
+                DeviceId: "0edd580e-d887-44e4-89ae-cd65aa0ee933",
+                Location: null,
+                MPID: "-8433569646818451201",
+                OptOut: null,
+                SDKVersion: "2.11.15",
+                SourceMessageId: 'testSMID',
+                SessionId: "64102C03-592F-440D-8BCC-1D27AAA6B188",
+                SessionStartDate: 1603211322698,
+                Timestamp: 1603212299414,
+                ActiveTimeOnSite: 10,
+                UserAttributes: {},
+                UserIdentities: [],
+                IsFirstRun: true,
+            }
+
+            const batch = Converter.convertEvents(
+                '-8433569646818451201',
+                [sdkEvent],
+                window.mParticle.getInstance()
+            );
+
+            expect(batch).to.be.ok;
+            expect(batch.device_info.screen_height).to.equal(0);
+            expect(batch.device_info.screen_width).to.equal(0);
+        } finally {
+            // set screen back on even if an assertion fails so that later
+            // suites are unaffected
+            window.screen = originalScreen;
+        }
     });
 
     it('propagates PageUrl to page_url on the converted event', () => {
