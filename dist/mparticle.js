@@ -203,7 +203,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.77.0";
+    var version = "2.78.0";
 
     var Constants = {
       sdkVersion: version,
@@ -684,7 +684,7 @@ var mParticle = (function () {
     var replaceAmpWithAmpersand = function replaceAmpWithAmpersand(value) {
       return value.replace(/&amp;/g, '&');
     };
-    var createCookieSyncUrl = function createCookieSyncUrl(mpid, pixelUrl, redirectUrl, domain) {
+    var createCookieSyncUrl = function createCookieSyncUrl(mpid, pixelUrl, redirectUrl, domain, base64Mpid) {
       var modifiedPixelUrl = replaceAmpWithAmpersand(pixelUrl);
       var modifiedDirectUrl = redirectUrl ? replaceAmpWithAmpersand(redirectUrl) : null;
       var url = replaceMPID(modifiedPixelUrl, mpid);
@@ -694,7 +694,25 @@ var mParticle = (function () {
         var separator = fullUrl.includes('?') ? '&' : '?';
         fullUrl += "".concat(separator, "domain=").concat(domain);
       }
+      if (base64Mpid) {
+        var separator = fullUrl.includes('?') ? '&' : '?';
+        fullUrl += "".concat(separator, "google_hm=").concat(base64Mpid);
+      }
       return fullUrl;
+    };
+    // Google's cookie matching service requires `google_hm` values to be web-safe
+    // base64 (RFC 4648 §5) without padding, otherwise the write to the hosted
+    // match table fails: https://developers.google.com/authorized-buyers/rtb/cookie-guide
+    // (String#replaceAll is not available in our ES5 browser targets.)
+    var WEB_SAFE_BASE64_REPLACEMENTS = {
+      '+': '-',
+      '/': '_',
+      '=': ''
+    };
+    var toWebSafeBase64 = function toWebSafeBase64(value) {
+      return btoa(value).replace(/[+/=]/g, function (c) {
+        return WEB_SAFE_BASE64_REPLACEMENTS[c];
+      });
     };
     // FIXME: REFACTOR for V3
     // only used in store.js to sanitize server-side formatting of
@@ -4190,7 +4208,7 @@ var mParticle = (function () {
           return;
         }
         pixelConfigurations.forEach(function (pixelSettings) {
-          var _a, _b;
+          var _a, _b, _c;
           // set requiresConsent to false to start each additional pixel configuration
           // set to true only if filteringConsenRuleValues.values.length exists
           var requiresConsent = false;
@@ -4199,6 +4217,7 @@ var mParticle = (function () {
             pixelUrl = pixelSettings.pixelUrl,
             redirectUrl = pixelSettings.redirectUrl,
             moduleId = pixelSettings.moduleId,
+            settings = pixelSettings.settings,
             // Tells you how often we should do a cookie sync (in days)
             frequencyCap = pixelSettings.frequencyCap;
           var values = (filteringConsentRuleValues || {}).values;
@@ -4231,8 +4250,15 @@ var mParticle = (function () {
           // It is optional but to simplify the code, we add it for all Trade
           // // Desk cookie syncs.
           var domain = moduleId === PARTNER_MODULE_IDS.TradeDesk ? window.location.hostname : undefined;
-          // Add domain parameter for Trade Desk
-          var fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl, domain);
+          // Google Marketing Platform accepts a web-safe base64-encoded MPID via the
+          // `google_hm` query parameter, but only for accounts provisioned for Google
+          // Hosted Matching — Google returns errors otherwise. It is therefore gated
+          // behind the opt-in `enableHmTag` setting (off by default), which the server
+          // delivers as the string 'True' when the UI toggle is enabled.
+          var enableHmTag = ((_c = settings === null || settings === void 0 ? void 0 : settings.enableHmTag) === null || _c === void 0 ? void 0 : _c.toLowerCase()) === 'true';
+          var isDoubleClickModule = moduleId === PARTNER_MODULE_IDS.DoubleclickDFP;
+          var base64Mpid = isDoubleClickModule && enableHmTag ? toWebSafeBase64(mpid) : undefined;
+          var fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl, domain, base64Mpid);
           self.performCookieSync(fullUrl, moduleId.toString(), mpid, cookieSyncDates);
         });
       };
