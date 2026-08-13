@@ -4,11 +4,13 @@
 name: 'BrowserStack Test'
 on: [push, pull_request, workflow_dispatch]
 
-# Cancel superseded runs for the same ref to reduce pressure on the limited
-# pool of BrowserStack parallel sessions, which causes queueing, tunnel
-# disconnects, and browser capture timeouts.
+# Cancel superseded runs for the same branch to reduce pressure on the
+# limited pool of BrowserStack parallel sessions, which causes queueing,
+# tunnel disconnects, and browser capture timeouts. Use head_ref (PR) or
+# ref_name (push) so the pull_request and push events for one branch share
+# a group instead of running two matrices at once.
 concurrency:
-  group: browserstack-test-${{ github.ref }}
+  group: browserstack-test-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
