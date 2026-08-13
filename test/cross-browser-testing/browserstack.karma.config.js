@@ -76,7 +76,7 @@ module.exports = function(config) {
         ...(process.env.BROWSERSTACK_LOCAL_IDENTIFIER
             ? {
                   startTunnel: false,
-                  'browserstack.localIdentifier':
+                  localIdentifier:
                       process.env.BROWSERSTACK_LOCAL_IDENTIFIER,
               }
             : {}),
