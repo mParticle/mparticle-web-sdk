@@ -103,8 +103,9 @@ module.exports = function(config) {
         captureConsole,
         mocha: {
           // Increase from the 2 second default: tests on loaded BrowserStack
-          // VMs run slower than locally and time out spuriously
-          timeout: 10000,
+          // VMs run slower than locally and time out spuriously. Must exceed
+          // several waitForCondition polls (3s each) in a single spec.
+          timeout: 20000,
         },
       },
       junitReporter: {

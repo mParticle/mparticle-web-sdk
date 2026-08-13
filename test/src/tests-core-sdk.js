@@ -975,6 +975,12 @@ describe('core SDK', function() {
         // fetching the config is async and we need to wait for it to finish
         mParticle.getInstance()._Store.isInitialized.should.equal(true);
 
+        // The identify call made during init (mocked as a 400 above) must
+        // finish before another identity request is made, otherwise the SDK
+        // rejects the new request as already in flight and this test flakes
+        // on slow browsers (Firefox 51 on BrowserStack).
+        await waitForCondition(hasIdentityCallInflightReturned);
+
         // have to manually call identify although it was called as part of init because we can only mock the server response once
         fetchMockSuccess(urls.identify, {
             mpid: 'MPID1',
