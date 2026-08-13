@@ -12,28 +12,31 @@ const forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
     MockForwarder = Utils.MockForwarder;
 
 // https://go.mparticle.com/work/SQDSDKS-6508
-describe('mParticleUser', function() {
-    beforeEach(function() {
+describe('mParticleUser', function () {
+    beforeEach(function () {
         mParticle._resetForTests(MPConfig);
         fetchMock.config.overwriteRoutes = true;
-        
+
         fetchMockSuccess(urls.identify, {
-            mpid: 'identifyMPID', is_logged_in: false
+            mpid: 'identifyMPID',
+            is_logged_in: false,
         });
 
         fetchMockSuccess(urls.login, {
-            mpid: 'loginMPID', is_logged_in: true
+            mpid: 'loginMPID',
+            is_logged_in: true,
         });
 
         fetchMockSuccess(urls.logout, {
-            mpid: 'logoutMPID', is_logged_in: false
+            mpid: 'logoutMPID',
+            is_logged_in: false,
         });
 
         fetchMockSuccess('https://jssdks.mparticle.com/v1/JS/test_key/Forwarding');
         fetchMock.post(urls.events, 200);
     });
 
-    afterEach(function() {
+    afterEach(function () {
         fetchMock.restore();
     });
 
@@ -43,12 +46,11 @@ describe('mParticleUser', function() {
         mockForwarder.register(window.mParticle.config);
 
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
-        (config1.userIdentityFilters = [4]),
-            window.mParticle.config.kitConfigs.push(config1);
+        (config1.userIdentityFilters = [4]), window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
-        
+
         const userIdentityRequest = {
             userIdentities: {
                 google: 'test',
@@ -58,12 +60,9 @@ describe('mParticleUser', function() {
         };
         mParticle.Identity.login(userIdentityRequest);
         await waitForCondition(() => {
-            return (
-                mParticle.Identity.getCurrentUser()?.getMPID() ===
-                'loginMPID'
-            );
+            return mParticle.Identity.getCurrentUser()?.getMPID() === 'loginMPID';
         });
-        
+
         window.MockForwarder1.instance.onUserIdentifiedUser
             .getUserIdentities()
             .userIdentities.should.not.have.property('google');
@@ -80,15 +79,13 @@ describe('mParticleUser', function() {
 
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
-        config1.userAttributeFilters = [
-            mParticle.generateHash('gender'),
-        ];
+        config1.userAttributeFilters = [mParticle.generateHash('gender')];
         window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        
+
         const userIdentityRequest = {
             userIdentities: {
                 google: 'test',
@@ -99,18 +96,13 @@ describe('mParticleUser', function() {
 
         mParticle.Identity.login(userIdentityRequest);
         await waitForCondition(() => {
-            return (
-                mParticle.Identity.getCurrentUser()?.getMPID() ===
-                'loginMPID'
-            );
+            return mParticle.Identity.getCurrentUser()?.getMPID() === 'loginMPID';
         });
-        
+
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.Identity.getCurrentUser().setUserAttribute('color', 'blue');
         mParticle.Identity.login(userIdentityRequest);
-        window.MockForwarder1.instance.onUserIdentifiedUser
-            .getAllUserAttributes()
-            .should.not.have.property('gender');
+        window.MockForwarder1.instance.onUserIdentifiedUser.getAllUserAttributes().should.not.have.property('gender');
         window.MockForwarder1.instance.onUserIdentifiedUser
             .getAllUserAttributes()
             .should.have.property('color', 'blue');
@@ -121,15 +113,13 @@ describe('mParticleUser', function() {
 
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
-        (config1.userAttributeFilters = [
-            mParticle.generateHash('gender'),
-        ]),
-        window.mParticle.config.kitConfigs.push(config1);
+        (config1.userAttributeFilters = [mParticle.generateHash('gender')]),
+            window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        
+
         window.MockForwarder1.instance.onIdentifyCompleteCalled.should.equal(true);
     });
 
@@ -138,15 +128,13 @@ describe('mParticleUser', function() {
 
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
-        (config1.userAttributeFilters = [
-            mParticle.generateHash('gender'),
-        ]),
+        (config1.userAttributeFilters = [mParticle.generateHash('gender')]),
             window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        
+
         const userIdentityRequest = {
             userIdentities: {
                 google: 'test',
@@ -157,12 +145,9 @@ describe('mParticleUser', function() {
 
         mParticle.Identity.login(userIdentityRequest);
         await waitForCondition(() => {
-            return (
-                mParticle.Identity.getCurrentUser()?.getMPID() ===
-                'loginMPID'
-            );
+            return mParticle.Identity.getCurrentUser()?.getMPID() === 'loginMPID';
         });
-        
+
         window.MockForwarder1.instance.onLoginCompleteCalled.should.equal(true);
     });
 
@@ -171,15 +156,13 @@ describe('mParticleUser', function() {
 
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
-        (config1.userAttributeFilters = [
-            mParticle.generateHash('gender'),
-        ]),
+        (config1.userAttributeFilters = [mParticle.generateHash('gender')]),
             window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        
+
         const userIdentityRequest = {
             userIdentities: {
                 google: 'test',
@@ -190,12 +173,9 @@ describe('mParticleUser', function() {
 
         mParticle.Identity.logout(userIdentityRequest);
         await waitForCondition(() => {
-            return (
-                mParticle.Identity.getCurrentUser()?.getMPID() ===
-                'logoutMPID'
-            );
+            return mParticle.Identity.getCurrentUser()?.getMPID() === 'logoutMPID';
         });
-        
+
         window.MockForwarder1.instance.onLogoutCompleteCalled.should.equal(true);
     });
 
@@ -204,15 +184,13 @@ describe('mParticleUser', function() {
 
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
-        (config1.userAttributeFilters = [
-            mParticle.generateHash('gender'),
-        ]),
-        window.mParticle.config.kitConfigs.push(config1);
+        (config1.userAttributeFilters = [mParticle.generateHash('gender')]),
+            window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentifyReturned);
-        
+
         const userIdentityRequest = {
             userIdentities: {
                 google: 'test',
@@ -222,17 +200,15 @@ describe('mParticleUser', function() {
         };
 
         fetchMockSuccess('https://identity.mparticle.com/v1/identifyMPID/modify', {
-            mpid: 'modifyMPID', is_logged_in: false
+            mpid: 'modifyMPID',
+            is_logged_in: false,
         });
 
         mParticle.Identity.modify(userIdentityRequest);
         await waitForCondition(() => {
-            return (
-                mParticle.Identity.getCurrentUser()?.getMPID() ===
-                'modifyMPID'
-            );
+            return mParticle.Identity.getCurrentUser()?.getMPID() === 'modifyMPID';
         });
-        
+
         window.MockForwarder1.instance.onModifyCompleteCalled.should.equal(true);
     });
 });

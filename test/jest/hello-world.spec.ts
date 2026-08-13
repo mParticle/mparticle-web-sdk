@@ -1,4 +1,4 @@
-import theAnswerToLifeTheUniverseAndEverything from "./theAnswer";
+import theAnswerToLifeTheUniverseAndEverything from './theAnswer';
 
 describe('JEST Hello World', () => {
     it('The answer to life, the universe and everything', () => {

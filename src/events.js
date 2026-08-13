@@ -5,27 +5,20 @@ var Messages = Constants.Messages;
 
 export default function Events(mpInstance) {
     var self = this;
-    this.logEvent = function(event, options) {
-        mpInstance.Logger.verbose(
-            Messages.InformationMessages.StartingLogEvent + ': ' + event.name
-        );
+    this.logEvent = function (event, options) {
+        mpInstance.Logger.verbose(Messages.InformationMessages.StartingLogEvent + ': ' + event.name);
         if (mpInstance._Helpers.canLog()) {
             var uploadObject = mpInstance._ServerModel.createEventObject(event);
             mpInstance._APIClient.sendEventToServer(uploadObject, options);
         } else {
-            mpInstance.Logger.verbose(
-                Messages.InformationMessages.AbandonLogEvent
-            );
+            mpInstance.Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
         }
     };
 
-    this.startTracking = function(callback) {
+    this.startTracking = function (callback) {
         if (!mpInstance._Store.isTracking) {
             if ('geolocation' in navigator) {
-                mpInstance._Store.watchPositionId = navigator.geolocation.watchPosition(
-                    successTracking,
-                    errorTracking
-                );
+                mpInstance._Store.watchPositionId = navigator.geolocation.watchPosition(successTracking, errorTracking);
             }
         } else {
             var position = {
@@ -66,16 +59,14 @@ export default function Events(mpInstance) {
                         callback();
                     }
                 } catch (e) {
-                    mpInstance.Logger.error(
-                        'Error invoking the callback passed to startTrackingLocation.'
-                    );
+                    mpInstance.Logger.error('Error invoking the callback passed to startTrackingLocation.');
                     mpInstance.Logger.error(e);
                 }
             }
         }
     };
 
-    this.stopTracking = function() {
+    this.stopTracking = function () {
         if (mpInstance._Store.isTracking) {
             navigator.geolocation.clearWatch(mpInstance._Store.watchPositionId);
             mpInstance._Store.currentPosition = null;
@@ -83,10 +74,8 @@ export default function Events(mpInstance) {
         }
     };
 
-    this.logOptOut = function() {
-        mpInstance.Logger.verbose(
-            Messages.InformationMessages.StartingLogOptOut
-        );
+    this.logOptOut = function () {
+        mpInstance.Logger.verbose(Messages.InformationMessages.StartingLogOptOut);
 
         var event = mpInstance._ServerModel.createEventObject({
             messageType: Types.MessageType.OptOut,
@@ -95,11 +84,11 @@ export default function Events(mpInstance) {
         mpInstance._APIClient.sendEventToServer(event);
     };
 
-    this.logAST = function() {
+    this.logAST = function () {
         self.logEvent({ messageType: Types.MessageType.AppStateTransition });
     };
 
-    this.logPageView = function() {
+    this.logPageView = function () {
         self.logEvent({
             messageType: Types.MessageType.PageView,
             name: 'PageView',
@@ -111,20 +100,11 @@ export default function Events(mpInstance) {
         });
     };
 
-    this.logPurchaseEvent = function(
-        transactionAttributes,
-        product,
-        attrs,
-        customFlags
-    ) {
-        var event = mpInstance._Ecommerce.createCommerceEventObject(
-            customFlags
-        );
+    this.logPurchaseEvent = function (transactionAttributes, product, attrs, customFlags) {
+        var event = mpInstance._Ecommerce.createCommerceEventObject(customFlags);
 
         if (event) {
-            event.EventName += mpInstance._Ecommerce.getProductActionEventName(
-                Types.ProductActionType.Purchase
-            );
+            event.EventName += mpInstance._Ecommerce.getProductActionEventName(Types.ProductActionType.Purchase);
             event.EventCategory = Types.CommerceEventType.ProductPurchase;
             event.ProductAction = {
                 ProductActionType: Types.ProductActionType.Purchase,
@@ -140,7 +120,7 @@ export default function Events(mpInstance) {
         }
     };
 
-    this.logProductActionEvent = function(
+    this.logProductActionEvent = function (
         productActionType,
         product,
         customAttrs,
@@ -148,47 +128,28 @@ export default function Events(mpInstance) {
         transactionAttributes,
         options
     ) {
-        var event = mpInstance._Ecommerce.createCommerceEventObject(
-            customFlags,
-            options
-        );
+        var event = mpInstance._Ecommerce.createCommerceEventObject(customFlags, options);
 
         var productList = Array.isArray(product) ? product : [product];
 
-        productList.forEach(function(product) {
+        productList.forEach(function (product) {
             if (product.TotalAmount) {
-                product.TotalAmount = mpInstance._Ecommerce.sanitizeAmount(
-                    product.TotalAmount,
-                    'TotalAmount'
-                );
+                product.TotalAmount = mpInstance._Ecommerce.sanitizeAmount(product.TotalAmount, 'TotalAmount');
             }
             if (product.Position) {
-                product.Position = mpInstance._Ecommerce.sanitizeAmount(
-                    product.Position,
-                    'Position'
-                );
+                product.Position = mpInstance._Ecommerce.sanitizeAmount(product.Position, 'Position');
             }
             if (product.Price) {
-                product.Price = mpInstance._Ecommerce.sanitizeAmount(
-                    product.Price,
-                    'Price'
-                );
+                product.Price = mpInstance._Ecommerce.sanitizeAmount(product.Price, 'Price');
             }
             if (product.Quantity) {
-                product.Quantity = mpInstance._Ecommerce.sanitizeAmount(
-                    product.Quantity,
-                    'Quantity'
-                );
+                product.Quantity = mpInstance._Ecommerce.sanitizeAmount(product.Quantity, 'Quantity');
             }
         });
 
         if (event) {
-            event.EventCategory = mpInstance._Ecommerce.convertProductActionToEventType(
-                productActionType
-            );
-            event.EventName += mpInstance._Ecommerce.getProductActionEventName(
-                productActionType
-            );
+            event.EventCategory = mpInstance._Ecommerce.convertProductActionToEventType(productActionType);
+            event.EventName += mpInstance._Ecommerce.getProductActionEventName(productActionType);
             event.ProductAction = {
                 ProductActionType: productActionType,
                 ProductList: productList,
@@ -196,9 +157,8 @@ export default function Events(mpInstance) {
 
             if (Types.ProductActionType.isRoktCommerceType(productActionType)) {
                 event.CustomFlags = event.CustomFlags || {};
-                event.CustomFlags[
-                    'Rokt.CommerceEventType'
-                ] = Types.ProductActionType.getExpansionName(productActionType);
+                event.CustomFlags['Rokt.CommerceEventType'] =
+                    Types.ProductActionType.getExpansionName(productActionType);
             }
 
             if (mpInstance._Helpers.isObject(transactionAttributes)) {
@@ -212,44 +172,23 @@ export default function Events(mpInstance) {
         }
     };
 
-    this.logPromotionEvent = function(
-        promotionType,
-        promotion,
-        attrs,
-        customFlags,
-        eventOptions
-    ) {
-        var event = mpInstance._Ecommerce.createCommerceEventObject(
-            customFlags
-        );
+    this.logPromotionEvent = function (promotionType, promotion, attrs, customFlags, eventOptions) {
+        var event = mpInstance._Ecommerce.createCommerceEventObject(customFlags);
 
         if (event) {
-            event.EventName += mpInstance._Ecommerce.getPromotionActionEventName(
-                promotionType
-            );
-            event.EventCategory = mpInstance._Ecommerce.convertPromotionActionToEventType(
-                promotionType
-            );
+            event.EventName += mpInstance._Ecommerce.getPromotionActionEventName(promotionType);
+            event.EventCategory = mpInstance._Ecommerce.convertPromotionActionToEventType(promotionType);
             event.PromotionAction = {
                 PromotionActionType: promotionType,
-                PromotionList: Array.isArray(promotion)
-                    ? promotion
-                    : [promotion],
+                PromotionList: Array.isArray(promotion) ? promotion : [promotion],
             };
 
             self.logCommerceEvent(event, attrs, eventOptions);
         }
     };
 
-    this.logImpressionEvent = function(
-        impression,
-        attrs,
-        customFlags,
-        options
-    ) {
-        var event = mpInstance._Ecommerce.createCommerceEventObject(
-            customFlags
-        );
+    this.logImpressionEvent = function (impression, attrs, customFlags, options) {
+        var event = mpInstance._Ecommerce.createCommerceEventObject(customFlags);
 
         if (event) {
             event.EventName += 'Impression';
@@ -260,12 +199,10 @@ export default function Events(mpInstance) {
 
             event.ProductImpressions = [];
 
-            impression.forEach(function(impression) {
+            impression.forEach(function (impression) {
                 event.ProductImpressions.push({
                     ProductImpressionList: impression.Name,
-                    ProductList: Array.isArray(impression.Product)
-                        ? impression.Product
-                        : [impression.Product],
+                    ProductList: Array.isArray(impression.Product) ? impression.Product : [impression.Product],
                 });
             });
 
@@ -273,29 +210,21 @@ export default function Events(mpInstance) {
         }
     };
 
-    this.logCommerceEvent = function(commerceEvent, attrs, options) {
-        mpInstance.Logger.verbose(
-            Messages.InformationMessages.StartingLogCommerceEvent
-        );
+    this.logCommerceEvent = function (commerceEvent, attrs, options) {
+        mpInstance.Logger.verbose(Messages.InformationMessages.StartingLogCommerceEvent);
 
         // If a developer typos the ProductActionType, the event category will be
         // null, resulting in kit forwarding errors on the server.
         // The check for `ProductAction` is required to denote that these are
         // ProductAction events, and not impression or promotions
-        if (
-            commerceEvent.ProductAction &&
-            commerceEvent.EventCategory === null
-        ) {
+        if (commerceEvent.ProductAction && commerceEvent.EventCategory === null) {
             mpInstance.Logger.error(
                 'Commerce event not sent.  The mParticle.ProductActionType you passed was invalid. Re-check your code.'
             );
             return;
         }
 
-        attrs = mpInstance._Helpers.sanitizeAttributes(
-            attrs,
-            commerceEvent.EventName
-        );
+        attrs = mpInstance._Helpers.sanitizeAttributes(attrs, commerceEvent.EventName);
 
         if (mpInstance._Helpers.canLog()) {
             if (attrs) {
@@ -305,9 +234,7 @@ export default function Events(mpInstance) {
             // When no transaction total (Revenue) was provided, derive it from
             // the products, shipping, and tax.
             if (commerceEvent.ProductAction) {
-                mpInstance._Ecommerce.calculateProductActionTotalAmount(
-                    commerceEvent.ProductAction
-                );
+                mpInstance._Ecommerce.calculateProductActionTotalAmount(commerceEvent.ProductAction);
             }
 
             mpInstance._APIClient.sendEventToServer(commerceEvent, options);
@@ -315,22 +242,14 @@ export default function Events(mpInstance) {
             // https://go.mparticle.com/work/SQDSDKS-6038
             mpInstance._Persistence.update();
         } else {
-            mpInstance.Logger.verbose(
-                Messages.InformationMessages.AbandonLogEvent
-            );
+            mpInstance.Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
         }
     };
 
-    this.addEventHandler = function(
-        domEvent,
-        selector,
-        eventName,
-        data,
-        eventType
-    ) {
+    this.addEventHandler = function (domEvent, selector, eventName, data, eventType) {
         var elements = [],
-            handler = function(e) {
-                var timeoutHandler = function() {
+            handler = function (e) {
+                var timeoutHandler = function () {
                     if (element.href) {
                         window.location.href = element.href;
                     } else if (element.submit) {
@@ -338,25 +257,17 @@ export default function Events(mpInstance) {
                     }
                 };
 
-                mpInstance.Logger.verbose(
-                    'DOM event triggered, handling event'
-                );
+                mpInstance.Logger.verbose('DOM event triggered, handling event');
 
                 self.logEvent({
                     messageType: Types.MessageType.PageEvent,
-                    name:
-                        typeof eventName === 'function'
-                            ? eventName(element)
-                            : eventName,
+                    name: typeof eventName === 'function' ? eventName(element) : eventName,
                     data: typeof data === 'function' ? data(element) : data,
                     eventType: eventType || Types.EventType.Other,
                 });
 
                 // TODO: Handle middle-clicks and special keys (ctrl, alt, etc)
-                if (
-                    (element.href && element.target !== '_blank') ||
-                    element.submit
-                ) {
+                if ((element.href && element.target !== '_blank') || element.submit) {
                     // Give xmlhttprequest enough time to execute before navigating a link or submitting form
 
                     if (e.preventDefault) {
@@ -365,10 +276,7 @@ export default function Events(mpInstance) {
                         e.returnValue = false;
                     }
 
-                    setTimeout(
-                        timeoutHandler,
-                        mpInstance._Store.SDKConfig.timeout
-                    );
+                    setTimeout(timeoutHandler, mpInstance._Store.SDKConfig.timeout);
                 }
             },
             element,

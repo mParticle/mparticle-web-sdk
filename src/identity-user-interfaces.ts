@@ -5,7 +5,6 @@ import { BaseEvent } from './sdkRuntimeModels';
 import Constants from './constants';
 const { HTTPCodes } = Constants;
 
-
 // https://go.mparticle.com/work/SQDSDKS-5033
 // https://go.mparticle.com/work/SQDSDKS-6354
 export interface IMParticleUser extends User {
@@ -39,7 +38,7 @@ export interface IUserIdentityChangeEvent extends BaseEvent {
 }
 
 export interface ISDKUserAttributes {
-    [key: string]: string | string[] | null;
+    [key: string]: string | Array<string> | null;
 }
 
 export interface ISDKUserAttributeChangeData {

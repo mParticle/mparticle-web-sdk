@@ -15,9 +15,7 @@
 
 // Re-export types from @mparticle/event-models
 // Consumers should not need to install @mparticle/event-models directly
-export type {
-    Batch,
-} from '@mparticle/event-models';
+export type { Batch } from '@mparticle/event-models';
 
 // Enums / Constants (type-only to avoid runtime mismatch with entry point)
 export type {
@@ -61,20 +59,13 @@ export type {
     IIdentitySearchResult,
     IIdentitySearchResponseBody,
     IdentitySearchCallback,
-    IUserIdentities
+    IUserIdentities,
 } from './identity.interfaces';
 
 // eCommerce
-export type {
-    SDKECommerceAPI,
-} from './ecommerce.interfaces';
+export type { SDKECommerceAPI } from './ecommerce.interfaces';
 
-export type {
-    SDKProduct,
-    SDKPromotion,
-    SDKImpression,
-    SDKProductImpression,
-} from './sdkRuntimeModels';
+export type { SDKProduct, SDKPromotion, SDKImpression, SDKProductImpression } from './sdkRuntimeModels';
 
 // Consent
 export type {

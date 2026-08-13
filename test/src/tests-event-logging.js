@@ -2,29 +2,25 @@ import Utils from './config/utils';
 import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import { expect } from 'chai';
-import {
-    urls,
-    apiKey,
-    testMPID,
-    MPConfig,
-    MessageType,
-} from './config/constants';
+import { urls, apiKey, testMPID, MPConfig, MessageType } from './config/constants';
 
-const { findEventFromRequest, findBatch, getIdentityEvent, waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
+const { findEventFromRequest, findBatch, getIdentityEvent, waitForCondition, fetchMockSuccess, hasIdentifyReturned } =
+    Utils;
 
-describe('event logging', function() {
-    beforeEach(function() {
+describe('event logging', function () {
+    beforeEach(function () {
         mParticle._resetForTests(MPConfig);
         fetchMock.post(urls.events, 200);
         delete mParticle._instances['default_instance'];
-        
+
         fetchMockSuccess(urls.identify, {
-            mpid: testMPID, is_logged_in: false
+            mpid: testMPID,
+            is_logged_in: false,
         });
         mParticle.init(apiKey, window.mParticle.config);
     });
 
-    afterEach(function() {
+    afterEach(function () {
         fetchMock.restore();
         sinon.restore();
     });
@@ -32,21 +28,14 @@ describe('event logging', function() {
     it('should log an event', async () => {
         await waitForCondition(hasIdentifyReturned);
 
-        window.mParticle.logEvent(
-            'Test Event',
-            mParticle.EventType.Navigation,
-            { mykey: 'myvalue' }
-        );
+        window.mParticle.logEvent('Test Event', mParticle.EventType.Navigation, { mykey: 'myvalue' });
         const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
         const testEventBatch = findBatch(fetchMock.calls(), 'Test Event');
 
         testEvent.data.should.have.property('event_name', 'Test Event');
         testEvent.data.should.have.property('custom_event_type', 'navigation');
         testEvent.data.should.have.property('custom_attributes');
-        testEvent.data.custom_attributes.should.have.property(
-            'mykey',
-            'myvalue'
-        );
+        testEvent.data.custom_attributes.should.have.property('mykey', 'myvalue');
 
         testEventBatch.should.have.property('mpid', testMPID);
     });
@@ -54,11 +43,7 @@ describe('event logging', function() {
     it('should log an event with new device id when set on setDeviceId', async () => {
         await waitForCondition(hasIdentifyReturned);
 
-        window.mParticle.logEvent(
-            'Test Event',
-            mParticle.EventType.Navigation,
-            { mykey: 'myvalue' }
-        );
+        window.mParticle.logEvent('Test Event', mParticle.EventType.Navigation, { mykey: 'myvalue' });
 
         const testEventBatch = findBatch(fetchMock.calls(), 'Test Event');
         // this das should be the SDK auto generated one, which is 36 characters long
@@ -75,7 +60,7 @@ describe('event logging', function() {
 
     it('should log an event with new device id when set via mParticle.config', async () => {
         mParticle._resetForTests(MPConfig);
-        
+
         window.mParticle.config.deviceId = 'foo-guid';
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
@@ -110,34 +95,16 @@ describe('event logging', function() {
             }
         );
 
-        const uploadEvent = findEventFromRequest(
-            fetchMock.calls(),
-            'Test Standard Upload'
-        );
-        const uploadEventBatch = findBatch(
-            fetchMock.calls(),
-            'Test Standard Upload'
-        );
+        const uploadEvent = findEventFromRequest(fetchMock.calls(), 'Test Standard Upload');
+        const uploadEventBatch = findBatch(fetchMock.calls(), 'Test Standard Upload');
 
-        const bypassedEvent = findEventFromRequest(
-            fetchMock.calls(),
-            'Test Upload Bypass'
-        );
+        const bypassedEvent = findEventFromRequest(fetchMock.calls(), 'Test Upload Bypass');
 
         uploadEvent.should.be.ok();
-        uploadEvent.data.should.have.property(
-            'event_name',
-            'Test Standard Upload'
-        );
-        uploadEvent.data.should.have.property(
-            'custom_event_type',
-            'navigation'
-        );
+        uploadEvent.data.should.have.property('event_name', 'Test Standard Upload');
+        uploadEvent.data.should.have.property('custom_event_type', 'navigation');
         uploadEvent.data.should.have.property('custom_attributes');
-        uploadEvent.data.custom_attributes.should.have.property(
-            'mykey',
-            'myvalue'
-        );
+        uploadEvent.data.custom_attributes.should.have.property('mykey', 'myvalue');
         uploadEventBatch.should.have.property('mpid', testMPID);
 
         Should(bypassedEvent).not.be.ok();
@@ -172,35 +139,17 @@ describe('event logging', function() {
             }
         );
 
-        const uploadEvent = findEventFromRequest(
-            fetchMock.calls(),
-            'Test Standard Upload'
-        );
-        const uploadEventBatch = findBatch(
-            fetchMock.calls(),
-            'Test Standard Upload'
-        );
+        const uploadEvent = findEventFromRequest(fetchMock.calls(), 'Test Standard Upload');
+        const uploadEventBatch = findBatch(fetchMock.calls(), 'Test Standard Upload');
 
-        const bypassedEvent = findEventFromRequest(
-            fetchMock.calls(),
-            'Test Upload Bypass'
-        );
+        const bypassedEvent = findEventFromRequest(fetchMock.calls(), 'Test Upload Bypass');
 
         uploadEvent.should.be.ok();
 
-        uploadEvent.data.should.have.property(
-            'event_name',
-            'Test Standard Upload'
-        );
-        uploadEvent.data.should.have.property(
-            'custom_event_type',
-            'navigation'
-        );
+        uploadEvent.data.should.have.property('event_name', 'Test Standard Upload');
+        uploadEvent.data.should.have.property('custom_event_type', 'navigation');
         uploadEvent.data.should.have.property('custom_attributes');
-        uploadEvent.data.custom_attributes.should.have.property(
-            'mykey',
-            'myvalue'
-        );
+        uploadEvent.data.custom_attributes.should.have.property('mykey', 'myvalue');
         uploadEventBatch.should.have.property('mpid', testMPID);
 
         Should(bypassedEvent).not.be.ok();
@@ -236,10 +185,7 @@ describe('event logging', function() {
         errorEvent.data.should.have.property('custom_attributes');
         errorEvent.data.custom_attributes.should.have.property('m', 'my error');
         errorEvent.data.custom_attributes.should.have.property('s', 'Error');
-        errorEvent.data.custom_attributes.should.have.property(
-            't',
-            'my stacktrace'
-        );
+        errorEvent.data.custom_attributes.should.have.property('t', 'my stacktrace');
     });
 
     it('should log an error with custom attrs', async () => {
@@ -255,14 +201,8 @@ describe('event logging', function() {
         Should(errorEvent).be.ok();
         errorEvent.data.should.have.property('message', 'Error');
         errorEvent.data.should.have.property('custom_attributes');
-        errorEvent.data.custom_attributes.should.have.property(
-            'location',
-            'my path'
-        );
-        errorEvent.data.custom_attributes.should.have.property(
-            'myData',
-            'my data'
-        );
+        errorEvent.data.custom_attributes.should.have.property('location', 'my path');
+        errorEvent.data.custom_attributes.should.have.property('myData', 'my data');
     });
 
     it('should sanitize error custom attrs', async () => {
@@ -293,38 +233,24 @@ describe('event logging', function() {
     it('should log an AST with firstRun = true when first visiting a page, and firstRun = false when reloading the page', async () => {
         await waitForCondition(hasIdentifyReturned);
 
-        const astEvent = findEventFromRequest(
-            fetchMock.calls(),
-            'application_state_transition'
-        );
+        const astEvent = findEventFromRequest(fetchMock.calls(), 'application_state_transition');
 
-        astEvent.data.should.have.property(
-            'application_transition_type',
-            'application_initialized'
-        );
+        astEvent.data.should.have.property('application_transition_type', 'application_initialized');
         astEvent.data.should.have.property('is_first_run', true);
         astEvent.data.should.have.property('is_upgrade', false);
 
         if (document.referrer && document.referrer.length > 0) {
-            astEvent.data.should.have.property(
-                'launch_referral',
-                window.location.href
-            );
+            astEvent.data.should.have.property('launch_referral', window.location.href);
         }
 
         fetchMock.resetHistory();
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
+            return mParticle.getInstance()._Store.identityCallInFlight === false;
         });
 
-        const astEvent2 = findEventFromRequest(
-            fetchMock.calls(),
-            'application_state_transition'
-        );
+        const astEvent2 = findEventFromRequest(fetchMock.calls(), 'application_state_transition');
 
         astEvent2.data.should.have.property('is_first_run', false);
     });
@@ -336,17 +262,12 @@ describe('event logging', function() {
         fetchMock.resetHistory();
         // log second AST
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
+            return mParticle.getInstance()._Store.identityCallInFlight === false;
         });
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        const astEvent = findEventFromRequest(
-            fetchMock.calls(),
-            'application_state_transition'
-        );
+        const astEvent = findEventFromRequest(fetchMock.calls(), 'application_state_transition');
         astEvent.data.should.have.property('is_first_run', false);
     });
 
@@ -355,22 +276,13 @@ describe('event logging', function() {
 
         mParticle.logPageView();
 
-        const pageViewEvent = findEventFromRequest(
-            fetchMock.calls(),
-            'screen_view'
-        );
+        const pageViewEvent = findEventFromRequest(fetchMock.calls(), 'screen_view');
 
         Should(pageViewEvent).be.ok();
 
         pageViewEvent.data.should.have.property('custom_attributes');
-        pageViewEvent.data.custom_attributes.should.have.property(
-            'hostname',
-            window.location.hostname
-        );
-        pageViewEvent.data.custom_attributes.should.have.property(
-            'title',
-            window.document.title
-        );
+        pageViewEvent.data.custom_attributes.should.have.property('hostname', window.location.hostname);
+        pageViewEvent.data.custom_attributes.should.have.property('title', window.document.title);
     });
 
     it('should log custom page view', async () => {
@@ -384,23 +296,14 @@ describe('event logging', function() {
             }
         );
 
-        const pageViewEvent = findEventFromRequest(
-            fetchMock.calls(),
-            'My Page View'
-        );
+        const pageViewEvent = findEventFromRequest(fetchMock.calls(), 'My Page View');
 
         Should(pageViewEvent).be.ok();
 
         pageViewEvent.data.should.have.property('custom_attributes');
         pageViewEvent.data.should.have.property('screen_name', 'My Page View');
-        pageViewEvent.data.custom_attributes.should.have.property(
-            'testattr',
-            1
-        );
-        pageViewEvent.data.custom_flags.should.have.property(
-            'MyCustom.Flag',
-            'Test'
-        );
+        pageViewEvent.data.custom_attributes.should.have.property('testattr', 1);
+        pageViewEvent.data.custom_flags.should.have.property('MyCustom.Flag', 'Test');
     });
 
     it('should pass custom flags in page views', async () => {
@@ -410,18 +313,12 @@ describe('event logging', function() {
             'MyCustom.Flag': 'Test',
         });
 
-        const pageViewEvent = findEventFromRequest(
-            fetchMock.calls(),
-            'test'
-        );
+        const pageViewEvent = findEventFromRequest(fetchMock.calls(), 'test');
 
         Should(pageViewEvent).be.ok();
 
         pageViewEvent.data.should.have.property('custom_flags');
-        pageViewEvent.data.custom_flags.should.have.property(
-            'MyCustom.Flag',
-            'Test'
-        );
+        pageViewEvent.data.custom_flags.should.have.property('MyCustom.Flag', 'Test');
     });
 
     it('should allow a page view to bypass server upload', async () => {
@@ -431,10 +328,7 @@ describe('event logging', function() {
             shouldUploadEvent: false,
         });
 
-        const pageViewEvent = findEventFromRequest(
-            fetchMock.calls(),
-            'test bypass'
-        );
+        const pageViewEvent = findEventFromRequest(fetchMock.calls(), 'test bypass');
 
         Should(pageViewEvent).not.be.ok();
     });
@@ -443,10 +337,7 @@ describe('event logging', function() {
         await waitForCondition(hasIdentifyReturned);
 
         mParticle.logPageView('test1', 'invalid', null);
-        const pageViewEvent = findEventFromRequest(
-            fetchMock.calls(),
-            'test1'
-        );
+        const pageViewEvent = findEventFromRequest(fetchMock.calls(), 'test1');
 
         Should(pageViewEvent).not.be.ok();
     });
@@ -456,10 +347,7 @@ describe('event logging', function() {
 
         mParticle.logPageView('test', null, 'invalid');
 
-        const pageViewEvent = findEventFromRequest(
-            fetchMock.calls(),
-            'test'
-        );
+        const pageViewEvent = findEventFromRequest(fetchMock.calls(), 'test');
         Should(pageViewEvent).not.be.ok();
     });
 
@@ -470,28 +358,19 @@ describe('event logging', function() {
 
         mParticle.logPageView(null);
         fetchMock.calls().length.should.equal(1);
-        const pageViewEvent = findEventFromRequest(
-            fetchMock.calls(),
-            'screen_view'
-        );
+        const pageViewEvent = findEventFromRequest(fetchMock.calls(), 'screen_view');
         pageViewEvent.data.screen_name.should.equal('PageView');
 
         fetchMock.resetHistory();
         mParticle.logPageView({ test: 'test' });
         fetchMock.calls().length.should.equal(1);
-        const pageViewEvent2 = findEventFromRequest(
-            fetchMock.calls(),
-            'screen_view'
-        );
+        const pageViewEvent2 = findEventFromRequest(fetchMock.calls(), 'screen_view');
         pageViewEvent2.data.screen_name.should.equal('PageView');
 
         fetchMock.resetHistory();
         mParticle.logPageView([1, 2, 3]);
         fetchMock.calls().length.should.equal(1);
-        const pageViewEvent3 = findEventFromRequest(
-            fetchMock.calls(),
-            'screen_view'
-        );
+        const pageViewEvent3 = findEventFromRequest(fetchMock.calls(), 'screen_view');
         pageViewEvent3.data.screen_name.should.equal('PageView');
     });
 
@@ -500,10 +379,7 @@ describe('event logging', function() {
             // Baseline: the default (flag-off) init should fire no PageView.
             await waitForCondition(hasIdentifyReturned);
 
-            const pageViewEvent = findEventFromRequest(
-                fetchMock.calls(),
-                'screen_view'
-            );
+            const pageViewEvent = findEventFromRequest(fetchMock.calls(), 'screen_view');
 
             Should(pageViewEvent).not.be.ok();
         });
@@ -518,10 +394,7 @@ describe('event logging', function() {
             mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
 
-            const pageViewEvent = findEventFromRequest(
-                fetchMock.calls(),
-                'screen_view'
-            );
+            const pageViewEvent = findEventFromRequest(fetchMock.calls(), 'screen_view');
 
             Should(pageViewEvent).not.be.ok();
         });
@@ -537,9 +410,7 @@ describe('event logging', function() {
             await waitForCondition(hasIdentifyReturned);
 
             const pageViewBatch = findBatch(fetchMock.calls(), 'screen_view');
-            const pageViewEvents = pageViewBatch.events.filter(
-                (event) => event.event_type === 'screen_view'
-            );
+            const pageViewEvents = pageViewBatch.events.filter((event) => event.event_type === 'screen_view');
 
             // Exactly one auto page view should be logged.
             pageViewEvents.length.should.equal(1);
@@ -547,14 +418,8 @@ describe('event logging', function() {
             const pageViewEvent = pageViewEvents[0];
             pageViewEvent.data.screen_name.should.equal('PageView');
             pageViewEvent.data.should.have.property('custom_attributes');
-            pageViewEvent.data.custom_attributes.should.have.property(
-                'hostname',
-                window.location.hostname
-            );
-            pageViewEvent.data.custom_attributes.should.have.property(
-                'title',
-                window.document.title
-            );
+            pageViewEvent.data.custom_attributes.should.have.property('hostname', window.location.hostname);
+            pageViewEvent.data.custom_attributes.should.have.property('title', window.document.title);
         });
 
         it('should log the auto page view after the application state transition', async () => {
@@ -580,9 +445,7 @@ describe('event logging', function() {
                 .filter((body) => body.events)
                 .flatMap((body) => body.events.map((event) => event.event_type));
 
-            const astIndex = eventTypeSequence.indexOf(
-                'application_state_transition'
-            );
+            const astIndex = eventTypeSequence.indexOf('application_state_transition');
             const pageViewIndex = eventTypeSequence.indexOf('screen_view');
 
             pageViewIndex.should.be.above(-1);
@@ -595,21 +458,12 @@ describe('event logging', function() {
 
             mParticle.getInstance()._Events.logPageView();
 
-            const pageViewEvent = findEventFromRequest(
-                fetchMock.calls(),
-                'screen_view'
-            );
+            const pageViewEvent = findEventFromRequest(fetchMock.calls(), 'screen_view');
 
             Should(pageViewEvent).be.ok();
             pageViewEvent.data.screen_name.should.equal('PageView');
-            pageViewEvent.data.custom_attributes.should.have.property(
-                'hostname',
-                window.location.hostname
-            );
-            pageViewEvent.data.custom_attributes.should.have.property(
-                'title',
-                window.document.title
-            );
+            pageViewEvent.data.custom_attributes.should.have.property('hostname', window.location.hostname);
+            pageViewEvent.data.custom_attributes.should.have.property('title', window.document.title);
         });
     });
 
@@ -629,7 +483,7 @@ describe('event logging', function() {
 
         fetchMock.resetHistory();
         mParticle.logEvent();
-        
+
         fetchMock.calls().should.have.lengthOf(0);
     });
 
@@ -647,9 +501,9 @@ describe('event logging', function() {
         await waitForCondition(hasIdentifyReturned);
 
         mParticle.logEvent('Test Event', null, 1);
-        
+
         const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
-        
+
         testEvent.data.should.have.property('custom_attributes', null);
     });
 
@@ -703,21 +557,17 @@ describe('event logging', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
+            return mParticle.getInstance()._Store.identityCallInFlight === false;
         });
 
         fetchMock.resetHistory();
         mParticle.logEvent('test');
         fetchMock.calls().should.have.lengthOf(1);
-        
+
         mParticle.setOptOut(true);
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
+            return mParticle.getInstance()._Store.identityCallInFlight === false;
         });
 
         fetchMock.resetHistory();
@@ -727,21 +577,18 @@ describe('event logging', function() {
 
     it('should log identify event', async () => {
         fetchMockSuccess(urls.identify, {
-                mpid: testMPID, is_logged_in: false
-            });
+            mpid: testMPID,
+            is_logged_in: false,
+        });
         await waitForCondition(hasIdentifyReturned);
         fetchMock.resetHistory();
 
         mParticle.Identity.identify();
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
+            return mParticle.getInstance()._Store.identityCallInFlight === false;
         });
 
-        const identityCalls = fetchMock.calls().filter(call => 
-            call[0].includes('/identify')
-        );
+        const identityCalls = fetchMock.calls().filter((call) => call[0].includes('/identify'));
 
         expect(identityCalls.length).to.equal(1);
         const data = JSON.parse(identityCalls[0][1].body);
@@ -758,16 +605,15 @@ describe('event logging', function() {
 
     it('should log logout event', async () => {
         fetchMockSuccess(urls.logout, {
-            mpid: 'logoutMPID', is_logged_in: false
+            mpid: 'logoutMPID',
+            is_logged_in: false,
         });
 
         await waitForCondition(hasIdentifyReturned);
 
         mParticle.Identity.logout();
         await waitForCondition(() => {
-            return (
-                mParticle.Identity.getCurrentUser()?.getMPID() === 'logoutMPID'
-            );
+            return mParticle.Identity.getCurrentUser()?.getMPID() === 'logoutMPID';
         });
 
         const data = getIdentityEvent(fetchMock.calls(), 'logout');
@@ -784,16 +630,15 @@ describe('event logging', function() {
 
     it('should log login event', async () => {
         fetchMockSuccess(urls.login, {
-            mpid: 'loginMPID', is_logged_in: false
+            mpid: 'loginMPID',
+            is_logged_in: false,
         });
 
         await waitForCondition(hasIdentifyReturned);
 
         mParticle.Identity.login();
         await waitForCondition(() => {
-            return (
-                mParticle.Identity.getCurrentUser()?.getMPID() === 'loginMPID'
-            );
+            return mParticle.Identity.getCurrentUser()?.getMPID() === 'loginMPID';
         });
 
         const data = getIdentityEvent(fetchMock.calls(), 'login');
@@ -813,17 +658,15 @@ describe('event logging', function() {
 
         fetchMockSuccess(urls.modify, {
             change_results: [
-                    {
-                        identity_type: 'email',
-                        modified_mpid: testMPID,
-                    },
-                ]
+                {
+                    identity_type: 'email',
+                    modified_mpid: testMPID,
+                },
+            ],
         });
         mParticle.Identity.modify();
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
+            return mParticle.getInstance()._Store.identityCallInFlight === false;
         });
 
         const data = getIdentityEvent(fetchMock.calls(), 'modify');
@@ -852,13 +695,7 @@ describe('event logging', function() {
         const consentState = mParticle.Consent.createConsentState();
         consentState.addGDPRConsentState(
             'foo purpose',
-            mParticle.Consent.createGDPRConsent(
-                true,
-                10,
-                'foo document',
-                'foo location',
-                'foo hardwareId'
-            )
+            mParticle.Consent.createGDPRConsent(true, 10, 'foo document', 'foo location', 'foo hardwareId')
         );
         mParticle.Identity.getCurrentUser().setConsentState(consentState);
 
@@ -881,7 +718,6 @@ describe('event logging', function() {
         const testEvent2 = findBatch(fetchMock.calls(), 'Test Event2');
 
         testEvent2.should.have.property('consent_state', null);
-
     });
 
     it('should log integration attributes with each event', async () => {
@@ -892,11 +728,7 @@ describe('event logging', function() {
 
         testEvent.should.have.property('integration_attributes');
         testEvent.integration_attributes.should.have.property('128');
-        testEvent.integration_attributes['128'].should.have.property(
-            'MCID',
-            'abcdefg'
-        );
-
+        testEvent.integration_attributes['128'].should.have.property('MCID', 'abcdefg');
     });
 
     it('should run the callback once when tracking succeeds', async () => {
@@ -908,7 +740,7 @@ describe('event logging', function() {
         let successCallbackCalled = false;
         let numberTimesCalled = 0;
 
-        mParticle.startTrackingLocation(function() {
+        mParticle.startTrackingLocation(function () {
             numberTimesCalled += 1;
             successCallbackCalled = true;
             mParticle.logEvent('Test Event');
@@ -932,7 +764,6 @@ describe('event logging', function() {
         Should(testEvent).not.be.ok();
 
         clock.restore();
-
     });
 
     it('should run the callback once when tracking fails', async () => {
@@ -942,9 +773,7 @@ describe('event logging', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
+            return mParticle.getInstance()._Store.identityCallInFlight === false;
         });
 
         let successCallbackCalled = false;
@@ -952,7 +781,7 @@ describe('event logging', function() {
 
         navigator.geolocation.shouldFail = true;
 
-        mParticle.startTrackingLocation(function() {
+        mParticle.startTrackingLocation(function () {
             numberTimesCalled += 1;
             successCallbackCalled = true;
             mParticle.logEvent('Test Event');
@@ -982,10 +811,8 @@ describe('event logging', function() {
         await waitForCondition(hasIdentifyReturned);
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
-        })
+            return mParticle.getInstance()._Store.identityCallInFlight === false;
+        });
         let currentPosition;
 
         function callback(position) {
@@ -1012,9 +839,7 @@ describe('event logging', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
+            return mParticle.getInstance()._Store.identityCallInFlight === false;
         });
 
         const clock = sinon.useFakeTimers();
@@ -1049,19 +874,14 @@ describe('event logging', function() {
         await waitForCondition(hasIdentifyReturned);
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
+            return mParticle.getInstance()._Store.identityCallInFlight === false;
         });
 
         window.mParticle.logEvent('Test Event');
 
         const batch = JSON.parse(fetchMock.lastOptions().body);
 
-        batch.application_info.should.have.property(
-            'application_name',
-            'a name'
-        );
+        batch.application_info.should.have.property('application_name', 'a name');
 
         delete window.mParticle.config.flags;
     });
@@ -1073,19 +893,15 @@ describe('event logging', function() {
         mParticle.init(apiKey, mParticle.config);
 
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
-        })
+            return mParticle.getInstance()._Store.identityCallInFlight === false;
+        });
 
         const batch = JSON.parse(fetchMock.lastOptions().body);
         batch.events[0].data.should.have.property('is_first_run', true);
 
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
-        })
+            return mParticle.getInstance()._Store.identityCallInFlight === false;
+        });
 
         mParticle.init(apiKey, mParticle.config);
         const batch2 = JSON.parse(fetchMock.lastOptions().body);
@@ -1104,17 +920,12 @@ describe('event logging', function() {
 
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
+            return mParticle.getInstance()._Store.identityCallInFlight === false;
         });
-
 
         const batch = JSON.parse(fetchMock.lastOptions().body);
         batch.events[0].data.should.have.property('launch_referral');
-        batch.events[0].data.launch_referral.should.startWith(
-            'http://localhost'
-        );
+        batch.events[0].data.launch_referral.should.startWith('http://localhost');
 
         delete window.mParticle.config.flags;
     });
@@ -1125,11 +936,8 @@ describe('event logging', function() {
             eventBatchingIntervalMillis: 0,
         };
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
+            return mParticle.getInstance()._Store.identityCallInFlight === false;
         });
-
 
         mParticle.init(apiKey, mParticle.config);
         mParticle.setAppName('another name');
@@ -1137,10 +945,7 @@ describe('event logging', function() {
         window.mParticle.logEvent('Test Event');
 
         const batch = JSON.parse(fetchMock.lastOptions().body);
-        batch.application_info.should.have.property(
-            'application_name',
-            'another name'
-        );
+        batch.application_info.should.have.property('application_name', 'another name');
 
         delete window.mParticle.config.flags;
     });
@@ -1159,9 +964,7 @@ describe('event logging', function() {
         mParticle.init(apiKey, mParticle.config);
 
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
+            return mParticle.getInstance()._Store.identityCallInFlight === false;
         });
         window.mParticle.logEvent('Test Event');
 
@@ -1186,9 +989,7 @@ describe('event logging', function() {
 
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
+            return mParticle.getInstance()._Store.identityCallInFlight === false;
         });
         window.mParticle.logEvent('Test Event');
 
@@ -1213,9 +1014,7 @@ describe('event logging', function() {
 
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
+            return mParticle.getInstance()._Store.identityCallInFlight === false;
         });
         window.mParticle.logEvent('Test Event');
 
@@ -1232,7 +1031,7 @@ describe('event logging', function() {
 
         mParticle.config.logLevel = 'verbose';
         mParticle.config.logger = {
-            error: function(msg) {
+            error: function (msg) {
                 if (!errorMessage) {
                     errorMessage = msg;
                 }
@@ -1248,9 +1047,7 @@ describe('event logging', function() {
 
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
+            return mParticle.getInstance()._Store.identityCallInFlight === false;
         });
         window.mParticle.logEvent('Test Event');
 
@@ -1273,21 +1070,13 @@ describe('event logging', function() {
 
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
-        })
+            return mParticle.getInstance()._Store.identityCallInFlight === false;
+        });
         const user = mParticle.Identity.getCurrentUser();
         // Add to your consent state
         const consentState = mParticle.Consent.createConsentState();
 
-        const ccpa = mParticle.Consent.createCCPAConsent(
-            true,
-            Date.now(),
-            'doc1',
-            'location1',
-            'hardwareid'
-        );
+        const ccpa = mParticle.Consent.createCCPAConsent(true, Date.now(), 'doc1', 'location1', 'hardwareid');
 
         consentState.setCCPAConsentState(ccpa);
         const location_collection_consent = mParticle.Consent.createGDPRConsent(
@@ -1299,10 +1088,7 @@ describe('event logging', function() {
         );
 
         // Add to your consent state
-        consentState.addGDPRConsentState(
-            'My GDPR Purpose',
-            location_collection_consent
-        );
+        consentState.addGDPRConsentState('My GDPR Purpose', location_collection_consent);
         user.setConsentState(consentState);
 
         window.mParticle.logEvent('Test Event');
@@ -1312,45 +1098,17 @@ describe('event logging', function() {
         batch.should.have.property('consent_state');
         batch.consent_state.should.have.properties(['gdpr', 'ccpa']);
         batch.consent_state.gdpr.should.have.property('my gdpr purpose');
-        batch.consent_state.gdpr['my gdpr purpose'].should.have.property(
-            'consented',
-            true
-        );
-        batch.consent_state.gdpr['my gdpr purpose'].should.have.property(
-            'document',
-            'doc1'
-        );
-        batch.consent_state.gdpr['my gdpr purpose'].should.have.property(
-            'location',
-            'location1'
-        );
-        batch.consent_state.gdpr['my gdpr purpose'].should.have.property(
-            'hardware_id',
-            'hardwareid'
-        );
-        batch.consent_state.gdpr['my gdpr purpose'].should.have.property(
-            'timestamp_unixtime_ms'
-        );
+        batch.consent_state.gdpr['my gdpr purpose'].should.have.property('consented', true);
+        batch.consent_state.gdpr['my gdpr purpose'].should.have.property('document', 'doc1');
+        batch.consent_state.gdpr['my gdpr purpose'].should.have.property('location', 'location1');
+        batch.consent_state.gdpr['my gdpr purpose'].should.have.property('hardware_id', 'hardwareid');
+        batch.consent_state.gdpr['my gdpr purpose'].should.have.property('timestamp_unixtime_ms');
 
-        batch.consent_state.ccpa['data_sale_opt_out'].should.have.property(
-            'consented',
-            true
-        );
-        batch.consent_state.ccpa['data_sale_opt_out'].should.have.property(
-            'document',
-            'doc1'
-        );
-        batch.consent_state.ccpa['data_sale_opt_out'].should.have.property(
-            'location',
-            'location1'
-        );
-        batch.consent_state.ccpa['data_sale_opt_out'].should.have.property(
-            'hardware_id',
-            'hardwareid'
-        );
-        batch.consent_state.ccpa['data_sale_opt_out'].should.have.property(
-            'timestamp_unixtime_ms'
-        );
+        batch.consent_state.ccpa['data_sale_opt_out'].should.have.property('consented', true);
+        batch.consent_state.ccpa['data_sale_opt_out'].should.have.property('document', 'doc1');
+        batch.consent_state.ccpa['data_sale_opt_out'].should.have.property('location', 'location1');
+        batch.consent_state.ccpa['data_sale_opt_out'].should.have.property('hardware_id', 'hardwareid');
+        batch.consent_state.ccpa['data_sale_opt_out'].should.have.property('timestamp_unixtime_ms');
 
         delete window.mParticle.config.flags;
     });
@@ -1363,22 +1121,10 @@ describe('event logging', function() {
 
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
+            return mParticle.getInstance()._Store.identityCallInFlight === false;
         });
-        const product1 = mParticle.eCommerce.createProduct(
-            'iphone',
-            'iphoneSKU',
-            999,
-            1
-        );
-        const product2 = mParticle.eCommerce.createProduct(
-            'galaxy',
-            'galaxySKU',
-            799,
-            1
-        );
+        const product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999, 1);
+        const product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799, 1);
 
         const transactionAttributes = {
             Id: 'foo-transaction-id',
@@ -1415,9 +1161,7 @@ describe('event logging', function() {
 
         mParticle.init(apiKey, mParticle.config);
         await waitForCondition(() => {
-            return (
-                mParticle.getInstance()._Store.identityCallInFlight === false
-            );
+            return mParticle.getInstance()._Store.identityCallInFlight === false;
         });
         const product1 = mParticle.eCommerce.createProduct(
             'iphone',
@@ -1460,27 +1204,15 @@ describe('event logging', function() {
         );
 
         const batch = JSON.parse(fetchMock.lastOptions().body);
-        (
-            batch.events[0].data.product_action.products[0].position === null
-        ).should.equal(true);
+        (batch.events[0].data.product_action.products[0].position === null).should.equal(true);
         batch.events[0].data.product_action.products[0].price.should.equal(0);
-        batch.events[0].data.product_action.products[0].quantity.should.equal(
-            0
-        );
-        batch.events[0].data.product_action.products[0].total_product_amount.should.equal(
-            0
-        );
+        batch.events[0].data.product_action.products[0].quantity.should.equal(0);
+        batch.events[0].data.product_action.products[0].total_product_amount.should.equal(0);
 
-        (
-            batch.events[0].data.product_action.products[1].position === null
-        ).should.equal(true);
+        (batch.events[0].data.product_action.products[1].position === null).should.equal(true);
         batch.events[0].data.product_action.products[1].price.should.equal(0);
-        batch.events[0].data.product_action.products[1].quantity.should.equal(
-            0
-        );
-        batch.events[0].data.product_action.products[1].total_product_amount.should.equal(
-            0
-        );
+        batch.events[0].data.product_action.products[1].quantity.should.equal(0);
+        batch.events[0].data.product_action.products[1].total_product_amount.should.equal(0);
 
         delete window.mParticle.config.flags;
     });

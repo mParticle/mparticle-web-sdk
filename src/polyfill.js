@@ -1,7 +1,6 @@
 // Base64 encoder/decoder - http://www.webtoolkit.info/javascript_base64.html
 var Base64 = {
-    _keyStr:
-        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=',
+    _keyStr: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=',
 
     // Input must be a string
     encode: function encode(input) {
@@ -131,9 +130,7 @@ var UTF8 = {
             } else {
                 c1 = utftext.charCodeAt(i + 1);
                 c2 = utftext.charCodeAt(i + 2);
-                s += String.fromCharCode(
-                    ((c & 15) << 12) | ((c1 & 63) << 6) | (c2 & 63)
-                );
+                s += String.fromCharCode(((c & 15) << 12) | ((c1 & 63) << 6) | (c2 & 63));
                 i += 3;
             }
         }
@@ -145,7 +142,7 @@ export default {
     // forEach polyfill
     // Production steps of ECMA-262, Edition 5, 15.4.4.18
     // Reference: http://es5.github.io/#x15.4.4.18
-    forEach: function(callback, thisArg) {
+    forEach: function (callback, thisArg) {
         var T, k;
 
         if (this == null) {
@@ -178,7 +175,7 @@ export default {
     // map polyfill
     // Production steps of ECMA-262, Edition 5, 15.4.4.19
     // Reference: http://es5.github.io/#x15.4.4.19
-    map: function(callback, thisArg) {
+    map: function (callback, thisArg) {
         var T, A, k;
 
         if (this === null) {
@@ -216,7 +213,7 @@ export default {
     // filter polyfill
     // Prodcution steps of ECMA-262, Edition 5
     // Reference: http://es5.github.io/#x15.4.4.20
-    filter: function(fun /*, thisArg*/) {
+    filter: function (fun /*, thisArg*/) {
         'use strict';
 
         if (this === void 0 || this === null) {
@@ -244,7 +241,7 @@ export default {
     },
 
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray
-    isArray: function(arg) {
+    isArray: function (arg) {
         return Object.prototype.toString.call(arg) === '[object Array]';
     },
 

@@ -51,4 +51,6 @@ There are additional scripts that may improve your development experience:
 $ npm run watch // watches src/ files and continuously rebuilds bundles as changes are made
 $ npm run watch:tests // watches test/ files and continuously rebuilds test bundles as changes are made
 $ npm run test:debug // opens a browser so you can step through mParticle and test code
+$ npm run lint // ESLint (sdk-web-aligned TypeScript rules)
+$ npm run format // Prettier write for src and tests
 ```

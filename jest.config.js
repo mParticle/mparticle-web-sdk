@@ -17,6 +17,9 @@ module.exports = {
         'ts-jest': {
             tsconfig: {
                 allowJs: true,
+                // Root tsconfig sets types: [] so the IIFE build does not
+                // pick up mocha/jest globals. Jest tests still need jest.
+                types: ['jest', 'node'],
             },
         },
     },

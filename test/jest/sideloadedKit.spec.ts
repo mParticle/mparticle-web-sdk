@@ -1,21 +1,21 @@
-import MPSideloadedKit from "../../src/sideloadedKit";
-import { IMPSideloadedKitConstructor } from "../../src/sideloadedKit";
-import { EventType, IdentityType } from "../../src/types";
-import { UnregisteredKit } from '../../src/forwarders.interfaces';          
+import MPSideloadedKit from '../../src/sideloadedKit';
+import { IMPSideloadedKitConstructor } from '../../src/sideloadedKit';
+import { EventType, IdentityType } from '../../src/types';
+import { UnregisteredKit } from '../../src/forwarders.interfaces';
 import { IKitFilterSettings } from '../../src/configAPIClient';
 
 const mockKitInstance: UnregisteredKit = {
-    register: function() {},
+    register: function () {},
     name: 'mock-kit',
-    constructor: function() {},
+    constructor: function () {},
 };
 
 describe('MPSideloadedKit', () => {
     let mpSideloadedKit: MPSideloadedKit;
     let filterDictionary: Partial<IKitFilterSettings>;
 
-    beforeEach(()=> {
-        mpSideloadedKit = new MPSideloadedKit(mockKitInstance)
+    beforeEach(() => {
+        mpSideloadedKit = new MPSideloadedKit(mockKitInstance);
         filterDictionary = mpSideloadedKit.filterDictionary;
     });
 

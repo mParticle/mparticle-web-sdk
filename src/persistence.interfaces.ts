@@ -1,17 +1,7 @@
 import { Context } from '@mparticle/event-models';
-import {
-    IdentityApiData,
-    MPID,
-    Product,
-    UserIdentities,
-} from '@mparticle/web-sdk';
+import { IdentityApiData, MPID, Product, UserIdentities } from '@mparticle/web-sdk';
 import { IForwardingStatsData } from './apiClient';
-import {
-    IntegrationAttributes,
-    ServerSettings,
-    SessionAttributes,
-    LocalSessionAttributes,
-} from './store';
+import { IntegrationAttributes, ServerSettings, SessionAttributes, LocalSessionAttributes } from './store';
 import { Dictionary } from './utils';
 import { IMinifiedConsentJSONObject } from './consent';
 import { UserAttributes } from './identity-user-interfaces';
@@ -20,7 +10,7 @@ import { CookieSyncDates } from './cookieSyncManager';
 export type UploadsTable = Dictionary<any>;
 export interface iForwardingStatsBatches {
     uploadsTable: UploadsTable;
-    forwardingStatsEventQueue: IForwardingStatsData[];
+    forwardingStatsEventQueue: Array<IForwardingStatsData>;
 }
 
 export interface IGlobalStoreV2MinifiedKeys {
@@ -35,7 +25,7 @@ export interface IGlobalStoreV2MinifiedKeys {
     das: string; // Device ID/ Device Application String
     ia: IntegrationAttributes;
     c: Context;
-    csm: MPID[]; // Current Session MPIDs
+    csm: Array<MPID>; // Current Session MPIDs
     les: number; // Last Event Sent Timestamp
     ssd: number; // Session Start Date
 }
@@ -89,7 +79,7 @@ export interface IUserPersistenceMinified extends Dictionary {
     ua: UserAttributes; // User Attributes
 
     // https://go.mparticle.com/work/SQDSDKS-6048
-    cp: Product[]; // Cart Products
+    cp: Array<Product>; // Cart Products
 
     fst: number; // First Seen Time
     lst: number; // Last Seen Time
@@ -127,10 +117,6 @@ export interface IPersistence {
     getDeviceId(): string;
     setDeviceId(guid: string): void;
     resetPersistence(): void;
-    swapCurrentUser(
-        previousMPID: MPID,
-        currentMPID: MPID,
-        currentSessionMPIDs?: MPID[]
-    ): void;
+    swapCurrentUser(previousMPID: MPID, currentMPID: MPID, currentSessionMPIDs?: Array<MPID>): void;
     forwardingStatsBatches: iForwardingStatsBatches;
 }

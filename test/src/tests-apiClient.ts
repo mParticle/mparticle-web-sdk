@@ -29,7 +29,7 @@ describe('Api Client', () => {
 
         const mpInstance = mParticle.getInstance();
         expect(mpInstance._Store).to.be.ok;
-        
+
         const sdkEvent1 = mpInstance._ServerModel.createEventObject(event);
         const sdkEvent2 = mpInstance._ServerModel.createEventObject(event);
 
@@ -48,13 +48,7 @@ describe('Api Client', () => {
         const consentState = mpInstance.Consent.createConsentState();
         consentState.addGDPRConsentState(
             'foo',
-            mpInstance.Consent.createGDPRConsent(
-                true,
-                10,
-                'foo document',
-                'foo location',
-                'foo hardware id'
-            )
+            mpInstance.Consent.createGDPRConsent(true, 10, 'foo document', 'foo location', 'foo hardware id')
         );
 
         const mockUser = {
@@ -75,7 +69,6 @@ describe('Api Client', () => {
             getMPID: () => '98765',
             getConsentState: () => consentState,
         } as IMParticleUser;
-
 
         mpInstance._APIClient.appendUserInfoToEvents(mockUser, [sdkEvent1, sdkEvent2]);
 

@@ -59,7 +59,7 @@ export default class CookieConsentManager implements ICookieConsentManager {
      * Returns true if third-party targeting is disabled.
      * Targeting is allowed when noTargeting is false (default).
      */
-    getNoTargeting(): boolean {
+    public getNoTargeting(): boolean {
         return this.flags.noTargeting;
     }
 
@@ -67,20 +67,16 @@ export default class CookieConsentManager implements ICookieConsentManager {
      * Returns true if functional tracking is disabled.
      * Functional tracking is allowed when noFunctional is false (default).
      */
-    getNoFunctional(): boolean {
+    public getNoFunctional(): boolean {
         return this.flags.noFunctional;
     }
 
-    syncNoTargetingAttribute(user: IMParticleUser | null): void {
+    public syncNoTargetingAttribute(user: IMParticleUser | null): void {
         if (!user) return;
 
         if (this.flags.noTargeting) {
             user.setUserAttribute(NO_TARGETING_ATTRIBUTE, true);
-        } else if (
-            user
-                .getAllUserAttributes()
-                .hasOwnProperty(NO_TARGETING_ATTRIBUTE)
-        ) {
+        } else if (user.getAllUserAttributes().hasOwnProperty(NO_TARGETING_ATTRIBUTE)) {
             user.removeUserAttribute(NO_TARGETING_ATTRIBUTE);
         }
     }

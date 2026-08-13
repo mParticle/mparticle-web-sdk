@@ -70,7 +70,7 @@ function returnThis() {
 }
 function returnUser() {
     return {
-        getUserIdentities: function() {
+        getUserIdentities: function () {
             return {
                 userIdentities: {},
             };

@@ -2,18 +2,8 @@ import { expect } from 'chai';
 import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import { SDKInitConfig } from '../../src/sdkRuntimeModels';
-import Store, {
-    IStore,
-    processFlags,
-    processBaseUrls,
-    IFeatureFlags,
-} from '../../src/store';
-import {
-    MPConfig,
-    apiKey,
-    testMPID,
-    workspaceCookieName,
-} from './config/constants';
+import Store, { IStore, processFlags, processBaseUrls, IFeatureFlags } from '../../src/store';
+import { MPConfig, apiKey, testMPID, workspaceCookieName } from './config/constants';
 import Utils from './config/utils';
 import { Dictionary } from '../../src/utils';
 import Constants from '../../src/constants';
@@ -105,7 +95,7 @@ describe('Store', () => {
         },
     };
 
-    beforeEach(function() {
+    beforeEach(function () {
         window.mParticle._resetForTests(MPConfig);
         fetchMock.config.overwriteRoutes = true;
         sandbox = sinon.createSandbox();
@@ -114,7 +104,7 @@ describe('Store', () => {
         window.mParticle.init(apiKey, window.mParticle.config);
     });
 
-    afterEach(function() {
+    afterEach(function () {
         sandbox.restore();
         clock.restore();
         fetchMock.restore();
@@ -124,10 +114,7 @@ describe('Store', () => {
     describe('initialization', () => {
         it('should initialize Store with defaults', () => {
             // Use sample config to make sure our types are safe
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
             expect(store).to.be.ok;
             expect(store.isEnabled, 'isEnabled').to.eq(true);
             expect(store.sessionAttributes, 'sessionAttributes').to.be.ok;
@@ -149,86 +136,48 @@ describe('Store', () => {
             expect(store.currencyCode, 'currencyCode').to.eq(null);
             expect(store.globalTimer, 'globalTimer').to.eq(null);
             expect(store.context, 'context').to.eq(null);
-            expect(store.configurationLoaded, 'configurationLoaded').to.eq(
-                false
-            );
-            expect(store.identityCallInFlight, 'identityCallInFlight').to.eq(
-                false
-            );
+            expect(store.configurationLoaded, 'configurationLoaded').to.eq(false);
+            expect(store.identityCallInFlight, 'identityCallInFlight').to.eq(false);
             expect(store.nonCurrentUserMPIDs, 'nonCurrentUserMPIDs').to.be.ok;
             expect(store.identifyCalled, 'identifyCalled').to.eq(false);
             expect(store.isLoggedIn, 'isLoggedIn').to.eq(false);
             expect(store.cookieSyncDates, 'cookieSyncDates').to.be.ok;
-            expect(store.integrationAttributes, 'integrationAttributes').to.be
-                .ok;
+            expect(store.integrationAttributes, 'integrationAttributes').to.be.ok;
             expect(store.requireDelay, 'requireDelay').to.eq(true);
-            expect(
-                store.isLocalStorageAvailable,
-                'isLocalStorageAvailable'
-            ).to.eq(null);
+            expect(store.isLocalStorageAvailable, 'isLocalStorageAvailable').to.eq(null);
             expect(store.storageName, 'storageName').to.eq(null);
             expect(store.activeForwarders.length, 'activeForwarders').to.eq(0);
             expect(store.kits, 'kits').to.be.ok;
             expect(store.sideloadedKits, 'sideloaded kits').to.be.ok;
             expect(store.configuredForwarders, 'configuredForwarders').to.be.ok;
-            expect(
-                store.pixelConfigurations.length,
-                'pixelConfigurations'
-            ).to.eq(0);
-            expect(
-                store.integrationDelayTimeoutStart,
-                'integrationDelayTimeoutStart'
-            ).to.eq(clock.now);
+            expect(store.pixelConfigurations.length, 'pixelConfigurations').to.eq(0);
+            expect(store.integrationDelayTimeoutStart, 'integrationDelayTimeoutStart').to.eq(clock.now);
         });
 
         it('should initialize store.SDKConfig with valid defaults', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             expect(store.SDKConfig.aliasMaxWindow, 'aliasMaxWindow').to.eq(90);
-            expect(store.SDKConfig.aliasUrl, 'aliasUrl').to.eq(
-                'jssdks.mparticle.com/v1/identity/'
-            );
+            expect(store.SDKConfig.aliasUrl, 'aliasUrl').to.eq('jssdks.mparticle.com/v1/identity/');
             expect(store.SDKConfig.appName).to.eq('Store Test');
             expect(store.SDKConfig.appVersion, 'appVersion').to.eq('1.x');
 
             expect(store.SDKConfig.cookieDomain, 'cookieDomain').to.eq(null);
-            expect(store.SDKConfig.configUrl, 'configUrl').to.eq(
-                'jssdkcdns.mparticle.com/JS/v2/'
-            );
-            expect(store.SDKConfig.customFlags, 'customFlags').to.deep.equal(
-                {}
-            );
+            expect(store.SDKConfig.configUrl, 'configUrl').to.eq('jssdkcdns.mparticle.com/JS/v2/');
+            expect(store.SDKConfig.customFlags, 'customFlags').to.deep.equal({});
 
             expect(store.SDKConfig.dataPlan, 'dataPlan').to.deep.equal({});
-            expect(store.SDKConfig.dataPlanOptions, 'dataPlanOptions').to.be
-                .undefined;
-            expect(store.SDKConfig.dataPlanResult, 'dataPlanResult').to.be
-                .undefined;
+            expect(store.SDKConfig.dataPlanOptions, 'dataPlanOptions').to.be.undefined;
+            expect(store.SDKConfig.dataPlanResult, 'dataPlanResult').to.be.undefined;
 
-            expect(
-                store.SDKConfig.flags.eventBatchingIntervalMillis,
-                'flags.eventBatchingIntervalMillis'
-            ).to.eq(0);
+            expect(store.SDKConfig.flags.eventBatchingIntervalMillis, 'flags.eventBatchingIntervalMillis').to.eq(0);
             expect(store.SDKConfig.forceHttps, 'forceHttps').to.eq(true);
 
-            expect(store.SDKConfig.identityCallback, 'identityCallback').to.be
-                .undefined;
-            expect(store.SDKConfig.identityUrl, 'identityUrl').to.eq(
-                'identity.mparticle.com/v1/'
-            );
-            expect(store.SDKConfig.identifyRequest, 'identifyRequest').to.be
-                .undefined;
-            expect(
-                store.SDKConfig.integrationDelayTimeout,
-                'integrationDelayTimeout'
-            ).to.eq(5000);
-            expect(
-                store.SDKConfig.isDevelopmentMode,
-                'isDevelopmentMode'
-            ).to.eq(false);
+            expect(store.SDKConfig.identityCallback, 'identityCallback').to.be.undefined;
+            expect(store.SDKConfig.identityUrl, 'identityUrl').to.eq('identity.mparticle.com/v1/');
+            expect(store.SDKConfig.identifyRequest, 'identifyRequest').to.be.undefined;
+            expect(store.SDKConfig.integrationDelayTimeout, 'integrationDelayTimeout').to.eq(5000);
+            expect(store.SDKConfig.isDevelopmentMode, 'isDevelopmentMode').to.eq(false);
             expect(store.SDKConfig.isIOS, 'isIOS').to.eq(false);
 
             expect(store.SDKConfig.kits, 'kits').to.deep.equal({});
@@ -236,34 +185,18 @@ describe('Store', () => {
             expect(store.SDKConfig.logLevel, 'logLevel').to.eq(null);
 
             expect(store.SDKConfig.maxCookieSize, 'maxCookieSize').to.eq(3000);
-            expect(
-                store.SDKConfig.minWebviewBridgeVersion,
-                'minWebviewBridgeVersion'
-            ).to.eq(1);
+            expect(store.SDKConfig.minWebviewBridgeVersion, 'minWebviewBridgeVersion').to.eq(1);
 
-            expect(store.SDKConfig.package, 'package').to.eq(
-                'com.mparticle.test'
-            );
+            expect(store.SDKConfig.package, 'package').to.eq('com.mparticle.test');
 
             expect(store.SDKConfig.sessionTimeout, 'sessionTimeout').to.eq(30);
 
-            expect(store.SDKConfig.useCookieStorage, 'useCookieStorage').to.eq(
-                false
-            );
+            expect(store.SDKConfig.useCookieStorage, 'useCookieStorage').to.eq(false);
             expect(store.SDKConfig.useNativeSdk, 'useNativeSdk').to.eq(false);
 
-            expect(
-                store.SDKConfig.v1SecureServiceUrl,
-                'v1SecureServiceUrl'
-            ).to.eq('jssdks.mparticle.com/v1/JS/');
-            expect(
-                store.SDKConfig.v2SecureServiceUrl,
-                'v2SecureServiceUrl'
-            ).to.eq('jssdks.mparticle.com/v2/JS/');
-            expect(
-                store.SDKConfig.v3SecureServiceUrl,
-                'v3SecureServiceUrl'
-            ).to.eq('jssdks.mparticle.com/v3/JS/');
+            expect(store.SDKConfig.v1SecureServiceUrl, 'v1SecureServiceUrl').to.eq('jssdks.mparticle.com/v1/JS/');
+            expect(store.SDKConfig.v2SecureServiceUrl, 'v2SecureServiceUrl').to.eq('jssdks.mparticle.com/v2/JS/');
+            expect(store.SDKConfig.v3SecureServiceUrl, 'v3SecureServiceUrl').to.eq('jssdks.mparticle.com/v3/JS/');
         });
 
         it('should assign expected values to dataPlan', () => {
@@ -274,10 +207,7 @@ describe('Store', () => {
                     planVersion: 3,
                 },
             };
-            const store: IStore = new Store(
-                dataPlanConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(dataPlanConfig, window.mParticle.getInstance());
 
             expect(store.SDKConfig.dataPlan, 'dataPlan').to.deep.equal({
                 PlanId: 'test_data_plan',
@@ -294,23 +224,11 @@ describe('Store', () => {
                 ...sampleConfig,
                 sideloadedKits,
             };
-            const store: IStore = new Store(
-                config,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(config, window.mParticle.getInstance());
 
-            expect(
-                store.SDKConfig.sideloadedKits.length,
-                'side loaded kits'
-            ).to.equal(sideloadedKits.length);
-            expect(
-                store.SDKConfig.sideloadedKits[0],
-                'side loaded kits'
-            ).to.deep.equal(sideloadedKit1);
-            expect(
-                store.SDKConfig.sideloadedKits[1],
-                'side loaded kits'
-            ).to.deep.equal(sideloadedKit2);
+            expect(store.SDKConfig.sideloadedKits.length, 'side loaded kits').to.equal(sideloadedKits.length);
+            expect(store.SDKConfig.sideloadedKits[0], 'side loaded kits').to.deep.equal(sideloadedKit1);
+            expect(store.SDKConfig.sideloadedKits[1], 'side loaded kits').to.deep.equal(sideloadedKit2);
         });
 
         it('should assign apiKey to devToken property', () => {
@@ -318,11 +236,7 @@ describe('Store', () => {
                 ...sampleConfig,
             };
 
-            const store: IStore = new Store(
-                config,
-                window.mParticle.getInstance(),
-                apiKey
-            );
+            const store: IStore = new Store(config, window.mParticle.getInstance(), apiKey);
 
             expect(store.devToken, 'devToken').to.equal(apiKey);
         });
@@ -330,95 +244,57 @@ describe('Store', () => {
 
     describe('#addMpidToSessionHistory', () => {
         it('should move a new mpid to the end of the currentSessionMPIDs list', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.sessionId = 'my-session-id';
             store.currentSessionMPIDs = ['oldmpid', 'newermpid', 'recentmpid'];
             store.addMpidToSessionHistory('brand-new-mpid');
 
-            expect(store.currentSessionMPIDs).to.deep.equal([
-                'oldmpid',
-                'newermpid',
-                'recentmpid',
-                'brand-new-mpid',
-            ]);
+            expect(store.currentSessionMPIDs).to.deep.equal(['oldmpid', 'newermpid', 'recentmpid', 'brand-new-mpid']);
         });
 
         it('should move an older mpid to the end of the currentSessionMPIDs list if it exists', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.sessionId = 'my-session-id';
             store.currentSessionMPIDs = ['oldmpid', 'newermpid', 'recentmpid'];
             store.addMpidToSessionHistory('oldmpid');
 
-            expect(store.currentSessionMPIDs).to.deep.equal([
-                'newermpid',
-                'recentmpid',
-                'oldmpid',
-            ]);
+            expect(store.currentSessionMPIDs).to.deep.equal(['newermpid', 'recentmpid', 'oldmpid']);
         });
 
         it('should move an mpid to the end of the currentSessionMPIDs list if it is also the previous mpid', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.sessionId = 'my-session-id';
             store.currentSessionMPIDs = ['oldmpid', 'newermpid', 'recentmpid'];
             store.addMpidToSessionHistory('oldmpid', 'oldmpid');
 
-            expect(store.currentSessionMPIDs).to.deep.equal([
-                'newermpid',
-                'recentmpid',
-                'oldmpid',
-            ]);
+            expect(store.currentSessionMPIDs).to.deep.equal(['newermpid', 'recentmpid', 'oldmpid']);
         });
 
         it('should move an mpid to the end of the currentSessionMPIDs list if it exists in the middle of the list', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.sessionId = 'my-session-id';
             store.currentSessionMPIDs = ['oldmpid', 'newermpid', 'recentmpid'];
             store.addMpidToSessionHistory('newermpid');
 
-            expect(store.currentSessionMPIDs).to.deep.equal([
-                'oldmpid',
-                'recentmpid',
-                'newermpid',
-            ]);
+            expect(store.currentSessionMPIDs).to.deep.equal(['oldmpid', 'recentmpid', 'newermpid']);
         });
     });
 
     describe('#getConsentState', () => {
         it('should return a consent state object from the store', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.persistenceData[testMPID] = sampleConsentState;
 
             expect(store.getConsentState(testMPID)).to.be.ok;
-            expect(store.getConsentState(testMPID)).to.haveOwnProperty(
-                'getGDPRConsentState'
-            );
-            expect(store.getConsentState(testMPID)).to.haveOwnProperty(
-                'getCCPAConsentState'
-            );
+            expect(store.getConsentState(testMPID)).to.haveOwnProperty('getGDPRConsentState');
+            expect(store.getConsentState(testMPID)).to.haveOwnProperty('getCCPAConsentState');
 
-            expect(
-                store.getConsentState(testMPID).getGDPRConsentState()
-            ).to.deep.equal({
+            expect(store.getConsentState(testMPID).getGDPRConsentState()).to.deep.equal({
                 analytics: {
                     Consented: true,
                     ConsentDocument: 'foo gdpr document',
@@ -428,9 +304,7 @@ describe('Store', () => {
                 },
             });
 
-            expect(
-                store.getConsentState(testMPID).getCCPAConsentState()
-            ).to.deep.equal({
+            expect(store.getConsentState(testMPID).getCCPAConsentState()).to.deep.equal({
                 Consented: false,
                 ConsentDocument: 'foo ccpa document',
                 HardwareId: 'foo ccpa hardware id',
@@ -440,19 +314,13 @@ describe('Store', () => {
         });
 
         it('should return null if no consent state is found', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             expect(store.getConsentState(testMPID)).to.deep.equal(null);
         });
 
         it('should return in-memory consent state if persistence is empty', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.persistenceData[testMPID] = sampleConsentStateFromStore;
 
@@ -460,12 +328,8 @@ describe('Store', () => {
 
             expect(store.getConsentState(testMPID)).to.be.ok;
 
-            expect(store.getConsentState(testMPID)).to.haveOwnProperty(
-                'getGDPRConsentState'
-            );
-            expect(
-                store.getConsentState(testMPID).getGDPRConsentState()
-            ).to.deep.equal({
+            expect(store.getConsentState(testMPID)).to.haveOwnProperty('getGDPRConsentState');
+            expect(store.getConsentState(testMPID).getGDPRConsentState()).to.deep.equal({
                 analytics: {
                     Consented: false,
                     ConsentDocument: 'foo gdpr document from store',
@@ -475,13 +339,9 @@ describe('Store', () => {
                 },
             });
 
-            expect(store.getConsentState(testMPID)).to.haveOwnProperty(
-                'getCCPAConsentState'
-            );
+            expect(store.getConsentState(testMPID)).to.haveOwnProperty('getCCPAConsentState');
 
-            expect(
-                store.getConsentState(testMPID).getCCPAConsentState()
-            ).to.deep.equal({
+            expect(store.getConsentState(testMPID).getCCPAConsentState()).to.deep.equal({
                 Consented: true,
                 ConsentDocument: 'foo ccpa document from store',
                 HardwareId: 'foo ccpa hardware id from store',
@@ -493,32 +353,17 @@ describe('Store', () => {
 
     describe('#setConsentState', () => {
         it('should set consent state as a minified object in the store', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             const consentState = window.mParticle.Consent.createConsentState();
 
             const gdprConsent = window.mParticle
                 .getInstance()
-                .Consent.createGDPRConsent(
-                    true,
-                    10,
-                    'foo gdpr document',
-                    'foo gdpr location',
-                    'foo gdpr hardware id'
-                );
+                .Consent.createGDPRConsent(true, 10, 'foo gdpr document', 'foo gdpr location', 'foo gdpr hardware id');
 
             const ccpaConsent = window.mParticle
                 .getInstance()
-                .Consent.createCCPAConsent(
-                    false,
-                    42,
-                    'foo ccpa document',
-                    'foo ccpa location',
-                    'foo ccpa hardware id'
-                );
+                .Consent.createCCPAConsent(false, 42, 'foo ccpa document', 'foo ccpa location', 'foo ccpa hardware id');
 
             const expectedConsentState = sampleConsentState.con;
 
@@ -530,43 +375,24 @@ describe('Store', () => {
             expect(store.persistenceData[testMPID].con).to.be.ok;
 
             expect(store.persistenceData[testMPID].con.gdpr).to.be.ok;
-            expect(store.persistenceData[testMPID].con.gdpr).to.deep.equal(
-                expectedConsentState.gdpr
-            );
+            expect(store.persistenceData[testMPID].con.gdpr).to.deep.equal(expectedConsentState.gdpr);
 
             expect(store.persistenceData[testMPID].con.ccpa).to.be.ok;
-            expect(store.persistenceData[testMPID].con.ccpa).to.deep.equal(
-                expectedConsentState.ccpa
-            );
+            expect(store.persistenceData[testMPID].con.ccpa).to.deep.equal(expectedConsentState.ccpa);
         });
 
         it('should set consent state as a minified object in persistence', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             const consentState = window.mParticle.Consent.createConsentState();
 
             const gdprConsent = window.mParticle
                 .getInstance()
-                .Consent.createGDPRConsent(
-                    true,
-                    10,
-                    'foo gdpr document',
-                    'foo gdpr location',
-                    'foo gdpr hardware id'
-                );
+                .Consent.createGDPRConsent(true, 10, 'foo gdpr document', 'foo gdpr location', 'foo gdpr hardware id');
 
             const ccpaConsent = window.mParticle
                 .getInstance()
-                .Consent.createCCPAConsent(
-                    false,
-                    42,
-                    'foo ccpa document',
-                    'foo ccpa location',
-                    'foo ccpa hardware id'
-                );
+                .Consent.createCCPAConsent(false, 42, 'foo ccpa document', 'foo ccpa location', 'foo ccpa hardware id');
 
             const expectedConsentState = sampleConsentState.con;
 
@@ -575,22 +401,16 @@ describe('Store', () => {
 
             store.setConsentState(testMPID, consentState);
 
-            const fromPersistence = window.mParticle
-                .getInstance()
-                ._Persistence.getPersistence();
+            const fromPersistence = window.mParticle.getInstance()._Persistence.getPersistence();
 
             expect(fromPersistence[testMPID]).to.be.ok;
             expect(fromPersistence[testMPID].con).to.be.ok;
 
             expect(fromPersistence[testMPID].con.gdpr).to.be.ok;
-            expect(fromPersistence[testMPID].con.gdpr).to.deep.equal(
-                expectedConsentState.gdpr
-            );
+            expect(fromPersistence[testMPID].con.gdpr).to.deep.equal(expectedConsentState.gdpr);
 
             expect(fromPersistence[testMPID].con.ccpa).to.be.ok;
-            expect(fromPersistence[testMPID].con.ccpa).to.deep.equal(
-                expectedConsentState.ccpa
-            );
+            expect(fromPersistence[testMPID].con.ccpa).to.deep.equal(expectedConsentState.ccpa);
         });
 
         it('should override persistence with store values', () => {
@@ -639,16 +459,11 @@ describe('Store', () => {
 
             localStorage.setItem(workspaceCookieName, persistenceValue);
 
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.setConsentState(testMPID, consentState);
 
-            const fromPersistence = window.mParticle
-                .getInstance()
-                ._Persistence.getPersistence();
+            const fromPersistence = window.mParticle.getInstance()._Persistence.getPersistence();
 
             expect(fromPersistence[testMPID]).to.be.ok;
             expect(fromPersistence[testMPID].con).to.be.ok;
@@ -665,16 +480,12 @@ describe('Store', () => {
                 },
             });
 
-            expect(fromPersistence[testMPID].con.ccpa).to.deep.equal(
-                expectedConsentState.ccpa
-            );
+            expect(fromPersistence[testMPID].con.ccpa).to.deep.equal(expectedConsentState.ccpa);
 
             consentState.addGDPRConsentState('marketing', marketingGdprConsent);
             store.setConsentState(testMPID, consentState);
 
-            const retrieveFromPersistence = window.mParticle
-                .getInstance()
-                ._Persistence.getPersistence();
+            const retrieveFromPersistence = window.mParticle.getInstance()._Persistence.getPersistence();
 
             expect(retrieveFromPersistence[testMPID].con.gdpr).to.deep.equal({
                 analytics: {
@@ -695,10 +506,7 @@ describe('Store', () => {
         });
 
         it('should not set consent state if consent state is null', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             const expectedConsentState = sampleConsentState;
 
@@ -706,18 +514,13 @@ describe('Store', () => {
 
             store.setConsentState(testMPID, null);
 
-            expect(store.persistenceData[testMPID]).to.deep.equal(
-                expectedConsentState
-            );
+            expect(store.persistenceData[testMPID]).to.deep.equal(expectedConsentState);
         });
     });
 
     describe('#getDeviceId', () => {
         it('should return the deviceId from the store', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.deviceId = 'foo';
 
@@ -727,10 +530,7 @@ describe('Store', () => {
 
     describe('#getUserAttributes', () => {
         it('should return user attributes from the store', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.persistenceData[testMPID] = {
                 ua: { foo: 'bar' },
@@ -742,19 +542,13 @@ describe('Store', () => {
         });
 
         it('should return an empty object if mpid is null', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             expect(store.getUserAttributes(null)).to.deep.equal({});
         });
 
         it('should return an empty object if no user attributes are found', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             expect(store.getUserAttributes(testMPID)).to.deep.equal({});
         });
@@ -762,10 +556,7 @@ describe('Store', () => {
 
     describe('#setUserAttributes', () => {
         it('should set user attributes in the store, overwriting any previous user attributes that exist', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.setUserAttributes(testMPID, { foo: 'bar' });
             expect(store.persistenceData[testMPID].ua).to.deep.equal({
@@ -779,15 +570,10 @@ describe('Store', () => {
         });
 
         it('should set user attributes in persistence', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.setUserAttributes(testMPID, { foo: 'bar' });
-            const fromPersistence = window.mParticle
-                .getInstance()
-                ._Persistence.getPersistence();
+            const fromPersistence = window.mParticle.getInstance()._Persistence.getPersistence();
 
             expect(fromPersistence[testMPID]).to.be.ok;
             expect(fromPersistence[testMPID].ua).to.be.ok;
@@ -810,15 +596,10 @@ describe('Store', () => {
 
             localStorage.setItem(workspaceCookieName, persistenceValue);
 
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.setUserAttributes(testMPID, { fizz: 'buzz' });
-            const fromPersistence = window.mParticle
-                .getInstance()
-                ._Persistence.getPersistence();
+            const fromPersistence = window.mParticle.getInstance()._Persistence.getPersistence();
 
             expect(fromPersistence[testMPID]).to.be.ok;
             expect(fromPersistence[testMPID].ua).to.be.ok;
@@ -830,10 +611,7 @@ describe('Store', () => {
 
     describe('#setDeviceId', () => {
         it('should set the deviceId in the store', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.setDeviceId('foo');
             expect(store.deviceId).to.equal('foo');
@@ -843,9 +621,7 @@ describe('Store', () => {
             const store = window.mParticle.getInstance()._Store;
 
             store.setDeviceId('foo');
-            const fromPersistence = window.mParticle
-                .getInstance()
-                ._Persistence.getPersistence();
+            const fromPersistence = window.mParticle.getInstance()._Persistence.getPersistence();
 
             expect(fromPersistence.gs.das).to.equal('foo');
             expect(store.persistenceData.gs.das).to.equal('foo');
@@ -854,10 +630,7 @@ describe('Store', () => {
 
     describe('#getFirstSeenTime', () => {
         it('should return the firstSeenTime from the store', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
             store.persistenceData[testMPID] = {
                 fst: 12345,
             };
@@ -865,53 +638,36 @@ describe('Store', () => {
         });
 
         it('should return null if mpid is null', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             expect(store.getFirstSeenTime(null)).to.equal(null);
         });
 
         it('should return null if no firstSeenTime is found', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
             expect(store.getFirstSeenTime(testMPID)).to.equal(null);
         });
     });
 
     describe('#setFirstSeenTime', () => {
         it('should set the firstSeenTime in the store', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.setFirstSeenTime(testMPID, 12345);
             expect(store.persistenceData[testMPID].fst).to.equal(12345);
         });
 
         it('should return undefined if mpid is null', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             expect(store.setFirstSeenTime(null, 12345)).to.equal(undefined);
         });
 
         it('should set the firstSeenTime in persistence', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.setFirstSeenTime(testMPID, 12345);
-            const fromPersistence = window.mParticle
-                .getInstance()
-                ._Persistence.getPersistence();
+            const fromPersistence = window.mParticle.getInstance()._Persistence.getPersistence();
 
             expect(fromPersistence[testMPID]).to.be.ok;
             expect(fromPersistence[testMPID].fst).to.be.ok;
@@ -927,15 +683,10 @@ describe('Store', () => {
 
             localStorage.setItem(workspaceCookieName, persistenceValue);
 
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.setFirstSeenTime(testMPID, 54321);
-            const fromPersistence = window.mParticle
-                .getInstance()
-                ._Persistence.getPersistence();
+            const fromPersistence = window.mParticle.getInstance()._Persistence.getPersistence();
 
             expect(fromPersistence[testMPID]).to.be.ok;
             expect(fromPersistence[testMPID].fst).to.be.ok;
@@ -945,10 +696,7 @@ describe('Store', () => {
 
     describe('#getLastSeenTime', () => {
         it('should return the lastSeenTime from the store', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.persistenceData[testMPID] = {
                 lst: 12345,
@@ -958,36 +706,24 @@ describe('Store', () => {
         });
 
         it('should return null if no lastSeenTime is found', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             expect(store.getLastSeenTime(testMPID)).to.equal(null);
         });
 
         it('should return null if mpid is null', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             expect(store.getLastSeenTime(null)).to.equal(null);
         });
 
         it('should return the current time if mpid matches current user', () => {
-            const userSpy = sinon.stub(
-                window.mParticle.getInstance().Identity,
-                'getCurrentUser'
-            );
+            const userSpy = sinon.stub(window.mParticle.getInstance().Identity, 'getCurrentUser');
             userSpy.returns({
                 getMPID: () => 'testMPID',
             });
 
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             expect(store.getLastSeenTime(testMPID)).to.equal(now.getTime());
         });
@@ -995,25 +731,17 @@ describe('Store', () => {
 
     describe('#setLastSeenTime', () => {
         it('should set the lastSeenTime in the store', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.setLastSeenTime(testMPID, 12345);
             expect(store.persistenceData[testMPID].lst).to.equal(12345);
         });
 
         it('should set the lastSeenTime in persistence', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.setLastSeenTime(testMPID, 12345);
-            const fromPersistence = window.mParticle
-                .getInstance()
-                ._Persistence.getPersistence();
+            const fromPersistence = window.mParticle.getInstance()._Persistence.getPersistence();
 
             expect(fromPersistence[testMPID]).to.be.ok;
             expect(fromPersistence[testMPID].lst).to.be.ok;
@@ -1029,15 +757,10 @@ describe('Store', () => {
 
             localStorage.setItem(workspaceCookieName, persistenceValue);
 
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.setLastSeenTime(testMPID, 54321);
-            const fromPersistence = window.mParticle
-                .getInstance()
-                ._Persistence.getPersistence();
+            const fromPersistence = window.mParticle.getInstance()._Persistence.getPersistence();
 
             expect(fromPersistence[testMPID]).to.be.ok;
             expect(fromPersistence[testMPID].lst).to.be.ok;
@@ -1047,10 +770,7 @@ describe('Store', () => {
 
     describe('#getUserIdentities', () => {
         it('should return the userIdentities from the store', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.persistenceData[testMPID] = {
                 ui: { customerid: '12345' },
@@ -1062,19 +782,13 @@ describe('Store', () => {
         });
 
         it('should return an empty object if mpid is null', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             expect(store.getUserIdentities(null)).to.deep.equal({});
         });
 
         it('should return an empty object if no userIdentities are found', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             expect(store.getUserIdentities(testMPID)).to.deep.equal({});
         });
@@ -1082,10 +796,7 @@ describe('Store', () => {
 
     describe('#setUserIdentities', () => {
         it('should set userIdentities in the store', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.setUserIdentities(testMPID, { customerid: '12345' });
             expect(store.persistenceData[testMPID].ui).to.deep.equal({
@@ -1094,15 +805,10 @@ describe('Store', () => {
         });
 
         it('should set userIdentities in persistence', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.setUserIdentities(testMPID, { customerid: '12345' });
-            const fromPersistence = window.mParticle
-                .getInstance()
-                ._Persistence.getPersistence();
+            const fromPersistence = window.mParticle.getInstance()._Persistence.getPersistence();
 
             expect(fromPersistence[testMPID]).to.be.ok;
             expect(fromPersistence[testMPID].ui).to.be.ok;
@@ -1120,15 +826,10 @@ describe('Store', () => {
 
             localStorage.setItem(workspaceCookieName, persistenceValue);
 
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.setUserIdentities(testMPID, { customerid: '54321' });
-            const fromPersistence = window.mParticle
-                .getInstance()
-                ._Persistence.getPersistence();
+            const fromPersistence = window.mParticle.getInstance()._Persistence.getPersistence();
 
             expect(fromPersistence[testMPID]).to.be.ok;
             expect(fromPersistence[testMPID].ui).to.be.ok;
@@ -1140,24 +841,18 @@ describe('Store', () => {
 
     describe('#getLocalSessionAttributes', () => {
         it('should return the localSessionAttributes from the store', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.localSessionAttributes = { cclick: true, segment: 'premium' };
 
             expect(store.getLocalSessionAttributes()).to.deep.equal({
                 cclick: true,
-                segment: 'premium'
+                segment: 'premium',
             });
         });
 
         it('should return an empty object if no localSessionAttributes are set', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             expect(store.getLocalSessionAttributes()).to.deep.equal({});
         });
@@ -1165,10 +860,7 @@ describe('Store', () => {
 
     describe('#setLocalSessionAttribute', () => {
         it('should set localSessionAttributes in the store', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.setLocalSessionAttribute('cclick', true);
 
@@ -1177,39 +869,31 @@ describe('Store', () => {
             });
 
             store.setLocalSessionAttribute('segment', 'premium');
-            
+
             expect(store.localSessionAttributes).to.deep.equal({
                 cclick: true,
-                segment: 'premium'
+                segment: 'premium',
             });
         });
 
         it('should set localSessionAttributes in persistence', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.setLocalSessionAttribute('cclick', true);
             store.setLocalSessionAttribute('segment', 'premium');
-            
-            const fromPersistence = window.mParticle
-                .getInstance()
-                ._Persistence.getPersistence();
-            
+
+            const fromPersistence = window.mParticle.getInstance()._Persistence.getPersistence();
+
             expect(fromPersistence.gs).to.be.ok;
             expect(fromPersistence.gs.lsa).to.be.ok;
             expect(fromPersistence.gs.lsa).to.deep.equal({
                 cclick: true,
-                segment: 'premium'
+                segment: 'premium',
             });
         });
 
         it('should update localSessionAttributes when called multiple times', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.setLocalSessionAttribute('cclick', true);
             expect(store.localSessionAttributes).to.deep.equal({ cclick: true });
@@ -1219,7 +903,7 @@ describe('Store', () => {
             expect(store.localSessionAttributes).to.deep.equal({
                 cclick: true,
                 segment: 'premium',
-                feature: 'enabled'
+                feature: 'enabled',
             });
         });
 
@@ -1227,60 +911,47 @@ describe('Store', () => {
             const persistenceValue = JSON.stringify({
                 gs: {
                     sid: 'test-session',
-                    lsa: { oldAttribute: 'oldValue' }
+                    lsa: { oldAttribute: 'oldValue' },
                 },
                 cu: testMPID,
             });
 
             localStorage.setItem(workspaceCookieName, persistenceValue);
 
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.setLocalSessionAttribute('cclick', true);
             store.setLocalSessionAttribute('newAttribute', 'newValue');
-            
-            const fromPersistence = window.mParticle
-                .getInstance()
-                ._Persistence.getPersistence();
+
+            const fromPersistence = window.mParticle.getInstance()._Persistence.getPersistence();
 
             expect(fromPersistence.gs).to.be.ok;
             expect(fromPersistence.gs.lsa).to.be.ok;
             expect(fromPersistence.gs.lsa).to.deep.equal({
                 cclick: true,
-                newAttribute: 'newValue'
+                newAttribute: 'newValue',
             });
         });
 
         it('should handle empty object attribute values', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.setLocalSessionAttribute('cclick', null);
             expect(store.localSessionAttributes).to.deep.equal({
                 cclick: null,
             });
-            
-            const fromPersistence = window.mParticle
-                .getInstance()
-                ._Persistence.getPersistence();
+
+            const fromPersistence = window.mParticle.getInstance()._Persistence.getPersistence();
 
             expect(fromPersistence.gs.lsa).to.deep.equal({
                 cclick: null,
             });
         });
     });
-   
+
     describe('#nullifySessionData', () => {
         it('should nullify session data on the store', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.sessionId = '123';
             store.dateLastEventSent = new Date();
@@ -1340,13 +1011,9 @@ describe('Store', () => {
                 },
             };
 
-            window.mParticle
-                .getInstance()
-                ._Persistence.savePersistence(persistenceData);
+            window.mParticle.getInstance()._Persistence.savePersistence(persistenceData);
 
-            let fromPersistence = window.mParticle
-                .getInstance()
-                ._Persistence.getPersistence();
+            let fromPersistence = window.mParticle.getInstance()._Persistence.getPersistence();
 
             expect(fromPersistence.gs).to.be.ok;
             expect(fromPersistence.gs.sid).to.equal('abcd');
@@ -1356,9 +1023,7 @@ describe('Store', () => {
             // Grab the store directly from mPInstance to make sure they share scope
             window.mParticle.getInstance()._Store.nullifySession();
 
-            fromPersistence = window.mParticle
-                .getInstance()
-                ._Persistence.getPersistence();
+            fromPersistence = window.mParticle.getInstance()._Persistence.getPersistence();
 
             expect(fromPersistence.gs).to.be.ok;
             expect(fromPersistence.gs.sid).to.be.undefined;
@@ -1384,10 +1049,7 @@ describe('Store', () => {
                 },
             };
 
-            const store: IStore = new Store(
-                config,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(config, window.mParticle.getInstance());
 
             store.processConfig(config);
 
@@ -1413,17 +1075,12 @@ describe('Store', () => {
                 workspaceToken: 'foo',
             };
 
-            const store: IStore = new Store(
-                config,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(config, window.mParticle.getInstance());
 
             store.processConfig(config);
 
             expect(store.storageName, 'storageName').to.equal('mprtcl-v4_foo');
-            expect(store.SDKConfig.workspaceToken, 'workspace token').to.equal(
-                'foo'
-            );
+            expect(store.SDKConfig.workspaceToken, 'workspace token').to.equal('foo');
         });
 
         it('should treat noDeviceID as noFunctional when creating foreground timer', () => {
@@ -1435,16 +1092,12 @@ describe('Store', () => {
                     noFunctional: false,
                 },
             };
-            const mpInstance =
-                globalThis.mParticle.getInstance() as unknown as IMParticleWebSDKInstance;
+            const mpInstance = globalThis.mParticle.getInstance() as unknown as IMParticleWebSDKInstance;
             const store: IStore = new Store(config, mpInstance);
 
             store.processConfig(config);
 
-            expect(
-                mpInstance._timeOnSiteTimer['noFunctional'],
-                'foreground timer noFunctional'
-            ).to.equal(true);
+            expect(mpInstance._timeOnSiteTimer['noFunctional'], 'foreground timer noFunctional').to.equal(true);
         });
 
         it('should warn if workspace token is missing', () => {
@@ -1452,15 +1105,9 @@ describe('Store', () => {
                 ...sampleConfig,
             };
 
-            const store: IStore = new Store(
-                config,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(config, window.mParticle.getInstance());
 
-            const warnSpy = sinon.spy(
-                window.mParticle.getInstance().Logger,
-                'warning'
-            );
+            const warnSpy = sinon.spy(window.mParticle.getInstance().Logger, 'warning');
 
             store.processConfig(config);
 
@@ -1477,17 +1124,11 @@ describe('Store', () => {
                 workspaceToken: 'my-workspace-token',
             };
 
-            const store: IStore = new Store(
-                config,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(config, window.mParticle.getInstance());
 
             store.processConfig(config);
 
-            expect(
-                store.SDKConfig.requiredWebviewBridgeName,
-                'webviewBridgeName'
-            ).to.equal('my-webview-bridge-name');
+            expect(store.SDKConfig.requiredWebviewBridgeName, 'webviewBridgeName').to.equal('my-webview-bridge-name');
         });
 
         it('should use a workspace token as the Web View Bridge Name if requiredWebviewBridgeName is not present ', () => {
@@ -1496,17 +1137,11 @@ describe('Store', () => {
                 workspaceToken: 'my-workspace-token',
             };
 
-            const store: IStore = new Store(
-                config,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(config, window.mParticle.getInstance());
 
             store.processConfig(config);
 
-            expect(
-                store.SDKConfig.requiredWebviewBridgeName,
-                'webviewBridgeName'
-            ).to.equal('my-workspace-token');
+            expect(store.SDKConfig.requiredWebviewBridgeName, 'webviewBridgeName').to.equal('my-workspace-token');
         });
 
         it('should enable WebviewBridge if requiredWebviewBridgeName is present', () => {
@@ -1515,20 +1150,15 @@ describe('Store', () => {
                 requiredWebviewBridgeName: 'my-webview-bridge-name',
             };
 
-            const store: IStore = new Store(
-                config,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(config, window.mParticle.getInstance());
 
             // Webview bridge requires a bridge name set on the global mParticle object
             // @ts-ignore
-            window.mParticle.uiwebviewBridgeName =
-                'mParticle_my-webview-bridge-name_v2';
+            window.mParticle.uiwebviewBridgeName = 'mParticle_my-webview-bridge-name_v2';
 
             store.processConfig(config);
 
-            expect(store.webviewBridgeEnabled, 'webviewBridgeEnabled').to.be
-                .true;
+            expect(store.webviewBridgeEnabled, 'webviewBridgeEnabled').to.be.true;
         });
 
         it('should set configurationLoaded to true if config is successfully processed', () => {
@@ -1536,10 +1166,7 @@ describe('Store', () => {
                 ...sampleConfig,
             };
 
-            const store: IStore = new Store(
-                config,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(config, window.mParticle.getInstance());
 
             store.processConfig(config);
 
@@ -1559,18 +1186,13 @@ describe('Store', () => {
 
             localStorage.setItem(workspaceCookieName, persistenceValue);
 
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.syncPersistenceData();
 
             expect(store.persistenceData[testMPID].lst).to.equal(12345);
             expect(store.persistenceData[testMPID].fst).to.equal(54321);
-            expect(store.persistenceData[testMPID].con).to.deep.equal(
-                sampleConsentStateFromPersistence.con
-            );
+            expect(store.persistenceData[testMPID].con).to.deep.equal(sampleConsentStateFromPersistence.con);
         });
 
         it('should override store with persistence data', () => {
@@ -1584,10 +1206,7 @@ describe('Store', () => {
 
             localStorage.setItem(workspaceCookieName, persistenceValue);
 
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
+            const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
             store.persistenceData[testMPID] = {
                 lst: 99999,
@@ -1599,9 +1218,7 @@ describe('Store', () => {
 
             expect(store.persistenceData[testMPID].lst).to.equal(12345);
             expect(store.persistenceData[testMPID].fst).to.equal(54321);
-            expect(store.persistenceData[testMPID].con).to.deep.equal(
-                sampleConsentStateFromPersistence.con
-            );
+            expect(store.persistenceData[testMPID].con).to.deep.equal(sampleConsentStateFromPersistence.con);
         });
     });
 
@@ -1643,9 +1260,7 @@ describe('Store', () => {
                 autoLogPageView: 'True',
             };
 
-            const flags = processFlags(
-                ({ flags: cutomizedFlags } as unknown) as SDKInitConfig
-            );
+            const flags = processFlags({ flags: cutomizedFlags } as unknown as SDKInitConfig);
 
             const expectedResult = {
                 reportBatching: true,
@@ -1672,8 +1287,8 @@ describe('Store', () => {
                 const baseUrls: Dictionary = Constants.DefaultBaseUrls;
 
                 const result = processBaseUrls(
-                    ({} as unknown) as SDKInitConfig,
-                    (featureFlags as unknown) as IFeatureFlags,
+                    {} as unknown as SDKInitConfig,
+                    featureFlags as unknown as IFeatureFlags,
                     'apikey'
                 );
 
@@ -1690,8 +1305,8 @@ describe('Store', () => {
                 };
 
                 const result = processBaseUrls(
-                    (config as unknown) as SDKInitConfig,
-                    (featureFlags as unknown) as IFeatureFlags,
+                    config as unknown as SDKInitConfig,
+                    featureFlags as unknown as IFeatureFlags,
                     'apikey'
                 );
 
@@ -1712,12 +1327,12 @@ describe('Store', () => {
                 // This example assumes only the domain is set, and not any of the
                 // configurable URLs
                 const config = {
-                    domain: 'custom.domain.com'
+                    domain: 'custom.domain.com',
                 };
 
                 const result = processBaseUrls(
-                    (config as unknown) as SDKInitConfig,
-                    (featureFlags as unknown) as IFeatureFlags,
+                    config as unknown as SDKInitConfig,
+                    featureFlags as unknown as IFeatureFlags,
                     'apikey'
                 );
 
@@ -1734,7 +1349,7 @@ describe('Store', () => {
             });
 
             it('should prioritize domain over custom baseUrls when both are set', () => {
-                // If both the domain and other configurable URLs are set, then 
+                // If both the domain and other configurable URLs are set, then
                 // we use the domain.  A customer should not be passing in both, as
                 // that would be an implementation error.
                 const config = {
@@ -1748,8 +1363,8 @@ describe('Store', () => {
                 };
 
                 const result = processBaseUrls(
-                    (config as unknown) as SDKInitConfig,
-                    (featureFlags as unknown) as IFeatureFlags,
+                    config as unknown as SDKInitConfig,
+                    featureFlags as unknown as IFeatureFlags,
                     'apikey'
                 );
 
@@ -1771,8 +1386,8 @@ describe('Store', () => {
                 const featureFlags = { directURLRouting: true };
 
                 const result = processBaseUrls(
-                    ({} as unknown) as SDKInitConfig,
-                    (featureFlags as unknown) as IFeatureFlags,
+                    {} as unknown as SDKInitConfig,
+                    featureFlags as unknown as IFeatureFlags,
                     'apikey'
                 );
 
@@ -1788,15 +1403,9 @@ describe('Store', () => {
                 expect(result.aliasUrl).to.equal(expectedResult.aliasUrl);
                 expect(result.configUrl).to.equal(expectedResult.configUrl);
                 expect(result.identityUrl).to.equal(expectedResult.identityUrl);
-                expect(result.v1SecureServiceUrl).to.equal(
-                    expectedResult.v1SecureServiceUrl
-                );
-                expect(result.v2SecureServiceUrl).to.equal(
-                    expectedResult.v2SecureServiceUrl
-                );
-                expect(result.v3SecureServiceUrl).to.equal(
-                    expectedResult.v3SecureServiceUrl
-                );
+                expect(result.v1SecureServiceUrl).to.equal(expectedResult.v1SecureServiceUrl);
+                expect(result.v2SecureServiceUrl).to.equal(expectedResult.v2SecureServiceUrl);
+                expect(result.v3SecureServiceUrl).to.equal(expectedResult.v3SecureServiceUrl);
             });
 
             it('should prioritize passed in baseUrls over direct urls', () => {
@@ -1811,8 +1420,8 @@ describe('Store', () => {
                 };
 
                 const result = processBaseUrls(
-                    (config as unknown) as SDKInitConfig,
-                    (featureFlags as unknown) as IFeatureFlags,
+                    config as unknown as SDKInitConfig,
+                    featureFlags as unknown as IFeatureFlags,
                     'apikey'
                 );
 
@@ -1838,12 +1447,12 @@ describe('Store', () => {
                 const featureFlags = { directURLRouting: true };
 
                 const config = {
-                    domain: 'custom.domain.com'
+                    domain: 'custom.domain.com',
                 };
 
                 const result = processBaseUrls(
-                    (config as unknown) as SDKInitConfig,
-                    (featureFlags as unknown) as IFeatureFlags,
+                    config as unknown as SDKInitConfig,
+                    featureFlags as unknown as IFeatureFlags,
                     'apikey'
                 );
 
@@ -1877,8 +1486,8 @@ describe('Store', () => {
                 };
 
                 const result = processBaseUrls(
-                    (config as unknown) as SDKInitConfig,
-                    (featureFlags as unknown) as IFeatureFlags,
+                    config as unknown as SDKInitConfig,
+                    featureFlags as unknown as IFeatureFlags,
                     'apikey'
                 );
 

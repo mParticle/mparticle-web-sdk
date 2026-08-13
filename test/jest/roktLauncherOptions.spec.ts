@@ -12,9 +12,7 @@ describe('normalizeRoktLauncherOptions', () => {
             noTargeting: true,
         };
 
-        expect(normalizeRoktLauncherOptions(launcherOptions)).toEqual(
-            launcherOptions
-        );
+        expect(normalizeRoktLauncherOptions(launcherOptions)).toEqual(launcherOptions);
     });
 
     it('should expand noDeviceId to noFunctional and noTargeting', () => {

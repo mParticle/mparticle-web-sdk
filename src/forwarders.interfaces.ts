@@ -4,11 +4,7 @@ import { IKitConfigs, IKitFilterSettings } from './configAPIClient';
 import { IdentityApiData, IdentityType } from '@mparticle/web-sdk';
 import { Batch } from '@mparticle/event-models';
 
-import {
-    IMParticleUser,
-    ISDKUserIdentity,
-    UserAttributes,
-} from './identity-user-interfaces';
+import { IMParticleUser, ISDKUserIdentity, UserAttributes } from './identity-user-interfaces';
 
 // TODO: https://go.mparticle.com/work/SQDSDKS-4475
 export type MPForwarder = Dictionary;
@@ -47,8 +43,7 @@ export interface KitRegistrationConfig {
 }
 
 // The state of the kit after being configured. This is what the kit looks like when acted on.
-export interface ConfiguredKit
-    extends Omit<IKitConfigs, 'isDebugString' | 'hasDebugString'> {
+export interface ConfiguredKit extends Omit<IKitConfigs, 'isDebugString' | 'hasDebugString'> {
     common: Dictionary<unknown>;
     id: number;
     init(
@@ -63,22 +58,10 @@ export interface ConfiguredKit
         customFlags: SDKEventCustomFlags,
         clientId: string
     ): string;
-    onIdentifyComplete(
-        user: IMParticleUser,
-        filteredIdentityRequest: IdentityApiData
-    ): string;
-    onLoginComplete(
-        user: IMParticleUser,
-        filteredIdentityRequest: IdentityApiData
-    ): string;
-    onLogoutComplete(
-        user: IMParticleUser,
-        filteredIdentityRequest: IdentityApiData
-    ): string;
-    onModifyComplete(
-        user: IMParticleUser,
-        filteredIdentityRequest: IdentityApiData
-    ): string;
+    onIdentifyComplete(user: IMParticleUser, filteredIdentityRequest: IdentityApiData): string;
+    onLoginComplete(user: IMParticleUser, filteredIdentityRequest: IdentityApiData): string;
+    onLogoutComplete(user: IMParticleUser, filteredIdentityRequest: IdentityApiData): string;
+    onModifyComplete(user: IMParticleUser, filteredIdentityRequest: IdentityApiData): string;
     onUserIdentified(user: IMParticleUser): string;
     process(event: SDKEvent): string;
     setOptOut(isOptingOut: boolean): string;
@@ -106,22 +89,10 @@ export interface KitInterface {
         customFlags?: SDKEventCustomFlags,
         clientId?: string
     ): string;
-    onIdentifyComplete?(
-        user: IMParticleUser,
-        filteredIdentityRequest: IdentityApiData
-    ): string;
-    onLoginComplete?(
-        user: IMParticleUser,
-        filteredIdentityRequest: IdentityApiData
-    ): string;
-    onLogoutComplete?(
-        user: IMParticleUser,
-        filteredIdentityRequest: IdentityApiData
-    ): string;
-    onModifyComplete?(
-        user: IMParticleUser,
-        filteredIdentityRequest: IdentityApiData
-    ): string;
+    onIdentifyComplete?(user: IMParticleUser, filteredIdentityRequest: IdentityApiData): string;
+    onLoginComplete?(user: IMParticleUser, filteredIdentityRequest: IdentityApiData): string;
+    onLogoutComplete?(user: IMParticleUser, filteredIdentityRequest: IdentityApiData): string;
+    onModifyComplete?(user: IMParticleUser, filteredIdentityRequest: IdentityApiData): string;
     onUserIdentified?(user: IMParticleUser): string;
     process?(event: SDKEvent): string;
     processBatch?(batch: Batch): string;
@@ -133,10 +104,7 @@ export interface KitInterface {
 
 export type UserIdentityId = string;
 export type UserIdentityType = number;
-export type UserAttributeFilters = number[];
-export type UserIdentityFilters = typeof IdentityType[];
+export type UserAttributeFilters = Array<number>;
+export type UserIdentityFilters = Array<typeof IdentityType>;
 
-export type forwardingStatsCallback = (
-    forwarder: ConfiguredKit,
-    event: SDKEvent
-) => void;
+export type forwardingStatsCallback = (forwarder: ConfiguredKit, event: SDKEvent) => void;

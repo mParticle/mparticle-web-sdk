@@ -10,7 +10,7 @@ describe('BatchUploader', () => {
         const now = Date.now();
         jest.useFakeTimers({
             now: now,
-            advanceTimers: true // This improves the performance of nested timers, equivalent to Sinon's shouldAdvanceTime
+            advanceTimers: true, // This improves the performance of nested timers, equivalent to Sinon's shouldAdvanceTime
         });
         originalFetch = global.fetch;
         global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200 });
@@ -63,7 +63,7 @@ describe('BatchUploader', () => {
         it('should return true for immediate second call', () => {
             // First call
             batchUploader['shouldDebounceAndUpdateLastASTTime']();
-            
+
             // Immediate second call should be debounced
             const secondCall = batchUploader['shouldDebounceAndUpdateLastASTTime']();
             expect(secondCall).toBe(true);
@@ -72,10 +72,10 @@ describe('BatchUploader', () => {
         it('should return true for calls within debounce window', () => {
             // First call
             batchUploader['shouldDebounceAndUpdateLastASTTime']();
-            
+
             // Advance time but stay within debounce window
             jest.advanceTimersByTime(999);
-            
+
             // Call before window ends should be debounced
             const thirdCall = batchUploader['shouldDebounceAndUpdateLastASTTime']();
             expect(thirdCall).toBe(true);
@@ -84,10 +84,10 @@ describe('BatchUploader', () => {
         it('should return false for calls outside debounce window', () => {
             // First call
             batchUploader['shouldDebounceAndUpdateLastASTTime']();
-            
+
             // Advance past debounce window
             jest.advanceTimersByTime(1001);
-            
+
             // Second call should not be debounced
             const secondCall = batchUploader['shouldDebounceAndUpdateLastASTTime']();
             expect(secondCall).toBe(false);
@@ -97,14 +97,14 @@ describe('BatchUploader', () => {
             // First call
             batchUploader['shouldDebounceAndUpdateLastASTTime']();
             const firstCallTime = batchUploader['lastASTEventTime'];
-            
+
             // Advance past debounce window
             jest.advanceTimersByTime(1001);
-            
+
             // Second call
             batchUploader['shouldDebounceAndUpdateLastASTTime']();
             const secondCallTime = batchUploader['lastASTEventTime'];
-            
+
             expect(secondCallTime).toBeGreaterThan(firstCallTime);
         });
 
@@ -112,12 +112,12 @@ describe('BatchUploader', () => {
             // First call
             batchUploader['shouldDebounceAndUpdateLastASTTime']();
             const firstCallTime = batchUploader['lastASTEventTime'];
-            
+
             // Immediate second call
             batchUploader['shouldDebounceAndUpdateLastASTTime']();
             const secondCallTime = batchUploader['lastASTEventTime'];
-            
+
             expect(secondCallTime).toBe(firstCallTime);
         });
     });
-}); 
+});

@@ -1,10 +1,6 @@
 import sinon from 'sinon';
 import { urls, apiKey, MPConfig, testMPID } from './config/constants';
-import {
-    BaseEvent,
-    IMParticleInstanceManager,
-    SDKEvent,
-} from '../../src/sdkRuntimeModels';
+import { BaseEvent, IMParticleInstanceManager, SDKEvent } from '../../src/sdkRuntimeModels';
 import { Batch, CustomEventData } from '@mparticle/event-models';
 import Utils from './config/utils';
 import { BatchUploader } from '../../src/batchUploader';
@@ -14,13 +10,13 @@ import _BatchValidator from '../../src/mockBatchCreator';
 
 import { event0, event1, event2, event3 } from '../fixtures/events';
 import fetchMock from 'fetch-mock/esm/client';
-const { 
-    fetchMockSuccess, 
-    waitForCondition, 
+const {
+    fetchMockSuccess,
+    waitForCondition,
     hasIdentifyReturned,
     getBeaconBatch,
     setupFakeTimers,
-    triggerVisibilityHidden
+    triggerVisibilityHidden,
 } = Utils;
 
 declare global {
@@ -58,11 +54,11 @@ describe('batch uploader', () => {
     });
 
     // https://go.mparticle.com/work/
-    describe('AST background events fired during page events', () => { 
+    describe('AST background events fired during page events', () => {
         describe('should not fire AST background events if flag is astBackgroundEvents "False"', () => {
             beforeEach(() => {
                 clock = setupFakeTimers();
-                window.mParticle.config.flags.astBackgroundEvents = "False"
+                window.mParticle.config.flags.astBackgroundEvents = 'False';
             });
 
             afterEach(() => {
@@ -86,7 +82,7 @@ describe('batch uploader', () => {
                 // Parse the beacon data which is a batch
                 const batch = await getBeaconBatch(beaconSpy);
                 expect(batch.events, 'Expected beacon data to have events').to.exist;
-                expect(batch.events.length, 'Expected beacon data to have at least one event').to.equal(3);  
+                expect(batch.events.length, 'Expected beacon data to have at least one event').to.equal(3);
                 const [event1, event2, event3] = batch.events;
                 expect(event1.event_type).to.equal('session_start');
 
@@ -98,7 +94,7 @@ describe('batch uploader', () => {
 
         describe('should fire AST background events if flag is astBackgroundEvents "True"', () => {
             beforeEach(() => {
-                window.mParticle.config.flags.astBackgroundEvents = "True"
+                window.mParticle.config.flags.astBackgroundEvents = 'True';
                 clock = setupFakeTimers();
             });
 
@@ -106,54 +102,112 @@ describe('batch uploader', () => {
                 clock.restore();
             });
 
-        it('should add application state transition event when visibility changes to hidden', async () => {
-            window.mParticle.init(apiKey, window.mParticle.config);
-            await waitForCondition(hasIdentifyReturned);
-            // Add a regular event first to ensure we have something in the queue
-            window.mParticle.logEvent('Test Event');
-            // Mock navigator.sendBeacon
-            beaconSpy = sinon.spy(navigator, 'sendBeacon');
+            it('should add application state transition event when visibility changes to hidden', async () => {
+                window.mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                // Add a regular event first to ensure we have something in the queue
+                window.mParticle.logEvent('Test Event');
+                // Mock navigator.sendBeacon
+                beaconSpy = sinon.spy(navigator, 'sendBeacon');
 
-            triggerVisibilityHidden();
+                triggerVisibilityHidden();
 
-            // Verify that beacon was called
-            expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
+                // Verify that beacon was called
+                expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
 
-            // Parse the beacon data which is a batch
-            const batch = await getBeaconBatch(beaconSpy);
-            expect(batch.events, 'Expected beacon data to have events').to.exist;
-            expect(batch.events.length, 'Expected beacon data to have at least one event').to.be.greaterThan(0);
+                // Parse the beacon data which is a batch
+                const batch = await getBeaconBatch(beaconSpy);
+                expect(batch.events, 'Expected beacon data to have events').to.exist;
+                expect(batch.events.length, 'Expected beacon data to have at least one event').to.be.greaterThan(0);
 
-            // Verify the AST event properties
-            const lastEvent = batch.events[batch.events.length - 1];
+                // Verify the AST event properties
+                const lastEvent = batch.events[batch.events.length - 1];
 
-            expect(lastEvent.event_type).to.equal('application_state_transition');
-            expect(lastEvent.data.application_transition_type).to.equal('application_background');
-            expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
-        });
+                expect(lastEvent.event_type).to.equal('application_state_transition');
+                expect(lastEvent.data.application_transition_type).to.equal('application_background');
+                expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
+            });
 
+            it('should add application state transition event before pagehide', async () => {
+                window.mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
 
-        it('should add application state transition event before pagehide', async () => {
-            window.mParticle.init(apiKey, window.mParticle.config);
-            await waitForCondition(hasIdentifyReturned);
+                // Log a regular event
+                window.mParticle.logEvent('Test Event');
 
-            // Log a regular event
-            window.mParticle.logEvent('Test Event');
+                // Mock navigator.sendBeacon
+                beaconSpy = sinon.spy(navigator, 'sendBeacon');
 
-            // Mock navigator.sendBeacon
-            beaconSpy = sinon.spy(navigator, 'sendBeacon');
+                // Create event listener that prevents default
+                const preventUnload = (e) => {
+                    e.preventDefault();
+                    return (e.returnValue = '');
+                };
+                window.addEventListener('pagehide', preventUnload);
 
-            // Create event listener that prevents default
-            const preventUnload = (e) => {
-                e.preventDefault();
-                return (e.returnValue = '');
-            };
-            window.addEventListener('pagehide', preventUnload);
+                try {
+                    // Trigger pagehide
+                    const pagehideEvent = new Event('pagehide', { cancelable: true });
+                    window.dispatchEvent(pagehideEvent);
 
-            try {
-                // Trigger pagehide
-                const pagehideEvent = new Event('pagehide', { cancelable: true });
-                window.dispatchEvent(pagehideEvent);
+                    clock.runAll();
+
+                    // Verify that beacon was called
+                    expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
+
+                    // Parse the beacon data which is a batch
+                    const batch = await getBeaconBatch(beaconSpy);
+                    const events = batch.events;
+
+                    // The application state transition event should be the last event
+                    expect(events[events.length - 1].event_type).to.equal('application_state_transition');
+                    expect(events[events.length - 2].data.event_name).to.equal('Test Event');
+                } finally {
+                    window.removeEventListener('pagehide', preventUnload);
+                }
+            });
+
+            it('should create application state transition event with correct properties on event and batch', async () => {
+                window.mParticle.config.appName = 'Test App';
+                window.mParticle.config.appVersion = '1.0.0';
+                window.mParticle.config.package = 'com.test.app';
+
+                window.mParticle.config.identifyRequest = {
+                    userIdentities: {
+                        email: 'test@test.com',
+                    },
+                };
+
+                const consentState = window.mParticle.Consent.createConsentState();
+                const timestamp = new Date().getTime();
+                const ccpaConsent = window.mParticle.Consent.createCCPAConsent(
+                    true,
+                    timestamp,
+                    'consentDoc',
+                    'location',
+                    'hardware'
+                );
+                const gdprConsent = window.mParticle.Consent.createGDPRConsent(
+                    false,
+                    timestamp,
+                    'consentDoc',
+                    'location',
+                    'hardware'
+                );
+                consentState.setCCPAConsentState(ccpaConsent);
+                consentState.addGDPRConsentState('test purpose', gdprConsent);
+
+                window.mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                window.mParticle.Identity.getCurrentUser().setUserAttribute('foo', 'value');
+                const user = window.mParticle.Identity.getCurrentUser();
+                user.setConsentState(consentState);
+
+                // Mock navigator.sendBeacon
+                beaconSpy = sinon.spy(navigator, 'sendBeacon');
+
+                // Trigger visibility change
+                triggerVisibilityHidden();
 
                 clock.runAll();
 
@@ -162,203 +216,144 @@ describe('batch uploader', () => {
 
                 // Parse the beacon data which is a batch
                 const batch = await getBeaconBatch(beaconSpy);
-                const events = batch.events;
+                expect(batch.user_identities.email).to.equal('test@test.com');
+                expect(batch.user_attributes.foo).to.equal('value');
+                expect(batch.application_info.application_name).to.equal('Test App');
+                expect(batch.application_info.application_version).to.equal('1.0.0');
+                expect(batch.application_info.package).to.equal('com.test.app');
+                expect(batch.consent_state).to.have.property('ccpa');
+                expect(batch.consent_state.ccpa).to.have.property('data_sale_opt_out');
+                expect(batch.consent_state.ccpa.data_sale_opt_out).to.have.property('consented');
+                expect(batch.consent_state.ccpa.data_sale_opt_out.consented).to.equal(true);
+                expect(batch.consent_state.ccpa.data_sale_opt_out).to.have.property('timestamp_unixtime_ms');
+                expect(batch.consent_state.ccpa.data_sale_opt_out).to.have.property('document');
+                expect(batch.consent_state.gdpr).to.have.property('test purpose');
+                expect(batch.consent_state.gdpr['test purpose']).to.have.property('consented');
+                expect(batch.consent_state.gdpr['test purpose'].consented).to.equal(false);
+                expect(batch.consent_state.gdpr['test purpose']).to.have.property('timestamp_unixtime_ms');
+                expect(batch.consent_state.gdpr['test purpose']).to.have.property('document');
 
-                // The application state transition event should be the last event
-                expect(events[events.length - 1].event_type).to.equal('application_state_transition');
-                expect(events[events.length - 2].data.event_name).to.equal('Test Event');
-            } finally {
-                window.removeEventListener('pagehide', preventUnload);
-            }
-        });
+                const astEvent = batch.events[batch.events.length - 1];
 
-        it('should create application state transition event with correct properties on event and batch', async () => {
-            window.mParticle.config.appName = 'Test App';
-            window.mParticle.config.appVersion = '1.0.0';
-            window.mParticle.config.package = 'com.test.app';
+                expect(astEvent.event_type).to.equal('application_state_transition');
+                expect(astEvent.data.active_time_on_site_ms).to.be.a('number');
+                expect(astEvent.data.page_url).to.equal(window.location.href);
+                expect(astEvent.data.application_transition_type).to.equal('application_background');
+                expect(astEvent.data.custom_attributes).to.exist;
+                expect(astEvent.data.is_first_run).to.be.a('boolean');
+                expect(astEvent.data.is_upgrade).to.be.a('boolean');
+                expect(astEvent.data.location).to.equal(null);
+                expect(astEvent.data.session_start_unixtime_ms).to.be.a('number');
+                expect(astEvent.data.session_uuid).to.exist;
+                expect(astEvent.data.source_message_id).to.be.a('string');
+                expect(astEvent.data.timestamp_unixtime_ms).to.be.a('number');
 
-            window.mParticle.config.identifyRequest = {
-                userIdentities: {
-                    email: 'test@test.com'
-                }
-            };
+                // reset to prevent other tests from potentially failing
+                delete window.mParticle.config.appName;
+                delete window.mParticle.config.appVersion;
+                delete window.mParticle.config.package;
+            });
 
-            const consentState = window.mParticle.Consent.createConsentState();
-            const timestamp = new Date().getTime();
-            const ccpaConsent = window.mParticle.Consent.createCCPAConsent(
-                true,
-                timestamp,
-                'consentDoc',
-                'location',
-                'hardware'
-            );
-            const gdprConsent = window.mParticle.Consent.createGDPRConsent(
-                false,
-                timestamp,
-                'consentDoc',
-                'location',
-                'hardware'
-            );
-            consentState.setCCPAConsentState(ccpaConsent);
-            consentState.addGDPRConsentState('test purpose', gdprConsent);
+            it('should add integration attributes to AST event', async () => {
+                window.mParticle.config.appName = 'Test App';
+                window.mParticle.config.appVersion = '1.0.0';
+                window.mParticle.config.package = 'com.test.app';
 
-            window.mParticle.init(apiKey, window.mParticle.config);
-            await waitForCondition(hasIdentifyReturned);
-            window.mParticle.Identity.getCurrentUser().setUserAttribute('foo', 'value');
-            const user = window.mParticle.Identity.getCurrentUser();
-            user.setConsentState(consentState);
+                window.mParticle.config.identifyRequest = {
+                    userIdentities: {
+                        email: 'test@test.com',
+                    },
+                };
 
-            // Mock navigator.sendBeacon
-            beaconSpy = sinon.spy(navigator, 'sendBeacon');
+                window.mParticle.config.flags.captureIntegrationSpecificIds = 'False';
+                window.mParticle.config.flags['captureIntegrationSpecificIds.V2'] = 'roktonly';
 
-            // Trigger visibility change
-            triggerVisibilityHidden();
+                const consentState = window.mParticle.Consent.createConsentState();
+                const timestamp = new Date().getTime();
+                const ccpaConsent = window.mParticle.Consent.createCCPAConsent(
+                    true,
+                    timestamp,
+                    'consentDoc',
+                    'location',
+                    'hardware'
+                );
+                const gdprConsent = window.mParticle.Consent.createGDPRConsent(
+                    false,
+                    timestamp,
+                    'consentDoc',
+                    'location',
+                    'hardware'
+                );
+                consentState.setCCPAConsentState(ccpaConsent);
+                consentState.addGDPRConsentState('test purpose', gdprConsent);
 
-            clock.runAll();
+                window.mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                const integrationCapture = window.mParticle.getInstance()._IntegrationCapture;
+                // Mock the query params capture function because we cannot mock window.location.href
+                sinon.stub(integrationCapture, 'getQueryParams').returns({ rtid: 'test-click-id' });
+                window.mParticle.Identity.getCurrentUser().setUserAttribute('foo', 'value');
+                const user = window.mParticle.Identity.getCurrentUser();
+                user.setConsentState(consentState);
 
-            // Verify that beacon was called
-            expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
+                // Mock navigator.sendBeacon
+                beaconSpy = sinon.spy(navigator, 'sendBeacon');
 
-            // Parse the beacon data which is a batch
-            const batch = await getBeaconBatch(beaconSpy);
-            expect(batch.user_identities.email).to.equal('test@test.com');
-            expect(batch.user_attributes.foo).to.equal('value');
-            expect(batch.application_info.application_name).to.equal('Test App');
-            expect(batch.application_info.application_version).to.equal('1.0.0');
-            expect(batch.application_info.package).to.equal('com.test.app');
-            expect(batch.consent_state).to.have.property('ccpa');
-            expect(batch.consent_state.ccpa).to.have.property('data_sale_opt_out');
-            expect(batch.consent_state.ccpa.data_sale_opt_out).to.have.property('consented');
-            expect(batch.consent_state.ccpa.data_sale_opt_out.consented).to.equal(true);
-            expect(batch.consent_state.ccpa.data_sale_opt_out).to.have.property('timestamp_unixtime_ms');
-            expect(batch.consent_state.ccpa.data_sale_opt_out).to.have.property('document');
-            expect(batch.consent_state.gdpr).to.have.property('test purpose');
-            expect(batch.consent_state.gdpr['test purpose']).to.have.property('consented');
-            expect(batch.consent_state.gdpr['test purpose'].consented).to.equal(false);
-            expect(batch.consent_state.gdpr['test purpose']).to.have.property('timestamp_unixtime_ms');
-            expect(batch.consent_state.gdpr['test purpose']).to.have.property('document');
-            
-            const astEvent = batch.events[batch.events.length - 1];
+                // Trigger visibility change
+                triggerVisibilityHidden();
+                clock.runAll();
 
-            expect(astEvent.event_type).to.equal('application_state_transition');
-            expect(astEvent.data.active_time_on_site_ms).to.be.a('number');
-            expect(astEvent.data.page_url).to.equal(window.location.href);
-            expect(astEvent.data.application_transition_type).to.equal('application_background');
-            expect(astEvent.data.custom_attributes).to.exist;
-            expect(astEvent.data.is_first_run).to.be.a('boolean');
-            expect(astEvent.data.is_upgrade).to.be.a('boolean');
-            expect(astEvent.data.location).to.equal(null);
-            expect(astEvent.data.session_start_unixtime_ms).to.be.a('number');
-            expect(astEvent.data.session_uuid).to.exist;
-            expect(astEvent.data.source_message_id).to.be.a('string');
-            expect(astEvent.data.timestamp_unixtime_ms).to.be.a('number');
+                // Verify that beacon was called
+                expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
 
-            // reset to prevent other tests from potentially failing
-            delete window.mParticle.config.appName;
-            delete window.mParticle.config.appVersion;
-            delete window.mParticle.config.package;
-        });
+                // Parse the beacon data which is a batch
+                const batch = await getBeaconBatch(beaconSpy);
+                expect(batch.user_identities.email).to.equal('test@test.com');
+                expect(batch.user_attributes.foo).to.equal('value');
+                expect(batch.application_info.application_name).to.equal('Test App');
+                expect(batch.application_info.application_version).to.equal('1.0.0');
+                expect(batch.application_info.package).to.equal('com.test.app');
+                expect(batch.consent_state).to.have.property('ccpa');
+                expect(batch.consent_state.ccpa).to.have.property('data_sale_opt_out');
+                expect(batch.consent_state.ccpa.data_sale_opt_out).to.have.property('consented');
+                expect(batch.consent_state.ccpa.data_sale_opt_out.consented).to.equal(true);
+                expect(batch.consent_state.ccpa.data_sale_opt_out).to.have.property('timestamp_unixtime_ms');
+                expect(batch.consent_state.ccpa.data_sale_opt_out).to.have.property('document');
+                expect(batch.consent_state.gdpr).to.have.property('test purpose');
+                expect(batch.consent_state.gdpr['test purpose']).to.have.property('consented');
+                expect(batch.consent_state.gdpr['test purpose'].consented).to.equal(false);
+                expect(batch.consent_state.gdpr['test purpose']).to.have.property('timestamp_unixtime_ms');
+                expect(batch.consent_state.gdpr['test purpose']).to.have.property('document');
+                expect(batch.integration_attributes).to.exist;
+                expect(batch.integration_attributes['1277']).to.exist;
+                expect(batch.integration_attributes['1277'].passbackconversiontrackingid).to.equal('test-click-id');
 
-        it('should add integration attributes to AST event', async () => {
-            window.mParticle.config.appName = 'Test App';
-            window.mParticle.config.appVersion = '1.0.0';
-            window.mParticle.config.package = 'com.test.app';
+                const astEvent = batch.events[batch.events.length - 1];
 
-            window.mParticle.config.identifyRequest = {
-                userIdentities: {
-                    email: 'test@test.com'
-                }
-            };
+                expect(astEvent.event_type).to.equal('application_state_transition');
+                expect(astEvent.data.active_time_on_site_ms).to.be.a('number');
+                expect(astEvent.data.page_url).to.equal(window.location.href);
+                expect(astEvent.data.application_transition_type).to.equal('application_background');
+                expect(astEvent.data.custom_attributes).to.exist;
+                expect(astEvent.data.is_first_run).to.be.a('boolean');
+                expect(astEvent.data.is_upgrade).to.be.a('boolean');
+                expect(astEvent.data.location).to.equal(null);
+                expect(astEvent.data.session_start_unixtime_ms).to.be.a('number');
+                expect(astEvent.data.session_uuid).to.exist;
+                expect(astEvent.data.source_message_id).to.be.a('string');
+                expect(astEvent.data.timestamp_unixtime_ms).to.be.a('number');
 
-            window.mParticle.config.flags.captureIntegrationSpecificIds = "False";
-            window.mParticle.config.flags['captureIntegrationSpecificIds.V2'] = "roktonly";
-
-            const consentState = window.mParticle.Consent.createConsentState();
-            const timestamp = new Date().getTime();
-            const ccpaConsent = window.mParticle.Consent.createCCPAConsent(
-                true,
-                timestamp,
-                'consentDoc',
-                'location',
-                'hardware'
-            );
-            const gdprConsent = window.mParticle.Consent.createGDPRConsent(
-                false,
-                timestamp,
-                'consentDoc',
-                'location',
-                'hardware'
-            );
-            consentState.setCCPAConsentState(ccpaConsent);
-            consentState.addGDPRConsentState('test purpose', gdprConsent);
-
-            window.mParticle.init(apiKey, window.mParticle.config);
-            await waitForCondition(hasIdentifyReturned);
-            const integrationCapture = window.mParticle.getInstance()._IntegrationCapture;
-            // Mock the query params capture function because we cannot mock window.location.href
-            sinon.stub(integrationCapture, 'getQueryParams').returns({ rtid: 'test-click-id' });
-            window.mParticle.Identity.getCurrentUser().setUserAttribute('foo', 'value');
-            const user = window.mParticle.Identity.getCurrentUser();
-            user.setConsentState(consentState);
-
-            // Mock navigator.sendBeacon
-            beaconSpy = sinon.spy(navigator, 'sendBeacon');
-
-            // Trigger visibility change
-            triggerVisibilityHidden();
-            clock.runAll();
-
-            // Verify that beacon was called
-            expect(beaconSpy.calledOnce, 'Expected beacon to be called once').to.be.true;
-
-            // Parse the beacon data which is a batch
-            const batch = await getBeaconBatch(beaconSpy);
-            expect(batch.user_identities.email).to.equal('test@test.com');
-            expect(batch.user_attributes.foo).to.equal('value');
-            expect(batch.application_info.application_name).to.equal('Test App');
-            expect(batch.application_info.application_version).to.equal('1.0.0');
-            expect(batch.application_info.package).to.equal('com.test.app');
-            expect(batch.consent_state).to.have.property('ccpa');
-            expect(batch.consent_state.ccpa).to.have.property('data_sale_opt_out');
-            expect(batch.consent_state.ccpa.data_sale_opt_out).to.have.property('consented');
-            expect(batch.consent_state.ccpa.data_sale_opt_out.consented).to.equal(true);
-            expect(batch.consent_state.ccpa.data_sale_opt_out).to.have.property('timestamp_unixtime_ms');
-            expect(batch.consent_state.ccpa.data_sale_opt_out).to.have.property('document');
-            expect(batch.consent_state.gdpr).to.have.property('test purpose');
-            expect(batch.consent_state.gdpr['test purpose']).to.have.property('consented');
-            expect(batch.consent_state.gdpr['test purpose'].consented).to.equal(false);
-            expect(batch.consent_state.gdpr['test purpose']).to.have.property('timestamp_unixtime_ms');
-            expect(batch.consent_state.gdpr['test purpose']).to.have.property('document');
-            expect(batch.integration_attributes).to.exist;
-            expect(batch.integration_attributes['1277']).to.exist;
-            expect(batch.integration_attributes['1277'].passbackconversiontrackingid).to.equal('test-click-id');
-
-            const astEvent = batch.events[batch.events.length - 1];
-
-            expect(astEvent.event_type).to.equal('application_state_transition');
-            expect(astEvent.data.active_time_on_site_ms).to.be.a('number');
-            expect(astEvent.data.page_url).to.equal(window.location.href);
-            expect(astEvent.data.application_transition_type).to.equal('application_background');
-            expect(astEvent.data.custom_attributes).to.exist;
-            expect(astEvent.data.is_first_run).to.be.a('boolean');
-            expect(astEvent.data.is_upgrade).to.be.a('boolean');
-            expect(astEvent.data.location).to.equal(null);
-            expect(astEvent.data.session_start_unixtime_ms).to.be.a('number');
-            expect(astEvent.data.session_uuid).to.exist;
-            expect(astEvent.data.source_message_id).to.be.a('string');
-            expect(astEvent.data.timestamp_unixtime_ms).to.be.a('number');
-
-            // reset to prevent other tests from potentially failing
-            delete window.mParticle.config.appName;
-            delete window.mParticle.config.appVersion;
-            delete window.mParticle.config.package;
-        });
+                // reset to prevent other tests from potentially failing
+                delete window.mParticle.config.appName;
+                delete window.mParticle.config.appVersion;
+                delete window.mParticle.config.package;
+            });
         });
     });
 
     describe('AST Debouncing events', () => {
         beforeEach(() => {
-            window.mParticle.config.flags.astBackgroundEvents = "True";
+            window.mParticle.config.flags.astBackgroundEvents = 'True';
             clock = setupFakeTimers();
         });
 
@@ -370,7 +365,7 @@ describe('batch uploader', () => {
             window.mParticle.init(apiKey, window.mParticle.config);
 
             await waitForCondition(hasIdentifyReturned);
-            
+
             // Add a regular event first to ensure we have something in the queue
             window.mParticle.logEvent('Test Event');
             // Mock navigator.sendBeacon
@@ -402,7 +397,7 @@ describe('batch uploader', () => {
             clock.restore();
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
-            
+
             clock = setupFakeTimers();
             // Add a regular event first to ensure we have something in the queue
             window.mParticle.logEvent('Test Event');
@@ -431,15 +426,15 @@ describe('batch uploader', () => {
 
             expect(beaconSpy.calledTwice, 'Expected beacon to be called twice').to.be.true;
         });
-    })
+    });
 
     describe('Unit Tests', () => {
         describe('#queueEvent', () => {
             it('should add events to the Pending Events Queue', async () => {
                 window.mParticle.init(apiKey, window.mParticle.config);
-                
+
                 await waitForCondition(hasIdentifyReturned);
-                
+
                 const mpInstance = window.mParticle.getInstance();
 
                 const uploader = new BatchUploader(mpInstance, 1000);
@@ -464,7 +459,7 @@ describe('batch uploader', () => {
                     Debug: false,
                     DeviceId: 'test-device',
                     Timestamp: 0,
-                    ActiveTimeOnSite: 10
+                    ActiveTimeOnSite: 10,
                 };
 
                 uploader.queueEvent(event);
@@ -507,7 +502,6 @@ describe('batch uploader', () => {
         });
 
         describe('#uploadBatches', () => {
-
             it('should reject batches without events', async () => {
                 window.mParticle.init(apiKey, window.mParticle.config);
 
@@ -527,22 +521,15 @@ describe('batch uploader', () => {
 
                 const actualBatch = batchValidator.returnBatch(baseEvent);
 
-                const eventlessBatch = batchValidator.returnBatch(
-                    {} as unknown as BaseEvent
-                );
+                const eventlessBatch = batchValidator.returnBatch({} as unknown as BaseEvent);
 
                 fetchMock.resetHistory();
                 // HACK: Directly access uploader to Force an upload
-                await (<any>uploader).uploadBatches(
-                    [actualBatch, eventlessBatch],
-                    false
-                );
+                await (<any>uploader).uploadBatches([actualBatch, eventlessBatch], false);
 
                 expect(fetchMock.calls().length).to.equal(1);
 
-                const actualBatchResult = JSON.parse(
-                    fetchMock.calls()[0][1].body as string
-                );
+                const actualBatchResult = JSON.parse(fetchMock.calls()[0][1].body as string);
 
                 expect(actualBatchResult.events.length).to.equal(1);
                 expect(actualBatchResult.events).to.eql(actualBatch.events);
@@ -576,33 +563,21 @@ describe('batch uploader', () => {
                 });
 
                 // HACK: Directly access uploader to Force an upload
-                const batchesNotUploaded = await (<any>uploader).uploadBatches(
-                    [batch1, batch2, batch3],
-                    false
-                );
+                const batchesNotUploaded = await (<any>uploader).uploadBatches([batch1, batch2, batch3], false);
 
-                expect(
-                    batchesNotUploaded.length,
-                    'Should have 3 uploaded batches'
-                ).to.equal(3);
+                expect(batchesNotUploaded.length, 'Should have 3 uploaded batches').to.equal(3);
 
-                expect(
-                    batchesNotUploaded[0].events[0].data.event_name
-                ).to.equal('Test Event 1');
-                expect(
-                    batchesNotUploaded[1].events[0].data.event_name
-                ).to.equal('Test Event 2');
-                expect(
-                    batchesNotUploaded[2].events[0].data.event_name
-                ).to.equal('Test Event 3');
+                expect(batchesNotUploaded[0].events[0].data.event_name).to.equal('Test Event 1');
+                expect(batchesNotUploaded[1].events[0].data.event_name).to.equal('Test Event 2');
+                expect(batchesNotUploaded[2].events[0].data.event_name).to.equal('Test Event 3');
             });
 
             it('should return batches that fail to upload with 429 errors', async () => {
                 window.mParticle.init(apiKey, window.mParticle.config);
 
                 await waitForCondition(hasIdentifyReturned);
-                
-                fetchMock.post(urls.events,  429);
+
+                fetchMock.post(urls.events, 429);
 
                 const mpInstance = window.mParticle.getInstance();
 
@@ -625,32 +600,20 @@ describe('batch uploader', () => {
                 });
 
                 // HACK: Directly access uploader to Force an upload
-                const batchesNotUploaded = await (<any>uploader).uploadBatches(
-                    [batch1, batch2, batch3],
-                    false
-                );
+                const batchesNotUploaded = await (<any>uploader).uploadBatches([batch1, batch2, batch3], false);
 
-                expect(
-                    batchesNotUploaded.length,
-                    'Should have 3 uploaded batches'
-                ).to.equal(3);
+                expect(batchesNotUploaded.length, 'Should have 3 uploaded batches').to.equal(3);
 
-                expect(
-                    batchesNotUploaded[0].events[0].data.event_name
-                ).to.equal('Test Event 1');
-                expect(
-                    batchesNotUploaded[1].events[0].data.event_name
-                ).to.equal('Test Event 2');
-                expect(
-                    batchesNotUploaded[2].events[0].data.event_name
-                ).to.equal('Test Event 3');
+                expect(batchesNotUploaded[0].events[0].data.event_name).to.equal('Test Event 1');
+                expect(batchesNotUploaded[1].events[0].data.event_name).to.equal('Test Event 2');
+                expect(batchesNotUploaded[2].events[0].data.event_name).to.equal('Test Event 3');
             });
 
             it('should return null if batches fail to upload with 401 errors', async () => {
                 window.mParticle.init(apiKey, window.mParticle.config);
 
                 await waitForCondition(hasIdentifyReturned);
-                
+
                 fetchMock.post(urls.events, 401);
 
                 const mpInstance = window.mParticle.getInstance();
@@ -674,10 +637,7 @@ describe('batch uploader', () => {
                 });
 
                 // HACK: Directly access uploader to Force an upload
-                const batchesNotUploaded = await (<any>uploader).uploadBatches(
-                    [batch1, batch2, batch3],
-                    false
-                );
+                const batchesNotUploaded = await (<any>uploader).uploadBatches([batch1, batch2, batch3], false);
 
                 expect(batchesNotUploaded === null).to.equal(true);
             });
@@ -691,16 +651,18 @@ describe('batch uploader', () => {
                 const mpInstance = window.mParticle.getInstance();
                 const uploader = mpInstance._APIClient.uploader;
 
-                expect(uploader).to.equal(null)
+                expect(uploader).to.equal(null);
 
-                expect(() => { window.mParticle.upload() }).to.not.throw(TypeError, /Cannot read properties of null \(reading 'prepareAndUpload'\)/)
+                expect(() => {
+                    window.mParticle.upload();
+                }).to.not.throw(TypeError, /Cannot read properties of null \(reading 'prepareAndUpload'\)/);
             });
 
             it('should return batches that fail to unknown HTTP errors', async () => {
                 window.mParticle.init(apiKey, window.mParticle.config);
 
                 await waitForCondition(hasIdentifyReturned);
-                
+
                 fetchMock.post(urls.events, 400);
 
                 const mpInstance = window.mParticle.getInstance();
@@ -724,27 +686,15 @@ describe('batch uploader', () => {
                 });
 
                 // HACK: Directly access uploader to Force an upload
-                const batchesNotUploaded = await (<any>uploader).uploadBatches(
-                    [batch1, batch2, batch3],
-                    false
-                );
+                const batchesNotUploaded = await (<any>uploader).uploadBatches([batch1, batch2, batch3], false);
 
                 expect(batchesNotUploaded).to.be.ok;
 
-                expect(
-                    batchesNotUploaded.length,
-                    'Should have 3 uploaded batches'
-                ).to.equal(3);
+                expect(batchesNotUploaded.length, 'Should have 3 uploaded batches').to.equal(3);
 
-                expect(
-                    batchesNotUploaded[0].events[0].data.event_name
-                ).to.equal('Test Event 1');
-                expect(
-                    batchesNotUploaded[1].events[0].data.event_name
-                ).to.equal('Test Event 2');
-                expect(
-                    batchesNotUploaded[2].events[0].data.event_name
-                ).to.equal('Test Event 3');
+                expect(batchesNotUploaded[0].events[0].data.event_name).to.equal('Test Event 1');
+                expect(batchesNotUploaded[1].events[0].data.event_name).to.equal('Test Event 2');
+                expect(batchesNotUploaded[2].events[0].data.event_name).to.equal('Test Event 3');
             });
         });
     });
@@ -756,7 +706,7 @@ describe('batch uploader', () => {
             };
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
-            
+
             const getItemSpy = sinon.spy(Storage.prototype, 'getItem');
             const setItemSpy = sinon.spy(Storage.prototype, 'setItem');
 
@@ -784,7 +734,7 @@ describe('batch uploader', () => {
                 Debug: false,
                 DeviceId: 'test-device',
                 Timestamp: 0,
-                ActiveTimeOnSite: 10
+                ActiveTimeOnSite: 10,
             };
 
             const expectedEvent = [event];
@@ -794,14 +744,10 @@ describe('batch uploader', () => {
             expect(uploader.eventsQueuedForProcessing.length).to.eql(1);
 
             expect(setItemSpy.called).to.eq(true);
-            expect(setItemSpy.getCall(0).lastArg).to.equal(
-                JSON.stringify(expectedEvent)
-            );
+            expect(setItemSpy.getCall(0).lastArg).to.equal(JSON.stringify(expectedEvent));
 
             expect(getItemSpy.called).to.eq(true);
-            expect(getItemSpy.getCall(0).lastArg).to.equal(
-                'mprtcl-v4_abcdef-events'
-            );
+            expect(getItemSpy.getCall(0).lastArg).to.equal('mprtcl-v4_abcdef-events');
         });
 
         it('should not use local storage when disabled', async () => {
@@ -835,7 +781,7 @@ describe('batch uploader', () => {
                 Debug: false,
                 DeviceId: 'test-device',
                 Timestamp: 0,
-                ActiveTimeOnSite: 10
+                ActiveTimeOnSite: 10,
             };
 
             uploader.queueEvent(event);
@@ -846,9 +792,7 @@ describe('batch uploader', () => {
             expect(setItemSpy.called).to.eq(false);
             expect(getItemSpy.called).to.eq(false);
 
-            expect(
-                window.localStorage.getItem('mprtcl-v4_abcdef-events')
-            ).to.equal(null);
+            expect(window.localStorage.getItem('mprtcl-v4_abcdef-events')).to.equal(null);
         });
     });
 
@@ -869,7 +813,7 @@ describe('batch uploader', () => {
             window.mParticle.init(apiKey, window.mParticle.config);
 
             await waitForCondition(hasIdentifyReturned);
-            
+
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
 
@@ -878,26 +822,22 @@ describe('batch uploader', () => {
             // into a batch
             uploader.queueEvent(event0);
 
-            const eventQueue: SDKEvent[] = uploader.eventsQueuedForProcessing;
+            const eventQueue: Array<SDKEvent> = uploader.eventsQueuedForProcessing;
 
             expect(eventQueue.length).to.equal(3);
 
-            expect(
-                window.localStorage.getItem(eventStorageKey),
-                'Local Storage Events should be empty'
-            ).to.equal(null);
+            expect(window.localStorage.getItem(eventStorageKey), 'Local Storage Events should be empty').to.equal(null);
 
-            const batchQueue: Batch[] = uploader.batchesQueuedForProcessing;
+            const batchQueue: Array<Batch> = uploader.batchesQueuedForProcessing;
 
             // Manually initiate the upload process - turn event into batches and upload the batch
             window.mParticle.upload();
 
             expect(batchQueue.length).to.equal(2);
 
-            expect(
-                window.localStorage.getItem(batchStorageKey),
-                'Local Storage Batches should be empty'
-            ).to.equal(null);
+            expect(window.localStorage.getItem(batchStorageKey), 'Local Storage Batches should be empty').to.equal(
+                null
+            );
         });
     });
 
@@ -914,7 +854,7 @@ describe('batch uploader', () => {
 
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
-            
+
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
 
@@ -923,23 +863,17 @@ describe('batch uploader', () => {
             // into a batch
             uploader.queueEvent(event0);
 
-            const eventQueue: SDKEvent[] = uploader.eventsQueuedForProcessing;
+            const eventQueue: Array<SDKEvent> = uploader.eventsQueuedForProcessing;
 
             expect(eventQueue.length).to.equal(3);
 
-            const storedEvents: SDKEvent[] = JSON.parse(
-                window.sessionStorage.getItem(eventStorageKey)
-            );
+            const storedEvents: Array<SDKEvent> = JSON.parse(window.sessionStorage.getItem(eventStorageKey));
 
             expect(storedEvents.length, 'Local Storage Events').to.equal(3);
 
-            expect(storedEvents[0], 'Local Storage: Session Start').to.eql(
-                eventQueue[0]
-            );
+            expect(storedEvents[0], 'Local Storage: Session Start').to.eql(eventQueue[0]);
             expect(storedEvents[1], 'Local Storage: AST').to.eql(eventQueue[1]);
-            expect(storedEvents[2], 'Local Storage: Test Event 0').to.eql(
-                eventQueue[2]
-            );
+            expect(storedEvents[2], 'Local Storage: Test Event 0').to.eql(eventQueue[2]);
         });
 
         it('should purge events from Session Storage upon Batch Creation', async () => {
@@ -949,7 +883,7 @@ describe('batch uploader', () => {
 
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
-            
+
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
 
@@ -961,14 +895,9 @@ describe('batch uploader', () => {
             expect(uploader.eventsQueuedForProcessing.length).to.equal(3);
             expect(uploader.batchesQueuedForProcessing.length).to.equal(0);
 
-            expect(
-                window.sessionStorage.getItem(eventStorageKey),
-                'Queued Events should appear in Session Storage'
-            ).to.be.ok;
-            expect(
-                JSON.parse(window.sessionStorage.getItem(eventStorageKey))
-                    .length
-            ).to.equal(3);
+            expect(window.sessionStorage.getItem(eventStorageKey), 'Queued Events should appear in Session Storage').to
+                .be.ok;
+            expect(JSON.parse(window.sessionStorage.getItem(eventStorageKey)).length).to.equal(3);
 
             // Manually initiate the upload process - turn event into batches and upload the batch
             await window.mParticle.getInstance()._APIClient.uploader.prepareAndUpload();
@@ -1002,9 +931,7 @@ describe('batch uploader', () => {
 
             expect(window.localStorage.getItem(batchStorageKey)).to.be.ok;
 
-            const storedBatches: Batch[] = JSON.parse(
-                window.localStorage.getItem(batchStorageKey)
-            );
+            const storedBatches: Array<Batch> = JSON.parse(window.localStorage.getItem(batchStorageKey));
 
             // Note: Events are usually are groupd together into a single batch
             // However, in this case, since we are mocking a custom event (event0)
@@ -1012,22 +939,12 @@ describe('batch uploader', () => {
             // the Session Start + AST event from init as they have a different
             // SessionID
             expect(storedBatches.length).to.equal(2);
-            expect(
-                storedBatches[0].events[0].event_type,
-                'Batch 1: Session Start'
-            ).to.equal('session_start');
-            expect(
-                storedBatches[0].events[1].event_type,
-                'Batch 1: AST'
-            ).to.equal('application_state_transition');
+            expect(storedBatches[0].events[0].event_type, 'Batch 1: Session Start').to.equal('session_start');
+            expect(storedBatches[0].events[1].event_type, 'Batch 1: AST').to.equal('application_state_transition');
 
+            expect(storedBatches[1].events[0].event_type, 'Batch 2: Custom Event Type').to.equal('custom_event');
             expect(
-                storedBatches[1].events[0].event_type,
-                'Batch 2: Custom Event Type'
-            ).to.equal('custom_event');
-            expect(
-                (storedBatches[1].events[0].data as CustomEventData)
-                    .event_name,
+                (storedBatches[1].events[0].data as CustomEventData).event_name,
                 'Batch 2: Custom Event Name'
             ).to.equal('Test Event 0');
         });
@@ -1053,10 +970,8 @@ describe('batch uploader', () => {
             });
             const storeStub = sinon
                 .stub((<any>uploader).batchVault, 'store')
-                .callsFake((batches: Batch[]) =>
-                    batches.length <= 2
-                        ? StorageResult.Success
-                        : StorageResult.QuotaExceeded
+                .callsFake((batches: Array<Batch>) =>
+                    batches.length <= 2 ? StorageResult.Success : StorageResult.QuotaExceeded
                 );
             const warningSpy = sinon.spy(mpInstance.Logger, 'warning');
 
@@ -1065,18 +980,12 @@ describe('batch uploader', () => {
             (<any>uploader).storeBatchesQueuedForProcessing();
 
             expect(storeStub.callCount).to.equal(2);
-            expect(storeStub.getCall(0).args[0]).to.eql([
-                batch1,
-                batch2,
-                batch3,
-            ]);
+            expect(storeStub.getCall(0).args[0]).to.eql([batch1, batch2, batch3]);
             expect(storeStub.getCall(1).args[0]).to.eql([batch2, batch3]);
             expect(uploader.batchesQueuedForProcessing).to.eql([]);
-            expect(
-                warningSpy.calledWith(
-                    'Offline batch storage is over quota. Dropped 1 oldest batch(es).'
-                )
-            ).to.equal(true);
+            expect(warningSpy.calledWith('Offline batch storage is over quota. Dropped 1 oldest batch(es).')).to.equal(
+                true
+            );
         });
 
         it('should retain batches in memory without trimming when offline storage is unavailable', async () => {
@@ -1098,9 +1007,7 @@ describe('batch uploader', () => {
                 messageType: 4,
                 name: 'Test Event 3',
             });
-            const storeStub = sinon
-                .stub((<any>uploader).batchVault, 'store')
-                .returns(StorageResult.Unavailable);
+            const storeStub = sinon.stub((<any>uploader).batchVault, 'store').returns(StorageResult.Unavailable);
             const warningSpy = sinon.spy(mpInstance.Logger, 'warning');
 
             uploader.batchesQueuedForProcessing = [batch1, batch2, batch3];
@@ -1110,20 +1017,10 @@ describe('batch uploader', () => {
             // Storage being unavailable should short-circuit immediately rather
             // than attempt to trim, so only the full payload is tried.
             expect(storeStub.callCount).to.equal(1);
-            expect(storeStub.getCall(0).args[0]).to.eql([
-                batch1,
-                batch2,
-                batch3,
-            ]);
-            expect(uploader.batchesQueuedForProcessing).to.eql([
-                batch1,
-                batch2,
-                batch3,
-            ]);
+            expect(storeStub.getCall(0).args[0]).to.eql([batch1, batch2, batch3]);
+            expect(uploader.batchesQueuedForProcessing).to.eql([batch1, batch2, batch3]);
             expect(
-                warningSpy.calledWith(
-                    'Offline batch storage is unavailable. Retaining batches in memory.'
-                )
+                warningSpy.calledWith('Offline batch storage is unavailable. Retaining batches in memory.')
             ).to.equal(true);
         });
 
@@ -1142,9 +1039,7 @@ describe('batch uploader', () => {
                 messageType: 4,
                 name: 'Test Event 2',
             });
-            const storeStub = sinon
-                .stub((<any>uploader).batchVault, 'store')
-                .returns(StorageResult.QuotaExceeded);
+            const storeStub = sinon.stub((<any>uploader).batchVault, 'store').returns(StorageResult.QuotaExceeded);
             const warningSpy = sinon.spy(mpInstance.Logger, 'warning');
 
             uploader.batchesQueuedForProcessing = [batch1, batch2];
@@ -1154,19 +1049,12 @@ describe('batch uploader', () => {
             // Trimming runs down to the newest batch and still can't fit, so
             // every subset is attempted before retaining in memory.
             expect(storeStub.callCount).to.equal(2);
-            expect(uploader.batchesQueuedForProcessing).to.eql([
-                batch1,
-                batch2,
-            ]);
+            expect(uploader.batchesQueuedForProcessing).to.eql([batch1, batch2]);
+            expect(warningSpy.calledWith('Offline batch storage is over quota. Retaining batches in memory.')).to.equal(
+                true
+            );
             expect(
-                warningSpy.calledWith(
-                    'Offline batch storage is over quota. Retaining batches in memory.'
-                )
-            ).to.equal(true);
-            expect(
-                warningSpy.calledWith(
-                    'Offline batch storage is unavailable. Retaining batches in memory.'
-                ),
+                warningSpy.calledWith('Offline batch storage is unavailable. Retaining batches in memory.'),
                 'should not mislabel quota exhaustion as unavailable'
             ).to.equal(false);
         });
@@ -1192,10 +1080,7 @@ describe('batch uploader', () => {
                 threwError = true;
             }
 
-            expect(
-                threwError,
-                'prepareAndUpload should not throw on null retrieve'
-            ).to.equal(false);
+            expect(threwError, 'prepareAndUpload should not throw on null retrieve').to.equal(false);
         });
 
         it('should save batches in sequence to Local Storage when an HTTP 429 error is encountered', async () => {
@@ -1205,7 +1090,7 @@ describe('batch uploader', () => {
 
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
-            
+
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
 
@@ -1219,27 +1104,15 @@ describe('batch uploader', () => {
 
             expect(window.localStorage.getItem(batchStorageKey)).to.be.ok;
 
-            const storedBatches: Batch[] = JSON.parse(
-                window.localStorage.getItem(batchStorageKey)
-            );
+            const storedBatches: Array<Batch> = JSON.parse(window.localStorage.getItem(batchStorageKey));
 
             expect(storedBatches.length).to.equal(2);
-            expect(
-                storedBatches[0].events[0].event_type,
-                'Batch 1: Session Start'
-            ).to.equal('session_start');
-            expect(
-                storedBatches[0].events[1].event_type,
-                'Batch 1: AST'
-            ).to.equal('application_state_transition');
+            expect(storedBatches[0].events[0].event_type, 'Batch 1: Session Start').to.equal('session_start');
+            expect(storedBatches[0].events[1].event_type, 'Batch 1: AST').to.equal('application_state_transition');
 
+            expect(storedBatches[1].events[0].event_type, 'Batch 2: Custom Event Type').to.equal('custom_event');
             expect(
-                storedBatches[1].events[0].event_type,
-                'Batch 2: Custom Event Type'
-            ).to.equal('custom_event');
-            expect(
-                (storedBatches[1].events[0].data as CustomEventData)
-                    .event_name,
+                (storedBatches[1].events[0].data as CustomEventData).event_name,
                 'Batch 2: Custom Event Name'
             ).to.equal('Test Event 0');
         });
@@ -1254,7 +1127,7 @@ describe('batch uploader', () => {
 
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
-            
+
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
 
@@ -1266,9 +1139,7 @@ describe('batch uploader', () => {
             // Manually initiate the upload process - turn event into batches and upload the batch
             await window.mParticle.getInstance()._APIClient.uploader.prepareAndUpload();
 
-            expect(window.localStorage.getItem(batchStorageKey)).to.equal(
-                ''
-            );
+            expect(window.localStorage.getItem(batchStorageKey)).to.equal('');
         });
 
         it('should save batches in sequence to Local Storage when upload is interrupted', async () => {
@@ -1349,9 +1220,7 @@ describe('batch uploader', () => {
 
             expect(window.localStorage.getItem(batchStorageKey)).to.be.ok;
 
-            const storedBatches: Batch[] = JSON.parse(
-                window.localStorage.getItem(batchStorageKey)
-            );
+            const storedBatches: Array<Batch> = JSON.parse(window.localStorage.getItem(batchStorageKey));
 
             expect(storedBatches.length).to.equal(3);
 
@@ -1365,25 +1234,21 @@ describe('batch uploader', () => {
 
             // Verify storedBatches[0] = Batch 2 (Test Event 3 & 4)
             expect(
-                (storedBatches[0].events[0].data as CustomEventData)
-                    .event_name,
+                (storedBatches[0].events[0].data as CustomEventData).event_name,
                 'Stored Batch 0: Test Event 3'
             ).to.equal('Test Event 3');
             expect(
-                (storedBatches[0].events[1].data as CustomEventData)
-                    .event_name,
+                (storedBatches[0].events[1].data as CustomEventData).event_name,
                 'Stored Batch 0: Test Event 4'
             ).to.equal('Test Event 4');
 
             // Verify storedBatches[1] = Batch 3 (Test Event 5 & 6)
             expect(
-                (storedBatches[1].events[0].data as CustomEventData)
-                    .event_name,
+                (storedBatches[1].events[0].data as CustomEventData).event_name,
                 'Stored Batch 1: Test Event 5'
             ).to.equal('Test Event 5');
             expect(
-                (storedBatches[1].events[1].data as CustomEventData)
-                    .event_name,
+                (storedBatches[1].events[1].data as CustomEventData).event_name,
                 'Stored Batch 1: Test Event 6'
             ).to.equal('Test Event 6');
 
@@ -1392,14 +1257,10 @@ describe('batch uploader', () => {
             // come before any queued events, but we manually queued the previous
             // batches to increase the number of attempted uploads and verify that batches
             // are retained in Offline Storage in order of creation
-            expect(
-                storedBatches[2].events[0].event_type,
-                'Stored Batch 2: Session Start'
-            ).to.equal('session_start');
-            expect(
-                storedBatches[2].events[1].event_type,
-                'Stored Batch 2: AST'
-            ).to.equal('application_state_transition');
+            expect(storedBatches[2].events[0].event_type, 'Stored Batch 2: Session Start').to.equal('session_start');
+            expect(storedBatches[2].events[1].event_type, 'Stored Batch 2: AST').to.equal(
+                'application_state_transition'
+            );
         });
 
         it('should attempt to upload batches from Offline Storage before new batches', async () => {
@@ -1452,10 +1313,7 @@ describe('batch uploader', () => {
             ]);
 
             // Write batches to Offline Storage before queuing new events or batches
-            window.localStorage.setItem(
-                batchStorageKey,
-                JSON.stringify([batch1, batch2, batch3])
-            );
+            window.localStorage.setItem(batchStorageKey, JSON.stringify([batch1, batch2, batch3]));
 
             // Batch Queue should be empty before we upload
             expect(uploader.batchesQueuedForProcessing.length).to.equal(0);
@@ -1463,30 +1321,17 @@ describe('batch uploader', () => {
             // Manually initiate the upload process - turn event into batches and upload the batch
             await window.mParticle.getInstance()._APIClient.uploader.prepareAndUpload();
 
-            expect(
-                window.localStorage.getItem(batchStorageKey),
-                'Offline Batch Storage should be empty'
-            ).to.equal('');
+            expect(window.localStorage.getItem(batchStorageKey), 'Offline Batch Storage should be empty').to.equal('');
 
             // To verify the sequence, we should look at what has been uploaded
             // as the upload queue and Offline Storage should be empty
-            const eventsCalls = fetchMock.calls().filter(call => 
-                call[0].includes('/events')
-            );
+            const eventsCalls = fetchMock.calls().filter((call) => call[0].includes('/events'));
             expect(eventsCalls.length).to.be.at.least(4);
 
-            const uploadedBatch1: Batch = JSON.parse(
-                eventsCalls[0][1].body as string
-            );
-            const uploadedBatch2: Batch = JSON.parse(
-                eventsCalls[1][1].body as string
-            );
-            const uploadedBatch3: Batch = JSON.parse(
-                eventsCalls[2][1].body as string
-            );
-            const uploadedBatch4: Batch = JSON.parse(
-                eventsCalls[3][1].body as string
-            );
+            const uploadedBatch1: Batch = JSON.parse(eventsCalls[0][1].body as string);
+            const uploadedBatch2: Batch = JSON.parse(eventsCalls[1][1].body as string);
+            const uploadedBatch3: Batch = JSON.parse(eventsCalls[2][1].body as string);
+            const uploadedBatch4: Batch = JSON.parse(eventsCalls[3][1].body as string);
 
             // The following assertions should verify the sequence presented below
             // - Batch 1: Test Event 1 and 2 - Read from Offline Storage
@@ -1494,36 +1339,28 @@ describe('batch uploader', () => {
             // - Batch 3: Test Event 5 and 6 - Read from Offline Storage
             // - Batch 4: Session Start and AST - (new) Created by Init
 
-            expect(
-                (uploadedBatch1.events[0].data as CustomEventData)
-                    .event_name,
-                'Batch 1: Test Event 1 '
-            ).to.equal('Test Event 1');
-            expect(
-                (uploadedBatch1.events[1].data as CustomEventData)
-                    .event_name,
-                'Batch 1: Test Event 2'
-            ).to.equal('Test Event 2');
+            expect((uploadedBatch1.events[0].data as CustomEventData).event_name, 'Batch 1: Test Event 1 ').to.equal(
+                'Test Event 1'
+            );
+            expect((uploadedBatch1.events[1].data as CustomEventData).event_name, 'Batch 1: Test Event 2').to.equal(
+                'Test Event 2'
+            );
 
             expect(
-                (uploadedBatch2.events[0].data as CustomEventData)
-                    .event_name,
+                (uploadedBatch2.events[0].data as CustomEventData).event_name,
                 'Batch 2: Test Event 3 Event Name'
             ).to.equal('Test Event 3');
             expect(
-                (uploadedBatch2.events[1].data as CustomEventData)
-                    .event_name,
+                (uploadedBatch2.events[1].data as CustomEventData).event_name,
                 'Batch 2: Test Event 4 Event Name'
             ).to.equal('Test Event 4');
 
             expect(
-                (uploadedBatch3.events[0].data as CustomEventData)
-                    .event_name,
+                (uploadedBatch3.events[0].data as CustomEventData).event_name,
                 'Batch 3: Test Event 5 Event Name'
             ).to.equal('Test Event 5');
             expect(
-                (uploadedBatch3.events[1].data as CustomEventData)
-                    .event_name,
+                (uploadedBatch3.events[1].data as CustomEventData).event_name,
                 'Batch 3: Test Event 6 Event Name'
             ).to.equal('Test Event 6');
 
@@ -1531,14 +1368,8 @@ describe('batch uploader', () => {
             // come before any queued events, but we manually queued the previous
             // batches increase the number of attempted uploads to verify that batches
             // are retained in Offline Storage in order of creation
-            expect(
-                uploadedBatch4.events[0].event_type,
-                'Batch 4: Session Start'
-            ).to.equal('session_start');
-            expect(
-                uploadedBatch4.events[1].event_type,
-                'Batch 4: AST'
-            ).to.equal('application_state_transition');
+            expect(uploadedBatch4.events[0].event_type, 'Batch 4: Session Start').to.equal('session_start');
+            expect(uploadedBatch4.events[1].event_type, 'Batch 4: AST').to.equal('application_state_transition');
         });
     });
 });

@@ -1,14 +1,7 @@
 import { SDKEventCustomFlags } from './sdkRuntimeModels';
 import Constants from './constants';
 import { IntegrationAttributes } from './store';
-import {
-    Dictionary,
-    queryStringParser,
-    getCookies,
-    getHref,
-    isEmpty,
-    valueof,
-} from './utils';
+import { Dictionary, queryStringParser, getCookies, getHref, isEmpty, valueof } from './utils';
 
 export interface IntegrationCaptureProcessorFunction {
     (clickId: string, url: string, timestamp?: number): string;
@@ -24,13 +17,13 @@ export interface IntegrationCaptureProcessorFunction {
 export const facebookClickIdProcessor: IntegrationCaptureProcessorFunction = (
     clickId: string,
     url: string,
-    timestamp?: number,
+    timestamp?: number
 ): string => {
     if (!clickId || !url) {
         return '';
     }
 
-    const urlSegments = url?.split('//')
+    const urlSegments = url?.split('//');
     if (!urlSegments) {
         return '';
     }
@@ -40,7 +33,7 @@ export const facebookClickIdProcessor: IntegrationCaptureProcessorFunction = (
     let subdomainIndex: number = 1;
 
     // The rules for subdomainIndex are for parsing the domain portion
-    // of the URL for cookies, but in this case we are parsing the URL 
+    // of the URL for cookies, but in this case we are parsing the URL
     // itself, so we can ignore the use of 0 for 'com'
     if (domainParts.length >= 3) {
         subdomainIndex = 2;
@@ -208,7 +201,7 @@ export default class IntegrationCapture {
             ...this.clickIds,
             ...queryParams,
             ...localStorage,
-            ...cookies
+            ...cookies,
         };
     }
 
@@ -234,7 +227,7 @@ export default class IntegrationCapture {
      */
     public captureLocalStorage(): Dictionary<string> {
         const integrationKeys = this.getAllowedKeysForMode();
-        let localStorageItems: Dictionary<string> = {};
+        const localStorageItems: Dictionary<string> = {};
         for (const key of integrationKeys) {
             const localStorageItem = localStorage.getItem(key);
             if (localStorageItem) {
@@ -299,12 +292,8 @@ export default class IntegrationCapture {
         }
         return mappedClickIds;
     }
-    
 
-    private getClickIds(
-        clickIds: Dictionary<string>,
-        mappingList: IntegrationIdMapping
-    ): Dictionary<string> {
+    private getClickIds(clickIds: Dictionary<string>, mappingList: IntegrationIdMapping): Dictionary<string> {
         const mappedClickIds: Dictionary<string> = {};
 
         if (!clickIds) {
@@ -324,14 +313,10 @@ export default class IntegrationCapture {
         return mappedClickIds;
     }
 
-    private applyProcessors(
-        clickIds: Dictionary<string>,
-        url?: string,
-        timestamp?: number
-    ): Dictionary<string> {
+    private applyProcessors(clickIds: Dictionary<string>, url?: string, timestamp?: number): Dictionary<string> {
         const processedClickIds: Dictionary<string> = {};
         const integrationKeys = this.getActiveIntegrationMapping();
-    
+
         for (const key in clickIds) {
             if (clickIds.hasOwnProperty(key)) {
                 const value = clickIds[key];
@@ -342,9 +327,7 @@ export default class IntegrationCapture {
         return processedClickIds;
     }
 
-    private filterMappings(
-        outputType: valueof<typeof IntegrationOutputs>
-    ): IntegrationIdMapping {
+    private filterMappings(outputType: valueof<typeof IntegrationOutputs>): IntegrationIdMapping {
         const filteredMappings: IntegrationIdMapping = {};
         const integrationKeys = this.getActiveIntegrationMapping();
         for (const key in integrationKeys) {
@@ -359,16 +342,16 @@ export default class IntegrationCapture {
      * Returns the allowed keys to capture based on the current mode.
      * For RoktOnly, limit capture to Rokt keys; for All, capture all mapped keys.
      */
-    private getAllowedKeysForMode(): string[] {
+    private getAllowedKeysForMode(): Array<string> {
         return Object.keys(this.getActiveIntegrationMapping());
     }
-    
+
     /**
-    * Selects the active integration mapping for the current captureMode.
-    * - 'roktonly': only Rokt IDs are considered
-    * - 'all': both External and Rokt IDs are considered
-    * - else: returns an empty mapping and nothing will be captured
-    */
+     * Selects the active integration mapping for the current captureMode.
+     * - 'roktonly': only Rokt IDs are considered
+     * - 'all': both External and Rokt IDs are considered
+     * - else: returns an empty mapping and nothing will be captured
+     */
     private getActiveIntegrationMapping(): IntegrationIdMapping {
         if (this.captureMode === Constants.CaptureIntegrationSpecificIdsV2Modes.RoktOnly) {
             return integrationMappingRokt;

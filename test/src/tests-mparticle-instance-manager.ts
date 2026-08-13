@@ -4,12 +4,7 @@ import { expect } from 'chai';
 import { urls, MPConfig } from './config/constants';
 import Utils from './config/utils';
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
-const { 
-    findEventFromRequest,
-    waitForCondition,
-    fetchMockSuccess,
-    hasConfigurationReturned
-} = Utils;
+const { findEventFromRequest, waitForCondition, fetchMockSuccess, hasConfigurationReturned } = Utils;
 
 declare global {
     interface Window {
@@ -17,11 +12,11 @@ declare global {
     }
 }
 
-const mParticle = window.mParticle as IMParticleInstanceManager;;
+const mParticle = window.mParticle as IMParticleInstanceManager;
 let mockServer;
 
 function returnEventForMPInstance(calls, apiKey, eventName) {
-    const requestsPerApiKey = calls.filter(function(call) {
+    const requestsPerApiKey = calls.filter(function (call) {
         return call[0].includes(apiKey);
     });
     return findEventFromRequest(requestsPerApiKey, eventName);
@@ -29,49 +24,45 @@ function returnEventForMPInstance(calls, apiKey, eventName) {
 
 describe('mParticle instance manager', () => {
     it('has all public apis on it', () => {
-        expect(mParticle.ProductActionType, 'Product Action Type').to.have.keys(
-            [
-                'Unknown',
-                'AddToCart',
-                'RemoveFromCart',
-                'Checkout',
-                'CheckoutOption',
-                'Click',
-                'ViewDetail',
-                'Purchase',
-                'Refund',
-                'AddToWishlist',
-                'RemoveFromWishlist',
-                'ViewCart',
-                'AddShippingInfo',
-                'AddPaymentInfo',
-                'PaymentMethodSelected',
-                'PaymentAttempted',
-                'PaymentSucceeded',
-                'PaymentFailed',
-                'RefundInitiated',
-                'isRoktCommerceType',
-                'getName',
-                'getExpansionName',
-            ]
-        );
-        expect(mParticle.CommerceEventType, 'Commerce Event Type').to.have.keys(
-            [
-                'ProductAddToCart',
-                'ProductRemoveFromCart',
-                'ProductCheckout',
-                'ProductCheckoutOption',
-                'ProductClick',
-                'ProductViewDetail',
-                'ProductPurchase',
-                'ProductRefund',
-                'PromotionView',
-                'PromotionClick',
-                'ProductAddToWishlist',
-                'ProductRemoveFromWishlist',
-                'ProductImpression',
-            ]
-        );
+        expect(mParticle.ProductActionType, 'Product Action Type').to.have.keys([
+            'Unknown',
+            'AddToCart',
+            'RemoveFromCart',
+            'Checkout',
+            'CheckoutOption',
+            'Click',
+            'ViewDetail',
+            'Purchase',
+            'Refund',
+            'AddToWishlist',
+            'RemoveFromWishlist',
+            'ViewCart',
+            'AddShippingInfo',
+            'AddPaymentInfo',
+            'PaymentMethodSelected',
+            'PaymentAttempted',
+            'PaymentSucceeded',
+            'PaymentFailed',
+            'RefundInitiated',
+            'isRoktCommerceType',
+            'getName',
+            'getExpansionName',
+        ]);
+        expect(mParticle.CommerceEventType, 'Commerce Event Type').to.have.keys([
+            'ProductAddToCart',
+            'ProductRemoveFromCart',
+            'ProductCheckout',
+            'ProductCheckoutOption',
+            'ProductClick',
+            'ProductViewDetail',
+            'ProductPurchase',
+            'ProductRefund',
+            'PromotionView',
+            'PromotionClick',
+            'ProductAddToWishlist',
+            'ProductRemoveFromWishlist',
+            'ProductImpression',
+        ]);
         expect(mParticle.EventType, 'Event Type').to.have.keys([
             'Unknown',
             'Navigation',
@@ -162,9 +153,7 @@ describe('mParticle instance manager', () => {
             'createConsentState',
         ]);
 
-        expect(mParticle.sessionManager, 'Session Manager').to.have.keys([
-            'getSession',
-        ]);
+        expect(mParticle.sessionManager, 'Session Manager').to.have.keys(['getSession']);
 
         expect(mParticle, 'mParticle global').to.have.all.keys([
             'Store',
@@ -247,45 +236,27 @@ describe('mParticle instance manager', () => {
             mockServer.respondImmediately = true;
 
             //config default instance
-            fetchMock.get(
-                'https://jssdkcdns.mparticle.com/JS/v2/apiKey1/config?env=0',
-                {
-                    status: 200,
-                    body: JSON.stringify({ workspaceToken: 'wtTest1' }),
-                }
-            );
+            fetchMock.get('https://jssdkcdns.mparticle.com/JS/v2/apiKey1/config?env=0', {
+                status: 200,
+                body: JSON.stringify({ workspaceToken: 'wtTest1' }),
+            });
 
             //config instance 2
-            fetchMock.get(
-                'https://jssdkcdns.mparticle.com/JS/v2/apiKey2/config?env=0',
-                {
-                    status: 200,
-                    body: JSON.stringify({ workspaceToken: 'wtTest2' }),
-                }
-            );
+            fetchMock.get('https://jssdkcdns.mparticle.com/JS/v2/apiKey2/config?env=0', {
+                status: 200,
+                body: JSON.stringify({ workspaceToken: 'wtTest2' }),
+            });
 
             //config instance 3
-            fetchMock.get(
-                'https://jssdkcdns.mparticle.com/JS/v2/apiKey3/config?env=0',
-                {
-                    status: 200,
-                    body: JSON.stringify({ workspaceToken: 'wtTest3' }),
-                }
-            );
+            fetchMock.get('https://jssdkcdns.mparticle.com/JS/v2/apiKey3/config?env=0', {
+                status: 200,
+                body: JSON.stringify({ workspaceToken: 'wtTest3' }),
+            });
 
             // default instance event mock
-            fetchMock.post(
-                'https://jssdks.mparticle.com/v3/JS/apiKey1/events',
-                200
-            );
-            fetchMock.post(
-                'https://jssdks.mparticle.com/v3/JS/apiKey2/events',
-                200
-            );
-            fetchMock.post(
-                'https://jssdks.mparticle.com/v3/JS/apiKey3/events',
-                200
-            );
+            fetchMock.post('https://jssdks.mparticle.com/v3/JS/apiKey1/events', 200);
+            fetchMock.post('https://jssdks.mparticle.com/v3/JS/apiKey2/events', 200);
+            fetchMock.post('https://jssdks.mparticle.com/v3/JS/apiKey3/events', 200);
 
             // identity mock
             fetchMockSuccess(urls.identify, {
@@ -301,18 +272,19 @@ describe('mParticle instance manager', () => {
             mParticle.init('apiKey3', window.mParticle.config, 'instance3');
         });
 
-        afterEach(function() {
+        afterEach(function () {
             mockServer.restore();
             fetchMock.restore();
             sinon.restore();
         });
 
         it('uses the correct instance name to identify an instance', async () => {
-            await waitForCondition(() => (
-                mParticle.getInstance('default_instance')._Store.configurationLoaded === true &&
-                mParticle.getInstance('instance2')._Store.configurationLoaded === true &&
-                mParticle.getInstance('instance3')._Store.configurationLoaded === true
-            ));
+            await waitForCondition(
+                () =>
+                    mParticle.getInstance('default_instance')._Store.configurationLoaded === true &&
+                    mParticle.getInstance('instance2')._Store.configurationLoaded === true &&
+                    mParticle.getInstance('instance3')._Store.configurationLoaded === true
+            );
 
             expect(mParticle.getInstance('default_instance')._instanceName).to.equal('default_instance');
             expect(mParticle.getInstance('instance2')._instanceName).to.equal('instance2');
@@ -333,19 +305,16 @@ describe('mParticle instance manager', () => {
         it('logs events to their own instances', async () => {
             await waitForCondition(() => {
                 return (
-                    mParticle.getInstance('default_instance')._Store
-                        .configurationLoaded === true &&
-                    mParticle.getInstance('instance2')._Store
-                        .configurationLoaded === true &&
-                    mParticle.getInstance('instance3')._Store
-                        .configurationLoaded === true
+                    mParticle.getInstance('default_instance')._Store.configurationLoaded === true &&
+                    mParticle.getInstance('instance2')._Store.configurationLoaded === true &&
+                    mParticle.getInstance('instance3')._Store.configurationLoaded === true
                 );
             });
 
             mParticle.getInstance('default_instance').logEvent('hi1');
             mParticle.getInstance('instance2').logEvent('hi2');
             mParticle.getInstance('instance3').logEvent('hi3');
-            
+
             let instance1Event, instance2Event, instance3Event;
             let instance1EventsFail1, instance1EventsFail2;
             let instance2EventsFail1, instance2EventsFail2;
@@ -355,20 +324,27 @@ describe('mParticle instance manager', () => {
                 instance1Event = returnEventForMPInstance(fetchMock.calls(), 'apiKey1', 'hi1');
                 instance2Event = returnEventForMPInstance(fetchMock.calls(), 'apiKey2', 'hi2');
                 instance3Event = returnEventForMPInstance(fetchMock.calls(), 'apiKey3', 'hi3');
-                
+
                 instance1EventsFail1 = returnEventForMPInstance(fetchMock.calls(), 'apiKey1', 'hi2');
                 instance1EventsFail2 = returnEventForMPInstance(fetchMock.calls(), 'apiKey1', 'hi3');
                 instance2EventsFail1 = returnEventForMPInstance(fetchMock.calls(), 'apiKey2', 'hi1');
                 instance2EventsFail2 = returnEventForMPInstance(fetchMock.calls(), 'apiKey2', 'hi3');
                 instance3EventsFail1 = returnEventForMPInstance(fetchMock.calls(), 'apiKey3', 'hi1');
                 instance3EventsFail2 = returnEventForMPInstance(fetchMock.calls(), 'apiKey3', 'hi2');
-                
-                return instance1Event && instance2Event && instance3Event &&
-                       !instance1EventsFail1 && !instance1EventsFail2 &&
-                       !instance2EventsFail1 && !instance2EventsFail2 &&
-                       !instance3EventsFail1 && !instance3EventsFail2;
+
+                return (
+                    instance1Event &&
+                    instance2Event &&
+                    instance3Event &&
+                    !instance1EventsFail1 &&
+                    !instance1EventsFail2 &&
+                    !instance2EventsFail1 &&
+                    !instance2EventsFail2 &&
+                    !instance3EventsFail1 &&
+                    !instance3EventsFail2
+                );
             });
-            
+
             expect(instance1Event).to.be.ok;
             expect(instance2Event).to.be.ok;
             expect(instance3Event).to.be.ok;
@@ -416,14 +392,7 @@ describe('mParticle instance manager', () => {
                 prodattr2
             );
 
-            const ta = mParticle.eCommerce.createTransactionAttributes(
-                'TAid1',
-                'aff1',
-                'coupon',
-                1798,
-                10,
-                5
-            );
+            const ta = mParticle.eCommerce.createTransactionAttributes('TAid1', 'aff1', 'coupon', 1798, 10, 5);
 
             await waitForCondition(hasConfigurationReturned);
 

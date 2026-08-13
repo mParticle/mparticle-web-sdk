@@ -11,11 +11,8 @@ export interface IFetchPayload {
 }
 
 export abstract class AsyncUploader {
-    url: string;
-    public abstract upload(
-        fetchPayload: IFetchPayload,
-        url?: string
-    ): Promise<Response>;
+    public url: string;
+    public abstract upload(fetchPayload: IFetchPayload, url?: string): Promise<Response>;
 
     constructor(url: string) {
         this.url = url;
@@ -23,10 +20,7 @@ export abstract class AsyncUploader {
 }
 
 export class FetchUploader extends AsyncUploader {
-    public async upload(
-        fetchPayload: IFetchPayload,
-        _url?: string
-    ): Promise<Response> {
+    public async upload(fetchPayload: IFetchPayload, _url?: string): Promise<Response> {
         const url = _url || this.url;
         return await fetch(url, fetchPayload);
     }
@@ -66,12 +60,12 @@ export class XHRUploader extends AsyncUploader {
                 // Process the response
                 // We resolve all xhr responses whose ready state is 4 regardless of HTTP codes that may be errors (400+)
                 // because these are valid HTTP responses.
-                resolve((xhr as unknown) as Response);
+                resolve(xhr as unknown as Response);
             };
 
             // Reject a promise only when there is an xhr error
             xhr.onerror = () => {
-                reject((xhr as unknown) as Response);
+                reject(xhr as unknown as Response);
             };
 
             xhr.open(method, url);

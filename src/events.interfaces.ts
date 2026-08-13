@@ -1,9 +1,4 @@
-import {
-    Callback,
-    SDKEventAttrs,
-    SDKEventOptions,
-    TransactionAttributes,
-} from '@mparticle/web-sdk';
+import { Callback, SDKEventAttrs, SDKEventOptions, TransactionAttributes } from '@mparticle/web-sdk';
 import {
     BaseEvent,
     SDKEvent,
@@ -27,11 +22,7 @@ export interface IEvents {
         eventType: valueof<typeof EventType>
     ): void;
     logAST(): void;
-    logCommerceEvent(
-        commerceEvent: SDKEvent,
-        attrs?: SDKEventAttrs,
-        options?: SDKEventOptions
-    ): void;
+    logCommerceEvent(commerceEvent: SDKEvent, attrs?: SDKEventAttrs, options?: SDKEventOptions): void;
     logEvent(event: BaseEvent, eventOptions?: SDKEventOptions): void;
     logImpressionEvent(
         impression: SDKProductImpression,
@@ -43,7 +34,7 @@ export interface IEvents {
     logPageView(): void;
     logProductActionEvent(
         productActionType: valueof<typeof ProductActionType>,
-        product: SDKProduct | SDKProduct[],
+        product: SDKProduct | Array<SDKProduct>,
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         transactionAttributes?: TransactionAttributes,
@@ -58,7 +49,7 @@ export interface IEvents {
     ): void;
     logPurchaseEvent(
         transactionAttributes: TransactionAttributes,
-        product: SDKProduct | SDKProduct[],
+        product: SDKProduct | Array<SDKProduct>,
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags
     ): void;

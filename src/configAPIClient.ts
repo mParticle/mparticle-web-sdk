@@ -1,17 +1,7 @@
 import { DataPlanConfig } from '@mparticle/web-sdk';
-import {
-    BooleanStringLowerCase,
-    DataPlanResult,
-    SDKEventCustomFlags,
-    SDKInitConfig,
-} from './sdkRuntimeModels';
+import { BooleanStringLowerCase, DataPlanResult, SDKEventCustomFlags, SDKInitConfig } from './sdkRuntimeModels';
 import { Dictionary } from './utils';
-import {
-    AsyncUploader,
-    IFetchPayload,
-    FetchUploader,
-    XHRUploader,
-} from './uploaders';
+import { AsyncUploader, IFetchPayload, FetchUploader, XHRUploader } from './uploaders';
 import { IPixelConfiguration } from './cookieSyncManager';
 import { IMParticleWebSDKInstance } from './mp-instance';
 
@@ -29,20 +19,20 @@ export interface IKitConfigs extends IKitFilterSettings {
 }
 
 export interface IKitFilterSettings {
-    eventTypeFilters: number[];
-    eventNameFilters: number[];
-    screenNameFilters: number[];
-    screenAttributeFilters: number[];
-    userIdentityFilters: number[];
-    userAttributeFilters: number[];
-    attributeFilters: number[];
+    eventTypeFilters: Array<number>;
+    eventNameFilters: Array<number>;
+    screenNameFilters: Array<number>;
+    screenAttributeFilters: Array<number>;
+    userIdentityFilters: Array<number>;
+    userAttributeFilters: Array<number>;
+    attributeFilters: Array<number>;
     filteringEventAttributeValue?: IFilteringEventAttributeValue;
     filteringUserAttributeValue?: IFilteringUserAttributeValue;
     filteringConsentRuleValues?: IFilteringConsentRuleValues;
-    consentRegulationFilters: number[];
-    consentRegulationPurposeFilters: number[];
-    messageTypeFilters: number[];
-    messageTypeStateFilters: number[];
+    consentRegulationFilters: Array<number>;
+    consentRegulationPurposeFilters: Array<number>;
+    messageTypeFilters: Array<number>;
+    messageTypeStateFilters: Array<number>;
 }
 
 export interface IFilteringEventAttributeValue {
@@ -58,7 +48,7 @@ export interface IFilteringUserAttributeValue {
 }
 export interface IFilteringConsentRuleValues {
     includeOnMatch: boolean;
-    values: IConsentRuleValue[];
+    values: Array<IConsentRuleValue>;
 }
 
 export interface IConsentRuleValue {
@@ -66,16 +56,15 @@ export interface IConsentRuleValue {
     hasConsented: boolean;
 }
 
-
 export interface IConfigResponse {
     appName: string;
     dataPlanResult: DataPlanResult;
-    kitConfigs: IKitConfigs[];
+    kitConfigs: Array<IKitConfigs>;
     serviceUrl: string;
     secureServiceUrl: string;
     minWebviewBridgeVersion: number;
     workspaceToken: string;
-    pixelConfigs: IPixelConfiguration[];
+    pixelConfigs: Array<IPixelConfiguration>;
     flags: SDKEventCustomFlags;
 }
 
@@ -119,9 +108,7 @@ export default function ConfigAPIClient(
     const { isDevelopmentMode } = config;
     const dataPlan = config.dataPlan as DataPlanConfig;
     const uploadUrl = buildUrl(baseUrl, apiKey, dataPlan, isDevelopmentMode);
-    const uploader: AsyncUploader = window.fetch
-        ? new FetchUploader(uploadUrl)
-        : new XHRUploader(uploadUrl);
+    const uploader: AsyncUploader = window.fetch ? new FetchUploader(uploadUrl) : new XHRUploader(uploadUrl);
 
     this.getSDKConfiguration = async (): Promise<IConfigResponse> => {
         let configResponse: IConfigResponse;
@@ -137,9 +124,7 @@ export default function ConfigAPIClient(
         try {
             const response = await uploader.upload(fetchPayload);
             if (response.status === 200) {
-                mpInstance?.Logger?.verbose(
-                    'Successfully received configuration from server'
-                );
+                mpInstance?.Logger?.verbose('Successfully received configuration from server');
 
                 // https://go.mparticle.com/work/SQDSDKS-6568
                 // FetchUploader returns the response as a JSON object that we have to await
@@ -156,13 +141,10 @@ export default function ConfigAPIClient(
             }
 
             mpInstance?.Logger?.verbose(
-                'Issue with receiving configuration from server, received HTTP Code of ' +
-                    response.statusText
+                'Issue with receiving configuration from server, received HTTP Code of ' + response.statusText
             );
         } catch (e) {
-            mpInstance?.Logger?.error(
-                'Error getting forwarder configuration from mParticle servers.'
-            );
+            mpInstance?.Logger?.error('Error getting forwarder configuration from mParticle servers.');
         }
 
         // Returns the original config object if we cannot retrieve the remote config
