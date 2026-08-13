@@ -4,11 +4,8 @@
 name: 'BrowserStack Test'
 on: [push, pull_request, workflow_dispatch]
 
-# Cancel superseded runs for the same branch to reduce pressure on the
-# limited pool of BrowserStack parallel sessions, which causes queueing,
-# tunnel disconnects, and browser capture timeouts. Use head_ref (PR) or
-# ref_name (push) so the pull_request and push events for one branch share
-# a group instead of running two matrices at once.
+# Share a group across push and pull_request for the same branch so they
+# do not run two BrowserStack matrices at once.
 concurrency:
   group: browserstack-test-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
@@ -17,9 +14,7 @@ jobs:
   browserstack-test:
     name: 'BrowserStack Test'
     runs-on: ubuntu-latest
-    # A healthy run takes < 15 minutes. Without a timeout, karma occasionally
-    # waits on half-open BrowserStack tunnel sockets until GitHub's 6 hour
-    # default cancels the job.
+    # Cap hangs from half-open BrowserStack tunnels (GitHub default is 6h).
     timeout-minutes: 30
     steps:
 

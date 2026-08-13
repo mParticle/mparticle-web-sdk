@@ -170,11 +170,8 @@ export default function CookieSyncManager(
             };
             img.src = url;
         } catch (error) {
-            // Pixel URLs come from server-side configuration, and some browsers
-            // (e.g. legacy EdgeHTML) throw synchronously when an invalid URL is
-            // assigned to img.src. Contain the error so a single bad pixel cannot
-            // break public API calls (identify, setConsentState) or prevent the
-            // remaining pixels from syncing.
+            // EdgeHTML throws on invalid img.src; contain so one bad pixel
+            // cannot break identify/setConsentState or later pixels.
             mpInstance.Logger.error(
                 'Error performing cookie sync for module ID ' +
                     moduleId +

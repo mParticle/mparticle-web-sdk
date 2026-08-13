@@ -604,8 +604,7 @@ var pluses = /\+/g,
     },
     waitForCondition = function async(
         conditionFn,
-        // 200ms is enough on local machines, but loaded BrowserStack VMs
-        // regularly need longer for mocked async work to settle
+        // BrowserStack VMs need more than 200ms for mocked async work.
         timeout = 3000,
         interval = 10
     ) {

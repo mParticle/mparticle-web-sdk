@@ -71,15 +71,8 @@ module.exports = function(config) {
       browserStack: {
         username: process.env.BS_USERNAME,
         accessKey: process.env.BS_ACCESS_KEY,
-        // In CI, the BrowserStackLocal tunnel is started by the
-        // browserstack/github-actions setup-local step with a unique
-        // local-identifier. Sessions must be pinned to that identifier;
-        // otherwise BrowserStack routes their localhost traffic through an
-        // arbitrary active tunnel for the account, so concurrent workflow
-        // runs hijack each other's tunnels (browsers that never capture,
-        // "ghost" browsers from other runs, and mid-run transport errors).
-        // Locally (no BROWSERSTACK_LOCAL_IDENTIFIER), karma still starts and
-        // owns its own tunnel as before.
+        // Pin CI sessions to the workflow tunnel; locally karma still
+        // starts its own when BROWSERSTACK_LOCAL_IDENTIFIER is unset.
         ...(process.env.BROWSERSTACK_LOCAL_IDENTIFIER
             ? {
                   startTunnel: false,
@@ -102,9 +95,7 @@ module.exports = function(config) {
       client: {
         captureConsole,
         mocha: {
-          // Increase from the 2 second default: tests on loaded BrowserStack
-          // VMs run slower than locally and time out spuriously. Must exceed
-          // several waitForCondition polls (3s each) in a single spec.
+          // Slow BrowserStack VMs need more than mocha's 2s default.
           timeout: 20000,
         },
       },
@@ -117,11 +108,9 @@ module.exports = function(config) {
       // 2000 ms (default) timeout 
       browserDisconnectTimeout: 50000,
       browserDisconnectTolerance: 5,
-      // BrowserStack can queue sessions when parallel slots are busy, so allow
-      // browsers longer than the 60s default to connect before killing the run
+      // Session queueing often exceeds karma's 60s capture default.
       captureTimeout: 300000,
-      // Tolerate mid-run stalls on slow BrowserStack VMs without treating
-      // them as disconnects (default is 30s of silence)
+      // Slow VMs can stall longer than the 30s no-activity default.
       browserNoActivityTimeout: 120000,
       concurrency: 5,
     });

@@ -460,12 +460,8 @@ describe('Old model to batch model conversion', () => {
     });
 
     it('Set width and height to 0 when window is defined but screen is not defined', function(this: Mocha.Context) {
-        // On EdgeHTML and IE, window.screen is a non-configurable host object.
-        // Deleting it throws mid-test and leaves window.screen access broken for
-        // the remainder of the run, which silently breaks every subsequent batch
-        // upload (convertEvents reads window.screen). This test covers a pure JS
-        // branch of convertEvents rather than browser behavior, so skipping it on
-        // EdgeHTML/IE does not lose browser-specific coverage.
+        // EdgeHTML/IE: window.screen cannot be deleted; doing so poisons
+        // convertEvents for the rest of the run. Skip on those UAs only.
         if (/(?:Edge|Trident)\//.test(window.navigator.userAgent)) {
             this.skip();
         }
@@ -519,8 +515,7 @@ describe('Old model to batch model conversion', () => {
             expect(batch.device_info.screen_height).to.equal(0);
             expect(batch.device_info.screen_width).to.equal(0);
         } finally {
-            // set screen back on even if an assertion fails so that later
-            // suites are unaffected
+            // Restore even if an assertion fails so later suites are unaffected.
             window.screen = originalScreen;
         }
     });

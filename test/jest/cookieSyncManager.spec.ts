@@ -899,9 +899,8 @@ describe('CookieSyncManager', () => {
         });
 
         it('should log an error instead of throwing when the tracking pixel cannot be created', () => {
-            // Legacy EdgeHTML throws synchronously when an invalid URL is
-            // assigned to img.src. performCookieSync must contain the error so
-            // public API calls (identify, setConsentState) do not throw.
+            // EdgeHTML throws on invalid img.src; performCookieSync must
+            // contain that so identify/setConsentState do not throw.
             const mockImage = {
                 onload: jest.fn(),
             };
