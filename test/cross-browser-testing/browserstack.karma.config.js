@@ -24,11 +24,8 @@ if (DEBUG === 'true') {
 }
 
 const customLaunchers = {
-    // Full list of supported browsers - https://www.browserstack.com/list-of-browsers-and-platforms/live
-    // https://www.w3schools.com/js/js_versions.asp shows a list of browsers that support ES6.  
-    // The below list is primarily the version just before that, or if that version was not available on Browserstack to test, the next version was
-    // All versions below, including earlier versions of each browser, have a combined ~0.37% market share according to
-    // www.browserslist.dev.  Query for "opera < 38, safari < 12, chrome < 51, firefox <52, edge < 15"
+    // Last pre-ES6 versions on BrowserStack. Legacy EdgeHTML (15–18) is
+    // omitted (~0.02% share).
     bs_chrome_mac_50: {
       base: 'BrowserStack',
       browser: 'chrome',
@@ -42,13 +39,6 @@ const customLaunchers = {
       browser_version: '51.0',
       os: 'OS X',
       os_version: 'Mojave'
-    },
-    bs_edge_windows_15: {
-      base: 'BrowserStack',
-      browser: 'edge',
-      browser_version: '15.0',
-      os: 'Windows',
-      os_version: '10'
     },
     bs_safari_mac_11: {
       base: 'BrowserStack',
