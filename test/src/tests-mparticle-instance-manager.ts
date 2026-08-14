@@ -292,14 +292,14 @@ describe('mParticle instance manager', () => {
         });
 
         it('creates multiple instances with their own cookies', async () => {
-            await waitForCondition(hasConfigurationReturned);
-            const cookies1 = window.localStorage.getItem('mprtcl-v4_wtTest1');
-            const cookies2 = window.localStorage.getItem('mprtcl-v4_wtTest2');
-            const cookies3 = window.localStorage.getItem('mprtcl-v4_wtTest3');
-
-            cookies1.includes('apiKey1').should.equal(true);
-            cookies2.includes('apiKey2').should.equal(true);
-            cookies3.includes('apiKey3').should.equal(true);
+            // hasConfigurationReturned only covers the default instance;
+            // instance 2/3 cookies can still be unset on slow VMs.
+            await waitForCondition(() => {
+                const cookies1 = window.localStorage.getItem('mprtcl-v4_wtTest1');
+                const cookies2 = window.localStorage.getItem('mprtcl-v4_wtTest2');
+                const cookies3 = window.localStorage.getItem('mprtcl-v4_wtTest3');
+                return cookies1?.includes('apiKey1') && cookies2?.includes('apiKey2') && cookies3?.includes('apiKey3');
+            });
         });
 
         it('logs events to their own instances', async () => {
