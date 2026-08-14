@@ -99,7 +99,16 @@ module.exports = function(config) {
   config.set({
     browserStack: {
       username: process.env.BS_USERNAME,
-      accessKey: process.env.BS_ACCESS_KEY
+      accessKey: process.env.BS_ACCESS_KEY,
+      // Pin CI sessions to the workflow tunnel; locally karma still
+      // starts its own when BROWSERSTACK_LOCAL_IDENTIFIER is unset.
+      ...(process.env.BROWSERSTACK_LOCAL_IDENTIFIER
+          ? {
+                startTunnel: false,
+                localIdentifier:
+                    process.env.BROWSERSTACK_LOCAL_IDENTIFIER,
+            }
+          : {}),
     },
     autoWatch: false,
     customLaunchers,
@@ -114,6 +123,10 @@ module.exports = function(config) {
     browserConsoleLogOptions,
     client: {
       captureConsole,
+      mocha: {
+        // Slow BrowserStack VMs need more than mocha's 2s default.
+        timeout: 20000,
+      },
     },
     junitReporter: {
       outputDir: 'reports/',
