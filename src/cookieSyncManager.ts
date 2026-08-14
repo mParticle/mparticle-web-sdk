@@ -156,29 +156,18 @@ export default function CookieSyncManager(
         mpid: MPID,
         cookieSyncDates: CookieSyncDates,
     ): void => {
-        try {
-            const img = document.createElement('img');
+        const img = document.createElement('img');
 
-            mpInstance.Logger.verbose(InformationMessages.CookieSync);
-            img.onload = function() {
-                cookieSyncDates[moduleId] = new Date().getTime();
+        mpInstance.Logger.verbose(InformationMessages.CookieSync);
+        img.onload = function() {
+            cookieSyncDates[moduleId] = new Date().getTime();
 
-                mpInstance._Persistence.saveUserCookieSyncDatesToPersistence(
-                    mpid,
-                    cookieSyncDates
-                );
-            };
-            img.src = url;
-        } catch (error) {
-            // EdgeHTML throws on invalid img.src; contain so one bad pixel
-            // cannot break identify/setConsentState or later pixels.
-            mpInstance.Logger.error(
-                'Error performing cookie sync for module ID ' +
-                    moduleId +
-                    ': ' +
-                    ((error as Error).message || error)
+            mpInstance._Persistence.saveUserCookieSyncDatesToPersistence(
+                mpid,
+                cookieSyncDates
             );
-        }
+        };
+        img.src = url;
     };
 }
 
