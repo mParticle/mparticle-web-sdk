@@ -5,6 +5,7 @@ import {
   isSelectPlacementsAttributePersistenceDenied,
   removeSelectPlacementsAttributePersistenceDeniedAttributes,
 } from '../../src/selectPlacementsAttributePersistence';
+import { readJSON, readNamespacedField, writeNamespacedField } from '../../src/storage';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -5638,10 +5639,13 @@ describe('Rokt Forwarder', () => {
     });
 
     describe('page view capture', () => {
-      const readStoredPageViews = () => {
-        const raw = window.localStorage.getItem('mpPageViews');
-        return raw === null ? null : JSON.parse(raw);
-      };
+      const NS_KEY = 'mp-rokt-kit';
+      const PAGE_VIEWS_FIELD = 'pageViews';
+      const LEGACY_KEY = 'mpPageViews';
+
+      const readStoredPageViews = () => readNamespacedField(NS_KEY, PAGE_VIEWS_FIELD) ?? null;
+      const seedStoredPageViews = (views: unknown) => writeNamespacedField(NS_KEY, PAGE_VIEWS_FIELD, views);
+      const seedLegacyPageViews = (views: unknown) => window.localStorage.setItem(LEGACY_KEY, JSON.stringify(views));
 
       beforeEach(() => {
         window.localStorage.clear();
@@ -5682,7 +5686,121 @@ describe('Rokt Forwarder', () => {
             pageUrl: window.location.href,
             sourceMessageId: 'source-message-id-1',
             timestamp: 1712345678000,
+            pageTitle: 'Home',
             activeTimeOnSite: 4200,
+          },
+        ]);
+      });
+
+      it('captures the page title and canonical URL when present', async () => {
+        document.title = 'Home Page Title';
+        const canonical = document.createElement('link');
+        canonical.setAttribute('rel', 'canonical');
+        canonical.setAttribute('href', 'https://example.com/canonical?tracking=abc#section');
+        document.head.appendChild(canonical);
+
+        try {
+          await (window as any).mParticle.forwarder.init(
+            {
+              accountId: '123456',
+            },
+            reportService.cb,
+            true,
+            null,
+            {},
+          );
+
+          await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+          (window as any).mParticle.forwarder.process({
+            EventName: 'Home Page',
+            EventCategory: EventType.Unknown,
+            EventDataType: MessageType.PageView,
+            SourceMessageId: 'source-message-id-title',
+            Timestamp: 1712345678000,
+          });
+
+          expect(readStoredPageViews()).toEqual([
+            {
+              pageUrl: window.location.href,
+              sourceMessageId: 'source-message-id-title',
+              timestamp: 1712345678000,
+              pageTitle: 'Home Page Title',
+              canonicalUrl: 'https://example.com/canonical#section',
+            },
+          ]);
+        } finally {
+          document.title = '';
+          document.head.removeChild(canonical);
+        }
+      });
+
+      it('prefers the event title over document.title when both are present', async () => {
+        document.title = 'Document Title';
+
+        try {
+          await (window as any).mParticle.forwarder.init(
+            {
+              accountId: '123456',
+            },
+            reportService.cb,
+            true,
+            null,
+            {},
+          );
+
+          await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+          (window as any).mParticle.forwarder.process({
+            EventName: 'Home Page',
+            EventCategory: EventType.Unknown,
+            EventDataType: MessageType.PageView,
+            SourceMessageId: 'source-message-id-event-title',
+            Timestamp: 1712345678000,
+            EventAttributes: {
+              title: 'Event Title',
+            },
+          });
+
+          expect(readStoredPageViews()).toEqual([
+            {
+              pageUrl: window.location.href,
+              sourceMessageId: 'source-message-id-event-title',
+              timestamp: 1712345678000,
+              pageTitle: 'Event Title',
+            },
+          ]);
+        } finally {
+          document.title = '';
+        }
+      });
+
+      it('omits pageTitle and canonicalUrl when neither is available', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-bare',
+          Timestamp: 1712345678000,
+        });
+
+        expect(readStoredPageViews()).toEqual([
+          {
+            pageUrl: window.location.href,
+            sourceMessageId: 'source-message-id-bare',
+            timestamp: 1712345678000,
           },
         ]);
       });
@@ -5748,7 +5866,12 @@ describe('Rokt Forwarder', () => {
         expect(readStoredPageViews()).toBeNull();
       });
 
-      it('caps the stored history at 25 records, evicting oldest first', async () => {
+      // The budget is a code constant (PAGE_VIEWS_MAX_LENGTH = 100 * 1024),
+      // measured as JSON string length. Not exported, so tests reference the
+      // literal value.
+      const PAGE_VIEWS_MAX_LENGTH = 100 * 1024;
+
+      it('caps the stored history by byte budget, evicting oldest first', async () => {
         await (window as any).mParticle.forwarder.init(
           {
             accountId: '123456',
@@ -5761,22 +5884,61 @@ describe('Rokt Forwarder', () => {
 
         await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
 
+        // Pre-seed a history that already exceeds the byte budget, using long
+        // synthetic URLs so a handful of records is enough (~5KB each × 30 ≈
+        // 150KB). Seeding directly avoids ~1000 process() calls to reach 100KB.
+        const bigUrl = 'https://example.com/' + 'a'.repeat(5000);
+        const seed = [];
         for (let i = 0; i < 30; i++) {
-          (window as any).mParticle.forwarder.process({
-            EventName: 'Page ' + i,
-            EventCategory: EventType.Unknown,
-            EventDataType: MessageType.PageView,
-            SourceMessageId: 'source-message-id-' + i,
-            Timestamp: 1712345678000 + i,
-            ActiveTimeOnSite: i,
-          });
+          seed.push({ pageUrl: bigUrl, sourceMessageId: 'seed-' + i, timestamp: 1712345678000 + i });
         }
+        seedStoredPageViews(seed);
+
+        // One more capture triggers byte-budget eviction on write.
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Newest',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'newest',
+          Timestamp: 1712345678999,
+          ActiveTimeOnSite: 1,
+        });
 
         const stored = readStoredPageViews();
-        // 30 written, capped at 25 — the 5 oldest evicted, newest always retained.
-        expect(stored.length).toBe(25);
-        expect(stored[0].sourceMessageId).toBe('source-message-id-5');
-        expect(stored[stored.length - 1].sourceMessageId).toBe('source-message-id-29');
+        expect(JSON.stringify(stored).length).toBeLessThanOrEqual(PAGE_VIEWS_MAX_LENGTH);
+        expect(stored.length).toBeLessThan(31);
+        expect(stored[stored.length - 1].sourceMessageId).toBe('newest');
+        expect(stored[0].sourceMessageId).not.toBe('seed-0');
+      });
+
+      it('retains at least the newest page view even if an older record alone exceeds the budget', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        const hugeUrl = 'https://example.com/' + 'a'.repeat(PAGE_VIEWS_MAX_LENGTH + 1);
+        seedStoredPageViews([{ pageUrl: hugeUrl, sourceMessageId: 'seed-huge', timestamp: 1712345678000 }]);
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Newest',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'newest',
+          Timestamp: 1712345678999,
+          ActiveTimeOnSite: 1,
+        });
+
+        const stored = readStoredPageViews();
+        expect(stored.length).toBe(1);
+        expect(stored[0].sourceMessageId).toBe('newest');
       });
 
       it('clears the stored page-view history on a SessionEnd event', async () => {
@@ -5813,6 +5975,150 @@ describe('Rokt Forwarder', () => {
         });
 
         expect(readStoredPageViews()).toBeNull();
+      });
+
+      describe('legacy storage migration', () => {
+        const initKit = async () => {
+          await (window as any).mParticle.forwarder.init(
+            {
+              accountId: '123456',
+            },
+            reportService.cb,
+            true,
+            null,
+            {},
+          );
+          await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+        };
+
+        const runSelectPlacements = async () => {
+          (window as any).mParticle._Store.localSessionAttributes = {};
+          await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+          return (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+        };
+
+        it('adopts legacy history into the new key and sweeps the legacy key on read', async () => {
+          const seeded = [
+            {
+              pageUrl: 'https://example.com/legacy',
+              sourceMessageId: 'legacy-1',
+              timestamp: 1712345678000,
+            },
+          ];
+          seedLegacyPageViews(seeded);
+
+          await initKit();
+          const attributes = await runSelectPlacements();
+
+          // Legacy history surfaces on read (adopted into the namespaced field).
+          expect(JSON.parse(attributes.page_events)).toEqual(seeded);
+          expect(readStoredPageViews()).toEqual(seeded);
+          // Legacy key is always swept.
+          expect(readJSON(LEGACY_KEY)).toBeNull();
+        });
+
+        it('keeps the new key and sweeps the legacy key when both exist', async () => {
+          const legacy = [
+            {
+              pageUrl: 'https://example.com/legacy',
+              sourceMessageId: 'legacy-1',
+              timestamp: 1712345678000,
+            },
+          ];
+          const current = [
+            {
+              pageUrl: 'https://example.com/current',
+              sourceMessageId: 'current-1',
+              timestamp: 1712345679000,
+            },
+          ];
+          seedLegacyPageViews(legacy);
+          seedStoredPageViews(current);
+
+          await initKit();
+          const attributes = await runSelectPlacements();
+
+          // Namespaced field wins — legacy value is discarded, not merged.
+          expect(JSON.parse(attributes.page_events)).toEqual(current);
+          expect(readStoredPageViews()).toEqual(current);
+          expect(readJSON(LEGACY_KEY)).toBeNull();
+        });
+
+        it('leaves the new key untouched when there is no legacy key', async () => {
+          const current = [
+            {
+              pageUrl: 'https://example.com/current',
+              sourceMessageId: 'current-1',
+              timestamp: 1712345679000,
+            },
+          ];
+          seedStoredPageViews(current);
+
+          await initKit();
+          const attributes = await runSelectPlacements();
+
+          expect(JSON.parse(attributes.page_events)).toEqual(current);
+          expect(readStoredPageViews()).toEqual(current);
+          expect(readJSON(LEGACY_KEY)).toBeNull();
+        });
+
+        it('sweeps the legacy key on SessionEnd before clearing the new key', async () => {
+          seedLegacyPageViews([
+            {
+              pageUrl: 'https://example.com/legacy',
+              sourceMessageId: 'legacy-1',
+              timestamp: 1712345678000,
+            },
+          ]);
+
+          await initKit();
+
+          (window as any).mParticle.forwarder.process({
+            EventName: 'Session End',
+            EventCategory: EventType.Unknown,
+            EventDataType: MessageType.SessionEnd,
+            SourceMessageId: 'source-message-id-session-end',
+            Timestamp: 1712345679000,
+          });
+
+          expect(readJSON(LEGACY_KEY)).toBeNull();
+          expect(readStoredPageViews()).toBeNull();
+        });
+
+        it('does not throw out of selectPlacements when the migration hits a storage error', async () => {
+          // Legacy present + namespaced field absent → migration attempts the adopt
+          // write, which throws here. The read path must swallow it (best-effort) so
+          // placement selection still proceeds without page events.
+          seedLegacyPageViews([
+            {
+              pageUrl: 'https://example.com/legacy',
+              sourceMessageId: 'legacy-1',
+              timestamp: 1712345678000,
+            },
+          ]);
+
+          await initKit();
+
+          // A read/migration failure is surfaced as a diagnostic INFO log
+          // (loggingService.log), not an error report.
+          const logSpy = vi.spyOn((window as any).mParticle.forwarder.loggingService, 'log');
+          const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key: string) => {
+            if (key === NS_KEY) {
+              throw new Error('QuotaExceededError');
+            }
+          });
+
+          try {
+            const attributes = await runSelectPlacements();
+            // Selection proceeds; page events are simply omitted.
+            expect(attributes.page_events).toBeUndefined();
+          } finally {
+            setItemSpy.mockRestore();
+          }
+
+          expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'PAGE_VIEW_CAPTURE_FAILED' }));
+          logSpy.mockRestore();
+        });
       });
 
       it('captures the page view but returns the not-ready signal when the kit is not ready', () => {
@@ -5870,7 +6176,7 @@ describe('Rokt Forwarder', () => {
         expect(readStoredPageViews()).toBeNull();
       });
 
-      it('does not throw and reports a warning when localStorage writes throw', async () => {
+      it('does not throw and logs a diagnostic when localStorage writes throw', async () => {
         await (window as any).mParticle.forwarder.init(
           {
             accountId: '123456',
@@ -5884,6 +6190,7 @@ describe('Rokt Forwarder', () => {
         await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
 
         const reportSpy = vi.spyOn((window as any).mParticle.forwarder.errorReportingService, 'report');
+        const logSpy = vi.spyOn((window as any).mParticle.forwarder.loggingService, 'log');
         const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
           throw new Error('QuotaExceededError');
         });
@@ -5905,11 +6212,67 @@ describe('Rokt Forwarder', () => {
 
         // Nothing is persisted, but the forwarder keeps running.
         expect(readStoredPageViews()).toBeNull();
-        // The write failure is surfaced as an INFO (rate-limited per severity).
-        expect(reportSpy).toHaveBeenCalledWith(
-          expect.objectContaining({ code: 'PAGE_VIEW_CAPTURE_FAILED', severity: 'INFO' }),
-        );
+        // The failed write is best-effort: surfaced as a diagnostic INFO log
+        // (loggingService.log), never an error report.
+        expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'PAGE_VIEW_CAPTURE_FAILED' }));
+        expect(reportSpy).not.toHaveBeenCalledWith(expect.objectContaining({ code: 'PAGE_VIEW_CAPTURE_FAILED' }));
+        logSpy.mockRestore();
         reportSpy.mockRestore();
+      });
+
+      it('evicts oldest and retries when the browser quota is exceeded, then persists', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        const seed = [];
+        for (let i = 0; i < 5; i++) {
+          seed.push({ pageUrl: 'https://example.com/', sourceMessageId: 'seed-' + i, timestamp: 1712345678000 + i });
+        }
+        seedStoredPageViews(seed);
+
+        // writeNamespacedField swallows the quota error and returns false, so
+        // failing the first 3 writes drives writePageViews's evict-and-retry.
+        let calls = 0;
+        const realSetItem = Storage.prototype.setItem;
+        const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (
+          this: Storage,
+          key: string,
+          value: string,
+        ) {
+          calls += 1;
+          if (calls <= 3) {
+            throw new DOMException('quota', 'QuotaExceededError');
+          }
+          return realSetItem.call(this, key, value);
+        });
+
+        try {
+          (window as any).mParticle.forwarder.process({
+            EventName: 'Newest',
+            EventCategory: EventType.Unknown,
+            EventDataType: MessageType.PageView,
+            SourceMessageId: 'newest',
+            Timestamp: 1712345678999,
+            ActiveTimeOnSite: 1,
+          });
+        } finally {
+          setItemSpy.mockRestore();
+        }
+
+        const stored = readStoredPageViews();
+        // 5 seed + 1 newest = 6, minus 3 evicted across the 3 failed retries = 3.
+        expect(stored.length).toBe(3);
+        expect(stored[stored.length - 1].sourceMessageId).toBe('newest');
+        expect(stored[0].sourceMessageId).toBe('seed-3');
       });
 
       it('captures page views independently of setLocalSessionAttribute availability', async () => {
@@ -5985,6 +6348,43 @@ describe('Rokt Forwarder', () => {
             sourceMessageId: 'source-message-id-4',
             timestamp: 1712345678000,
             activeTimeOnSite: 4200,
+          },
+        ]);
+      });
+
+      it('carries pageTitle and canonicalUrl through selectPlacements when stored', async () => {
+        seedStoredPageViews([
+          {
+            pageUrl: 'https://example.com/a',
+            sourceMessageId: 'source-message-id-a',
+            timestamp: 1712345678000,
+            pageTitle: 'Page A',
+            canonicalUrl: 'https://example.com/canonical-a',
+          },
+        ]);
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+        expect(JSON.parse(forwardedAttributes.page_events)).toEqual([
+          {
+            pageUrl: 'https://example.com/a',
+            sourceMessageId: 'source-message-id-a',
+            timestamp: 1712345678000,
+            pageTitle: 'Page A',
+            canonicalUrl: 'https://example.com/canonical-a',
           },
         ]);
       });
@@ -6157,22 +6557,19 @@ describe('Rokt Forwarder', () => {
         // followed by one that has it. A coerced-to-0 first record would diff
         // against the next (300000 - 0) and invent a 5-minute dwell that never
         // happened; "unknown" must stay distinguishable from a genuine zero.
-        window.localStorage.setItem(
-          'mpPageViews',
-          JSON.stringify([
-            {
-              pageUrl: 'https://example.com/a',
-              sourceMessageId: 'missing-ats',
-              timestamp: 1712345678000,
-            },
-            {
-              pageUrl: 'https://example.com/b',
-              sourceMessageId: 'has-ats',
-              timestamp: 1712345679000,
-              activeTimeOnSite: 300000,
-            },
-          ]),
-        );
+        seedStoredPageViews([
+          {
+            pageUrl: 'https://example.com/a',
+            sourceMessageId: 'missing-ats',
+            timestamp: 1712345678000,
+          },
+          {
+            pageUrl: 'https://example.com/b',
+            sourceMessageId: 'has-ats',
+            timestamp: 1712345679000,
+            activeTimeOnSite: 300000,
+          },
+        ]);
 
         await (window as any).mParticle.forwarder.init(
           {
@@ -6201,17 +6598,14 @@ describe('Rokt Forwarder', () => {
 
       it('clears stored page views on init when targeting is disabled', async () => {
         // Seed a stored page view from a period when targeting was permitted.
-        window.localStorage.setItem(
-          'mpPageViews',
-          JSON.stringify([
-            {
-              pageUrl: 'https://example.com/',
-              sourceMessageId: 'seeded',
-              timestamp: 1712345678000,
-              activeTimeOnSite: 4200,
-            },
-          ]),
-        );
+        seedStoredPageViews([
+          {
+            pageUrl: 'https://example.com/',
+            sourceMessageId: 'seeded',
+            timestamp: 1712345678000,
+            activeTimeOnSite: 4200,
+          },
+        ]);
 
         (window as any).mParticle.Rokt.launcherOptions = {
           noTargeting: true,
@@ -6238,6 +6632,48 @@ describe('Rokt Forwarder', () => {
 
         const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
         expect(forwardedAttributes.page_events).toBeUndefined();
+      });
+
+      it('does not sweep the legacy key on init when targeting is disabled', async () => {
+        // The targeting-disabled clear path (initForwarder) intentionally only
+        // clears the kit-owned new key; it does not run the legacy migration.
+        // A user with targeting off keeps an orphaned legacy `mpPageViews` until
+        // the shim's removal date — benign, and swept the moment targeting is
+        // re-enabled (loadPageViews) or a SessionEnd fires.
+        seedLegacyPageViews([
+          {
+            pageUrl: 'https://example.com/legacy',
+            sourceMessageId: 'legacy-seeded',
+            timestamp: 1712345678000,
+          },
+        ]);
+        seedStoredPageViews([
+          {
+            pageUrl: 'https://example.com/',
+            sourceMessageId: 'seeded',
+            timestamp: 1712345678000,
+          },
+        ]);
+
+        (window as any).mParticle.Rokt.launcherOptions = {
+          noTargeting: true,
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        // New key is cleared; legacy key is left untouched (not swept on this path).
+        expect(readStoredPageViews()).toBeNull();
+        expect(readJSON(LEGACY_KEY)).not.toBeNull();
       });
 
       it('strips query params from the captured pageUrl', async () => {
