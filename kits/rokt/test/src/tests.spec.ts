@@ -99,7 +99,7 @@ describe('Rokt Forwarder', () => {
     localSessionAttributes: {},
   };
   mParticle.sessionManager = {
-    getSession: function () {
+    getSessionId: function () {
       return 'test-mp-session-id';
     },
   };
@@ -923,40 +923,6 @@ describe('Rokt Forwarder', () => {
         await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
 
         expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_session_id).toBe('second-mp-session');
-      });
-
-      it('should prefer getSessionId over the deprecated getSession', async () => {
-        let deprecatedGetSessionCalled = false;
-        (window as any).mParticle.sessionManager = {
-          getSession: function () {
-            deprecatedGetSessionCalled = true;
-            return 'deprecated-mp-session';
-          },
-          getSessionId: function () {
-            return 'current-mp-session';
-          },
-        };
-
-        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
-
-        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
-
-        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_session_id).toBe('current-mp-session');
-        expect(deprecatedGetSessionCalled).toBe(false);
-      });
-
-      it('should fall back to getSession when getSessionId is unavailable', async () => {
-        (window as any).mParticle.sessionManager = {
-          getSession: function () {
-            return 'legacy-mp-session';
-          },
-        };
-
-        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
-
-        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
-
-        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_session_id).toBe('legacy-mp-session');
       });
 
       it('should omit the mParticle session id when sessionManager is unavailable', async () => {
@@ -3238,7 +3204,7 @@ describe('Rokt Forwarder', () => {
   describe('#setUserAttribute', () => {
     beforeEach(() => {
       (window as any).mParticle.sessionManager = {
-        getSession: function () {
+        getSessionId: function () {
           return 'test-mp-session-id';
         },
       };
