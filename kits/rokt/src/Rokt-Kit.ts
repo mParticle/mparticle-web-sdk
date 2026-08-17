@@ -182,6 +182,7 @@ interface TestHelpers {
   sendAdBlockMeasurementSignals: (domain: string | undefined, version: string | null) => void;
   createAutoRemovedIframe: (src: string) => void;
   djb2: (str: string) => number;
+  isFunction: (value: unknown) => boolean;
   setAllowedOriginHashes: (hashes: number[]) => void;
   ReportingTransport: typeof ReportingTransport;
   ErrorReportingService: typeof ErrorReportingService;
@@ -1255,6 +1256,7 @@ class RoktKit implements KitInterface {
         sendAdBlockMeasurementSignals: sendAdBlockMeasurementSignals,
         createAutoRemovedIframe: createAutoRemovedIframe,
         djb2: djb2,
+        isFunction: isFunction,
         setAllowedOriginHashes: (hashes: number[]) => {
           RoktKit._allowedOriginHashes = hashes;
         },
