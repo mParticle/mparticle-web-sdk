@@ -24,7 +24,7 @@
   },
   _Store: { localSessionAttributes: {} },
   sessionManager: {
-    getSessionId: () => 'test-mp-session-id',
+    getSession: () => 'test-mp-session-id',
   },
   _getActiveForwarders: () => [],
   generateHash: (input: string) => 'hashed-<' + input + '>-value',

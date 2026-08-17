@@ -99,7 +99,7 @@ describe('Rokt Forwarder', () => {
     localSessionAttributes: {},
   };
   mParticle.sessionManager = {
-    getSessionId: function () {
+    getSession: function () {
       return 'test-mp-session-id';
     },
   };
@@ -822,7 +822,7 @@ describe('Rokt Forwarder', () => {
 
     it('should not pass mpSessionId to createLauncher', async () => {
       (window as any).mParticle.sessionManager = {
-        getSessionId: function () {
+        getSession: function () {
           return 'my-mp-session-123';
         },
       };
@@ -843,7 +843,7 @@ describe('Rokt Forwarder', () => {
       };
       mParticle.loggedEvents = [];
       (window as any).mParticle.sessionManager = {
-        getSessionId: function () {
+        getSession: function () {
           return 'test-mp-session-id';
         },
       };
@@ -907,7 +907,7 @@ describe('Rokt Forwarder', () => {
       it('should send the mParticle session id current at the time of each call', async () => {
         let currentSessionId = 'first-mp-session';
         (window as any).mParticle.sessionManager = {
-          getSessionId: function () {
+          getSession: function () {
             return currentSessionId;
           },
         };
@@ -927,6 +927,53 @@ describe('Rokt Forwarder', () => {
 
       it('should omit the mParticle session id when sessionManager is unavailable', async () => {
         delete (window as any).mParticle.sessionManager;
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).not.toHaveProperty('mparticle_session_id');
+      });
+
+      // Every published core exposes getSession() and nothing else on the public facade, so this
+      // is the shape that has to keep working.
+      it('should read the mParticle session id from a facade exposing only getSession', async () => {
+        (window as any).mParticle.sessionManager = {
+          getSession: function () {
+            return 'public-facade-session';
+          },
+        };
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_session_id).toBe(
+          'public-facade-session',
+        );
+      });
+
+      it('should prefer getSessionId when a future core exposes it on the facade', async () => {
+        (window as any).mParticle.sessionManager = {
+          getSession: function () {
+            return 'legacy-accessor-session';
+          },
+          getSessionId: function () {
+            return 'preferred-accessor-session';
+          },
+        };
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_session_id).toBe(
+          'preferred-accessor-session',
+        );
+      });
+
+      it('should omit the mParticle session id when the facade exposes neither accessor', async () => {
+        (window as any).mParticle.sessionManager = {};
 
         await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
 
@@ -3204,7 +3251,7 @@ describe('Rokt Forwarder', () => {
   describe('#setUserAttribute', () => {
     beforeEach(() => {
       (window as any).mParticle.sessionManager = {
-        getSessionId: function () {
+        getSession: function () {
           return 'test-mp-session-id';
         },
       };

@@ -160,7 +160,7 @@ interface MParticleExtended {
   logEvent(name: string, type: number, attrs?: Record<string, unknown>): void;
   EventType: { Other: number };
   getInstance(): MParticleInstance;
-  sessionManager?: { getSessionId?(): string };
+  sessionManager?: { getSession?(): string; getSessionId?(): string };
   _getActiveForwarders(): Array<{ name: string }>;
   config?: { isLocalLauncherEnabled?: boolean; isLoggingEnabled?: boolean };
   captureTiming?(metricName: string): void;
@@ -1040,12 +1040,16 @@ class RoktKit implements KitInterface {
   }
 
   private readMpSessionId(): string | undefined {
+    // The public mParticle.sessionManager facade exposes only getSession(), which already returns
+    // the session id. getSessionId() lives on the internal _SessionManager and has never been
+    // re-exported, so prefer it if a future core adds it and fall back to getSession() until then.
     const sessionManager = mp()?.sessionManager;
-    if (!sessionManager || !isFunction(sessionManager.getSessionId)) {
+    const readSessionId = sessionManager?.getSessionId ?? sessionManager?.getSession;
+    if (!isFunction(readSessionId)) {
       return undefined;
     }
 
-    return sessionManager.getSessionId() || undefined;
+    return readSessionId.call(sessionManager) || undefined;
   }
 
   private attachLauncher(
