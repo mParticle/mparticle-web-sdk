@@ -422,8 +422,21 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 'No config was passed. Cannot process forwarders'
             );
         } else {
+            // Reset on every init so re-initialisation (e.g. SPA partners that
+            // call mParticle.init() on each navigation) does not accumulate
+            // duplicate kit instances in configuredForwarders.
+            const prevCount = mpInstance._Store.configuredForwarders.length;
+            mpInstance._Store.configuredForwarders = [];
+            mpInstance.Logger.verbose(
+                `mParticle: [forwarders] reset — cleared ${prevCount} existing forwarder(s) before re-init`
+            );
+
             this.processUIEnabledKits(config);
             this.processSideloadedKits(config);
+
+            mpInstance.Logger.verbose(
+                `mParticle: [forwarders] configured ${mpInstance._Store.configuredForwarders.length} forwarder(s)`
+            );
 
             self.initForwarders(
                 mpInstance._Store.SDKConfig.identifyRequest.userIdentities,
