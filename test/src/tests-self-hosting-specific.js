@@ -169,7 +169,7 @@ describe('/config self-hosting integration tests', function () {
         (typeof data === 'string').should.equal(true);
     });
 
-    describe('/config self-hosting with direct url routing', async () => {
+    describe('/config self-hosting with direct url routing', () => {
         it('should return direct urls when no baseUrls are passed and directURLRouting is true', async () => {
             window.mParticle.config.requestConfig = true;
             delete window.mParticle.config.workspaceToken;

@@ -77,7 +77,7 @@ export interface IServerV2DTO {
         tt: number;
     };
     pm?: {
-        an: string;
+        an: number;
         pl: Array<IPromotionV2DTO>;
     };
     pi?: Array<IProductImpressionV2DTO>;
