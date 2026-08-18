@@ -40,14 +40,9 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
     this.MPSideloadedKit = MPSideloadedKit;
 
     if (typeof window !== 'undefined') {
-        this.isIOS =
-            window.mParticle && window.mParticle.isIOS
-                ? window.mParticle.isIOS
-                : false;
-        this.config =
-            window.mParticle && window.mParticle.config
-                ? window.mParticle.config
-                : {};
+        const winMp = window.mParticle as any;
+        this.isIOS = winMp && winMp.isIOS ? winMp.isIOS : false;
+        this.config = winMp && winMp.config ? winMp.config : {};
     }
 
     /**
@@ -60,11 +55,12 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
      * @param {String} [instanceName] If you are self hosting the JS SDK and working with multiple instances, you would pass an instanceName to `init`. This instance will be selected when invoking other methods. See the above link to the doc site for more info and examples.
      */
     this.init = function(apiKey, config, instanceName) {
-        if (!config && (window.mParticle && window.mParticle.config)) {
+        const winMp = window.mParticle as any;
+        if (!config && (winMp && winMp.config)) {
             console.warn(
                 'You did not pass a config object to mParticle.init(). Attempting to use the window.mParticle.config if it exists. Please note that in a future release, this may not work and mParticle will not initialize properly'
             );
-            config = window.mParticle ? window.mParticle.config : {};
+            config = winMp ? winMp.config : {};
         }
 
         instanceName = (!instanceName || instanceName.length === 0
@@ -505,7 +501,7 @@ if (typeof window !== 'undefined') {
     window.mParticle = mParticleManager;
 
     // https://go.mparticle.com/work/SQDSDKS-5053
-    window.mParticle._BatchValidator = new _BatchValidator();
+    (window.mParticle as any)._BatchValidator = new _BatchValidator();
 }
 
 export default mParticleManager;

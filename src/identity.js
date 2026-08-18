@@ -94,7 +94,7 @@ export default function Identity(mpInstance) {
                     ? 'development'
                     : 'production',
                 request_id: mpInstance._Helpers.generateUniqueId(),
-                request_timestamp_ms: new Date().getTime(),
+                request_timestamp_unixtime_ms: new Date().getTime(),
                 previous_mpid: mpid || null,
                 known_identities: createKnownIdentities(
                     identityApiData,
@@ -124,7 +124,7 @@ export default function Identity(mpInstance) {
                     ? 'development'
                     : 'production',
                 request_id: mpInstance._Helpers.generateUniqueId(),
-                request_timestamp_ms: new Date().getTime(),
+                request_timestamp_unixtime_ms: new Date().getTime(),
                 identity_changes: this.createIdentityChanges(
                     currentUserIdentities,
                     newUserIdentities
@@ -806,6 +806,7 @@ export default function Identity(mpInstance) {
      * Example: mParticle.Identity.getCurrentUser().getAllUserAttributes()
      * @class mParticle.Identity.getCurrentUser()
      */
+    /** @returns {import('./identity-user-interfaces').IMParticleUser} */
     this.mParticleUser = function(mpid, isLoggedIn) {
         var self = this;
         return {
@@ -1288,6 +1289,7 @@ export default function Identity(mpInstance) {
      * @class mParticle.Identity.getCurrentUser().getCart()
      * @deprecated
      */
+    /** @returns {import('./identity.interfaces').mParticleUserCart} */
     this.mParticleUserCart = function() {
         return {
             /**

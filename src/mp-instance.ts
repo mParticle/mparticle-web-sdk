@@ -198,9 +198,10 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this.getDeviceId = this._Persistence.getDeviceId;
 
     if (typeof window !== 'undefined') {
-        if (window.mParticle && window.mParticle.config) {
-            if (window.mParticle.config.hasOwnProperty('rq')) {
-                this._preInit.readyQueue = window.mParticle.config.rq;
+        const winMp = window.mParticle as any;
+        if (winMp && winMp.config) {
+            if (winMp.config.hasOwnProperty('rq')) {
+                this._preInit.readyQueue = winMp.config.rq;
             }
         }
     }
@@ -1659,7 +1660,7 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     mpInstance._ErrorReportingDispatcher.logger = mpInstance.Logger;
     mpInstance._LoggingDispatcher.logger = mpInstance.Logger;
     mpInstance._Store = new Store(config, mpInstance, apiKey);
-    window.mParticle.Store = mpInstance._Store;
+    (window.mParticle as any).Store = mpInstance._Store;
     mpInstance.Logger.verbose(StartingInitialization);
 
     // Initialize CookieConsentManager with privacy flags from launcherOptions

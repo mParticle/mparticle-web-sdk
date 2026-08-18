@@ -159,10 +159,10 @@ export interface IECommerce extends IECommerceShared {
     convertProductActionToEventType(
         productActionType: valueof<typeof ProductActionType>
     ): // https://go.mparticle.com/work/SQDSDKS-4801
-    typeof CommerceEventType | typeof EventType | null;
+    valueof<typeof CommerceEventType> | valueof<typeof EventType> | null;
     convertPromotionActionToEventType(
         promotionActionType: valueof<typeof PromotionActionType>
-    ): typeof CommerceEventType | null;
+    ): valueof<typeof CommerceEventType> | null;
     convertTransactionAttributesToProductAction(
         transactionAttributes: TransactionAttributes,
         productAction: ProductAction

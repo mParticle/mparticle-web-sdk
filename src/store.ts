@@ -354,10 +354,8 @@ export default function Store(
         if (config.hasOwnProperty('isIOS')) {
             this.SDKConfig.isIOS = config.isIOS;
         } else {
-            this.SDKConfig.isIOS =
-                window.mParticle && window.mParticle.isIOS
-                    ? window.mParticle.isIOS
-                    : false;
+            const winMp = window.mParticle as any;
+            this.SDKConfig.isIOS = winMp && winMp.isIOS ? winMp.isIOS : false;
         }
 
         if (config.hasOwnProperty('useCookieStorage')) {

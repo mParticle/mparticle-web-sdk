@@ -53,7 +53,7 @@ export interface IIdentityAPIRequestData {
         sdk_version: typeof sdkVersion;
     };
     context: string | null;
-    environment: Environment;
+    environment: string;
     request_id: string;
     request_timestamp_unixtime_ms: number;
     previous_mpid: MPID | null;
@@ -69,7 +69,7 @@ export interface IIdentityAPIModifyRequestData
 }
 
 export interface IIdentityAPIIdentityChangeData {
-    identity_type: SDKIdentityTypeEnum;
+    identity_type: string;
     old_value: string;
     new_value: string;
 }
@@ -98,8 +98,8 @@ export interface IIdentityRequest {
     ): IIdentityAPIModifyRequestData;
     createIdentityChanges(
         previousIdentities: UserIdentities,
-        newIdentitie: UserIdentities
-    ): IIdentityAPIIdentityChangeData;
+        newIdentities: UserIdentities
+    ): IIdentityAPIIdentityChangeData[];
     preProcessIdentityRequest(
         identityApiData: IdentityApiData,
         callback: IdentityCallback,

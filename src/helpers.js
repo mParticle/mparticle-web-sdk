@@ -187,6 +187,7 @@ export default function Helpers(mpInstance) {
         return false;
     };
 
+    /** @returns {Record<string, string> | null} */
     this.sanitizeAttributes = function(attrs, name) {
         if (!attrs || !self.isObject(attrs)) {
             return null;
