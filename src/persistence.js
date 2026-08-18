@@ -301,7 +301,6 @@ export default function _Persistence(mpInstance) {
         return data;
     }
 
-    /** @returns {import('./persistence.interfaces').IPersistenceMinified | null} */
     this.getLocalStorage = function() {
         if (!mpInstance._Store.isLocalStorageAvailable) {
             return null;

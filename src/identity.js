@@ -806,7 +806,6 @@ export default function Identity(mpInstance) {
      * Example: mParticle.Identity.getCurrentUser().getAllUserAttributes()
      * @class mParticle.Identity.getCurrentUser()
      */
-    /** @returns {import('./identity-user-interfaces').IMParticleUser} */
     this.mParticleUser = function(mpid, isLoggedIn) {
         var self = this;
         return {
@@ -1289,7 +1288,6 @@ export default function Identity(mpInstance) {
      * @class mParticle.Identity.getCurrentUser().getCart()
      * @deprecated
      */
-    /** @returns {import('./identity.interfaces').mParticleUserCart} */
     this.mParticleUserCart = function() {
         return {
             /**
