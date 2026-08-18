@@ -89,7 +89,7 @@ export interface IConsentStateV2DTO {
 }
 
 export interface IConsentRulesValues {
-    consentPurpose: string | number;
+    consentPurpose: string;
     hasConsented: boolean;
 }
 export interface IConsentRules {
