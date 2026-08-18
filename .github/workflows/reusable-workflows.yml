@@ -10,9 +10,11 @@ jobs:
   pr-title-check:
     name: Check PR for semantic title
     uses: mParticle/mparticle-workflows/.github/workflows/pr-title-check.yml@stable
-  pr-branch-target-gitflow:
+  # This repo releases from master, so use the continuous (trunk-based) check.
+  # The gitflow variant only accepts main/build/ and fails on every PR here.
+  pr-branch-target-continuous:
     name: Check PR for semantic target branch
-    uses: mParticle/mparticle-workflows/.github/workflows/pr-branch-target-gitflow.yml@stable
+    uses: mParticle/mparticle-workflows/.github/workflows/pr-branch-target-continuous.yml@stable
   security-lint-checks:
     name: Security Lint Checks
     uses: mparticle/mparticle-workflows/.github/workflows/security-checks.yml@stable
