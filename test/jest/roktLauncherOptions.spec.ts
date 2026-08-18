@@ -45,4 +45,34 @@ describe('normalizeRoktLauncherOptions', () => {
         expect(launcherOptions.noFunctional).toBe(true);
         expect(launcherOptions.noTargeting).toBe(true);
     });
+
+    it('should preserve sessionId and sessionToken through normalization', () => {
+        const launcherOptions = {
+            sessionId: '0198c1a2-3b4c-7d5e-8f90-1a2b3c4d5e6f',
+            sessionToken: 'header.payload.signature',
+            noFunctional: false,
+        };
+
+        expect(normalizeRoktLauncherOptions(launcherOptions)).toEqual(
+            launcherOptions
+        );
+    });
+
+    it('should preserve sessionId and sessionToken when expanding noDeviceId', () => {
+        const launcherOptions = normalizeRoktLauncherOptions({
+            sessionId: '0198c1a2-3b4c-7d5e-8f90-1a2b3c4d5e6f',
+            sessionToken: 'header.payload.signature',
+            noDeviceId: true,
+            noFunctional: false,
+            noTargeting: false,
+        });
+
+        expect(launcherOptions.sessionId).toBe(
+            '0198c1a2-3b4c-7d5e-8f90-1a2b3c4d5e6f'
+        );
+        expect(launcherOptions.sessionToken).toBe('header.payload.signature');
+        expect(launcherOptions.noDeviceId).toBe(true);
+        expect(launcherOptions.noFunctional).toBe(true);
+        expect(launcherOptions.noTargeting).toBe(true);
+    });
 });

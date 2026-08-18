@@ -5,6 +5,8 @@ export interface IRoktLauncherOptions extends Dictionary<any> {
     noDeviceID?: boolean;
     noFunctional?: boolean;
     noTargeting?: boolean;
+    sessionId?: string;
+    sessionToken?: string;
 }
 
 export function normalizeRoktLauncherOptions(
