@@ -409,6 +409,29 @@ describe('RoktManager', () => {
             expect(roktManager['launcherOptions']).toEqual(expectedOptions);
         });
 
+        it('should preserve sessionId and sessionToken in launcher options', () => {
+            const launcherOptions = {
+                sessionId: '0198c1a2-3b4c-7d5e-8f90-1a2b3c4d5e6f',
+                sessionToken: 'header.payload.signature',
+            };
+
+            roktManager.init(
+                {} as IKitConfigs,
+                undefined,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+                {
+                    launcherOptions,
+                }
+            );
+
+            expect(roktManager['launcherOptions']).toEqual({
+                sandbox: false,
+                ...launcherOptions,
+            });
+        });
+
         it('should initialize the manager with default launcher options not provided', () => {
             roktManager.init(
                 {} as IKitConfigs,
