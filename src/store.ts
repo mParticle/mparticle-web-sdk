@@ -15,6 +15,7 @@ import {
     LogLevelType,
     SDKDataPlan,
     SDKEvent,
+    IMParticleInstanceManager,
     SDKGeoLocation,
     SDKInitConfig,
     SDKProduct,
@@ -354,7 +355,7 @@ export default function Store(
         if (config.hasOwnProperty('isIOS')) {
             this.SDKConfig.isIOS = config.isIOS;
         } else {
-            const winMp = window.mParticle as any;
+            const winMp = window.mParticle as unknown as IMParticleInstanceManager;
             this.SDKConfig.isIOS = winMp && winMp.isIOS ? winMp.isIOS : false;
         }
 

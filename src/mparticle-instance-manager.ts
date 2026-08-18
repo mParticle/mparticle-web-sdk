@@ -40,7 +40,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
     this.MPSideloadedKit = MPSideloadedKit;
 
     if (typeof window !== 'undefined') {
-        const winMp = window.mParticle as any;
+        const winMp = window.mParticle as unknown as IMParticleInstanceManager;
         this.isIOS = winMp && winMp.isIOS ? winMp.isIOS : false;
         this.config = winMp && winMp.config ? winMp.config : {};
     }
@@ -55,7 +55,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
      * @param {String} [instanceName] If you are self hosting the JS SDK and working with multiple instances, you would pass an instanceName to `init`. This instance will be selected when invoking other methods. See the above link to the doc site for more info and examples.
      */
     this.init = function(apiKey, config, instanceName) {
-        const winMp = window.mParticle as any;
+        const winMp = window.mParticle as unknown as IMParticleInstanceManager;
         if (!config && (winMp && winMp.config)) {
             console.warn(
                 'You did not pass a config object to mParticle.init(). Attempting to use the window.mParticle.config if it exists. Please note that in a future release, this may not work and mParticle will not initialize properly'
@@ -501,7 +501,7 @@ if (typeof window !== 'undefined') {
     window.mParticle = mParticleManager;
 
     // https://go.mparticle.com/work/SQDSDKS-5053
-    (window.mParticle as any)._BatchValidator = new _BatchValidator();
+    (window.mParticle as unknown as IMParticleInstanceManager)._BatchValidator = new _BatchValidator();
 }
 
 export default mParticleManager;

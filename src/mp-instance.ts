@@ -41,7 +41,7 @@ import { DisabledVault, LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates, hasExplicitIdentifier } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
 import { IPreInit, processReadyQueue } from './pre-init-utils';
-import { BaseEvent, MParticleWebSDK, SDKHelpersApi } from './sdkRuntimeModels';
+import { BaseEvent, IMParticleInstanceManager, MParticleWebSDK, SDKHelpersApi } from './sdkRuntimeModels';
 import { Dictionary, SDKEventAttrs } from '@mparticle/web-sdk';
 import { IIdentity } from './identity.interfaces';
 import { IEvents } from './events.interfaces';
@@ -198,7 +198,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this.getDeviceId = this._Persistence.getDeviceId;
 
     if (typeof window !== 'undefined') {
-        const winMp = window.mParticle as any;
+        const winMp = window.mParticle as unknown as IMParticleInstanceManager;
         if (winMp && winMp.config) {
             if (winMp.config.hasOwnProperty('rq')) {
                 this._preInit.readyQueue = winMp.config.rq;
@@ -1660,7 +1660,7 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     mpInstance._ErrorReportingDispatcher.logger = mpInstance.Logger;
     mpInstance._LoggingDispatcher.logger = mpInstance.Logger;
     mpInstance._Store = new Store(config, mpInstance, apiKey);
-    (window.mParticle as any).Store = mpInstance._Store;
+    (window.mParticle as unknown as IMParticleInstanceManager).Store = mpInstance._Store;
     mpInstance.Logger.verbose(StartingInitialization);
 
     // Initialize CookieConsentManager with privacy flags from launcherOptions
