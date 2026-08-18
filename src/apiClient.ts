@@ -16,18 +16,12 @@ export interface IAPIClient {
     uploader: BatchUploader | null;
     queueEventForBatchUpload: (event: SDKEvent) => void;
     processQueuedEvents: () => void;
-    appendUserInfoToEvents: (user: IMParticleUser, events: SDKEvent[]) => void;
+    appendUserInfoToEvents: (user: IMParticleUser, events: Array<SDKEvent>) => void;
     sendEventToServer: (event: SDKEvent, _options?: Dictionary<any>) => void;
     sendSingleEventToServer: (event: SDKEvent) => void;
-    sendBatchForwardingStatsToServer: (
-        forwardingStatsData: IForwardingStatsData,
-        xhr: XMLHttpRequest
-    ) => void;
+    sendBatchForwardingStatsToServer: (forwardingStatsData: IForwardingStatsData, xhr: XMLHttpRequest) => void;
     initializeForwarderStatsUploader: () => AsyncUploader;
-    prepareForwardingStats: (
-        forwarder: MPForwarder,
-        event: IUploadObject
-    ) => void;
+    prepareForwardingStats: (forwarder: MPForwarder, event: IUploadObject) => void;
 }
 
 export interface IForwardingStatsData {
@@ -44,19 +38,15 @@ export interface IForwardingStatsData {
     dp: SDKDataPlan; // Data Plan
 }
 
-export default function APIClient(
-    this: IAPIClient,
-    mpInstance: IMParticleWebSDKInstance,
-    kitBlocker: KitBlocker
-) {
+export default function APIClient(this: IAPIClient, mpInstance: IMParticleWebSDKInstance, kitBlocker: KitBlocker) {
     this.uploader = null;
     const self = this;
-    this.queueEventForBatchUpload = function(event: SDKEvent) {
+    this.queueEventForBatchUpload = function (event: SDKEvent) {
         if (!this.uploader) {
             // https://go.mparticle.com/work/SQDSDKS-6317
-            const millis: number = parseNumber(mpInstance._Helpers.getFeatureFlag(
-                Constants.FeatureFlags.EventBatchingIntervalMillis
-            ) as string);
+            const millis: number = parseNumber(
+                mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.EventBatchingIntervalMillis) as string
+            );
             this.uploader = new BatchUploader(mpInstance, millis);
         }
         this.uploader.queueEvent(event);
@@ -65,9 +55,9 @@ export default function APIClient(
         mpInstance._Persistence.update();
     };
 
-    this.processQueuedEvents = function() {
-        let mpid,
-            currentUser = mpInstance.Identity.getCurrentUser();
+    this.processQueuedEvents = function () {
+        let mpid;
+        const currentUser = mpInstance.Identity.getCurrentUser();
         if (currentUser) {
             mpid = currentUser.getMPID();
         }
@@ -75,14 +65,14 @@ export default function APIClient(
             const localQueueCopy = mpInstance._Store.eventQueue;
             mpInstance._Store.eventQueue = [];
             this.appendUserInfoToEvents(currentUser, localQueueCopy);
-            localQueueCopy.forEach(function(event) {
+            localQueueCopy.forEach(function (event) {
                 self.sendEventToServer(event);
             });
         }
     };
 
-    this.appendUserInfoToEvents = function(user, events) {
-        events.forEach(function(event) {
+    this.appendUserInfoToEvents = function (user, events) {
+        events.forEach(function (event) {
             if (!event.MPID) {
                 appendUserInfo(user, event);
             }
@@ -95,10 +85,14 @@ export default function APIClient(
     // Returns true if the event was handled by this path (caller should return early).
     const handleNoFunctionalPreMpidEvent = (event: SDKEvent, mpid: string | undefined): boolean => {
         const noFunctionalWithoutId =
-            mpInstance._CookieConsentManager?.getNoFunctional() &&
-            !hasExplicitIdentifier(mpInstance._Store);
+            mpInstance._CookieConsentManager?.getNoFunctional() && !hasExplicitIdentifier(mpInstance._Store);
 
-        if (!noFunctionalWithoutId || mpid || !mpInstance._Store.configurationLoaded || mpInstance._Store.requireDelay) {
+        if (
+            !noFunctionalWithoutId ||
+            mpid ||
+            !mpInstance._Store.configurationLoaded ||
+            mpInstance._Store.requireDelay
+        ) {
             return false;
         }
 
@@ -118,22 +112,19 @@ export default function APIClient(
         return true;
     };
 
-    this.sendEventToServer = function(event, _options) {
+    this.sendEventToServer = function (event, _options) {
         const defaultOptions = {
             shouldUploadEvent: true,
         };
         const options = extend(defaultOptions, _options);
 
         if (mpInstance._Store.webviewBridgeEnabled) {
-            mpInstance._NativeSdkHelpers.sendToNative(
-                Constants.NativeSdkPaths.LogEvent,
-                JSON.stringify(event)
-            );
+            mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.LogEvent, JSON.stringify(event));
             return;
         }
 
-        let mpid,
-            currentUser = mpInstance.Identity.getCurrentUser();
+        let mpid;
+        const currentUser = mpInstance.Identity.getCurrentUser();
         if (currentUser) {
             mpid = currentUser.getMPID();
         }
@@ -150,11 +141,7 @@ export default function APIClient(
         // We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that
         // require this to stall because integration attributes need to be set, or if we are still
         // fetching the config (self hosted only), and so require delaying events
-        if (
-            !mpid ||
-            mpInstance._Store.requireDelay ||
-            !mpInstance._Store.configurationLoaded
-        ) {
+        if (!mpid || mpInstance._Store.requireDelay || !mpInstance._Store.configurationLoaded) {
             mpInstance.Logger.verbose(
                 'Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay.'
             );
@@ -191,7 +178,7 @@ export default function APIClient(
         }
     };
 
-    this.sendBatchForwardingStatsToServer = function(forwardingStatsData, xhr) {
+    this.sendBatchForwardingStatsToServer = function (forwardingStatsData, xhr) {
         let url;
         let data;
         try {
@@ -209,31 +196,22 @@ export default function APIClient(
                 xhr.send(JSON.stringify(data));
             }
         } catch (e) {
-            mpInstance.Logger.error(
-                'Error sending forwarding stats to mParticle servers.'
-            );
+            mpInstance.Logger.error('Error sending forwarding stats to mParticle servers.');
         }
     };
 
     this.initializeForwarderStatsUploader = (): AsyncUploader => {
-        const {
-            v1SecureServiceUrl: forwardingDomain,
-        } = mpInstance._Store.SDKConfig;
+        const { v1SecureServiceUrl: forwardingDomain } = mpInstance._Store.SDKConfig;
         const { devToken } = mpInstance._Store;
 
         const uploadUrl: string = `https://${forwardingDomain}${devToken}/Forwarding`;
 
-        const uploader: AsyncUploader = window.fetch
-            ? new FetchUploader(uploadUrl)
-            : new XHRUploader(uploadUrl);
+        const uploader: AsyncUploader = window.fetch ? new FetchUploader(uploadUrl) : new XHRUploader(uploadUrl);
 
         return uploader;
     };
 
-    this.prepareForwardingStats = function(
-        forwarder: MPForwarder,
-        event:SDKEvent,
-    ) : void {
+    this.prepareForwardingStats = function (forwarder: MPForwarder, event: SDKEvent): void {
         let forwardingStatsData: IForwardingStatsData;
         const queue = mpInstance._Forwarders.getForwarderStatsQueue();
 
@@ -251,17 +229,10 @@ export default function APIClient(
                 eec: event.ExpandedEventCount,
                 dp: event.DataPlan,
             };
-            
-            const {
-                sendSingleForwardingStatsToServer,
-                setForwarderStatsQueue,
-            } = mpInstance._Forwarders;
 
-            if (
-                mpInstance._Helpers.getFeatureFlag(
-                    Constants.FeatureFlags.ReportBatching
-                )
-            ) {
+            const { sendSingleForwardingStatsToServer, setForwarderStatsQueue } = mpInstance._Forwarders;
+
+            if (mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.ReportBatching)) {
                 queue.push(forwardingStatsData);
                 setForwarderStatsQueue(queue);
             } else {

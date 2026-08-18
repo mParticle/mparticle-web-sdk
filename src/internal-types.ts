@@ -16,9 +16,7 @@
 // Re-export all public types so internal consumers have a single import path
 export * from './public-types';
 
-export type {
-    KitInterface,
-} from './forwarders.interfaces';
+export type { KitInterface } from './forwarders.interfaces';
 
 // Rokt integration types
 export type {
@@ -39,17 +37,9 @@ export type {
 } from './roktManager';
 
 // Reporting / Error types (type-only to avoid runtime mismatch with entry point)
-export type {
-    ErrorCodes,
-    WSDKErrorSeverity,
-} from './reporting/types';
+export type { ErrorCodes, WSDKErrorSeverity } from './reporting/types';
 
-export type {
-    ISDKError,
-    ISDKLogEntry,
-    IErrorReportingService,
-    ILoggingService,
-} from './reporting/types';
+export type { ISDKError, ISDKLogEntry, IErrorReportingService, ILoggingService } from './reporting/types';
 
 // SDK internals shared between kits
 export type {

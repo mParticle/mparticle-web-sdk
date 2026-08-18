@@ -12,10 +12,7 @@ export enum StorageResult {
 const isQuotaExceededError = (e: unknown): boolean =>
     e instanceof DOMException &&
     // Standard quota errors, plus Firefox's legacy name/code.
-    (e.code === 22 ||
-        e.code === 1014 ||
-        e.name === 'QuotaExceededError' ||
-        e.name === 'NS_ERROR_DOM_QUOTA_REACHED');
+    (e.code === 22 || e.code === 1014 || e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED');
 
 export abstract class BaseVault<StorableItem> {
     public contents: StorableItem;
@@ -27,10 +24,7 @@ export abstract class BaseVault<StorableItem> {
      * @param {string} storageKey the local storage key string
      * @param {Storage} storageObject Web API Storage object that is being used
      */
-    constructor(
-        storageKey: string,
-        storageObject: Storage
-    ) {
+    constructor(storageKey: string, storageObject: Storage) {
         this._storageKey = storageKey;
         this.storageObject = storageObject;
 
@@ -56,9 +50,7 @@ export abstract class BaseVault<StorableItem> {
             this.contents = item;
             return StorageResult.Success;
         } catch (e) {
-            return isQuotaExceededError(e)
-                ? StorageResult.QuotaExceeded
-                : StorageResult.Unavailable;
+            return isQuotaExceededError(e) ? StorageResult.QuotaExceeded : StorageResult.Unavailable;
         }
     }
 

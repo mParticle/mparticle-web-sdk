@@ -9,7 +9,7 @@ describe('Logger', () => {
         mockConsole = {
             info: jest.fn(),
             warn: jest.fn(),
-            error: jest.fn()
+            error: jest.fn(),
         };
         (global as any).console = mockConsole;
     });
@@ -70,7 +70,7 @@ describe('Logger', () => {
         const customLogger = {
             verbose: jest.fn(),
             warning: jest.fn(),
-            error: jest.fn()
+            error: jest.fn(),
         };
 
         logger = new Logger({ logLevel: 'verbose' as any, logger: customLogger });
@@ -127,7 +127,7 @@ describe('ConsoleLogger', () => {
         mockConsole = {
             info: jest.fn(),
             warn: jest.fn(),
-            error: jest.fn()
+            error: jest.fn(),
         };
         (global as any).console = mockConsole;
         consoleLogger = new ConsoleLogger();

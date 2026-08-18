@@ -136,7 +136,7 @@ where browserBrand can be another browser such as Edge or IE.
 
 ## Development Notes
 
-This package comes with the NPM package [pre-commit](https://www.npmjs.com/package/pre-commit), which will run [ESLint](http://eslint.org/) when you try to commit.
+This package uses [husky](https://typicode.github.io/husky/) and [lint-staged](https://github.com/lint-staged/lint-staged) to run [ESLint](https://eslint.org/) and [Prettier](https://prettier.io/) on staged files when you commit.
 
 ## Support
 

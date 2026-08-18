@@ -34,10 +34,7 @@ import {
 import { IMinifiedConsentJSONObject, SDKConsentState } from './consent';
 import { ConfiguredKit, MPForwarder, UnregisteredKit } from './forwarders.interfaces';
 import { IdentityCallback, UserAttributes } from './identity-user-interfaces';
-import {
-    IGlobalStoreV2MinifiedKeys,
-    IPersistenceMinified,
-} from './persistence.interfaces';
+import { IGlobalStoreV2MinifiedKeys, IPersistenceMinified } from './persistence.interfaces';
 import { CookieSyncDates, IPixelConfiguration } from './cookieSyncManager';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import ForegroundTimer from './foregroundTimeTracker';
@@ -65,7 +62,7 @@ export interface SDKConfig {
     appVersion?: string;
     package?: string;
     flags?: IFeatureFlags;
-    kitConfigs: IKitConfigs[];
+    kitConfigs: Array<IKitConfigs>;
     kits: Dictionary<UnregisteredKit>;
     logLevel?: LogLevelType;
     cookieDomain?: string;
@@ -74,7 +71,7 @@ export interface SDKConfig {
     identifyRequest: IdentifyRequest;
     identityCallback: IdentityCallback;
     integrationDelayTimeout: number;
-    sideloadedKits: MPForwarder[];
+    sideloadedKits: Array<MPForwarder>;
     aliasMaxWindow: number;
     deviceId?: string;
     forceHttps?: boolean;
@@ -167,7 +164,7 @@ export interface IStore {
     // session ends, but are NOT uploaded to the server when the session ends.
     localSessionAttributes: LocalSessionAttributes;
 
-    currentSessionMPIDs: MPID[];
+    currentSessionMPIDs: Array<MPID>;
     consentState: SDKConsentState | null;
     sessionId: string | null;
     isFirstRun: boolean;
@@ -180,8 +177,8 @@ export interface IStore {
     currentPosition: SDKGeoLocation | null;
     isTracking: boolean;
     watchPositionId: number | null;
-    cartProducts: SDKProduct[];
-    eventQueue: SDKEvent[];
+    cartProducts: Array<SDKProduct>;
+    eventQueue: Array<SDKEvent>;
     currencyCode: string | null;
     globalTimer: number | null;
     context: Context | null;
@@ -199,11 +196,11 @@ export interface IStore {
     requireDelay: boolean;
     isLocalStorageAvailable: boolean | null;
     storageName: string | null;
-    activeForwarders: ConfiguredKit[];
+    activeForwarders: Array<ConfiguredKit>;
     kits: Dictionary<MPForwarder>;
-    sideloadedKits: MPForwarder[];
-    configuredForwarders: MPForwarder[];
-    pixelConfigurations: IPixelConfiguration[];
+    sideloadedKits: Array<MPForwarder>;
+    configuredForwarders: Array<MPForwarder>;
+    pixelConfigurations: Array<IPixelConfiguration>;
     integrationDelayTimeoutStart: number; // UNIX Timestamp
     webviewBridgeEnabled?: boolean;
     wrapperSDKInfo: WrapperSDKInfo;
@@ -251,9 +248,7 @@ export default function Store(
     mpInstance: IMParticleWebSDKInstance,
     apiKey?: string
 ) {
-    const {
-        createMainStorageName,
-    } = mpInstance._Helpers;
+    const { createMainStorageName } = mpInstance._Helpers;
 
     const { isWebviewEnabled } = mpInstance._NativeSdkHelpers;
 
@@ -311,7 +306,7 @@ export default function Store(
         } as IPersistenceMinified,
     };
 
-    for (var key in defaultStore) {
+    for (const key in defaultStore) {
         this[key] = defaultStore[key];
     }
     this.devToken = apiKey || null;
@@ -332,18 +327,12 @@ export default function Store(
             this.deviceId = config.deviceId;
         }
         if (config.hasOwnProperty('isDevelopmentMode')) {
-            this.SDKConfig.isDevelopmentMode = returnConvertedBoolean(
-                config.isDevelopmentMode
-            );
+            this.SDKConfig.isDevelopmentMode = returnConvertedBoolean(config.isDevelopmentMode);
         } else {
             this.SDKConfig.isDevelopmentMode = false;
         }
 
-        const baseUrls: Dictionary<string> = processBaseUrls(
-            config,
-            this.SDKConfig.flags,
-            apiKey
-        );
+        const baseUrls: Dictionary<string> = processBaseUrls(config, this.SDKConfig.flags, apiKey);
 
         for (const baseUrlKeys in baseUrls) {
             this.SDKConfig[baseUrlKeys] = baseUrls[baseUrlKeys];
@@ -358,10 +347,7 @@ export default function Store(
         if (config.hasOwnProperty('isIOS')) {
             this.SDKConfig.isIOS = config.isIOS;
         } else {
-            this.SDKConfig.isIOS =
-                window.mParticle && window.mParticle.isIOS
-                    ? window.mParticle.isIOS
-                    : false;
+            this.SDKConfig.isIOS = window.mParticle && window.mParticle.isIOS ? window.mParticle.isIOS : false;
         }
 
         if (config.hasOwnProperty('useCookieStorage')) {
@@ -379,8 +365,7 @@ export default function Store(
         if (config.hasOwnProperty('maxCookieSize')) {
             this.SDKConfig.maxCookieSize = config.maxCookieSize;
         } else {
-            this.SDKConfig.maxCookieSize =
-                Constants.DefaultConfig.maxCookieSize;
+            this.SDKConfig.maxCookieSize = Constants.DefaultConfig.maxCookieSize;
         }
 
         if (config.hasOwnProperty('appName')) {
@@ -392,11 +377,9 @@ export default function Store(
         }
 
         if (config.hasOwnProperty('integrationDelayTimeout')) {
-            this.SDKConfig.integrationDelayTimeout =
-                config.integrationDelayTimeout;
+            this.SDKConfig.integrationDelayTimeout = config.integrationDelayTimeout;
         } else {
-            this.SDKConfig.integrationDelayTimeout =
-                Constants.DefaultConfig.integrationDelayTimeout;
+            this.SDKConfig.integrationDelayTimeout = Constants.DefaultConfig.integrationDelayTimeout;
         }
 
         if (config.hasOwnProperty('identifyRequest')) {
@@ -404,7 +387,7 @@ export default function Store(
         }
 
         if (config.hasOwnProperty('identityCallback')) {
-            var callback = config.identityCallback;
+            const callback = config.identityCallback;
             if (mpInstance._Helpers.Validators.isFunction(callback)) {
                 this.SDKConfig.identityCallback = config.identityCallback;
             } else {
@@ -449,9 +432,7 @@ export default function Store(
                 if (isNumber(dataPlan.planVersion)) {
                     this.SDKConfig.dataPlan.PlanVersion = dataPlan.planVersion;
                 } else {
-                    mpInstance.Logger.error(
-                        'Your data plan version must be a number'
-                    );
+                    mpInstance.Logger.error('Your data plan version must be a number');
                 }
             }
         } else {
@@ -468,8 +449,7 @@ export default function Store(
         this.SDKConfig.customFlags = config.customFlags || {};
 
         if (config.hasOwnProperty('minWebviewBridgeVersion')) {
-            this.SDKConfig.minWebviewBridgeVersion =
-                config.minWebviewBridgeVersion;
+            this.SDKConfig.minWebviewBridgeVersion = config.minWebviewBridgeVersion;
         } else {
             this.SDKConfig.minWebviewBridgeVersion = 1;
         }
@@ -477,8 +457,7 @@ export default function Store(
         if (config.hasOwnProperty('aliasMaxWindow')) {
             this.SDKConfig.aliasMaxWindow = config.aliasMaxWindow;
         } else {
-            this.SDKConfig.aliasMaxWindow =
-                Constants.DefaultConfig.aliasMaxWindow;
+            this.SDKConfig.aliasMaxWindow = Constants.DefaultConfig.aliasMaxWindow;
         }
 
         if (config.hasOwnProperty('dataPlanOptions')) {
@@ -500,9 +479,7 @@ export default function Store(
             if (typeof config.onCreateBatch === 'function') {
                 this.SDKConfig.onCreateBatch = config.onCreateBatch;
             } else {
-                mpInstance.Logger.error(
-                    'config.onCreateBatch must be a function'
-                );
+                mpInstance.Logger.error('config.onCreateBatch must be a function');
                 // set to undefined because all items are set on createSDKConfig
                 this.SDKConfig.onCreateBatch = undefined;
             }
@@ -516,11 +493,7 @@ export default function Store(
 
         this.syncPersistenceData();
 
-        if (
-            this.persistenceData &&
-            this.persistenceData[mpid] &&
-            this.persistenceData[mpid][key]
-        ) {
+        if (this.persistenceData && this.persistenceData[mpid] && this.persistenceData[mpid][key]) {
             return this.persistenceData[mpid][key] as T;
         } else {
             return null;
@@ -545,10 +518,7 @@ export default function Store(
 
             // Clear out persistence attributes that are empty
             // so that we don't upload empty or undefined values
-            if (
-                isObject(this.persistenceData[mpid][key]) &&
-                isEmpty(this.persistenceData[mpid][key])
-            ) {
+            if (isObject(this.persistenceData[mpid][key]) && isEmpty(this.persistenceData[mpid][key])) {
                 delete this.persistenceData[mpid][key];
             }
 
@@ -567,13 +537,9 @@ export default function Store(
     };
 
     this.getConsentState = (mpid: MPID): ConsentState => {
-        const {
-            fromMinifiedJsonObject,
-        } = mpInstance._Consent.ConsentSerialization;
+        const { fromMinifiedJsonObject } = mpInstance._Consent.ConsentSerialization;
 
-        const serializedConsentState = this._getFromPersistence<
-            IMinifiedConsentJSONObject
-        >(mpid, 'con');
+        const serializedConsentState = this._getFromPersistence<IMinifiedConsentJSONObject>(mpid, 'con');
 
         if (!isEmpty(serializedConsentState)) {
             return fromMinifiedJsonObject(serializedConsentState);
@@ -583,17 +549,11 @@ export default function Store(
     };
 
     this.setConsentState = (mpid: MPID, consentState: ConsentState) => {
-        const {
-            toMinifiedJsonObject,
-        } = mpInstance._Consent.ConsentSerialization;
+        const { toMinifiedJsonObject } = mpInstance._Consent.ConsentSerialization;
 
         // If ConsentState is null, we assume the intent is to clear out the consent state
         if (consentState || consentState === null) {
-            this._setPersistence(
-                mpid,
-                'con',
-                toMinifiedJsonObject(consentState)
-            );
+            this._setPersistence(mpid, 'con', toMinifiedJsonObject(consentState));
         }
     };
 
@@ -604,9 +564,7 @@ export default function Store(
         mpInstance._Persistence.update();
     };
 
-
-    this.getFirstSeenTime = (mpid: MPID) =>
-        this._getFromPersistence<number>(mpid, 'fst');
+    this.getFirstSeenTime = (mpid: MPID) => this._getFromPersistence<number>(mpid, 'fst');
 
     this.setFirstSeenTime = (mpid: MPID, _time?: number) => {
         if (!mpid) {
@@ -641,40 +599,31 @@ export default function Store(
         this._setPersistence(mpid, 'lst', time);
     };
 
-    this.getLocalSessionAttributes = (): LocalSessionAttributes =>
-        this.localSessionAttributes || {};
+    this.getLocalSessionAttributes = (): LocalSessionAttributes => this.localSessionAttributes || {};
 
     this.setLocalSessionAttribute = (key: string, value: AttributeValue) => {
         this.localSessionAttributes[key] = value;
         this.persistenceData.gs.lsa = { ...(this.persistenceData.gs.lsa || {}), [key]: value };
         mpInstance._Persistence.savePersistence(this.persistenceData);
-    }
+    };
 
     this.syncPersistenceData = () => {
         const persistenceData = mpInstance._Persistence.getPersistence();
 
-        this.persistenceData = extend(
-            {},
-            this.persistenceData,
-            persistenceData,
-        );
+        this.persistenceData = extend({}, this.persistenceData, persistenceData);
     };
 
-    this.getUserAttributes = (mpid: MPID): UserAttributes =>
-        this._getFromPersistence(mpid, 'ua') || {};
+    this.getUserAttributes = (mpid: MPID): UserAttributes => this._getFromPersistence(mpid, 'ua') || {};
 
-    this.setUserAttributes = (
-        mpid: MPID,
-        userAttributes: UserAttributes
-    ): void => this._setPersistence(mpid, 'ua', userAttributes);
+    this.setUserAttributes = (mpid: MPID, userAttributes: UserAttributes): void =>
+        this._setPersistence(mpid, 'ua', userAttributes);
 
-    this.getUserIdentities = (mpid: MPID): UserIdentities =>
-        this._getFromPersistence(mpid, 'ui') || {};
+    this.getUserIdentities = (mpid: MPID): UserIdentities => this._getFromPersistence(mpid, 'ui') || {};
 
     this.setUserIdentities = (mpid: MPID, userIdentities: UserIdentities) => {
         this._setPersistence(mpid, 'ui', userIdentities);
     };
-    
+
     this.getRoktAccountId = () => this.roktAccountId;
     this.setRoktAccountId = (accountId: string) => {
         this.roktAccountId = accountId;
@@ -685,13 +634,9 @@ export default function Store(
         this.integrationName = integrationName;
     };
 
-    this.getTimeOnSite = () =>
-        mpInstance._timeOnSiteTimer?.getTimeInForeground();
+    this.getTimeOnSite = () => mpInstance._timeOnSiteTimer?.getTimeInForeground();
 
-    this.getTotalTimeOnSite = () =>
-        this.sessionStartDate
-            ? Date.now() - this.sessionStartDate.getTime()
-            : undefined;
+    this.getTotalTimeOnSite = () => (this.sessionStartDate ? Date.now() - this.sessionStartDate.getTime() : undefined);
 
     this.addMpidToSessionHistory = (mpid: MPID, previousMPID?: MPID): void => {
         const indexOfMPID = this.currentSessionMPIDs.indexOf(mpid);
@@ -702,10 +647,7 @@ export default function Store(
         }
 
         if (indexOfMPID >= 0) {
-            this.currentSessionMPIDs = moveElementToEnd(
-                this.currentSessionMPIDs,
-                indexOfMPID
-            );
+            this.currentSessionMPIDs = moveElementToEnd(this.currentSessionMPIDs, indexOfMPID);
         }
     };
 
@@ -729,11 +671,7 @@ export default function Store(
             this.SDKConfig.flags = processFlags(config);
         }
 
-        const baseUrls: Dictionary<string> = processBaseUrls(
-            config,
-            this.SDKConfig.flags,
-            apiKey
-        );
+        const baseUrls: Dictionary<string> = processBaseUrls(config, this.SDKConfig.flags, apiKey);
 
         for (const baseUrlKeys in baseUrls) {
             this.SDKConfig[baseUrlKeys] = baseUrls[baseUrlKeys];
@@ -741,20 +679,15 @@ export default function Store(
 
         if (workspaceToken) {
             this.SDKConfig.workspaceToken = workspaceToken;
-            const { noFunctional } = normalizeRoktLauncherOptions(
-                config?.launcherOptions
-            );
+            const { noFunctional } = normalizeRoktLauncherOptions(config?.launcherOptions);
             mpInstance._timeOnSiteTimer = new ForegroundTimer(workspaceToken, noFunctional);
         } else {
-            mpInstance.Logger.warning(
-                'You should have a workspaceToken on your config object for security purposes.'
-            );
+            mpInstance.Logger.warning('You should have a workspaceToken on your config object for security purposes.');
         }
         // add a new function to apply items to the store that require config to be returned
         this.storageName = createMainStorageName(workspaceToken);
 
-        this.SDKConfig.requiredWebviewBridgeName =
-            requiredWebviewBridgeName || workspaceToken;
+        this.SDKConfig.requiredWebviewBridgeName = requiredWebviewBridgeName || workspaceToken;
 
         this.webviewBridgeEnabled = isWebviewEnabled(
             this.SDKConfig.requiredWebviewBridgeName,
@@ -778,7 +711,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
         CaptureIntegrationSpecificIds,
         CaptureIntegrationSpecificIdsV2,
         AstBackgroundEvents,
-        AutoLogPageView
+        AutoLogPageView,
     } = Constants.FeatureFlags;
 
     if (!config.flags) {
@@ -790,24 +723,19 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[ReportBatching] = config.flags[ReportBatching] || false;
     // The server returns stringified numbers, sowe need to parse
     flags[EventBatchingIntervalMillis] =
-        parseNumber(config.flags[EventBatchingIntervalMillis]) ||
-        Constants.DefaultConfig.uploadInterval;
+        parseNumber(config.flags[EventBatchingIntervalMillis]) || Constants.DefaultConfig.uploadInterval;
     flags[OfflineStorage] = config.flags[OfflineStorage] || '0';
     flags[DirectUrlRouting] = config.flags[DirectUrlRouting] === 'True';
     flags[CacheIdentity] = config.flags[CacheIdentity] === 'True';
     flags[AudienceAPI] = config.flags[AudienceAPI] === 'True';
     flags[CaptureIntegrationSpecificIds] = config.flags[CaptureIntegrationSpecificIds] === 'True';
-    flags[CaptureIntegrationSpecificIdsV2] = (config.flags[CaptureIntegrationSpecificIdsV2] || 'none');
+    flags[CaptureIntegrationSpecificIdsV2] = config.flags[CaptureIntegrationSpecificIdsV2] || 'none';
     flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
     flags[AutoLogPageView] = config.flags[AutoLogPageView] === 'True';
     return flags;
 }
 
-export function processBaseUrls(
-    config: SDKInitConfig,
-    flags: IFeatureFlags,
-    apiKey?: string
-): Dictionary<string> {
+export function processBaseUrls(config: SDKInitConfig, flags: IFeatureFlags, apiKey?: string): Dictionary<string> {
     // an API key is not present in a webview only mode. In this case, no baseUrls are needed
     if (!apiKey) {
         return {};
@@ -845,25 +773,21 @@ function processCustomBaseUrls(config: SDKInitConfig): Dictionary<string> {
     // This flag is set on the Rokt/MP snippet (starting at version 2.6), meaning config.domain will alwys be empty
     // if a customer is using a snippet prior to 2.6.
     if (!isEmpty(config.domain)) {
-        for (let pathKey in CNAMEUrlPaths) {
+        for (const pathKey in CNAMEUrlPaths) {
             newBaseUrls[pathKey] = `${config.domain}${CNAMEUrlPaths[pathKey]}`;
         }
 
         return newBaseUrls;
     }
 
-    for (let baseUrlKey in defaultBaseUrls) {
-        newBaseUrls[baseUrlKey] =
-            config[baseUrlKey] || defaultBaseUrls[baseUrlKey];
+    for (const baseUrlKey in defaultBaseUrls) {
+        newBaseUrls[baseUrlKey] = config[baseUrlKey] || defaultBaseUrls[baseUrlKey];
     }
 
     return newBaseUrls;
 }
 
-function processDirectBaseUrls(
-    config: SDKInitConfig,
-    apiKey: string
-): Dictionary {
+function processDirectBaseUrls(config: SDKInitConfig, apiKey: string): Dictionary {
     const defaultBaseUrls = Constants.DefaultBaseUrls;
     const directBaseUrls: Dictionary<string> = {};
     // When Direct URL Routing is true, we create a new set of baseUrls that
@@ -876,15 +800,13 @@ function processDirectBaseUrls(
     // us1, us2, eu1, au1, or st1, etc as new silos are added
     const DEFAULT_SILO = 'us1';
     const splitKey: Array<string> = apiKey.split('-');
-    const routingPrefix: string =
-        splitKey.length <= 1 ? DEFAULT_SILO : splitKey[0];
+    const routingPrefix: string = splitKey.length <= 1 ? DEFAULT_SILO : splitKey[0];
 
-    for (let baseUrlKey in defaultBaseUrls) {
+    for (const baseUrlKey in defaultBaseUrls) {
         // Any custom endpoints passed to mpConfig will take priority over direct
         // mapping to the silo.  The most common use case is a customer provided CNAME.
         if (baseUrlKey === 'configUrl') {
-            directBaseUrls[baseUrlKey] =
-                config[baseUrlKey] || defaultBaseUrls[baseUrlKey];
+            directBaseUrls[baseUrlKey] = config[baseUrlKey] || defaultBaseUrls[baseUrlKey];
             continue;
         }
 
@@ -893,11 +815,7 @@ function processDirectBaseUrls(
         } else {
             const urlparts = defaultBaseUrls[baseUrlKey].split('.');
 
-            directBaseUrls[baseUrlKey] = [
-                urlparts[0],
-                routingPrefix,
-                ...urlparts.slice(1),
-            ].join('.');
+            directBaseUrls[baseUrlKey] = [urlparts[0], routingPrefix, ...urlparts.slice(1)].join('.');
         }
     }
 

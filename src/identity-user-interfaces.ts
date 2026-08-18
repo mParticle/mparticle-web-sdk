@@ -23,7 +23,7 @@ interface ICart {
     /**
      * @deprecated Cart Products have been deprecated
      */
-    getCartProducts: () => SDKProduct[];
+    getCartProducts: () => Array<SDKProduct>;
 }
 
 // https://go.mparticle.com/work/SQDSDKS-5033
@@ -63,7 +63,7 @@ export interface IUserIdentityChangeEvent extends BaseEvent {
 }
 
 export interface ISDKUserAttributes {
-    [key: string]: string | string[] | null;
+    [key: string]: string | Array<string> | null;
 }
 
 export interface ISDKUserAttributeChangeData {
@@ -118,7 +118,7 @@ export interface mParticleUserCart {
     add(): void;
     remove(): void;
     clear(): void;
-    getCartProducts(): SDKProduct[];
+    getCartProducts(): Array<SDKProduct>;
 }
 
 // https://go.mparticle.com/work/SQDSDKS-5196

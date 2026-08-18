@@ -1,12 +1,5 @@
 import Types from './types';
-import {
-    isFunction,
-    isNumber,
-    isObject,
-    isStringOrNumber,
-    isValidAttributeValue,
-    valueof,
-} from './utils';
+import { isFunction, isNumber, isObject, isStringOrNumber, isValidAttributeValue, valueof } from './utils';
 import Constants from './constants';
 import { IdentityApiData } from '@mparticle/web-sdk';
 import { IdentityAPIMethod } from './identity.interfaces';
@@ -30,19 +23,11 @@ const Validators = {
 
     // Validator Functions
     // Neither null nor undefined can be a valid Key
-    isValidKeyValue: function(key: any): boolean {
-        return Boolean(
-            key &&
-                !isObject(key) &&
-                !Array.isArray(key) &&
-                !this.isFunction(key)
-        );
+    isValidKeyValue: function (key: any): boolean {
+        return Boolean(key && !isObject(key) && !Array.isArray(key) && !this.isFunction(key));
     },
 
-    removeFalsyIdentityValues: function (
-        identityApiData: IdentityApiData,
-        logger: any
-    ): IdentityApiData {
+    removeFalsyIdentityValues: function (identityApiData: IdentityApiData, logger: any): IdentityApiData {
         if (!identityApiData || !identityApiData.userIdentities) {
             return identityApiData;
         }
@@ -73,7 +58,7 @@ const Validators = {
         identityApiData: IdentityApiData,
         method?: IdentityAPIMethod
     ): ValidationIdentitiesReturn {
-        var validIdentityRequestKeys = {
+        const validIdentityRequestKeys = {
             userIdentities: 1,
             onUserAlias: 1,
             copyUserAttributes: 1,
@@ -81,37 +66,27 @@ const Validators = {
         if (identityApiData) {
             if (method === Modify) {
                 if (
-                    (isObject(identityApiData.userIdentities) &&
-                        !Object.keys(identityApiData.userIdentities).length) ||
+                    (isObject(identityApiData.userIdentities) && !Object.keys(identityApiData.userIdentities).length) ||
                     !isObject(identityApiData.userIdentities)
                 ) {
                     return {
                         valid: false,
-                        error:
-                            Constants.Messages.ValidationMessages
-                                .ModifyIdentityRequestUserIdentitiesPresent,
+                        error: Constants.Messages.ValidationMessages.ModifyIdentityRequestUserIdentitiesPresent,
                     };
                 }
             }
-            for (var key in identityApiData) {
+            for (const key in identityApiData) {
                 if (identityApiData.hasOwnProperty(key)) {
                     if (!validIdentityRequestKeys[key]) {
                         return {
                             valid: false,
-                            error:
-                                Constants.Messages.ValidationMessages
-                                    .IdentityRequesetInvalidKey,
+                            error: Constants.Messages.ValidationMessages.IdentityRequesetInvalidKey,
                         };
                     }
-                    if (
-                        key === 'onUserAlias' &&
-                        !Validators.isFunction(identityApiData[key])
-                    ) {
+                    if (key === 'onUserAlias' && !Validators.isFunction(identityApiData[key])) {
                         return {
                             valid: false,
-                            error:
-                                Constants.Messages.ValidationMessages
-                                    .OnUserAliasType,
+                            error: Constants.Messages.ValidationMessages.OnUserAliasType,
                         };
                     }
                 }
@@ -125,59 +100,33 @@ const Validators = {
                 if (identityApiData.userIdentities === undefined) {
                     return {
                         valid: false,
-                        error:
-                            Constants.Messages.ValidationMessages
-                                .UserIdentities,
+                        error: Constants.Messages.ValidationMessages.UserIdentities,
                     };
                     // identityApiData.userIdentities can be null, but if it isn't null or undefined (above conditional), it must be an object
-                } else if (
-                    identityApiData.userIdentities !== null &&
-                    !isObject(identityApiData.userIdentities)
-                ) {
+                } else if (identityApiData.userIdentities !== null && !isObject(identityApiData.userIdentities)) {
                     return {
                         valid: false,
-                        error:
-                            Constants.Messages.ValidationMessages
-                                .UserIdentities,
+                        error: Constants.Messages.ValidationMessages.UserIdentities,
                     };
                 }
-                if (
-                    isObject(identityApiData.userIdentities) &&
-                    Object.keys(identityApiData.userIdentities).length
-                ) {
-                    for (var identityType in identityApiData.userIdentities) {
-                        if (
-                            identityApiData.userIdentities.hasOwnProperty(
-                                identityType
-                            )
-                        ) {
-                            if (
-                                Types.IdentityType.getIdentityType(
-                                    identityType
-                                ) === false
-                            ) {
+                if (isObject(identityApiData.userIdentities) && Object.keys(identityApiData.userIdentities).length) {
+                    for (const identityType in identityApiData.userIdentities) {
+                        if (identityApiData.userIdentities.hasOwnProperty(identityType)) {
+                            if (Types.IdentityType.getIdentityType(identityType) === false) {
                                 return {
                                     valid: false,
-                                    error:
-                                        Constants.Messages.ValidationMessages
-                                            .UserIdentitiesInvalidKey,
+                                    error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidKey,
                                 };
                             }
                             if (
                                 !(
-                                    typeof identityApiData.userIdentities[
-                                        identityType
-                                    ] === 'string' ||
-                                    identityApiData.userIdentities[
-                                        identityType
-                                    ] === null
+                                    typeof identityApiData.userIdentities[identityType] === 'string' ||
+                                    identityApiData.userIdentities[identityType] === null
                                 )
                             ) {
                                 return {
                                     valid: false,
-                                    error:
-                                        Constants.Messages.ValidationMessages
-                                            .UserIdentitiesInvalidValues,
+                                    error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues,
                                 };
                             }
                         }

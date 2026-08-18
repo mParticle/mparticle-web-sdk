@@ -3,29 +3,11 @@ import fetchMock from 'fetch-mock/esm/client';
 import { expect } from 'chai';
 import Utils from './config/utils';
 import Constants, { HTTP_ACCEPTED, HTTP_BAD_REQUEST } from '../../src/constants';
-import {
-    urls,
-    apiKey,
-    testMPID,
-    MPConfig,
-    workspaceCookieName,
-} from './config/constants';
-import {
-    Callback,
-    IdentityApiData,
-    UserIdentities,
-} from '@mparticle/web-sdk';
+import { urls, apiKey, testMPID, MPConfig, workspaceCookieName } from './config/constants';
+import { Callback, IdentityApiData, UserIdentities } from '@mparticle/web-sdk';
 import { IdentityCache } from '../../src/identity-utils';
-import {
-    IAliasRequest,
-    IIdentityAPIModifyRequestData,
-    IIdentityAPIRequestData,
-} from '../../src/identity.interfaces';
-import {
-    IdentityModifyResultBody,
-    IdentityResult,
-    IdentityResultBody,
-} from '../../src/identity-user-interfaces';
+import { IAliasRequest, IIdentityAPIModifyRequestData, IIdentityAPIRequestData } from '../../src/identity.interfaces';
+import { IdentityModifyResultBody, IdentityResult, IdentityResultBody } from '../../src/identity-user-interfaces';
 import { IMParticleInstanceManager, SDKProduct } from '../../src/sdkRuntimeModels';
 import { IRoktKit } from '../../src/roktManager';
 import { IKitConfigs } from '../../src/configAPIClient';
@@ -57,29 +39,29 @@ declare global {
 
 const mParticle = window.mParticle as IMParticleInstanceManager;
 
-const BAD_USER_IDENTITIES_AS_STRING = ({
+const BAD_USER_IDENTITIES_AS_STRING = {
     userIdentities: 'badUserIdentitiesString',
-} as unknown) as IdentityApiData;
+} as unknown as IdentityApiData;
 
-const BAD_USER_IDENTITIES_AS_ARRAY = ({
+const BAD_USER_IDENTITIES_AS_ARRAY = {
     userIdentities: ['bad', 'user', 'identities', 'array'],
-} as unknown) as IdentityApiData;
+} as unknown as IdentityApiData;
 
-const BAD_USER_IDENTITIES_AS_NULL = ({
+const BAD_USER_IDENTITIES_AS_NULL = {
     userIdentities: null,
-} as unknown) as IdentityApiData;
+} as unknown as IdentityApiData;
 
-const BAD_USER_IDENTITIES_AS_UNDEFINED = ({
+const BAD_USER_IDENTITIES_AS_UNDEFINED = {
     userIdentities: undefined,
-} as unknown) as IdentityApiData;
+} as unknown as IdentityApiData;
 
-const BAD_USER_IDENTITIES_AS_BOOLEAN = ({
+const BAD_USER_IDENTITIES_AS_BOOLEAN = {
     userIdentities: true,
-} as unknown) as IdentityApiData;
+} as unknown as IdentityApiData;
 
-const BadCallbackAsString = ('badCallbackString' as unknown) as Callback;
+const BadCallbackAsString = 'badCallbackString' as unknown as Callback;
 
-const EmptyUserIdentities = ({} as unknown) as IdentityApiData;
+const EmptyUserIdentities = {} as unknown as IdentityApiData;
 
 const fetchMockSuccess = (url: string, body: any = {}, headers: any = {}) => {
     fetchMock.post(
@@ -93,7 +75,7 @@ const fetchMockSuccess = (url: string, body: any = {}, headers: any = {}) => {
     );
 };
 
-describe('identity', function() {
+describe('identity', function () {
     let clock;
     let loggerSpy;
     let hasIdentifyReturned;
@@ -101,9 +83,9 @@ describe('identity', function() {
     let hasLoginReturned;
     let hasLogOutReturned;
     let beforeEachCallbackCalled = false;
-    let hasBeforeEachCallbackReturned
+    let hasBeforeEachCallbackReturned;
 
-    beforeEach(function() {
+    beforeEach(function () {
         mParticle._resetForTests(MPConfig);
         delete mParticle.config.useCookieStorage;
         fetchMock.config.overwriteRoutes = true;
@@ -119,7 +101,7 @@ describe('identity', function() {
         });
         localStorage.clear();
 
-        mParticle.config.identityCallback = function() {
+        mParticle.config.identityCallback = function () {
             // There are some tests that need to verify that the initial init
             // call within the beforeEach method has completed before they
             // can introduce a new identityCallback for their specific assertions.
@@ -137,17 +119,11 @@ describe('identity', function() {
         };
 
         hasLoginReturned = () => {
-            return (
-                mParticle.Identity.getCurrentUser()?.getMPID() ===
-                'logged-in-user'
-            );
+            return mParticle.Identity.getCurrentUser()?.getMPID() === 'logged-in-user';
         };
 
         hasLogOutReturned = () => {
-            return (
-                mParticle.Identity.getCurrentUser()?.getMPID() ===
-                'logged-out-user'
-            );
+            return mParticle.Identity.getCurrentUser()?.getMPID() === 'logged-out-user';
         };
 
         hasBeforeEachCallbackReturned = () => beforeEachCallbackCalled;
@@ -161,16 +137,16 @@ describe('identity', function() {
         }
     });
 
-    describe('requests', function() {
+    describe('requests', function () {
         it('should contain identify request', async () => {
             fetchMockSuccess(urls.logout, {
-                    context: null,
-                    matched_identities: {
-                        device_application_stamp: 'my-das',
-                    },
-                    is_ephemeral: true,
-                    mpid: testMPID,
-                    is_logged_in: false,
+                context: null,
+                matched_identities: {
+                    device_application_stamp: 'my-das',
+                },
+                is_ephemeral: true,
+                mpid: testMPID,
+                is_logged_in: false,
             });
 
             mParticle.Identity.identify({
@@ -204,11 +180,8 @@ describe('identity', function() {
 
             expect(data.previous_mpid).to.equal(null);
 
-            expect(data.known_identities).to.have.property(
-                'device_application_stamp'
-            );
+            expect(data.known_identities).to.have.property('device_application_stamp');
         });
-
 
         it('should contain logout request', async () => {
             fetchMockSuccess(urls.logout, {
@@ -249,22 +222,20 @@ describe('identity', function() {
 
             expect(data.previous_mpid).to.equal(testMPID);
 
-            expect(data.known_identities).to.have.property(
-                'device_application_stamp'
-            );
+            expect(data.known_identities).to.have.property('device_application_stamp');
         });
 
         it('should contain login request', async () => {
             await waitForCondition(hasIdentifyReturned);
 
             fetchMockSuccess(urls.login, {
-                    mpid: testMPID,
-                    is_logged_in: false,
-                    context: null,
-                    matched_identities: {
-                        email: 'abc@gmail.com',
-                    },
-                    is_ephemeral: false,
+                mpid: testMPID,
+                is_logged_in: false,
+                context: null,
+                matched_identities: {
+                    email: 'abc@gmail.com',
+                },
+                is_ephemeral: false,
             });
 
             mParticle.Identity.login({
@@ -279,14 +250,14 @@ describe('identity', function() {
             // 1. Identify
             // 2. Session Start
             // 3. AST
-            // 4. Login 
+            // 4. Login
             // 5. UIC
             expect(fetchMock.calls().length).to.equal(5);
 
             const loginCall = fetchMock.calls()[3];
             expect(loginCall[0].split('/')[4]).to.equal('login');
 
-            const data: IIdentityAPIRequestData = JSON.parse(loginCall[1].body as unknown as string); 
+            const data: IIdentityAPIRequestData = JSON.parse(loginCall[1].body as unknown as string);
 
             expect(data).to.have.keys(
                 'client_sdk',
@@ -300,25 +271,19 @@ describe('identity', function() {
 
             expect(data.previous_mpid).to.equal(testMPID);
 
-            expect(data.known_identities).to.have.property(
-                'email',
-                'test@email.com'
-            );
+            expect(data.known_identities).to.have.property('email', 'test@email.com');
 
-            expect(data.known_identities).to.have.property(
-                'device_application_stamp'
-            );
+            expect(data.known_identities).to.have.property('device_application_stamp');
         });
-
 
         it('should contain modify request', async () => {
             fetchMockSuccess(urls.modify, {
-                    change_results: [
-                        {
-                            identity_type: 'email',
-                            modified_mpid: testMPID,
-                        },
-                    ],
+                change_results: [
+                    {
+                        identity_type: 'email',
+                        modified_mpid: testMPID,
+                    },
+                ],
             });
 
             await waitForCondition(hasIdentifyReturned);
@@ -371,8 +336,6 @@ describe('identity', function() {
                 is_logged_in: false,
             });
 
-            let data: IIdentityAPIRequestData;
-
             await waitForCondition(hasIdentifyReturned);
 
             mParticle.Identity.identify({
@@ -393,9 +356,7 @@ describe('identity', function() {
             const lastCall = fetchMock.lastCall();
             expect(lastCall[0].split('/')[4]).to.equal('identify');
 
-            data = JSON.parse(
-                lastCall[1].body as unknown as string
-            ) as IIdentityAPIRequestData;
+            const data = JSON.parse(lastCall[1].body as unknown as string) as IIdentityAPIRequestData;
 
             expect(data).to.have.keys(
                 'client_sdk',
@@ -409,9 +370,7 @@ describe('identity', function() {
 
             expect(data.previous_mpid).to.equal(testMPID);
 
-            expect(data.known_identities).to.have.property(
-                'device_application_stamp'
-            );
+            expect(data.known_identities).to.have.property('device_application_stamp');
         });
 
         it('should strip falsey values from identify request', async () => {
@@ -449,34 +408,20 @@ describe('identity', function() {
                 'context'
             );
 
-            expect(data.known_identities).to.have.property(
-                'device_application_stamp',
-            );
-            expect(data.known_identities).to.have.property(
-                'customerid',
-            );
-            expect(data.known_identities).to.have.property(
-                'microsoft',
-            );
-            expect(data.known_identities).to.not.have.property(
-                'email',
-            );
-            expect(data.known_identities).to.not.have.property(
-                'facebook',
-            );
-            expect(data.known_identities).to.not.have.property(
-                'twitter',
-            );
-            expect(data.known_identities).to.not.have.property(
-                'google',
-            );
+            expect(data.known_identities).to.have.property('device_application_stamp');
+            expect(data.known_identities).to.have.property('customerid');
+            expect(data.known_identities).to.have.property('microsoft');
+            expect(data.known_identities).to.not.have.property('email');
+            expect(data.known_identities).to.not.have.property('facebook');
+            expect(data.known_identities).to.not.have.property('twitter');
+            expect(data.known_identities).to.not.have.property('google');
         });
 
         it('should strip falsey values from login request', async () => {
             await waitForCondition(hasIdentifyReturned);
 
             const identityApiData = {
-                    userIdentities: {
+                userIdentities: {
                     customerid: 'valid-customer-id',
                     email: undefined,
                     facebook: false,
@@ -507,34 +452,20 @@ describe('identity', function() {
 
             const data = JSON.parse(firstCall[1].body as unknown as string) as IIdentityAPIRequestData;
 
-            expect(data.known_identities).to.have.property(
-                'device_application_stamp',
-            );
-            expect(data.known_identities).to.have.property(
-                'customerid',
-            );
-            expect(data.known_identities).to.have.property(
-                'microsoft',
-            );
-            expect(data.known_identities).to.not.have.property(
-                'email',
-            );
-            expect(data.known_identities).to.not.have.property(
-                'facebook',
-            );
-            expect(data.known_identities).to.not.have.property(
-                'twitter',
-            );
-            expect(data.known_identities).to.not.have.property(
-                'google',
-            );
+            expect(data.known_identities).to.have.property('device_application_stamp');
+            expect(data.known_identities).to.have.property('customerid');
+            expect(data.known_identities).to.have.property('microsoft');
+            expect(data.known_identities).to.not.have.property('email');
+            expect(data.known_identities).to.not.have.property('facebook');
+            expect(data.known_identities).to.not.have.property('twitter');
+            expect(data.known_identities).to.not.have.property('google');
         });
 
         it('should strip falsey values from logout request', async () => {
             await waitForCondition(hasIdentifyReturned);
 
             const identityApiData = {
-                    userIdentities: {
+                userIdentities: {
                     customerid: 'valid-customer-id',
                     email: undefined,
                     facebook: false,
@@ -565,34 +496,20 @@ describe('identity', function() {
 
             const data = JSON.parse(firstCall[1].body as unknown as string) as IIdentityAPIRequestData;
 
-            expect(data.known_identities).to.have.property(
-                'device_application_stamp',
-            );
-            expect(data.known_identities).to.have.property(
-                'customerid',
-            );
-            expect(data.known_identities).to.have.property(
-                'microsoft',
-            );
-            expect(data.known_identities).to.not.have.property(
-                'email',
-            );
-            expect(data.known_identities).to.not.have.property(
-                'facebook',
-            );
-            expect(data.known_identities).to.not.have.property(
-                'twitter',
-            );
-            expect(data.known_identities).to.not.have.property(
-                'google',
-            );
+            expect(data.known_identities).to.have.property('device_application_stamp');
+            expect(data.known_identities).to.have.property('customerid');
+            expect(data.known_identities).to.have.property('microsoft');
+            expect(data.known_identities).to.not.have.property('email');
+            expect(data.known_identities).to.not.have.property('facebook');
+            expect(data.known_identities).to.not.have.property('twitter');
+            expect(data.known_identities).to.not.have.property('google');
         });
 
         it('should strip falsey values from modify request', async () => {
             await waitForCondition(hasIdentifyReturned);
 
             const identityApiData = {
-                    userIdentities: {
+                userIdentities: {
                     customerid: 'valid-customer-id',
                     email: undefined,
                     facebook: false,
@@ -635,7 +552,7 @@ describe('identity', function() {
             expect(data.identity_changes).to.be.an('array');
             expect(data.identity_changes).to.have.length(2); // customerid and microsoft (null preserved)
 
-            const identityTypes = data.identity_changes.map(change => change.identity_type);
+            const identityTypes = data.identity_changes.map((change) => change.identity_type);
             expect(identityTypes).to.include('customerid');
             expect(identityTypes).to.include('microsoft');
             expect(identityTypes).to.not.include('email');
@@ -658,9 +575,7 @@ describe('identity', function() {
             includeOnMatch: true,
             values: [
                 {
-                    consentPurpose: mParticle.generateHash(
-                        '1' + 'foo purpose 1'
-                    ),
+                    consentPurpose: mParticle.generateHash('1' + 'foo purpose 1'),
                     hasConsented: true,
                 },
             ],
@@ -674,9 +589,7 @@ describe('identity', function() {
             includeOnMatch: true,
             values: [
                 {
-                    consentPurpose: mParticle.generateHash(
-                        '1' + 'foo purpose 2'
-                    ),
+                    consentPurpose: mParticle.generateHash('1' + 'foo purpose 2'),
                     hasConsented: true,
                 },
             ],
@@ -698,10 +611,7 @@ describe('identity', function() {
         expect(activeForwarders.length).to.equal(0);
 
         let consentState = mParticle.Consent.createConsentState();
-        consentState.addGDPRConsentState(
-            'foo purpose 1',
-            mParticle.Consent.createGDPRConsent(true)
-        );
+        consentState.addGDPRConsentState('foo purpose 1', mParticle.Consent.createGDPRConsent(true));
         mParticle.Identity.getCurrentUser().setConsentState(consentState);
 
         activeForwarders = mParticle.getInstance()._getActiveForwarders();
@@ -722,10 +632,7 @@ describe('identity', function() {
         expect(activeForwarders.length).to.equal(0);
 
         consentState = mParticle.Consent.createConsentState();
-        consentState.addGDPRConsentState(
-            'foo purpose 2',
-            mParticle.Consent.createGDPRConsent(true)
-        );
+        consentState.addGDPRConsentState('foo purpose 2', mParticle.Consent.createGDPRConsent(true));
         mParticle.Identity.getCurrentUser().setConsentState(consentState);
 
         activeForwarders = mParticle.getInstance()._getActiveForwarders();
@@ -734,607 +641,440 @@ describe('identity', function() {
     });
 
     describe('cookies', function () {
-    it('should store all MPIDs associated with a sessionId, then clear MPIDs from currentSessionMPIDs when a new session starts', async () => {
-        await waitForCondition(hasIdentifyReturned);
+        it('should store all MPIDs associated with a sessionId, then clear MPIDs from currentSessionMPIDs when a new session starts', async () => {
+            await waitForCondition(hasIdentifyReturned);
 
-        fetchMockSuccess(urls.login, {
-            mpid: 'logged-in-user',
-            is_logged_in: true,
+            fetchMockSuccess(urls.login, {
+                mpid: 'logged-in-user',
+                is_logged_in: true,
+            });
+
+            const userIdentities1 = {
+                userIdentities: {
+                    customerid: 'foo1',
+                },
+            };
+
+            mParticle.Identity.login(userIdentities1);
+            await waitForCondition(hasLoginReturned);
+
+            const localStorageDataBeforeSessionEnd = mParticle.getInstance()._Persistence.getLocalStorage();
+
+            localStorageDataBeforeSessionEnd.gs.csm.length.should.equal(2);
+
+            mParticle.endSession();
+            const localStorageDataAfterSessionEnd1 = mParticle.getInstance()._Persistence.getLocalStorage();
+            localStorageDataAfterSessionEnd1.gs.should.not.have.property('csm');
+
+            mParticle.logEvent('hi');
+            mParticle.Identity.login(userIdentities1);
+
+            await waitForCondition(hasIdentityCallInflightReturned);
+
+            const localStorageAfterLoggingEvent = mParticle.getInstance()._Persistence.getLocalStorage();
+            localStorageAfterLoggingEvent.gs.csm.length.should.equal(1);
         });
 
-        const userIdentities1 = {
-            userIdentities: {
-                customerid: 'foo1',
-            },
-        };
+        it('localStorage - should switch user cookies to new mpid details from cookies when a new mpid is provided', async () => {
+            await waitForCondition(hasIdentityCallInflightReturned);
+            mParticle._resetForTests(MPConfig);
+            window.mParticle.config.useCookieStorage = false;
 
-        mParticle.Identity.login(userIdentities1);
-        await waitForCondition(hasLoginReturned);
+            setLocalStorage();
 
-        const localStorageDataBeforeSessionEnd = mParticle
-            .getInstance()
-            ._Persistence.getLocalStorage();
+            mParticle.init(apiKey, window.mParticle.config);
 
-        localStorageDataBeforeSessionEnd.gs.csm.length.should.equal(2);
+            await waitForCondition(hasIdentifyReturned);
 
-        mParticle.endSession();
-        const localStorageDataAfterSessionEnd1 = mParticle
-            .getInstance()
-            ._Persistence.getLocalStorage();
-        localStorageDataAfterSessionEnd1.gs.should.not.have.property('csm');
+            const cookies1 = mParticle.getInstance()._Persistence.getLocalStorage();
+            cookies1.cu.should.equal(testMPID);
+            cookies1[testMPID].should.have.property('csd');
 
-        mParticle.logEvent('hi');
-        mParticle.Identity.login(userIdentities1);
+            fetchMockSuccess(urls.login, {
+                mpid: 'logged-in-user',
+                is_logged_in: true,
+            });
 
-        await waitForCondition(hasIdentityCallInflightReturned);
+            const userIdentities1 = {
+                userIdentities: {
+                    customerid: 'foo1',
+                },
+            };
 
-        const localStorageAfterLoggingEvent = mParticle
-            .getInstance()
-            ._Persistence.getLocalStorage();
-        localStorageAfterLoggingEvent.gs.csm.length.should.equal(1);
-    });
+            mParticle.Identity.login(userIdentities1);
 
-    it('localStorage - should switch user cookies to new mpid details from cookies when a new mpid is provided', async () => {
-        await waitForCondition(hasIdentityCallInflightReturned);
-        mParticle._resetForTests(MPConfig);
-        window.mParticle.config.useCookieStorage = false;
+            await waitForCondition(hasLoginReturned);
 
-        setLocalStorage();
+            const cookiesAfterMPIDChange = mParticle.getInstance()._Persistence.getLocalStorage();
 
-        mParticle.init(apiKey, window.mParticle.config);
+            expect(cookiesAfterMPIDChange).to.have.all.keys(['l', 'cu', 'logged-in-user', testMPID, 'gs']);
+            expect(cookiesAfterMPIDChange).to.have.property('cu', 'logged-in-user');
+            expect(cookiesAfterMPIDChange[testMPID]).to.have.property('csd');
 
-        await waitForCondition(hasIdentifyReturned);
+            const props = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp'];
 
-        const cookies1 = mParticle.getInstance()._Persistence.getLocalStorage();
-        cookies1.cu.should.equal(testMPID);
-        cookies1[testMPID].should.have.property('csd');
-
-        fetchMockSuccess(urls.login, {
-            mpid: 'logged-in-user',
-            is_logged_in: true,
+            props.forEach(function (prop) {
+                expect(cookiesAfterMPIDChange[testMPID]).to.not.have.property(prop);
+                expect(cookiesAfterMPIDChange['logged-in-user']).to.not.have.property(prop);
+            });
         });
 
-        const userIdentities1 = {
-            userIdentities: {
-                customerid: 'foo1',
-            },
-        };
+        it('should switch user cookies to new mpid details from cookies when a new mpid is provided', async () => {
+            await waitForCondition(hasIdentityCallInflightReturned);
+            mParticle._resetForTests(MPConfig);
+            mParticle.config.useCookieStorage = true;
 
-        mParticle.Identity.login(userIdentities1);
-        
-        await waitForCondition(hasLoginReturned);
+            setLocalStorage();
 
-        const cookiesAfterMPIDChange = mParticle
-            .getInstance()
-            ._Persistence.getLocalStorage();
+            mParticle.init(apiKey, window.mParticle.config);
 
-        expect(cookiesAfterMPIDChange).to.have.all.keys([
-            'l',
-            'cu',
-            'logged-in-user',
-            testMPID,
-            'gs',
-        ]);
-        expect(cookiesAfterMPIDChange).to.have.property('cu', 'logged-in-user');
-        expect(cookiesAfterMPIDChange[testMPID]).to.have.property('csd');
+            await waitForCondition(hasIdentifyReturned);
 
-        const props = [
-            'ie',
-            'sa',
-            'ss',
-            'dt',
-            'les',
-            'av',
-            'cgid',
-            'das',
-            'sid',
-            'c',
-            'mpid',
-            'cp',
-        ];
+            const cookiesAfterInit = findCookie();
+            cookiesAfterInit.should.have.properties('gs', 'cu', testMPID);
 
-        props.forEach(function(prop) {
-            expect(cookiesAfterMPIDChange[testMPID]).to.not.have.property(prop);
-            expect(cookiesAfterMPIDChange['logged-in-user']).to.not.have.property(
-                prop
-            );
-        });
-    });
+            const props1 = ['mpid', 'ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'cp'];
 
-    it('should switch user cookies to new mpid details from cookies when a new mpid is provided', async () => {
-        await waitForCondition(hasIdentityCallInflightReturned);
-        mParticle._resetForTests(MPConfig);
-        mParticle.config.useCookieStorage = true;
+            props1.forEach(function (prop) {
+                cookiesAfterInit.should.not.have.property(prop);
+            });
 
-        setLocalStorage();
+            fetchMockSuccess(urls.login, {
+                mpid: 'logged-in-user',
+                is_logged_in: true,
+            });
 
-        mParticle.init(apiKey, window.mParticle.config);
+            const userIdentities1 = {
+                userIdentities: {
+                    customerid: 'foo1',
+                },
+            };
 
-        await waitForCondition(hasIdentifyReturned);
+            mParticle.Identity.login(userIdentities1);
 
-        const cookiesAfterInit = findCookie();
-        cookiesAfterInit.should.have.properties('gs', 'cu', testMPID);
+            await waitForCondition(hasLoginReturned);
 
-        const props1 = [
-            'mpid',
-            'ui',
-            'ua',
-            'les',
-            'sid',
-            'ie',
-            'dt',
-            'sa',
-            'ss',
-            'cp',
-        ];
+            const cookiesAfterMPIDChange = findCookie();
+            cookiesAfterMPIDChange.should.have.properties(['cu', 'gs', 'logged-in-user', testMPID]);
+            cookiesAfterMPIDChange.should.have.property('cu', 'logged-in-user');
 
-        props1.forEach(function(prop) {
-            cookiesAfterInit.should.not.have.property(prop);
-        });
+            const props2 = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp'];
 
-        fetchMockSuccess(urls.login, {
-            mpid: 'logged-in-user',
-            is_logged_in: true,
-        });
-
-        const userIdentities1 = {
-            userIdentities: {
-                customerid: 'foo1',
-            },
-        };
-
-        mParticle.Identity.login(userIdentities1);
-
-        await waitForCondition(hasLoginReturned);
-
-        const cookiesAfterMPIDChange = findCookie();
-        cookiesAfterMPIDChange.should.have.properties([
-            'cu',
-            'gs',
-            'logged-in-user',
-            testMPID,
-        ]);
-        cookiesAfterMPIDChange.should.have.property('cu', 'logged-in-user');
-
-        const props2 = [
-            'ie',
-            'sa',
-            'ss',
-            'dt',
-            'les',
-            'av',
-            'cgid',
-            'das',
-            'sid',
-            'c',
-            'mpid',
-            'cp',
-        ];
-
-        props2.forEach(function(prop) {
-            cookiesAfterMPIDChange[testMPID].should.not.have.property(prop);
-            cookiesAfterMPIDChange['logged-in-user'].should.not.have.property(prop);
+            props2.forEach(function (prop) {
+                cookiesAfterMPIDChange[testMPID].should.not.have.property(prop);
+                cookiesAfterMPIDChange['logged-in-user'].should.not.have.property(prop);
+            });
         });
     });
-});
-
 
     describe('identity request validation', function () {
-    it('should swap property identityType for identityName', () => {
-        const data: IdentityApiData = { userIdentities: {} };
-        data.userIdentities.other = 'id1';
-        data.userIdentities.customerid = 'id2';
-        data.userIdentities.facebook = 'id3';
-        data.userIdentities.twitter = 'id4';
-        data.userIdentities.google = 'id5';
-        data.userIdentities.microsoft = 'id6';
-        data.userIdentities.yahoo = 'id7';
-        data.userIdentities.email = 'id8';
-        data.userIdentities.facebookcustomaudienceid = 'id9';
-        data.userIdentities.other2 = 'id10';
-        data.userIdentities.other3 = 'id11';
-        data.userIdentities.other4 = 'id12';
+        it('should swap property identityType for identityName', () => {
+            const data: IdentityApiData = { userIdentities: {} };
+            data.userIdentities.other = 'id1';
+            data.userIdentities.customerid = 'id2';
+            data.userIdentities.facebook = 'id3';
+            data.userIdentities.twitter = 'id4';
+            data.userIdentities.google = 'id5';
+            data.userIdentities.microsoft = 'id6';
+            data.userIdentities.yahoo = 'id7';
+            data.userIdentities.email = 'id8';
+            data.userIdentities.facebookcustomaudienceid = 'id9';
+            data.userIdentities.other2 = 'id10';
+            data.userIdentities.other3 = 'id11';
+            data.userIdentities.other4 = 'id12';
 
-        let count = 0;
-        for (const key in data.userIdentities) {
-            // https://go.mparticle.com/work/SQDSDKS-6473
-            expect(mParticle.IdentityType.getIdentityType(key)).to.equal(count);
-            count++;
-            // 8 is alias, which was removed
-            if (count === 8) {
-                count = 9;
+            let count = 0;
+            for (const key in data.userIdentities) {
+                // https://go.mparticle.com/work/SQDSDKS-6473
+                expect(mParticle.IdentityType.getIdentityType(key)).to.equal(count);
+                count++;
+                // 8 is alias, which was removed
+                if (count === 8) {
+                    count = 9;
+                }
             }
-        }
-    });
+        });
 
-    it('should create a proper identity request', async () => {
-        const data: IdentityApiData = { userIdentities: {} },
-            platform = 'web',
-            sdkVendor = 'mparticle',
-            sdkVersion = '1.0.0',
-            deviceId = 'abc',
-            context = null;
+        it('should create a proper identity request', async () => {
+            const data: IdentityApiData = { userIdentities: {} },
+                platform = 'web',
+                sdkVendor = 'mparticle',
+                sdkVersion = '1.0.0',
+                deviceId = 'abc',
+                context = null;
 
-        data.userIdentities.other = 'id1';
-        data.userIdentities.customerid = 'id2';
-        data.userIdentities.facebook = 'id3';
-        data.userIdentities.twitter = 'id4';
-        data.userIdentities.google = 'id5';
-        data.userIdentities.microsoft = 'id6';
-        data.userIdentities.yahoo = 'id7';
-        data.userIdentities.email = 'id8';
-        data.userIdentities.facebookcustomaudienceid = 'id9';
-        data.userIdentities.other2 = 'id10';
-        data.userIdentities.other3 = 'id11';
-        data.userIdentities.other4 = 'id12';
-        data.userIdentities.other5 = 'id13';
-        data.userIdentities.other6 = 'id14';
-        data.userIdentities.other7 = 'id15';
-        data.userIdentities.other8 = 'id16';
-        data.userIdentities.other9 = 'id17';
-        data.userIdentities.other10 = 'id18';
-        data.userIdentities.mobile_number = 'id19';
-        data.userIdentities.phone_number_2 = 'id20';
-        data.userIdentities.phone_number_3 = 'id21';
+            data.userIdentities.other = 'id1';
+            data.userIdentities.customerid = 'id2';
+            data.userIdentities.facebook = 'id3';
+            data.userIdentities.twitter = 'id4';
+            data.userIdentities.google = 'id5';
+            data.userIdentities.microsoft = 'id6';
+            data.userIdentities.yahoo = 'id7';
+            data.userIdentities.email = 'id8';
+            data.userIdentities.facebookcustomaudienceid = 'id9';
+            data.userIdentities.other2 = 'id10';
+            data.userIdentities.other3 = 'id11';
+            data.userIdentities.other4 = 'id12';
+            data.userIdentities.other5 = 'id13';
+            data.userIdentities.other6 = 'id14';
+            data.userIdentities.other7 = 'id15';
+            data.userIdentities.other8 = 'id16';
+            data.userIdentities.other9 = 'id17';
+            data.userIdentities.other10 = 'id18';
+            data.userIdentities.mobile_number = 'id19';
+            data.userIdentities.phone_number_2 = 'id20';
+            data.userIdentities.phone_number_3 = 'id21';
 
-        const identityRequest = mParticle
-            .getInstance()
-            ._Identity.IdentityRequest.createIdentityRequest(
-                data,
-                platform,
-                sdkVendor,
-                sdkVersion,
-                deviceId,
-                context,
-                testMPID
-            );
+            const identityRequest = mParticle
+                .getInstance()
+                ._Identity.IdentityRequest.createIdentityRequest(
+                    data,
+                    platform,
+                    sdkVendor,
+                    sdkVersion,
+                    deviceId,
+                    context,
+                    testMPID
+                );
 
-        expect(identityRequest).to.have.all.keys([
-            'client_sdk',
-            'context',
-            'environment',
-            'known_identities',
-            'previous_mpid',
-            'request_id',
-            'request_timestamp_ms',
-        ]);
+            expect(identityRequest).to.have.all.keys([
+                'client_sdk',
+                'context',
+                'environment',
+                'known_identities',
+                'previous_mpid',
+                'request_id',
+                'request_timestamp_ms',
+            ]);
 
-        expect(identityRequest.client_sdk).to.have.all.keys([
-            'platform',
-            'sdk_vendor',
-            'sdk_version',
-        ]);
+            expect(identityRequest.client_sdk).to.have.all.keys(['platform', 'sdk_vendor', 'sdk_version']);
 
-        expect(identityRequest.client_sdk.platform).to.equal(platform);
-        expect(identityRequest.client_sdk.sdk_vendor).to.equal(sdkVendor);
-        expect(identityRequest.environment).to.equal('production');
-        expect(identityRequest.previous_mpid).to.equal(testMPID);
+            expect(identityRequest.client_sdk.platform).to.equal(platform);
+            expect(identityRequest.client_sdk.sdk_vendor).to.equal(sdkVendor);
+            expect(identityRequest.environment).to.equal('production');
+            expect(identityRequest.previous_mpid).to.equal(testMPID);
 
-        expect(identityRequest.known_identities).to.have.all.keys([
-            'other',
-            'customerid',
-            'facebook',
-            'twitter',
-            'google',
-            'microsoft',
-            'yahoo',
-            'email',
-            'facebookcustomaudienceid',
-            'other2',
-            'other3',
-            'other4',
-            'other5',
-            'other6',
-            'other7',
-            'other8',
-            'other9',
-            'other10',
-            'phone_number_2',
-            'phone_number_3',
-            'mobile_number',
-            'device_application_stamp',
-        ]);
+            expect(identityRequest.known_identities).to.have.all.keys([
+                'other',
+                'customerid',
+                'facebook',
+                'twitter',
+                'google',
+                'microsoft',
+                'yahoo',
+                'email',
+                'facebookcustomaudienceid',
+                'other2',
+                'other3',
+                'other4',
+                'other5',
+                'other6',
+                'other7',
+                'other8',
+                'other9',
+                'other10',
+                'phone_number_2',
+                'phone_number_3',
+                'mobile_number',
+                'device_application_stamp',
+            ]);
 
-        expect(identityRequest.known_identities.other).to.equal('id1');
-        expect(identityRequest.known_identities.customerid).to.equal('id2');
-        expect(identityRequest.known_identities.facebook).to.equal('id3');
-        expect(identityRequest.known_identities.twitter).to.equal('id4');
-        expect(identityRequest.known_identities.google).to.equal('id5');
-        expect(identityRequest.known_identities.microsoft).to.equal('id6');
-        expect(identityRequest.known_identities.yahoo).to.equal('id7');
-        expect(identityRequest.known_identities.email).to.equal('id8');
-        expect(
-            identityRequest.known_identities.facebookcustomaudienceid
-        ).to.equal('id9');
-        expect(identityRequest.known_identities.other2).to.equal('id10');
-        expect(identityRequest.known_identities.other3).to.equal('id11');
-        expect(identityRequest.known_identities.other4).to.equal('id12');
-        expect(identityRequest.known_identities.other5).to.equal('id13');
-        expect(identityRequest.known_identities.other6).to.equal('id14');
-        expect(identityRequest.known_identities.other7).to.equal('id15');
-        expect(identityRequest.known_identities.other8).to.equal('id16');
-        expect(identityRequest.known_identities.other9).to.equal('id17');
-        expect(identityRequest.known_identities.other10).to.equal('id18');
-        expect(identityRequest.known_identities.mobile_number).to.equal('id19');
-        expect(identityRequest.known_identities.phone_number_2).to.equal(
-            'id20'
-        );
-        expect(identityRequest.known_identities.phone_number_3).to.equal(
-            'id21'
-        );
-    });
+            expect(identityRequest.known_identities.other).to.equal('id1');
+            expect(identityRequest.known_identities.customerid).to.equal('id2');
+            expect(identityRequest.known_identities.facebook).to.equal('id3');
+            expect(identityRequest.known_identities.twitter).to.equal('id4');
+            expect(identityRequest.known_identities.google).to.equal('id5');
+            expect(identityRequest.known_identities.microsoft).to.equal('id6');
+            expect(identityRequest.known_identities.yahoo).to.equal('id7');
+            expect(identityRequest.known_identities.email).to.equal('id8');
+            expect(identityRequest.known_identities.facebookcustomaudienceid).to.equal('id9');
+            expect(identityRequest.known_identities.other2).to.equal('id10');
+            expect(identityRequest.known_identities.other3).to.equal('id11');
+            expect(identityRequest.known_identities.other4).to.equal('id12');
+            expect(identityRequest.known_identities.other5).to.equal('id13');
+            expect(identityRequest.known_identities.other6).to.equal('id14');
+            expect(identityRequest.known_identities.other7).to.equal('id15');
+            expect(identityRequest.known_identities.other8).to.equal('id16');
+            expect(identityRequest.known_identities.other9).to.equal('id17');
+            expect(identityRequest.known_identities.other10).to.equal('id18');
+            expect(identityRequest.known_identities.mobile_number).to.equal('id19');
+            expect(identityRequest.known_identities.phone_number_2).to.equal('id20');
+            expect(identityRequest.known_identities.phone_number_3).to.equal('id21');
+        });
 
-    it('should create a proper modify identity request', async () => {
-        const platform = 'web';
-        const sdkVendor = 'mparticle';
-        const sdkVersion = '1.0.0';
-        const context = null;
+        it('should create a proper modify identity request', async () => {
+            const platform = 'web';
+            const sdkVendor = 'mparticle';
+            const sdkVersion = '1.0.0';
+            const context = null;
 
-        const oldIdentities: UserIdentities = {};
-        oldIdentities['other'] = 'id1';
-        oldIdentities['customerid'] = 'id2';
-        oldIdentities['facebook'] = 'id3';
-        oldIdentities['twitter'] = 'id4';
-        oldIdentities['google'] = 'id5';
-        oldIdentities['microsoft'] = 'id6';
-        oldIdentities['yahoo'] = 'id7';
-        oldIdentities['email'] = 'id8';
-        oldIdentities['facebookcustomaudienceid'] = 'id9';
-        oldIdentities['other2'] = 'id11';
-        oldIdentities['other3'] = 'id12';
-        oldIdentities['other4'] = 'id13';
-        oldIdentities['other5'] = 'id14';
-        oldIdentities['other6'] = 'id15';
-        oldIdentities['other7'] = 'id16';
-        oldIdentities['other8'] = 'id17';
-        oldIdentities['other9'] = 'id18';
-        oldIdentities['other10'] = 'id19';
-        oldIdentities['mobile_number'] = 'id20';
-        oldIdentities['phone_number_2'] = 'id21';
-        oldIdentities['phone_number_3'] = 'id22';
+            const oldIdentities: UserIdentities = {};
+            oldIdentities['other'] = 'id1';
+            oldIdentities['customerid'] = 'id2';
+            oldIdentities['facebook'] = 'id3';
+            oldIdentities['twitter'] = 'id4';
+            oldIdentities['google'] = 'id5';
+            oldIdentities['microsoft'] = 'id6';
+            oldIdentities['yahoo'] = 'id7';
+            oldIdentities['email'] = 'id8';
+            oldIdentities['facebookcustomaudienceid'] = 'id9';
+            oldIdentities['other2'] = 'id11';
+            oldIdentities['other3'] = 'id12';
+            oldIdentities['other4'] = 'id13';
+            oldIdentities['other5'] = 'id14';
+            oldIdentities['other6'] = 'id15';
+            oldIdentities['other7'] = 'id16';
+            oldIdentities['other8'] = 'id17';
+            oldIdentities['other9'] = 'id18';
+            oldIdentities['other10'] = 'id19';
+            oldIdentities['mobile_number'] = 'id20';
+            oldIdentities['phone_number_2'] = 'id21';
+            oldIdentities['phone_number_3'] = 'id22';
 
-        const newIdentities: UserIdentities = {};
-        newIdentities.other = 'id14';
-        newIdentities.customerid = 'id15';
-        newIdentities.facebook = 'id16';
-        newIdentities.twitter = 'id17';
-        newIdentities.google = 'id18';
-        newIdentities.microsoft = 'id19';
-        newIdentities.yahoo = 'id20';
-        newIdentities.email = 'id21';
-        newIdentities.facebookcustomaudienceid = 'id22';
-        newIdentities.other2 = 'id23';
-        newIdentities.other3 = 'id24';
-        newIdentities.other4 = 'id25';
-        newIdentities.other5 = 'id26';
-        newIdentities.other6 = 'id27';
-        newIdentities.other7 = 'id28';
-        newIdentities.other8 = 'id29';
-        newIdentities.other9 = 'id30';
-        newIdentities.other10 = 'id31';
-        newIdentities.mobile_number = 'id32';
-        newIdentities.phone_number_2 = 'id33';
-        newIdentities.phone_number_3 = 'id34';
+            const newIdentities: UserIdentities = {};
+            newIdentities.other = 'id14';
+            newIdentities.customerid = 'id15';
+            newIdentities.facebook = 'id16';
+            newIdentities.twitter = 'id17';
+            newIdentities.google = 'id18';
+            newIdentities.microsoft = 'id19';
+            newIdentities.yahoo = 'id20';
+            newIdentities.email = 'id21';
+            newIdentities.facebookcustomaudienceid = 'id22';
+            newIdentities.other2 = 'id23';
+            newIdentities.other3 = 'id24';
+            newIdentities.other4 = 'id25';
+            newIdentities.other5 = 'id26';
+            newIdentities.other6 = 'id27';
+            newIdentities.other7 = 'id28';
+            newIdentities.other8 = 'id29';
+            newIdentities.other9 = 'id30';
+            newIdentities.other10 = 'id31';
+            newIdentities.mobile_number = 'id32';
+            newIdentities.phone_number_2 = 'id33';
+            newIdentities.phone_number_3 = 'id34';
 
-        const identityRequest = mParticle
-            .getInstance()
-            ._Identity.IdentityRequest.createModifyIdentityRequest(
-                oldIdentities,
-                newIdentities,
-                platform,
-                sdkVendor,
-                sdkVersion,
-                context
-            );
+            const identityRequest = mParticle
+                .getInstance()
+                ._Identity.IdentityRequest.createModifyIdentityRequest(
+                    oldIdentities,
+                    newIdentities,
+                    platform,
+                    sdkVendor,
+                    sdkVersion,
+                    context
+                );
 
-        expect(identityRequest).to.have.all.keys([
-            'client_sdk',
-            'context',
-            'environment',
-            'identity_changes',
-            'request_id',
-            'request_timestamp_ms',
-        ]);
-        expect(identityRequest.client_sdk).to.have.all.keys([
-            'platform',
-            'sdk_vendor',
-            'sdk_version',
-        ]);
-        expect(identityRequest.client_sdk.platform).to.equal('web');
-        expect(identityRequest.client_sdk.sdk_vendor).to.equal('mparticle');
-        expect(identityRequest.environment).to.equal('production');
-        expect(identityRequest.identity_changes.length).to.equal(21);
+            expect(identityRequest).to.have.all.keys([
+                'client_sdk',
+                'context',
+                'environment',
+                'identity_changes',
+                'request_id',
+                'request_timestamp_ms',
+            ]);
+            expect(identityRequest.client_sdk).to.have.all.keys(['platform', 'sdk_vendor', 'sdk_version']);
+            expect(identityRequest.client_sdk.platform).to.equal('web');
+            expect(identityRequest.client_sdk.sdk_vendor).to.equal('mparticle');
+            expect(identityRequest.environment).to.equal('production');
+            expect(identityRequest.identity_changes.length).to.equal(21);
 
-        expect(identityRequest.identity_changes[0]).to.have.all.keys([
-            'identity_type',
-            'new_value',
-            'old_value',
-        ]);
-        expect(identityRequest.identity_changes[0].old_value).to.equal('id1');
-        expect(identityRequest.identity_changes[0].identity_type).to.equal(
-            'other'
-        );
-        expect(identityRequest.identity_changes[0].new_value).to.equal('id14');
+            expect(identityRequest.identity_changes[0]).to.have.all.keys(['identity_type', 'new_value', 'old_value']);
+            expect(identityRequest.identity_changes[0].old_value).to.equal('id1');
+            expect(identityRequest.identity_changes[0].identity_type).to.equal('other');
+            expect(identityRequest.identity_changes[0].new_value).to.equal('id14');
 
-        expect(identityRequest.identity_changes[1]).to.have.all.keys([
-            'identity_type',
-            'new_value',
-            'old_value',
-        ]);
-        expect(identityRequest.identity_changes[1].old_value).to.equal('id2');
-        expect(identityRequest.identity_changes[1].identity_type).to.equal(
-            'customerid'
-        );
-        expect(identityRequest.identity_changes[1].new_value).to.equal('id15');
+            expect(identityRequest.identity_changes[1]).to.have.all.keys(['identity_type', 'new_value', 'old_value']);
+            expect(identityRequest.identity_changes[1].old_value).to.equal('id2');
+            expect(identityRequest.identity_changes[1].identity_type).to.equal('customerid');
+            expect(identityRequest.identity_changes[1].new_value).to.equal('id15');
 
-        expect(identityRequest.identity_changes[2]).to.have.all.keys([
-            'identity_type',
-            'new_value',
-            'old_value',
-        ]);
-        expect(identityRequest.identity_changes[2].old_value).to.equal('id3');
-        expect(identityRequest.identity_changes[2].identity_type).to.equal(
-            'facebook'
-        );
-        expect(identityRequest.identity_changes[2].new_value).to.equal('id16');
+            expect(identityRequest.identity_changes[2]).to.have.all.keys(['identity_type', 'new_value', 'old_value']);
+            expect(identityRequest.identity_changes[2].old_value).to.equal('id3');
+            expect(identityRequest.identity_changes[2].identity_type).to.equal('facebook');
+            expect(identityRequest.identity_changes[2].new_value).to.equal('id16');
 
-        expect(identityRequest.identity_changes[3]).to.have.all.keys([
-            'identity_type',
-            'new_value',
-            'old_value',
-        ]);
-        expect(identityRequest.identity_changes[3].old_value).to.equal('id4');
-        expect(identityRequest.identity_changes[3].identity_type).to.equal(
-            'twitter'
-        );
-        expect(identityRequest.identity_changes[3].new_value).to.equal('id17');
+            expect(identityRequest.identity_changes[3]).to.have.all.keys(['identity_type', 'new_value', 'old_value']);
+            expect(identityRequest.identity_changes[3].old_value).to.equal('id4');
+            expect(identityRequest.identity_changes[3].identity_type).to.equal('twitter');
+            expect(identityRequest.identity_changes[3].new_value).to.equal('id17');
 
-        expect(identityRequest.identity_changes[4]).to.have.all.keys([
-            'identity_type',
-            'new_value',
-            'old_value',
-        ]);
-        expect(identityRequest.identity_changes[4].old_value).to.equal('id5');
-        expect(identityRequest.identity_changes[4].identity_type).to.equal(
-            'google'
-        );
-        expect(identityRequest.identity_changes[4].new_value).to.equal('id18');
+            expect(identityRequest.identity_changes[4]).to.have.all.keys(['identity_type', 'new_value', 'old_value']);
+            expect(identityRequest.identity_changes[4].old_value).to.equal('id5');
+            expect(identityRequest.identity_changes[4].identity_type).to.equal('google');
+            expect(identityRequest.identity_changes[4].new_value).to.equal('id18');
 
-        expect(identityRequest.identity_changes[5]).to.have.all.keys([
-            'identity_type',
-            'new_value',
-            'old_value',
-        ]);
-        expect(identityRequest.identity_changes[5].old_value).to.equal('id6');
-        expect(identityRequest.identity_changes[5].identity_type).to.equal(
-            'microsoft'
-        );
-        expect(identityRequest.identity_changes[5].new_value).to.equal('id19');
+            expect(identityRequest.identity_changes[5]).to.have.all.keys(['identity_type', 'new_value', 'old_value']);
+            expect(identityRequest.identity_changes[5].old_value).to.equal('id6');
+            expect(identityRequest.identity_changes[5].identity_type).to.equal('microsoft');
+            expect(identityRequest.identity_changes[5].new_value).to.equal('id19');
 
-        expect(identityRequest.identity_changes[6]).to.have.all.keys([
-            'identity_type',
-            'new_value',
-            'old_value',
-        ]);
-        expect(identityRequest.identity_changes[6].old_value).to.equal('id7');
-        expect(identityRequest.identity_changes[6].identity_type).to.equal(
-            'yahoo'
-        );
-        expect(identityRequest.identity_changes[6].new_value).to.equal('id20');
+            expect(identityRequest.identity_changes[6]).to.have.all.keys(['identity_type', 'new_value', 'old_value']);
+            expect(identityRequest.identity_changes[6].old_value).to.equal('id7');
+            expect(identityRequest.identity_changes[6].identity_type).to.equal('yahoo');
+            expect(identityRequest.identity_changes[6].new_value).to.equal('id20');
 
-        expect(identityRequest.identity_changes[7]).to.have.all.keys([
-            'identity_type',
-            'new_value',
-            'old_value',
-        ]);
-        expect(identityRequest.identity_changes[7].old_value).to.equal('id8');
-        expect(identityRequest.identity_changes[7].identity_type).to.equal(
-            'email'
-        );
-        expect(identityRequest.identity_changes[7].new_value).to.equal('id21');
+            expect(identityRequest.identity_changes[7]).to.have.all.keys(['identity_type', 'new_value', 'old_value']);
+            expect(identityRequest.identity_changes[7].old_value).to.equal('id8');
+            expect(identityRequest.identity_changes[7].identity_type).to.equal('email');
+            expect(identityRequest.identity_changes[7].new_value).to.equal('id21');
 
-        expect(identityRequest.identity_changes[8]).to.have.all.keys([
-            'identity_type',
-            'new_value',
-            'old_value',
-        ]);
-        expect(identityRequest.identity_changes[8].old_value).to.equal('id9');
-        expect(identityRequest.identity_changes[8].identity_type).to.equal(
-            'facebookcustomaudienceid'
-        );
-        expect(identityRequest.identity_changes[8].new_value).to.equal('id22');
+            expect(identityRequest.identity_changes[8]).to.have.all.keys(['identity_type', 'new_value', 'old_value']);
+            expect(identityRequest.identity_changes[8].old_value).to.equal('id9');
+            expect(identityRequest.identity_changes[8].identity_type).to.equal('facebookcustomaudienceid');
+            expect(identityRequest.identity_changes[8].new_value).to.equal('id22');
 
-        expect(identityRequest.identity_changes[9]).to.have.all.keys([
-            'identity_type',
-            'new_value',
-            'old_value',
-        ]);
-        expect(identityRequest.identity_changes[9].old_value).to.equal('id11');
-        expect(identityRequest.identity_changes[9].identity_type).to.equal(
-            'other2'
-        );
-        expect(identityRequest.identity_changes[9].new_value).to.equal('id23');
+            expect(identityRequest.identity_changes[9]).to.have.all.keys(['identity_type', 'new_value', 'old_value']);
+            expect(identityRequest.identity_changes[9].old_value).to.equal('id11');
+            expect(identityRequest.identity_changes[9].identity_type).to.equal('other2');
+            expect(identityRequest.identity_changes[9].new_value).to.equal('id23');
 
-        expect(identityRequest.identity_changes[10]).to.have.all.keys([
-            'identity_type',
-            'new_value',
-            'old_value',
-        ]);
-        expect(identityRequest.identity_changes[10].old_value).to.equal('id12');
-        expect(identityRequest.identity_changes[10].identity_type).to.equal(
-            'other3'
-        );
-        expect(identityRequest.identity_changes[10].new_value).to.equal('id24');
+            expect(identityRequest.identity_changes[10]).to.have.all.keys(['identity_type', 'new_value', 'old_value']);
+            expect(identityRequest.identity_changes[10].old_value).to.equal('id12');
+            expect(identityRequest.identity_changes[10].identity_type).to.equal('other3');
+            expect(identityRequest.identity_changes[10].new_value).to.equal('id24');
 
-        expect(identityRequest.identity_changes[11]).to.have.all.keys([
-            'identity_type',
-            'new_value',
-            'old_value',
-        ]);
-        expect(identityRequest.identity_changes[11].old_value).to.equal('id13');
-        expect(identityRequest.identity_changes[11].identity_type).to.equal(
-            'other4'
-        );
-        expect(identityRequest.identity_changes[11].new_value).to.equal('id25');
+            expect(identityRequest.identity_changes[11]).to.have.all.keys(['identity_type', 'new_value', 'old_value']);
+            expect(identityRequest.identity_changes[11].old_value).to.equal('id13');
+            expect(identityRequest.identity_changes[11].identity_type).to.equal('other4');
+            expect(identityRequest.identity_changes[11].new_value).to.equal('id25');
 
-        expect(identityRequest.identity_changes[12]).to.have.all.keys([
-            'identity_type',
-            'new_value',
-            'old_value',
-        ]);
-        expect(identityRequest.identity_changes[12].old_value).to.equal('id14');
-        expect(identityRequest.identity_changes[12].identity_type).to.equal(
-            'other5'
-        );
-        expect(identityRequest.identity_changes[12].new_value).to.equal('id26');
+            expect(identityRequest.identity_changes[12]).to.have.all.keys(['identity_type', 'new_value', 'old_value']);
+            expect(identityRequest.identity_changes[12].old_value).to.equal('id14');
+            expect(identityRequest.identity_changes[12].identity_type).to.equal('other5');
+            expect(identityRequest.identity_changes[12].new_value).to.equal('id26');
 
-        expect(identityRequest.identity_changes[13].old_value).to.equal('id15');
-        expect(identityRequest.identity_changes[13].identity_type).to.equal(
-            'other6'
-        );
-        expect(identityRequest.identity_changes[13].new_value).to.equal('id27');
+            expect(identityRequest.identity_changes[13].old_value).to.equal('id15');
+            expect(identityRequest.identity_changes[13].identity_type).to.equal('other6');
+            expect(identityRequest.identity_changes[13].new_value).to.equal('id27');
 
-        expect(identityRequest.identity_changes[14].old_value).to.equal('id16');
-        expect(identityRequest.identity_changes[14].identity_type).to.equal(
-            'other7'
-        );
-        expect(identityRequest.identity_changes[14].new_value).to.equal('id28');
+            expect(identityRequest.identity_changes[14].old_value).to.equal('id16');
+            expect(identityRequest.identity_changes[14].identity_type).to.equal('other7');
+            expect(identityRequest.identity_changes[14].new_value).to.equal('id28');
 
-        expect(identityRequest.identity_changes[15].old_value).to.equal('id17');
-        expect(identityRequest.identity_changes[15].identity_type).to.equal(
-            'other8'
-        );
-        expect(identityRequest.identity_changes[15].new_value).to.equal('id29');
+            expect(identityRequest.identity_changes[15].old_value).to.equal('id17');
+            expect(identityRequest.identity_changes[15].identity_type).to.equal('other8');
+            expect(identityRequest.identity_changes[15].new_value).to.equal('id29');
 
-        expect(identityRequest.identity_changes[16].old_value).to.equal('id18');
-        expect(identityRequest.identity_changes[16].identity_type).to.equal(
-            'other9'
-        );
-        expect(identityRequest.identity_changes[16].new_value).to.equal('id30');
+            expect(identityRequest.identity_changes[16].old_value).to.equal('id18');
+            expect(identityRequest.identity_changes[16].identity_type).to.equal('other9');
+            expect(identityRequest.identity_changes[16].new_value).to.equal('id30');
 
-        expect(identityRequest.identity_changes[17].old_value).to.equal('id19');
-        expect(identityRequest.identity_changes[17].identity_type).to.equal(
-            'other10'
-        );
-        expect(identityRequest.identity_changes[17].new_value).to.equal('id31');
+            expect(identityRequest.identity_changes[17].old_value).to.equal('id19');
+            expect(identityRequest.identity_changes[17].identity_type).to.equal('other10');
+            expect(identityRequest.identity_changes[17].new_value).to.equal('id31');
 
-        expect(identityRequest.identity_changes[18].old_value).to.equal('id20');
-        expect(identityRequest.identity_changes[18].identity_type).to.equal(
-            'mobile_number'
-        );
-        expect(identityRequest.identity_changes[18].new_value).to.equal('id32');
+            expect(identityRequest.identity_changes[18].old_value).to.equal('id20');
+            expect(identityRequest.identity_changes[18].identity_type).to.equal('mobile_number');
+            expect(identityRequest.identity_changes[18].new_value).to.equal('id32');
 
-        expect(identityRequest.identity_changes[19].old_value).to.equal('id21');
-        expect(identityRequest.identity_changes[19].identity_type).to.equal(
-            'phone_number_2'
-        );
-        expect(identityRequest.identity_changes[19].new_value).to.equal('id33');
+            expect(identityRequest.identity_changes[19].old_value).to.equal('id21');
+            expect(identityRequest.identity_changes[19].identity_type).to.equal('phone_number_2');
+            expect(identityRequest.identity_changes[19].new_value).to.equal('id33');
 
-        expect(identityRequest.identity_changes[20].old_value).to.equal('id22');
-        expect(identityRequest.identity_changes[20].identity_type).to.equal(
-            'phone_number_3'
-        );
-        expect(identityRequest.identity_changes[20].new_value).to.equal('id34');
+            expect(identityRequest.identity_changes[20].old_value).to.equal('id22');
+            expect(identityRequest.identity_changes[20].identity_type).to.equal('phone_number_3');
+            expect(identityRequest.identity_changes[20].new_value).to.equal('id34');
         });
     });
 
@@ -1344,59 +1084,59 @@ describe('identity', function() {
             fetchMock.restore();
         });
 
-    it('should not make a request when an invalid request is sent as a string', async () => {
-        const identityAPIRequest = BAD_USER_IDENTITIES_AS_STRING;
-        mParticle.Identity.login(identityAPIRequest);
+        it('should not make a request when an invalid request is sent as a string', async () => {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_STRING;
+            mParticle.Identity.login(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
 
-    it('should not make a request when an invalid request is sent as an array', async () => {
-        const identityAPIRequest = BAD_USER_IDENTITIES_AS_ARRAY;
-        mParticle.Identity.login(identityAPIRequest);
+        it('should not make a request when an invalid request is sent as an array', async () => {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_ARRAY;
+            mParticle.Identity.login(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
 
-    it('should not make a request when an invalid request is sent as a null', async () => {
-        const identityAPIRequest = BAD_USER_IDENTITIES_AS_NULL;
-        mParticle.Identity.login(identityAPIRequest);
+        it('should not make a request when an invalid request is sent as a null', async () => {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_NULL;
+            mParticle.Identity.login(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
 
-    it('should not make a request when an invalid request is sent as undefined', async () => {
-        const identityAPIRequest = BAD_USER_IDENTITIES_AS_UNDEFINED;
-        mParticle.Identity.login(identityAPIRequest);
+        it('should not make a request when an invalid request is sent as undefined', async () => {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_UNDEFINED;
+            mParticle.Identity.login(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
 
-    it('should not make a request when an invalid request is sent as a boolean', async () => {
-        const identityAPIRequest = BAD_USER_IDENTITIES_AS_BOOLEAN;
-        mParticle.Identity.login(identityAPIRequest);
+        it('should not make a request when an invalid request is sent as a boolean', async () => {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_BOOLEAN;
+            mParticle.Identity.login(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
 
-    it('should not make a request when an invalid callback is set', async () => {
-        const identityRequest: IdentityApiData = {
-            userIdentities: {
-                customerid: '123',
-            },
-        };
-        const badCallback = BadCallbackAsString;
+        it('should not make a request when an invalid callback is set', async () => {
+            const identityRequest: IdentityApiData = {
+                userIdentities: {
+                    customerid: '123',
+                },
+            };
+            const badCallback = BadCallbackAsString;
 
-        mParticle.Identity.login(identityRequest, badCallback);
+            mParticle.Identity.login(identityRequest, badCallback);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
     });
 
     describe('#logout', function () {
@@ -1405,59 +1145,59 @@ describe('identity', function() {
             fetchMock.restore();
         });
 
-    it('should not make a request when an invalid request is sent as string', async () => {
-        const identityAPIRequest = BAD_USER_IDENTITIES_AS_STRING;
-        mParticle.Identity.logout(identityAPIRequest);
+        it('should not make a request when an invalid request is sent as string', async () => {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_STRING;
+            mParticle.Identity.logout(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
 
-    it('should not make a request when an invalid request is sent as array', async () => {
-        const identityAPIRequest = BAD_USER_IDENTITIES_AS_ARRAY;
-        mParticle.Identity.logout(identityAPIRequest);
+        it('should not make a request when an invalid request is sent as array', async () => {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_ARRAY;
+            mParticle.Identity.logout(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
 
-    it('should not make a request when an invalid request is sent as a null', async () => {
-        const identityAPIRequest = BAD_USER_IDENTITIES_AS_NULL;
-        mParticle.Identity.logout(identityAPIRequest);
+        it('should not make a request when an invalid request is sent as a null', async () => {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_NULL;
+            mParticle.Identity.logout(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
 
-    it('should not make a request when an invalid request is sent as undefined', async () => {
-        const identityAPIRequest = BAD_USER_IDENTITIES_AS_UNDEFINED;
-        mParticle.Identity.logout(identityAPIRequest);
+        it('should not make a request when an invalid request is sent as undefined', async () => {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_UNDEFINED;
+            mParticle.Identity.logout(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
 
-    it('should not make a request when an invalid request is sent as boolean', async () => {
-        const identityAPIRequest = BAD_USER_IDENTITIES_AS_BOOLEAN;
-        mParticle.Identity.logout(identityAPIRequest);
+        it('should not make a request when an invalid request is sent as boolean', async () => {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_BOOLEAN;
+            mParticle.Identity.logout(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
 
-    it('should not make a request when an invalid callback is sent', async () => {
-        const identityRequest: IdentityApiData = {
-            userIdentities: {
-                customerid: '123',
-            },
-        };
-        const badCallback = BadCallbackAsString;
+        it('should not make a request when an invalid callback is sent', async () => {
+            const identityRequest: IdentityApiData = {
+                userIdentities: {
+                    customerid: '123',
+                },
+            };
+            const badCallback = BadCallbackAsString;
 
-        mParticle.Identity.logout(identityRequest, badCallback);
+            mParticle.Identity.logout(identityRequest, badCallback);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
     });
 
     describe('#modify', function () {
@@ -1466,60 +1206,60 @@ describe('identity', function() {
             fetchMock.restore();
         });
 
-    it('should not make a request when an invalid request is sent as a string', async () => {
-        const identityAPIRequest = BAD_USER_IDENTITIES_AS_STRING;
-        debugger
-        mParticle.Identity.modify(identityAPIRequest);
+        it('should not make a request when an invalid request is sent as a string', async () => {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_STRING;
+            debugger;
+            mParticle.Identity.modify(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
-
-    it('should not make a request when an invalid request is sent as an array', async () => {
-        const identityAPIRequest = BAD_USER_IDENTITIES_AS_ARRAY;
-        mParticle.Identity.modify(identityAPIRequest);
-
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
-
-    it('should not make a request when an invalid request is sent as a null', async () => {
-        const identityAPIRequest = BAD_USER_IDENTITIES_AS_NULL;
-        mParticle.Identity.modify(identityAPIRequest);
-
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
-
-    it('should not make a request when an invalid request is sent as a undefined', async () => {
-        const identityAPIRequest = BAD_USER_IDENTITIES_AS_UNDEFINED;
-        mParticle.Identity.modify(identityAPIRequest);
-
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
-
-    it('should not make a request when an invalid request is sent as a boolean', async () => {
-        const identityAPIRequest = BAD_USER_IDENTITIES_AS_BOOLEAN;
-        mParticle.Identity.modify(identityAPIRequest);
-
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
         });
 
-    it('should not make a request when an invalid callback is set', async () => {
-        const identityRequest: IdentityApiData = {
-            userIdentities: {
-                customerid: '123',
-            },
-        };
-        const badCallback = BadCallbackAsString;
+        it('should not make a request when an invalid request is sent as an array', async () => {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_ARRAY;
+            mParticle.Identity.modify(identityAPIRequest);
 
-        mParticle.Identity.modify(identityRequest, badCallback);
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
+        it('should not make a request when an invalid request is sent as a null', async () => {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_NULL;
+            mParticle.Identity.modify(identityAPIRequest);
+
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
+
+        it('should not make a request when an invalid request is sent as a undefined', async () => {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_UNDEFINED;
+            mParticle.Identity.modify(identityAPIRequest);
+
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
+
+        it('should not make a request when an invalid request is sent as a boolean', async () => {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_BOOLEAN;
+            mParticle.Identity.modify(identityAPIRequest);
+
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
+
+        it('should not make a request when an invalid callback is set', async () => {
+            const identityRequest: IdentityApiData = {
+                userIdentities: {
+                    customerid: '123',
+                },
+            };
+            const badCallback = BadCallbackAsString;
+
+            mParticle.Identity.modify(identityRequest, badCallback);
+
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
     });
 
     describe('#identify', function () {
@@ -1528,59 +1268,59 @@ describe('identity', function() {
             fetchMock.restore();
         });
 
-    it('should not make a request when an invalid request is sent as a string', async () => {
-        const identityAPIRequest = BAD_USER_IDENTITIES_AS_STRING;
-        mParticle.Identity.identify(identityAPIRequest);
+        it('should not make a request when an invalid request is sent as a string', async () => {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_STRING;
+            mParticle.Identity.identify(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
 
-    it('should not make a request when an invalid request is sent as an array', async () => {
-        const identityAPIRequest = BAD_USER_IDENTITIES_AS_ARRAY;
-        mParticle.Identity.identify(identityAPIRequest);
+        it('should not make a request when an invalid request is sent as an array', async () => {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_ARRAY;
+            mParticle.Identity.identify(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
 
-    it('should not make a request when an invalid request is sent as a null', async () => {
-        const identityAPIRequest = BAD_USER_IDENTITIES_AS_NULL;
-        mParticle.Identity.identify(identityAPIRequest);
+        it('should not make a request when an invalid request is sent as a null', async () => {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_NULL;
+            mParticle.Identity.identify(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
 
-    it('should not make a request when an invalid request is sent as a undefined', async () => {
-        const identityAPIRequest = BAD_USER_IDENTITIES_AS_UNDEFINED;
-        mParticle.Identity.identify(identityAPIRequest);
+        it('should not make a request when an invalid request is sent as a undefined', async () => {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_UNDEFINED;
+            mParticle.Identity.identify(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
 
-    it('should not make a request when an invalid request is sent as a boolean', async () => {
-        const identityAPIRequest = BAD_USER_IDENTITIES_AS_BOOLEAN;
-        mParticle.Identity.identify(identityAPIRequest);
+        it('should not make a request when an invalid request is sent as a boolean', async () => {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_BOOLEAN;
+            mParticle.Identity.identify(identityAPIRequest);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
 
-    it('should not make a request when an invalid callback is set', async () => {
-        const identityRequest: IdentityApiData = {
-            userIdentities: {
-                customerid: '123',
-            },
-        };
-        const badCallback = BadCallbackAsString;
+        it('should not make a request when an invalid callback is set', async () => {
+            const identityRequest: IdentityApiData = {
+                userIdentities: {
+                    customerid: '123',
+                },
+            };
+            const badCallback = BadCallbackAsString;
 
-        mParticle.Identity.identify(identityRequest, badCallback);
+            mParticle.Identity.identify(identityRequest, badCallback);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(0);
-    });
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(0);
+        });
     });
 
     it('should have old_value === null when there is no previous identity of a certain type and a new identity of that type', () => {
@@ -1602,37 +1342,15 @@ describe('identity', function() {
                 'test-context'
             );
 
-        expect(identityRequest.identity_changes[0]).to.have.all.keys([
-            'identity_type',
-            'new_value',
-            'old_value',
-        ]);
-        expect(identityRequest.identity_changes[0]).to.have.property(
-            'old_value',
-            null
-        );
-        expect(identityRequest.identity_changes[0].identity_type).to.equal(
-            'other'
-        );
-        expect(identityRequest.identity_changes[0].new_value).to.equal(
-            'new_other_id'
-        );
+        expect(identityRequest.identity_changes[0]).to.have.all.keys(['identity_type', 'new_value', 'old_value']);
+        expect(identityRequest.identity_changes[0]).to.have.property('old_value', null);
+        expect(identityRequest.identity_changes[0].identity_type).to.equal('other');
+        expect(identityRequest.identity_changes[0].new_value).to.equal('new_other_id');
 
-        expect(identityRequest.identity_changes[1]).to.have.all.keys([
-            'identity_type',
-            'new_value',
-            'old_value',
-        ]);
-        expect(identityRequest.identity_changes[1]).to.have.property(
-            'old_value',
-            'old_facebook_id'
-        );
-        expect(identityRequest.identity_changes[1].identity_type).to.equal(
-            'facebook'
-        );
-        expect(identityRequest.identity_changes[1].new_value).to.equal(
-            'new_facebook_id'
-        );
+        expect(identityRequest.identity_changes[1]).to.have.all.keys(['identity_type', 'new_value', 'old_value']);
+        expect(identityRequest.identity_changes[1]).to.have.property('old_value', 'old_facebook_id');
+        expect(identityRequest.identity_changes[1].identity_type).to.equal('facebook');
+        expect(identityRequest.identity_changes[1].new_value).to.equal('new_facebook_id');
     });
 
     it('should have new_value === null when there is a previous identity of a certain type and no new identity of that type', async () => {
@@ -1653,27 +1371,17 @@ describe('identity', function() {
                 'test-context'
             );
 
-        expect(identityRequest.identity_changes[0]).to.have.all.keys([
-            'identity_type',
-            'new_value',
-            'old_value',
-        ]);
-        expect(identityRequest.identity_changes[0].old_value).to.equal(
-            'old_facebook_id'
-        );
-        expect(identityRequest.identity_changes[0].identity_type).to.equal(
-            'facebook'
-        );
-        expect(identityRequest.identity_changes[0].new_value).to.equal(
-            'new_facebook_id'
-        );
+        expect(identityRequest.identity_changes[0]).to.have.all.keys(['identity_type', 'new_value', 'old_value']);
+        expect(identityRequest.identity_changes[0].old_value).to.equal('old_facebook_id');
+        expect(identityRequest.identity_changes[0].identity_type).to.equal('facebook');
+        expect(identityRequest.identity_changes[0].new_value).to.equal('new_facebook_id');
 
         expect(identityRequest.identity_changes.length).to.equal(1);
     });
 
     // https://go.mparticle.com/work/SQDSDKS-6568
     it('should create a proper send request when passing identities to modify', async () => {
-        await waitForCondition(hasIdentifyReturned)
+        await waitForCondition(hasIdentifyReturned);
         const identityAPIData: IdentityApiData = {
             userIdentities: {
                 email: 'rob@gmail.com',
@@ -1682,12 +1390,12 @@ describe('identity', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         fetchMockSuccess(urls.modify, {
-                change_results: [
-                    {
-                        identity_type: 'email',
-                        modified_mpid: testMPID,
-                    },
-                ],
+            change_results: [
+                {
+                    identity_type: 'email',
+                    modified_mpid: testMPID,
+                },
+            ],
         });
 
         await waitForCondition(hasIdentityCallInflightReturned);
@@ -1696,7 +1404,7 @@ describe('identity', function() {
         mParticle.Identity.modify(identityAPIData);
 
         await waitForCondition(hasIdentityCallInflightReturned);
-            // 1st call is modify, 2nd call is the UIC event
+        // 1st call is modify, 2nd call is the UIC event
         expect(fetchMock.calls().length).to.equal(2);
 
         const modifyCall = fetchMock.calls()[0];
@@ -1705,16 +1413,8 @@ describe('identity', function() {
         const data: IIdentityAPIModifyRequestData = JSON.parse(modifyCall[1].body as unknown as string);
 
         expect(data.identity_changes.length).to.equal(1);
-        expect(data.identity_changes[0]).to.have.keys(
-            'old_value',
-            'new_value',
-            'identity_type'
-        );
-        expect(data.identity_changes[0]).to.have.keys(
-            'old_value',
-            'new_value',
-            'identity_type'
-        );
+        expect(data.identity_changes[0]).to.have.keys('old_value', 'new_value', 'identity_type');
+        expect(data.identity_changes[0]).to.have.keys('old_value', 'new_value', 'identity_type');
     });
 
     it('ensure that automatic identify is not called more than once.', async () => {
@@ -1749,22 +1449,26 @@ describe('identity', function() {
         fetchMock.resetHistory();
 
         // HTTP Bad Request results in an MPID of 0
-        fetchMock.post(urls.identify, {
-            status: HTTP_BAD_REQUEST,
-            body: {
-                Errors: [
-                    {
-                        message: 'Bad Request',
-                        code: 'BAD_REQUEST'
-                    },
-                ],
-                ErrorCode: 'BAD_REQUEST',
-                StatusCode: HTTP_BAD_REQUEST,
-                RequestId: '123',
+        fetchMock.post(
+            urls.identify,
+            {
+                status: HTTP_BAD_REQUEST,
+                body: {
+                    Errors: [
+                        {
+                            message: 'Bad Request',
+                            code: 'BAD_REQUEST',
+                        },
+                    ],
+                    ErrorCode: 'BAD_REQUEST',
+                    StatusCode: HTTP_BAD_REQUEST,
+                    RequestId: '123',
+                },
             },
-        }, {
-            overwriteRoutes: true,
-        });
+            {
+                overwriteRoutes: true,
+            }
+        );
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -1772,7 +1476,7 @@ describe('identity', function() {
 
         expect(mParticle.Identity.getCurrentUser()).to.be.null;
 
-        const identifyCall = fetchMock.calls().find(call => call[0].includes('/identify'));
+        const identifyCall = fetchMock.calls().find((call) => call[0].includes('/identify'));
         expect(identifyCall).to.be.ok;
         mParticle.logEvent('Test Event 1');
 
@@ -1781,10 +1485,7 @@ describe('identity', function() {
         // AST, session start, and logEvent are all queued since MPID is 0
         expect(fetchMock.calls().length).to.equal(1);
 
-        let testEvent1 = findEventFromRequest(
-            fetchMock.calls(),
-            'Test Event 1'
-        );
+        let testEvent1 = findEventFromRequest(fetchMock.calls(), 'Test Event 1');
 
         expect(testEvent1).to.not.be.ok;
 
@@ -1801,33 +1502,21 @@ describe('identity', function() {
 
         // server requests will now have the following events:
         // 1. Identify
-        // 2. Login 
+        // 2. Login
         // 3. AST
         // 4. Session start
         // 5. Test1,
         // 6. Test2
         expect(fetchMock.calls().length).to.equal(6);
-        fetchMock.calls().forEach(call => console.log('call', call[0]))
+        fetchMock.calls().forEach((call) => console.log('call', call[0]));
 
-        testEvent1 = findEventFromRequest(
-            fetchMock.calls(),
-            'Test Event 1'
-        );
+        testEvent1 = findEventFromRequest(fetchMock.calls(), 'Test Event 1');
 
-        const testEvent2 = findEventFromRequest(
-            fetchMock.calls(),
-            'Test Event 2'
-        );
+        const testEvent2 = findEventFromRequest(fetchMock.calls(), 'Test Event 2');
 
-        const ASTEvent = findEventFromRequest(
-            fetchMock.calls(),
-            'application_state_transition'
-        );
+        const ASTEvent = findEventFromRequest(fetchMock.calls(), 'application_state_transition');
 
-        const sessionStartEvent = findEventFromRequest(
-            fetchMock.calls(),
-            'session_start'
-        );
+        const sessionStartEvent = findEventFromRequest(fetchMock.calls(), 'session_start');
 
         const loginCall = fetchMock.calls()[1];
 
@@ -1905,7 +1594,7 @@ describe('identity', function() {
         // This includes the original, starting user, in addition to the 3 added above
         expect(users.length).to.equal(4);
 
-        for (let i of users) {
+        for (const i of users) {
             const mpid = i.getMPID();
             expect(mParticle.Identity.getUser(mpid)).to.exist;
         }
@@ -1987,10 +1676,7 @@ describe('identity', function() {
 
         await waitForCondition(hasIdentityCallInflightReturned);
 
-        const localStorage = mParticle
-            .getInstance()
-            ._Persistence.getLocalStorage();
-
+        const localStorage = mParticle.getInstance()._Persistence.getLocalStorage();
 
         expect(localStorage.user1, 'Local Storage User 1').to.be.ok;
         expect(localStorage.user2, 'Local Storage User 2').to.be.ok;
@@ -1999,7 +1685,7 @@ describe('identity', function() {
         localStorage.user1.ua.user.should.equal('user1');
         localStorage.user1.ui.should.have.property('1', 'customerid1');
         localStorage.user1.ui.should.have.property('7', 'email1@test.com');
-        
+
         localStorage.user2.ua.user.should.equal('user2');
         localStorage.user2.ui.should.have.property('1', 'customerid2');
         localStorage.user2.ui.should.have.property('7', 'email2@test.com');
@@ -2024,10 +1710,7 @@ describe('identity', function() {
 
         const combinedUIsByType = mParticle
             .getInstance()
-            ._Identity.IdentityRequest.combineUserIdentities(
-                previousUIByName,
-                newUIByName
-            );
+            ._Identity.IdentityRequest.combineUserIdentities(previousUIByName, newUIByName);
 
         // if an invalid identity type is added to the identity call,
         // it will be removed from the combinedUIsByType,
@@ -2074,16 +1757,16 @@ describe('identity', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         fetchMockSuccess(urls.modify, {
-                change_results: [
-                    {
-                        identity_type: 'email',
-                        modified_mpid: testMPID,
-                    },
-                ],
+            change_results: [
+                {
+                    identity_type: 'email',
+                    modified_mpid: testMPID,
+                },
+            ],
         });
 
         await waitForCondition(hasIdentityResponseParsed(loggerSpy));
-        
+
         loggerSpy.verbose.resetHistory();
         mParticle.Identity.modify(user1modified);
         // Should contain the following calls:
@@ -2094,11 +1777,13 @@ describe('identity', function() {
         await waitForCondition(() => {
             const currentUser = mParticle.Identity.getCurrentUser();
             const userIdentities = currentUser?.getUserIdentities()?.userIdentities;
-            return userIdentities && 
-                   userIdentities.customerid === 'customerid1' &&
-                   userIdentities.email === 'email2@test.com';
+            return (
+                userIdentities &&
+                userIdentities.customerid === 'customerid1' &&
+                userIdentities.email === 'email2@test.com'
+            );
         });
-        
+
         expect(fetchMock.calls().length).to.equal(6);
 
         // This will add a new UAC Event to the call
@@ -2111,10 +1796,10 @@ describe('identity', function() {
 
         const testEvent1Batch = JSON.parse(fetchMock.calls()[7][1].body as string);
 
-        expect(testEvent1Batch.user_attributes).to.deep.equal({ 'foo1': 'bar1' });
+        expect(testEvent1Batch.user_attributes).to.deep.equal({ foo1: 'bar1' });
         expect(testEvent1Batch.user_identities).to.deep.equal({
-            'customer_id': 'customerid1',
-            'email': 'email2@test.com'
+            customer_id: 'customerid1',
+            email: 'email2@test.com',
         });
 
         const user2 = {
@@ -2144,10 +1829,7 @@ describe('identity', function() {
         const testEvent2Batch = JSON.parse(fetchMock.calls()[10][1].body as string);
 
         Object.keys(testEvent2Batch.user_attributes).length.should.equal(0);
-        testEvent2Batch.user_identities.should.have.property(
-            'customer_id',
-            'customerid2'
-        );
+        testEvent2Batch.user_identities.should.have.property('customer_id', 'customerid2');
 
         fetchMockSuccess(urls.login, {
             mpid: 'testMPID',
@@ -2165,10 +1847,10 @@ describe('identity', function() {
 
         const testEvent3Batch = JSON.parse(fetchMock.calls()[12][1].body as string);
 
-        expect(testEvent3Batch.user_attributes).to.deep.equal({'foo1': 'bar1'});
+        expect(testEvent3Batch.user_attributes).to.deep.equal({ foo1: 'bar1' });
         expect(testEvent3Batch.user_identities).to.deep.equal({
-            'customer_id': 'customerid1',
-            'email': 'email2@test.com'
+            customer_id: 'customerid1',
+            email: 'email2@test.com',
         });
     });
 
@@ -2275,7 +1957,7 @@ describe('identity', function() {
     it('should not send requests to the server with invalid userIdentity values', async () => {
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned);        
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         fetchMock.resetHistory();
 
@@ -2317,7 +1999,7 @@ describe('identity', function() {
             },
         };
 
-        const callback = function(resp) {
+        const callback = function (resp) {
             result = resp;
         };
 
@@ -2327,10 +2009,7 @@ describe('identity', function() {
             badUserIdentitiesBoolean,
             badUserIdentitiesUndefined,
         ];
-        const validUserIdentities = [
-            validUserIdentitiesString,
-            validUserIdentitiesNull,
-        ];
+        const validUserIdentities = [validUserIdentitiesString, validUserIdentitiesNull];
         const identityMethods = ['login', 'logout', 'identify', 'modify'];
 
         fetchMockSuccess(urls.login, {
@@ -2357,10 +2036,7 @@ describe('identity', function() {
                 mParticle.Identity[identityMethod](badIdentities, callback);
                 expect(result, `${identityMethod} - ${badIdentities}`).to.be.ok;
                 result.httpCode.should.equal(-4);
-                result.body.should.equal(
-                    Constants.Messages.ValidationMessages
-                        .UserIdentitiesInvalidValues
-                );
+                result.body.should.equal(Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues);
 
                 // Reset result for next iteration of the loop
                 result = null;
@@ -2370,49 +2046,35 @@ describe('identity', function() {
             // for invalid values
             if (identityMethod !== 'modify') {
                 // for some reason this is returning -4 for a good identity.
-                validUserIdentities.forEach(async(goodIdentities) => {
-                    mParticle.Identity[identityMethod](
-                        goodIdentities,
-                        callback
-                    );
+                validUserIdentities.forEach(async (goodIdentities) => {
+                    mParticle.Identity[identityMethod](goodIdentities, callback);
 
                     await waitForCondition(hasIdentityCallInflightReturned);
                     expect(result, identityMethod).to.be.ok;
-                    expect(
-                        result.httpCode,
-                        `valid ${identityMethod} httpCode`
-                    ).to.equal(200);
+                    expect(result.httpCode, `valid ${identityMethod} httpCode`).to.equal(200);
 
                     const body = result.body as IdentityResultBody;
                     expect(body.mpid, `valid ${identityMethod} mpid `).to.be.ok;
-                    expect(body.mpid, `valid ${identityMethod} mpid`).to.equal(
-                        testMPID
-                    );
+                    expect(body.mpid, `valid ${identityMethod} mpid`).to.equal(testMPID);
 
                     // Reset result for next iteration of the loop
                     result = null;
                 });
             } else {
-                validUserIdentities.forEach(async(goodIdentities) => {
+                validUserIdentities.forEach(async (goodIdentities) => {
                     mParticle.Identity.modify(goodIdentities, callback);
 
                     await waitForCondition(hasIdentityCallInflightReturned);
 
                     expect(result, identityMethod).to.be.ok;
 
-                    expect(result.httpCode, `valid modify httpCode`).to.equal(
-                        200
-                    );
+                    expect(result.httpCode, `valid modify httpCode`).to.equal(200);
                     const body = result.body as IdentityModifyResultBody;
 
-                    expect(
-                        body.change_results[0].modified_mpid,
-                        `valid modify change_results modified_mpid`
-                    ).to.equal(testMPID);
-                    expect(
-                        body.change_results[0].identity_type,
-                        `valid modify change_results identity_type`
-                    ).to.be.ok;
+                    expect(body.change_results[0].modified_mpid, `valid modify change_results modified_mpid`).to.equal(
+                        testMPID
+                    );
+                    expect(body.change_results[0].identity_type, `valid modify change_results identity_type`).to.be.ok;
 
                     // Reset result for next iteration of the loop
                     result = null;
@@ -2480,17 +2142,14 @@ describe('identity', function() {
             is_logged_in: true,
         });
 
-        fetchMockSuccess(
-            'https://identity.mparticle.com/v1/logged-in-user/modify',
-            {
-                change_results: [
-                    {
-                        identity_type: 'customerid',
-                        modified_mpid: 'modified-mpid',
-                    },
-                ],
-            }
-        );
+        fetchMockSuccess('https://identity.mparticle.com/v1/logged-in-user/modify', {
+            change_results: [
+                {
+                    identity_type: 'customerid',
+                    modified_mpid: 'modified-mpid',
+                },
+            ],
+        });
 
         await waitForCondition(hasIdentifyReturned);
         mParticle.Identity.login(user);
@@ -2499,212 +2158,210 @@ describe('identity', function() {
         mParticle.Identity.modify(modifiedUser);
 
         await waitForCondition(() => {
-            return mParticle.Identity.getCurrentUser()?.getUserIdentities().userIdentities['customerid'] === 'customerId2';
+            return (
+                mParticle.Identity.getCurrentUser()?.getUserIdentities().userIdentities['customerid'] === 'customerId2'
+            );
         });
         const cookie = mParticle.getInstance()._Persistence.getLocalStorage();
 
         cookie['logged-in-user'].ui[1].should.equal('customerId2');
     });
 
-    describe.skip('#onUserAlias', function() {
-    // https://go.mparticle.com/work/SQDSDKS-6854
-    it('does not run onUserAlias if it is not a function', async () => {
-        mParticle.init(apiKey, window.mParticle.config);
+    describe.skip('#onUserAlias', function () {
+        // https://go.mparticle.com/work/SQDSDKS-6854
+        it('does not run onUserAlias if it is not a function', async () => {
+            mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentifyReturned);
+            await waitForCondition(hasIdentifyReturned);
 
-        const user1 = {
-            userIdentities: {
-                customerid: 'customerId1',
-            },
-        };
+            const user1 = {
+                userIdentities: {
+                    customerid: 'customerId1',
+                },
+            };
 
-        const user2 = {
-            userIdentities: {
-                customerid: 'customerId2',
-            },
-            onUserAlias: null,
-        };
+            const user2 = {
+                userIdentities: {
+                    customerid: 'customerId2',
+                },
+                onUserAlias: null,
+            };
 
-        const product1 = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1),
-            product2 = mParticle.eCommerce.createProduct('Android', 'SKU2', 1);
+            const product1 = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1),
+                product2 = mParticle.eCommerce.createProduct('Android', 'SKU2', 1);
 
-        mParticle.eCommerce.Cart.add([product1, product2]);
+            mParticle.eCommerce.Cart.add([product1, product2]);
 
-        fetchMockSuccess(urls.login, {
-            mpid: testMPID,
-            is_logged_in: true,
-        });
-    
-        mParticle.Identity.login(user1);
+            fetchMockSuccess(urls.login, {
+                mpid: testMPID,
+                is_logged_in: true,
+            });
 
-        await waitForCondition(hasIdentifyReturned);
+            mParticle.Identity.login(user1);
 
-        fetchMockSuccess(urls.login, {
-            mpid: 'otherMPID',
-            is_logged_in: true,
-        });
+            await waitForCondition(hasIdentifyReturned);
 
-        fetchMock.resetHistory();
-        mParticle.Identity.login(user2);
+            fetchMockSuccess(urls.login, {
+                mpid: 'otherMPID',
+                is_logged_in: true,
+            });
 
-        await waitForCondition(hasIdentityCallInflightReturned);
+            fetchMock.resetHistory();
+            mParticle.Identity.login(user2);
 
-        // This should have a call for the UIC that will occur because
-        // we are logging in as two different users
-        fetchMock.calls().length.should.equal(1);
-        expect(fetchMock.lastCall()[0]).to.equal(urls.events);
-    });
+            await waitForCondition(hasIdentityCallInflightReturned);
 
-    it('should run onUserAlias if it is a function', async () => {
-        mParticle.init(apiKey, window.mParticle.config);
-
-        await waitForCondition(hasIdentifyReturned);
-
-        let hasBeenRun = false;
-        const user1 = {
-            userIdentities: {
-                customerid: 'customerId1',
-            },
-        };
-
-        const user2 = {
-            userIdentities: {
-                customerid: 'customerId2',
-            },
-            onUserAlias: function() {
-                hasBeenRun = true;
-            },
-        };
-
-        fetchMockSuccess(urls.login, {
-            mpid: testMPID,
-            is_logged_in: true,
+            // This should have a call for the UIC that will occur because
+            // we are logging in as two different users
+            fetchMock.calls().length.should.equal(1);
+            expect(fetchMock.lastCall()[0]).to.equal(urls.events);
         });
 
-        mParticle.Identity.login(user1);
+        it('should run onUserAlias if it is a function', async () => {
+            mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
+            await waitForCondition(hasIdentifyReturned);
 
-        fetchMockSuccess(urls.login, {
-            mpid: 'otherMPID',
-            is_logged_in: true,
+            let hasBeenRun = false;
+            const user1 = {
+                userIdentities: {
+                    customerid: 'customerId1',
+                },
+            };
+
+            const user2 = {
+                userIdentities: {
+                    customerid: 'customerId2',
+                },
+                onUserAlias: function () {
+                    hasBeenRun = true;
+                },
+            };
+
+            fetchMockSuccess(urls.login, {
+                mpid: testMPID,
+                is_logged_in: true,
+            });
+
+            mParticle.Identity.login(user1);
+
+            await waitForCondition(hasIdentityCallInflightReturned);
+
+            fetchMockSuccess(urls.login, {
+                mpid: 'otherMPID',
+                is_logged_in: true,
+            });
+
+            mParticle.Identity.login(user2);
+
+            await waitForCondition(hasIdentityCallInflightReturned);
+
+            expect(hasBeenRun).to.be.true;
         });
 
-        mParticle.Identity.login(user2);
+        it('should setUserAttributes, setUserAttributeLists, removeUserAttributes, and removeUserAttributeLists properly in onUserAlias', async () => {
+            mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
+            await waitForCondition(hasIdentifyReturned);
 
-        expect(hasBeenRun).to.be.true;
-    });
+            const user1 = {
+                userIdentities: {
+                    customerid: 'customerId1',
+                },
+            };
 
-    it('should setUserAttributes, setUserAttributeLists, removeUserAttributes, and removeUserAttributeLists properly in onUserAlias', async () => {
-        mParticle.init(apiKey, window.mParticle.config);
+            fetchMockSuccess(urls.login, {
+                mpid: testMPID,
+                is_logged_in: true,
+            });
 
-        await waitForCondition(hasIdentifyReturned);
+            mParticle.Identity.login(user1);
 
-        const user1 = {
-            userIdentities: {
-                customerid: 'customerId1',
-            },
-        };
+            await waitForCondition(hasIdentityCallInflightReturned);
+            mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+            mParticle.Identity.getCurrentUser().setUserAttribute('age', 27);
 
-        fetchMockSuccess(urls.login, {
-            mpid: testMPID,
-            is_logged_in: true,
-        });
+            const user1Attrs = mParticle.Identity.getCurrentUser().getAllUserAttributes();
+            user1Attrs.should.have.property('gender', 'male');
+            user1Attrs.should.have.property('age', 27);
 
-        mParticle.Identity.login(user1);
+            fetchMockSuccess(urls.login, {
+                mpid: 'otherMPID',
+                is_logged_in: true,
+            });
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
-        mParticle.Identity.getCurrentUser().setUserAttribute('age', 27);
+            let user1Object, user2Object;
 
-        const user1Attrs = mParticle.Identity.getCurrentUser().getAllUserAttributes();
-        user1Attrs.should.have.property('gender', 'male');
-        user1Attrs.should.have.property('age', 27);
-
-
-        fetchMockSuccess(urls.login, {
-            mpid: 'otherMPID',
-            is_logged_in: true,
-        });
-
-        let user1Object, user2Object;
-
-        const user2 = {
-            userIdentities: {
-                customerid: 'customerId2',
-            },
-            onUserAlias: function(user1, user2) {
-                const user1Attributes = user1.getAllUserAttributes();
-                for (const key in user1Attributes) {
-                    if (key !== 'gender') {
-                        user2.setUserAttribute(key, user1Attributes[key]);
+            const user2 = {
+                userIdentities: {
+                    customerid: 'customerId2',
+                },
+                onUserAlias: function (user1, user2) {
+                    const user1Attributes = user1.getAllUserAttributes();
+                    for (const key in user1Attributes) {
+                        if (key !== 'gender') {
+                            user2.setUserAttribute(key, user1Attributes[key]);
+                        }
                     }
-                }
-                user2.setUserAttributeList('list', [1, 2, 3, 4, 5]);
-                user1.removeUserAttribute('age');
+                    user2.setUserAttributeList('list', [1, 2, 3, 4, 5]);
+                    user1.removeUserAttribute('age');
 
-                user1Object = user1;
-                user2Object = user2;
-            },
-        };
+                    user1Object = user1;
+                    user2Object = user2;
+                },
+            };
 
-        mParticle.Identity.login(user2);
-        await waitForCondition(hasIdentityCallInflightReturned);
+            mParticle.Identity.login(user2);
+            await waitForCondition(hasIdentityCallInflightReturned);
 
-        await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'otherMPID');
+            await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'otherMPID');
 
-        const user1ObjectAttrs = user1Object.getAllUserAttributes();
-        user1ObjectAttrs.should.not.have.property('age');
-        user1ObjectAttrs.should.have.property('gender', 'male');
+            const user1ObjectAttrs = user1Object.getAllUserAttributes();
+            user1ObjectAttrs.should.not.have.property('age');
+            user1ObjectAttrs.should.have.property('gender', 'male');
 
-        const user2Attrs = mParticle.Identity.getCurrentUser().getAllUserAttributes();
-        user2Attrs.should.not.have.property('gender');
-        user2Attrs.should.have.property('age', 27);
-        const user2ObjectAttrs = user2Object.getAllUserAttributes();
-        user2ObjectAttrs.should.not.have.property('gender');
-        user2ObjectAttrs.should.have.property('age', 27);
+            const user2Attrs = mParticle.Identity.getCurrentUser().getAllUserAttributes();
+            user2Attrs.should.not.have.property('gender');
+            user2Attrs.should.have.property('age', 27);
+            const user2ObjectAttrs = user2Object.getAllUserAttributes();
+            user2ObjectAttrs.should.not.have.property('gender');
+            user2ObjectAttrs.should.have.property('age', 27);
 
-        fetchMockSuccess(urls.login, {
-            mpid: 'otherMPID2',
-            is_logged_in: true,
+            fetchMockSuccess(urls.login, {
+                mpid: 'otherMPID2',
+                is_logged_in: true,
+            });
+
+            let user2AttributeListsBeforeRemoving,
+                user3UserAttributeListsBeforeAdding,
+                user2AttributeListsAfterRemoving,
+                user3UserAttributeListsAfterAdding;
+
+            const user3 = {
+                userIdentities: {
+                    customerid: 'customerId3',
+                },
+                onUserAlias: function (user2, user3) {
+                    user2AttributeListsBeforeRemoving = user2.getUserAttributesLists();
+                    user3UserAttributeListsBeforeAdding = user3.getUserAttributesLists();
+                    user2.removeAllUserAttributes();
+                    user3.setUserAttributeList('list', [1, 2, 3, 4, 5]);
+                    user2AttributeListsAfterRemoving = user2.getUserAttributesLists();
+                    user3UserAttributeListsAfterAdding = user3.getUserAttributesLists();
+                },
+            };
+
+            mParticle.Identity.login(user3);
+            await waitForCondition(hasIdentityCallInflightReturned);
+
+            await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'otherMPID2');
+
+            expect(user2AttributeListsBeforeRemoving.list.length).to.equal(5);
+            expect(Object.keys(user3UserAttributeListsBeforeAdding).length).to.not.be.ok;
+
+            expect(Object.keys(user2AttributeListsAfterRemoving).length).to.not.be.ok;
+            expect(user3UserAttributeListsAfterAdding.list.length).to.equal(5);
         });
-
-        let user2AttributeListsBeforeRemoving,
-            user3UserAttributeListsBeforeAdding,
-            user2AttributeListsAfterRemoving,
-            user3UserAttributeListsAfterAdding;
-
-        const user3 = {
-            userIdentities: {
-                customerid: 'customerId3',
-            },
-            onUserAlias: function(user2, user3) {
-                user2AttributeListsBeforeRemoving = user2.getUserAttributesLists();
-                user3UserAttributeListsBeforeAdding = user3.getUserAttributesLists();
-                user2.removeAllUserAttributes();
-                user3.setUserAttributeList('list', [1, 2, 3, 4, 5]);
-                user2AttributeListsAfterRemoving = user2.getUserAttributesLists();
-                user3UserAttributeListsAfterAdding = user3.getUserAttributesLists();
-            },
-        };
-
-        mParticle.Identity.login(user3);
-        await waitForCondition(hasIdentityCallInflightReturned);
-
-        await waitForCondition(() => mParticle.Identity.getCurrentUser().getMPID() === 'otherMPID2');
-
-
-        expect(user2AttributeListsBeforeRemoving.list.length).to.equal(5);
-        expect(Object.keys(user3UserAttributeListsBeforeAdding).length).to.not
-            .be.ok;
-
-        expect(Object.keys(user2AttributeListsAfterRemoving).length).to.not.be
-            .ok;
-        expect(user3UserAttributeListsAfterAdding.list.length).to.equal(5);
-    });
     });
 
     it('should return an empty array when no cart products exist', async () => {
@@ -2725,9 +2382,7 @@ describe('identity', function() {
 
         await waitForCondition(hasIdentityCallInflightReturned);
 
-        const products = mParticle.Identity.getCurrentUser()
-            .getCart()
-            .getCartProducts();
+        const products = mParticle.Identity.getCurrentUser().getCart().getCartProducts();
 
         expect(products.length).to.not.be.ok;
     });
@@ -2743,7 +2398,6 @@ describe('identity', function() {
             },
             copyUserAttributes: true,
         };
-
 
         fetchMockSuccess(urls.logout, {
             mpid: testMPID,
@@ -2812,7 +2466,7 @@ describe('identity', function() {
         });
 
         // https://go.mparticle.com/work/SQDSDKS-6460
-        mParticle.config.identityCallback = function({ body }) {
+        mParticle.config.identityCallback = function ({ body }) {
             mpid = (body as IdentityResultBody).mpid;
         };
 
@@ -2836,7 +2490,7 @@ describe('identity', function() {
 
         let callbackCalled = false;
 
-        mParticle.config.identityCallback = function() {
+        mParticle.config.identityCallback = function () {
             mParticle.Identity.getCurrentUser().setUserAttribute('foo', 'bar');
             callbackCalled = true;
         };
@@ -2864,19 +2518,10 @@ describe('identity', function() {
         // 4. UAC Event
         expect(fetchMock.calls().length).to.equal(4);
 
-        const sessionStartEventBatch = findBatch(
-            fetchMock.calls(),
-            'session_start'
-        );
-        const ASTEventBatch = findBatch(
-            fetchMock.calls(),
-            'application_state_transition'
-        );
+        const sessionStartEventBatch = findBatch(fetchMock.calls(), 'session_start');
+        const ASTEventBatch = findBatch(fetchMock.calls(), 'application_state_transition');
 
-        sessionStartEventBatch.user_attributes.should.have.property(
-            'foo',
-            'bar'
-        );
+        sessionStartEventBatch.user_attributes.should.have.property('foo', 'bar');
         ASTEventBatch.user_attributes.should.have.property('foo', 'bar');
     });
 
@@ -2889,7 +2534,7 @@ describe('identity', function() {
         setCookie(workspaceCookieName, cookies, true);
         //does not actually hit the server because identity request is not sent
         let result;
-        mParticle.config.identityCallback = function(resp) {
+        mParticle.config.identityCallback = function (resp) {
             resp.getUser().setUserAttribute('attr', 'value');
             result = resp;
         };
@@ -2901,12 +2546,12 @@ describe('identity', function() {
         // 1 for the Identify Request
         // 1 for the AST
         // 1 for the UAC
-        
+
         expect(fetchMock.calls().length).to.equal(3);
 
         fetchMockSuccess(urls.identify, {
             mpid: 'MPID1',
-            is_logged_in: false ,
+            is_logged_in: false,
         });
 
         fetchMock.resetHistory();
@@ -2925,27 +2570,13 @@ describe('identity', function() {
         result.should.have.properties('body', 'httpCode', 'getUser');
 
         result.httpCode.should.equal(-3);
-        result.body.should.have.properties(
-            'context',
-            'is_ephemeral',
-            'matched_identities',
-            'mpid'
-        );
+        result.body.should.have.properties('context', 'is_ephemeral', 'matched_identities', 'mpid');
         expect(result.body.context).to.not.be.ok;
         expect(result.body.is_ephemeral).to.not.be.ok;
-        result.body.matched_identities.should.have.property(
-            'customerid',
-            'customerid1'
-        );
+        result.body.matched_identities.should.have.property('customerid', 'customerid1');
         result.body.mpid.should.equal('testMPID');
-        result
-            .getUser()
-            .getMPID()
-            .should.equal('testMPID');
-        result
-            .getUser()
-            .getAllUserAttributes()
-            .should.have.property('attr', 'value');
+        result.getUser().getMPID().should.equal('testMPID');
+        result.getUser().getAllUserAttributes().should.have.property('attr', 'value');
     });
 
     it('identifyCallback response should have a getUser function on the result object', async () => {
@@ -2956,9 +2587,9 @@ describe('identity', function() {
         fetchMockSuccess(urls.identify, {
             mpid: 'MPID1',
             is_logged_in: false,
-        });    
+        });
 
-        mParticle.config.identityCallback = function(resp) {
+        mParticle.config.identityCallback = function (resp) {
             result = resp;
             resp.getUser().setUserAttribute('test', 'value');
         };
@@ -2969,181 +2600,155 @@ describe('identity', function() {
 
         result.should.have.property('getUser');
 
-        mParticle.Identity.getCurrentUser()
-            .getAllUserAttributes()
-            .should.have.property('test', 'value');
+        mParticle.Identity.getCurrentUser().getAllUserAttributes().should.have.property('test', 'value');
     });
 
     describe('identityCallback responses', function () {
-    it('should have a getUser function on identify result object', async () => {
-        const loggerSpy = Utils.setupLoggerSpy();
-        let result;
+        it('should have a getUser function on identify result object', async () => {
+            const loggerSpy = Utils.setupLoggerSpy();
+            let result;
 
-        mParticle.config.identityCallback = function(resp) {
-            resp.getUser().setUserAttribute('attr', 'value');
-            result = resp;
-        };
+            mParticle.config.identityCallback = function (resp) {
+                resp.getUser().setUserAttribute('attr', 'value');
+                result = resp;
+            };
 
-        fetchMockSuccess(urls.identify, {
-            mpid: 'MPID1',
-            is_logged_in: false,
+            fetchMockSuccess(urls.identify, {
+                mpid: 'MPID1',
+                is_logged_in: false,
+            });
+
+            // Init fires an identify call
+            mParticle.init(apiKey, window.mParticle.config);
+
+            await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+
+            result.should.have.properties('body', 'httpCode', 'getUser');
+            result.httpCode.should.equal(200);
+            result.body.should.have.properties('mpid', 'is_logged_in');
+            result.body.mpid.should.equal('MPID1');
+            result.getUser().getMPID().should.equal('MPID1');
+            result.getUser().getAllUserAttributes().should.have.property('attr', 'value');
         });
 
-        // Init fires an identify call
-        mParticle.init(apiKey, window.mParticle.config);
+        it('should have a getUser function on login result object', async () => {
+            loggerSpy = setupLoggerSpy();
+            let result;
+            let loginResult;
 
-        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+            mParticle.config.identityCallback = function (resp) {
+                resp.getUser().setUserAttribute('attr', 'value');
+                result = resp;
+            };
 
-        result.should.have.properties('body', 'httpCode', 'getUser');
-        result.httpCode.should.equal(200);
-        result.body.should.have.properties('mpid', 'is_logged_in');
-        result.body.mpid.should.equal('MPID1');
-        result
-            .getUser()
-            .getMPID()
-            .should.equal('MPID1');
-        result
-            .getUser()
-            .getAllUserAttributes()
-            .should.have.property('attr', 'value');
-    });
+            fetchMockSuccess(urls.identify, {
+                mpid: 'MPID1',
+                is_logged_in: false,
+            });
 
-    it('should have a getUser function on login result object', async () => {
-        loggerSpy = setupLoggerSpy();
-        let result
-        let loginResult;
+            fetchMockSuccess(urls.login, {
+                mpid: 'MPID1',
+                is_logged_in: true,
+            });
 
-        mParticle.config.identityCallback = function(resp) {
-            resp.getUser().setUserAttribute('attr', 'value');
-            result = resp;
-        };
+            mParticle.init(apiKey, window.mParticle.config);
 
-        fetchMockSuccess(urls.identify, {
-            mpid: 'MPID1',
-            is_logged_in: false,
+            await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+
+            const identityRequest = { userIdentities: { customerid: 'test123' } };
+            function loginCallback(result) {
+                loginResult = result;
+            }
+
+            loggerSpy.verbose.resetHistory();
+            mParticle.Identity.login(identityRequest, loginCallback);
+
+            await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+
+            loginResult.getUser().getMPID().should.equal('MPID1');
+
+            loginResult.getUser().getAllUserAttributes().should.have.property('attr', 'value');
         });
 
-        fetchMockSuccess(urls.login, {
-            mpid: 'MPID1',
-            is_logged_in: true,
+        it('should have a getUser function on logout result object', async () => {
+            loggerSpy = setupLoggerSpy();
+            let result;
+            let logoutResult;
+
+            mParticle.config.identityCallback = function (resp) {
+                resp.getUser().setUserAttribute('attr', 'value');
+                result = resp;
+            };
+
+            fetchMockSuccess(urls.identify, {
+                mpid: 'MPID1',
+                is_logged_in: false,
+            });
+
+            fetchMockSuccess(urls.logout, {
+                mpid: 'MPID1',
+                is_logged_in: false,
+            });
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+
+            const identityRequest = { userIdentities: { customerid: 'test123' } };
+            function logoutCallback(result) {
+                logoutResult = result;
+            }
+
+            loggerSpy.verbose.resetHistory();
+            mParticle.Identity.logout(identityRequest, logoutCallback);
+
+            await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+
+            logoutResult.getUser().getMPID().should.equal('MPID1');
+
+            logoutResult.getUser().getAllUserAttributes().should.have.property('attr', 'value');
         });
 
-        mParticle.init(apiKey, window.mParticle.config);
+        it('should have a getUser function on modify result object', async () => {
+            await waitForCondition(hasIdentityCallInflightReturned);
+            mParticle._resetForTests(MPConfig);
+            loggerSpy = setupLoggerSpy();
+            let result;
+            let modifyResult;
 
-        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+            mParticle.config.identityCallback = function (resp) {
+                resp.getUser().setUserAttribute('attr', 'value');
+                result = resp;
+            };
 
-        const identityRequest = { userIdentities: { customerid: 'test123' } };
-        function loginCallback(result) {
-            loginResult = result;
-        }
+            fetchMockSuccess(urls.identify, {
+                mpid: 'MPID1',
+                is_logged_in: false,
+            });
 
-        loggerSpy.verbose.resetHistory();
-        mParticle.Identity.login(identityRequest, loginCallback);
+            fetchMockSuccess('https://identity.mparticle.com/v1/MPID1/modify', {
+                mpid: 'MPID1',
+                is_logged_in: false,
+            });
 
-        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+            mParticle.init(apiKey, window.mParticle.config);
 
-        loginResult
-            .getUser()
-            .getMPID()
-            .should.equal('MPID1');
+            await waitForCondition(hasIdentityResponseParsed(loggerSpy));
 
-        loginResult
-            .getUser()
-            .getAllUserAttributes()
-            .should.have.property('attr', 'value');
-    });
+            const identityRequest = { userIdentities: { customerid: 'test123' } };
+            function modifyCallback(result) {
+                modifyResult = result;
+            }
 
-    it('should have a getUser function on logout result object', async () => {
-        loggerSpy = setupLoggerSpy();
-        let result;
-        let logoutResult; 
+            loggerSpy.verbose.resetHistory();
+            mParticle.Identity.modify(identityRequest, modifyCallback);
 
-        mParticle.config.identityCallback = function(resp) {
-            resp.getUser().setUserAttribute('attr', 'value');
-            result = resp;
-        };
+            await waitForCondition(hasIdentityResponseParsed(loggerSpy));
 
-        fetchMockSuccess(urls.identify, {
-            mpid: 'MPID1',
-            is_logged_in: false,
+            modifyResult.getUser().getMPID().should.equal('MPID1');
+
+            modifyResult.getUser().getAllUserAttributes().should.have.property('attr', 'value');
         });
-
-        fetchMockSuccess(urls.logout, {
-            mpid: 'MPID1',
-            is_logged_in: false,
-        });
-
-        mParticle.init(apiKey, window.mParticle.config);
-
-        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
-
-        const identityRequest = { userIdentities: { customerid: 'test123' } };
-        function logoutCallback(result) {
-            logoutResult = result;
-        }
-
-        loggerSpy.verbose.resetHistory();
-        mParticle.Identity.logout(identityRequest, logoutCallback);
-
-        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
-
-        logoutResult
-            .getUser()
-            .getMPID()
-            .should.equal('MPID1');
-
-        logoutResult
-            .getUser()
-            .getAllUserAttributes()
-            .should.have.property('attr', 'value');
-    });
-
-    it('should have a getUser function on modify result object', async () => {
-        await waitForCondition(hasIdentityCallInflightReturned);
-        mParticle._resetForTests(MPConfig);
-        loggerSpy = setupLoggerSpy();
-        let result
-        let modifyResult;
-
-        mParticle.config.identityCallback = function(resp) {
-            resp.getUser().setUserAttribute('attr', 'value');
-            result = resp;
-        };
-
-        fetchMockSuccess(urls.identify, {
-            mpid: 'MPID1',
-            is_logged_in: false,
-        });
-
-        fetchMockSuccess("https://identity.mparticle.com/v1/MPID1/modify", {
-            mpid: 'MPID1',
-            is_logged_in: false,
-        });
-
-        mParticle.init(apiKey, window.mParticle.config);
-
-        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
-
-        const identityRequest = { userIdentities: { customerid: 'test123' } };
-        function modifyCallback(result) {
-            modifyResult = result;
-        }
-
-        loggerSpy.verbose.resetHistory();
-        mParticle.Identity.modify(identityRequest, modifyCallback);
-
-        await waitForCondition(hasIdentityResponseParsed(loggerSpy));
-
-        modifyResult
-            .getUser()
-            .getMPID()
-            .should.equal('MPID1');
-
-        modifyResult
-            .getUser()
-            .getAllUserAttributes()
-            .should.have.property('attr', 'value');
-    });
     });
 
     it('should call identify when there is an active session but no current user', async () => {
@@ -3163,7 +2768,7 @@ describe('identity', function() {
         // without a current user
         mParticle.config.identifyRequest = {
             userIdentities: {
-                customerid: (123 as unknown) as string,
+                customerid: 123 as unknown as string,
             },
         };
         fetchMock.resetHistory();
@@ -3187,8 +2792,8 @@ describe('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityResponseParsed(loggerSpy));
-            
-        cookies = mParticle.getInstance()._Persistence.getPersistence(); 
+
+        cookies = mParticle.getInstance()._Persistence.getPersistence();
         cookies.should.have.property('gs');
         cookies.should.have.have.property('cu', 'MPID1');
         mParticle.Identity.getCurrentUser().should.not.equal(null);
@@ -3205,7 +2810,7 @@ describe('identity', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentityCallInflightReturned);
-        
+
         // NOTE: Use sinon to "lock" in the current time for testing purposes
         const now = new Date();
         clock = sinon.useFakeTimers(now.getTime());
@@ -3342,7 +2947,7 @@ describe('identity', function() {
     it('does not error when simultaneous identity calls are out', async () => {
         const errorMessages = [];
         mParticle.config.logger = {
-            error: function(msg) {
+            error: function (msg) {
                 errorMessages.push(msg);
             },
         };
@@ -3387,12 +2992,10 @@ describe('identity', function() {
 
         expect(identityResult.getUser().getMPID()).to.equal('testMPID');
         expect(identityResult.getPreviousUser()).to.not.equal(null);
-        expect(identityResult.getPreviousUser().getMPID()).to.equal(
-            'testMPID2'
-        );
+        expect(identityResult.getPreviousUser().getMPID()).to.equal('testMPID2');
     });
 
-    it('Identity callback should include getPreviousUser()', async () => { 
+    it('Identity callback should include getPreviousUser()', async () => {
         const cookies = JSON.stringify({
             testMPID: {
                 lst: 200,
@@ -3421,9 +3024,7 @@ describe('identity', function() {
         }
         mParticle.Identity.login(EmptyUserIdentities, identityCallback);
 
-        expect(mParticle.Identity.getCurrentUser().getMPID()).to.equal(
-            'testMPID'
-        );
+        expect(mParticle.Identity.getCurrentUser().getMPID()).to.equal('testMPID');
         expect(loginResult.getUser().getMPID()).to.equal('testMPID');
         expect(loginResult.getPreviousUser()).to.not.be.null;
         expect(loginResult.getPreviousUser().getMPID()).to.equal('testMPID2');
@@ -3470,20 +3071,14 @@ describe('identity', function() {
 
         await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === '1');
 
-        mParticle.Identity.identify(EmptyUserIdentities, function(result) {
+        mParticle.Identity.identify(EmptyUserIdentities, function (result) {
             identityResult = result;
             callbackCalled = true;
         });
 
         await waitForCondition(() => callbackCalled);
-        identityResult
-            .getUser()
-            .getMPID()
-            .should.equal('1');
-        identityResult
-            .getPreviousUser()
-            .getMPID()
-            .should.equal('4');
+        identityResult.getUser().getMPID().should.equal('1');
+        identityResult.getPreviousUser().getMPID().should.equal('4');
     });
 
     it('Alias request should be received when API is called validly', async () => {
@@ -3508,9 +3103,7 @@ describe('identity', function() {
         expect(requestBody['request_id']).to.not.equal(null);
         expect(requestBody['request_type']).to.equal('alias');
         expect(requestBody['environment']).to.equal('production');
-        expect(requestBody['api_key']).to.equal(
-            mParticle.getInstance()._Store.devToken
-        );
+        expect(requestBody['api_key']).to.equal(mParticle.getInstance()._Store.devToken);
         const dataBody = requestBody['data'];
         expect(dataBody).to.not.equal(null);
         expect(dataBody['destination_mpid']).to.equal('destinationMpid');
@@ -3548,7 +3141,7 @@ describe('identity', function() {
         let warnMessage = null;
 
         mParticle.config.logger = {
-            warning: function(msg) {
+            warning: function (msg) {
                 warnMessage = msg;
             },
         };
@@ -3556,42 +3149,34 @@ describe('identity', function() {
         let callbackResult;
 
         // intentionally missing sourceMpid
-        let aliasRequest: IAliasRequest = ({
+        let aliasRequest: IAliasRequest = {
             destinationMpid: 'destinationMpid',
             startTime: 3,
             endTime: 4,
-        } as unknown) as IAliasRequest;
+        } as unknown as IAliasRequest;
 
-        mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+        mParticle.Identity.aliasUsers(aliasRequest, function (callback) {
             callbackResult = callback;
         });
         callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
-        expect(callbackResult.message).to.equal(
-            Constants.Messages.ValidationMessages.AliasMissingMpid
-        );
-        expect(warnMessage).to.equal(
-            Constants.Messages.ValidationMessages.AliasMissingMpid
-        );
+        expect(callbackResult.message).to.equal(Constants.Messages.ValidationMessages.AliasMissingMpid);
+        expect(warnMessage).to.equal(Constants.Messages.ValidationMessages.AliasMissingMpid);
         callbackResult = null;
         warnMessage = null;
 
         // intentionally missing destinationMpid
-        aliasRequest = ({
+        aliasRequest = {
             sourceMpid: 'sourceMpid',
             startTime: 3,
             endTime: 4,
-        } as unknown) as IAliasRequest;
+        } as unknown as IAliasRequest;
 
-        mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+        mParticle.Identity.aliasUsers(aliasRequest, function (callback) {
             callbackResult = callback;
         });
         callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
-        expect(callbackResult.message).to.equal(
-            Constants.Messages.ValidationMessages.AliasMissingMpid
-        );
-        expect(warnMessage).to.equal(
-            Constants.Messages.ValidationMessages.AliasMissingMpid
-        );
+        expect(callbackResult.message).to.equal(Constants.Messages.ValidationMessages.AliasMissingMpid);
+        expect(warnMessage).to.equal(Constants.Messages.ValidationMessages.AliasMissingMpid);
         callbackResult = null;
         warnMessage = null;
 
@@ -3602,17 +3187,13 @@ describe('identity', function() {
             startTime: 3,
             endTime: 4,
         };
-        mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+        mParticle.Identity.aliasUsers(aliasRequest, function (callback) {
             callbackResult = callback;
         });
 
         callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
-        expect(callbackResult.message).to.equal(
-            Constants.Messages.ValidationMessages.AliasNonUniqueMpid
-        );
-        expect(warnMessage).to.equal(
-            Constants.Messages.ValidationMessages.AliasNonUniqueMpid
-        );
+        expect(callbackResult.message).to.equal(Constants.Messages.ValidationMessages.AliasNonUniqueMpid);
+        expect(warnMessage).to.equal(Constants.Messages.ValidationMessages.AliasNonUniqueMpid);
         callbackResult = null;
         warnMessage = null;
 
@@ -3623,35 +3204,27 @@ describe('identity', function() {
             startTime: 4,
             endTime: 3,
         };
-        mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+        mParticle.Identity.aliasUsers(aliasRequest, function (callback) {
             callbackResult = callback;
         });
         callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
-        expect(callbackResult.message).to.equal(
-            Constants.Messages.ValidationMessages.AliasStartBeforeEndTime
-        );
-        expect(warnMessage).to.equal(
-            Constants.Messages.ValidationMessages.AliasStartBeforeEndTime
-        );
+        expect(callbackResult.message).to.equal(Constants.Messages.ValidationMessages.AliasStartBeforeEndTime);
+        expect(warnMessage).to.equal(Constants.Messages.ValidationMessages.AliasStartBeforeEndTime);
         callbackResult = null;
         warnMessage = null;
 
         // intentionally missing endTime and startTime
-        aliasRequest = ({
+        aliasRequest = {
             destinationMpid: 'destinationMpid',
             sourceMpid: 'sourceMpid',
-        } as unknown) as IAliasRequest;
+        } as unknown as IAliasRequest;
 
-        mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+        mParticle.Identity.aliasUsers(aliasRequest, function (callback) {
             callbackResult = callback;
         });
         callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
-        expect(callbackResult.message).to.equal(
-            Constants.Messages.ValidationMessages.AliasMissingTime
-        );
-        expect(warnMessage).to.equal(
-            Constants.Messages.ValidationMessages.AliasMissingTime
-        );
+        expect(callbackResult.message).to.equal(Constants.Messages.ValidationMessages.AliasMissingTime);
+        expect(warnMessage).to.equal(Constants.Messages.ValidationMessages.AliasMissingTime);
         callbackResult = null;
         warnMessage = null;
 
@@ -3670,7 +3243,7 @@ describe('identity', function() {
 
         fetchMock.resetHistory();
 
-        mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+        mParticle.Identity.aliasUsers(aliasRequest, function (callback) {
             callbackResult = callback;
             callbackResult.httpCode.should.equal(HTTP_ACCEPTED);
             expect(callbackResult.message).to.equal(undefined);
@@ -3683,16 +3256,13 @@ describe('identity', function() {
         mParticle.init(apiKey, window.mParticle.config);
         const errorMessage = 'this is a sample error message';
         let callbackResult;
-        fetchMock.post(
-            urls.alias, 
-            {
-                status: 400,
-                body: JSON.stringify({
-                    message: errorMessage,
-                    code: 'ignored code',
-                }),
-            }
-        );
+        fetchMock.post(urls.alias, {
+            status: 400,
+            body: JSON.stringify({
+                message: errorMessage,
+                code: 'ignored code',
+            }),
+        });
 
         const aliasRequest = {
             destinationMpid: 'destinationMpid',
@@ -3701,7 +3271,7 @@ describe('identity', function() {
             endTime: 4,
         };
 
-        mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+        mParticle.Identity.aliasUsers(aliasRequest, function (callback) {
             callbackResult = callback;
             callbackResult.httpCode.should.equal(400);
             callbackResult.message.should.equal(errorMessage);
@@ -3734,10 +3304,7 @@ describe('identity', function() {
         const destinationUser = mParticle.Identity.getCurrentUser();
         const sourceUser = mParticle.Identity.getUser('1');
 
-        const aliasRequest = mParticle.Identity.createAliasRequest(
-            sourceUser,
-            destinationUser
-        );
+        const aliasRequest = mParticle.Identity.createAliasRequest(sourceUser, destinationUser);
         expect(aliasRequest.sourceMpid).to.equal('1');
         expect(aliasRequest.destinationMpid).to.equal('2');
         expect(aliasRequest.startTime).to.equal(200);
@@ -3771,10 +3338,7 @@ describe('identity', function() {
         const destinationUser = mParticle.Identity.getCurrentUser();
         const sourceUser = mParticle.Identity.getUser('2');
 
-        const aliasRequest = mParticle.Identity.createAliasRequest(
-            sourceUser,
-            destinationUser
-        );
+        const aliasRequest = mParticle.Identity.createAliasRequest(sourceUser, destinationUser);
         expect(aliasRequest.sourceMpid).to.equal('2');
         expect(aliasRequest.destinationMpid).to.equal('3');
         //should grab the earliest fst out of any user if user does not have fst
@@ -3813,16 +3377,11 @@ describe('identity', function() {
         const destinationUser = mParticle.Identity.getCurrentUser();
         const sourceUser = mParticle.Identity.getUser('1');
 
-        const aliasRequest = mParticle.Identity.createAliasRequest(
-            sourceUser,
-            destinationUser
-        );
+        const aliasRequest = mParticle.Identity.createAliasRequest(sourceUser, destinationUser);
         expect(aliasRequest.sourceMpid).to.equal('1');
         expect(aliasRequest.destinationMpid).to.equal('2');
         const oldestAllowedStartTime =
-            new Date().getTime() -
-            mParticle.getInstance()._Store.SDKConfig.aliasMaxWindow *
-                millisPerDay;
+            new Date().getTime() - mParticle.getInstance()._Store.SDKConfig.aliasMaxWindow * millisPerDay;
         expect(aliasRequest.startTime).to.equal(oldestAllowedStartTime);
         expect(aliasRequest.endTime).to.equal(new Date().getTime());
 
@@ -3836,7 +3395,7 @@ describe('identity', function() {
         let warnMessage = null;
 
         mParticle.config.logger = {
-            warning: function(msg) {
+            warning: function (msg) {
                 warnMessage = msg;
             },
         };
@@ -3859,7 +3418,7 @@ describe('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned);        
+        await waitForCondition(hasIdentityCallInflightReturned);
 
         // Mock clock so we can use simple integers for time
         clock = sinon.useFakeTimers();
@@ -3868,16 +3427,11 @@ describe('identity', function() {
         const destinationUser = mParticle.Identity.getCurrentUser();
         const sourceUser = mParticle.Identity.getUser('1');
 
-        const aliasRequest = mParticle.Identity.createAliasRequest(
-            sourceUser,
-            destinationUser
-        );
+        const aliasRequest = mParticle.Identity.createAliasRequest(sourceUser, destinationUser);
         expect(aliasRequest.sourceMpid).to.equal('1');
         expect(aliasRequest.destinationMpid).to.equal('2');
         const oldestAllowedStartTime =
-            new Date().getTime() -
-            mParticle.getInstance()._Store.SDKConfig.aliasMaxWindow *
-                millisPerDay;
+            new Date().getTime() - mParticle.getInstance()._Store.SDKConfig.aliasMaxWindow * millisPerDay;
         expect(aliasRequest.startTime).to.equal(oldestAllowedStartTime);
         expect(aliasRequest.endTime).to.equal(300);
         expect(warnMessage).to.equal(
@@ -3914,11 +3468,7 @@ describe('identity', function() {
         const destinationUser = mParticle.Identity.getCurrentUser();
         const sourceUser = mParticle.Identity.getUser('1');
 
-        const aliasRequest = mParticle.Identity.createAliasRequest(
-            sourceUser,
-            destinationUser,
-            'mpid'
-        );
+        const aliasRequest = mParticle.Identity.createAliasRequest(sourceUser, destinationUser, 'mpid');
         expect(aliasRequest.sourceMpid).to.equal('1');
         expect(aliasRequest.destinationMpid).to.equal('2');
         expect(aliasRequest.startTime).to.equal(200);
@@ -3952,10 +3502,7 @@ describe('identity', function() {
         const destinationUser = mParticle.Identity.getCurrentUser();
         const sourceUser = mParticle.Identity.getUser('1');
 
-        const aliasRequest = mParticle.Identity.createAliasRequest(
-            sourceUser,
-            destinationUser
-        );
+        const aliasRequest = mParticle.Identity.createAliasRequest(sourceUser, destinationUser);
         expect(aliasRequest.sourceMpid).to.equal('1');
         expect(aliasRequest.destinationMpid).to.equal('2');
         expect(aliasRequest.scope).to.equal('device');
@@ -3968,7 +3515,7 @@ describe('identity', function() {
         fetchMock.post(urls.alias, HTTP_ACCEPTED);
 
         mParticle.init(apiKey, window.mParticle.config);
-        
+
         const aliasRequest = {
             destinationMpid: 'destinationMpid',
             sourceMpid: 'sourceMpid',
@@ -3978,7 +3525,7 @@ describe('identity', function() {
 
         // reset history to remove all calls from fetchMock.calls so that after alias-ing users, it will have a single call
         fetchMock.resetHistory();
-        mParticle.Identity.aliasUsers(aliasRequest)
+        mParticle.Identity.aliasUsers(aliasRequest);
 
         expect(fetchMock.calls().length).to.equal(1);
 
@@ -4013,12 +3560,16 @@ describe('identity', function() {
             result = response;
         }
 
-        fetchMock.post(urls.identify, {
-            status: '0', 
-            body: JSON.stringify({ body: null }),
-        }, {
-            overwriteRoutes: true
-        });
+        fetchMock.post(
+            urls.identify,
+            {
+                status: '0',
+                body: JSON.stringify({ body: null }),
+            },
+            {
+                overwriteRoutes: true,
+            }
+        );
 
         mParticle.config.identityCallback = identityCallback;
 
@@ -4027,7 +3578,6 @@ describe('identity', function() {
         await waitForCondition(hasIdentityCallInflightReturned);
 
         result.httpCode.should.equal(-1);
-
     });
 
     describe('custom device', function () {
@@ -4035,64 +3585,62 @@ describe('identity', function() {
             fetchMock.restore();
         });
 
-    it('should use the custom device id in known_identities when passed via setDeviceId', async () => {
-        fetchMockSuccess(urls.identify, {
-            body: null
+        it('should use the custom device id in known_identities when passed via setDeviceId', async () => {
+            fetchMockSuccess(urls.identify, {
+                body: null,
+            });
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            await waitForCondition(hasIdentityCallInflightReturned);
+            expect(fetchMock.calls().length).to.equal(1);
+            const firstCall = fetchMock.calls()[0];
+            expect(firstCall[0].split('/')[4]).to.equal('identify');
+            const data = JSON.parse(firstCall[1].body as unknown as string) as IIdentityAPIRequestData;
+
+            // Should be a 36 character guid
+            expect(data.known_identities).to.have.keys('device_application_stamp');
+            expect(data.known_identities.device_application_stamp.length).to.equal(36);
+
+            mParticle.setDeviceId('foo-guid');
+
+            fetchMockSuccess(urls.login, {
+                mpid: 'logged-in-user',
+            });
+
+            mParticle.Identity.login({ userIdentities: { customerid: 'test' } });
+
+            await waitForCondition(hasLoginReturned);
+
+            // Should include two more calls: Login and UIC
+            expect(fetchMock.calls().length).to.equal(2);
+            const nextCall = fetchMock.calls()[1];
+            expect(nextCall[0].split('/')[4]).to.equal('login');
+
+            const data2 = JSON.parse(nextCall[1].body as unknown as string) as IIdentityAPIRequestData;
+            expect(data2.known_identities.device_application_stamp).to.equal('foo-guid');
         });
 
-        mParticle.init(apiKey, window.mParticle.config);
+        it('should use the custom device id in known_identities when set via mParticle.config', async () => {
+            // Resets fetchMock so we can isolate calls for this tests
+            fetchMock.restore();
 
-        await waitForCondition(hasIdentityCallInflightReturned);
-        expect(fetchMock.calls().length).to.equal(1);
-        const firstCall = fetchMock.calls()[0];
-        expect(firstCall[0].split('/')[4]).to.equal('identify');
-        const data = JSON.parse(firstCall[1].body as unknown as string) as IIdentityAPIRequestData;
-        
-        // Should be a 36 character guid
-        expect(data.known_identities).to.have.keys('device_application_stamp');
-        expect(data.known_identities.device_application_stamp.length).to.equal(36);
+            fetchMockSuccess(urls.identify, { body: null });
 
-        mParticle.setDeviceId('foo-guid');
+            window.mParticle.config.deviceId = 'foo-guid';
+            mParticle.init(apiKey, window.mParticle.config);
 
-        fetchMockSuccess(urls.login, {
-            mpid: 'logged-in-user',
+            expect(fetchMock.calls().length).to.equal(1);
+
+            const lastCall = fetchMock.lastCall();
+            const data = JSON.parse(lastCall[1].body as unknown as string) as IIdentityAPIRequestData;
+
+            expect(data.known_identities).to.have.keys('device_application_stamp');
+            expect(data.known_identities.device_application_stamp).to.equal('foo-guid');
         });
-
-        mParticle.Identity.login({ userIdentities: { customerid: 'test' } });
-
-        await waitForCondition(hasLoginReturned);
-
-        // Should include two more calls: Login and UIC
-        expect(fetchMock.calls().length).to.equal(2);
-        const nextCall = fetchMock.calls()[1];
-        expect(nextCall[0].split('/')[4]).to.equal('login');
-
-        const data2 = JSON.parse(nextCall[1].body as unknown as string) as IIdentityAPIRequestData;
-        expect(data2.known_identities.device_application_stamp).to.equal('foo-guid');
     });
 
-    it('should use the custom device id in known_identities when set via mParticle.config', async () => {
-        // Resets fetchMock so we can isolate calls for this tests
-        fetchMock.restore();
-
-        fetchMockSuccess(urls.identify, { body: null });
-
-        window.mParticle.config.deviceId = 'foo-guid';
-        mParticle.init(apiKey, window.mParticle.config);
-
-        expect(fetchMock.calls().length).to.equal(1);
-
-        const lastCall = fetchMock.lastCall();
-        const data = JSON.parse(
-            lastCall[1].body as unknown as string
-        ) as IIdentityAPIRequestData;
-
-        expect(data.known_identities).to.have.keys('device_application_stamp');
-        expect(data.known_identities.device_application_stamp).to.equal('foo-guid');
-    });
-    });
-
-    describe('identity caching', function() {
+    describe('identity caching', function () {
         beforeEach(function () {
             fetchMock.restore();
         });
@@ -4129,47 +3677,42 @@ describe('identity', function() {
 
             await waitForCondition(() => {
                 return (
-                    mParticle.Identity.getCurrentUser()?.getUserIdentities()
-                        ?.userIdentities?.email === 'test@gmail.com'
+                    mParticle.Identity.getCurrentUser()?.getUserIdentities()?.userIdentities?.email === 'test@gmail.com'
                 );
             });
             const now = new Date();
-            const idCache: IdentityCache = JSON.parse(
-                localStorage.getItem('mprtcl-v4_abcdef-id-cache')
-            );
+            const idCache: IdentityCache = JSON.parse(localStorage.getItem('mprtcl-v4_abcdef-id-cache'));
 
             // a single identify cache key will be on the idCache
             expect(Object.keys(idCache).length).to.equal(1);
-            for (let key in idCache) {
+            for (const key in idCache) {
                 // X_MP_MAX_AGE is a header value, which is a string,
                 // We want to make sure that the expireTimestamp is evaluated
                 // as a number.
-                const expectedExpiredTimestamp =
-                    parseInt(X_MP_MAX_AGE) * 1000 + 1;
+                const expectedExpiredTimestamp = parseInt(X_MP_MAX_AGE) * 1000 + 1;
 
                 // Because identity is async, we cannot use sinon.useFakeTimers
                 // to tick the clock forward or be exact in our timing.
                 // Instead, we can expect the expireTimestamp to be within 1 second
                 // of the max age
-                expect(
-                    idCache[key].expireTimestamp
-                ).to.greaterThan(expectedExpiredTimestamp);
-                expect(
-                    idCache[key].expireTimestamp - now.getTime()
-                ).to.lessThan(1000);
+                expect(idCache[key].expireTimestamp).to.greaterThan(expectedExpiredTimestamp);
+                expect(idCache[key].expireTimestamp - now.getTime()).to.lessThan(1000);
             }
         });
 
         it('should not call identify if no identities have changed within the expiration time', async () => {
             const X_MP_MAX_AGE = '1';
 
-
-            fetchMockSuccess(urls.identify, {
-                mpid: testMPID,
-                is_logged_in: false,
-            }, {
-                'x-mp-max-age': X_MP_MAX_AGE,
-            });
+            fetchMockSuccess(
+                urls.identify,
+                {
+                    mpid: testMPID,
+                    is_logged_in: false,
+                },
+                {
+                    'x-mp-max-age': X_MP_MAX_AGE,
+                }
+            );
 
             fetchMock.resetHistory();
 
@@ -4183,7 +3726,6 @@ describe('identity', function() {
             mParticle.config.identifyRequest = identities;
             mParticle.config.flags.cacheIdentity = 'True';
             mParticle.init(apiKey, window.mParticle.config);
-
 
             await waitForCondition(hasIdentityCallInflightReturned);
 
@@ -4209,12 +3751,16 @@ describe('identity', function() {
 
             let callbackCalled = false;
 
-            fetchMockSuccess(urls.identify, {
-                mpid: testMPID,
-                is_logged_in: false,
-            }, {
-                'x-mp-max-age': X_MP_MAX_AGE,
-            });
+            fetchMockSuccess(
+                urls.identify,
+                {
+                    mpid: testMPID,
+                    is_logged_in: false,
+                },
+                {
+                    'x-mp-max-age': X_MP_MAX_AGE,
+                }
+            );
 
             fetchMock.resetHistory();
 
@@ -4229,7 +3775,7 @@ describe('identity', function() {
             mParticle.config.flags.cacheIdentity = 'True';
             mParticle.init(apiKey, window.mParticle.config);
 
-            await waitForCondition(hasIdentityCallInflightReturned);  
+            await waitForCondition(hasIdentityCallInflightReturned);
 
             const initialIdentityCall = fetchMock.calls()[0];
             expect(initialIdentityCall[0].split('/')[4]).to.equal('identify');
@@ -4262,19 +3808,27 @@ describe('identity', function() {
 
             let callbackCalled = false;
 
-            fetchMockSuccess(urls.identify, {
-                mpid: testMPID,
-                is_logged_in: true,
-            }, {
-                'x-mp-max-age': X_MP_MAX_AGE,
-            });
+            fetchMockSuccess(
+                urls.identify,
+                {
+                    mpid: testMPID,
+                    is_logged_in: true,
+                },
+                {
+                    'x-mp-max-age': X_MP_MAX_AGE,
+                }
+            );
 
-            fetchMockSuccess(urls.login, {
-                mpid: testMPID,
-                is_logged_in: true,
-            }, {
-                'x-mp-max-age': X_MP_MAX_AGE,
-            });
+            fetchMockSuccess(
+                urls.login,
+                {
+                    mpid: testMPID,
+                    is_logged_in: true,
+                },
+                {
+                    'x-mp-max-age': X_MP_MAX_AGE,
+                }
+            );
 
             fetchMock.resetHistory();
 
@@ -4328,20 +3882,27 @@ describe('identity', function() {
 
             let callbackCalled = false;
 
-            fetchMockSuccess(urls.identify, {
-                mpid: testMPID,
-                is_logged_in: true,
-            }, {
-                'x-mp-max-age': X_MP_MAX_AGE,
-            });
+            fetchMockSuccess(
+                urls.identify,
+                {
+                    mpid: testMPID,
+                    is_logged_in: true,
+                },
+                {
+                    'x-mp-max-age': X_MP_MAX_AGE,
+                }
+            );
 
-            fetchMockSuccess(urls.login, {
-                mpid: testMPID,
-                is_logged_in: true,
-            }, {
-                'x-mp-max-age': X_MP_MAX_AGE,
-            });
-
+            fetchMockSuccess(
+                urls.login,
+                {
+                    mpid: testMPID,
+                    is_logged_in: true,
+                },
+                {
+                    'x-mp-max-age': X_MP_MAX_AGE,
+                }
+            );
 
             fetchMock.resetHistory();
 
@@ -4400,23 +3961,31 @@ describe('identity', function() {
         it('should clear cache when modify is called', async () => {
             const X_MP_MAX_AGE = '1';
 
-            fetchMockSuccess(urls.identify, {
-                mpid: testMPID,
-                is_logged_in: true,
-            }, {
-                'x-mp-max-age': X_MP_MAX_AGE,
-            });
+            fetchMockSuccess(
+                urls.identify,
+                {
+                    mpid: testMPID,
+                    is_logged_in: true,
+                },
+                {
+                    'x-mp-max-age': X_MP_MAX_AGE,
+                }
+            );
 
-            fetchMockSuccess(urls.modify, {
-                change_results: [
-                    {
-                        identity_type: 'customerid',
-                        modified_mpid: testMPID,
-                    },
-                ],
-            }, {
-                'x-mp-max-age': X_MP_MAX_AGE,
-            });
+            fetchMockSuccess(
+                urls.modify,
+                {
+                    change_results: [
+                        {
+                            identity_type: 'customerid',
+                            modified_mpid: testMPID,
+                        },
+                    ],
+                },
+                {
+                    'x-mp-max-age': X_MP_MAX_AGE,
+                }
+            );
 
             fetchMock.resetHistory();
 
@@ -4444,9 +4013,7 @@ describe('identity', function() {
             });
 
             await waitForCondition(hasIdentityCallInflightReturned);
-            const secondIdCache = localStorage.getItem(
-                'mprtcl-v4_abcdef-id-cache'
-            );
+            const secondIdCache = localStorage.getItem('mprtcl-v4_abcdef-id-cache');
 
             expect(secondIdCache).to.not.be.ok;
         });
@@ -4454,19 +4021,27 @@ describe('identity', function() {
         it('should clear cache when logout is called', async () => {
             const X_MP_MAX_AGE = '1';
 
-            fetchMockSuccess(urls.identify, {
-                mpid: testMPID,
-                is_logged_in: true,
-            }, {
-                'x-mp-max-age': X_MP_MAX_AGE,
-            });
+            fetchMockSuccess(
+                urls.identify,
+                {
+                    mpid: testMPID,
+                    is_logged_in: true,
+                },
+                {
+                    'x-mp-max-age': X_MP_MAX_AGE,
+                }
+            );
 
-            fetchMockSuccess(urls.logout, {
-                mpid: 'otherMPID',
-                is_logged_in: false
-            }, {
-                'x-mp-max-age': X_MP_MAX_AGE,
-            });
+            fetchMockSuccess(
+                urls.logout,
+                {
+                    mpid: 'otherMPID',
+                    is_logged_in: false,
+                },
+                {
+                    'x-mp-max-age': X_MP_MAX_AGE,
+                }
+            );
 
             fetchMock.resetHistory();
 
@@ -4484,24 +4059,22 @@ describe('identity', function() {
 
             await waitForCondition(hasIdentityCallInflightReturned);
 
-            let idCache = localStorage.getItem('mprtcl-v4_abcdef-id-cache');
+            const idCache = localStorage.getItem('mprtcl-v4_abcdef-id-cache');
             expect(idCache).to.be.ok;
 
             mParticle.Identity.logout();
 
             await waitForCondition(hasIdentityCallInflightReturned);
 
-            let secondIdCache = localStorage.getItem(
-                'mprtcl-v4_abcdef-id-cache'
-            );
+            const secondIdCache = localStorage.getItem('mprtcl-v4_abcdef-id-cache');
             expect(secondIdCache).to.not.be.ok;
         });
     });
 
-    describe('privacy flags', function() {
+    describe('privacy flags', function () {
         const idCacheStorageKey = 'mprtcl-v4_abcdef-id-cache';
 
-        beforeEach(function() {
+        beforeEach(function () {
             mParticle._resetForTests(MPConfig);
             mParticle.config.flags.cacheIdentity = 'True';
             // When noFunctional is true the SDK does not auto-populate identifyRequest from persistence.
@@ -4510,7 +4083,7 @@ describe('identity', function() {
             localStorage.clear();
         });
 
-        describe('#createIdentityCache', function() {
+        describe('#createIdentityCache', function () {
             it('should save id cache to local storage when noFunctional is false by default', async () => {
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(hasIdentifyReturned);
@@ -4542,7 +4115,7 @@ describe('identity', function() {
             });
         });
 
-        describe('#noTargeting user attribute', function() {
+        describe('#noTargeting user attribute', function () {
             afterEach(() => {
                 delete mParticle.config.launcherOptions;
             });
@@ -4689,7 +4262,10 @@ describe('identity', function() {
                 await waitForCondition(hasIdentityResponseParsed(loggerSpy));
 
                 // Verify attribute set on initial identify
-                expect(mParticle.Identity.getCurrentUser().getAllUserAttributes()).to.have.property('$NoTargeting', true);
+                expect(mParticle.Identity.getCurrentUser().getAllUserAttributes()).to.have.property(
+                    '$NoTargeting',
+                    true
+                );
 
                 // Now login as a different user
                 const loginMPID = 'login-mpid';
@@ -4725,7 +4301,10 @@ describe('identity', function() {
                 await waitForCondition(hasIdentityResponseParsed(loggerSpy));
 
                 // Verify attribute is set
-                expect(mParticle.Identity.getCurrentUser().getAllUserAttributes()).to.have.property('$NoTargeting', true);
+                expect(mParticle.Identity.getCurrentUser().getAllUserAttributes()).to.have.property(
+                    '$NoTargeting',
+                    true
+                );
 
                 // Re-init with noTargeting false
                 // On re-init with an existing MPID, no identity call is made,
@@ -4747,13 +4326,13 @@ describe('identity', function() {
         });
     });
 
-    describe('Rokt Manager', function() {
+    describe('Rokt Manager', function () {
         let roktConfig: IKitConfigs;
         let roktKit: IRoktKit;
         const testRoktEmail = 'test@rokt.com';
         const testRoktMPID = 'rokt-user';
 
-        beforeEach(function() {
+        beforeEach(function () {
             fetchMock.resetHistory();
 
             roktConfig = {
@@ -4790,7 +4369,7 @@ describe('identity', function() {
             const mpInstance = mParticle.getInstance();
 
             mpInstance._RoktManager.attachKit(roktKit);
-            
+
             fetchMock.resetHistory();
             loggerSpy.verbose.resetHistory();
             mParticle.Identity.identify({
@@ -4802,30 +4381,36 @@ describe('identity', function() {
             await waitForCondition(hasIdentityResponseParsed(loggerSpy));
 
             expect(mpInstance._RoktManager['currentUser']).to.not.be.null;
-            expect(mpInstance._RoktManager['currentUser'].getUserIdentities().userIdentities.email).to.equal(testRoktEmail);
+            expect(mpInstance._RoktManager['currentUser'].getUserIdentities().userIdentities.email).to.equal(
+                testRoktEmail
+            );
         });
 
         it('should not set currentUser if the initial identify call is not successful', async () => {
-            fetchMock.post(urls.identify, {
-                status: HTTP_BAD_REQUEST,
-                body: {
-                    Errors: [
-                        {
-                            message: 'knownIdentities is empty.',
-                            code: 'LOOKUP_ERROR'
-                        },
-                    ],
-                    ErrorCode: 'LOOKUP_ERROR',
-                    StatusCode: HTTP_BAD_REQUEST,
-                    RequestId: '123',
+            fetchMock.post(
+                urls.identify,
+                {
+                    status: HTTP_BAD_REQUEST,
+                    body: {
+                        Errors: [
+                            {
+                                message: 'knownIdentities is empty.',
+                                code: 'LOOKUP_ERROR',
+                            },
+                        ],
+                        ErrorCode: 'LOOKUP_ERROR',
+                        StatusCode: HTTP_BAD_REQUEST,
+                        RequestId: '123',
+                    },
                 },
-            }, {
-                overwriteRoutes: true,
-            });
+                {
+                    overwriteRoutes: true,
+                }
+            );
 
             mParticle.init(apiKey, { ...window.mParticle.config, kitConfigs: [roktConfig] });
 
-            await waitForCondition(hasIdentityCallInflightReturned);         
+            await waitForCondition(hasIdentityCallInflightReturned);
 
             const mpInstance = mParticle.getInstance();
 
@@ -4834,7 +4419,7 @@ describe('identity', function() {
             await waitForCondition(hasIdentityCallInflightReturned);
 
             expect(mpInstance._RoktManager['currentUser']).be.null;
-        })
+        });
 
         it('should not set currentUser if the email is not positively identified', async () => {
             fetchMockSuccess(urls.identify, {
@@ -4851,22 +4436,26 @@ describe('identity', function() {
 
             await waitForCondition(() => hasIdentifyReturned('testMPID'));
 
-            fetchMock.post(urls.identify, {
-                status: HTTP_BAD_REQUEST,
-                body: {
-                    Errors: [
-                        {
-                            message: 'knownIdentities is empty.',
-                            code: 'LOOKUP_ERROR'
-                        },
-                    ],
-                    ErrorCode: 'LOOKUP_ERROR',
-                    StatusCode: HTTP_BAD_REQUEST,
-                    RequestId: '123',
+            fetchMock.post(
+                urls.identify,
+                {
+                    status: HTTP_BAD_REQUEST,
+                    body: {
+                        Errors: [
+                            {
+                                message: 'knownIdentities is empty.',
+                                code: 'LOOKUP_ERROR',
+                            },
+                        ],
+                        ErrorCode: 'LOOKUP_ERROR',
+                        StatusCode: HTTP_BAD_REQUEST,
+                        RequestId: '123',
+                    },
                 },
-            }, {
-                overwriteRoutes: true,
-            });
+                {
+                    overwriteRoutes: true,
+                }
+            );
 
             const mpInstance = mParticle.getInstance();
 
@@ -4884,11 +4473,11 @@ describe('identity', function() {
             // but should not have an email
             expect(mpInstance._RoktManager['currentUser']).to.not.be.null;
             expect(mpInstance._RoktManager['currentUser'].getUserIdentities().userIdentities.email).to.equal(undefined);
-        })
+        });
     });
 
-    describe('Deprecate Cart', function() {
-        afterEach(function() {
+    describe('Deprecate Cart', function () {
+        afterEach(function () {
             sinon.restore();
         });
 
@@ -4896,10 +4485,7 @@ describe('identity', function() {
             mParticle.init(apiKey, window.mParticle.config);
             const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
             await waitForCondition(hasIdentifyReturned);
-            mParticle
-                .getInstance()
-                .Identity.getCurrentUser()
-                .getCart();
+            mParticle.getInstance().Identity.getCurrentUser().getCart();
             mParticle.Identity.getCurrentUser().getCart();
 
             bond.called.should.eql(true);
@@ -4916,20 +4502,10 @@ describe('identity', function() {
 
             await waitForCondition(hasIdentifyReturned);
 
-            const product: SDKProduct = mParticle.eCommerce.createProduct(
-                'iPhone',
-                '12345',
-                400
-            );
-            mParticle
-                .getInstance()
-                .Identity.getCurrentUser()
-                .getCart()
-                .add(product);
+            const product: SDKProduct = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
+            mParticle.getInstance().Identity.getCurrentUser().getCart().add(product);
 
-            mParticle.Identity.getCurrentUser()
-                .getCart()
-                .add(product);
+            mParticle.Identity.getCurrentUser().getCart().add(product);
 
             bond.called.should.eql(true);
             // deprecates on both .getCart, then .add
@@ -4945,20 +4521,10 @@ describe('identity', function() {
 
             await waitForCondition(hasIdentifyReturned);
 
-            const product: SDKProduct = mParticle.eCommerce.createProduct(
-                'iPhone',
-                '12345',
-                400
-            );
+            const product: SDKProduct = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
 
-            mParticle
-                .getInstance()
-                .Identity.getCurrentUser()
-                .getCart()
-                .remove(product, true);
-            mParticle.Identity.getCurrentUser()
-                .getCart()
-                .remove(product, true);
+            mParticle.getInstance().Identity.getCurrentUser().getCart().remove(product, true);
+            mParticle.Identity.getCurrentUser().getCart().remove(product, true);
 
             bond.called.should.eql(true);
             // deprecates on both .getCart, then .add
@@ -4972,15 +4538,8 @@ describe('identity', function() {
             mParticle.init(apiKey, window.mParticle.config);
             const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
             await waitForCondition(hasIdentifyReturned);
-            mParticle
-                .getInstance()
-                .Identity.getCurrentUser()
-                .getCart()
-                .clear();
-            mParticle
-                .Identity.getCurrentUser()
-                .getCart()
-                .clear();
+            mParticle.getInstance().Identity.getCurrentUser().getCart().clear();
+            mParticle.Identity.getCurrentUser().getCart().clear();
 
             bond.called.should.eql(true);
             // deprecates on both .getCart, then .add
@@ -4989,28 +4548,22 @@ describe('identity', function() {
                 'Identity.getCurrentUser().getCart().clear() has been deprecated. See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
             );
         });
-        
+
         it('should deprecate getCartProducts', async () => {
             mParticle.init(apiKey, window.mParticle.config);
             const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
             await waitForCondition(hasIdentifyReturned);
 
-            mParticle
-                .getInstance()
-                .Identity.getCurrentUser()
-                .getCart()
-                .getCartProducts();
-            mParticle.Identity.getCurrentUser()
-                .getCart()
-                .getCartProducts();
+            mParticle.getInstance().Identity.getCurrentUser().getCart().getCartProducts();
+            mParticle.Identity.getCurrentUser().getCart().getCartProducts();
 
-                    bond.called.should.eql(true);
-                    // deprecates on both .getCart, then .add
-                    bond.callCount.should.equal(4);
-                    bond.getCalls()[1].args[0].should.eql(
-                        'Identity.getCurrentUser().getCart().getCartProducts() has been deprecated. Please use the alternate method: eCommerce.logProductAction(). See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    );
+            bond.called.should.eql(true);
+            // deprecates on both .getCart, then .add
+            bond.callCount.should.equal(4);
+            bond.getCalls()[1].args[0].should.eql(
+                'Identity.getCurrentUser().getCart().getCartProducts() has been deprecated. Please use the alternate method: eCommerce.logProductAction(). See - https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
+            );
         });
     });
 });

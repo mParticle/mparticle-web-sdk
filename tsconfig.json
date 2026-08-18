@@ -1,18 +1,34 @@
 {
-    "extends": "./node_modules/gts/tsconfig-google.json",
     "compilerOptions": {
+        "allowUnreachableCode": false,
+        "allowUnusedLabels": false,
         "declaration": false,
-        "lib": ["es5", "es6", "dom"],
+        "forceConsistentCasingInFileNames": true,
+        // es2017 types Array.includes / Object.values already used in src.
+        // Emit target stays es5; do not add es2018+ (replaceAll, etc.).
+        "lib": ["es5", "es6", "es2017", "dom"],
+        // Rollup's TypeScript plugin must emit ES modules for IIFE/CJS/ESM bundles.
+        // Do not set "module": "commonjs" — that puts `exports` in dist/mparticle.js
+        // and browsers throw ReferenceError: exports is not defined.
+        "module": "ESNext",
+        "noEmitOnError": true,
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitReturns": true,
+        "pretty": true,
+        "sourceMap": true,
+        "strict": true,
+        "target": "es5",
         "rootDir": ".",
         "outDir": "build",
-        "sourceMap": true,
         "noImplicitAny": false,
         "strictNullChecks": false,
-        "target": "es5",
         "moduleResolution": "Node",
         "resolveJsonModule": true,
         // this is required for importing the 'fetch-mock/esm/client' module, otherwise it errors
-        "allowSyntheticDefaultImports": true
+        "allowSyntheticDefaultImports": true,
+        // Do not auto-include @types (mocha vs jest globals conflict).
+        // @mparticle/web-sdk still loads via explicit src imports.
+        "types": []
     },
-    "include": ["src/**/*.ts", "test/**/*.ts"]
+    "include": ["src/**/*.ts"]
 }

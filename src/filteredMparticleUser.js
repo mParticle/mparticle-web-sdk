@@ -1,14 +1,9 @@
 import Types from './types';
 
-export default function filteredMparticleUser(
-    mpid,
-    forwarder,
-    mpInstance,
-    kitBlocker
-) {
+export default function filteredMparticleUser(mpid, forwarder, mpInstance, kitBlocker) {
     var self = this;
     return {
-        getUserIdentities: function() {
+        getUserIdentities: function () {
             var currentUserIdentities = {};
             var identities = mpInstance._Store.getUserIdentities(mpid);
 
@@ -17,14 +12,9 @@ export default function filteredMparticleUser(
                     var identityName = Types.IdentityType.getIdentityName(
                         mpInstance._Helpers.parseNumber(identityType)
                     );
-                    if (
-                        !kitBlocker ||
-                        (kitBlocker &&
-                            !kitBlocker.isIdentityBlocked(identityName))
-                    )
+                    if (!kitBlocker || (kitBlocker && !kitBlocker.isIdentityBlocked(identityName)))
                         //if identity type is not blocked
-                        currentUserIdentities[identityName] =
-                            identities[identityType];
+                        currentUserIdentities[identityName] = identities[identityType];
                 }
             }
 
@@ -37,23 +27,17 @@ export default function filteredMparticleUser(
                 userIdentities: currentUserIdentities,
             };
         },
-        getMPID: function() {
+        getMPID: function () {
             return mpid;
         },
-        getUserAttributesLists: function(forwarder) {
+        getUserAttributesLists: function (forwarder) {
             var userAttributes,
                 userAttributesLists = {};
 
             userAttributes = self.getAllUserAttributes();
             for (var key in userAttributes) {
-                if (
-                    userAttributes.hasOwnProperty(key) &&
-                    Array.isArray(userAttributes[key])
-                ) {
-                    if (
-                        !kitBlocker ||
-                        (kitBlocker && !kitBlocker.isAttributeKeyBlocked(key))
-                    ) {
+                if (userAttributes.hasOwnProperty(key) && Array.isArray(userAttributes[key])) {
+                    if (!kitBlocker || (kitBlocker && !kitBlocker.isAttributeKeyBlocked(key))) {
                         userAttributesLists[key] = userAttributes[key].slice();
                     }
                 }
@@ -66,22 +50,16 @@ export default function filteredMparticleUser(
 
             return userAttributesLists;
         },
-        getAllUserAttributes: function() {
+        getAllUserAttributes: function () {
             var userAttributesCopy = {};
             var userAttributes = mpInstance._Store.getUserAttributes(mpid);
 
             if (userAttributes) {
                 for (var prop in userAttributes) {
                     if (userAttributes.hasOwnProperty(prop)) {
-                        if (
-                            !kitBlocker ||
-                            (kitBlocker &&
-                                !kitBlocker.isAttributeKeyBlocked(prop))
-                        ) {
+                        if (!kitBlocker || (kitBlocker && !kitBlocker.isAttributeKeyBlocked(prop))) {
                             if (Array.isArray(userAttributes[prop])) {
-                                userAttributesCopy[prop] = userAttributes[
-                                    prop
-                                ].slice();
+                                userAttributesCopy[prop] = userAttributes[prop].slice();
                             } else {
                                 userAttributesCopy[prop] = userAttributes[prop];
                             }

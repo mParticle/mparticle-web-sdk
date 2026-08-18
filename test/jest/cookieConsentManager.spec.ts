@@ -48,8 +48,12 @@ describe('CookieConsentManager', () => {
         function createMockUser(attributes: Record<string, any> = {}) {
             const attrs = { ...attributes };
             return {
-                setUserAttribute: jest.fn((key, value) => { attrs[key] = value; }),
-                removeUserAttribute: jest.fn((key) => { delete attrs[key]; }),
+                setUserAttribute: jest.fn((key, value) => {
+                    attrs[key] = value;
+                }),
+                removeUserAttribute: jest.fn((key) => {
+                    delete attrs[key];
+                }),
                 getAllUserAttributes: jest.fn(() => attrs),
             } as unknown as IMParticleUser;
         }
@@ -65,7 +69,7 @@ describe('CookieConsentManager', () => {
 
         it('should remove $NoTargeting when noTargeting is false and attribute exists', () => {
             const manager = new CookieConsentManager({ noTargeting: false, noFunctional: false });
-            const user = createMockUser({ '$NoTargeting': true });
+            const user = createMockUser({ $NoTargeting: true });
 
             manager.syncNoTargetingAttribute(user);
 

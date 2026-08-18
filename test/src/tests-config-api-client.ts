@@ -2,13 +2,8 @@ import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import { urls, apiKey, MPConfig } from './config/constants';
 import { expect } from 'chai';
-import ConfigAPIClient  from '../../src/configAPIClient';
-import {
-    DataPlanConfig,
-    DataPlanResult,
-    IMParticleInstanceManager,
-    SDKInitConfig,
-} from '../../src/sdkRuntimeModels';
+import ConfigAPIClient from '../../src/configAPIClient';
+import { DataPlanConfig, DataPlanResult, IMParticleInstanceManager, SDKInitConfig } from '../../src/sdkRuntimeModels';
 
 declare global {
     interface Window {
@@ -56,14 +51,9 @@ describe('ConfigAPIClient', () => {
                         }),
                     });
 
-                    const configAPIClient = new ConfigAPIClient(
-                        apiKey,
-                        config,
-                        window.mParticle.getInstance()
-                    );
+                    const configAPIClient = new ConfigAPIClient(apiKey, config, window.mParticle.getInstance());
 
-                    const response =
-                        await configAPIClient.getSDKConfiguration();
+                    const response = await configAPIClient.getSDKConfiguration();
 
                     expect(fetchMock.calls().length).to.equal(1);
                     expect(fetchMock.calls()[0][0]).to.equal(urls.config);
@@ -79,14 +69,9 @@ describe('ConfigAPIClient', () => {
                         status: 400,
                     });
 
-                    const configAPIClient = new ConfigAPIClient(
-                        apiKey,
-                        config,
-                        window.mParticle.getInstance()
-                    );
+                    const configAPIClient = new ConfigAPIClient(apiKey, config, window.mParticle.getInstance());
 
-                    const response =
-                        await configAPIClient.getSDKConfiguration();
+                    const response = await configAPIClient.getSDKConfiguration();
 
                     expect(fetchMock.calls().length).to.equal(1);
                     expect(fetchMock.calls()[0][0]).to.equal(urls.config);
@@ -140,14 +125,9 @@ describe('ConfigAPIClient', () => {
                         dataPlan,
                     };
 
-                    const configAPIClient = new ConfigAPIClient(
-                        apiKey,
-                        config,
-                        window.mParticle.getInstance()
-                    );
+                    const configAPIClient = new ConfigAPIClient(apiKey, config, window.mParticle.getInstance());
 
-                    const response =
-                        await configAPIClient.getSDKConfiguration();
+                    const response = await configAPIClient.getSDKConfiguration();
 
                     expect(fetchMock.calls().length).to.equal(1);
                     expect(fetchMock.calls()[0][0]).to.equal(configUrl);
@@ -159,30 +139,22 @@ describe('ConfigAPIClient', () => {
                         dataPlan,
                     };
 
-                    const configAPIClient = new ConfigAPIClient(
-                        apiKey,
-                        config,
-                        window.mParticle.getInstance()
-                    );
+                    const configAPIClient = new ConfigAPIClient(apiKey, config, window.mParticle.getInstance());
 
-                    const response =
-                        await configAPIClient.getSDKConfiguration();
+                    const response = await configAPIClient.getSDKConfiguration();
 
                     expect(response).to.be.ok;
                     expect(response.appName).to.equal('Test App');
                     expect(response.kitConfigs).to.deep.equal([]);
-                    expect(response.dataPlanResult).to.deep.equal(
-                        dataPlanResult
-                    );
+                    expect(response.dataPlanResult).to.deep.equal(dataPlanResult);
                 });
             });
         });
     });
 
-
     describe('with XHRUploader', () => {
         let fetchHolder: typeof window.fetch;
-        
+
         beforeEach(() => {
             fetchHolder = window.fetch;
             delete window.fetch;
@@ -202,25 +174,14 @@ describe('ConfigAPIClient', () => {
                         { name: 'Test Kit 2', id: 2 },
                     ];
 
-                    mockServer.respondWith(urls.config, [
-                        200,
-                        {},
-                        JSON.stringify({ appName: 'Test App', kitConfigs }),
-                    ]);
+                    mockServer.respondWith(urls.config, [200, {}, JSON.stringify({ appName: 'Test App', kitConfigs })]);
 
-                    const configAPIClient = new ConfigAPIClient(
-                        apiKey,
-                        config,
-                        window.mParticle.getInstance()
-                    );
+                    const configAPIClient = new ConfigAPIClient(apiKey, config, window.mParticle.getInstance());
 
-                    const response =
-                        await configAPIClient.getSDKConfiguration();
+                    const response = await configAPIClient.getSDKConfiguration();
 
                     expect(mockServer.requests.length).to.equal(1);
-                    expect(mockServer.lastRequest).to.haveOwnProperty(
-                        'response'
-                    );
+                    expect(mockServer.lastRequest).to.haveOwnProperty('response');
                     expect(mockServer.lastRequest.url).to.equal(urls.config);
 
                     expect(response).to.be.ok;
@@ -232,19 +193,12 @@ describe('ConfigAPIClient', () => {
                     const config = { requestConfig: true } as SDKInitConfig;
                     mockServer.respondWith(urls.config, [400, {}, '']);
 
-                    const configAPIClient = new ConfigAPIClient(
-                        apiKey,
-                        config,
-                        window.mParticle.getInstance()
-                    );
+                    const configAPIClient = new ConfigAPIClient(apiKey, config, window.mParticle.getInstance());
 
-                    const response =
-                        await configAPIClient.getSDKConfiguration();
+                    const response = await configAPIClient.getSDKConfiguration();
 
                     expect(mockServer.requests.length).to.equal(1);
-                    expect(mockServer.lastRequest).to.haveOwnProperty(
-                        'response'
-                    );
+                    expect(mockServer.lastRequest).to.haveOwnProperty('response');
                     expect(mockServer.lastRequest.url).to.equal(urls.config);
 
                     expect(response).to.be.ok;
@@ -297,14 +251,9 @@ describe('ConfigAPIClient', () => {
                         dataPlan,
                     };
 
-                    const configAPIClient = new ConfigAPIClient(
-                        apiKey,
-                        config,
-                        window.mParticle.getInstance()
-                    );
+                    const configAPIClient = new ConfigAPIClient(apiKey, config, window.mParticle.getInstance());
 
-                    const response =
-                        await configAPIClient.getSDKConfiguration();
+                    const response = await configAPIClient.getSDKConfiguration();
 
                     expect(mockServer.lastRequest).to.haveOwnProperty('url');
                     expect(mockServer.lastRequest.url).to.equal(configUrl);
@@ -316,23 +265,16 @@ describe('ConfigAPIClient', () => {
                         dataPlan,
                     };
 
-                    const configAPIClient = new ConfigAPIClient(
-                        apiKey,
-                        config,
-                        window.mParticle.getInstance()
-                    );
+                    const configAPIClient = new ConfigAPIClient(apiKey, config, window.mParticle.getInstance());
 
-                    const response =
-                        await configAPIClient.getSDKConfiguration();
+                    const response = await configAPIClient.getSDKConfiguration();
 
                     expect(mockServer.lastRequest.method).to.equal('get');
 
                     expect(response).to.be.ok;
                     expect(response.appName).to.equal('Test App');
                     expect(response.kitConfigs).to.deep.equal([]);
-                    expect(response.dataPlanResult).to.deep.equal(
-                        dataPlanResult
-                    );
+                    expect(response.dataPlanResult).to.deep.equal(dataPlanResult);
                 });
             });
         });

@@ -5,17 +5,14 @@ import { SDKLoggerApi } from './sdkRuntimeModels';
 import { isEmpty, isFunction, getErrorMessage } from './utils';
 
 export interface IPreInit {
-    readyQueue: Function[] | any[];
+    readyQueue: Array<Function> | Array<any>;
     integrationDelays: IntegrationDelays;
-    forwarderConstructors: MPForwarder[];
-    pixelConfigurations?: IPixelConfiguration[];
+    forwarderConstructors: Array<MPForwarder>;
+    pixelConfigurations?: Array<IPixelConfiguration>;
     isDevelopmentMode?: boolean;
 }
 
-export const processReadyQueue = (
-    readyQueue,
-    logger: SDKLoggerApi
-): Function[] => {
+export const processReadyQueue = (readyQueue, logger: SDKLoggerApi): Array<Function> => {
     if (isEmpty(readyQueue)) {
         return [];
     }
@@ -31,7 +28,7 @@ export const processReadyQueue = (
     // Isolate each item so one throw cannot abort the rest of this pass.
     // Drain-first already removed siblings from the shared queue; without a
     // per-item catch they would be lost forever when forEach aborts.
-    items.forEach(readyQueueItem => {
+    items.forEach((readyQueueItem) => {
         try {
             if (isFunction(readyQueueItem)) {
                 readyQueueItem();
@@ -39,9 +36,7 @@ export const processReadyQueue = (
                 processPreloadedItem(readyQueueItem);
             }
         } catch (e) {
-            logger.error(
-                'Error processing ready queue item: ' + getErrorMessage(e)
-            );
+            logger.error('Error processing ready queue item: ' + getErrorMessage(e));
         }
     });
 
@@ -69,15 +64,15 @@ const processPreloadedItem = (readyQueueItem): void => {
         try {
             let computedMPFunction = window.mParticle;
             let context = window.mParticle;
-            
+
             // Track both the function and its context
             for (const currentMethod of methodArray) {
-                context = computedMPFunction;  // Keep track of the parent object
+                context = computedMPFunction; // Keep track of the parent object
                 computedMPFunction = computedMPFunction[currentMethod];
             }
-            
+
             // Apply the function with its proper context
-            ((computedMPFunction as unknown) as Function).apply(context, args);
+            (computedMPFunction as unknown as Function).apply(context, args);
         } catch (e) {
             throw new Error('Unable to compute proper mParticle function ' + e);
         }

@@ -247,20 +247,22 @@ function setProperty() { }
 **Code Style (Prettier):**
 - Tab width: 4 spaces
 - Quotes: Single quotes (`'`)
-- Trailing commas: ES5 style
-- Line length: 80 characters (suggested)
+- Trailing commas: ES5 style (no trailing commas in function arguments; keeps source parseable on ES5 browsers)
+- Print width: 120 characters
 
 **ESLint Rules:**
-- Prettier enforcement enabled
-- No unused variables
+- ESLint 9 flat config (`eslint.config.mjs`), aligned with sdk-web
+- `@typescript-eslint/recommended` plus explicit member accessibility, generic array types, and member ordering
 - Avoid console.log in production code; prefer Logger (not currently enforced by ESLint)
 
 **Linting & Code Quality Commands:**
 
 ```bash
 # Linting
-npm run lint                # ESLint check (both .js and .ts files)
-npm run prettier            # Prettier check (.js files only)
+npm run lint                # ESLint check (src, test/src, test/jest)
+npm run lint:fix            # ESLint auto-fix
+npm run prettier            # Prettier check (.js and .ts)
+npm run format              # Prettier write for src and tests
 
 # Bundle Analysis
 npm run bundle              # Uglify + gzip for size reporting
@@ -269,11 +271,11 @@ npm run gzip                # Gzip bundle
 ```
 
 **Linting by File Type:**
-- **JavaScript (.js)**: ESLint + Prettier
-- **TypeScript (.ts)**: ESLint + GTS (Google TypeScript Style)
+- **JavaScript (.js)**: ESLint recommended (legacy patterns allowed)
+- **TypeScript (.ts)**: ESLint + `@typescript-eslint` (sdk-web rule set)
 
 **Pre-commit Hooks:**
-- ESLint runs automatically before commits
+- husky + lint-staged run Prettier and ESLint on staged `.js`/`.ts` files
 - Commit will fail if linting errors exist
 
 ### Instance-Based Architecture
