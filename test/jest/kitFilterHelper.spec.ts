@@ -1,8 +1,7 @@
-import KitFilterHelper from "../../src/kitFilterHelper";
-import { EventType, IdentityType } from "../../src/types";
+import KitFilterHelper from '../../src/kitFilterHelper';
+import { EventType, IdentityType } from '../../src/types';
 import Constants from '../../src/constants';
 const { CCPAPurpose } = Constants;
-
 
 describe('FilterHashingUtilities', () => {
     describe('#hashEventType', () => {
@@ -45,7 +44,6 @@ describe('FilterHashingUtilities', () => {
             const expectedUserContentHash = 53;
 
             expect(eventTypeUserContentHash).toBe(expectedUserContentHash);
-
         });
 
         it('should hash event type UserPreference', () => {
@@ -53,7 +51,6 @@ describe('FilterHashingUtilities', () => {
             const expectedUserPreferenceHash = 54;
 
             expect(eventTypeUserPreferenceHash).toBe(expectedUserPreferenceHash);
-
         });
 
         it('should hash event type Social', () => {
@@ -61,7 +58,6 @@ describe('FilterHashingUtilities', () => {
             const expectedSocialHash = 55;
 
             expect(eventTypeSocialHash).toBe(expectedSocialHash);
-
         });
 
         it('should hash event type Other', () => {
@@ -69,7 +65,6 @@ describe('FilterHashingUtilities', () => {
             const expectedOtherHash = 56;
 
             expect(eventTypeOtherHash).toBe(expectedOtherHash);
-
         });
 
         it('should hash event type Media', () => {
@@ -77,7 +72,6 @@ describe('FilterHashingUtilities', () => {
             const expectedMediaHash = 57;
 
             expect(eventTypeMediaHash).toBe(expectedMediaHash);
-
         });
     });
 
@@ -87,14 +81,13 @@ describe('FilterHashingUtilities', () => {
         it('should hash event name with event type Unknown', () => {
             const eventTypeUnknownHash = KitFilterHelper.hashEventName(eventName, EventType.Unknown);
             const expectedUnknownHash = -59445899;
-            
+
             expect(eventTypeUnknownHash).toBe(expectedUnknownHash);
         });
 
         it('should hash event name with event type Navigation', () => {
             const eventTypeNavigationHash = KitFilterHelper.hashEventName(eventName, EventType.Navigation);
             const expectedNavigationHash = 1448105910;
-            
 
             expect(eventTypeNavigationHash).toBe(expectedNavigationHash);
         });
@@ -102,7 +95,6 @@ describe('FilterHashingUtilities', () => {
         it('should hash event name with event type Location', () => {
             const eventTypeLocationHash = KitFilterHelper.hashEventName(eventName, EventType.Location);
             const expectedLocationHash = -1339309577;
-            
 
             expect(eventTypeLocationHash).toBe(expectedLocationHash);
         });
@@ -110,7 +102,6 @@ describe('FilterHashingUtilities', () => {
         it('should hash event name with event type Search', () => {
             const eventTypeSearchHash = KitFilterHelper.hashEventName(eventName, EventType.Search);
             const expectedSearchHash = 168242232;
-            
 
             expect(eventTypeSearchHash).toBe(expectedSearchHash);
         });
@@ -118,7 +109,6 @@ describe('FilterHashingUtilities', () => {
         it('should hash event name with event type Transaction', () => {
             const eventTypeTransactionHash = KitFilterHelper.hashEventName(eventName, EventType.Transaction);
             const expectedTransactionHash = 1675794041;
-            
 
             expect(eventTypeTransactionHash).toBe(expectedTransactionHash);
         });
@@ -126,37 +116,29 @@ describe('FilterHashingUtilities', () => {
         it('should hash event name with event type UserContent', () => {
             const eventTypeUserContentHash = KitFilterHelper.hashEventName(eventName, EventType.UserContent);
             const expectedUserContentHash = -1111621446;
-            
 
             expect(eventTypeUserContentHash).toBe(expectedUserContentHash);
-
         });
 
         it('should hash event name with event type UserPreference', () => {
             const eventTypeUserPreferenceHash = KitFilterHelper.hashEventName(eventName, EventType.UserPreference);
             const expectedUserPreferenceHash = 395930363;
-            
 
             expect(eventTypeUserPreferenceHash).toBe(expectedUserPreferenceHash);
-
         });
 
         it('should hash event name with event type Social', () => {
             const eventTypeSocialHash = KitFilterHelper.hashEventName(eventName, EventType.Social);
             const expectedSocialHash = 1903482172;
-            
 
             expect(eventTypeSocialHash).toBe(expectedSocialHash);
-
         });
 
         it('should hash event name with event type Other', () => {
             const eventTypeOtherHash = KitFilterHelper.hashEventName(eventName, EventType.Other);
             const expectedOtherHash = -883933315;
-            
 
             expect(eventTypeOtherHash).toBe(expectedOtherHash);
-
         });
 
         it('should hash event name with event type Media', () => {
@@ -164,14 +146,13 @@ describe('FilterHashingUtilities', () => {
             const expectedMediaHash = 623618494;
 
             expect(eventTypeMediaHash).toBe(expectedMediaHash);
-
         });
     });
 
     describe('#hashEventAttributeKey', () => {
         it('should hash event attribute key', () => {
             const eventType = EventType.Navigation;
-            const eventName :string = 'foo-event-name';
+            const eventName: string = 'foo-event-name';
             const customAttributeName: string = 'event-attribute-key';
 
             const resultHash = KitFilterHelper.hashEventAttributeKey(eventType, eventName, customAttributeName);
@@ -348,21 +329,21 @@ describe('FilterHashingUtilities', () => {
 
     describe('#hashAttributeConditionalForwarding', () => {
         it('should hash event attribute key for forwarding', () => {
-            const eventAttributeKey :string = 'foo-key';
+            const eventAttributeKey: string = 'foo-key';
 
             const resultHash = KitFilterHelper.hashAttributeConditionalForwarding(eventAttributeKey);
 
-            const expectedHash = "-682111784";
+            const expectedHash = '-682111784';
 
             expect(resultHash).toBe(expectedHash);
         });
 
         it('should hash user attribute key for forwarding', () => {
-            const userAttributeKey :string = 'foo-key';
+            const userAttributeKey: string = 'foo-key';
 
             const resultHash = KitFilterHelper.hashAttributeConditionalForwarding(userAttributeKey);
 
-            const expectedHash = "-682111784";
+            const expectedHash = '-682111784';
 
             expect(resultHash).toBe(expectedHash);
         });
@@ -372,16 +353,19 @@ describe('FilterHashingUtilities', () => {
         it('should hash GDPR consent for conditional forwarding', () => {
             const GDPRConsentHashPrefix: string = '1';
             const GDPRPurpose = 'Marketing';
-            const resultHash = KitFilterHelper.hashConsentPurposeConditionalForwarding(GDPRConsentHashPrefix, GDPRPurpose);
-            const expectedHash = "-1972997867";
-            
+            const resultHash = KitFilterHelper.hashConsentPurposeConditionalForwarding(
+                GDPRConsentHashPrefix,
+                GDPRPurpose
+            );
+            const expectedHash = '-1972997867';
+
             expect(resultHash).toBe(expectedHash);
         });
 
         it('should hash CCPA for conditional forwarding', () => {
             const CCPAHashPrefix: string = '2';
             const resultHash = KitFilterHelper.hashConsentPurposeConditionalForwarding(CCPAHashPrefix, CCPAPurpose);
-            const expectedHash = "-575335347";
+            const expectedHash = '-575335347';
 
             expect(resultHash).toBe(expectedHash);
         });
@@ -410,10 +394,7 @@ describe('FilterHashingUtilities', () => {
             const fooFilter = KitFilterHelper.hashUserAttribute('foo-key');
             const barFilter = KitFilterHelper.hashUserAttribute('bar-key');
 
-            const result = KitFilterHelper.filterUserAttributes(userAttributes, [
-                fooFilter,
-                barFilter,
-            ]);
+            const result = KitFilterHelper.filterUserAttributes(userAttributes, [fooFilter, barFilter]);
 
             expect(result).toEqual({
                 'baz-key': 'baz-value',
@@ -424,9 +405,9 @@ describe('FilterHashingUtilities', () => {
     describe('#filterUserIdentities', () => {
         it('should return the original user identities if no filter list is provided', () => {
             const userIdentities = {
-                'other': 'foo-value',
-                'customerid': 'bar-value',
-                'facebook': 'baz-value',
+                other: 'foo-value',
+                customerid: 'bar-value',
+                facebook: 'baz-value',
             };
 
             const result = KitFilterHelper.filterUserIdentities(userIdentities, []);
@@ -436,21 +417,18 @@ describe('FilterHashingUtilities', () => {
 
         it('should filter user identities', () => {
             const userIdentities = {
-                'other': 'foo-value',
-                'customerid': 'bar-value',
-                'facebook': 'baz-value',
+                other: 'foo-value',
+                customerid: 'bar-value',
+                facebook: 'baz-value',
             };
 
             const fooFilter = KitFilterHelper.hashUserIdentity(IdentityType.Other);
             const barFilter = KitFilterHelper.hashUserIdentity(IdentityType.CustomerId);
 
-            const result = KitFilterHelper.filterUserIdentities(userIdentities, [
-                fooFilter,
-                barFilter,
-            ]);
+            const result = KitFilterHelper.filterUserIdentities(userIdentities, [fooFilter, barFilter]);
 
             expect(result).toEqual({
-                'facebook': 'baz-value',
+                facebook: 'baz-value',
             });
         });
     });

@@ -48,14 +48,18 @@ describe('Logging Integration', () => {
             const errorDispatcher = new ErrorReportingDispatcher();
             const loggingDispatcher = new LoggingDispatcher();
 
-            expect(() => errorDispatcher.report({
-                message: 'test',
-                severity: WSDKErrorSeverity.ERROR,
-            })).not.toThrow();
+            expect(() =>
+                errorDispatcher.report({
+                    message: 'test',
+                    severity: WSDKErrorSeverity.ERROR,
+                })
+            ).not.toThrow();
 
-            expect(() => loggingDispatcher.log({
-                message: 'test',
-            })).not.toThrow();
+            expect(() =>
+                loggingDispatcher.log({
+                    message: 'test',
+                })
+            ).not.toThrow();
         });
 
         it('Multiple services receive reports from ErrorReportingDispatcher', () => {

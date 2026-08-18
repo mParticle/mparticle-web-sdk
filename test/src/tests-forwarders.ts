@@ -3,13 +3,7 @@ import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import { IRoktKit } from '../../src/roktManager';
 
-import {
-    urls,
-    apiKey,
-    MPConfig,
-    testMPID,
-    MessageType,
-} from './config/constants';
+import { urls, apiKey, MPConfig, testMPID, MessageType } from './config/constants';
 import { expect } from 'chai';
 import { IMParticleInstanceManager, SDKEvent, SDKInitConfig } from '../../src/sdkRuntimeModels';
 import { IMParticleUser, UserAttributes } from '../../src/identity-user-interfaces';
@@ -17,7 +11,6 @@ import { IdentityType, CommerceEventType } from '../../src/types';
 import { IntegrationAttribute } from '../../src/store';
 import { IConsentRules } from '../../src/consent';
 import { UserIdentities } from '@mparticle/web-sdk';
-
 
 const {
     findEventFromRequest,
@@ -53,18 +46,18 @@ interface IMockForwarderInstance {
     processBatch?: (batch: unknown) => void;
     processCalled?: boolean;
     receivedEvent?: SDKEvent;
-    receivedEvents?: SDKEvent[];
+    receivedEvents?: Array<SDKEvent>;
     removeUserAttributeCalled?: boolean;
     setUserAttributeCalled?: boolean;
     setSessionAttributeCalled?: boolean;
-    sessionAttrData?: unknown[][];
+    sessionAttrData?: Array<Array<unknown>>;
     userAttributes?: UserAttributes;
     userIdentities?: UserIdentities;
 }
 
 // https://go.mparticle.com/work/SQDSDKS-4475
 export interface IMockForwarder {
-    instance: IMockForwarderInstance
+    instance: IMockForwarderInstance;
     register: (config?: SDKInitConfig) => void;
 }
 
@@ -73,10 +66,10 @@ interface UserIdentitiesFilter {
     Type: typeof IdentityType;
 }
 
-interface MockMParticleForForwarders extends IMParticleInstanceManager{
-    userIdentitiesFilterOnInitTest: UserIdentitiesFilter[]
+interface MockMParticleForForwarders extends IMParticleInstanceManager {
+    userIdentitiesFilterOnInitTest: Array<UserIdentitiesFilter>;
     userAttributesFilterOnInitTest: UserAttributes;
-};
+}
 
 declare global {
     interface Window {
@@ -93,8 +86,8 @@ const mParticle = window.mParticle as unknown as MockMParticleForForwarders;
 
 let mockServer;
 
-describe('forwarders', function() {
-    beforeEach(function() {
+describe('forwarders', function () {
+    beforeEach(function () {
         mParticle._resetForTests(MPConfig);
         delete mParticle._instances['default_instance'];
         fetchMock.config.overwriteRoutes = true;
@@ -107,33 +100,31 @@ describe('forwarders', function() {
         });
 
         fetchMockSuccess(urls.login, {
-            mpid: testMPID, is_logged_in: false
+            mpid: testMPID,
+            is_logged_in: false,
         });
 
         fetchMockSuccess(urls.logout, {
-            mpid: testMPID, is_logged_in: true
-        })
+            mpid: testMPID,
+            is_logged_in: true,
+        });
 
         fetchMockSuccess(urls.modify, {
             change_results: [
-                    {
-                        identity_type: 'email',
-                        modified_mpid: testMPID,
-                    },
-                ],
-        })
+                {
+                    identity_type: 'email',
+                    modified_mpid: testMPID,
+                },
+            ],
+        });
 
-        fetchMockSuccess(urls.forwarding, { mpid: testMPID, is_logged_in: false })
+        fetchMockSuccess(urls.forwarding, { mpid: testMPID, is_logged_in: false });
 
         // https://go.mparticle.com/work/SQDSDKS-6850
-        mockServer.respondWith(urls.forwarding, [
-            202,
-            {},
-            JSON.stringify({}),
-        ]);
+        mockServer.respondWith(urls.forwarding, [202, {}, JSON.stringify({})]);
     });
 
-    afterEach(function() {
+    afterEach(function () {
         fetchMock.restore();
         sinon.restore();
         delete window.MockForwarder1;
@@ -143,16 +134,11 @@ describe('forwarders', function() {
         const mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
 
-        window.mParticle.config.kitConfigs.push(
-            forwarderDefaultConfiguration('MockForwarder')
-        );
+        window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        mParticle
-            .getInstance()
-            ._getActiveForwarders()
-            .length.should.equal(1);
+        mParticle.getInstance()._getActiveForwarders().length.should.equal(1);
     });
 
     it('should invoke forwarder setIdentity on initialized forwarders (debug = false)', async () => {
@@ -164,23 +150,14 @@ describe('forwarders', function() {
 
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
-        window.mParticle.config.kitConfigs.push(
-            forwarderDefaultConfiguration('MockForwarder')
-        );
+        window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
 
         mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
-
-        window.MockForwarder1.instance.should.have.property(
-            'setUserIdentityCalled',
-            true
-        );
-        window.MockForwarder1.instance.userIdentities.should.have.property(
-            '4',
-            'google123'
-        );
+        window.MockForwarder1.instance.should.have.property('setUserIdentityCalled', true);
+        window.MockForwarder1.instance.userIdentities.should.have.property('4', 'google123');
     });
 
     it('should permit forwarder if no consent configured.', () => {
@@ -195,10 +172,7 @@ describe('forwarders', function() {
 
         const enabled = mParticle
             .getInstance()
-            ._Consent.isEnabledForUserConsent(
-                window.MockForwarder1.instance.filteringConsentRuleValues,
-                null
-            );
+            ._Consent.isEnabledForUserConsent(window.MockForwarder1.instance.filteringConsentRuleValues, null);
         expect(enabled).to.be.ok;
     });
 
@@ -223,10 +197,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         const enabled = mParticle
             .getInstance()
-            ._Consent.isEnabledForUserConsent(
-                window.MockForwarder1.instance.filteringConsentRuleValues,
-                null
-            );
+            ._Consent.isEnabledForUserConsent(window.MockForwarder1.instance.filteringConsentRuleValues, null);
         expect(enabled).to.not.be.ok;
     });
 
@@ -242,9 +213,7 @@ describe('forwarders', function() {
 
             const mockForwarder = new MockForwarder();
             mockForwarder.register(window.mParticle.config);
-            window.mParticle.config.kitConfigs.push(
-                forwarderDefaultConfiguration('MockForwarder', 1)
-            );
+            window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder', 1));
 
             mParticle.init(apiKey, window.mParticle.config);
 
@@ -267,9 +236,7 @@ describe('forwarders', function() {
 
             const mockForwarder = new MockForwarder();
             mockForwarder.register(window.mParticle.config);
-            window.mParticle.config.kitConfigs.push(
-                forwarderDefaultConfiguration('MockForwarder', 1)
-            );
+            window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder', 1));
 
             mParticle.init(apiKey, window.mParticle.config);
 
@@ -292,9 +259,7 @@ describe('forwarders', function() {
 
             const mockForwarder = new MockForwarder();
             mockForwarder.register(window.mParticle.config);
-            window.mParticle.config.kitConfigs.push(
-                forwarderDefaultConfiguration('MockForwarder', 1)
-            );
+            window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder', 1));
 
             mParticle.init(apiKey, window.mParticle.config);
 
@@ -315,9 +280,7 @@ describe('forwarders', function() {
 
             const mockForwarder = new MockForwarder();
             mockForwarder.register(window.mParticle.config);
-            window.mParticle.config.kitConfigs.push(
-                forwarderDefaultConfiguration('MockForwarder', 1)
-            );
+            window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder', 1));
 
             mParticle.init(apiKey, window.mParticle.config);
 
@@ -328,7 +291,7 @@ describe('forwarders', function() {
             mParticle.logEvent('QueuedEvent2', mParticle.EventType.Navigation);
 
             const store = mParticle.getInstance()._Store;
-            // Queue contains SessionStart + AST (lifecycle events now queued) + 2 custom events  
+            // Queue contains SessionStart + AST (lifecycle events now queued) + 2 custom events
             expect(store.eventQueue).to.have.length(4);
 
             mParticle.Identity.identify({
@@ -350,9 +313,7 @@ describe('forwarders', function() {
 
             const mockForwarder = new MockForwarder();
             mockForwarder.register(window.mParticle.config);
-            window.mParticle.config.kitConfigs.push(
-                forwarderDefaultConfiguration('MockForwarder', 1)
-            );
+            window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder', 1));
 
             mParticle.init(apiKey, window.mParticle.config);
 
@@ -377,9 +338,7 @@ describe('forwarders', function() {
 
             const mockForwarder = new MockForwarder();
             mockForwarder.register(window.mParticle.config);
-            window.mParticle.config.kitConfigs.push(
-                forwarderDefaultConfiguration('MockForwarder', 1)
-            );
+            window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder', 1));
 
             mParticle.init(apiKey, window.mParticle.config);
 
@@ -404,9 +363,7 @@ describe('forwarders', function() {
 
             const mockForwarder = new MockForwarder();
             mockForwarder.register(window.mParticle.config);
-            window.mParticle.config.kitConfigs.push(
-                forwarderDefaultConfiguration('MockForwarder', 1)
-            );
+            window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder', 1));
 
             mParticle.init(apiKey, window.mParticle.config);
 
@@ -423,9 +380,7 @@ describe('forwarders', function() {
 
             const mockForwarder = new MockForwarder();
             mockForwarder.register(window.mParticle.config);
-            window.mParticle.config.kitConfigs.push(
-                forwarderDefaultConfiguration('MockForwarder', 1)
-            );
+            window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder', 1));
 
             mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
@@ -450,9 +405,7 @@ describe('forwarders', function() {
 
             const mockForwarder = new MockForwarder();
             mockForwarder.register(window.mParticle.config);
-            window.mParticle.config.kitConfigs.push(
-                forwarderDefaultConfiguration('MockForwarder', 1)
-            );
+            window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder', 1));
 
             mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
@@ -463,7 +416,10 @@ describe('forwarders', function() {
             currentUser.setUserAttribute('nofunctional_ua_key', 'nofunctional_ua_value');
 
             expect(window.MockForwarder1.instance.setUserAttributeCalled).to.equal(true);
-            expect(window.MockForwarder1.instance.userAttributes).to.have.property('nofunctional_ua_key', 'nofunctional_ua_value');
+            expect(window.MockForwarder1.instance.userAttributes).to.have.property(
+                'nofunctional_ua_key',
+                'nofunctional_ua_value'
+            );
         });
 
         it('should still deliver removeUserAttribute to forwarders when noFunctional is true and explicit identity is provided', async () => {
@@ -474,9 +430,7 @@ describe('forwarders', function() {
 
             const mockForwarder = new MockForwarder();
             mockForwarder.register(window.mParticle.config);
-            window.mParticle.config.kitConfigs.push(
-                forwarderDefaultConfiguration('MockForwarder', 1)
-            );
+            window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder', 1));
 
             mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
@@ -498,9 +452,7 @@ describe('forwarders', function() {
 
             const mockForwarder = new MockForwarder();
             mockForwarder.register(window.mParticle.config);
-            window.mParticle.config.kitConfigs.push(
-                forwarderDefaultConfiguration('MockForwarder', 1)
-            );
+            window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder', 1));
 
             mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
@@ -517,9 +469,7 @@ describe('forwarders', function() {
 
             const mockForwarder = new MockForwarder();
             mockForwarder.register(window.mParticle.config);
-            window.mParticle.config.kitConfigs.push(
-                forwarderDefaultConfiguration('MockForwarder', 1)
-            );
+            window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder', 1));
 
             mParticle.init(apiKey, window.mParticle.config);
 
@@ -529,10 +479,9 @@ describe('forwarders', function() {
             mParticle.logEvent('DoubleDispatchEvent1', mParticle.EventType.Navigation);
             mParticle.logEvent('DoubleDispatchEvent2', mParticle.EventType.Navigation);
 
-            const forwarderReceivedCountBeforeIdentify =
-                window.MockForwarder1.instance.receivedEvents!.filter(
-                    (e) => e.EventName === 'DoubleDispatchEvent1' || e.EventName === 'DoubleDispatchEvent2'
-                ).length;
+            const forwarderReceivedCountBeforeIdentify = window.MockForwarder1.instance.receivedEvents!.filter(
+                (e) => e.EventName === 'DoubleDispatchEvent1' || e.EventName === 'DoubleDispatchEvent2'
+            ).length;
             expect(forwarderReceivedCountBeforeIdentify).to.equal(2);
 
             // Trigger identify — SDK fully initializes and flushes the event queue
@@ -545,10 +494,9 @@ describe('forwarders', function() {
             expect(mParticle.getInstance()._Store.eventQueue).to.have.length(0);
 
             // The events must NOT have been dispatched to the forwarder a second time
-            const forwarderReceivedCountAfterIdentify =
-                window.MockForwarder1.instance.receivedEvents!.filter(
-                    (e) => e.EventName === 'DoubleDispatchEvent1' || e.EventName === 'DoubleDispatchEvent2'
-                ).length;
+            const forwarderReceivedCountAfterIdentify = window.MockForwarder1.instance.receivedEvents!.filter(
+                (e) => e.EventName === 'DoubleDispatchEvent1' || e.EventName === 'DoubleDispatchEvent2'
+            ).length;
             expect(forwarderReceivedCountAfterIdentify).to.equal(2);
         });
 
@@ -558,9 +506,7 @@ describe('forwarders', function() {
 
             const mockForwarder = new MockForwarder();
             mockForwarder.register(window.mParticle.config);
-            window.mParticle.config.kitConfigs.push(
-                forwarderDefaultConfiguration('MockForwarder', 1)
-            );
+            window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder', 1));
 
             mParticle.init(apiKey, window.mParticle.config);
 
@@ -569,7 +515,7 @@ describe('forwarders', function() {
             mParticle.logEvent('BatchUploadEvent1', mParticle.EventType.Navigation);
             mParticle.logEvent('BatchUploadEvent2', mParticle.EventType.Navigation);
 
-            // Queue contains SessionStart + AST (lifecycle events now queued) + 2 custom events  
+            // Queue contains SessionStart + AST (lifecycle events now queued) + 2 custom events
             expect(mParticle.getInstance()._Store.eventQueue).to.have.length(4);
 
             // Reset fetch history so we only inspect calls made after identify
@@ -596,16 +542,14 @@ describe('forwarders', function() {
 
             const mockForwarder = new MockForwarder();
             mockForwarder.register(window.mParticle.config);
-            window.mParticle.config.kitConfigs.push(
-                forwarderDefaultConfiguration('MockForwarder', 1)
-            );
+            window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder', 1));
 
             mParticle.init(apiKey, window.mParticle.config);
 
             expect(mParticle.isInitialized()).to.not.equal(true);
 
             let readyCalled = false;
-            mParticle.ready(function() {
+            mParticle.ready(function () {
                 readyCalled = true;
             });
 
@@ -619,31 +563,30 @@ describe('forwarders', function() {
             window.mParticle.config.identifyRequest = undefined;
 
             let readyCalled = false;
-            window.mParticle.config.rq = [function() {
-                readyCalled = true;
-            }];
+            window.mParticle.config.rq = [
+                function () {
+                    readyCalled = true;
+                },
+            ];
 
             const mockForwarder = new MockForwarder();
             mockForwarder.register(window.mParticle.config);
-            window.mParticle.config.kitConfigs.push(
-                forwarderDefaultConfiguration('MockForwarder', 1)
-            );
+            window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder', 1));
 
             mParticle.init(apiKey, window.mParticle.config);
 
             expect(mParticle.isInitialized()).to.not.equal(true);
             expect(readyCalled).to.equal(true);
         });
-
     });
 
-    const MockUser = function() {
+    const MockUser = function () {
         let consentState = null;
         return {
-            setConsentState: function(state) {
+            setConsentState: function (state) {
                 consentState = state;
             },
-            getConsentState: function() {
+            getConsentState: function () {
                 return consentState;
             },
         } as IMParticleUser;
@@ -663,9 +606,7 @@ describe('forwarders', function() {
             includeOnMatch: enableForwarder,
             values: [
                 {
-                    consentPurpose: mParticle.generateHash(
-                        '1' + 'foo purpose 1'
-                    ),
+                    consentPurpose: mParticle.generateHash('1' + 'foo purpose 1'),
                     hasConsented: consented,
                 },
             ],
@@ -677,19 +618,13 @@ describe('forwarders', function() {
         const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
-            .addGDPRConsentState(
-                'foo purpose 1',
-                mParticle.getInstance().Consent.createGDPRConsent(userConsent)
-            );
+            .addGDPRConsentState('foo purpose 1', mParticle.getInstance().Consent.createGDPRConsent(userConsent));
 
         const user = MockUser();
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
-            ._Consent.isEnabledForUserConsent(
-                window.MockForwarder1.instance.filteringConsentRuleValues,
-                user
-            );
+            ._Consent.isEnabledForUserConsent(window.MockForwarder1.instance.filteringConsentRuleValues, user);
         expect(enabled).to.not.be.ok;
     });
 
@@ -706,9 +641,7 @@ describe('forwarders', function() {
             includeOnMatch: enableForwarder,
             values: [
                 {
-                    consentPurpose: mParticle.generateHash(
-                        '1' + 'foo purpose 1'
-                    ),
+                    consentPurpose: mParticle.generateHash('1' + 'foo purpose 1'),
                     hasConsented: consented,
                 },
             ],
@@ -720,18 +653,12 @@ describe('forwarders', function() {
         const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
-            .addGDPRConsentState(
-                'foo purpose 1',
-                mParticle.getInstance().Consent.createGDPRConsent(userConsent)
-            );
+            .addGDPRConsentState('foo purpose 1', mParticle.getInstance().Consent.createGDPRConsent(userConsent));
         const user = MockUser();
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
-            ._Consent.isEnabledForUserConsent(
-                window.MockForwarder1.instance.filteringConsentRuleValues,
-                user
-            );
+            ._Consent.isEnabledForUserConsent(window.MockForwarder1.instance.filteringConsentRuleValues, user);
         expect(enabled).to.not.be.ok;
     });
 
@@ -747,9 +674,7 @@ describe('forwarders', function() {
             includeOnMatch: enableForwarder,
             values: [
                 {
-                    consentPurpose: mParticle.generateHash(
-                        '1' + 'foo purpose 1'
-                    ),
+                    consentPurpose: mParticle.generateHash('1' + 'foo purpose 1'),
                     hasConsented: consented,
                 },
             ],
@@ -761,18 +686,12 @@ describe('forwarders', function() {
         const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
-            .addGDPRConsentState(
-                'foo purpose 1',
-                mParticle.getInstance().Consent.createGDPRConsent(userConsent)
-            );
+            .addGDPRConsentState('foo purpose 1', mParticle.getInstance().Consent.createGDPRConsent(userConsent));
         const user = MockUser();
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
-            ._Consent.isEnabledForUserConsent(
-                window.MockForwarder1.instance.filteringConsentRuleValues,
-                user
-            );
+            ._Consent.isEnabledForUserConsent(window.MockForwarder1.instance.filteringConsentRuleValues, user);
         expect(enabled).to.be.ok;
     });
 
@@ -789,9 +708,7 @@ describe('forwarders', function() {
             includeOnMatch: enableForwarder,
             values: [
                 {
-                    consentPurpose: mParticle.generateHash(
-                        '1' + 'foo purpose 1'
-                    ),
+                    consentPurpose: mParticle.generateHash('1' + 'foo purpose 1'),
                     hasConsented: consented,
                 },
             ],
@@ -803,18 +720,12 @@ describe('forwarders', function() {
         const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
-            .addGDPRConsentState(
-                'foo purpose 1',
-                mParticle.getInstance().Consent.createGDPRConsent(userConsent)
-            );
+            .addGDPRConsentState('foo purpose 1', mParticle.getInstance().Consent.createGDPRConsent(userConsent));
         const user = MockUser();
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
-            ._Consent.isEnabledForUserConsent(
-                window.MockForwarder1.instance.filteringConsentRuleValues,
-                user
-            );
+            ._Consent.isEnabledForUserConsent(window.MockForwarder1.instance.filteringConsentRuleValues, user);
         expect(enabled).to.be.ok;
     });
 
@@ -831,9 +742,7 @@ describe('forwarders', function() {
             includeOnMatch: enableForwarder,
             values: [
                 {
-                    consentPurpose: mParticle.generateHash(
-                        '1' + 'foo purpose 1'
-                    ),
+                    consentPurpose: mParticle.generateHash('1' + 'foo purpose 1'),
                     hasConsented: consented,
                 },
             ],
@@ -845,18 +754,12 @@ describe('forwarders', function() {
         const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
-            .addGDPRConsentState(
-                'foo purpose 1',
-                mParticle.getInstance().Consent.createGDPRConsent(userConsent)
-            );
+            .addGDPRConsentState('foo purpose 1', mParticle.getInstance().Consent.createGDPRConsent(userConsent));
         const user = MockUser();
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
-            ._Consent.isEnabledForUserConsent(
-                window.MockForwarder1.instance.filteringConsentRuleValues,
-                user
-            );
+            ._Consent.isEnabledForUserConsent(window.MockForwarder1.instance.filteringConsentRuleValues, user);
         expect(enabled).to.not.be.ok;
     });
 
@@ -873,9 +776,7 @@ describe('forwarders', function() {
             includeOnMatch: enableForwarder,
             values: [
                 {
-                    consentPurpose: mParticle.generateHash(
-                        '1' + 'foo purpose 1'
-                    ),
+                    consentPurpose: mParticle.generateHash('1' + 'foo purpose 1'),
                     hasConsented: consented,
                 },
             ],
@@ -887,18 +788,12 @@ describe('forwarders', function() {
         const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
-            .addGDPRConsentState(
-                'foo purpose 1',
-                mParticle.getInstance().Consent.createGDPRConsent(userConsent)
-            );
+            .addGDPRConsentState('foo purpose 1', mParticle.getInstance().Consent.createGDPRConsent(userConsent));
         const user = MockUser();
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
-            ._Consent.isEnabledForUserConsent(
-                window.MockForwarder1.instance.filteringConsentRuleValues,
-                user
-            );
+            ._Consent.isEnabledForUserConsent(window.MockForwarder1.instance.filteringConsentRuleValues, user);
         expect(enabled).to.be.ok;
     });
 
@@ -915,9 +810,7 @@ describe('forwarders', function() {
             includeOnMatch: enableForwarder,
             values: [
                 {
-                    consentPurpose: mParticle.generateHash(
-                        '1' + 'foo purpose 1'
-                    ),
+                    consentPurpose: mParticle.generateHash('1' + 'foo purpose 1'),
                     hasConsented: consented,
                 },
             ],
@@ -929,18 +822,12 @@ describe('forwarders', function() {
         const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
-            .addGDPRConsentState(
-                'foo purpose 1',
-                mParticle.getInstance().Consent.createGDPRConsent(userConsent)
-            );
+            .addGDPRConsentState('foo purpose 1', mParticle.getInstance().Consent.createGDPRConsent(userConsent));
         const user = MockUser();
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
-            ._Consent.isEnabledForUserConsent(
-                window.MockForwarder1.instance.filteringConsentRuleValues,
-                user
-            );
+            ._Consent.isEnabledForUserConsent(window.MockForwarder1.instance.filteringConsentRuleValues, user);
         expect(enabled).to.be.ok;
     });
 
@@ -957,9 +844,7 @@ describe('forwarders', function() {
             includeOnMatch: enableForwarder,
             values: [
                 {
-                    consentPurpose: mParticle.generateHash(
-                        '1' + 'foo purpose 1'
-                    ),
+                    consentPurpose: mParticle.generateHash('1' + 'foo purpose 1'),
                     hasConsented: consented,
                 },
             ],
@@ -971,18 +856,12 @@ describe('forwarders', function() {
         const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
-            .addGDPRConsentState(
-                'foo purpose 1',
-                mParticle.getInstance().Consent.createGDPRConsent(userConsent)
-            );
+            .addGDPRConsentState('foo purpose 1', mParticle.getInstance().Consent.createGDPRConsent(userConsent));
         const user = MockUser();
         user.setConsentState(consentState);
         const enabled = mParticle
             .getInstance()
-            ._Consent.isEnabledForUserConsent(
-                window.MockForwarder1.instance.filteringConsentRuleValues,
-                user
-            );
+            ._Consent.isEnabledForUserConsent(window.MockForwarder1.instance.filteringConsentRuleValues, user);
         expect(enabled).to.be.ok;
     });
 
@@ -1000,9 +879,7 @@ describe('forwarders', function() {
             includeOnMatch: enableForwarder,
             values: [
                 {
-                    consentPurpose: mParticle.generateHash(
-                        '2' + 'data_sale_opt_out'
-                    ),
+                    consentPurpose: mParticle.generateHash('2' + 'data_sale_opt_out'),
                     hasConsented: consentPresent,
                 },
             ],
@@ -1014,20 +891,13 @@ describe('forwarders', function() {
         const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
-            .setCCPAConsentState(
-                mParticle
-                    .getInstance()
-                    .Consent.createCCPAConsent(userConsentPresent)
-            );
+            .setCCPAConsentState(mParticle.getInstance().Consent.createCCPAConsent(userConsentPresent));
         const user = MockUser();
         user.setConsentState(consentState);
 
         const enabled = mParticle
             .getInstance()
-            ._Consent.isEnabledForUserConsent(
-                window.MockForwarder1.instance.filteringConsentRuleValues,
-                user
-            );
+            ._Consent.isEnabledForUserConsent(window.MockForwarder1.instance.filteringConsentRuleValues, user);
         expect(enabled).to.not.be.ok;
     });
 
@@ -1045,9 +915,7 @@ describe('forwarders', function() {
             includeOnMatch: enableForwarder,
             values: [
                 {
-                    consentPurpose: mParticle.generateHash(
-                        '2' + 'data_sale_opt_out'
-                    ),
+                    consentPurpose: mParticle.generateHash('2' + 'data_sale_opt_out'),
                     hasConsented: consentPresent,
                 },
             ],
@@ -1059,20 +927,13 @@ describe('forwarders', function() {
         const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
-            .setCCPAConsentState(
-                mParticle
-                    .getInstance()
-                    .Consent.createCCPAConsent(userConsentPresent)
-            );
+            .setCCPAConsentState(mParticle.getInstance().Consent.createCCPAConsent(userConsentPresent));
         const user = MockUser();
         user.setConsentState(consentState);
 
         const enabled = mParticle
             .getInstance()
-            ._Consent.isEnabledForUserConsent(
-                window.MockForwarder1.instance.filteringConsentRuleValues,
-                user
-            );
+            ._Consent.isEnabledForUserConsent(window.MockForwarder1.instance.filteringConsentRuleValues, user);
         expect(enabled).to.not.be.ok;
     });
 
@@ -1090,9 +951,7 @@ describe('forwarders', function() {
             includeOnMatch: enableForwarder,
             values: [
                 {
-                    consentPurpose: mParticle.generateHash(
-                        '2' + 'data_sale_opt_out'
-                    ),
+                    consentPurpose: mParticle.generateHash('2' + 'data_sale_opt_out'),
                     hasConsented: consentPresent,
                 },
             ],
@@ -1104,20 +963,13 @@ describe('forwarders', function() {
         const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
-            .setCCPAConsentState(
-                mParticle
-                    .getInstance()
-                    .Consent.createCCPAConsent(userConsentPresent)
-            );
+            .setCCPAConsentState(mParticle.getInstance().Consent.createCCPAConsent(userConsentPresent));
         const user = MockUser();
         user.setConsentState(consentState);
 
         const enabled = mParticle
             .getInstance()
-            ._Consent.isEnabledForUserConsent(
-                window.MockForwarder1.instance.filteringConsentRuleValues,
-                user
-            );
+            ._Consent.isEnabledForUserConsent(window.MockForwarder1.instance.filteringConsentRuleValues, user);
 
         expect(enabled).to.be.ok;
     });
@@ -1136,9 +988,7 @@ describe('forwarders', function() {
             includeOnMatch: enableForwarder,
             values: [
                 {
-                    consentPurpose: mParticle.generateHash(
-                        '2' + 'data_sale_opt_out'
-                    ),
+                    consentPurpose: mParticle.generateHash('2' + 'data_sale_opt_out'),
                     hasConsented: consentPresent,
                 },
             ],
@@ -1150,20 +1000,13 @@ describe('forwarders', function() {
         const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
-            .setCCPAConsentState(
-                mParticle
-                    .getInstance()
-                    .Consent.createCCPAConsent(userConsentPresent)
-            );
+            .setCCPAConsentState(mParticle.getInstance().Consent.createCCPAConsent(userConsentPresent));
         const user = MockUser();
         user.setConsentState(consentState);
 
         const enabled = mParticle
             .getInstance()
-            ._Consent.isEnabledForUserConsent(
-                window.MockForwarder1.instance.filteringConsentRuleValues,
-                user
-            );
+            ._Consent.isEnabledForUserConsent(window.MockForwarder1.instance.filteringConsentRuleValues, user);
         expect(enabled).to.be.ok;
     });
 
@@ -1181,9 +1024,7 @@ describe('forwarders', function() {
             includeOnMatch: enableForwarder,
             values: [
                 {
-                    consentPurpose: mParticle.generateHash(
-                        '2' + 'data_sale_opt_out'
-                    ),
+                    consentPurpose: mParticle.generateHash('2' + 'data_sale_opt_out'),
                     hasConsented: consentPresent,
                 },
             ],
@@ -1195,20 +1036,13 @@ describe('forwarders', function() {
         const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
-            .setCCPAConsentState(
-                mParticle
-                    .getInstance()
-                    .Consent.createCCPAConsent(userConsentPresent)
-            );
+            .setCCPAConsentState(mParticle.getInstance().Consent.createCCPAConsent(userConsentPresent));
         const user = MockUser();
         user.setConsentState(consentState);
 
         const enabled = mParticle
             .getInstance()
-            ._Consent.isEnabledForUserConsent(
-                window.MockForwarder1.instance.filteringConsentRuleValues,
-                user
-            );
+            ._Consent.isEnabledForUserConsent(window.MockForwarder1.instance.filteringConsentRuleValues, user);
         expect(enabled).to.not.be.ok;
     });
 
@@ -1226,9 +1060,7 @@ describe('forwarders', function() {
             includeOnMatch: enableForwarder,
             values: [
                 {
-                    consentPurpose: mParticle.generateHash(
-                        '2' + 'data_sale_opt_out'
-                    ),
+                    consentPurpose: mParticle.generateHash('2' + 'data_sale_opt_out'),
                     hasConsented: consentPresent,
                 },
             ],
@@ -1240,20 +1072,13 @@ describe('forwarders', function() {
         const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
-            .setCCPAConsentState(
-                mParticle
-                    .getInstance()
-                    .Consent.createCCPAConsent(userConsentPresent)
-            );
+            .setCCPAConsentState(mParticle.getInstance().Consent.createCCPAConsent(userConsentPresent));
         const user = MockUser();
         user.setConsentState(consentState);
 
         const enabled = mParticle
             .getInstance()
-            ._Consent.isEnabledForUserConsent(
-                window.MockForwarder1.instance.filteringConsentRuleValues,
-                user
-            );
+            ._Consent.isEnabledForUserConsent(window.MockForwarder1.instance.filteringConsentRuleValues, user);
         expect(enabled).to.be.ok;
     });
 
@@ -1271,9 +1096,7 @@ describe('forwarders', function() {
             includeOnMatch: enableForwarder,
             values: [
                 {
-                    consentPurpose: mParticle.generateHash(
-                        '2' + 'data_sale_opt_out'
-                    ),
+                    consentPurpose: mParticle.generateHash('2' + 'data_sale_opt_out'),
                     hasConsented: consentPresent,
                 },
             ],
@@ -1285,20 +1108,13 @@ describe('forwarders', function() {
         const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
-            .setCCPAConsentState(
-                mParticle
-                    .getInstance()
-                    .Consent.createCCPAConsent(userConsentPresent)
-            );
+            .setCCPAConsentState(mParticle.getInstance().Consent.createCCPAConsent(userConsentPresent));
         const user = MockUser();
         user.setConsentState(consentState);
 
         const enabled = mParticle
             .getInstance()
-            ._Consent.isEnabledForUserConsent(
-                window.MockForwarder1.instance.filteringConsentRuleValues,
-                user
-            );
+            ._Consent.isEnabledForUserConsent(window.MockForwarder1.instance.filteringConsentRuleValues, user);
         expect(enabled).to.be.ok;
     });
 
@@ -1315,10 +1131,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         expect(window.MockForwarder1).not.be.ok;
-        mParticle
-            .getInstance()
-            ._getActiveForwarders()
-            .length.should.equal(0);
+        mParticle.getInstance()._getActiveForwarders().length.should.equal(0);
     });
 
     it('initializes a forwarder with isDebug = false && mParticle.config.isDevelopmentMode = false', () => {
@@ -1331,13 +1144,8 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         window.MockForwarder1.instance.should.have.property('initCalled', true);
-        mParticle
-            .getInstance()
-            ._getActiveForwarders()
-            .length.should.equal(1);
-       expect( 
-            mParticle.getInstance()._Store.configuredForwarders.length
-        ).equal(1);
+        mParticle.getInstance()._getActiveForwarders().length.should.equal(1);
+        expect(mParticle.getInstance()._Store.configuredForwarders.length).equal(1);
     });
 
     it('initializes a forwarder with isDebug = true && mParticle.config.isDevelopmentMode = true', () => {
@@ -1351,9 +1159,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         window.MockForwarder1.instance.should.have.property('initCalled', true);
-       expect( 
-            mParticle.getInstance()._Store.configuredForwarders.length
-        ).equal(1);
+        expect(mParticle.getInstance()._Store.configuredForwarders.length).equal(1);
     });
 
     it('initializes forwarders when isDebug = mParticle.config.isDevelopmentMode', () => {
@@ -1370,13 +1176,8 @@ describe('forwarders', function() {
         window.mParticle.config.kitConfigs.push(config2);
 
         mParticle.init(apiKey, window.mParticle.config);
-        mParticle
-            .getInstance()
-            ._getActiveForwarders()
-            .length.should.equal(1);
-       expect( 
-            mParticle.getInstance()._Store.configuredForwarders.length
-        ).equal(1);
+        mParticle.getInstance()._getActiveForwarders().length.should.equal(1);
+        expect(mParticle.getInstance()._Store.configuredForwarders.length).equal(1);
     });
 
     it("sends events to forwarder when forwarder's isDebug = mParticle.config.isDevelopmentMode ", async () => {
@@ -1392,10 +1193,7 @@ describe('forwarders', function() {
         await waitForCondition(hasIdentifyReturned);
 
         mParticle.logEvent('send this event to forwarder');
-        window.MockForwarder1.instance.should.have.property(
-            'processCalled',
-            true
-        );
+        window.MockForwarder1.instance.should.have.property('processCalled', true);
     });
 
     it('sends events to forwarder v1 endpoint when mParticle.config.isDevelopmentMode = config.isDebug = false', async () => {
@@ -1412,14 +1210,9 @@ describe('forwarders', function() {
 
         mParticle.logEvent('send this event to forwarder');
 
-        window.MockForwarder1.instance.should.have.property(
-            'processCalled',
-            true
-        );
+        window.MockForwarder1.instance.should.have.property('processCalled', true);
 
-        fetchMock.lastCall().includes(
-            '/v1/JS/test_key/Forwarding'
-        );
+        fetchMock.lastCall().includes('/v1/JS/test_key/Forwarding');
     });
 
     // https://go.mparticle.com/work/SQDSDKS-6850
@@ -1437,31 +1230,21 @@ describe('forwarders', function() {
         window.mParticle.config.flags = {
             reportBatching: true,
         };
-        
+
         const clock = sinon.useFakeTimers();
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
         fetchMock.resetHistory();
         mockServer.requests = [];
 
-        mParticle.logEvent(
-            'send this event to forwarder',
-            mParticle.EventType.Navigation,
-            { 'my-key': 'my-value' }
-        );
+        mParticle.logEvent('send this event to forwarder', mParticle.EventType.Navigation, { 'my-key': 'my-value' });
 
         clock.tick(10000);
 
-        const event = getForwarderEvent(
-            fetchMock.calls(),
-            'send this event to forwarder',
-            true
-        );
+        const event = getForwarderEvent(fetchMock.calls(), 'send this event to forwarder', true);
         expect(event).should.be.ok;
 
-        mockServer.requests[mockServer.requests.length - 1].url.includes(
-            '/v2/JS/test_key/Forwarding'
-        );
+        mockServer.requests[mockServer.requests.length - 1].url.includes('/v2/JS/test_key/Forwarding');
         event.should.have.property('mid', 1);
         event.should.have.property('esid', 1234567890);
         event.should.have.property('n', 'send this event to forwarder');
@@ -1473,10 +1256,7 @@ describe('forwarders', function() {
         event.should.have.property('sdk', mParticle.getVersion());
         event.should.have.property('dt', MessageType.PageEvent);
         event.should.have.property('et', mParticle.EventType.Navigation);
-        event.should.have.property(
-            'dbg',
-            mParticle.getInstance()._Store.SDKConfig.isDevelopmentMode
-        );
+        event.should.have.property('dbg', mParticle.getInstance()._Store.SDKConfig.isDevelopmentMode);
         event.should.have.property('ct');
         event.should.have.property('eec', 0);
     });
@@ -1490,17 +1270,9 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         window.MockForwarder1.instance.isVisible = false;
 
-        mParticle.logEvent(
-            'send this event to forwarder',
-            mParticle.EventType.Navigation,
-            { 'my-key': 'my-value' }
-        );
+        mParticle.logEvent('send this event to forwarder', mParticle.EventType.Navigation, { 'my-key': 'my-value' });
 
-        const event = findEventFromRequest(
-            fetchMock.calls(),
-            'send this event to forwarder',
-            true
-        );
+        const event = findEventFromRequest(fetchMock.calls(), 'send this event to forwarder', true);
 
         expect(event).should.not.have.property('n');
     });
@@ -1516,10 +1288,7 @@ describe('forwarders', function() {
         await waitForCondition(hasIdentityCallInflightReturned);
         mParticle.setOptOut(true);
 
-        window.MockForwarder1.instance.should.have.property(
-            'setOptOutCalled',
-            true
-        );
+        window.MockForwarder1.instance.should.have.property('setOptOutCalled', true);
     });
 
     it('should invoke forwarder setuserattribute', async () => {
@@ -1533,10 +1302,7 @@ describe('forwarders', function() {
         await waitForCondition(hasIdentifyReturned);
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
 
-        window.MockForwarder1.instance.should.have.property(
-            'setUserAttributeCalled',
-            true
-        );
+        window.MockForwarder1.instance.should.have.property('setUserAttributeCalled', true);
     });
 
     it('should invoke forwarder setuserattribute when calling setUserAttributeList', async () => {
@@ -1548,14 +1314,9 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentifyReturned);
 
-        mParticle.Identity.getCurrentUser().setUserAttributeList('gender', [
-            'male',
-        ]);
+        mParticle.Identity.getCurrentUser().setUserAttributeList('gender', ['male']);
 
-        window.MockForwarder1.instance.should.have.property(
-            'setUserAttributeCalled',
-            true
-        );
+        window.MockForwarder1.instance.should.have.property('setUserAttributeCalled', true);
     });
 
     it('should invoke forwarder removeuserattribute', async () => {
@@ -1570,10 +1331,7 @@ describe('forwarders', function() {
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.Identity.getCurrentUser().removeUserAttribute('gender');
 
-        window.MockForwarder1.instance.should.have.property(
-            'removeUserAttributeCalled',
-            true
-        );
+        window.MockForwarder1.instance.should.have.property('removeUserAttributeCalled', true);
     });
 
     it('should filter user attributes from forwarder on log event', async () => {
@@ -1623,13 +1381,9 @@ describe('forwarders', function() {
 
         mParticle.userIdentitiesFilterOnInitTest.length.should.equal(2);
         mParticle.userIdentitiesFilterOnInitTest[0].Type.should.equal(1);
-        mParticle.userIdentitiesFilterOnInitTest[0].Identity.should.equal(
-            '123'
-        );
+        mParticle.userIdentitiesFilterOnInitTest[0].Identity.should.equal('123');
         mParticle.userIdentitiesFilterOnInitTest[1].Type.should.equal(7);
-        mParticle.userIdentitiesFilterOnInitTest[1].Identity.should.equal(
-            'test@gmail.com'
-        );
+        mParticle.userIdentitiesFilterOnInitTest[1].Identity.should.equal('test@gmail.com');
         expect(mParticle.userIdentitiesFilterOnInitTest[2]).to.be.undefined;
     });
 
@@ -1659,16 +1413,14 @@ describe('forwarders', function() {
 
         Object.keys(event.UserIdentities).length.should.equal(2);
         let googleUserIdentityExits = false;
-        event.UserIdentities.forEach(function(identity) {
+        event.UserIdentities.forEach(function (identity) {
             if (identity.Type === mParticle.IdentityType.Google) {
                 googleUserIdentityExits = true;
             }
         });
         expect(googleUserIdentityExits).to.be.false;
 
-        expect(event.UserIdentities[0].Type).to.equal(
-            mParticle.IdentityType.CustomerId
-        );
+        expect(event.UserIdentities[0].Type).to.equal(mParticle.IdentityType.CustomerId);
     });
 
     it('should filter user attributes from forwarder on init, and on subsequent set attribute calls', async () => {
@@ -1676,18 +1428,13 @@ describe('forwarders', function() {
         mockForwarder.register(window.mParticle.config);
 
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
-        config1.userAttributeFilters = [
-            mParticle.generateHash('gender'),
-            mParticle.generateHash('age'),
-        ];
+        config1.userAttributeFilters = [mParticle.generateHash('gender'), mParticle.generateHash('age')];
         window.mParticle.config.kitConfigs.push(config1);
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
-        mParticle.userAttributesFilterOnInitTest.should.not.have.property(
-            'gender'
-        );
+        mParticle.userAttributesFilterOnInitTest.should.not.have.property('gender');
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
@@ -1695,13 +1442,8 @@ describe('forwarders', function() {
         mParticle.Identity.getCurrentUser().setUserAttribute('age', 32);
         mParticle.Identity.getCurrentUser().setUserAttribute('weight', 150);
 
-        window.MockForwarder1.instance.userAttributes.should.have.property(
-            'weight',
-            150
-        );
-        window.MockForwarder1.instance.userAttributes.should.not.have.property(
-            'age'
-        );
+        window.MockForwarder1.instance.userAttributes.should.have.property('weight', 150);
+        window.MockForwarder1.instance.userAttributes.should.not.have.property('age');
     });
 
     it('should filter user attributes from forwarder on init, and on subsequent remove attribute calls', async () => {
@@ -1711,10 +1453,7 @@ describe('forwarders', function() {
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
 
         // filtered User Attributes that should should not call removeUserAttribute
-        config1.userAttributeFilters = [
-            mParticle.generateHash('weight'),
-            mParticle.generateHash('age'),
-        ];
+        config1.userAttributeFilters = [mParticle.generateHash('weight'), mParticle.generateHash('age')];
 
         window.mParticle.config.kitConfigs.push(config1);
         mParticle.init(apiKey, window.mParticle.config);
@@ -1723,9 +1462,7 @@ describe('forwarders', function() {
         // force filtered UA in mock forwarder (due to filtering affecting setUserAttribute) and test init
         window.MockForwarder1.instance.userAttributes['weight'] = 150;
         mParticle.Identity.getCurrentUser().removeUserAttribute('weight');
-        window.MockForwarder1.instance.removeUserAttributeCalled.should.equal(
-            false
-        );
+        window.MockForwarder1.instance.removeUserAttributeCalled.should.equal(false);
         mParticle.userAttributesFilterOnInitTest.should.have.property('weight');
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -1737,29 +1474,19 @@ describe('forwarders', function() {
         };
 
         // force filtered UA in mock forwarder (due to filtering affecting setUserAttribute) and non filtered UA
-        for (let key of Object.keys(dummyUserAttributes)) {
-            window.MockForwarder1.instance.userAttributes[key] =
-                dummyUserAttributes[key];
+        for (const key of Object.keys(dummyUserAttributes)) {
+            window.MockForwarder1.instance.userAttributes[key] = dummyUserAttributes[key];
         }
 
         // "age" is filtered and should not call removeUserAttribute on forwarder
         mParticle.Identity.getCurrentUser().removeUserAttribute('age');
-        window.MockForwarder1.instance.removeUserAttributeCalled.should.equal(
-            false
-        );
-        window.MockForwarder1.instance.userAttributes.should.have.property(
-            'age',
-            20
-        );
+        window.MockForwarder1.instance.removeUserAttributeCalled.should.equal(false);
+        window.MockForwarder1.instance.userAttributes.should.have.property('age', 20);
 
         // "gender" is not filtered and should call removeUserAttribute on forwarder
         mParticle.Identity.getCurrentUser().removeUserAttribute('gender');
-        window.MockForwarder1.instance.removeUserAttributeCalled.should.equal(
-            true
-        );
-        window.MockForwarder1.instance.userAttributes.should.not.have.property(
-            'gender'
-        );
+        window.MockForwarder1.instance.removeUserAttributeCalled.should.equal(true);
+        window.MockForwarder1.instance.userAttributes.should.not.have.property('gender');
     });
 
     it('should filter event names', async () => {
@@ -1767,11 +1494,7 @@ describe('forwarders', function() {
 
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
-        config1.eventNameFilters = [
-            mParticle.generateHash(
-                mParticle.EventType.Navigation + 'test event'
-            ),
-        ];
+        config1.eventNameFilters = [mParticle.generateHash(mParticle.EventType.Navigation + 'test event')];
         window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -1793,9 +1516,7 @@ describe('forwarders', function() {
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
-        config1.screenNameFilters = [
-            mParticle.generateHash(mParticle.EventType.Unknown + 'PageView'),
-        ];
+        config1.screenNameFilters = [mParticle.generateHash(mParticle.EventType.Unknown + 'PageView')];
         window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -1814,17 +1535,13 @@ describe('forwarders', function() {
 
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         config1.attributeFilters = [
-            mParticle.generateHash(
-                mParticle.EventType.Navigation + 'test event' + 'test attribute'
-            ),
+            mParticle.generateHash(mParticle.EventType.Navigation + 'test event' + 'test attribute'),
         ];
         window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => {
-            return (
-                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
-            );
+            return window.mParticle.getInstance()?._Store?.identityCallInFlight === false;
         });
 
         mParticle.logEvent('test event', mParticle.EventType.Navigation, {
@@ -1844,16 +1561,10 @@ describe('forwarders', function() {
         mockForwarder.register(window.mParticle.config);
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         config1.attributeFilters = [
-            mParticle.generateHash(
-                mParticle.EventType.Navigation + 'test event' + 'test attribute'
-            ),
+            mParticle.generateHash(mParticle.EventType.Navigation + 'test event' + 'test attribute'),
         ];
         config1.screenAttributeFilters = [
-            mParticle.generateHash(
-                mParticle.EventType.Unknown +
-                    'ScreenA' +
-                    'filteredScreenAttribute'
-            ),
+            mParticle.generateHash(mParticle.EventType.Unknown + 'ScreenA' + 'filteredScreenAttribute'),
         ];
         window.mParticle.config.kitConfigs.push(config1);
 
@@ -1867,13 +1578,8 @@ describe('forwarders', function() {
 
         const event = window.MockForwarder1.instance.receivedEvent;
 
-        event.EventAttributes.should.not.have.property(
-            'filteredScreenAttribute'
-        );
-        event.EventAttributes.should.have.property(
-            'unfilteredScreenAttribute',
-            'this will not be filtered'
-        );
+        event.EventAttributes.should.not.have.property('filteredScreenAttribute');
+        event.EventAttributes.should.have.property('unfilteredScreenAttribute', 'this will not be filtered');
     });
 
     it('should call logout on forwarder', async () => {
@@ -1888,15 +1594,9 @@ describe('forwarders', function() {
         mParticle.Identity.logout();
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
-        window.MockForwarder1.instance.should.have.property(
-            'logOutCalled',
-            true
-        );
+        window.MockForwarder1.instance.should.have.property('logOutCalled', true);
 
-        window.MockForwarder1.instance.should.have.property(
-            'onLogoutCompleteCalled',
-            true
-        );
+        window.MockForwarder1.instance.should.have.property('onLogoutCompleteCalled', true);
     });
 
     it('should pass in app name to forwarder on initialize', async () => {
@@ -1909,10 +1609,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
-        window.MockForwarder1.instance.should.have.property(
-            'appName',
-            'Unit Tests'
-        );
+        window.MockForwarder1.instance.should.have.property('appName', 'Unit Tests');
     });
 
     it('should pass in app version to forwarder on initialize', () => {
@@ -1924,10 +1621,7 @@ describe('forwarders', function() {
         mParticle.config.appVersion = '3.0';
         mParticle.init(apiKey, window.mParticle.config);
 
-        window.MockForwarder1.instance.should.have.property(
-            'appVersion',
-            '3.0'
-        );
+        window.MockForwarder1.instance.should.have.property('appVersion', '3.0');
     });
 
     it('should pass in user identities to forwarder on initialize', () => {
@@ -1940,9 +1634,7 @@ describe('forwarders', function() {
         window.mParticle.config.kitConfigs.push(config1);
         mParticle.init(apiKey, window.mParticle.config);
 
-        Object.keys(
-            window.MockForwarder1.instance.userIdentities
-        ).length.should.equal(1);
+        Object.keys(window.MockForwarder1.instance.userIdentities).length.should.equal(1);
     });
 
     it('should pass in user attributes to forwarder on initialize', () => {
@@ -1955,10 +1647,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         window.MockForwarder1.instance.should.have.property('userAttributes');
-        window.MockForwarder1.instance.userAttributes.should.have.property(
-            'color',
-            'blue'
-        );
+        window.MockForwarder1.instance.userAttributes.should.have.property('color', 'blue');
     });
 
     it('should pass filteredUser and filteredUserIdentities to onIdentifyComplete methods', async () => {
@@ -1973,9 +1662,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => {
-            return (
-                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
-            );
+            return window.mParticle.getInstance()?._Store?.identityCallInFlight === false;
         });
 
         mParticle.Identity.identify({
@@ -1987,19 +1674,12 @@ describe('forwarders', function() {
         });
 
         await waitForCondition(() => {
-            return (
-                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
-            );
+            return window.mParticle.getInstance()?._Store?.identityCallInFlight === false;
         });
 
-        expect(window.MockForwarder1.instance.onIdentifyCompleteCalled).to.eq(
-            true
-        );
+        expect(window.MockForwarder1.instance.onIdentifyCompleteCalled).to.eq(true);
         expect(window.MockForwarder1.instance.onIdentifyCompleteUser).to.be.ok;
-        expect(
-            window.MockForwarder1.instance
-                .onIdentifyCompleteFilteredUserIdentities
-        ).to.deep.equal({
+        expect(window.MockForwarder1.instance.onIdentifyCompleteFilteredUserIdentities).to.deep.equal({
             userIdentities: {
                 // Filtered Identity should no longer have `google` as an identity
                 email: 'test@gmail.com',
@@ -2031,13 +1711,9 @@ describe('forwarders', function() {
 
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
-        expect(window.MockForwarder1.instance.onLoginCompleteCalled).to.eq(
-            true
-        );
+        expect(window.MockForwarder1.instance.onLoginCompleteCalled).to.eq(true);
         expect(window.MockForwarder1.instance.onLoginCompleteUser).to.be.ok;
-        expect(
-            window.MockForwarder1.instance.onLoginCompleteFilteredUserIdentities
-        ).to.deep.equal({
+        expect(window.MockForwarder1.instance.onLoginCompleteFilteredUserIdentities).to.deep.equal({
             userIdentities: {
                 // Filtered Identity should no longer have `google` as an identity
                 email: 'test@gmail.com',
@@ -2069,14 +1745,9 @@ describe('forwarders', function() {
 
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
-        expect(window.MockForwarder1.instance.onLogoutCompleteCalled).to.eq(
-            true
-        );
+        expect(window.MockForwarder1.instance.onLogoutCompleteCalled).to.eq(true);
         expect(window.MockForwarder1.instance.onLogoutCompleteUser).to.be.ok;
-        expect(
-            window.MockForwarder1.instance
-                .onLogoutCompleteFilteredUserIdentities
-        ).to.deep.equal({
+        expect(window.MockForwarder1.instance.onLogoutCompleteFilteredUserIdentities).to.deep.equal({
             userIdentities: {
                 // Filtered Identity should no longer have `google` as an identity
                 email: 'test@gmail.com',
@@ -2108,14 +1779,9 @@ describe('forwarders', function() {
 
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
-        expect(window.MockForwarder1.instance.onModifyCompleteCalled).to.eq(
-            true
-        );
+        expect(window.MockForwarder1.instance.onModifyCompleteCalled).to.eq(true);
         expect(window.MockForwarder1.instance.onModifyCompleteUser).to.be.ok;
-        expect(
-            window.MockForwarder1.instance
-                .onModifyCompleteFilteredUserIdentities
-        ).to.deep.equal({
+        expect(window.MockForwarder1.instance.onModifyCompleteFilteredUserIdentities).to.deep.equal({
             userIdentities: {
                 // Filtered Identity should no longer have `google` as an identity
                 email: 'test@gmail.com',
@@ -2130,9 +1796,7 @@ describe('forwarders', function() {
 
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         config1.filteringEventAttributeValue = {
-            eventAttributeName: mParticle
-                .generateHash('ForwardingRule')
-                .toString(),
+            eventAttributeName: mParticle.generateHash('ForwardingRule').toString(),
             eventAttributeValue: mParticle.generateHash('Forward').toString(),
             includeOnMatch: false,
         };
@@ -2141,20 +1805,13 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
-        mParticle.logEvent(
-            'send this event to forwarder',
-            mParticle.EventType.Navigation,
-            {
-                ForwardingRule: 'Forward',
-            }
-        );
+        mParticle.logEvent('send this event to forwarder', mParticle.EventType.Navigation, {
+            ForwardingRule: 'Forward',
+        });
 
         const event = window.MockForwarder1.instance.receivedEvent;
 
-        event.should.not.have.property(
-            'EventName',
-            'send this event to forwarder'
-        );
+        event.should.not.have.property('EventName', 'send this event to forwarder');
     });
 
     it('should forward event if event attribute forwarding rule is set and includeOnMatch is true', async () => {
@@ -2163,9 +1820,7 @@ describe('forwarders', function() {
 
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         config1.filteringEventAttributeValue = {
-            eventAttributeName: mParticle
-                .generateHash('ForwardingRule')
-                .toString(),
+            eventAttributeName: mParticle.generateHash('ForwardingRule').toString(),
             eventAttributeValue: mParticle.generateHash('Forward').toString(),
             includeOnMatch: true,
         };
@@ -2174,14 +1829,10 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
-        mParticle.logEvent(
-            'send this event to forwarder',
-            mParticle.EventType.Navigation,
-            {
-                Foo: 'Bar',
-                ForwardingRule: 'Forward',
-            }
-        );
+        mParticle.logEvent('send this event to forwarder', mParticle.EventType.Navigation, {
+            Foo: 'Bar',
+            ForwardingRule: 'Forward',
+        });
 
         const event = window.MockForwarder1.instance.receivedEvent;
 
@@ -2194,9 +1845,7 @@ describe('forwarders', function() {
 
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         config1.filteringEventAttributeValue = {
-            eventAttributeName: mParticle
-                .generateHash('ForwardingRule')
-                .toString(),
+            eventAttributeName: mParticle.generateHash('ForwardingRule').toString(),
             eventAttributeValue: mParticle.generateHash('Forward').toString(),
             includeOnMatch: true,
         };
@@ -2205,20 +1854,13 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
-        mParticle.logEvent(
-            'send this event to forwarder',
-            mParticle.EventType.Navigation,
-            {
-                Forwarding: 'Non-Matching',
-            }
-        );
+        mParticle.logEvent('send this event to forwarder', mParticle.EventType.Navigation, {
+            Forwarding: 'Non-Matching',
+        });
 
         const event = window.MockForwarder1.instance.receivedEvent;
 
-        event.should.not.have.property(
-            'EventName',
-            'send this event to forwarder'
-        );
+        event.should.not.have.property('EventName', 'send this event to forwarder');
     });
 
     it('should not forward event if event attribute forwarding rule is set and includeOnMatch is false', async () => {
@@ -2227,9 +1869,7 @@ describe('forwarders', function() {
 
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         config1.filteringEventAttributeValue = {
-            eventAttributeName: mParticle
-                .generateHash('ForwardingRule')
-                .toString(),
+            eventAttributeName: mParticle.generateHash('ForwardingRule').toString(),
             eventAttributeValue: mParticle.generateHash('Forward').toString(),
             includeOnMatch: false,
         };
@@ -2241,18 +1881,13 @@ describe('forwarders', function() {
         window.MockForwarder1.instance.receivedEvent.EventName.should.equal('1');
         window.MockForwarder1.instance.receivedEvent = null;
 
-        mParticle.logEvent(
-            'send this event to forwarder',
-            mParticle.EventType.Navigation,
-            {
-                ForwardingRule: 'Forward',
-            }
-        );
+        mParticle.logEvent('send this event to forwarder', mParticle.EventType.Navigation, {
+            ForwardingRule: 'Forward',
+        });
 
         const event = window.MockForwarder1.instance.receivedEvent;
 
         expect(event).to.not.be.ok;
-
     });
 
     it('should forward event if event attribute forwarding rule is set and includeOnMatch is false but attributes do not match', async () => {
@@ -2261,9 +1896,7 @@ describe('forwarders', function() {
 
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         config1.filteringEventAttributeValue = {
-            eventAttributeName: mParticle
-                .generateHash('ForwardingRule')
-                .toString(),
+            eventAttributeName: mParticle.generateHash('ForwardingRule').toString(),
             eventAttributeValue: mParticle.generateHash('Forward').toString(),
             includeOnMatch: false,
         };
@@ -2276,13 +1909,9 @@ describe('forwarders', function() {
         window.MockForwarder1.instance.receivedEvent.EventName.should.equal('1');
         window.MockForwarder1.instance.receivedEvent = null;
 
-        mParticle.logEvent(
-            'send this event to forwarder',
-            mParticle.EventType.Navigation,
-            {
-                Test: 'does not match',
-            }
-        );
+        mParticle.logEvent('send this event to forwarder', mParticle.EventType.Navigation, {
+            Test: 'does not match',
+        });
 
         const event = window.MockForwarder1.instance.receivedEvent;
 
@@ -2344,14 +1973,10 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
-        let enabled = mParticle
-            .getInstance()
-            ._Forwarders.isEnabledForUserAttributes(null, null);
+        let enabled = mParticle.getInstance()._Forwarders.isEnabledForUserAttributes(null, null);
         expect(enabled).to.be.ok;
 
-        enabled = mParticle
-            .getInstance()
-            ._Forwarders.isEnabledForUserAttributes({}, null);
+        enabled = mParticle.getInstance()._Forwarders.isEnabledForUserAttributes({}, null);
         expect(enabled).to.be.ok;
     });
 
@@ -2373,9 +1998,7 @@ describe('forwarders', function() {
         mParticle.logEvent('test event');
 
         const event = window.MockForwarder1.instance.receivedEvent;
-        window.MockForwarder1.instance.receivedEvent.EventName.should.equal(
-            'test event'
-        );
+        window.MockForwarder1.instance.receivedEvent.EventName.should.equal('test event');
         expect(event).to.be.ok;
     });
 
@@ -2417,10 +2040,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
-        mParticle.Identity.getCurrentUser().setUserAttribute(
-            'gender',
-            'female'
-        );
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
         mParticle.logEvent('test event');
 
         const event = window.MockForwarder1.instance.receivedEvent;
@@ -2444,10 +2064,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
-        mParticle.Identity.getCurrentUser().setUserAttribute(
-            'gender',
-            'female'
-        );
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
         mParticle.logEvent('test event');
 
         const event = window.MockForwarder1.instance.receivedEvent;
@@ -2468,7 +2085,7 @@ describe('forwarders', function() {
         window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);
-        await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false); 
+        await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'Male');
 
@@ -2482,10 +2099,7 @@ describe('forwarders', function() {
 
         expect(event).to.not.be.ok;
 
-        mParticle.Identity.getCurrentUser().setUserAttribute(
-            'Gender',
-            'famale'
-        );
+        mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'famale');
 
         activeForwarders = mParticle.getInstance()._getActiveForwarders();
         activeForwarders.length.should.equal(1);
@@ -2515,9 +2129,7 @@ describe('forwarders', function() {
         const event = window.MockForwarder1.instance.receivedEvent;
 
         expect(event).to.be.ok;
-        window.MockForwarder1.instance.receivedEvent.EventName.should.equal(
-            'test event'
-        );
+        window.MockForwarder1.instance.receivedEvent.EventName.should.equal('test event');
     });
 
     it('should call forwarder onUserIdentified method when identity is returned', async () => {
@@ -2531,10 +2143,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
-        window.MockForwarder1.instance.should.have.property(
-            'onUserIdentifiedCalled',
-            true
-        );
+        window.MockForwarder1.instance.should.have.property('onUserIdentifiedCalled', true);
     });
 
     // https://go.mparticle.com/work/SQDSDKS-6850
@@ -2554,12 +2163,7 @@ describe('forwarders', function() {
         const clock = sinon.useFakeTimers();
 
         mParticle.logEvent('not in forwarder');
-        const product = mParticle.eCommerce.createProduct(
-            'iphone',
-            'sku',
-            123,
-            1
-        );
+        const product = mParticle.eCommerce.createProduct('iphone', 'sku', 123, 1);
         mParticle.eCommerce.Cart.add(product, true);
 
         let result = getForwarderEvent(fetchMock.calls(), 'not in forwarder');
@@ -2570,10 +2174,7 @@ describe('forwarders', function() {
         result = getForwarderEvent(fetchMock.calls(), 'not in forwarder');
         expect(result).to.be.ok;
 
-        result = getForwarderEvent(
-            fetchMock.calls(),
-            'eCommerce - AddToCart'
-        );
+        result = getForwarderEvent(fetchMock.calls(), 'eCommerce - AddToCart');
         expect(result).to.be.ok;
 
         clock.restore();
@@ -2605,9 +2206,7 @@ describe('forwarders', function() {
         const activeForwarders = mParticle.getInstance()._getActiveForwarders();
 
         activeForwarders.length.should.equal(1);
-        mParticle.Identity.getCurrentUser()
-            .isLoggedIn()
-            .should.equal(false);
+        mParticle.Identity.getCurrentUser().isLoggedIn().should.equal(false);
     });
 
     it('should only initialize forwarders with excludeUnknownUser = false for non-logged-in users', async () => {
@@ -2636,12 +2235,10 @@ describe('forwarders', function() {
         const activeForwarders = mParticle.getInstance()._getActiveForwarders();
 
         activeForwarders.length.should.equal(1);
-        mParticle.Identity.getCurrentUser()
-            .isLoggedIn()
-            .should.equal(false);
+        mParticle.Identity.getCurrentUser().isLoggedIn().should.equal(false);
     });
 
-    it('should initialize all forwarders when a user is logged in and the page reloads', async() => {
+    it('should initialize all forwarders when a user is logged in and the page reloads', async () => {
         const mockForwarder = new MockForwarder();
         const mockForwarder2 = new MockForwarder('MockForwarder2', 2);
 
@@ -2660,9 +2257,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
-        mParticle.Identity.getCurrentUser()
-            .isLoggedIn()
-            .should.equal(false);
+        mParticle.Identity.getCurrentUser().isLoggedIn().should.equal(false);
         const user = {
             userIdentities: {
                 customerid: 'customerid3',
@@ -2678,20 +2273,14 @@ describe('forwarders', function() {
         mParticle.Identity.login(user);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
-        expect(mParticle.Identity.getCurrentUser()
-            .isLoggedIn())
-            .to.equal(true);
+        expect(mParticle.Identity.getCurrentUser().isLoggedIn()).to.equal(true);
         const activeForwarders = mParticle.getInstance()._getActiveForwarders();
         expect(activeForwarders.length).to.equal(2);
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
-        mParticle.Identity.getCurrentUser()
-            .isLoggedIn()
-            .should.equal(true);
-        const activeForwarders2 = mParticle
-            .getInstance()
-            ._getActiveForwarders();
+        mParticle.Identity.getCurrentUser().isLoggedIn().should.equal(true);
+        const activeForwarders2 = mParticle.getInstance()._getActiveForwarders();
         expect(activeForwarders2.length).to.equal(2);
     });
 
@@ -2706,16 +2295,17 @@ describe('forwarders', function() {
 
         const ls = mParticle.getInstance()._Persistence.getLocalStorage();
         ls.l.should.equal(true);
-        
+
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
         const ls2 = mParticle.getInstance()._Persistence.getLocalStorage();
         ls2.hasOwnProperty('l').should.equal(true);
-        
+
         fetchMockSuccess(urls.logout, {
-            mpid: 'MPID1', is_logged_in: false
+            mpid: 'MPID1',
+            is_logged_in: false,
         });
-        
+
         mParticle.Identity.logout();
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
         const ls3 = mParticle.getInstance()._Persistence.getLocalStorage();
@@ -2730,34 +2320,28 @@ describe('forwarders', function() {
 
     it('should not set integration attributes on forwarders when a non-object attr is passed', () => {
         const invalidIntegrationAttribute = '123' as unknown as IntegrationAttribute;
-        mParticle.init(apiKey, window.mParticle.config)
+        mParticle.init(apiKey, window.mParticle.config);
         mParticle.setIntegrationAttribute(128, invalidIntegrationAttribute);
-        const adobeIntegrationAttributes = mParticle.getIntegrationAttributes(
-            128
-        );
+        const adobeIntegrationAttributes = mParticle.getIntegrationAttributes(128);
         expect(adobeIntegrationAttributes).to.eqls({});
     });
 
     it('should set integration attributes on forwarders', async () => {
-        mParticle.init(apiKey, window.mParticle.config)
+        mParticle.init(apiKey, window.mParticle.config);
 
         await waitForCondition(hasIdentityCallInflightReturned);
         mParticle.setIntegrationAttribute(128, { MCID: 'abcdefg' });
-        const adobeIntegrationAttributes = mParticle.getIntegrationAttributes(
-            128
-        );
+        const adobeIntegrationAttributes = mParticle.getIntegrationAttributes(128);
 
         adobeIntegrationAttributes.MCID.should.equal('abcdefg');
     });
 
     it('should clear integration attributes when an empty object or a null is passed', async () => {
-        mParticle.init(apiKey, window.mParticle.config)
+        mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
 
         mParticle.setIntegrationAttribute(128, { MCID: 'abcdefg' });
-        let adobeIntegrationAttributes = mParticle.getIntegrationAttributes(
-            128
-        );
+        let adobeIntegrationAttributes = mParticle.getIntegrationAttributes(128);
         Object.keys(adobeIntegrationAttributes).length.should.equal(1);
 
         mParticle.setIntegrationAttribute(128, {});
@@ -2774,7 +2358,7 @@ describe('forwarders', function() {
     });
 
     it('should sanitize any non-strings from integration attributes', async () => {
-        mParticle.init(apiKey, window.mParticle.config)
+        mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
 
         mParticle.setIntegrationAttribute(128, {
@@ -2784,9 +2368,7 @@ describe('forwarders', function() {
             undefinedValue: undefined,
         });
 
-        const adobeIntegrationAttributes = mParticle.getIntegrationAttributes(
-            128
-        );
+        const adobeIntegrationAttributes = mParticle.getIntegrationAttributes(128);
 
         expect(adobeIntegrationAttributes).to.eqls({
             MCID: 'abcdefg',
@@ -2794,7 +2376,7 @@ describe('forwarders', function() {
     });
 
     it('should add integration delays to the integrationDelays object', () => {
-        mParticle.init(apiKey, window.mParticle.config)
+        mParticle.init(apiKey, window.mParticle.config);
 
         mParticle._setIntegrationDelay(128, true);
         mParticle._setIntegrationDelay(24, false);
@@ -2825,22 +2407,10 @@ describe('forwarders', function() {
         mParticle.logEvent('Test Event2');
         fetchMock.calls().length.should.equal(4);
 
-        const sessionStartEvent = findEventFromRequest(
-            fetchMock.calls(),
-            'session_start'
-        );
-        const ASTEvent = findEventFromRequest(
-            fetchMock.calls(),
-            'application_state_transition'
-        );
-        const testEvent1 = findEventFromRequest(
-            fetchMock.calls(),
-            'Test Event1'
-        );
-        const testEvent2 = findEventFromRequest(
-            fetchMock.calls(),
-            'Test Event2'
-        );
+        const sessionStartEvent = findEventFromRequest(fetchMock.calls(), 'session_start');
+        const ASTEvent = findEventFromRequest(fetchMock.calls(), 'application_state_transition');
+        const testEvent1 = findEventFromRequest(fetchMock.calls(), 'Test Event1');
+        const testEvent2 = findEventFromRequest(fetchMock.calls(), 'Test Event2');
 
         sessionStartEvent.should.be.ok();
         ASTEvent.should.be.ok();
@@ -2851,20 +2421,11 @@ describe('forwarders', function() {
     it('integration test - should send events after a configured delay, or 5 seconds by default if setIntegrationDelays are still true', async () => {
         // this code will be put in each forwarder as each forwarder is initialized
         mParticle._setIntegrationDelay(128, true);
-        expect(
-            Object.keys(mParticle.getInstance()._preInit.integrationDelays)
-                .length
-        ).equal(1);
+        expect(Object.keys(mParticle.getInstance()._preInit.integrationDelays).length).equal(1);
         mParticle._setIntegrationDelay(24, false);
-        expect(
-            Object.keys(mParticle.getInstance()._preInit.integrationDelays)
-                .length
-        ).equal(2);
+        expect(Object.keys(mParticle.getInstance()._preInit.integrationDelays).length).equal(2);
         mParticle._setIntegrationDelay(10, true);
-        expect(
-            Object.keys(mParticle.getInstance()._preInit.integrationDelays)
-                .length
-        ).equal(3);
+        expect(Object.keys(mParticle.getInstance()._preInit.integrationDelays).length).equal(3);
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -2874,35 +2435,20 @@ describe('forwarders', function() {
 
         // Only the identity is in the calls
         fetchMock.calls().length.should.equal(1);
-        const identifyEvent = getIdentityEvent(
-            fetchMock.calls(),
-            'identify'
-        );
-        identifyEvent.should.be.ok()
+        const identifyEvent = getIdentityEvent(fetchMock.calls(), 'identify');
+        identifyEvent.should.be.ok();
 
         // Turn off delays manually because we cannot use sinon.useFakeTimers in the async identity paradigm
         mParticle._setIntegrationDelay(128, false);
         mParticle._setIntegrationDelay(24, false);
         mParticle._setIntegrationDelay(10, false);
-        mParticle.logEvent('Test Event2');  // this manually logs all the queued events
+        mParticle.logEvent('Test Event2'); // this manually logs all the queued events
         fetchMock.calls().length.should.equal(5);
 
-        const sessionStartEvent = findEventFromRequest(
-            fetchMock.calls(),
-            'session_start'
-        );
-        const ASTEvent = findEventFromRequest(
-            fetchMock.calls(),
-            'application_state_transition'
-        );
-        const testEvent1 = findEventFromRequest(
-            fetchMock.calls(),
-            'Test Event1'
-        );
-        const testEvent2 = findEventFromRequest(
-            fetchMock.calls(),
-            'Test Event2'
-        );
+        const sessionStartEvent = findEventFromRequest(fetchMock.calls(), 'session_start');
+        const ASTEvent = findEventFromRequest(fetchMock.calls(), 'application_state_transition');
+        const testEvent1 = findEventFromRequest(fetchMock.calls(), 'Test Event1');
+        const testEvent2 = findEventFromRequest(fetchMock.calls(), 'Test Event2');
 
         sessionStartEvent.should.be.ok();
         ASTEvent.should.be.ok();
@@ -2913,18 +2459,21 @@ describe('forwarders', function() {
     // https://go.mparticle.com/work/SQDSDKS-6844
     it.skip('integration test - should allow the user to configure the integrationDelayTimeout', async () => {
         // testing user-configured integrationDelayTimeout
-        let clock = sinon.useFakeTimers();
+        const clock = sinon.useFakeTimers();
         mParticle.config.integrationDelayTimeout = 1000;
         mParticle._setIntegrationDelay(128, true);
         mParticle._setIntegrationDelay(24, false);
         mParticle._setIntegrationDelay(10, true);
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(() => {
-            return (
-                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
-            );
-        }, 200, 10, clock);
+        await waitForCondition(
+            () => {
+                return window.mParticle.getInstance()?._Store?.identityCallInFlight === false;
+            },
+            200,
+            10,
+            clock
+        );
         fetchMock.resetHistory();
         mParticle.logEvent('Test Event3');
         fetchMock.calls().length.should.equal(0);
@@ -2934,22 +2483,10 @@ describe('forwarders', function() {
         mParticle.logEvent('Test Event4');
         fetchMock.calls().length.should.equal(4);
 
-        const sessionStartEvent2 = findEventFromRequest(
-            fetchMock.calls(),
-            'session_start'
-        );
-        const ASTEvent2 = findEventFromRequest(
-            fetchMock.calls(),
-            'application_state_transition'
-        );
-        const testEvent3 = findEventFromRequest(
-            fetchMock.calls(),
-            'Test Event3'
-        );
-        const testEvent4 = findEventFromRequest(
-            fetchMock.calls(),
-            'Test Event4'
-        );
+        const sessionStartEvent2 = findEventFromRequest(fetchMock.calls(), 'session_start');
+        const ASTEvent2 = findEventFromRequest(fetchMock.calls(), 'application_state_transition');
+        const testEvent3 = findEventFromRequest(fetchMock.calls(), 'Test Event3');
+        const testEvent4 = findEventFromRequest(fetchMock.calls(), 'Test Event4');
 
         sessionStartEvent2.should.be.ok();
         ASTEvent2.should.be.ok();
@@ -3051,17 +2588,20 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(() => window.mParticle.getInstance()._Store.configurationLoaded === true && window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+        await waitForCondition(
+            () =>
+                window.mParticle.getInstance()._Store.configurationLoaded === true &&
+                window.mParticle.getInstance()?._Store?.identityCallInFlight === false
+        );
 
         const activeForwarders = mParticle.getInstance()._getActiveForwarders();
         activeForwarders.length.should.equal(2);
         const moduleIds = [124, 128];
-        activeForwarders.forEach(function(forwarder) {
+        activeForwarders.forEach(function (forwarder) {
             moduleIds.indexOf(forwarder.id).should.be.greaterThanOrEqual(0);
         });
     });
 
-    
     // This will pass when we add mpInstance._Store.isInitialized = true; to mp-instance before `processIdentityCallback`
     it('configures forwarders before events are logged via identify callback', async () => {
         window.mParticle.config.identifyRequest = {
@@ -3070,22 +2610,17 @@ describe('forwarders', function() {
             },
         };
 
-        window.mParticle.config.identityCallback = function() {
+        window.mParticle.config.identityCallback = function () {
             mParticle.logEvent('test event');
         };
 
         const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
-        window.mParticle.config.kitConfigs.push(
-            forwarderDefaultConfiguration('MockForwarder')
-        );
+        window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
         window.mParticle.config.rq = [];
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
-        window.MockForwarder1.instance.should.have.property(
-            'processCalled',
-            true
-        );
+        window.MockForwarder1.instance.should.have.property('processCalled', true);
 
         //mock a page reload which has no configuredForwarders
         mParticle.getInstance()._Store.configuredForwarders = [];
@@ -3094,76 +2629,53 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
 
-        window.MockForwarder1.instance.should.have.property(
-            'processCalled',
-            true
-        );
-
+        window.MockForwarder1.instance.should.have.property('processCalled', true);
     });
 
     it('should retain preInit.forwarderConstructors, and reinitialize forwarders after calling reset, then init', async () => {
         const mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
 
-        window.mParticle.config.kitConfigs.push(
-            forwarderDefaultConfiguration('MockForwarder')
-        );
+        window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
-        mParticle
-            .getInstance()
-            ._getActiveForwarders()
-            .length.should.equal(1);
+        mParticle.getInstance()._getActiveForwarders().length.should.equal(1);
 
         // client calls reset
         mParticle.reset();
 
         // forwarderConstructors are still there
-        mParticle
-            .getInstance()
-            ._preInit.forwarderConstructors.length.should.equal(1);
+        mParticle.getInstance()._preInit.forwarderConstructors.length.should.equal(1);
 
         // client reinitializes mParticle after a reset
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
         // forwarderConstructors are still there
-        mParticle
-            .getInstance()
-            ._getActiveForwarders()
-            .length.should.equal(1);
+        mParticle.getInstance()._getActiveForwarders().length.should.equal(1);
 
         mParticle.logEvent('send this event to forwarder');
-        window.MockForwarder1.instance.should.have.property(
-            'processCalled',
-            true
-        );
+        window.MockForwarder1.instance.should.have.property('processCalled', true);
     });
 
     it('should send SourceMessageId as part of event sent to forwarders', async () => {
         const mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
 
-        window.mParticle.config.kitConfigs.push(
-            forwarderDefaultConfiguration('MockForwarder')
-        );
+        window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
         mParticle.logEvent('Test Event');
-        window.MockForwarder1.instance.receivedEvent.should.have.property(
-            'SourceMessageId'
-        );
+        window.MockForwarder1.instance.receivedEvent.should.have.property('SourceMessageId');
     });
 
     it('should send user-defined SourceMessageId as part of event sent to forwarders via baseEvent', async () => {
         const mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
 
-        window.mParticle.config.kitConfigs.push(
-            forwarderDefaultConfiguration('MockForwarder')
-        );
+        window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
@@ -3177,25 +2689,20 @@ describe('forwarders', function() {
             sourceMessageId: 'abcdefg',
         });
 
-        window.MockForwarder1.instance.receivedEvent.should.have.property(
-            'SourceMessageId',
-            'abcdefg'
-        );
+        window.MockForwarder1.instance.receivedEvent.should.have.property('SourceMessageId', 'abcdefg');
     });
 
     it('should add a logger to forwarders', async () => {
         const mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
 
-        window.mParticle.config.kitConfigs.push(
-            forwarderDefaultConfiguration('MockForwarder')
-        );
+        window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
 
         window.mParticle.config.logLevel = 'verbose';
         let infoMessage;
 
         window.mParticle.config.logger = {
-            verbose: function(msg) {
+            verbose: function (msg) {
                 infoMessage = msg;
             },
         };
@@ -3207,114 +2714,58 @@ describe('forwarders', function() {
         infoMessage.should.equal('Test Event sent');
     });
 
-    describe('kits with suffixes', function() {
+    describe('kits with suffixes', function () {
         it('should add forwarders with suffixes and initialize them accordingly if there is a coresponding kit config with the same suffix', () => {
-            const mockForwarder = new MockForwarder(
-                'ForwarderWithSuffixV3',
-                1,
-                'v3'
-            );
-            const mockForwarder2 = new MockForwarder(
-                'ForwarderWithSuffixV4',
-                1,
-                'v4'
-            );
+            const mockForwarder = new MockForwarder('ForwarderWithSuffixV3', 1, 'v3');
+            const mockForwarder2 = new MockForwarder('ForwarderWithSuffixV4', 1, 'v4');
             mParticle.addForwarder(mockForwarder);
             mParticle.addForwarder(mockForwarder2);
 
-            window.mParticle.config.kitConfigs.push(
-                forwarderDefaultConfiguration('ForwarderWithSuffixV3', 1, 'v3')
-            );
-            window.mParticle.config.kitConfigs.push(
-                forwarderDefaultConfiguration('ForwarderWithSuffixV4', 1, 'v4')
-            );
+            window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('ForwarderWithSuffixV3', 1, 'v3'));
+            window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('ForwarderWithSuffixV4', 1, 'v4'));
 
             mParticle.init(apiKey, window.mParticle.config);
 
-            mParticle
-                .getInstance()
-                ._getActiveForwarders()
-                .length.should.equal(2);
+            mParticle.getInstance()._getActiveForwarders().length.should.equal(2);
         });
 
         it('should not add a forwarder with suffix if there is not a corresponding kit config with the same suffix', () => {
-            const mockForwarder = new MockForwarder(
-                'ForwarderWithSuffix',
-                1,
-                'v3'
-            );
+            const mockForwarder = new MockForwarder('ForwarderWithSuffix', 1, 'v3');
             mParticle.addForwarder(mockForwarder);
 
-            window.mParticle.config.kitConfigs.push(
-                forwarderDefaultConfiguration('ForwarderWithSuffix', 1, 'v4')
-            );
+            window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('ForwarderWithSuffix', 1, 'v4'));
 
             mParticle.init(apiKey, window.mParticle.config);
 
-            mParticle
-                .getInstance()
-                ._getActiveForwarders()
-                .length.should.equal(0);
+            mParticle.getInstance()._getActiveForwarders().length.should.equal(0);
         });
     });
 
-    describe('side loaded kits', function() {
-        describe('initialization', function() {
+    describe('side loaded kits', function () {
+        describe('initialization', function () {
+            it('should add sideloaded kits to the active forwarders', function () {
+                const sideloadedKit1 = new MockSideloadedKit('SideloadedKit1', 1);
+                const sideloadedKit2 = new MockSideloadedKit('SideloadedKit2', 2);
 
-            it('should add sideloaded kits to the active forwarders', function() {
-                const sideloadedKit1 = new MockSideloadedKit(
-                    'SideloadedKit1',
-                    1
-                );
-                const sideloadedKit2 = new MockSideloadedKit(
-                    'SideloadedKit2',
-                    2
-                );
-
-                const mpSideloadedKit1 = new mParticle.MPSideloadedKit(
-                    sideloadedKit1
-                );
-                const mpSideloadedKit2 = new mParticle.MPSideloadedKit(
-                    sideloadedKit2
-                );
+                const mpSideloadedKit1 = new mParticle.MPSideloadedKit(sideloadedKit1);
+                const mpSideloadedKit2 = new mParticle.MPSideloadedKit(sideloadedKit2);
 
                 const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
                 window.mParticle.config.sideloadedKits = sideloadedKits;
 
                 mParticle.init(apiKey, window.mParticle.config);
-                const activeForwarders = mParticle
-                    .getInstance()
-                    ._getActiveForwarders();
-                expect(
-                    activeForwarders.length,
-                    'active forwarders length'
-                ).to.equal(sideloadedKits.length);
-                expect(
-                    activeForwarders[0].name,
-                    '1st active forwarder '
-                ).to.deep.equal(sideloadedKit1.name);
-                expect(
-                    activeForwarders[1].name,
-                    '2nd active forwarder'
-                ).to.deep.equal(sideloadedKit2.name);
+                const activeForwarders = mParticle.getInstance()._getActiveForwarders();
+                expect(activeForwarders.length, 'active forwarders length').to.equal(sideloadedKits.length);
+                expect(activeForwarders[0].name, '1st active forwarder ').to.deep.equal(sideloadedKit1.name);
+                expect(activeForwarders[1].name, '2nd active forwarder').to.deep.equal(sideloadedKit2.name);
             });
 
-            it('should add sideloaded kits along with configured forwarders from server to the active forwarders', function() {
-                const sideloadedKit1 = new MockSideloadedKit(
-                    'SideloadedKit1',
-                    1
-                );
-                const sideloadedKit2 = new MockSideloadedKit(
-                    'SideloadedKit2',
-                    2
-                );
+            it('should add sideloaded kits along with configured forwarders from server to the active forwarders', function () {
+                const sideloadedKit1 = new MockSideloadedKit('SideloadedKit1', 1);
+                const sideloadedKit2 = new MockSideloadedKit('SideloadedKit2', 2);
 
-                const mpSideloadedKit1 = new mParticle.MPSideloadedKit(
-                    sideloadedKit1
-                );
-                const mpSideloadedKit2 = new mParticle.MPSideloadedKit(
-                    sideloadedKit2
-                );
+                const mpSideloadedKit1 = new mParticle.MPSideloadedKit(sideloadedKit1);
+                const mpSideloadedKit2 = new mParticle.MPSideloadedKit(sideloadedKit2);
 
                 const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
 
@@ -3324,49 +2775,23 @@ describe('forwarders', function() {
                 const mockForwarder = new MockForwarder('fooForwarder', 1);
                 mParticle.addForwarder(mockForwarder);
 
-                window.mParticle.config.kitConfigs.push(
-                    forwarderDefaultConfiguration('fooForwarder', 1)
-                );
+                window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('fooForwarder', 1));
 
                 mParticle.init(apiKey, window.mParticle.config);
-                const activeForwarders = mParticle
-                    .getInstance()
-                    ._getActiveForwarders();
+                const activeForwarders = mParticle.getInstance()._getActiveForwarders();
 
-                expect(
-                    activeForwarders.length,
-                    'active forwarders length'
-                ).to.equal(sideloadedKits.length + 1);
-                expect(
-                    activeForwarders[0].name,
-                    '1st active forwarder name'
-                ).to.equal('fooForwarder');
-                expect(
-                    activeForwarders[1].name,
-                    '2nd active forwarder '
-                ).to.deep.equal(sideloadedKit1.name);
-                expect(
-                    activeForwarders[2].name,
-                    '3rd active forwarder'
-                ).to.deep.equal(sideloadedKit2.name);
+                expect(activeForwarders.length, 'active forwarders length').to.equal(sideloadedKits.length + 1);
+                expect(activeForwarders[0].name, '1st active forwarder name').to.equal('fooForwarder');
+                expect(activeForwarders[1].name, '2nd active forwarder ').to.deep.equal(sideloadedKit1.name);
+                expect(activeForwarders[2].name, '3rd active forwarder').to.deep.equal(sideloadedKit2.name);
             });
 
             it('should add a flag in batches for reporting if sideloaded kits are used', async () => {
-                const sideloadedKit1 = new MockSideloadedKit(
-                    'SideloadedKit1',
-                    1
-                );
-                const sideloadedKit2 = new MockSideloadedKit(
-                    'SideloadedKit2',
-                    2
-                );
+                const sideloadedKit1 = new MockSideloadedKit('SideloadedKit1', 1);
+                const sideloadedKit2 = new MockSideloadedKit('SideloadedKit2', 2);
 
-                const mpSideloadedKit1 = new mParticle.MPSideloadedKit(
-                    sideloadedKit1
-                );
-                const mpSideloadedKit2 = new mParticle.MPSideloadedKit(
-                    sideloadedKit2
-                );
+                const mpSideloadedKit1 = new mParticle.MPSideloadedKit(sideloadedKit1);
+                const mpSideloadedKit2 = new mParticle.MPSideloadedKit(sideloadedKit2);
 
                 const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
 
@@ -3376,13 +2801,11 @@ describe('forwarders', function() {
                 const mockForwarder = new MockForwarder('fooForwarder', 1);
                 mParticle.addForwarder(mockForwarder);
 
-                window.mParticle.config.kitConfigs.push(
-                    forwarderDefaultConfiguration('fooForwarder', 1)
-                );
+                window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('fooForwarder', 1));
 
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
-                
+
                 const mpInstance = window.mParticle.getInstance();
 
                 expect(mpInstance._Store.sideloadedKitsCount).to.equal(2);
@@ -3397,10 +2820,7 @@ describe('forwarders', function() {
                 const batch = JSON.parse(fetchMock.calls()[1][1].body as string);
                 expect(batch).to.be.ok;
                 expect(batch).to.have.property('application_info');
-                expect(batch.application_info).to.have.property(
-                    'sideloaded_kits_count',
-                    2
-                );
+                expect(batch.application_info).to.have.property('sideloaded_kits_count', 2);
             });
 
             it('should NOT add a flag in batches for reporting if sideloaded kits are not used', async () => {
@@ -3412,158 +2832,110 @@ describe('forwarders', function() {
                 const batch = JSON.parse(fetchMock.lastCall()[1].body as string);
 
                 expect(batch).to.have.property('application_info');
-                expect(batch.application_info).not.to.have.property(
-                    'sideloaded_kits_count'
-                );
+                expect(batch.application_info).not.to.have.property('sideloaded_kits_count');
             });
 
-            describe('filter dictionary integration tests', function() {
+            describe('filter dictionary integration tests', function () {
                 let sideloadedKit1;
                 let sideloadedKit2;
                 let mpSideloadedKit1;
                 let mpSideloadedKit2;
 
-                beforeEach(function() {
+                beforeEach(function () {
                     sideloadedKit1 = new MockSideloadedKit('SideloadedKit1', 1);
                     sideloadedKit2 = new MockSideloadedKit('SideloadedKit2', 2);
 
-                    mpSideloadedKit1 = new mParticle.MPSideloadedKit(
-                        sideloadedKit1
-                    );
-                    mpSideloadedKit2 = new mParticle.MPSideloadedKit(
-                        sideloadedKit2
-                    );
+                    mpSideloadedKit1 = new mParticle.MPSideloadedKit(sideloadedKit1);
+                    mpSideloadedKit2 = new mParticle.MPSideloadedKit(sideloadedKit2);
                 });
 
                 it('should filter event names out properly when set', async () => {
-                    mpSideloadedKit1.addEventNameFilter(
-                        mParticle.EventType.Unknown,
-                        'Test Event'
-                    );
-                    mpSideloadedKit2.addEventNameFilter(
-                        mParticle.EventType.Unknown,
-                        'Test Event2'
-                    );
+                    mpSideloadedKit1.addEventNameFilter(mParticle.EventType.Unknown, 'Test Event');
+                    mpSideloadedKit2.addEventNameFilter(mParticle.EventType.Unknown, 'Test Event2');
 
                     const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
 
                     window.mParticle.config.sideloadedKits = sideloadedKits;
 
                     mParticle.init(apiKey, window.mParticle.config);
-                    await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                    await waitForCondition(
+                        () => window.mParticle.getInstance()?._Store?.identityCallInFlight === false
+                    );
 
                     mParticle.logEvent('Test Event');
 
                     // The received event gets replaced by the last event sent to the forwarder
                     // SideloadedKit11 has received the session start event, but not the Test Event
                     // SideloadedKit22 will receive the Test Event
-                    window.SideloadedKit11.instance.receivedEvent.EventName.should.not.equal(
-                        'Test Event'
-                    );
-                    window.SideloadedKit22.instance.receivedEvent.EventName.should.equal(
-                        'Test Event'
-                    );
+                    window.SideloadedKit11.instance.receivedEvent.EventName.should.not.equal('Test Event');
+                    window.SideloadedKit22.instance.receivedEvent.EventName.should.equal('Test Event');
 
                     mParticle.logEvent('Test Event2');
 
                     // SideloadedKit11 receives Test Event2, but SideloadedKit22 does not
-                    window.SideloadedKit11.instance.receivedEvent.EventName.should.equal(
-                        'Test Event2'
-                    );
-                    window.SideloadedKit22.instance.receivedEvent.EventName.should.not.equal(
-                        'Test Event2'
-                    );
+                    window.SideloadedKit11.instance.receivedEvent.EventName.should.equal('Test Event2');
+                    window.SideloadedKit22.instance.receivedEvent.EventName.should.not.equal('Test Event2');
                 });
 
                 it('should filter event types out properly when set', async () => {
-                    mpSideloadedKit1.addEventTypeFilter(
-                        mParticle.EventType.Unknown
-                    );
-                    mpSideloadedKit2.addEventTypeFilter(
-                        mParticle.EventType.Navigation
-                    );
+                    mpSideloadedKit1.addEventTypeFilter(mParticle.EventType.Unknown);
+                    mpSideloadedKit2.addEventTypeFilter(mParticle.EventType.Navigation);
 
                     const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
 
                     window.mParticle.config.sideloadedKits = sideloadedKits;
 
                     mParticle.init(apiKey, window.mParticle.config);
-                    await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
-
-                    mParticle.logEvent(
-                        'Test Event',
-                        mParticle.EventType.Unknown
+                    await waitForCondition(
+                        () => window.mParticle.getInstance()?._Store?.identityCallInFlight === false
                     );
+
+                    mParticle.logEvent('Test Event', mParticle.EventType.Unknown);
 
                     // The received event gets replaced by the last event sent to the forwarder
                     // SideloadedKit11 has received the session start event, but not the Test Event of EventType.Unknown
                     // SideloadedKit22 will receive the Test Event of EventType.Unknown
-                    window.SideloadedKit11.instance.receivedEvent.EventName.should.not.equal(
-                        'Test Event'
-                    );
-                    window.SideloadedKit22.instance.receivedEvent.EventName.should.equal(
-                        'Test Event'
-                    );
+                    window.SideloadedKit11.instance.receivedEvent.EventName.should.not.equal('Test Event');
+                    window.SideloadedKit22.instance.receivedEvent.EventName.should.equal('Test Event');
 
-                    mParticle.logEvent(
-                        'Test Event2',
-                        mParticle.EventType.Navigation
-                    );
+                    mParticle.logEvent('Test Event2', mParticle.EventType.Navigation);
 
                     // SideloadedKit11 receives the Navigation Event, SideloadedKit22 does not
-                    window.SideloadedKit11.instance.receivedEvent.EventName.should.equal(
-                        'Test Event2'
-                    );
-                    window.SideloadedKit22.instance.receivedEvent.EventName.should.not.equal(
-                        'Test Event2'
-                    );
+                    window.SideloadedKit11.instance.receivedEvent.EventName.should.equal('Test Event2');
+                    window.SideloadedKit22.instance.receivedEvent.EventName.should.not.equal('Test Event2');
                 });
 
                 it('should filter event attributes out properly when set', async () => {
-                    mpSideloadedKit1.addEventAttributeFilter(
-                        mParticle.EventType.Navigation,
-                        'Test Event',
-                        'testAttr1'
-                    );
-                    mpSideloadedKit2.addEventAttributeFilter(
-                        mParticle.EventType.Navigation,
-                        'Test Event',
-                        'testAttr2'
-                    );
+                    mpSideloadedKit1.addEventAttributeFilter(mParticle.EventType.Navigation, 'Test Event', 'testAttr1');
+                    mpSideloadedKit2.addEventAttributeFilter(mParticle.EventType.Navigation, 'Test Event', 'testAttr2');
 
                     const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
 
                     window.mParticle.config.sideloadedKits = sideloadedKits;
 
                     mParticle.init(apiKey, window.mParticle.config);
-                    await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                    await waitForCondition(
+                        () => window.mParticle.getInstance()?._Store?.identityCallInFlight === false
+                    );
 
                     const attrs = {
                         testAttr1: 'foo',
                         testAttr2: 'bar',
                     };
 
-                    mParticle.logEvent(
-                        'Test Event',
-                        mParticle.EventType.Navigation,
-                        attrs
-                    );
+                    mParticle.logEvent('Test Event', mParticle.EventType.Navigation, attrs);
 
                     window.SideloadedKit11.instance.receivedEvent.EventAttributes.should.have.property(
                         'testAttr2',
                         'bar'
                     );
-                    window.SideloadedKit11.instance.receivedEvent.EventAttributes.should.not.property(
-                        'testAttr1'
-                    );
+                    window.SideloadedKit11.instance.receivedEvent.EventAttributes.should.not.property('testAttr1');
 
                     window.SideloadedKit22.instance.receivedEvent.EventAttributes.should.have.property(
                         'testAttr1',
                         'foo'
                     );
-                    window.SideloadedKit22.instance.receivedEvent.EventAttributes.should.not.property(
-                        'testAttr2'
-                    );
+                    window.SideloadedKit22.instance.receivedEvent.EventAttributes.should.not.property('testAttr2');
                 });
 
                 it('should filter screen names out properly when set', async () => {
@@ -3575,47 +2947,37 @@ describe('forwarders', function() {
                     window.mParticle.config.sideloadedKits = sideloadedKits;
 
                     mParticle.init(apiKey, window.mParticle.config);
-                    await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                    await waitForCondition(
+                        () => window.mParticle.getInstance()?._Store?.identityCallInFlight === false
+                    );
 
                     mParticle.logPageView('Test Screen Name 1');
 
                     // The received event gets replaced by the last event sent to the forwarder
                     // SideloadedKit11 has received the session start event, but not the Test Screen Name 1 event
                     // SideloadedKit22 does receive it
-                    window.SideloadedKit11.instance.receivedEvent.EventName.should.not.equal(
-                        'Test Screen Name 1'
-                    );
-                    window.SideloadedKit22.instance.receivedEvent.EventName.should.equal(
-                        'Test Screen Name 1'
-                    );
+                    window.SideloadedKit11.instance.receivedEvent.EventName.should.not.equal('Test Screen Name 1');
+                    window.SideloadedKit22.instance.receivedEvent.EventName.should.equal('Test Screen Name 1');
 
                     mParticle.logPageView('Test Screen Name 2');
 
                     // SideloadedKit11 will receive Test Screen Name 2, but SideloadedKit22 does not
-                    window.SideloadedKit11.instance.receivedEvent.EventName.should.equal(
-                        'Test Screen Name 2'
-                    );
-                    window.SideloadedKit22.instance.receivedEvent.EventName.should.not.equal(
-                        'Test Screen Name 2'
-                    );
+                    window.SideloadedKit11.instance.receivedEvent.EventName.should.equal('Test Screen Name 2');
+                    window.SideloadedKit22.instance.receivedEvent.EventName.should.not.equal('Test Screen Name 2');
                 });
 
                 it('should filter screen name attribute out properly when set', async () => {
-                    mpSideloadedKit1.addScreenAttributeFilter(
-                        'Test Screen Name 1',
-                        'testAttr1'
-                    );
-                    mpSideloadedKit2.addScreenAttributeFilter(
-                        'Test Screen Name 1',
-                        'testAttr2'
-                    );
+                    mpSideloadedKit1.addScreenAttributeFilter('Test Screen Name 1', 'testAttr1');
+                    mpSideloadedKit2.addScreenAttributeFilter('Test Screen Name 1', 'testAttr2');
 
                     const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
 
                     window.mParticle.config.sideloadedKits = sideloadedKits;
 
                     mParticle.init(apiKey, window.mParticle.config);
-                    await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                    await waitForCondition(
+                        () => window.mParticle.getInstance()?._Store?.identityCallInFlight === false
+                    );
 
                     const attrs = {
                         testAttr1: 'foo',
@@ -3628,32 +2990,26 @@ describe('forwarders', function() {
                         'testAttr2',
                         'bar'
                     );
-                    window.SideloadedKit11.instance.receivedEvent.EventAttributes.should.not.property(
-                        'testAttr1'
-                    );
+                    window.SideloadedKit11.instance.receivedEvent.EventAttributes.should.not.property('testAttr1');
                     window.SideloadedKit22.instance.receivedEvent.EventAttributes.should.have.property(
                         'testAttr1',
                         'foo'
                     );
-                    window.SideloadedKit22.instance.receivedEvent.EventAttributes.should.not.property(
-                        'testAttr2'
-                    );
+                    window.SideloadedKit22.instance.receivedEvent.EventAttributes.should.not.property('testAttr2');
                 });
 
                 it('should filter user identities out properly when set', async () => {
-                    mpSideloadedKit1.addUserIdentityFilter(
-                        mParticle.IdentityType.Email
-                    );
-                    mpSideloadedKit2.addUserIdentityFilter(
-                        mParticle.IdentityType.Other
-                    );
+                    mpSideloadedKit1.addUserIdentityFilter(mParticle.IdentityType.Email);
+                    mpSideloadedKit2.addUserIdentityFilter(mParticle.IdentityType.Other);
 
                     const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
 
                     window.mParticle.config.sideloadedKits = sideloadedKits;
 
                     mParticle.init(apiKey, window.mParticle.config);
-                    await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                    await waitForCondition(
+                        () => window.mParticle.getInstance()?._Store?.identityCallInFlight === false
+                    );
 
                     mParticle.Identity.login({
                         userIdentities: {
@@ -3664,22 +3020,18 @@ describe('forwarders', function() {
 
                     mParticle.logPageView('Test Screen Name 1');
 
-                    await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                    await waitForCondition(
+                        () => window.mParticle.getInstance()?._Store?.identityCallInFlight === false
+                    );
 
                     // SideloadedKit11 will receive an event with only an Other identity type
-                    window.SideloadedKit11.instance.receivedEvent.UserIdentities.length.should.equal(
-                        1
-                    );
+                    window.SideloadedKit11.instance.receivedEvent.UserIdentities.length.should.equal(1);
                     window.SideloadedKit11.instance.receivedEvent.UserIdentities[0].Type.should.equal(
                         mParticle.IdentityType.Other
                     );
-                    window.SideloadedKit11.instance.receivedEvent.UserIdentities[0].Identity.should.equal(
-                        'test'
-                    );
+                    window.SideloadedKit11.instance.receivedEvent.UserIdentities[0].Identity.should.equal('test');
                     // SideloadedKit22 will receive an event with only an Email identity type
-                    window.SideloadedKit22.instance.receivedEvent.UserIdentities.length.should.equal(
-                        1
-                    );
+                    window.SideloadedKit22.instance.receivedEvent.UserIdentities.length.should.equal(1);
                     window.SideloadedKit22.instance.receivedEvent.UserIdentities[0].Type.should.equal(
                         mParticle.IdentityType.Email
                     );
@@ -3697,16 +3049,12 @@ describe('forwarders', function() {
                     window.mParticle.config.sideloadedKits = sideloadedKits;
 
                     mParticle.init(apiKey, window.mParticle.config);
-                    await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
+                    await waitForCondition(
+                        () => window.mParticle.getInstance()?._Store?.identityCallInFlight === false
+                    );
 
-                    mParticle.Identity.getCurrentUser().setUserAttribute(
-                        'testAttr1',
-                        'foo'
-                    );
-                    mParticle.Identity.getCurrentUser().setUserAttribute(
-                        'testAttr2',
-                        'bar'
-                    );
+                    mParticle.Identity.getCurrentUser().setUserAttribute('testAttr1', 'foo');
+                    mParticle.Identity.getCurrentUser().setUserAttribute('testAttr2', 'bar');
 
                     mParticle.logPageView('Test Screen Name 1');
 
@@ -3714,40 +3062,24 @@ describe('forwarders', function() {
                         'testAttr2',
                         'bar'
                     );
-                    window.SideloadedKit11.instance.receivedEvent.UserAttributes.should.not.have.property(
-                        'testAttr1'
-                    );
+                    window.SideloadedKit11.instance.receivedEvent.UserAttributes.should.not.have.property('testAttr1');
 
                     window.SideloadedKit22.instance.receivedEvent.UserAttributes.should.have.property(
                         'testAttr1',
                         'foo'
                     );
-                    window.SideloadedKit22.instance.receivedEvent.UserAttributes.should.not.have.property(
-                        'testAttr2'
-                    );
+                    window.SideloadedKit22.instance.receivedEvent.UserAttributes.should.not.have.property('testAttr2');
                 });
             });
         });
 
-        describe('forwarding', function() {
-
-
+        describe('forwarding', function () {
             it('should send event to sideloaded kits', async () => {
-                const sideloadedKit1 = new MockSideloadedKit(
-                    'SideloadedKit1',
-                    1
-                );
-                const sideloadedKit2 = new MockSideloadedKit(
-                    'SideloadedKit2',
-                    2
-                );
+                const sideloadedKit1 = new MockSideloadedKit('SideloadedKit1', 1);
+                const sideloadedKit2 = new MockSideloadedKit('SideloadedKit2', 2);
 
-                const mpSideloadedKit1 = new mParticle.MPSideloadedKit(
-                    sideloadedKit1
-                );
-                const mpSideloadedKit2 = new mParticle.MPSideloadedKit(
-                    sideloadedKit2
-                );
+                const mpSideloadedKit1 = new mParticle.MPSideloadedKit(sideloadedKit1);
+                const mpSideloadedKit2 = new mParticle.MPSideloadedKit(sideloadedKit2);
 
                 const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
 
@@ -3756,31 +3088,19 @@ describe('forwarders', function() {
                 await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
                 mParticle.logEvent('foo', mParticle.EventType.Navigation);
-                const sideloadedKit1Event =
-                    window.SideloadedKit11.instance.receivedEvent;
-                const sideloadedKit2Event =
-                    window.SideloadedKit22.instance.receivedEvent;
+                const sideloadedKit1Event = window.SideloadedKit11.instance.receivedEvent;
+                const sideloadedKit2Event = window.SideloadedKit22.instance.receivedEvent;
 
                 sideloadedKit1Event.should.have.property('EventName', 'foo');
                 sideloadedKit2Event.should.have.property('EventName', 'foo');
             });
 
             it('should invoke sideloaded identify call', async () => {
-                const sideloadedKit1 = new MockSideloadedKit(
-                    'SideloadedKit1',
-                    1
-                );
-                const sideloadedKit2 = new MockSideloadedKit(
-                    'SideloadedKit2',
-                    2
-                );
+                const sideloadedKit1 = new MockSideloadedKit('SideloadedKit1', 1);
+                const sideloadedKit2 = new MockSideloadedKit('SideloadedKit2', 2);
 
-                const mpSideloadedKit1 = new mParticle.MPSideloadedKit(
-                    sideloadedKit1
-                );
-                const mpSideloadedKit2 = new mParticle.MPSideloadedKit(
-                    sideloadedKit2
-                );
+                const mpSideloadedKit1 = new mParticle.MPSideloadedKit(sideloadedKit1);
+                const mpSideloadedKit2 = new mParticle.MPSideloadedKit(sideloadedKit2);
 
                 const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
 
@@ -3795,41 +3115,19 @@ describe('forwarders', function() {
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
-                window.SideloadedKit11.instance.should.have.property(
-                    'setUserIdentityCalled',
-                    true
-                );
-                window.SideloadedKit22.instance.should.have.property(
-                    'setUserIdentityCalled',
-                    true
-                );
+                window.SideloadedKit11.instance.should.have.property('setUserIdentityCalled', true);
+                window.SideloadedKit22.instance.should.have.property('setUserIdentityCalled', true);
 
-                window.SideloadedKit11.instance.should.have.property(
-                    'onUserIdentifiedCalled',
-                    true
-                );
-                window.SideloadedKit22.instance.should.have.property(
-                    'onUserIdentifiedCalled',
-                    true
-                );
+                window.SideloadedKit11.instance.should.have.property('onUserIdentifiedCalled', true);
+                window.SideloadedKit22.instance.should.have.property('onUserIdentifiedCalled', true);
             });
 
             it('should invoke sideloaded set/removeUserAttribute call', async () => {
-                const sideloadedKit1 = new MockSideloadedKit(
-                    'SideloadedKit1',
-                    1
-                );
-                const sideloadedKit2 = new MockSideloadedKit(
-                    'SideloadedKit2',
-                    2
-                );
+                const sideloadedKit1 = new MockSideloadedKit('SideloadedKit1', 1);
+                const sideloadedKit2 = new MockSideloadedKit('SideloadedKit2', 2);
 
-                const mpSideloadedKit1 = new mParticle.MPSideloadedKit(
-                    sideloadedKit1
-                );
-                const mpSideloadedKit2 = new mParticle.MPSideloadedKit(
-                    sideloadedKit2
-                );
+                const mpSideloadedKit1 = new mParticle.MPSideloadedKit(sideloadedKit1);
+                const mpSideloadedKit2 = new mParticle.MPSideloadedKit(sideloadedKit2);
 
                 const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
 
@@ -3838,49 +3136,22 @@ describe('forwarders', function() {
                 mParticle.init(apiKey, window.mParticle.config);
                 await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
-                mParticle.Identity.getCurrentUser().setUserAttribute(
-                    'gender',
-                    'male'
-                );
-                mParticle.Identity.getCurrentUser().removeUserAttribute(
-                    'gender'
-                );
+                mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+                mParticle.Identity.getCurrentUser().removeUserAttribute('gender');
 
-                window.SideloadedKit11.instance.should.have.property(
-                    'setUserAttributeCalled',
-                    true
-                );
-                window.SideloadedKit22.instance.should.have.property(
-                    'setUserAttributeCalled',
-                    true
-                );
+                window.SideloadedKit11.instance.should.have.property('setUserAttributeCalled', true);
+                window.SideloadedKit22.instance.should.have.property('setUserAttributeCalled', true);
 
-                window.SideloadedKit11.instance.should.have.property(
-                    'removeUserAttributeCalled',
-                    true
-                );
-                window.SideloadedKit22.instance.should.have.property(
-                    'removeUserAttributeCalled',
-                    true
-                );
+                window.SideloadedKit11.instance.should.have.property('removeUserAttributeCalled', true);
+                window.SideloadedKit22.instance.should.have.property('removeUserAttributeCalled', true);
             });
 
             it('should invoke sideloaded logout call', async () => {
-                const sideloadedKit1 = new MockSideloadedKit(
-                    'SideloadedKit1',
-                    1
-                );
-                const sideloadedKit2 = new MockSideloadedKit(
-                    'SideloadedKit2',
-                    2
-                );
+                const sideloadedKit1 = new MockSideloadedKit('SideloadedKit1', 1);
+                const sideloadedKit2 = new MockSideloadedKit('SideloadedKit2', 2);
 
-                const mpSideloadedKit1 = new mParticle.MPSideloadedKit(
-                    sideloadedKit1
-                );
-                const mpSideloadedKit2 = new mParticle.MPSideloadedKit(
-                    sideloadedKit2
-                );
+                const mpSideloadedKit1 = new mParticle.MPSideloadedKit(sideloadedKit1);
+                const mpSideloadedKit2 = new mParticle.MPSideloadedKit(sideloadedKit2);
 
                 const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
 
@@ -3893,32 +3164,16 @@ describe('forwarders', function() {
 
                 await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
-                window.SideloadedKit11.instance.should.have.property(
-                    'onLogoutCompleteCalled',
-                    true
-                );
-                window.SideloadedKit22.instance.should.have.property(
-                    'onLogoutCompleteCalled',
-                    true
-                );
+                window.SideloadedKit11.instance.should.have.property('onLogoutCompleteCalled', true);
+                window.SideloadedKit22.instance.should.have.property('onLogoutCompleteCalled', true);
             });
 
             it('should invoke sideloaded login call', async () => {
-                const sideloadedKit1 = new MockSideloadedKit(
-                    'SideloadedKit1',
-                    1
-                );
-                const sideloadedKit2 = new MockSideloadedKit(
-                    'SideloadedKit2',
-                    2
-                );
+                const sideloadedKit1 = new MockSideloadedKit('SideloadedKit1', 1);
+                const sideloadedKit2 = new MockSideloadedKit('SideloadedKit2', 2);
 
-                const mpSideloadedKit1 = new mParticle.MPSideloadedKit(
-                    sideloadedKit1
-                );
-                const mpSideloadedKit2 = new mParticle.MPSideloadedKit(
-                    sideloadedKit2
-                );
+                const mpSideloadedKit1 = new mParticle.MPSideloadedKit(sideloadedKit1);
+                const mpSideloadedKit2 = new mParticle.MPSideloadedKit(sideloadedKit2);
 
                 const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
 
@@ -3932,32 +3187,16 @@ describe('forwarders', function() {
                 });
                 await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
-                window.SideloadedKit11.instance.should.have.property(
-                    'onLoginCompleteCalled',
-                    true
-                );
-                window.SideloadedKit22.instance.should.have.property(
-                    'onLoginCompleteCalled',
-                    true
-                );
+                window.SideloadedKit11.instance.should.have.property('onLoginCompleteCalled', true);
+                window.SideloadedKit22.instance.should.have.property('onLoginCompleteCalled', true);
             });
 
             it('should invoke sideloaded modify call', async () => {
-                const sideloadedKit1 = new MockSideloadedKit(
-                    'SideloadedKit1',
-                    1
-                );
-                const sideloadedKit2 = new MockSideloadedKit(
-                    'SideloadedKit2',
-                    2
-                );
+                const sideloadedKit1 = new MockSideloadedKit('SideloadedKit1', 1);
+                const sideloadedKit2 = new MockSideloadedKit('SideloadedKit2', 2);
 
-                const mpSideloadedKit1 = new mParticle.MPSideloadedKit(
-                    sideloadedKit1
-                );
-                const mpSideloadedKit2 = new mParticle.MPSideloadedKit(
-                    sideloadedKit2
-                );
+                const mpSideloadedKit1 = new mParticle.MPSideloadedKit(sideloadedKit1);
+                const mpSideloadedKit2 = new mParticle.MPSideloadedKit(sideloadedKit2);
 
                 const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
 
@@ -3971,32 +3210,16 @@ describe('forwarders', function() {
                 });
                 await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
 
-                window.SideloadedKit11.instance.should.have.property(
-                    'onModifyCompleteCalled',
-                    true
-                );
-                window.SideloadedKit22.instance.should.have.property(
-                    'onModifyCompleteCalled',
-                    true
-                );
+                window.SideloadedKit11.instance.should.have.property('onModifyCompleteCalled', true);
+                window.SideloadedKit22.instance.should.have.property('onModifyCompleteCalled', true);
             });
 
             it('should invoke sideloaded modify call', async () => {
-                const sideloadedKit1 = new MockSideloadedKit(
-                    'SideloadedKit1',
-                    1
-                );
-                const sideloadedKit2 = new MockSideloadedKit(
-                    'SideloadedKit2',
-                    2
-                );
+                const sideloadedKit1 = new MockSideloadedKit('SideloadedKit1', 1);
+                const sideloadedKit2 = new MockSideloadedKit('SideloadedKit2', 2);
 
-                const mpSideloadedKit1 = new mParticle.MPSideloadedKit(
-                    sideloadedKit1
-                );
-                const mpSideloadedKit2 = new mParticle.MPSideloadedKit(
-                    sideloadedKit2
-                );
+                const mpSideloadedKit1 = new mParticle.MPSideloadedKit(sideloadedKit1);
+                const mpSideloadedKit2 = new mParticle.MPSideloadedKit(sideloadedKit2);
 
                 const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
 
@@ -4007,16 +3230,9 @@ describe('forwarders', function() {
 
                 mParticle.setOptOut(true);
 
-                window.SideloadedKit11.instance.should.have.property(
-                    'setOptOutCalled',
-                    true
-                );
-                window.SideloadedKit22.instance.should.have.property(
-                    'setOptOutCalled',
-                    true
-                );
+                window.SideloadedKit11.instance.should.have.property('setOptOutCalled', true);
+                window.SideloadedKit22.instance.should.have.property('setOptOutCalled', true);
             });
         });
     });
-
 });

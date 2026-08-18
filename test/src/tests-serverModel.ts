@@ -6,11 +6,7 @@ import { IUploadObject } from '../../src/serverModel';
 import { IdentityApiData } from '@mparticle/web-sdk';
 import { BaseEvent, SDKEvent } from '../../src/sdkRuntimeModels';
 import Constants from '../../src/constants';
-import {
-    SDKConsentState,
-    SDKCCPAConsentState,
-    SDKGDPRConsentState,
-} from '../../src/consent';
+import { SDKConsentState, SDKCCPAConsentState, SDKGDPRConsentState } from '../../src/consent';
 import { IMParticleUser, ISDKUserAttributes } from '../../src/identity-user-interfaces';
 import Utils from './config/utils';
 import { appendUserInfo } from '../../src/user-utils';
@@ -40,7 +36,7 @@ describe('ServerModel', () => {
 
     describe('#convertToConsentStateDTO', () => {
         it('should convert Consent State with GDPR to a DTO', () => {
-            const consentState = ({
+            const consentState = {
                 getGDPRConsentState: () => {
                     return {
                         'test-gdpr-purpose': {
@@ -53,7 +49,7 @@ describe('ServerModel', () => {
                     };
                 },
                 getCCPAConsentState: () => {},
-            } as unknown) as SDKConsentState;
+            } as unknown as SDKConsentState;
             const expectedDTO = {
                 gdpr: {
                     'test-gdpr-purpose': {
@@ -66,13 +62,11 @@ describe('ServerModel', () => {
                 },
             };
 
-            expect(ServerModel.convertToConsentStateV2DTO(consentState)).to.eql(
-                expectedDTO
-            );
+            expect(ServerModel.convertToConsentStateV2DTO(consentState)).to.eql(expectedDTO);
         });
 
         it('should convert Consent State with CCPA to a DTO', () => {
-            const consentState = ({
+            const consentState = {
                 getGDPRConsentState: () => {},
                 getCCPAConsentState: () => {
                     return {
@@ -83,7 +77,7 @@ describe('ServerModel', () => {
                         HardwareId: 'test-ccpa-hardware-id',
                     };
                 },
-            } as unknown) as SDKConsentState;
+            } as unknown as SDKConsentState;
             const expectedDTO = {
                 ccpa: {
                     data_sale_opt_out: {
@@ -96,13 +90,11 @@ describe('ServerModel', () => {
                 },
             };
 
-            expect(ServerModel.convertToConsentStateV2DTO(consentState)).to.eql(
-                expectedDTO
-            );
+            expect(ServerModel.convertToConsentStateV2DTO(consentState)).to.eql(expectedDTO);
         });
 
         it('should convert Consent State with both GDPR and CCPA to a DTO', () => {
-            const consentState = ({
+            const consentState = {
                 getGDPRConsentState: () => {
                     return {
                         'test-gdpr-purpose': {
@@ -123,7 +115,7 @@ describe('ServerModel', () => {
                         HardwareId: 'test-ccpa-hardware-id',
                     };
                 },
-            } as unknown) as SDKConsentState;
+            } as unknown as SDKConsentState;
             const expectedDTO = {
                 gdpr: {
                     'test-gdpr-purpose': {
@@ -145,9 +137,7 @@ describe('ServerModel', () => {
                 },
             };
 
-            expect(ServerModel.convertToConsentStateV2DTO(consentState)).to.eql(
-                expectedDTO
-            );
+            expect(ServerModel.convertToConsentStateV2DTO(consentState)).to.eql(expectedDTO);
         });
 
         it('returns null if Consent State is null', () => {
@@ -160,7 +150,8 @@ describe('ServerModel', () => {
             // TODO: Create Event Object is tightly coupled with mp Init and Store
             // This should be refactored to make the function more pure
             fetchMockSuccess(urls.identify, {
-                mpid: testMPID, is_logged_in: false
+                mpid: testMPID,
+                is_logged_in: false,
             });
 
             mParticle.init(apiKey, mParticle.config);
@@ -204,30 +195,19 @@ describe('ServerModel', () => {
                 },
             };
 
-            const actualEventObject = mParticle
-                .getInstance()
-                ._ServerModel.createEventObject(event) as IUploadObject;
+            const actualEventObject = mParticle.getInstance()._ServerModel.createEventObject(event) as IUploadObject;
 
-            expect(actualEventObject.EventName, 'EventName').to.equal(
-                'Test Event'
-            );
-            expect(actualEventObject.EventCategory, 'EventCategory').to.equal(
-                Types.EventType.Navigation
-            );
+            expect(actualEventObject.EventName, 'EventName').to.equal('Test Event');
+            expect(actualEventObject.EventCategory, 'EventCategory').to.equal(Types.EventType.Navigation);
             expect(actualEventObject.EventAttributes, 'EventCategory').to.eql({
                 foo: 'bar',
                 bizz: 'bazz',
             });
-            expect(actualEventObject.EventDataType, 'EventDataType').to.equal(
-                Types.MessageType.PageEvent
-            );
+            expect(actualEventObject.EventDataType, 'EventDataType').to.equal(Types.MessageType.PageEvent);
             expect(actualEventObject.CustomFlags, 'CustomFlags').to.eql({
                 custom: 'flag',
             });
-            expect(
-                actualEventObject.UserAttributeChanges,
-                'UserAttributeChanges'
-            ).to.eql({
+            expect(actualEventObject.UserAttributeChanges, 'UserAttributeChanges').to.eql({
                 UserAttributeName: '$Age',
                 New: '42',
                 Old: '37',
@@ -235,10 +215,7 @@ describe('ServerModel', () => {
                 IsNewAttribute: false,
             });
 
-            expect(
-                actualEventObject.UserIdentityChanges,
-                'UserrIdentityChanges'
-            ).to.eql({
+            expect(actualEventObject.UserIdentityChanges, 'UserrIdentityChanges').to.eql({
                 New: {
                     IdentityType: Types.IdentityType.Other2,
                     Identity: 'new_identity',
@@ -253,48 +230,24 @@ describe('ServerModel', () => {
                 },
             });
             expect(actualEventObject.Store, 'Store').to.eql({});
-            expect(actualEventObject.SDKVersion, 'SDKVersion').to.equal(
-                Constants.sdkVersion
-            );
-            expect(actualEventObject.SessionId, 'SessionId').to.equal(
-                mPStore.sessionId
-            );
-            expect(
-                actualEventObject.SessionStartDate,
-                'SessionStartDate'
-            ).to.equal(mPStore.sessionStartDate.getTime());
+            expect(actualEventObject.SDKVersion, 'SDKVersion').to.equal(Constants.sdkVersion);
+            expect(actualEventObject.SessionId, 'SessionId').to.equal(mPStore.sessionId);
+            expect(actualEventObject.SessionStartDate, 'SessionStartDate').to.equal(mPStore.sessionStartDate.getTime());
             expect(actualEventObject.Debug, 'Debug').to.equal(false);
             expect(actualEventObject.Location, 'Location').to.equal(null);
             expect(actualEventObject.OptOut, 'OptOut').to.equal(null);
-            expect(
-                actualEventObject.ExpandedEventCount,
-                'ExpandedEventCount'
-            ).to.equal(0);
-            expect(actualEventObject.AppVersion, 'AppVersion').to.equal(
-                undefined
-            );
+            expect(actualEventObject.ExpandedEventCount, 'ExpandedEventCount').to.equal(0);
+            expect(actualEventObject.AppVersion, 'AppVersion').to.equal(undefined);
             expect(actualEventObject.AppName, 'AppName').to.equal(undefined);
             expect(actualEventObject.Package, 'Package').to.equal(undefined);
-            expect(
-                actualEventObject.ClientGeneratedId,
-                'ClientGeneratedId'
-            ).to.equal(mPStore.clientId);
-            expect(actualEventObject.DeviceId, 'DeviceId').to.equal(
-                mPStore.deviceId
-            );
-            expect(
-                actualEventObject.IntegrationAttributes,
-                'IntegrationAttributes'
-            ).to.eql({});
+            expect(actualEventObject.ClientGeneratedId, 'ClientGeneratedId').to.equal(mPStore.clientId);
+            expect(actualEventObject.DeviceId, 'DeviceId').to.equal(mPStore.deviceId);
+            expect(actualEventObject.IntegrationAttributes, 'IntegrationAttributes').to.eql({});
 
             // TODO: Should this default to USD?
-            expect(actualEventObject.CurrencyCode, 'CurrencyCode').to.equal(
-                null
-            );
+            expect(actualEventObject.CurrencyCode, 'CurrencyCode').to.equal(null);
             expect(actualEventObject.DataPlan, 'DataPlan').to.eql({});
-            expect(actualEventObject.Timestamp, 'Timestamp').to.equal(
-                mPStore.dateLastEventSent.getTime()
-            );
+            expect(actualEventObject.Timestamp, 'Timestamp').to.equal(mPStore.dateLastEventSent.getTime());
         });
 
         it('should capture window.location.href as PageUrl', () => {
@@ -307,13 +260,9 @@ describe('ServerModel', () => {
                 customFlags: {},
             };
 
-            const actualEventObject = mParticle
-                .getInstance()
-                ._ServerModel.createEventObject(event) as IUploadObject;
+            const actualEventObject = mParticle.getInstance()._ServerModel.createEventObject(event) as IUploadObject;
 
-            expect(actualEventObject.PageUrl, 'PageUrl').to.equal(
-                window.location.href
-            );
+            expect(actualEventObject.PageUrl, 'PageUrl').to.equal(window.location.href);
         });
 
         it('should create an event object with a user', () => {
@@ -352,7 +301,7 @@ describe('ServerModel', () => {
                 },
             };
 
-            const user = ({
+            const user = {
                 getUserIdentities: () => {
                     return {
                         userIdentities: {
@@ -396,7 +345,7 @@ describe('ServerModel', () => {
                         },
                     };
                 },
-            } as unknown) as IMParticleUser;
+            } as unknown as IMParticleUser;
 
             const actualEventObject = mParticle
                 .getInstance()
@@ -437,11 +386,11 @@ describe('ServerModel', () => {
             ]);
         });
 
-        it('should set necessary attributes if MessageType is SessionEnd', async () => {    
+        it('should set necessary attributes if MessageType is SessionEnd', async () => {
             await waitForCondition(hasIdentifyReturned);
 
             const mPStore = mParticle.getInstance()._Store;
-            
+
             mPStore.sessionAttributes = {
                 fooSessionAttr: 'session-foo',
                 barSessionAttr: 'session-bar',
@@ -457,30 +406,20 @@ describe('ServerModel', () => {
                 },
             };
 
-            const actualEventObject = mParticle
-            .getInstance()
-            ._ServerModel.createEventObject(event) as IUploadObject;
+            const actualEventObject = mParticle.getInstance()._ServerModel.createEventObject(event) as IUploadObject;
 
-            expect(
-                actualEventObject.currentSessionMPIDs,
-                'currentSessionMPIDs'
-            ).to.eql(['testMPID']);
+            expect(actualEventObject.currentSessionMPIDs, 'currentSessionMPIDs').to.eql(['testMPID']);
 
             // A SessionEnd event appends SessionLength
             expect(actualEventObject).to.have.property('SessionLength');
 
             // A SessionEnd event should ignore Event Attributes and use Session Attributes instead
-            expect(actualEventObject.EventAttributes, 'EventAttributes').to.eql(
-                { fooSessionAttr: 'session-foo', barSessionAttr: 'session-bar' }
-            );
-            expect(
-                actualEventObject.EventAttributes,
-                'EventAttributes'
-            ).to.not.have.property('fooEventAttr');
-            expect(
-                actualEventObject.EventAttributes,
-                'EventAttributes'
-            ).to.not.have.property('barEventAttr');
+            expect(actualEventObject.EventAttributes, 'EventAttributes').to.eql({
+                fooSessionAttr: 'session-foo',
+                barSessionAttr: 'session-bar',
+            });
+            expect(actualEventObject.EventAttributes, 'EventAttributes').to.not.have.property('fooEventAttr');
+            expect(actualEventObject.EventAttributes, 'EventAttributes').to.not.have.property('barEventAttr');
 
             // A SessionEnd event resets currentSessionMPIDs and sessionStartDate.  When a new session starts, these are filled again
             expect(mPStore.currentSessionMPIDs).to.eql([]);
@@ -556,14 +495,10 @@ describe('ServerModel', () => {
                 eventType: Types.EventType.Other,
             };
 
-            const actualEventObject = mParticle
-                .getInstance()
-                ._ServerModel.createEventObject(event) as IUploadObject;
+            const actualEventObject = mParticle.getInstance()._ServerModel.createEventObject(event) as IUploadObject;
 
             expect(actualEventObject.IsFirstRun, 'IsFirstRun').to.eql(false);
-            expect(actualEventObject.LaunchReferral, 'LaunchRefferral').to.eql(
-                window.location.href
-            );
+            expect(actualEventObject.LaunchReferral, 'LaunchRefferral').to.eql(window.location.href);
         });
 
         it('should generate a sourceMessageId if one is not provided', () => {
@@ -574,14 +509,9 @@ describe('ServerModel', () => {
                 eventType: Types.EventType.Other,
             };
 
-            const actualEventObject = mParticle
-                .getInstance()
-                ._ServerModel.createEventObject(event) as IUploadObject;
+            const actualEventObject = mParticle.getInstance()._ServerModel.createEventObject(event) as IUploadObject;
 
-            expect(
-                actualEventObject.SourceMessageId,
-                'SourceMessageId'
-            ).to.not.equal(null);
+            expect(actualEventObject.SourceMessageId, 'SourceMessageId').to.not.equal(null);
         });
 
         it('returns null if _Store does not have a sessionId', () => {
@@ -593,9 +523,7 @@ describe('ServerModel', () => {
                 messageType: Types.MessageType.PageEvent,
             };
 
-            const actualEventObject = mParticle
-                .getInstance()
-                ._ServerModel.createEventObject(event) as IUploadObject;
+            const actualEventObject = mParticle.getInstance()._ServerModel.createEventObject(event) as IUploadObject;
 
             expect(actualEventObject).to.equal(null);
         });
@@ -611,15 +539,13 @@ describe('ServerModel', () => {
                 messageType: Types.MessageType.PageEvent,
             };
 
-            const actualEventObject = mParticle
-                .getInstance()
-                ._ServerModel.createEventObject(event) as IUploadObject;
+            const actualEventObject = mParticle.getInstance()._ServerModel.createEventObject(event) as IUploadObject;
 
             expect(actualEventObject).to.equal(null);
         });
 
         it('returns null if event is invalid', () => {
-            const event: BaseEvent = ({} as unknown) as BaseEvent;
+            const event: BaseEvent = {} as unknown as BaseEvent;
 
             expect(ServerModel.createEventObject(event)).to.eql(null);
         });
@@ -638,25 +564,17 @@ describe('ServerModel', () => {
                 toEventAPIObject: () => eventAPIObject,
             } as BaseEvent;
 
-            const actualEventObject = mParticle
-                .getInstance()
-                ._ServerModel.createEventObject(event);
+            const actualEventObject = mParticle.getInstance()._ServerModel.createEventObject(event);
 
-            expect(actualEventObject.EventName, 'EventName').to.equal(
-                'Test Event Object Override'
-            );
-            expect(actualEventObject.EventCategory, 'EventCategory').to.equal(
-                Types.EventType.Media
-            );
-            expect(actualEventObject.EventDataType, 'EventDataType').to.equal(
-                Types.MessageType.Media
-            );
+            expect(actualEventObject.EventName, 'EventName').to.equal('Test Event Object Override');
+            expect(actualEventObject.EventCategory, 'EventCategory').to.equal(Types.EventType.Media);
+            expect(actualEventObject.EventDataType, 'EventDataType').to.equal(Types.MessageType.Media);
         });
     });
 
     describe('#convertEventToDTO', () => {
         it('should convert an event to a DTO', () => {
-            const uploadObject = ({
+            const uploadObject = {
                 EventName: 'test-name',
                 EventCategory: Types.EventType.Navigation,
                 EventAttributes: {},
@@ -682,30 +600,22 @@ describe('ServerModel', () => {
                 MPID: 'test-mpid',
                 ExpandedEventCount: 0,
                 currentSessionMPIDs: ['test-mpids'],
-            } as unknown) as IUploadObject;
+            } as unknown as IUploadObject;
 
             const actualDTO = ServerModel.convertEventToV2DTO(uploadObject);
 
             expect(actualDTO.n, 'event.EventName (n)').to.equal('test-name');
-            expect(actualDTO.et, 'event.EventType (et)').to.equal(
-                Types.EventType.Navigation
-            );
+            expect(actualDTO.et, 'event.EventType (et)').to.equal(Types.EventType.Navigation);
             expect(actualDTO.ua, 'event.UserAttributes (ua)').to.eql({});
             expect(actualDTO.ui, 'event.UserIdentities (ui)').to.eql([]);
             expect(actualDTO.ia, 'event.IntegrationAttributes (ia)').to.eql([]);
             expect(actualDTO.str, 'event.Store (str)').to.eql({});
             expect(actualDTO.attrs, 'event.EventAttributes (attrs)').to.eql({});
             expect(actualDTO.sdk, 'event.SDKVersion (sdk)').to.equal('1.2.3');
-            expect(actualDTO.sid, 'event.SessionId (sid)').to.equal(
-                'test-session-id'
-            );
+            expect(actualDTO.sid, 'event.SessionId (sid)').to.equal('test-session-id');
             expect(actualDTO.sl, 'event.SessionLength (sl)').to.equal(33000);
-            expect(actualDTO.ssd, 'event.SessionStartDate (ssd)').to.equal(
-                11111
-            );
-            expect(actualDTO.dt, 'event.EventDataType (dt)').to.equal(
-                Types.MessageType.PageEvent
-            );
+            expect(actualDTO.ssd, 'event.SessionStartDate (ssd)').to.equal(11111);
+            expect(actualDTO.dt, 'event.EventDataType (dt)').to.equal(Types.MessageType.PageEvent);
             expect(actualDTO.dbg, 'event.Debug (dbg)').to.equal(true);
             expect(actualDTO.ct, 'event.TimeStamp (ct)').to.equal(22222);
             expect(actualDTO.lc, 'event.Location (lc)').to.eql({
@@ -714,20 +624,11 @@ describe('ServerModel', () => {
             });
             expect(actualDTO.o, 'event.OptOut (o)').to.equal(false);
             expect(actualDTO.eec, 'event.ExpandedEventCount (eec)').to.equal(0);
-            expect(actualDTO.av, 'event.AppVersion (av)').to.equal(
-                'test-app.1235'
-            );
-            expect(actualDTO.cgid, 'event.ClientGeneratedId (cgid)').to.equal(
-                'test-client-id'
-            );
-            expect(actualDTO.das, 'event.DeviceId (das)').to.equal(
-                'test-device'
-            );
+            expect(actualDTO.av, 'event.AppVersion (av)').to.equal('test-app.1235');
+            expect(actualDTO.cgid, 'event.ClientGeneratedId (cgid)').to.equal('test-client-id');
+            expect(actualDTO.das, 'event.DeviceId (das)').to.equal('test-device');
             expect(actualDTO.mpid, 'event.MPID (mpid)').to.equal('test-mpid');
-            expect(
-                actualDTO.smpids,
-                'event.currentSessionMPIDs (smpids)'
-            ).to.eql(['test-mpids']);
+            expect(actualDTO.smpids, 'event.currentSessionMPIDs (smpids)').to.eql(['test-mpids']);
         });
 
         it('should add data plan id and version to DTO', () => {
@@ -740,13 +641,8 @@ describe('ServerModel', () => {
 
             const actualDTO = ServerModel.convertEventToV2DTO(uploadObject);
 
-            expect(actualDTO.dp_id, 'event.DataPlan.PlanId (dp_id)').to.equal(
-                'test-data-plan'
-            );
-            expect(
-                actualDTO.dp_v,
-                'event.DataPlan.PlanVersion (dp_v)'
-            ).to.equal(3);
+            expect(actualDTO.dp_id, 'event.DataPlan.PlanId (dp_id)').to.equal('test-data-plan');
+            expect(actualDTO.dp_v, 'event.DataPlan.PlanVersion (dp_v)').to.equal(3);
         });
 
         it('should add consent state to DTO', () => {
@@ -800,42 +696,37 @@ describe('ServerModel', () => {
         });
 
         it('should add AST data to DTO', () => {
-            const uploadObject = ({
+            const uploadObject = {
                 EventDataType: Types.MessageType.AppStateTransition,
                 IsFirstRun: true,
                 LaunchReferral: 'https://mparticle.com/test-referral',
                 EventAttributes: {
                     foo: 'bar', // TODO: test will nullify these
                 },
-            } as unknown) as IUploadObject;
+            } as unknown as IUploadObject;
 
             const actualDTO = ServerModel.convertEventToV2DTO(uploadObject);
 
             expect(actualDTO.fr, 'event.IsFirstRun (fr)').to.equal(true);
 
             expect(actualDTO.iu, 'event.isUpgrade').to.equal(false);
-            expect(
-                actualDTO.at,
-                'event.ApplicationTransitionType.AppInit (at)'
-            ).to.equal(Types.ApplicationTransitionType.AppInit);
-            expect(actualDTO.lr, 'event.LaunchReferral (lr)').to.equal(
-                'https://mparticle.com/test-referral'
+            expect(actualDTO.at, 'event.ApplicationTransitionType.AppInit (at)').to.equal(
+                Types.ApplicationTransitionType.AppInit
             );
+            expect(actualDTO.lr, 'event.LaunchReferral (lr)').to.equal('https://mparticle.com/test-referral');
 
-            expect(actualDTO.attrs, 'event.EventAttributes (attrs)').to.eql(
-                null
-            );
+            expect(actualDTO.attrs, 'event.EventAttributes (attrs)').to.eql(null);
         });
 
         it('should add custom flags to DTO', () => {
-            const uploadObject = ({
+            const uploadObject = {
                 CustomFlags: {
                     foo: 'bar',
                     fizz: ['bizz', 'buzz', 37, true],
                     answer: 42,
                     isCustom: false,
                 },
-            } as unknown) as IUploadObject;
+            } as unknown as IUploadObject;
 
             const expectedFlags = {
                 foo: ['bar'],
@@ -850,7 +741,7 @@ describe('ServerModel', () => {
         });
 
         it('should add shopping cart to DTO', () => {
-            const uploadObject = ({
+            const uploadObject = {
                 CurrencyCode: 'USD',
                 EventDataType: Types.MessageType.Commerce,
                 ShoppingCart: {
@@ -888,7 +779,7 @@ describe('ServerModel', () => {
                         },
                     ],
                 },
-            } as unknown) as IUploadObject;
+            } as unknown as IUploadObject;
 
             const expectedShoppingCart = {
                 pl: [
@@ -932,11 +823,11 @@ describe('ServerModel', () => {
         });
 
         it('should add empty array to DTO if shopping cart is empty', () => {
-            const uploadObject = ({
+            const uploadObject = {
                 CurrencyCode: 'USD',
                 EventDataType: Types.MessageType.Commerce,
                 ShoppingCart: {},
-            } as unknown) as IUploadObject;
+            } as unknown as IUploadObject;
 
             const expectedShoppingCart = {
                 pl: [],
@@ -948,7 +839,7 @@ describe('ServerModel', () => {
         });
 
         it('should add product action to DTO', () => {
-            const uploadObject = ({
+            const uploadObject = {
                 CurrencyCode: 'USD',
                 EventDataType: Types.MessageType.Commerce,
                 ProductAction: {
@@ -998,7 +889,7 @@ describe('ServerModel', () => {
                         },
                     ],
                 },
-            } as unknown) as IUploadObject;
+            } as unknown as IUploadObject;
 
             const expectedProducts = [
                 {
@@ -1036,13 +927,9 @@ describe('ServerModel', () => {
             const actualDTO = ServerModel.convertEventToV2DTO(uploadObject);
 
             expect(actualDTO.cu).to.equal('USD');
-            expect(actualDTO.pd.an, 'ActionName').to.equal(
-                Types.ProductActionType.AddToCart
-            );
+            expect(actualDTO.pd.an, 'ActionName').to.equal(Types.ProductActionType.AddToCart);
             expect(actualDTO.pd.cs, 'CheckoutStep').to.equal(42);
-            expect(actualDTO.pd.co, 'CheckoutOptions').to.equal(
-                'test-checkout-option'
-            );
+            expect(actualDTO.pd.co, 'CheckoutOptions').to.equal('test-checkout-option');
             expect(actualDTO.pd.ti, 'TransactionId').to.equal('id');
             expect(actualDTO.pd.ta, 'Affiliation').to.equal('affiliation');
             expect(actualDTO.pd.tcc, 'CouponCode').to.equal('couponCode');
@@ -1053,12 +940,11 @@ describe('ServerModel', () => {
         });
 
         it('should add promotion action to DTO', () => {
-            const uploadObject = ({
+            const uploadObject = {
                 CurrencyCode: 'USD',
                 EventDataType: Types.MessageType.Commerce,
                 PromotionAction: {
-                    PromotionActionType:
-                        Types.PromotionActionType.PromotionView,
+                    PromotionActionType: Types.PromotionActionType.PromotionView,
                     PromotionList: [
                         {
                             Id: '12345',
@@ -1074,7 +960,7 @@ describe('ServerModel', () => {
                         },
                     ],
                 },
-            } as unknown) as IUploadObject;
+            } as unknown as IUploadObject;
 
             const expectedPromotion = [
                 {
@@ -1093,14 +979,12 @@ describe('ServerModel', () => {
             const actualDTO = ServerModel.convertEventToV2DTO(uploadObject);
 
             expect(actualDTO.cu).to.equal('USD');
-            expect(actualDTO.pm.an, 'ActionName').to.equal(
-                Types.PromotionActionType.PromotionView
-            );
+            expect(actualDTO.pm.an, 'ActionName').to.equal(Types.PromotionActionType.PromotionView);
             expect(actualDTO.pm.pl, 'ProductList').to.eql(expectedPromotion);
         });
 
         it('should add product impression to DTO', () => {
-            const uploadObject = ({
+            const uploadObject = {
                 CurrencyCode: 'USD',
                 EventDataType: Types.MessageType.Commerce,
                 ProductImpressions: [
@@ -1141,7 +1025,7 @@ describe('ServerModel', () => {
                         ],
                     },
                 ],
-            } as unknown) as IUploadObject;
+            } as unknown as IUploadObject;
 
             const expectedProducts = [
                 {
@@ -1179,17 +1063,15 @@ describe('ServerModel', () => {
             const actualDTO = ServerModel.convertEventToV2DTO(uploadObject);
 
             expect(actualDTO.cu).to.equal('USD');
-            expect(actualDTO.pi[0].pil, 'ProductImpressionList').to.equal(
-                'test-product-impression'
-            );
+            expect(actualDTO.pi[0].pil, 'ProductImpressionList').to.equal('test-product-impression');
             expect(actualDTO.pi[0].pl, 'ProductList').to.eql(expectedProducts);
         });
 
         it('should add profile to DTO', () => {
-            const uploadObject = ({
+            const uploadObject = {
                 EventDataType: Types.MessageType.Profile,
                 ProfileMessageType: Types.ProfileMessageType.Logout,
-            } as unknown) as IUploadObject;
+            } as unknown as IUploadObject;
 
             const actualDTO = ServerModel.convertEventToV2DTO(uploadObject);
 
@@ -1197,7 +1079,7 @@ describe('ServerModel', () => {
         });
     });
 
-    describe('Integration Tests', function() {
+    describe('Integration Tests', function () {
         const event = {
             messageType: Types.MessageType.PageEvent,
             name: 'foo page',
@@ -1206,22 +1088,19 @@ describe('ServerModel', () => {
             customFlags: { 'foo-flag': 'foo-flag-val' },
         };
 
-        beforeEach(function() {
+        beforeEach(function () {
             fetchMockSuccess(urls.identify, {
-                mpid: testMPID, is_logged_in: false
+                mpid: testMPID,
+                is_logged_in: false,
             });
 
             mParticle.init(apiKey, mParticle.config);
         });
 
         it('Should not convert data plan object to server DTO when no id or version is set', () => {
-            let sdkEvent = window.mParticle
-                .getInstance()
-                ._ServerModel.createEventObject(event);
+            const sdkEvent = window.mParticle.getInstance()._ServerModel.createEventObject(event);
 
-            let upload = window.mParticle
-                .getInstance()
-                ._ServerModel.convertEventToV2DTO(sdkEvent as IUploadObject);
+            const upload = window.mParticle.getInstance()._ServerModel.convertEventToV2DTO(sdkEvent as IUploadObject);
 
             upload.should.not.have.property('dp_id');
             upload.should.not.have.property('dp_v');
@@ -1233,12 +1112,8 @@ describe('ServerModel', () => {
             };
 
             mParticle.init('foo', mParticle.config);
-            let sdkEvent = mParticle
-                .getInstance()
-                ._ServerModel.createEventObject(event);
-            let upload = mParticle
-                .getInstance()
-                ._ServerModel.convertEventToV2DTO(sdkEvent as IUploadObject);
+            const sdkEvent = mParticle.getInstance()._ServerModel.createEventObject(event);
+            const upload = mParticle.getInstance()._ServerModel.convertEventToV2DTO(sdkEvent as IUploadObject);
 
             upload.should.have.property('dp_id', 'plan_slug');
             upload.should.not.have.property('dp_v');
@@ -1250,12 +1125,8 @@ describe('ServerModel', () => {
             };
 
             mParticle.init('foo', mParticle.config);
-            let sdkEvent = mParticle
-                .getInstance()
-                ._ServerModel.createEventObject(event);
-            let upload = mParticle
-                .getInstance()
-                ._ServerModel.convertEventToV2DTO(sdkEvent as IUploadObject);
+            const sdkEvent = mParticle.getInstance()._ServerModel.createEventObject(event);
+            const upload = mParticle.getInstance()._ServerModel.convertEventToV2DTO(sdkEvent as IUploadObject);
 
             upload.should.not.have.property('dp_id');
             upload.should.not.have.property('dp_v');
@@ -1268,42 +1139,28 @@ describe('ServerModel', () => {
             };
 
             mParticle.init('foo', mParticle.config);
-            let sdkEvent = mParticle
-                .getInstance()
-                ._ServerModel.createEventObject(event);
-            let upload = mParticle
-                .getInstance()
-                ._ServerModel.convertEventToV2DTO(sdkEvent as IUploadObject);
+            const sdkEvent = mParticle.getInstance()._ServerModel.createEventObject(event);
+            const upload = mParticle.getInstance()._ServerModel.convertEventToV2DTO(sdkEvent as IUploadObject);
 
             upload.should.have.property('dp_id', 'plan_slug');
             upload.should.have.property('dp_v', 10);
         });
 
         it('Should convert complete consent object', () => {
-            const consentState = mParticle
-                .getInstance()
-                ._Consent.createConsentState();
+            const consentState = mParticle.getInstance()._Consent.createConsentState();
 
             consentState.addGDPRConsentState(
                 'foo',
                 mParticle
                     .getInstance()
-                    ._Consent.createPrivacyConsent(
-                        true,
-                        10,
-                        'foo document',
-                        'foo location',
-                        'foo hardware id'
-                    )
+                    ._Consent.createPrivacyConsent(true, 10, 'foo document', 'foo location', 'foo hardware id')
             );
 
             // TODO: Resolve differences between SDKConsentState and ConsentState
             // TODO: verify this tests passes
             const consent = mParticle
                 .getInstance()
-                ._ServerModel.convertToConsentStateV2DTO(
-                    (consentState as unknown) as SDKConsentState
-                );
+                ._ServerModel.convertToConsentStateV2DTO(consentState as unknown as SDKConsentState);
 
             expect(consent).to.be.ok;
 
@@ -1320,9 +1177,7 @@ describe('ServerModel', () => {
             await waitForCondition(hasIdentifyReturned);
             mParticle.getInstance()._Store.should.be.ok;
 
-            let sdkEvent = mParticle
-            .getInstance()
-            ._ServerModel.createEventObject(event);
+            const sdkEvent = mParticle.getInstance()._ServerModel.createEventObject(event);
 
             sdkEvent.should.be.ok;
             expect(sdkEvent.UserIdentities).to.eql([]);
@@ -1332,20 +1187,12 @@ describe('ServerModel', () => {
 
         it('Should append all user info when user is present', () => {
             mParticle.getInstance()._Store.should.be.ok;
-            const consentState = mParticle
-                .getInstance()
-                ._Consent.createConsentState();
+            const consentState = mParticle.getInstance()._Consent.createConsentState();
             consentState.addGDPRConsentState(
                 'foo',
                 mParticle
                     .getInstance()
-                    ._Consent.createPrivacyConsent(
-                        true,
-                        10,
-                        'foo document',
-                        'foo location',
-                        'foo hardware id'
-                    )
+                    ._Consent.createPrivacyConsent(true, 10, 'foo document', 'foo location', 'foo hardware id')
             );
 
             const expectedUserIdentities = [
@@ -1390,9 +1237,7 @@ describe('ServerModel', () => {
                     },
                 } as IMParticleUser;
             };
-            let sdkEvent = mParticle
-                .getInstance()
-                ._ServerModel.createEventObject(event);
+            const sdkEvent = mParticle.getInstance()._ServerModel.createEventObject(event);
 
             expect(sdkEvent).to.be.ok;
             expect(sdkEvent.UserIdentities).to.eql(expectedUserIdentities);
@@ -1403,14 +1248,12 @@ describe('ServerModel', () => {
 
         it('Should append identities when user is present', async () => {
             await waitForCondition(hasIdentifyReturned);
-            let sdkEvent = mParticle
-            .getInstance()
-            ._ServerModel.createEventObject(event);
+            const sdkEvent = mParticle.getInstance()._ServerModel.createEventObject(event);
 
             sdkEvent.should.be.ok;
             expect(sdkEvent.UserIdentities).to.eql([]);
 
-            const user: IMParticleUser = ({
+            const user: IMParticleUser = {
                 getUserIdentities: () => {
                     return {
                         userIdentities: {
@@ -1433,7 +1276,7 @@ describe('ServerModel', () => {
                 getConsentState: () => {
                     return null;
                 },
-            } as unknown) as IMParticleUser;
+            } as unknown as IMParticleUser;
 
             const identityMapping = {};
             identityMapping[Types.IdentityType.CustomerId] = '1234567';
@@ -1447,7 +1290,7 @@ describe('ServerModel', () => {
             sdkEvent.UserIdentities.should.be.ok;
             sdkEvent.UserIdentities.length.should.equal(6);
 
-            sdkEvent.UserIdentities.forEach(function(id) {
+            sdkEvent.UserIdentities.forEach(function (id) {
                 const type = id.Type;
                 const value = id.Identity;
                 identityMapping[type].should.equal(value);
@@ -1456,9 +1299,7 @@ describe('ServerModel', () => {
 
         it('Should append user attributes when user present', async () => {
             await waitForCondition(hasIdentifyReturned);
-            let sdkEvent = mParticle
-            .getInstance()
-            ._ServerModel.createEventObject(event);
+            const sdkEvent = mParticle.getInstance()._ServerModel.createEventObject(event);
 
             sdkEvent.should.be.ok;
             expect(sdkEvent.UserAttributes).to.eql({});
@@ -1485,9 +1326,7 @@ describe('ServerModel', () => {
 
         it('Should update mpid when user info is appended with a new mpid', async () => {
             await waitForCondition(hasIdentifyReturned);
-            let sdkEvent = mParticle
-                .getInstance()
-                ._ServerModel.createEventObject(event);
+            const sdkEvent = mParticle.getInstance()._ServerModel.createEventObject(event);
 
             sdkEvent.should.be.ok;
 
@@ -1496,9 +1335,9 @@ describe('ServerModel', () => {
 
             const user: IMParticleUser = {
                 getUserIdentities: () => {
-                    return ({
+                    return {
                         userIdentites: {},
-                    } as unknown) as IdentityApiData;
+                    } as unknown as IdentityApiData;
                 },
                 getAllUserAttributes: () => {
                     return null;
@@ -1515,7 +1354,7 @@ describe('ServerModel', () => {
         });
 
         it('convertEventToDTO should contain launch referral', () => {
-            const event = ({
+            const event = {
                 EventName: 10,
                 EventAttributes: null,
                 SourceMessageId: '7efa0811-c716-4a1d-b8bf-dae90242849c',
@@ -1541,11 +1380,9 @@ describe('ServerModel', () => {
                 IntegrationAttributes: {},
                 DataPlan: {},
                 Timestamp: 1630528218899,
-            } as unknown) as IUploadObject;
+            } as unknown as IUploadObject;
 
-            const upload = mParticle
-                .getInstance()
-                ._ServerModel.convertEventToV2DTO(event);
+            const upload = mParticle.getInstance()._ServerModel.convertEventToV2DTO(event);
 
             expect(upload.lr).to.equal('http://foo.bar/this/is/a/test');
         });

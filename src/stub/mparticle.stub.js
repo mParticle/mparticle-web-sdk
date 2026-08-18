@@ -73,7 +73,7 @@ function returnThis() {
 }
 function returnUser() {
     return {
-        getUserIdentities: function() {
+        getUserIdentities: function () {
             return {
                 userIdentities: {},
             };
@@ -103,7 +103,7 @@ function Cart() {
         add: voidFunction,
         clear: voidFunction,
         remove: voidFunction,
-        getCartProducts: function() {
+        getCartProducts: function () {
             return [returnProduct()];
         },
     };

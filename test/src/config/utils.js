@@ -17,17 +17,14 @@ var pluses = /\+/g,
     decoded = function decoded(s) {
         return decodeURIComponent(s.replace(pluses, ' '));
     },
-    converted = function(s) {
+    converted = function (s) {
         if (s.indexOf('"') === 0) {
-            s = s
-                .slice(1, -1)
-                .replace(/\\"/g, '"')
-                .replace(/\\\\/g, '\\');
+            s = s.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
         }
 
         return s;
     },
-    getCookieDomain = function() {
+    getCookieDomain = function () {
         var rootDomain = getDomain(document, location.hostname);
         if (rootDomain === '') {
             return '';
@@ -35,7 +32,7 @@ var pluses = /\+/g,
             return '.' + rootDomain;
         }
     },
-    getDomain = function(doc, locationHostname) {
+    getDomain = function (doc, locationHostname) {
         var i,
             testParts,
             mpTest = 'mptest=cookie',
@@ -45,25 +42,18 @@ var pluses = /\+/g,
             doc.cookie = mpTest + ';domain=.' + testParts + ';';
             if (doc.cookie.indexOf(mpTest) > -1) {
                 doc.cookie =
-                    mpTest.split('=')[0] +
-                    '=;domain=.' +
-                    testParts +
-                    ';expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+                    mpTest.split('=')[0] + '=;domain=.' + testParts + ';expires=Thu, 01 Jan 1970 00:00:01 GMT;';
                 return testParts;
             }
         }
         return '';
     },
-    findCookie = function(cookieName) {
+    findCookie = function (cookieName) {
         var cookie;
         if (cookieName === v4CookieKey || !cookieName) {
             cookie = mParticle.getInstance()._Persistence.getCookie();
         } else if (cookieName === v3CookieKey) {
-            cookie = JSON.parse(
-                Utils.replacePipesWithCommas(
-                        findEncodedCookie(cookieName)
-                    )
-            );
+            cookie = JSON.parse(Utils.replacePipesWithCommas(findEncodedCookie(cookieName)));
         } else {
             cookie = JSON.parse(findEncodedCookie(cookieName));
         }
@@ -73,7 +63,7 @@ var pluses = /\+/g,
             return null;
         }
     },
-    findEncodedCookie = function(cookieName) {
+    findEncodedCookie = function (cookieName) {
         var cookies = document.cookie.split('; ');
         for (var i = 0, l = cookies.length; i < l; i++) {
             var parts = cookies[i].split('=');
@@ -84,11 +74,9 @@ var pluses = /\+/g,
             }
         }
     },
-    setCookie = function(cname, data, raw) {
+    setCookie = function (cname, data, raw) {
         var date = new Date(),
-            expires = new Date(
-                date.getTime() + 365 * 24 * 60 * 60 * 1000
-            ).toGMTString(),
+            expires = new Date(date.getTime() + 365 * 24 * 60 * 60 * 1000).toGMTString(),
             domain,
             cookieDomain,
             value;
@@ -112,16 +100,9 @@ var pluses = /\+/g,
             domain = ';domain=' + cookieDomain;
         }
 
-        window.document.cookie =
-            encodeURIComponent(cname) +
-            '=' +
-            value +
-            ';expires=' +
-            expires +
-            ';path=/' +
-            domain;
+        window.document.cookie = encodeURIComponent(cname) + '=' + value + ';expires=' + expires + ';path=/' + domain;
     },
-    setLocalStorage = function(name, data, raw) {
+    setLocalStorage = function (name, data, raw) {
         var value;
         //if we just set setLocalStorage(), we put a valid full length LS into localStorage
         if (arguments.length === 0) {
@@ -158,15 +139,15 @@ var pluses = /\+/g,
 
         localStorage.setItem(encodeURIComponent(name), value);
     },
-    getLocalStorage = function(name) {
+    getLocalStorage = function (name) {
         if (name === v4LSKey || !name) {
             return mParticle.getInstance()._Persistence.getLocalStorage();
         }
     },
     // https://go.mparticle.com/work/SQDSDKS-6894
-    findEventFromBatch = function(batch, eventName) {
+    findEventFromBatch = function (batch, eventName) {
         if (batch.events.length) {
-            return batch.events.find(function(event) {
+            return batch.events.find(function (event) {
                 switch (event.event_type) {
                     case 'screen_view':
                         // The SDK sets "PageView" as the default for a screen_name if one is not provided
@@ -174,8 +155,7 @@ var pluses = /\+/g,
                     case 'commerce_event':
                         if (event.data.product_action) {
                             return event.data.product_action.action === eventName;
-                        }
-                        else if (event.data.promotion_action) {
+                        } else if (event.data.promotion_action) {
                             // return the promotion action
                             return true;
                         } else {
@@ -189,35 +169,37 @@ var pluses = /\+/g,
                         return true;
                     default:
                         // all other events are lifecycle events (session start, end, AST)
-                        return event.event_type === eventName
+                        return event.event_type === eventName;
                 }
-            })
+            });
         }
         return null;
     },
-    getForwarderEvent = function(requests, eventName) {
-        var url = `https://jssdks.mparticle.com/v2/JS/${apiKey}/Forwarding`
+    getForwarderEvent = function (requests, eventName) {
+        var url = `https://jssdks.mparticle.com/v2/JS/${apiKey}/Forwarding`;
         var returnedReqs = [];
         if (requests.length) {
-            requests.filter(function(request) {
-                return (request.url === url)
-            }).forEach(function(request) {
-                JSON.parse(request.requestBody).data.forEach(function(internalRequest) {
-                    if (internalRequest.n === eventName) {
-                        returnedReqs.push(internalRequest)
-                    }
+            requests
+                .filter(function (request) {
+                    return request.url === url;
                 })
-            });
+                .forEach(function (request) {
+                    JSON.parse(request.requestBody).data.forEach(function (internalRequest) {
+                        if (internalRequest.n === eventName) {
+                            returnedReqs.push(internalRequest);
+                        }
+                    });
+                });
         }
         if (returnedReqs.length) {
-            return (returnedReqs[0]);
+            return returnedReqs[0];
         } else {
             return null;
         }
     },
-    findRequest = function(requests, eventName) {
+    findRequest = function (requests, eventName) {
         let matchingRequest;
-        requests.forEach(function(request) {
+        requests.forEach(function (request) {
             // Initial implementation of this function was to find the
             // first request that contained a batch that matched the event name
             // which would have been a post request. However, this was not
@@ -238,36 +220,34 @@ var pluses = /\+/g,
                     break;
                 }
             }
-        })
+        });
 
         return matchingRequest;
     },
-    findRequestURL = function(requests, eventName) {
-        return findRequest(requests, eventName)[0]
+    findRequestURL = function (requests, eventName) {
+        return findRequest(requests, eventName)[0];
     },
-    findBatch = function(requests, eventName) {
+    findBatch = function (requests, eventName) {
         var request = findRequest(requests, eventName);
         if (request) {
             return JSON.parse(findRequest(requests, eventName)[1].body);
         } else {
             return null;
         }
-
     },
-    findEventFromRequest= function(requests, eventName) {
+    findEventFromRequest = function (requests, eventName) {
         var batch = findBatch(requests, eventName);
         if (batch) {
             return findEventFromBatch(batch, eventName);
         } else {
             return null;
         }
-
     },
-    getIdentityRequests = function(requests, path) {
+    getIdentityRequests = function (requests, path) {
         var returnedRequests = [],
             fullPath = 'https://identity.mparticle.com/v1/' + path;
         if (path !== 'modify') {
-            requests.forEach(function(item) {
+            requests.forEach(function (item) {
                 if (!item.url && item[0] === fullPath) {
                     returnedRequests.push(item);
                 }
@@ -276,7 +256,7 @@ var pluses = /\+/g,
                 }
             });
         } else {
-            requests.forEach(function(item) {
+            requests.forEach(function (item) {
                 let url;
                 if (!item.url) {
                     url = item[0];
@@ -290,18 +270,14 @@ var pluses = /\+/g,
         }
         return returnedRequests;
     },
-    getIdentityEvent = function(mockRequests, endpoint) {
+    getIdentityEvent = function (mockRequests, endpoint) {
         var returnedReqs = getIdentityRequests(mockRequests, endpoint);
         if (returnedReqs[0] && returnedReqs[0][1].body) {
             return JSON.parse(returnedReqs[0][1].body);
         }
         return null;
     },
-    forwarderDefaultConfiguration = function(
-        forwarderName,
-        forwarderId,
-        suffix,
-    ) {
+    forwarderDefaultConfiguration = function (forwarderName, forwarderId, suffix) {
         var config = {
             name: forwarderName || 'MockForwarder',
             suffix: suffix || null,
@@ -331,8 +307,8 @@ var pluses = /\+/g,
 
         return config;
     },
-    MockForwarder = function(forwarderName, forwarderId, suffix) {
-        var constructor = function() {
+    MockForwarder = function (forwarderName, forwarderId, suffix) {
+        var constructor = function () {
             var self = this;
             this.id = forwarderId || 1;
             this.initCalled = false;
@@ -354,11 +330,11 @@ var pluses = /\+/g,
             this.appVersion = null;
             this.appName = null;
 
-            this.logOut = function() {
+            this.logOut = function () {
                 this.logOutCalled = true;
             };
 
-            this.init = function(
+            this.init = function (
                 settings,
                 reportingService,
                 testMode,
@@ -383,7 +359,7 @@ var pluses = /\+/g,
             };
 
             this.receivedEvents = [];
-            this.process = function(event) {
+            this.process = function (event) {
                 self.processCalled = true;
                 this.receivedEvent = event;
                 this.receivedEvents.push(event);
@@ -391,7 +367,7 @@ var pluses = /\+/g,
                 self.logger.verbose(event.EventName + ' sent');
             };
 
-            this.setUserIdentity = function(a, b) {
+            this.setUserIdentity = function (a, b) {
                 this.userIdentities = {};
                 this.userIdentities[b] = a;
                 self.setUserIdentityCalled = true;
@@ -401,64 +377,52 @@ var pluses = /\+/g,
                 PriorityValue: 1,
             };
 
-            this.setOptOut = function() {
+            this.setOptOut = function () {
                 this.setOptOutCalled = true;
             };
 
-            this.onUserIdentified = function(user) {
+            this.onUserIdentified = function (user) {
                 this.onUserIdentifiedCalled = true;
                 this.onUserIdentifiedUser = user;
             };
 
-            this.onIdentifyComplete = function(
-                filteredUser,
-                filteredUserIdentities
-            ) {
+            this.onIdentifyComplete = function (filteredUser, filteredUserIdentities) {
                 this.onIdentifyCompleteCalled = true;
                 this.onIdentifyCompleteUser = filteredUser;
                 this.onIdentifyCompleteFilteredUserIdentities = filteredUserIdentities;
             };
 
-            this.onLoginComplete = function(
-                filteredUser,
-                filteredUserIdentities
-            ) {
+            this.onLoginComplete = function (filteredUser, filteredUserIdentities) {
                 this.onLoginCompleteCalled = true;
                 this.onLoginCompleteUser = filteredUser;
                 this.onLoginCompleteFilteredUserIdentities = filteredUserIdentities;
             };
 
-            this.onLogoutComplete = function(
-                filteredUser,
-                filteredUserIdentities
-            ) {
+            this.onLogoutComplete = function (filteredUser, filteredUserIdentities) {
                 this.onLogoutCompleteCalled = true;
                 this.onLogoutCompleteUser = filteredUser;
                 this.onLogoutCompleteFilteredUserIdentities = filteredUserIdentities;
             };
 
-            this.onModifyComplete = function(
-                filteredUser,
-                filteredUserIdentities
-            ) {
+            this.onModifyComplete = function (filteredUser, filteredUserIdentities) {
                 this.onModifyCompleteCalled = true;
                 this.onModifyCompleteUser = filteredUser;
                 this.onModifyCompleteFilteredUserIdentities = filteredUserIdentities;
             };
 
-            this.setUserAttribute = function(key, value) {
+            this.setUserAttribute = function (key, value) {
                 this.setUserAttributeCalled = true;
                 this.userAttributes[key] = value;
             };
 
-            this.removeUserAttribute = function(key) {
+            this.removeUserAttribute = function (key) {
                 this.removeUserAttributeCalled = true;
-                delete this.userAttributes[key]
+                delete this.userAttributes[key];
             };
 
             this.setSessionAttributeCalled = false;
             this.sessionAttrData = [];
-            this.setSessionAttribute = function(args) {
+            this.setSessionAttribute = function (args) {
                 this.setSessionAttributeCalled = true;
                 this.sessionAttrData.push(Array.isArray(args) ? args : [args]);
             };
@@ -490,11 +454,11 @@ var pluses = /\+/g,
             getId: getId,
             constructor: constructor,
             name: this.name,
-            suffix: this.suffix
+            suffix: this.suffix,
         };
     },
     MockSideloadedKit = MockForwarder,
-    mParticleAndroid = function() {
+    mParticleAndroid = function () {
         var self = this;
 
         this.addedToCartItem = null;
@@ -514,99 +478,95 @@ var pluses = /\+/g,
         this.aliasUsers = null;
         this.uploadCalled = false;
 
-        this.resetSessionAttrData = function() {
+        this.resetSessionAttrData = function () {
             self.sessionAttrData = [];
         };
 
-        this.login = function(data) {
+        this.login = function (data) {
             self.loginData = data;
         };
-        this.logout = function(data) {
+        this.logout = function (data) {
             self.logoutData = data;
         };
-        this.modify = function(data) {
+        this.modify = function (data) {
             self.modifyData = data;
         };
-        this.identify = function(data) {
+        this.identify = function (data) {
             self.modifyData = data;
         };
 
-        this.logEvent = function(event) {
+        this.logEvent = function (event) {
             self.logEventCalled = true;
             self.event = event;
         };
 
-        this.setUserIdentity = function() {
+        this.setUserIdentity = function () {
             self.setUserIdentityCalled = true;
         };
 
-        this.removeUserIdentity = function() {
+        this.removeUserIdentity = function () {
             self.removeUserIdentityCalled = true;
         };
-        this.setUserTag = function() {
+        this.setUserTag = function () {
             self.setUserTagCalled = true;
         };
-        this.removeUserTag = function() {
+        this.removeUserTag = function () {
             self.removeUserTagCalled = true;
         };
-        this.resetUserAttributes = function() {
+        this.resetUserAttributes = function () {
             self.userAttrData = [];
         };
-        this.setUserAttribute = function(data) {
+        this.setUserAttribute = function (data) {
             self.setUserAttributeCalled = true;
             self.userAttrData.push(data);
         };
-        this.removeUserAttribute = function() {
+        this.removeUserAttribute = function () {
             self.removeUserAttributeCalled = true;
         };
-        this.setSessionAttribute = function(data) {
+        this.setSessionAttribute = function (data) {
             self.setSessionAttributeCalled = true;
             self.sessionAttrData.push(data);
         };
-        this.addToCart = function(item) {
+        this.addToCart = function (item) {
             self.addToCartCalled = true;
             self.addedToCartItem = item;
         };
-        this.removeFromCart = function(item) {
+        this.removeFromCart = function (item) {
             self.removeFromCartCalled = true;
             self.removedFromCartItem = item;
         };
-        this.clearCart = function() {
+        this.clearCart = function () {
             self.addedToCartItem = null;
             self.clearCartCalled = true;
         };
-        this.aliasUsers = function(item) {
+        this.aliasUsers = function (item) {
             self.aliasUsers = item;
         };
-        this.upload = function() {
+        this.upload = function () {
             self.uploadCalled = true;
         };
     },
-    mParticleIOS = function() {
+    mParticleIOS = function () {
         var self = this;
         this.data = [];
-        this.postMessage = function(data) {
+        this.postMessage = function (data) {
             self.data.push(data);
         };
-        this.reset = function() {
+        this.reset = function () {
             self.data = [];
         };
     },
-    deleteAllCookies = function() {
-        var cookies = document.cookie.split(";");
+    deleteAllCookies = function () {
+        var cookies = document.cookie.split(';');
 
         for (var i = 0; i < cookies.length; i++) {
             var cookie = cookies[i];
-            var eqPos = cookie.indexOf("=");
+            var eqPos = cookie.indexOf('=');
             var name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
-            document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT";
+            document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT';
         }
     },
-    waitForCondition = function async(
-        conditionFn,
-        timeout = 200,
-        interval = 10
-    ) {
+    waitForCondition = function async(conditionFn, timeout = 200, interval = 10) {
         return new Promise((resolve, reject) => {
             const startTime = Date.now();
 
@@ -647,35 +607,34 @@ var pluses = /\+/g,
         return loggerSpy;
     },
     hasIdentityResponseParsed = (loggerSpy) => {
-        return () => loggerSpy?.verbose?.getCalls()?.some(call => 
-            call.args[0] === 'Successfully parsed Identity Response'
-        );
+        return () =>
+            loggerSpy?.verbose?.getCalls()?.some((call) => call.args[0] === 'Successfully parsed Identity Response');
     },
-    getBeaconBatch = async function(beaconSpy, callIndex = 0) {
+    getBeaconBatch = async function (beaconSpy, callIndex = 0) {
         const beaconCall = beaconSpy.getCall(callIndex);
         expect(beaconCall, 'Expected beacon call to exist').to.exist;
-        
+
         const blob = beaconCall.args[1];
         expect(blob).to.be.instanceof(Blob);
-        
+
         const reader = new FileReader();
         const blobContent = await new Promise((resolve) => {
             reader.onload = () => resolve(reader.result);
             reader.readAsText(blob);
         });
-        
+
         return JSON.parse(blobContent);
     },
-    setupFakeTimers = function(now) {
+    setupFakeTimers = function (now) {
         return sinon.useFakeTimers({
             now: now || Date.now(),
-            shouldAdvanceTime: true
+            shouldAdvanceTime: true,
         });
     },
-    triggerVisibilityHidden = function() {
+    triggerVisibilityHidden = function () {
         Object.defineProperty(document, 'visibilityState', {
             configurable: true,
-            get: () => 'hidden'
+            get: () => 'hidden',
         });
         document.dispatchEvent(new Event('visibilitychange'));
     };

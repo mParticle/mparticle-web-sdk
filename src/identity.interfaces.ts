@@ -62,11 +62,8 @@ export interface IIdentityAPIRequestData {
 }
 
 export interface IIdentityAPIModifyRequestData
-    extends Omit<
-        IIdentityAPIRequestData,
-        'known_identities' | 'previous_mpid'
-    > {
-    identity_changes: IIdentityAPIIdentityChangeData[];
+    extends Omit<IIdentityAPIRequestData, 'known_identities' | 'previous_mpid'> {
+    identity_changes: Array<IIdentityAPIIdentityChangeData>;
 }
 
 export interface IIdentityAPIIdentityChangeData {
@@ -76,10 +73,7 @@ export interface IIdentityAPIIdentityChangeData {
 }
 
 export interface IIdentityRequest {
-    combineUserIdentities(
-        previousUIByName: UserIdentities,
-        newUIByName: UserIdentities
-    ): UserIdentities;
+    combineUserIdentities(previousUIByName: UserIdentities, newUIByName: UserIdentities): UserIdentities;
     createIdentityRequest(
         identityApiData: IdentityApiData,
         platform: string,
@@ -129,29 +123,14 @@ export interface IAliasResult {
 
 export interface SDKIdentityApi {
     HTTPCodes: typeof HTTPCodes;
-    identify?(
-        identityApiData?: IdentityApiData,
-        callback?: IdentityCallback
-    ): void;
-    login?(
-        identityApiData?: IdentityApiData,
-        callback?: IdentityCallback
-    ): void;
-    logout?(
-        identityApiData?: IdentityApiData,
-        callback?: IdentityCallback
-    ): void;
-    modify?(
-        identityApiData?: IdentityApiData,
-        callback?: IdentityCallback
-    ): void;
+    identify?(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
+    login?(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
+    logout?(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
+    modify?(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
     getCurrentUser?(): IMParticleUser;
     getUser?(mpid: string): IMParticleUser;
-    getUsers?(): IMParticleUser[];
-    aliasUsers?(
-        aliasRequest?: IAliasRequest,
-        callback?: IdentityCallback
-    ): void;
+    getUsers?(): Array<IMParticleUser>;
+    aliasUsers?(aliasRequest?: IAliasRequest, callback?: IdentityCallback): void;
     createAliasRequest?(
         sourceUser: IMParticleUser,
         destinationUser: IMParticleUser,
@@ -168,18 +147,10 @@ export interface SDKIdentityApi {
      * caller (from a kit's settings). It is sent as the `x-mp-key` header.
      * The SDK's own workspace token is intentionally not used.
      */
-    search?(
-        workspaceApiKey: string,
-        knownIdentities: UserIdentities,
-        callback: IdentitySearchCallback
-    ): void;
+    search?(workspaceApiKey: string, knownIdentities: UserIdentities, callback: IdentitySearchCallback): void;
 }
 
-export type {
-    IIdentitySearchResult,
-    IIdentitySearchResponseBody,
-    IdentitySearchCallback,
-} from './identity/search';
+export type { IIdentitySearchResult, IIdentitySearchResponseBody, IdentitySearchCallback } from './identity/search';
 
 export interface IUserIdentities {
     customerid?: string;

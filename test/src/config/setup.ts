@@ -12,8 +12,7 @@ let userApi = null;
 window.mParticle._isTestEnv = true;
 type MParticleSDK = { _forwardingStatsTimer?: number | null };
 
-
-beforeEach(function() {
+beforeEach(function () {
     const mpInstance = window.mParticle.getInstance();
     const store = mpInstance?._Store;
     const sessionTimer = store?.globalTimer;
@@ -37,7 +36,7 @@ beforeEach(function() {
     if (uploader) {
         uploader.destroy();
     }
-    
+
     // mocha can't clean up after itself, so this lets
     // tests mock the current user and restores in between runs.
     if (!userApi) {
@@ -56,7 +55,7 @@ beforeEach(function() {
             eventBatchingIntervalMillis: 0,
             astBackgroundEvents: 'False',
             offlineStorage: '0',
-        }
+        },
     };
 
     // This is to tell the resetPersistence method that we are in a test environment

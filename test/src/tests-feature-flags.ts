@@ -2,10 +2,7 @@ import Constants from '../../src/constants';
 import sinon from 'sinon';
 import { expect } from 'chai';
 import fetchMock from 'fetch-mock/esm/client';
-import { urls, apiKey,
-    testMPID,
-    MPConfig,
-} from './config/constants';
+import { urls, apiKey, testMPID, MPConfig } from './config/constants';
 import Utils from './config/utils';
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 
@@ -28,7 +25,8 @@ describe('feature-flags', () => {
             fetchMock.config.overwriteRoutes = true;
             fetchMock.post(urls.events, 200);
             fetchMockSuccess(urls.identify, {
-                mpid: testMPID, is_logged_in: false
+                mpid: testMPID,
+                is_logged_in: false,
             });
             window.mParticle.init(apiKey, window.mParticle.config);
         });
@@ -40,10 +38,10 @@ describe('feature-flags', () => {
 
         it('should not be able to access user audience API if feature flag is false', async () => {
             window.mParticle.config.flags = {
-                audienceAPI: 'False'
+                audienceAPI: 'False',
             };
 
-            // initialize mParticle with feature flag 
+            // initialize mParticle with feature flag
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
 
@@ -51,9 +49,7 @@ describe('feature-flags', () => {
             window.mParticle.Identity.getCurrentUser().getUserAudiences();
 
             bond.called.should.eql(true);
-            bond.getCalls()[0].args[0].should.eql(
-                Constants.Messages.ErrorMessages.AudienceAPINotEnabled
-            );
+            bond.getCalls()[0].args[0].should.eql(Constants.Messages.ErrorMessages.AudienceAPINotEnabled);
         });
 
         it('should be able to call user audience API if feature flag is false', async () => {
@@ -69,26 +65,26 @@ describe('feature-flags', () => {
                     {
                         audience_id: 5432,
                     },
-                ]
+                ],
             };
 
             fetchMock.get(`${userAudienceUrl}?mpid=${testMPID}`, {
                 status: 200,
-                body: JSON.stringify(audienceMembershipServerResponse)
+                body: JSON.stringify(audienceMembershipServerResponse),
             });
 
             window.mParticle.config.flags = {
-                audienceAPI: 'True'
+                audienceAPI: 'True',
             };
 
-            // initialize mParticle with feature flag 
+            // initialize mParticle with feature flag
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
 
             const bond = sinon.spy(window.mParticle.getInstance().Logger, 'error');
 
             window.mParticle.Identity.getCurrentUser().getUserAudiences((result) => {
-                    console.log(result);   
+                console.log(result);
             });
             bond.called.should.eql(false);
         });
@@ -99,7 +95,8 @@ describe('feature-flags', () => {
             fetchMock.post(urls.events, 200);
 
             fetchMockSuccess(urls.identify, {
-                mpid: testMPID, is_logged_in: false
+                mpid: testMPID,
+                is_logged_in: false,
             });
 
             window.document.cookie = '_cookie1=1234';
@@ -119,13 +116,13 @@ describe('feature-flags', () => {
         it('should capture click ids when feature flag is true', async () => {
             window.mParticle.config.flags = {
                 captureIntegrationSpecificIds: 'True',
-                'captureIntegrationSpecificIds.V2': 'all'
+                'captureIntegrationSpecificIds.V2': 'all',
             };
 
-            // initialize mParticle with feature flag 
+            // initialize mParticle with feature flag
             window.mParticle.init(apiKey, window.mParticle.config);
 
-            await waitForCondition(hasIdentifyReturned)
+            await waitForCondition(hasIdentifyReturned);
 
             const integrationCapture = window.mParticle.getInstance()._IntegrationCapture;
             sinon.stub(integrationCapture, 'getQueryParams').returns({ fbclid: '1234' });
@@ -140,7 +137,7 @@ describe('feature-flags', () => {
             expect(initialTimestamp).to.be.a('number');
             expect(integrationCapture.clickIds).to.deep.equal({
                 fbclid: `fb.1.${initialTimestamp}.1234`,
-                '_fbp': '54321',
+                _fbp: '54321',
             });
             expect(captureSpy.called, 'capture()').to.equal(true);
             expect(clickIdSpy.called, 'getClickIdsAsCustomFlags').to.equal(true);
@@ -149,12 +146,12 @@ describe('feature-flags', () => {
         it('should NOT capture click ids when feature flag is false', async () => {
             window.mParticle.config.flags = {
                 captureIntegrationSpecificIds: 'False',
-                'captureIntegrationSpecificIds.V2': 'none'
+                'captureIntegrationSpecificIds.V2': 'none',
             };
 
-            // initialize mParticle with feature flag 
+            // initialize mParticle with feature flag
             window.mParticle.init(apiKey, window.mParticle.config);
-            await waitForCondition(hasIdentifyReturned)
+            await waitForCondition(hasIdentifyReturned);
 
             const integrationCapture = window.mParticle.getInstance()._IntegrationCapture;
             let captureCalled = false;

@@ -4,7 +4,7 @@ import { expect } from 'chai';
 import fetchMock from 'fetch-mock/esm/client';
 import Types, { ProductActionType } from '../../src/types';
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
-const { fetchMockSuccess, waitForCondition, hasIdentifyReturned  } = Utils;
+const { fetchMockSuccess, waitForCondition, hasIdentifyReturned } = Utils;
 
 declare global {
     interface Window {
@@ -42,9 +42,9 @@ describe('batch uploader', () => {
             fetchMock.resetHistory();
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
-            
+
             window.mParticle.logEvent('Test Event');
-            
+
             window.mParticle.upload();
 
             const lastCall = fetchMock.lastCall();
@@ -61,7 +61,7 @@ describe('batch uploader', () => {
         it('should have latitude/longitude for location when batching', async () => {
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
-            
+
             window.mParticle.setPosition(100, 100);
             window.mParticle.logEvent('Test Event');
             window.mParticle.upload();
@@ -69,20 +69,20 @@ describe('batch uploader', () => {
             const endpoint = lastCall[0];
             const batch = JSON.parse(fetchMock.lastCall()[1].body as string);
             endpoint.should.equal(urls.events);
-            batch.events[2].data.location.should.have.property('latitude', 100)
-            batch.events[2].data.location.should.have.property('longitude', 100)
+            batch.events[2].data.location.should.have.property('latitude', 100);
+            batch.events[2].data.location.should.have.property('longitude', 100);
         });
 
         it('should force uploads when using public `upload`', async () => {
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
-            
+
             window.mParticle.logEvent('Test Event');
             // Identity call
             // Session start, AST, and `Test Event` are queued.
             fetchMock.calls().length.should.equal(1);
-            (fetchMock.lastCall()[0].endsWith('identify')).should.equal(true)
-            
+            fetchMock.lastCall()[0].endsWith('identify').should.equal(true);
+
             // force upload, triggering window.fetch
             window.mParticle.upload();
 
@@ -100,10 +100,10 @@ describe('batch uploader', () => {
         it('should force uploads when a commerce event is called', async () => {
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
-            
+
             window.mParticle.logEvent('Test Event');
 
-            var product1 = window.mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
+            const product1 = window.mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
             window.mParticle.eCommerce.logProductAction(ProductActionType.AddToCart, product1);
 
             const lastCall = fetchMock.lastCall();
@@ -119,15 +119,15 @@ describe('batch uploader', () => {
             batch.events[3].data.product_action.action.should.equal('add_to_cart');
         });
 
-        it('should return pending uploads if a 500 is returned', async function() {
+        it('should return pending uploads if a 500 is returned', async function () {
             fetchMock.post(urls.events, 500);
-            
+
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
 
             window.mParticle.logEvent('Test Event');
 
-            let pendingEvents = window.mParticle.getInstance()._APIClient.uploader.eventsQueuedForProcessing;
+            const pendingEvents = window.mParticle.getInstance()._APIClient.uploader.eventsQueuedForProcessing;
 
             pendingEvents.length.should.equal(3);
             pendingEvents[0].EventName.should.equal('1');
@@ -135,12 +135,12 @@ describe('batch uploader', () => {
             pendingEvents[2].EventName.should.equal('Test Event');
 
             fetchMock.post(urls.events, 200);
-            
+
             // First fetch call is an identify call
-            (fetchMock.lastCall()[0].endsWith('identify')).should.equal(true);
+            fetchMock.lastCall()[0].endsWith('identify').should.equal(true);
             window.mParticle.upload();
 
-            let nowPendingEvents = window.mParticle.getInstance()._APIClient.uploader.eventsQueuedForProcessing;
+            const nowPendingEvents = window.mParticle.getInstance()._APIClient.uploader.eventsQueuedForProcessing;
             nowPendingEvents.length.should.equal(0);
 
             const batch = JSON.parse(fetchMock.lastCall()[1].body as string);
@@ -153,7 +153,7 @@ describe('batch uploader', () => {
         it('should send source_message_id with events to v3 endpoint', async () => {
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
-            
+
             window.mParticle.logEvent('Test Event');
 
             window.mParticle.upload();
@@ -163,20 +163,20 @@ describe('batch uploader', () => {
             const batch = JSON.parse(fetchMock.lastCall()[1].body as string);
 
             endpoint.should.equal(urls.events);
-            batch.events[0].data.should.have.property('source_message_id')
+            batch.events[0].data.should.have.property('source_message_id');
         });
 
         it('should send user-defined SourceMessageId events to v3 endpoint', async () => {
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
-            
+
             window.mParticle.logBaseEvent({
                 messageType: 4,
                 name: 'Test Event',
-                data: {key: 'value'},
+                data: { key: 'value' },
                 eventType: 3,
-                customFlags: {flagKey: 'flagValue'},
-                sourceMessageId: 'abcdefg'
+                customFlags: { flagKey: 'flagValue' },
+                sourceMessageId: 'abcdefg',
             });
 
             window.mParticle.upload();
@@ -187,9 +187,9 @@ describe('batch uploader', () => {
 
             endpoint.should.equal(urls.events);
             // event batch includes session start, ast, then last event is Test Event
-            batch.events[batch.events.length-1].data.should.have.property('source_message_id', 'abcdefg')
+            batch.events[batch.events.length - 1].data.should.have.property('source_message_id', 'abcdefg');
         });
-        
+
         it('should call the identity callback after a session ends if user is returning to the page after a long period of time', async () => {
             // Background of bug that this test fixes:
             // User navigates away from page and returns after some time
@@ -198,33 +198,31 @@ describe('batch uploader', () => {
             // the previous session ID because the identity call back fired
             // before the session logic that determines if a new session should
             // start.
-            window.mParticle.config.identityCallback = function(result) {
-                let currentUser = result.getUser()
+            window.mParticle.config.identityCallback = function (result) {
+                const currentUser = result.getUser();
                 if (currentUser) {
                     // TODO: Investigate if we should update definitely typed typings for
                     // setUserAttribute which only allows strings right now
                     // more context at https://go.mparticle.com/work/SQDSDKS-4576
-                    currentUser.setUserAttribute("number", `${Math.floor((Math.random() * 1000) + 1)}`)
+                    currentUser.setUserAttribute('number', `${Math.floor(Math.random() * 1000 + 1)}`);
                 }
-            }
-            
+            };
+
             window.mParticle.init(apiKey, window.mParticle.config);
-            
+
             const mpInstance = window.mParticle.getInstance();
-          
+
             await waitForCondition(() => {
-                return (
-                    mpInstance._Store?.identityCallInFlight === false
-                );
+                return mpInstance._Store?.identityCallInFlight === false;
             });
-            
+
             // Upload first batch
             await window.mParticle.getInstance()._APIClient.uploader.prepareAndUpload();
-            
+
             // Simulate that last event was 35 minutes ago
             const persistence = mpInstance._Persistence.getPersistence();
             if (persistence?.gs) {
-                persistence.gs.les = new Date().getTime() - (35 * 60 * 1000);
+                persistence.gs.les = new Date().getTime() - 35 * 60 * 1000;
                 mpInstance._Persistence.savePersistence(persistence);
             }
 
@@ -232,158 +230,82 @@ describe('batch uploader', () => {
             await waitForCondition(() => {
                 return mpInstance._Store?.identityCallInFlight === false;
             });
-            
+
             await mpInstance._APIClient.uploader.prepareAndUpload();
 
-            const eventsCalls = fetchMock.calls().filter(call => call[0].includes('/events'));
+            const eventsCalls = fetchMock.calls().filter((call) => call[0].includes('/events'));
 
             const batch1 = JSON.parse(eventsCalls[0][1].body as string);
             const batch2 = JSON.parse(eventsCalls[1][1].body as string);
             const batch3 = JSON.parse(eventsCalls[2][1].body as string);
 
             // UAC, session start, AST
-            expect(
-                batch1.events.length,
-                'Batch 1: UAC Event, Session Start, AST'
-            ).to.equal(3);
+            expect(batch1.events.length, 'Batch 1: UAC Event, Session Start, AST').to.equal(3);
 
             // session end
-            expect(batch2.events.length, 'Batch 2: Session End').to.equal(
-                1
-            );
+            expect(batch2.events.length, 'Batch 2: Session End').to.equal(1);
 
             // UAC, session start, AST
-            expect(
-                batch3.events.length,
-                'Batch 3: UAC, Session Start, AST'
-            ).to.equal(3);
+            expect(batch3.events.length, 'Batch 3: UAC, Session Start, AST').to.equal(3);
 
-            const batch1UAC = Utils.findEventFromBatch(
-                batch1,
-                'user_attribute_change'
-            );
-            const batch1SessionStart = Utils.findEventFromBatch(
-                batch1,
-                'session_start'
-            );
-            const batch1AST = Utils.findEventFromBatch(
-                batch1,
-                'application_state_transition'
-            );
+            const batch1UAC = Utils.findEventFromBatch(batch1, 'user_attribute_change');
+            const batch1SessionStart = Utils.findEventFromBatch(batch1, 'session_start');
+            const batch1AST = Utils.findEventFromBatch(batch1, 'application_state_transition');
 
             batch1UAC.should.be.ok();
             batch1SessionStart.should.be.ok();
             batch1AST.should.be.ok();
 
-            const batch2SessionEnd = Utils.findEventFromBatch(
-                batch2,
-                'session_end'
-            );
+            const batch2SessionEnd = Utils.findEventFromBatch(batch2, 'session_end');
             batch2SessionEnd.should.be.ok();
 
-            const batch3UAC = Utils.findEventFromBatch(
-                batch3,
-                'user_attribute_change'
-            );
-            const batch3SessionStart = Utils.findEventFromBatch(
-                batch3,
-                'session_start'
-            );
-            const batch3AST = Utils.findEventFromBatch(
-                batch3,
-                'application_state_transition'
-            );
+            const batch3UAC = Utils.findEventFromBatch(batch3, 'user_attribute_change');
+            const batch3SessionStart = Utils.findEventFromBatch(batch3, 'session_start');
+            const batch3AST = Utils.findEventFromBatch(batch3, 'application_state_transition');
 
             batch3UAC.should.be.ok();
             batch3SessionStart.should.be.ok();
             batch3AST.should.be.ok();
 
-
             (typeof batch1.source_request_id).should.equal('string');
             (typeof batch2.source_request_id).should.equal('string');
             (typeof batch3.source_request_id).should.equal('string');
 
-            batch1.source_request_id.should.not.equal(
-                batch2.source_request_id
-            );
-            batch1.source_request_id.should.not.equal(
-                batch3.source_request_id
-            );
-            batch2.source_request_id.should.not.equal(
-                batch3.source_request_id
-            );
+            batch1.source_request_id.should.not.equal(batch2.source_request_id);
+            batch1.source_request_id.should.not.equal(batch3.source_request_id);
+            batch2.source_request_id.should.not.equal(batch3.source_request_id);
 
-            batch1UAC.data.session_uuid.should.equal(
-                batch1AST.data.session_uuid
-            );
-            batch1UAC.data.session_uuid.should.equal(
-                batch1SessionStart.data.session_uuid
-            );
-            batch1UAC.data.session_uuid.should.not.equal(
-                batch3UAC.data.session_uuid
-            );
-            batch1UAC.data.session_uuid.should.not.equal(
-                batch3SessionStart.data.session_uuid
-            );
-            batch1UAC.data.session_uuid.should.not.equal(
-                batch3AST.data.session_uuid
-            );
+            batch1UAC.data.session_uuid.should.equal(batch1AST.data.session_uuid);
+            batch1UAC.data.session_uuid.should.equal(batch1SessionStart.data.session_uuid);
+            batch1UAC.data.session_uuid.should.not.equal(batch3UAC.data.session_uuid);
+            batch1UAC.data.session_uuid.should.not.equal(batch3SessionStart.data.session_uuid);
+            batch1UAC.data.session_uuid.should.not.equal(batch3AST.data.session_uuid);
 
-            batch1UAC.data.session_start_unixtime_ms.should.equal(
-                batch1AST.data.session_start_unixtime_ms
-            );
-            batch1UAC.data.session_start_unixtime_ms.should.equal(
-                batch1SessionStart.data.session_start_unixtime_ms
-            );
-            batch1UAC.data.session_start_unixtime_ms.should.not.equal(
-                batch3UAC.data.session_start_unixtime_ms
-            );
+            batch1UAC.data.session_start_unixtime_ms.should.equal(batch1AST.data.session_start_unixtime_ms);
+            batch1UAC.data.session_start_unixtime_ms.should.equal(batch1SessionStart.data.session_start_unixtime_ms);
+            batch1UAC.data.session_start_unixtime_ms.should.not.equal(batch3UAC.data.session_start_unixtime_ms);
             batch1UAC.data.session_start_unixtime_ms.should.not.equal(
                 batch3SessionStart.data.session_start_unixtime_ms
             );
-            batch1UAC.data.session_start_unixtime_ms.should.not.equal(
-                batch3AST.data.session_start_unixtime_ms
-            );
+            batch1UAC.data.session_start_unixtime_ms.should.not.equal(batch3AST.data.session_start_unixtime_ms);
 
-            batch1SessionStart.data.session_uuid.should.equal(
-                batch1AST.data.session_uuid
-            );
-            batch1SessionStart.data.session_uuid.should.equal(
-                batch2SessionEnd.data.session_uuid
-            );
-            batch1AST.data.session_uuid.should.equal(
-                batch2SessionEnd.data.session_uuid
-            );
+            batch1SessionStart.data.session_uuid.should.equal(batch1AST.data.session_uuid);
+            batch1SessionStart.data.session_uuid.should.equal(batch2SessionEnd.data.session_uuid);
+            batch1AST.data.session_uuid.should.equal(batch2SessionEnd.data.session_uuid);
 
-            batch1SessionStart.data.session_start_unixtime_ms.should.equal(
-                batch1AST.data.session_start_unixtime_ms
-            );
+            batch1SessionStart.data.session_start_unixtime_ms.should.equal(batch1AST.data.session_start_unixtime_ms);
             batch1SessionStart.data.session_start_unixtime_ms.should.equal(
                 batch2SessionEnd.data.session_start_unixtime_ms
             );
-            batch1AST.data.session_start_unixtime_ms.should.equal(
-                batch2SessionEnd.data.session_start_unixtime_ms
-            );
+            batch1AST.data.session_start_unixtime_ms.should.equal(batch2SessionEnd.data.session_start_unixtime_ms);
 
-            batch3AST.data.session_uuid.should.equal(
-                batch3UAC.data.session_uuid
-            );
-            batch3SessionStart.data.session_uuid.should.equal(
-                batch3UAC.data.session_uuid
-            );
-            batch3SessionStart.data.session_uuid.should.equal(
-                batch3AST.data.session_uuid
-            );
+            batch3AST.data.session_uuid.should.equal(batch3UAC.data.session_uuid);
+            batch3SessionStart.data.session_uuid.should.equal(batch3UAC.data.session_uuid);
+            batch3SessionStart.data.session_uuid.should.equal(batch3AST.data.session_uuid);
 
-            batch3AST.data.session_start_unixtime_ms.should.equal(
-                batch3UAC.data.session_start_unixtime_ms
-            );
-            batch3SessionStart.data.session_start_unixtime_ms.should.equal(
-                batch3UAC.data.session_start_unixtime_ms
-            );
-            batch3SessionStart.data.session_start_unixtime_ms.should.equal(
-                batch3AST.data.session_start_unixtime_ms
-            );
+            batch3AST.data.session_start_unixtime_ms.should.equal(batch3UAC.data.session_start_unixtime_ms);
+            batch3SessionStart.data.session_start_unixtime_ms.should.equal(batch3UAC.data.session_start_unixtime_ms);
+            batch3SessionStart.data.session_start_unixtime_ms.should.equal(batch3AST.data.session_start_unixtime_ms);
         });
     });
 });

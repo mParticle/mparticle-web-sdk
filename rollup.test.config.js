@@ -25,10 +25,13 @@ const builds = {
             }),
             babel({
                 extensions,
-                include: ['src/**/*'],
+                include: ['src/**/*', 'test/src/**/*', 'test/fixtures/**/*'],
                 babelHelpers: 'runtime',
             }),
-            typescript({ tsconfig: './tsconfig.json' }),
+            typescript({
+                tsconfig: './tsconfig.json',
+                exclude: ['node_modules/**'],
+            }),
             json(),
         ],
     },

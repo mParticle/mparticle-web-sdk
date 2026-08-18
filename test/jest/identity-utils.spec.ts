@@ -1,13 +1,10 @@
-import {
-    hasIdentityRequestChanged,
-    normalizeUserIdentityKeys,
-} from '../../src/identity-utils';
+import { hasIdentityRequestChanged, normalizeUserIdentityKeys } from '../../src/identity-utils';
 import { IMParticleUser } from '../../src/identity-user-interfaces';
 
 const mockUserWithIdentities = (userIdentities: Record<string, unknown>) =>
-    (({
+    ({
         getUserIdentities: () => ({ userIdentities }),
-    } as unknown) as IMParticleUser);
+    }) as unknown as IMParticleUser;
 
 describe('normalizeUserIdentityKeys', () => {
     it('maps email_sha256 to other', () => {

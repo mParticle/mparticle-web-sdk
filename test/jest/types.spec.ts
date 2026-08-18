@@ -10,8 +10,6 @@ import {
     RoktEvents,
 } from '../../src/types';
 
-
-
 describe('MessageType', () => {
     it('returns a message type', () => {
         const {
@@ -41,18 +39,8 @@ describe('MessageType', () => {
 });
 
 describe('EventType', () => {
-    const {
-        Unknown,
-        Navigation,
-        Location,
-        Search,
-        Transaction,
-        UserContent,
-        UserPreference,
-        Social,
-        Other,
-        Media,
-    } = EventType;
+    const { Unknown, Navigation, Location, Search, Transaction, UserContent, UserPreference, Social, Other, Media } =
+        EventType;
 
     it('returns an event type', () => {
         expect(Unknown).toEqual(0);
@@ -102,38 +90,20 @@ describe('EventType', () => {
                 ProductImpression,
             } = CommerceEventType;
 
-
-            expect(EventType.getName(ProductAddToCart)).toBe(
-                'Product Added to Cart'
-            );
-            expect(getName(ProductRemoveFromCart)).toBe(
-                'Product Removed From Cart'
-            );
-            expect(getName(ProductCheckout)).toBe(
-                'Product Checkout'
-            );
-            expect(getName(ProductCheckoutOption)).toBe(
-                'Product Checkout Options'
-            );
+            expect(EventType.getName(ProductAddToCart)).toBe('Product Added to Cart');
+            expect(getName(ProductRemoveFromCart)).toBe('Product Removed From Cart');
+            expect(getName(ProductCheckout)).toBe('Product Checkout');
+            expect(getName(ProductCheckoutOption)).toBe('Product Checkout Options');
             expect(getName(ProductClick)).toBe('Product Click');
-            expect(getName(ProductViewDetail)).toBe(
-                'Product View Details'
-            );
-            expect(getName(ProductPurchase)).toBe(
-                'Product Purchased'
-            );
+            expect(getName(ProductViewDetail)).toBe('Product View Details');
+            expect(getName(ProductPurchase)).toBe('Product Purchased');
             expect(getName(ProductRefund)).toBe('Product Refunded');
             expect(getName(PromotionView)).toBe('Promotion View');
             expect(getName(PromotionClick)).toBe('Promotion Click');
-            expect(getName(ProductAddToWishlist)).toBe(
-                'Product Added to Wishlist'
-            );
-            expect(getName(ProductRemoveFromWishlist)).toBe(
-                'Product Removed from Wishlist'
-            );
+            expect(getName(ProductAddToWishlist)).toBe('Product Added to Wishlist');
+            expect(getName(ProductRemoveFromWishlist)).toBe('Product Removed from Wishlist');
             expect(getName(ProductImpression)).toBe('Product Impression');
         });
-        
 
         it('returns other if the event type is not found', () => {
             const { getName } = EventType;
@@ -353,9 +323,7 @@ describe('IdentityType', () => {
             expect(getIdentityName(Microsoft)).toBe('microsoft');
             expect(getIdentityName(Yahoo)).toBe('yahoo');
             expect(getIdentityName(Email)).toBe('email');
-            expect(getIdentityName(FacebookCustomAudienceId)).toBe(
-                'facebookcustomaudienceid'
-            );
+            expect(getIdentityName(FacebookCustomAudienceId)).toBe('facebookcustomaudienceid');
             expect(getIdentityName(Other2)).toBe('other2');
             expect(getIdentityName(Other3)).toBe('other3');
             expect(getIdentityName(Other4)).toBe('other4');
@@ -389,7 +357,7 @@ describe('IdentityType', () => {
             expect(getName(Yahoo)).toBe('Yahoo ID');
             expect(getName(Email)).toBe('Email');
             expect(getName(FacebookCustomAudienceId)).toBe('Facebook App User ID');
-        }); 
+        });
 
         // https://go.mparticle.com/work/SQDSDKS-6942
         it('returns other if the identity type is not found', () => {
@@ -425,9 +393,7 @@ describe('IdentityType', () => {
             expect(getIdentityType('microsoft')).toBe(Microsoft);
             expect(getIdentityType('yahoo')).toBe(Yahoo);
             expect(getIdentityType('email')).toBe(Email);
-            expect(getIdentityType('facebookcustomaudienceid')).toBe(
-                FacebookCustomAudienceId
-            );
+            expect(getIdentityType('facebookcustomaudienceid')).toBe(FacebookCustomAudienceId);
             expect(getIdentityType('other2')).toBe(Other2);
             expect(getIdentityType('other3')).toBe(Other3);
             expect(getIdentityType('other4')).toBe(Other4);
@@ -504,48 +470,26 @@ describe('ProductActionType', () => {
         it('returns the name of a Product Action Type', () => {
             expect(ProductActionType.getName(Unknown)).toBe('Unknown');
             expect(ProductActionType.getName(AddToCart)).toBe('Add to Cart');
-            expect(ProductActionType.getName(RemoveFromCart)).toBe(
-                'Remove from Cart'
-            );
+            expect(ProductActionType.getName(RemoveFromCart)).toBe('Remove from Cart');
             expect(ProductActionType.getName(Checkout)).toBe('Checkout');
-            expect(ProductActionType.getName(CheckoutOption)).toBe(
-                'Checkout Option'
-            );
+            expect(ProductActionType.getName(CheckoutOption)).toBe('Checkout Option');
             expect(ProductActionType.getName(Click)).toBe('Click');
             expect(ProductActionType.getName(ViewDetail)).toBe('View Detail');
             expect(ProductActionType.getName(Purchase)).toBe('Purchase');
             expect(ProductActionType.getName(Refund)).toBe('Refund');
-            expect(ProductActionType.getName(AddToWishlist)).toBe(
-                'Add to Wishlist'
-            );
-            expect(ProductActionType.getName(RemoveFromWishlist)).toBe(
-                'Remove from Wishlist'
-            );
+            expect(ProductActionType.getName(AddToWishlist)).toBe('Add to Wishlist');
+            expect(ProductActionType.getName(RemoveFromWishlist)).toBe('Remove from Wishlist');
         });
 
         it('returns the name of a Rokt Brain Product Action Type', () => {
             expect(ProductActionType.getName(ViewCart)).toBe('View Cart');
-            expect(ProductActionType.getName(AddShippingInfo)).toBe(
-                'Add Shipping Info'
-            );
-            expect(ProductActionType.getName(AddPaymentInfo)).toBe(
-                'Add Payment Info'
-            );
-            expect(ProductActionType.getName(PaymentMethodSelected)).toBe(
-                'Payment Method Selected'
-            );
-            expect(ProductActionType.getName(PaymentAttempted)).toBe(
-                'Payment Attempted'
-            );
-            expect(ProductActionType.getName(PaymentSucceeded)).toBe(
-                'Payment Succeeded'
-            );
-            expect(ProductActionType.getName(PaymentFailed)).toBe(
-                'Payment Failed'
-            );
-            expect(ProductActionType.getName(RefundInitiated)).toBe(
-                'Refund Initiated'
-            );
+            expect(ProductActionType.getName(AddShippingInfo)).toBe('Add Shipping Info');
+            expect(ProductActionType.getName(AddPaymentInfo)).toBe('Add Payment Info');
+            expect(ProductActionType.getName(PaymentMethodSelected)).toBe('Payment Method Selected');
+            expect(ProductActionType.getName(PaymentAttempted)).toBe('Payment Attempted');
+            expect(ProductActionType.getName(PaymentSucceeded)).toBe('Payment Succeeded');
+            expect(ProductActionType.getName(PaymentFailed)).toBe('Payment Failed');
+            expect(ProductActionType.getName(RefundInitiated)).toBe('Refund Initiated');
         });
 
         it('returns unknown if the product action type is not found', () => {
@@ -556,59 +500,27 @@ describe('ProductActionType', () => {
     describe('#getExpansionName', () => {
         it('returns the expanded name of a Product Action Type', () => {
             expect(ProductActionType.getExpansionName(Unknown)).toBe('unknown');
-            expect(ProductActionType.getExpansionName(AddToCart)).toBe(
-                'add_to_cart'
-            );
-            expect(ProductActionType.getExpansionName(RemoveFromCart)).toBe(
-                'remove_from_cart'
-            );
-            expect(ProductActionType.getExpansionName(Checkout)).toBe(
-                'checkout'
-            );
-            expect(ProductActionType.getExpansionName(CheckoutOption)).toBe(
-                'checkout_option'
-            );
+            expect(ProductActionType.getExpansionName(AddToCart)).toBe('add_to_cart');
+            expect(ProductActionType.getExpansionName(RemoveFromCart)).toBe('remove_from_cart');
+            expect(ProductActionType.getExpansionName(Checkout)).toBe('checkout');
+            expect(ProductActionType.getExpansionName(CheckoutOption)).toBe('checkout_option');
             expect(ProductActionType.getExpansionName(Click)).toBe('click');
-            expect(ProductActionType.getExpansionName(ViewDetail)).toBe(
-                'view_detail'
-            );
-            expect(ProductActionType.getExpansionName(Purchase)).toBe(
-                'purchase'
-            );
+            expect(ProductActionType.getExpansionName(ViewDetail)).toBe('view_detail');
+            expect(ProductActionType.getExpansionName(Purchase)).toBe('purchase');
             expect(ProductActionType.getExpansionName(Refund)).toBe('refund');
-            expect(ProductActionType.getExpansionName(AddToWishlist)).toBe(
-                'add_to_wishlist'
-            );
-            expect(ProductActionType.getExpansionName(RemoveFromWishlist)).toBe(
-                'remove_from_wishlist'
-            );
+            expect(ProductActionType.getExpansionName(AddToWishlist)).toBe('add_to_wishlist');
+            expect(ProductActionType.getExpansionName(RemoveFromWishlist)).toBe('remove_from_wishlist');
         });
 
         it('returns the expanded name of a Rokt Brain Product Action Type', () => {
-            expect(ProductActionType.getExpansionName(ViewCart)).toBe(
-                'view_cart'
-            );
-            expect(ProductActionType.getExpansionName(AddShippingInfo)).toBe(
-                'add_shipping_info'
-            );
-            expect(ProductActionType.getExpansionName(AddPaymentInfo)).toBe(
-                'add_payment_info'
-            );
-            expect(ProductActionType.getExpansionName(PaymentMethodSelected)).toBe(
-                'payment_method_selected'
-            );
-            expect(ProductActionType.getExpansionName(PaymentAttempted)).toBe(
-                'payment_attempted'
-            );
-            expect(ProductActionType.getExpansionName(PaymentSucceeded)).toBe(
-                'payment_succeeded'
-            );
-            expect(ProductActionType.getExpansionName(PaymentFailed)).toBe(
-                'payment_failed'
-            );
-            expect(ProductActionType.getExpansionName(RefundInitiated)).toBe(
-                'refund_initiated'
-            );
+            expect(ProductActionType.getExpansionName(ViewCart)).toBe('view_cart');
+            expect(ProductActionType.getExpansionName(AddShippingInfo)).toBe('add_shipping_info');
+            expect(ProductActionType.getExpansionName(AddPaymentInfo)).toBe('add_payment_info');
+            expect(ProductActionType.getExpansionName(PaymentMethodSelected)).toBe('payment_method_selected');
+            expect(ProductActionType.getExpansionName(PaymentAttempted)).toBe('payment_attempted');
+            expect(ProductActionType.getExpansionName(PaymentSucceeded)).toBe('payment_succeeded');
+            expect(ProductActionType.getExpansionName(PaymentFailed)).toBe('payment_failed');
+            expect(ProductActionType.getExpansionName(RefundInitiated)).toBe('refund_initiated');
         });
 
         it('returns unknown if the product action type is not found', () => {
@@ -678,11 +590,7 @@ describe('PromotionActionType', () => {
 
     describe('#getName', () => {
         it('returns the name of a Promotion Action Type', () => {
-            const {
-                PromotionView,
-                PromotionClick,
-                getName,
-            } = PromotionActionType;
+            const { PromotionView, PromotionClick, getName } = PromotionActionType;
 
             expect(getName(PromotionView)).toBe('view');
             expect(getName(PromotionClick)).toBe('click');
@@ -697,11 +605,7 @@ describe('PromotionActionType', () => {
 
     describe('#getExpansionName', () => {
         it('returns the name of a Promotion Action Type', () => {
-            const {
-                PromotionView,
-                PromotionClick,
-                getExpansionName,
-            } = PromotionActionType;
+            const { PromotionView, PromotionClick, getExpansionName } = PromotionActionType;
 
             expect(getExpansionName(PromotionView)).toBe('view');
             expect(getExpansionName(PromotionClick)).toBe('click');

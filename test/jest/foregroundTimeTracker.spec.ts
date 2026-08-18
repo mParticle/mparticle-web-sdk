@@ -4,7 +4,7 @@ describe('ForegroundTimeTracker', () => {
     let foregroundTimeTracker: ForegroundTimeTracker;
     const timerKey = 'test-key';
     const mockStorageKey = `mprtcl-tos-${timerKey}`;
-    
+
     beforeEach(() => {
         // Although in Jest, document.hidden should be false by default, we force it to be this way
         // to ensure the page is in the foreground
@@ -12,18 +12,18 @@ describe('ForegroundTimeTracker', () => {
         jest.useFakeTimers();
         localStorage.clear();
     });
-    
+
     afterEach(() => {
         jest.clearAllTimers();
         jest.restoreAllMocks();
     });
-    
+
     describe('#constructor', () => {
         it('should set the localStorageName properly', () => {
             foregroundTimeTracker = new ForegroundTimeTracker(timerKey);
             expect(foregroundTimeTracker['localStorageName']).toBe(mockStorageKey);
         });
-    
+
         it('should load time from localStorage on initialization', () => {
             localStorage.setItem(mockStorageKey, '1000');
             foregroundTimeTracker = new ForegroundTimeTracker(timerKey);
@@ -54,49 +54,34 @@ describe('ForegroundTimeTracker', () => {
 
     describe('#addHandlers', () => {
         let tracker: ForegroundTimeTracker;
-        
+
         beforeEach(() => {
             jest.spyOn(document, 'addEventListener');
             jest.spyOn(window, 'addEventListener');
             tracker = new ForegroundTimeTracker(timerKey);
         });
-        
+
         it('should add event listeners when instantiated', () => {
-            expect(document.addEventListener).toHaveBeenCalledWith(
-                'visibilitychange',
-                expect.any(Function)
-            );
-            expect(window.addEventListener).toHaveBeenCalledWith(
-                'beforeunload',
-                expect.any(Function)
-            );
-            expect(window.addEventListener).toHaveBeenCalledWith(
-                'blur',
-                expect.any(Function)
-            );
-            expect(window.addEventListener).toHaveBeenCalledWith(
-                'focus',
-                expect.any(Function)
-            );
-            expect(window.addEventListener).toHaveBeenCalledWith(
-                'storage',
-                expect.any(Function)
-            );
+            expect(document.addEventListener).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
+            expect(window.addEventListener).toHaveBeenCalledWith('beforeunload', expect.any(Function));
+            expect(window.addEventListener).toHaveBeenCalledWith('blur', expect.any(Function));
+            expect(window.addEventListener).toHaveBeenCalledWith('focus', expect.any(Function));
+            expect(window.addEventListener).toHaveBeenCalledWith('storage', expect.any(Function));
         });
-        
+
         it('should call handleVisibilityChange when visibility changes', () => {
             const spy = jest.spyOn(tracker as any, 'handleVisibilityChange');
 
             document.dispatchEvent(new Event('visibilitychange'));
             expect(spy).toHaveBeenCalled();
         });
-        
+
         it('should call updateTimeInPersistence when beforeunload is triggered', () => {
             const spy = jest.spyOn(tracker, 'updateTimeInPersistence');
             window.dispatchEvent(new Event('beforeunload'));
             expect(spy).toHaveBeenCalled();
         });
-        
+
         it('should call handleWindowBlur when window loses focus', () => {
             const spy = jest.spyOn(tracker as any, 'handleWindowBlur');
             window.dispatchEvent(new Event('blur'));
@@ -189,8 +174,7 @@ describe('ForegroundTimeTracker', () => {
         });
 
         it('should set startTime to performance.now() when startTracking is called', () => {
-            jest.spyOn(global.performance, 'now')
-                .mockReturnValueOnce(1001)
+            jest.spyOn(global.performance, 'now').mockReturnValueOnce(1001);
 
             tracker['startTracking']();
             expect(tracker.startTime).toBe(1001);
@@ -321,7 +305,6 @@ describe('ForegroundTimeTracker', () => {
         });
     });
 
-
     describe('#updateTimeInPersistence', () => {
         let tracker: ForegroundTimeTracker;
 
@@ -412,7 +395,7 @@ describe('ForegroundTimeTracker', () => {
 
             window.dispatchEvent(event);
 
-            expect(tracker.totalTime).toBe(0)
+            expect(tracker.totalTime).toBe(0);
         });
 
         it('should NOT update totalTime if newValue is null', () => {
@@ -420,7 +403,7 @@ describe('ForegroundTimeTracker', () => {
 
             window.dispatchEvent(event);
 
-            expect(tracker.totalTime).toBe(500)
+            expect(tracker.totalTime).toBe(500);
         });
 
         it('should NOT update totalTime if the storage event key does not match', () => {
@@ -428,7 +411,7 @@ describe('ForegroundTimeTracker', () => {
 
             window.dispatchEvent(event);
 
-            expect(tracker.totalTime).toBe(500)
+            expect(tracker.totalTime).toBe(500);
         });
     });
 
@@ -485,7 +468,6 @@ describe('ForegroundTimeTracker', () => {
             const updatePersistenceSpy = jest.spyOn(tracker as any, 'updateTimeInPersistence');
 
             tracker.resetTimer();
-
 
             expect(updatePersistenceSpy).toHaveBeenCalled();
         });

@@ -2,7 +2,7 @@ import { SDKLoggerApi } from '../sdkRuntimeModels';
 import { IErrorReportingService, ISDKError } from './types';
 
 export class ErrorReportingDispatcher implements IErrorReportingService {
-    private readonly services: IErrorReportingService[] = [];
+    private readonly services: Array<IErrorReportingService> = [];
     public logger?: SDKLoggerApi;
 
     public register(service: IErrorReportingService): void {
@@ -10,7 +10,7 @@ export class ErrorReportingDispatcher implements IErrorReportingService {
     }
 
     public report(error: ISDKError): void {
-        this.services.forEach(s => {
+        this.services.forEach((s) => {
             try {
                 s.report(error);
             } catch (e) {

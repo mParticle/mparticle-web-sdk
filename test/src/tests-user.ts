@@ -47,44 +47,26 @@ describe('mParticle User', () => {
         it('get/set consent state for single user', async () => {
             mParticle.init(apiKey, mParticle.config);
             await waitForCondition(hasIdentifyReturned);
-            let consentState = mParticle
-                .getInstance()
-                .Identity.getCurrentUser()
-                .getConsentState();
+            let consentState = mParticle.getInstance().Identity.getCurrentUser().getConsentState();
 
             expect(consentState).to.equal(null);
             consentState = mParticle.Consent.createConsentState();
-            consentState.addGDPRConsentState(
-                'foo purpose',
-                mParticle.Consent.createGDPRConsent(true, 10),
-            );
+            consentState.addGDPRConsentState('foo purpose', mParticle.Consent.createGDPRConsent(true, 10));
 
-            mParticle
-                .getInstance()
-                .Identity.getCurrentUser()
-                .setConsentState(consentState);
+            mParticle.getInstance().Identity.getCurrentUser().setConsentState(consentState);
 
-            const storedConsentState = mParticle
-                .getInstance()
-                .Identity.getCurrentUser()
-                .getConsentState();
+            const storedConsentState = mParticle.getInstance().Identity.getCurrentUser().getConsentState();
             expect(storedConsentState).to.be.ok;
-            expect(
-                storedConsentState.getGDPRConsentState(),
-            ).to.have.property('foo purpose');
-            expect(
-                storedConsentState.getGDPRConsentState()['foo purpose'],
-            ).to.have.property('Consented', true);
-            expect(
-                storedConsentState.getGDPRConsentState()['foo purpose'],
-            ).to.have.property('Timestamp', 10);
+            expect(storedConsentState.getGDPRConsentState()).to.have.property('foo purpose');
+            expect(storedConsentState.getGDPRConsentState()['foo purpose']).to.have.property('Consented', true);
+            expect(storedConsentState.getGDPRConsentState()['foo purpose']).to.have.property('Timestamp', 10);
         });
 
         it('get/set consent state for multiple users', async () => {
             mParticle.init(apiKey, mParticle.config);
 
             await waitForCondition(hasIdentifyReturned);
-            
+
             const userIdentities1 = {
                 userIdentities: {
                     customerid: 'foo1',
@@ -98,27 +80,15 @@ describe('mParticle User', () => {
 
             mParticle.Identity.login(userIdentities1);
             await waitForCondition(() => {
-                return (
-                    mParticle.Identity.getCurrentUser()?.getMPID() ===
-                    'loginMPID1'
-                );
+                return mParticle.Identity.getCurrentUser()?.getMPID() === 'loginMPID1';
             });
-            
-            let user1StoredConsentState = mParticle
-                .getInstance()
-                .Identity.getCurrentUser()
-                .getConsentState();
+
+            let user1StoredConsentState = mParticle.getInstance().Identity.getCurrentUser().getConsentState();
             expect(user1StoredConsentState).to.equal(null);
             const consentState = mParticle.Consent.createConsentState();
-            consentState.addGDPRConsentState(
-                'foo purpose',
-                mParticle.Consent.createGDPRConsent(true, 10),
-            );
+            consentState.addGDPRConsentState('foo purpose', mParticle.Consent.createGDPRConsent(true, 10));
 
-            mParticle
-                .getInstance()
-                .Identity.getCurrentUser()
-                .setConsentState(consentState);
+            mParticle.getInstance().Identity.getCurrentUser().setConsentState(consentState);
 
             fetchMockSuccess(urls.login, {
                 mpid: 'loginMPID2',
@@ -133,70 +103,30 @@ describe('mParticle User', () => {
 
             mParticle.Identity.login(userIdentities2);
             await waitForCondition(() => {
-                return (
-                    mParticle.Identity.getCurrentUser()?.getMPID() ===
-                    'loginMPID2'
-                );
+                return mParticle.Identity.getCurrentUser()?.getMPID() === 'loginMPID2';
             });
-            
-            let user2StoredConsentState = mParticle
-                .getInstance()
-                .Identity.getCurrentUser()
-                .getConsentState();
+
+            let user2StoredConsentState = mParticle.getInstance().Identity.getCurrentUser().getConsentState();
             expect(user2StoredConsentState).to.equal(null);
 
             consentState.removeGDPRConsentState('foo purpose');
 
-            consentState.addGDPRConsentState(
-                'foo purpose 2',
-                mParticle.Consent.createGDPRConsent(false, 11),
-            );
+            consentState.addGDPRConsentState('foo purpose 2', mParticle.Consent.createGDPRConsent(false, 11));
 
-            mParticle
-                .getInstance()
-                .Identity.getCurrentUser()
-                .setConsentState(consentState);
+            mParticle.getInstance().Identity.getCurrentUser().setConsentState(consentState);
 
-            user1StoredConsentState = mParticle
-                .getInstance()
-                ._Store.getConsentState('loginMPID1');
-            user2StoredConsentState = mParticle
-                .getInstance()
-                ._Store.getConsentState('loginMPID2');
+            user1StoredConsentState = mParticle.getInstance()._Store.getConsentState('loginMPID1');
+            user2StoredConsentState = mParticle.getInstance()._Store.getConsentState('loginMPID2');
 
-            expect(
-                user1StoredConsentState.getGDPRConsentState(),
-            ).to.have.property('foo purpose');
-            expect(
-                user1StoredConsentState.getGDPRConsentState(),
-            ).to.not.have.property('foo purpose 2');
-            expect(
-                user1StoredConsentState.getGDPRConsentState()[
-                    'foo purpose'
-                ],
-            ).to.have.property('Consented', true);
-            expect(
-                user1StoredConsentState.getGDPRConsentState()[
-                    'foo purpose'
-                ],
-            ).to.have.property('Timestamp', 10);
+            expect(user1StoredConsentState.getGDPRConsentState()).to.have.property('foo purpose');
+            expect(user1StoredConsentState.getGDPRConsentState()).to.not.have.property('foo purpose 2');
+            expect(user1StoredConsentState.getGDPRConsentState()['foo purpose']).to.have.property('Consented', true);
+            expect(user1StoredConsentState.getGDPRConsentState()['foo purpose']).to.have.property('Timestamp', 10);
 
-            expect(
-                user2StoredConsentState.getGDPRConsentState(),
-            ).to.have.property('foo purpose 2');
-            expect(
-                user1StoredConsentState.getGDPRConsentState(),
-            ).to.not.have.property('foo purpose 1');
-            expect(
-                user2StoredConsentState.getGDPRConsentState()[
-                    'foo purpose 2'
-                ],
-            ).to.have.property('Consented', false);
-            expect(
-                user2StoredConsentState.getGDPRConsentState()[
-                    'foo purpose 2'
-                ],
-            ).to.have.property('Timestamp', 11);
+            expect(user2StoredConsentState.getGDPRConsentState()).to.have.property('foo purpose 2');
+            expect(user1StoredConsentState.getGDPRConsentState()).to.not.have.property('foo purpose 1');
+            expect(user2StoredConsentState.getGDPRConsentState()['foo purpose 2']).to.have.property('Consented', false);
+            expect(user2StoredConsentState.getGDPRConsentState()['foo purpose 2']).to.have.property('Timestamp', 11);
         });
     });
 });

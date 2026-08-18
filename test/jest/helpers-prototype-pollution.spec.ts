@@ -13,14 +13,14 @@ describe('Helpers - Prototype Pollution Protection', () => {
         mockMpInstance = {
             _Store: {
                 SDKConfig: {
-                    flags: {}
-                }
+                    flags: {},
+                },
             },
             Logger: {
                 verbose: jest.fn(),
                 warning: jest.fn(),
-                error: jest.fn()
-            }
+                error: jest.fn(),
+            },
         };
 
         helpers = new Helpers(mockMpInstance);
@@ -89,8 +89,8 @@ describe('Helpers - Prototype Pollution Protection', () => {
                 age: 30,
                 address: {
                     city: 'NYC',
-                    zip: '10001'
-                }
+                    zip: '10001',
+                },
             };
 
             const result = helpers.extend(true, {}, source);
@@ -105,14 +105,14 @@ describe('Helpers - Prototype Pollution Protection', () => {
             const malicious = {
                 user: {
                     name: 'John',
-                    __proto__: { isAdmin: true }
-                }
+                    __proto__: { isAdmin: true },
+                },
             };
 
             const result = helpers.extend(true, {}, malicious);
 
             expect(result.user.name).toBe('John');
-            
+
             const testObj = {};
             expect((testObj as any).isAdmin).toBeUndefined();
             expect((Object.prototype as any).isAdmin).toBeUndefined();
@@ -136,8 +136,8 @@ describe('Helpers - Prototype Pollution Protection', () => {
             const source = {
                 items: [1, 2, 3],
                 nested: {
-                    arr: ['a', 'b']
-                }
+                    arr: ['a', 'b'],
+                },
             };
 
             const result = helpers.extend(true, {}, source);
@@ -202,7 +202,7 @@ describe('Helpers - Prototype Pollution Protection', () => {
         it('should protect against localStorage-based attack', () => {
             // Simulate malicious localStorage data
             const localStorageData = JSON.parse('{"__proto__": {"isAdmin": true}, "user": {"name": "attacker"}}');
-            
+
             const result = helpers.extend(false, {}, localStorageData);
 
             expect(result.user.name).toBe('attacker');
@@ -215,9 +215,9 @@ describe('Helpers - Prototype Pollution Protection', () => {
             const malicious = {
                 config: {
                     settings: {
-                        __proto__: { polluted: true }
-                    }
-                }
+                        __proto__: { polluted: true },
+                    },
+                },
             };
 
             const result = helpers.extend(true, {}, malicious);
@@ -234,8 +234,8 @@ describe('Helpers - Prototype Pollution Protection', () => {
                 anotherValid: 123,
                 constructor: { polluted: true },
                 nested: {
-                    data: 'ok'
-                }
+                    data: 'ok',
+                },
             };
 
             const result = helpers.extend(true, {}, mixed);
@@ -252,5 +252,3 @@ describe('Helpers - Prototype Pollution Protection', () => {
         });
     });
 });
-
-

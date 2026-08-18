@@ -2,7 +2,7 @@ import { SDKLoggerApi } from '../sdkRuntimeModels';
 import { ILoggingService, ISDKLogEntry } from './types';
 
 export class LoggingDispatcher implements ILoggingService {
-    private readonly services: ILoggingService[] = [];
+    private readonly services: Array<ILoggingService> = [];
     public logger?: SDKLoggerApi;
 
     public register(service: ILoggingService): void {
@@ -10,7 +10,7 @@ export class LoggingDispatcher implements ILoggingService {
     }
 
     public log(entry: ISDKLogEntry): void {
-        this.services.forEach(s => {
+        this.services.forEach((s) => {
             try {
                 s.log(entry);
             } catch (e) {
