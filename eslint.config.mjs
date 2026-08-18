@@ -1,6 +1,5 @@
 import { defineConfig, globalIgnores } from 'eslint/config';
 import _import from 'eslint-plugin-import';
-import typescriptEslint from '@typescript-eslint/eslint-plugin';
 import { fixupPluginRules } from '@eslint/compat';
 import globals from 'globals';
 import tsParser from '@typescript-eslint/parser';
@@ -71,17 +70,18 @@ export default defineConfig([
             'no-unexpected-multiline': 'off',
             'no-unused-vars': ['error', { caughtErrors: 'none' }],
             // Keep `.apply()` / `arguments` — this SDK still ships ES5 to
-            // Chrome 50 / Safari 11 / Edge 15.
+            // Chrome 50 / Safari 11 and other legacy browsers.
             'prefer-spread': 'off',
             'prefer-rest-params': 'off',
         },
     },
     {
         files: ['**/*.{ts,tsx}'],
+        // FlatCompat already registers @typescript-eslint; do not re-register
+        // the plugin here or ESLint can fail with a plugin redefinition error.
         extends: compat.extends('plugin:@typescript-eslint/recommended'),
         plugins: {
             import: fixupPluginRules(_import),
-            '@typescript-eslint': typescriptEslint,
         },
         languageOptions: {
             globals: {
