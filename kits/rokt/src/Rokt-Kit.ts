@@ -349,6 +349,11 @@ function generateThankYouElementScript(domain: string | undefined) {
 
 function generateBaseUrl(domain: string | undefined) {
   const resolvedDomain = typeof domain !== 'undefined' ? domain : DEFAULT_ROKT_DOMAIN;
+
+  if (resolvedDomain.includes('://')) {
+    return resolvedDomain.replace(/\/+$/, '');
+  }
+
   const protocol = 'https://';
 
   return [protocol, resolvedDomain].join('');
@@ -362,7 +367,10 @@ function generateReportingUrl(configuredUrl: string | undefined, domain: string 
     return 'https://' + configuredUrl;
   }
 
-  return generateBaseUrl(domain) + endpoint;
+  const hasNonHttpScheme = domain?.includes('://') && !/^https?:\/\//i.test(domain);
+  const reportingDomain = hasNonHttpScheme ? undefined : domain;
+
+  return generateBaseUrl(reportingDomain) + endpoint;
 }
 
 function loadRoktScript(
@@ -561,6 +569,10 @@ function sendAdBlockMeasurementSignals(domain: string | undefined, version: stri
     return;
   }
 
+  if (domain && domain.includes('://') && !/^https:\/\//i.test(domain)) {
+    return;
+  }
+
   const pageUrl = window.location.href.split('?')[0].split('#')[0];
   const params =
     'version=' +
@@ -570,8 +582,8 @@ function sendAdBlockMeasurementSignals(domain: string | undefined, version: stri
     '&pageUrl=' +
     encodeURIComponent(pageUrl);
 
-  const existingDomain = domain || 'apps.rokt.com';
-  createAutoRemovedIframe('https://' + existingDomain + '/v1/wsdk-init/index.html?' + params);
+  const existingBaseUrl = domain ? generateBaseUrl(domain) : 'https://apps.rokt.com';
+  createAutoRemovedIframe(existingBaseUrl + '/v1/wsdk-init/index.html?' + params);
 
   createAutoRemovedIframe(
     'https://' + ADBLOCK_CONTROL_DOMAIN + '/v1/wsdk-init/index.html?' + params + '&isControl=true',

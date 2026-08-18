@@ -1,58 +1,58 @@
 {
-    "name": "@mparticle/web-rokt-kit",
-    "version": "1.30.2",
-    "description": "mParticle integration kit for Rokt",
-    "main": "dist/Rokt-Kit.common.js",
-    "module": "dist/Rokt-Kit.esm.js",
-    "types": "dist/Rokt-Kit.d.ts",
-    "exports": {
-        ".": {
-            "types": "./dist/Rokt-Kit.d.ts",
-            "import": "./dist/Rokt-Kit.esm.js",
-            "require": "./dist/Rokt-Kit.common.js"
-        }
-    },
-    "files": [
-        "dist/Rokt-Kit.common.js",
-        "dist/Rokt-Kit.esm.js",
-        "dist/Rokt-Kit.iife.js",
-        "dist/Rokt-Kit.d.ts"
-    ],
-    "repository": "https://github.com/mParticle/mparticle-web-sdk",
-    "scripts": {
-        "build": "vite build",
-        "build:watch": "vite build --watch",
-        "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
-        "lint:fix": "eslint \"src/**/*.ts\" \"test/**/*.ts\" --fix",
-        "test": "vitest run",
-        "test:watch": "vitest",
-        "test:coverage": "vitest run --coverage"
-    },
-    "publishConfig": {
-        "access": "public",
-        "registry": "https://registry.npmjs.org"
-    },
-    "peerDependencies": {
-        "@mparticle/web-sdk": "^3.0.0"
-    },
-    "devDependencies": {
-        "@eslint/js": "^9.23.0",
-        "@eslint/eslintrc": "^3.3.1",
-        "@mparticle/event-models": "^1.1.9",
-        "@mparticle/web-sdk": "^2.73.1",
-        "@typescript-eslint/eslint-plugin": "^8.28.0",
-        "@typescript-eslint/parser": "^8.28.0",
-        "@types/node": "^20.11.5",
-        "@vitest/coverage-v8": "^4.0.0",
-        "eslint": "^9.23.0",
-        "eslint-config-prettier": "^9.0.0",
-        "eslint-plugin-prettier": "^5.0.0",
-        "jsdom": "latest",
-        "prettier": "^3.0.0",
-        "typescript": "^5.5.4",
-        "vite": "^6.0.0",
-        "vite-plugin-dts": "~3.8.1",
-        "vitest": "^4.0.0"
-    },
-    "license": "Apache-2.0"
+  "name": "@mparticle/web-rokt-kit",
+  "version": "1.32.0",
+  "description": "mParticle integration kit for Rokt",
+  "main": "dist/Rokt-Kit.common.js",
+  "module": "dist/Rokt-Kit.esm.js",
+  "types": "dist/Rokt-Kit.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/Rokt-Kit.d.ts",
+      "import": "./dist/Rokt-Kit.esm.js",
+      "require": "./dist/Rokt-Kit.common.js"
+    }
+  },
+  "files": [
+    "dist/Rokt-Kit.common.js",
+    "dist/Rokt-Kit.esm.js",
+    "dist/Rokt-Kit.iife.js",
+    "dist/Rokt-Kit.d.ts"
+  ],
+  "repository": "https://github.com/mParticle/mparticle-web-sdk",
+  "scripts": {
+    "build": "vite build",
+    "build:watch": "vite build --watch",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
+    "lint:fix": "eslint \"src/**/*.ts\" \"test/**/*.ts\" --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "peerDependencies": {
+    "@mparticle/web-sdk": "^3.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.23.0",
+    "@eslint/eslintrc": "^3.3.1",
+    "@mparticle/event-models": "^1.1.9",
+    "@mparticle/web-sdk": "^2.73.1",
+    "@typescript-eslint/eslint-plugin": "^8.28.0",
+    "@typescript-eslint/parser": "^8.28.0",
+    "@types/node": "^20.11.5",
+    "@vitest/coverage-v8": "^4.0.0",
+    "eslint": "^9.23.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "jsdom": "latest",
+    "prettier": "^3.0.0",
+    "typescript": "^5.5.4",
+    "vite": "^6.0.0",
+    "vite-plugin-dts": "~3.8.1",
+    "vitest": "^4.0.0"
+  },
+  "license": "Apache-2.0"
 }
