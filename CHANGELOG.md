@@ -1,3 +1,10 @@
+# [2.79.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.78.0...v2.79.0) (2026-08-18)
+
+
+### Features
+
+* **rokt:** type sessionId and sessionToken on launcherOptions ([#1325](https://github.com/mParticle/mparticle-web-sdk/issues/1325)) ([9797220](https://github.com/mParticle/mparticle-web-sdk/commit/97972204c6718fe1a6c88750faf2bff16a1257fd))
+
 # [2.78.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.77.0...v2.78.0) (2026-08-12)
 
 
