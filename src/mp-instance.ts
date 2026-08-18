@@ -126,8 +126,8 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this._instanceName = instanceName;
     this._NativeSdkHelpers = new NativeSdkHelpers(this);
     this._SessionManager = new SessionManager(this);
-    this._Persistence = new Persistence(this);
-    this._Helpers = new Helpers(this);
+    this._Persistence = new Persistence(this) as unknown as IPersistence;
+    this._Helpers = new Helpers(this) as unknown as SDKHelpersApi;
     this._Events = new Events(this);
     this._CookieSyncManager = new CookieSyncManager(this);
     this._ServerModel = new ServerModel(this);
@@ -189,7 +189,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this.ProductActionType = ProductActionType;
 
 
-    this._Identity = new Identity(this);
+    this._Identity = new Identity(this) as unknown as IIdentity;
     this.Identity = this._Identity.IdentityAPI;
     this.generateHash = this._Helpers.generateHash;
 
