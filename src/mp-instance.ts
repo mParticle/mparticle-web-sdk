@@ -1595,7 +1595,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
 
         // Note: APV uses window-level singletons (WIN_TRACKER_KEY, WIN_INIT_PV_KEY)
         // that assume a single active SDK instance. Multiple-instance support is
-        // out of scope for this Rokt/legacy APV feature.
+        // out of scope
         if (getFeatureFlag(AutoLogPageView)) {
             if (!mpInstance._PageViewTracker) {
                 mpInstance.Logger.verbose(
