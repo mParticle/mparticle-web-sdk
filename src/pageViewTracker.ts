@@ -29,6 +29,27 @@ type WindowWithTracker = WindowWithApvFlags;
 type NavigationSource = 'pushState' | 'replaceState' | 'popstate';
 
 export class PageViewTracker {
+    static hasInitialPageViewFired(): boolean {
+        return !!(window as WindowWithApvFlags)[WIN_INIT_PV_KEY];
+    }
+
+    static markInitialPageViewFired(): void {
+        (window as WindowWithApvFlags)[WIN_INIT_PV_KEY] = true;
+    }
+
+    // Tears down any window-registered tracker that differs from instanceTracker
+    // (e.g. left by a previous module load), then clears both APV window flags.
+    // Call from _resetForTests after tearing down the instance-level tracker.
+    static resetWindowState(instanceTracker?: PageViewTracker): void {
+        const win = window as WindowWithApvFlags;
+        const windowTracker = win[WIN_TRACKER_KEY];
+        if (windowTracker && windowTracker !== instanceTracker) {
+            windowTracker.teardown();
+        }
+        delete win[WIN_INIT_PV_KEY];
+        delete win[WIN_TRACKER_KEY];
+    }
+
     mpInstance: IMParticleWebSDKInstance;
 
     private lastPath: string | null = null;

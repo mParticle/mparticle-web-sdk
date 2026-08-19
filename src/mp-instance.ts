@@ -57,7 +57,7 @@ import { LoggingDispatcher } from './reporting/loggingDispatcher';
 import { IErrorReportingService, ILoggingService } from './reporting/types';
 import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
 import { normalizeRoktLauncherOptions } from './roktLauncherOptions';
-import { PageViewTracker, WIN_TRACKER_KEY, WIN_INIT_PV_KEY, WindowWithApvFlags } from './pageViewTracker';
+import { PageViewTracker } from './pageViewTracker';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -303,16 +303,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             instanceTracker.teardown();
             instance._PageViewTracker = undefined;
         }
-        const win = window as WindowWithApvFlags;
-        // Tear down any window-registered tracker that differs from the instance
-        // tracker (e.g. left by a previous module load) before clearing the
-        // window flag, so its history wrappers and popstate listener are removed.
-        const windowTracker = win[WIN_TRACKER_KEY];
-        if (windowTracker && windowTracker !== instanceTracker) {
-            windowTracker.teardown();
-        }
-        delete win[WIN_INIT_PV_KEY];
-        delete win[WIN_TRACKER_KEY];
+        PageViewTracker.resetWindowState(instanceTracker);
 
         if (!keepPersistence) {
             instance._Persistence.resetPersistence();
@@ -1613,16 +1604,14 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
                 mpInstance._PageViewTracker = new PageViewTracker(mpInstance);
 
                 // Fire the initial page view once per page load (hard navigation).
-                // window[WIN_INIT_PV_KEY] survives module re-evaluation so
-                // repeated mParticle.init() calls from SPA re-renders don't
-                // fire duplicate logPageView() events for the same page.
-                const win = window as WindowWithApvFlags;
-                if (win[WIN_INIT_PV_KEY]) {
+                // The flag survives module re-evaluation so repeated init() calls
+                // from SPA re-renders don't fire duplicate logPageView() events.
+                if (PageViewTracker.hasInitialPageViewFired()) {
                     mpInstance.Logger.verbose(
                         'mParticle APV: [sdk-init] initial page view already logged this page load, skipping'
                     );
                 } else {
-                    win[WIN_INIT_PV_KEY] = true;
+                    PageViewTracker.markInitialPageViewFired();
                     mpInstance._Events.logPageView();
                 }
             } else {
