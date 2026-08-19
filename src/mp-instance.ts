@@ -57,13 +57,7 @@ import { LoggingDispatcher } from './reporting/loggingDispatcher';
 import { IErrorReportingService, ILoggingService } from './reporting/types';
 import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
 import { normalizeRoktLauncherOptions } from './roktLauncherOptions';
-import { PageViewTracker, WIN_TRACKER_KEY } from './pageViewTracker';
-
-const WIN_INIT_PV_KEY = '__mpApvInitPVLogged__' as const;
-type WindowWithApvFlags = Window & {
-    [WIN_INIT_PV_KEY]?: boolean;
-    [WIN_TRACKER_KEY]?: PageViewTracker;
-};
+import { PageViewTracker, WIN_TRACKER_KEY, WIN_INIT_PV_KEY, WindowWithApvFlags } from './pageViewTracker';
 
 export interface IErrorLogMessage {
     message?: string;

@@ -15,9 +15,16 @@ type MarkedHistoryMethod = HistoryStateMethod & {
 // lifetime of the tab).
 export const WIN_TRACKER_KEY = '__mpApvTracker__';
 
-type WindowWithTracker = Window & {
+// Guards the initial page view so repeated mParticle.init() calls from SPA
+// re-renders don't fire duplicate logPageView() events for the same page.
+export const WIN_INIT_PV_KEY = '__mpApvInitPVLogged__' as const;
+
+export type WindowWithApvFlags = Window & {
     [WIN_TRACKER_KEY]?: PageViewTracker;
+    [WIN_INIT_PV_KEY]?: boolean;
 };
+
+type WindowWithTracker = WindowWithApvFlags;
 
 type NavigationSource = 'pushState' | 'replaceState' | 'popstate';
 
