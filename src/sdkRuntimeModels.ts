@@ -404,7 +404,7 @@ export interface SDKHelpersApi {
         timeoutStart: number,
         now: number
     ): boolean;
-    isEventType?(type: number | valueof<typeof EventType>): boolean;
+    isEventType?(type: valueof<typeof EventType>): boolean;
     isObject?(item: any);
     invokeCallback?(
         callback: IdentityCallback,

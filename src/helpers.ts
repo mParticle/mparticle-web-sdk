@@ -5,9 +5,10 @@ import Validators from './validators';
 import KitFilterHelper from './kitFilterHelper';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { SDKHelpersApi } from './sdkRuntimeModels';
-import { Dictionary } from './utils';
+import { Dictionary, valueof } from './utils';
 import { IMParticleUser } from './identity-user-interfaces';
 import { MPID } from '@mparticle/web-sdk';
+import { EventType } from './types';
 
 const StorageNames = Constants.StorageNames;
 
@@ -197,7 +198,7 @@ export default function Helpers(
         KitFilterHelper.filterUserIdentities;
     this.filterUserAttributes = KitFilterHelper.filterUserAttributes;
 
-    this.isEventType = function(type: number): boolean {
+    this.isEventType = function(type: valueof<typeof EventType>): boolean {
         for (const prop in Types.EventType) {
             if (Types.EventType.hasOwnProperty(prop)) {
                 if (Types.EventType[prop] === type) {
