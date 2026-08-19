@@ -280,7 +280,7 @@ export default function Helpers(
     this.isObject = utils.isObject;
     this.decoded = utils.decoded;
     this.parseStringOrNumber = utils.parseStringOrNumber;
-    this.generateHash = utils.generateHash as unknown as SDKHelpersApi['generateHash'];
+    this.generateHash = utils.generateHash;
     this.generateUniqueId = utils.generateUniqueId;
 
     // Imported Validators
