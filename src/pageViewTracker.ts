@@ -24,8 +24,6 @@ export type WindowWithApvFlags = Window & {
     [WIN_INIT_PV_KEY]?: boolean;
 };
 
-type WindowWithTracker = WindowWithApvFlags;
-
 type NavigationSource = 'pushState' | 'replaceState' | 'popstate';
 
 export class PageViewTracker {
@@ -88,7 +86,7 @@ export class PageViewTracker {
         // Tear down any tracker left over from a previous module load.
         // window[WIN_TRACKER_KEY] outlives module re-evaluation; this is the
         // only way to reach a tracker instance in a dead module scope.
-        const win = window as WindowWithTracker;
+        const win = window as WindowWithApvFlags;
         const prev = win[WIN_TRACKER_KEY];
         if (prev && prev !== this) {
             this.mpInstance.Logger.verbose(
@@ -122,7 +120,7 @@ export class PageViewTracker {
         this.patchHistoryMethods();
         this.addNavigationListeners();
 
-        (window as WindowWithTracker)[WIN_TRACKER_KEY] = this;
+        (window as WindowWithApvFlags)[WIN_TRACKER_KEY] = this;
 
         this.mpInstance.Logger.verbose(
             'mParticle APV: [init] patched pushState/replaceState + listening for popstate'
@@ -314,7 +312,7 @@ export class PageViewTracker {
         this.replaceStateWrapper = null;
 
         this.isActive = false;
-        const win = window as WindowWithTracker;
+        const win = window as WindowWithApvFlags;
         if (win[WIN_TRACKER_KEY] === this) {
             delete win[WIN_TRACKER_KEY];
         }
