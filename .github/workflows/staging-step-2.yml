@@ -1,15 +1,20 @@
 name: 'Staging Release - Step 2: Publish SDK Release to Release Order Branch'
+run-name: 'Staging Release - Step 2 [${{ inputs.releaseTag }} → ${{ inputs.releaseOrderBranch }}]'
 
 on:
     workflow_dispatch:
         inputs:
+            releaseTag:
+                description: 'Semantic-release candidate tag (for example, v2.80.0 or v3.0.1)'
+                required: true
+                type: string
             dryRun:
-                description: 'Do a dry run to preview instead of a real release [true/false]'
+                description: 'Do a dry run to validate without pushing [true/false]'
                 required: true
                 type: boolean
                 default: true
             releaseOrderBranch:
-                description: 'Which Release Order Branch are you targeting? [release-order-a/release-order-b/release-order-c]'
+                description: 'Logical release-order destination'
                 required: true
                 type: choice
                 options:
@@ -18,21 +23,8 @@ on:
                     - release-order-c
 
 jobs:
-    verify-release-order-branch:
-        name: Verify Release Order Branch
-        runs-on: ubuntu-latest
-        steps:
-            # As a safe guard, if a valid release branch does not exist,
-            # this step will fail and throw an error
-            - name: Checkout Release Order (${{ github.event.inputs.releaseOrderBranch }})
-              uses: actions/checkout@v6
-              with:
-                  ref: ${{ github.event.inputs.releaseOrderBranch }}
-
-    push-release-branch:
-        name: Release staging to ${{ github.event.inputs.releaseOrderBranch}}
-        needs:
-            - verify-release-order-branch
+    promote-release-candidate:
+        name: Promote ${{ inputs.releaseTag }} to ${{ inputs.releaseOrderBranch }}
         runs-on: ubuntu-latest
         env:
             GITHUB_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
@@ -40,16 +32,169 @@ jobs:
             GIT_AUTHOR_EMAIL: developers@mparticle.com
             GIT_COMMITTER_NAME: mparticle-automation
             GIT_COMMITTER_EMAIL: developers@mparticle.com
-
         steps:
-            - name: Checkout staging branch
+            - name: Checkout repository
               uses: actions/checkout@v6
               with:
                   fetch-depth: 0
                   repository: ${{ github.repository }}
-                  ref: staging
+                  token: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
 
-            - name: Push to ${{ github.event.inputs.releaseOrderBranch }}
-              if: ${{ github.event.inputs.dryRun == 'false' }}
+            - name: Validate workflow source
+              env:
+                  SOURCE_REF: ${{ github.ref }}
+                  DRY_RUN: ${{ github.event.inputs.dryRun }}
               run: |
-                  git push origin HEAD:${{ github.event.inputs.releaseOrderBranch }}
+                  set -eu
+                  case "$SOURCE_REF" in
+                      refs/heads/master|refs/heads/main) ;;
+                      *)
+                          echo "Release workflows require source ref refs/heads/master or refs/heads/main; received ${SOURCE_REF}"
+                          exit 1
+                          ;;
+                  esac
+
+                  if [ "$DRY_RUN" = "false" ]; then
+                      git fetch --no-tags --force origin \
+                          refs/heads/master:refs/remotes/origin/master \
+                          refs/heads/main:refs/remotes/origin/main
+                      for WORKFLOW in \
+                          .github/workflows/staging-step-1.yml \
+                          .github/workflows/staging-step-2.yml \
+                          .github/workflows/staging-step-3.yml; do
+                          if ! git diff --quiet \
+                              "refs/remotes/origin/master:${WORKFLOW}" \
+                              "refs/remotes/origin/main:${WORKFLOW}"; then
+                              echo "${WORKFLOW} differs between origin/master and origin/main"
+                              echo "Both paired workflow PRs must merge before a real promotion"
+                              exit 1
+                          fi
+                      done
+                  fi
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 24.x
+
+            - name: Resolve and validate release candidate
+              id: candidate
+              env:
+                  RELEASE_TAG: ${{ inputs.releaseTag }}
+                  RELEASE_ORDER_INPUT: ${{ inputs.releaseOrderBranch }}
+              run: |
+                  set -eu
+                  if ! printf '%s\n' "$RELEASE_TAG" |
+                      grep -Eq '^v(2|3)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+                      echo "Invalid stable release tag: $RELEASE_TAG"
+                      exit 1
+                  fi
+                  case "$RELEASE_ORDER_INPUT" in
+                      release-order-a|release-order-b|release-order-c) ;;
+                      *) exit 1 ;;
+                  esac
+
+                  git tag -d "$RELEASE_TAG" >/dev/null 2>&1 || true
+                  git fetch --no-tags --force origin \
+                      "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+                  CANDIDATE_SHA="$(git rev-parse "${RELEASE_TAG}^{commit}")"
+
+                  REMOTE_TAG_REFS="$(git ls-remote --exit-code --tags origin \
+                      "refs/tags/${RELEASE_TAG}" "refs/tags/${RELEASE_TAG}^{}")"
+                  REMOTE_TAG_SHA="$(printf '%s\n' "$REMOTE_TAG_REFS" |
+                      awk '$2 ~ /\^\{\}$/ { print $1; exit }')"
+                  if [ -z "$REMOTE_TAG_SHA" ]; then
+                      REMOTE_TAG_SHA="$(printf '%s\n' "$REMOTE_TAG_REFS" |
+                          awk '$2 !~ /\^\{\}$/ { print $1; exit }')"
+                  fi
+                  if [ "$REMOTE_TAG_SHA" != "$CANDIDATE_SHA" ]; then
+                      echo "Fetched tag does not match the remote peeled commit"
+                      exit 1
+                  fi
+
+                  git checkout --detach "$CANDIDATE_SHA"
+                  test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+                  PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+                  if [ "v${PACKAGE_VERSION}" != "$RELEASE_TAG" ]; then
+                      echo "package.json version ${PACKAGE_VERSION} does not match ${RELEASE_TAG}"
+                      exit 1
+                  fi
+                  PACKAGE_MAJOR="${PACKAGE_VERSION%%.*}"
+                  case "$PACKAGE_MAJOR" in
+                      2)
+                          TRACK="v2"
+                          STAGING_BRANCH="staging"
+                          TARGET_BRANCH="$RELEASE_ORDER_INPUT"
+                          ;;
+                      3)
+                          TRACK="v3"
+                          STAGING_BRANCH="v3-staging"
+                          TARGET_BRANCH="v3-${RELEASE_ORDER_INPUT}"
+                          ;;
+                      *) exit 1 ;;
+                  esac
+                  case "${TRACK}|${STAGING_BRANCH}|${TARGET_BRANCH}" in
+                      "v2|staging|release-order-a"|"v2|staging|release-order-b"|"v2|staging|release-order-c") ;;
+                      "v3|v3-staging|v3-release-order-a"|"v3|v3-staging|v3-release-order-b"|"v3|v3-staging|v3-release-order-c") ;;
+                      *) exit 1 ;;
+                  esac
+
+                  STAGING_SHA="$(git ls-remote --exit-code origin \
+                      "refs/heads/${STAGING_BRANCH}" | awk 'NR == 1 { print $1 }')"
+                  if [ "$STAGING_SHA" != "$CANDIDATE_SHA" ]; then
+                      echo "${RELEASE_TAG} is stale: origin/${STAGING_BRANCH} is ${STAGING_SHA}"
+                      exit 1
+                  fi
+                  TARGET_SHA="$(git ls-remote --exit-code origin \
+                      "refs/heads/${TARGET_BRANCH}" | awk 'NR == 1 { print $1 }')"
+                  git fetch --no-tags --force origin \
+                      "refs/heads/${TARGET_BRANCH}:refs/remotes/origin/${TARGET_BRANCH}"
+                  if [ "$TARGET_SHA" = "$CANDIDATE_SHA" ]; then
+                      PROMOTION_STATE="already current"
+                  elif git merge-base --is-ancestor "$TARGET_SHA" "$CANDIDATE_SHA"; then
+                      PROMOTION_STATE="fast-forward"
+                  else
+                      echo "origin/${TARGET_BRANCH} cannot fast-forward to ${RELEASE_TAG}"
+                      exit 1
+                  fi
+
+                  echo "track=$TRACK" >> "$GITHUB_OUTPUT"
+                  echo "candidate_sha=$CANDIDATE_SHA" >> "$GITHUB_OUTPUT"
+                  echo "target_branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
+                  echo "promotion_state=$PROMOTION_STATE" >> "$GITHUB_OUTPUT"
+
+            - name: Promote exact candidate
+              if: ${{ github.event.inputs.dryRun == 'false' }}
+              env:
+                  TARGET_BRANCH: ${{ steps.candidate.outputs.target_branch }}
+              run: |
+                  set -eu
+                  git push origin "HEAD:refs/heads/${TARGET_BRANCH}"
+
+            - name: Report promotion
+              env:
+                  RELEASE_TAG: ${{ inputs.releaseTag }}
+                  TRACK: ${{ steps.candidate.outputs.track }}
+                  CANDIDATE_SHA: ${{ steps.candidate.outputs.candidate_sha }}
+                  TARGET_BRANCH: ${{ steps.candidate.outputs.target_branch }}
+                  PROMOTION_STATE: ${{ steps.candidate.outputs.promotion_state }}
+                  DRY_RUN: ${{ github.event.inputs.dryRun }}
+                  SOURCE_REF: ${{ github.ref }}
+              run: |
+                  set -eu
+                  if [ "$DRY_RUN" = "true" ]; then
+                      ACTION="Would promote exact candidate"
+                  else
+                      ACTION="Promoted exact candidate"
+                  fi
+                  {
+                      printf '## Release-order promotion\n\n'
+                      printf -- '- Release tag: `%s`\n' "$RELEASE_TAG"
+                      printf -- '- Source ref: `%s`\n' "$SOURCE_REF"
+                      printf -- '- Track: `%s`\n' "$TRACK"
+                      printf -- '- Candidate SHA: `%s`\n' "$CANDIDATE_SHA"
+                      printf -- '- Destination: `%s`\n' "$TARGET_BRANCH"
+                      printf -- '- Validation: `%s`\n' "$PROMOTION_STATE"
+                      printf -- '- Dry run: `%s`\n' "$DRY_RUN"
+                      printf -- '- Action: `%s`\n' "$ACTION"
+                  } >> "$GITHUB_STEP_SUMMARY"
