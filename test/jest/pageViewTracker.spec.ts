@@ -547,6 +547,33 @@ describe('PageViewTracker', () => {
             expect((window as any)[WIN_TRACKER_KEY]).toBe(newTracker);
         });
 
+        // Regression: a navigation queued by the stale tracker (setTimeout not yet
+        // flushed) must not fire after the new tracker takes over. The stale
+        // tracker's deferred callback checks isActive and aborts; the new tracker
+        // seeds lastPath with the destination so it is treated as already-seen.
+        it('should drop a pending page view from the stale tracker on module re-evaluation', () => {
+            const staleTracker = createTracker();
+            staleTracker.init(); // seeds lastPath = '/'
+
+            // Route change detected by the stale tracker — deferred fire queued.
+            window.history.pushState({}, '', '/route-a');
+            // Timer not yet flushed.
+
+            // Module re-evaluation: new tracker tears down the stale one.
+            const newTracker = createTracker();
+            newTracker.init(); // seeds lastPath = '/route-a', tears down staleTracker
+
+            // Flush: stale tracker's callback aborts because isActive is false.
+            jest.runAllTimers();
+            expect(logEvent).not.toHaveBeenCalled();
+
+            // A subsequent navigation from the new tracker fires normally.
+            window.history.pushState({}, '', '/route-b');
+            jest.runAllTimers();
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent.mock.calls[0][0].data.path).toBe('/route-b');
+        });
+
         it('should not fire duplicate page views after a module re-evaluation', () => {
             // First module load: tracker A installs its wrapper.
             const trackerA = createTracker();

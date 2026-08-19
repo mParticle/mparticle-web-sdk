@@ -67,6 +67,13 @@ export class PageViewTracker {
                 'mParticle APV: [init] found stale tracker from previous module load — tearing down to prevent stacked wrappers'
             );
             prev.teardown();
+            // Known limitation: if the previous tracker had already queued a
+            // deferred firePageView() via setTimeout, that callback will abort
+            // (isActive is now false) and the navigation will not be re-fired by
+            // this tracker (it seeds lastPath with the current pathname, so the
+            // destination is treated as already-seen). This sub-ms window is
+            // acceptable: stacking N wrappers after N reloads is worse than
+            // losing a single view on the overlap tick.
         }
 
         if (this.isActive) {

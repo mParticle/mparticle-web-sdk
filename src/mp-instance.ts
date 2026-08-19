@@ -304,11 +304,19 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         );
         instance._Events.stopTracking();
 
-        if (instance._PageViewTracker) {
-            instance._PageViewTracker.teardown();
+        const instanceTracker = instance._PageViewTracker;
+        if (instanceTracker) {
+            instanceTracker.teardown();
             instance._PageViewTracker = undefined;
         }
         const win = window as WindowWithApvFlags;
+        // Tear down any window-registered tracker that differs from the instance
+        // tracker (e.g. left by a previous module load) before clearing the
+        // window flag, so its history wrappers and popstate listener are removed.
+        const windowTracker = win[WIN_TRACKER_KEY];
+        if (windowTracker && windowTracker !== instanceTracker) {
+            windowTracker.teardown();
+        }
         delete win[WIN_INIT_PV_KEY];
         delete win[WIN_TRACKER_KEY];
 
@@ -1600,6 +1608,9 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         mpInstance._SessionManager.initialize();
         mpInstance._Events.logAST();
 
+        // Note: APV uses window-level singletons (WIN_TRACKER_KEY, WIN_INIT_PV_KEY)
+        // that assume a single active SDK instance. Multiple-instance support is
+        // out of scope for this Rokt/legacy APV feature.
         if (getFeatureFlag(AutoLogPageView)) {
             if (!mpInstance._PageViewTracker) {
                 mpInstance.Logger.verbose(
@@ -1627,6 +1638,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             }
             mpInstance._PageViewTracker.init();
         } else if (mpInstance._PageViewTracker) {
+            // AutoLogPageView was disabled on re-init: tear down the active tracker
+            // so it stops listening. Re-created if the flag is re-enabled later.
             mpInstance._PageViewTracker.teardown();
         }
 
