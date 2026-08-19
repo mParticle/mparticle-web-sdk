@@ -1,10 +1,10 @@
 // Base64 encoder/decoder - http://www.webtoolkit.info/javascript_base64.html
-var Base64 = {
+const Base64 = {
     _keyStr:
         'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=',
 
     // Input must be a string
-    encode: function encode(input) {
+    encode: function encode(input: string): string {
         try {
             if (window.btoa && window.atob) {
                 return window.btoa(unescape(encodeURIComponent(input)));
@@ -15,10 +15,10 @@ var Base64 = {
         return this._encode(input);
     },
 
-    _encode: function _encode(input) {
-        var output = '';
-        var chr1, chr2, chr3, enc1, enc2, enc3, enc4;
-        var i = 0;
+    _encode: function _encode(input: string): string {
+        let output = '';
+        let chr1, chr2, chr3, enc1, enc2, enc3, enc4;
+        let i = 0;
 
         input = UTF8.encode(input);
 
@@ -48,7 +48,7 @@ var Base64 = {
         return output;
     },
 
-    decode: function decode(input) {
+    decode: function decode(input: string): string {
         try {
             if (window.btoa && window.atob) {
                 return decodeURIComponent(escape(window.atob(input)));
@@ -59,11 +59,11 @@ var Base64 = {
         return Base64._decode(input);
     },
 
-    _decode: function _decode(input) {
-        var output = '';
-        var chr1, chr2, chr3;
-        var enc1, enc2, enc3, enc4;
-        var i = 0;
+    _decode: function _decode(input: string): string {
+        let output = '';
+        let chr1, chr2, chr3;
+        let enc1, enc2, enc3, enc4;
+        let i = 0;
 
         input = input.replace(/[^A-Za-z0-9\+\/\=]/g, '');
 
@@ -91,12 +91,12 @@ var Base64 = {
     },
 };
 
-var UTF8 = {
-    encode: function encode(s) {
-        var utftext = '';
+const UTF8 = {
+    encode: function encode(s: string): string {
+        let utftext = '';
 
-        for (var n = 0; n < s.length; n++) {
-            var c = s.charCodeAt(n);
+        for (let n = 0; n < s.length; n++) {
+            const c = s.charCodeAt(n);
 
             if (c < 128) {
                 utftext += String.fromCharCode(c);
@@ -112,10 +112,10 @@ var UTF8 = {
         return utftext;
     },
 
-    decode: function decode(utftext) {
-        var s = '';
-        var i = 0;
-        var c = 0,
+    decode: function decode(utftext: string): string {
+        let s = '';
+        let i = 0;
+        let c = 0,
             c1 = 0,
             c2 = 0;
 
@@ -146,14 +146,14 @@ export default {
     // Production steps of ECMA-262, Edition 5, 15.4.4.18
     // Reference: http://es5.github.io/#x15.4.4.18
     forEach: function(callback, thisArg) {
-        var T, k;
+        let T, k;
 
         if (this == null) {
             throw new TypeError(' this is null or not defined');
         }
 
-        var O = Object(this);
-        var len = O.length >>> 0;
+        const O = Object(this);
+        const len = O.length >>> 0;
 
         if (typeof callback !== 'function') {
             throw new TypeError(callback + ' is not a function');
@@ -166,7 +166,7 @@ export default {
         k = 0;
 
         while (k < len) {
-            var kValue;
+            let kValue;
             if (k in O) {
                 kValue = O[k];
                 callback.call(T, kValue, k, O);
@@ -179,14 +179,14 @@ export default {
     // Production steps of ECMA-262, Edition 5, 15.4.4.19
     // Reference: http://es5.github.io/#x15.4.4.19
     map: function(callback, thisArg) {
-        var T, A, k;
+        let T, A, k;
 
         if (this === null) {
             throw new TypeError(' this is null or not defined');
         }
 
-        var O = Object(this);
-        var len = O.length >>> 0;
+        const O = Object(this);
+        const len = O.length >>> 0;
 
         if (typeof callback !== 'function') {
             throw new TypeError(callback + ' is not a function');
@@ -201,7 +201,7 @@ export default {
         k = 0;
 
         while (k < len) {
-            var kValue, mappedValue;
+            let kValue, mappedValue;
             if (k in O) {
                 kValue = O[k];
                 mappedValue = callback.call(T, kValue, k, O);
@@ -223,17 +223,17 @@ export default {
             throw new TypeError();
         }
 
-        var t = Object(this);
-        var len = t.length >>> 0;
+        const t = Object(this);
+        const len = t.length >>> 0;
         if (typeof fun !== 'function') {
             throw new TypeError();
         }
 
-        var res = [];
-        var thisArg = arguments.length >= 2 ? arguments[1] : void 0;
-        for (var i = 0; i < len; i++) {
+        const res = [];
+        const thisArg = arguments.length >= 2 ? arguments[1] : void 0;
+        for (let i = 0; i < len; i++) {
             if (i in t) {
-                var val = t[i];
+                const val = t[i];
                 if (fun.call(thisArg, val, i, t)) {
                     res.push(val);
                 }
@@ -244,7 +244,7 @@ export default {
     },
 
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray
-    isArray: function(arg) {
+    isArray: function(arg: unknown): boolean {
         return Object.prototype.toString.call(arg) === '[object Array]';
     },
 
