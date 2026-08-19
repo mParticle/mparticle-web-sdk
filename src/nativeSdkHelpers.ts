@@ -1,13 +1,19 @@
 import Constants from './constants';
+import { IMParticleWebSDKInstance } from './mp-instance';
+import { INativeSdkHelpers } from './nativeSdkHelpers.interfaces';
+import { Dictionary } from './utils';
 
-var Messages = Constants.Messages;
+const Messages = Constants.Messages;
 
-var androidBridgeNameBase = 'mParticleAndroid';
-var iosBridgeNameBase = 'mParticle';
+const androidBridgeNameBase = 'mParticleAndroid';
+const iosBridgeNameBase = 'mParticle';
 
-export default function NativeSdkHelpers(mpInstance) {
-    var self = this;
-    this.initializeSessionAttributes = function(apiKey) {
+export default function NativeSdkHelpers(
+    this: INativeSdkHelpers,
+    mpInstance: IMParticleWebSDKInstance
+): void {
+    const self = this;
+    this.initializeSessionAttributes = function(apiKey: string): void {
         const { SetSessionAttribute } = Constants.NativeSdkPaths;
         const env = JSON.stringify({
             key: '$src_env',
@@ -25,19 +31,21 @@ export default function NativeSdkHelpers(mpInstance) {
         }
     };
 
-    this.isBridgeV2Available = function(bridgeName) {
+    this.isBridgeV2Available = function(bridgeName: string): boolean {
         if (!bridgeName) {
             return false;
         }
-        var androidBridgeName =
+        const androidBridgeName =
             androidBridgeNameBase + '_' + bridgeName + '_v2';
-        var iosBridgeName = iosBridgeNameBase + '_' + bridgeName + '_v2';
+        const iosBridgeName = iosBridgeNameBase + '_' + bridgeName + '_v2';
 
         // iOS v2 bridge
         if (
-            window.webkit &&
-            window.webkit.messageHandlers &&
-            window.webkit.messageHandlers.hasOwnProperty(iosBridgeName)
+            (window as Dictionary).webkit &&
+            (window as Dictionary).webkit.messageHandlers &&
+            (window as Dictionary).webkit.messageHandlers.hasOwnProperty(
+                iosBridgeName
+            )
         ) {
             return true;
         }
@@ -45,8 +53,9 @@ export default function NativeSdkHelpers(mpInstance) {
         // TODO: what to do about people setting things on mParticle itself?
         if (
             window.mParticle &&
-            window.mParticle.uiwebviewBridgeName &&
-            window.mParticle.uiwebviewBridgeName === iosBridgeName
+            (window.mParticle as Dictionary).uiwebviewBridgeName &&
+            (window.mParticle as Dictionary).uiwebviewBridgeName ===
+                iosBridgeName
         ) {
             return true;
         }
@@ -58,23 +67,23 @@ export default function NativeSdkHelpers(mpInstance) {
     };
 
     this.isWebviewEnabled = function(
-        requiredWebviewBridgeName,
-        minWebviewBridgeVersion
-    ) {
-        mpInstance._Store.bridgeV2Available = self.isBridgeV2Available(
+        requiredWebviewBridgeName: string,
+        minWebviewBridgeVersion: number
+    ): boolean {
+        (mpInstance._Store as Dictionary).bridgeV2Available = self.isBridgeV2Available(
             requiredWebviewBridgeName
         );
-        mpInstance._Store.bridgeV1Available = self.isBridgeV1Available();
+        (mpInstance._Store as Dictionary).bridgeV1Available = self.isBridgeV1Available();
 
         if (minWebviewBridgeVersion === 2) {
-            return mpInstance._Store.bridgeV2Available;
+            return (mpInstance._Store as Dictionary).bridgeV2Available;
         }
 
         // iOS BridgeV1 can be available via mParticle.isIOS, but return false if uiwebviewBridgeName doesn't match requiredWebviewBridgeName
         if (window.mParticle) {
             if (
-                window.mParticle.uiwebviewBridgeName &&
-                window.mParticle.uiwebviewBridgeName !==
+                (window.mParticle as Dictionary).uiwebviewBridgeName &&
+                (window.mParticle as Dictionary).uiwebviewBridgeName !==
                     iosBridgeNameBase + '_' + requiredWebviewBridgeName + '_v2'
             ) {
                 return false;
@@ -84,18 +93,18 @@ export default function NativeSdkHelpers(mpInstance) {
         if (minWebviewBridgeVersion < 2) {
             // ios
             return (
-                mpInstance._Store.bridgeV2Available ||
-                mpInstance._Store.bridgeV1Available
+                (mpInstance._Store as Dictionary).bridgeV2Available ||
+                (mpInstance._Store as Dictionary).bridgeV1Available
             );
         }
 
         return false;
     };
 
-    this.isBridgeV1Available = function() {
+    this.isBridgeV1Available = function(): boolean {
         if (
             mpInstance._Store.SDKConfig.useNativeSdk ||
-            window.mParticleAndroid ||
+            (window as Dictionary).mParticleAndroid ||
             mpInstance._Store.SDKConfig.isIOS
         ) {
             return true;
@@ -104,9 +113,9 @@ export default function NativeSdkHelpers(mpInstance) {
         return false;
     };
 
-    this.sendToNative = function(path, value) {
+    this.sendToNative = function(path: string, value?: string): void {
         if (
-            mpInstance._Store.bridgeV2Available &&
+            (mpInstance._Store as Dictionary).bridgeV2Available &&
             mpInstance._Store.SDKConfig.minWebviewBridgeVersion === 2
         ) {
             self.sendViaBridgeV2(
@@ -117,7 +126,7 @@ export default function NativeSdkHelpers(mpInstance) {
             return;
         }
         if (
-            mpInstance._Store.bridgeV2Available &&
+            (mpInstance._Store as Dictionary).bridgeV2Available &&
             mpInstance._Store.SDKConfig.minWebviewBridgeVersion < 2
         ) {
             self.sendViaBridgeV2(
@@ -128,7 +137,7 @@ export default function NativeSdkHelpers(mpInstance) {
             return;
         }
         if (
-            mpInstance._Store.bridgeV1Available &&
+            (mpInstance._Store as Dictionary).bridgeV1Available &&
             mpInstance._Store.SDKConfig.minWebviewBridgeVersion < 2
         ) {
             self.sendViaBridgeV1(path, value);
@@ -136,15 +145,15 @@ export default function NativeSdkHelpers(mpInstance) {
         }
     };
 
-    this.sendViaBridgeV1 = function(path, value) {
+    this.sendViaBridgeV1 = function(path: string, value: string): void {
         if (
-            window.mParticleAndroid &&
-            window.mParticleAndroid.hasOwnProperty(path)
+            (window as Dictionary).mParticleAndroid &&
+            (window as Dictionary).mParticleAndroid.hasOwnProperty(path)
         ) {
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.SendAndroid + path
             );
-            window.mParticleAndroid[path](value);
+            (window as Dictionary).mParticleAndroid[path](value);
         } else if (mpInstance._Store.SDKConfig.isIOS) {
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.SendIOS + path
@@ -153,8 +162,8 @@ export default function NativeSdkHelpers(mpInstance) {
         }
     };
 
-    this.sendViaIframeToIOS = function(path, value) {
-        var iframe = document.createElement('IFRAME');
+    this.sendViaIframeToIOS = function(path: string, value: string): void {
+        const iframe = document.createElement('IFRAME');
         iframe.setAttribute(
             'src',
             'mp-sdk://' + path + '/' + encodeURIComponent(value)
@@ -163,30 +172,35 @@ export default function NativeSdkHelpers(mpInstance) {
         iframe.parentNode.removeChild(iframe);
     };
 
-    this.sendViaBridgeV2 = function(path, value, requiredWebviewBridgeName) {
+    this.sendViaBridgeV2 = function(
+        path: string,
+        value: string,
+        requiredWebviewBridgeName: string
+    ): void {
         if (!requiredWebviewBridgeName) {
             return;
         }
 
-        var androidBridgeName =
+        const androidBridgeName =
                 androidBridgeNameBase + '_' + requiredWebviewBridgeName + '_v2',
-            androidBridge = window[androidBridgeName],
+            androidBridge = (window as Dictionary)[androidBridgeName],
             iosBridgeName =
-                iosBridgeNameBase + '_' + requiredWebviewBridgeName + '_v2',
-            iOSBridgeMessageHandler,
-            iOSBridgeNonMessageHandler;
+                iosBridgeNameBase + '_' + requiredWebviewBridgeName + '_v2';
+        let iOSBridgeMessageHandler, iOSBridgeNonMessageHandler;
 
         if (
-            window.webkit &&
-            window.webkit.messageHandlers &&
-            window.webkit.messageHandlers[iosBridgeName]
+            (window as Dictionary).webkit &&
+            (window as Dictionary).webkit.messageHandlers &&
+            (window as Dictionary).webkit.messageHandlers[iosBridgeName]
         ) {
-            iOSBridgeMessageHandler =
-                window.webkit.messageHandlers[iosBridgeName];
+            iOSBridgeMessageHandler = (window as Dictionary).webkit
+                .messageHandlers[iosBridgeName];
         }
 
-        if (mpInstance.uiwebviewBridgeName === iosBridgeName) {
-            iOSBridgeNonMessageHandler = mpInstance[iosBridgeName];
+        if ((mpInstance as Dictionary).uiwebviewBridgeName === iosBridgeName) {
+            iOSBridgeNonMessageHandler = (mpInstance as Dictionary)[
+                iosBridgeName
+            ];
         }
 
         if (androidBridge && androidBridge.hasOwnProperty(path)) {
