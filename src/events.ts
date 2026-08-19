@@ -1,6 +1,6 @@
 import Types from './types';
 import Constants from './constants';
-import { IEvents, TrackingCallback } from './events.interfaces';
+import { IEvents } from './events.interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import {
     BaseEvent,
@@ -25,6 +25,12 @@ interface DOMHandlerElement extends HTMLElement {
     submit?: () => void;
     attachEvent?: (event: string, handler: EventListener) => void;
 }
+
+type TrackingCallback = (
+    location?: {
+        coords: { latitude: number | string; longitude: number | string };
+    }
+) => void;
 
 const Messages = Constants.Messages;
 
@@ -325,7 +331,7 @@ export default function Events(
 
     this.logPromotionEvent = function(
         promotionType: valueof<typeof PromotionActionType>,
-        promotion: SDKPromotion | SDKPromotion[],
+        promotion: SDKPromotion,
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions
@@ -450,7 +456,7 @@ export default function Events(
         data:
             | ((element: HTMLLinkElement | HTMLFormElement) => SDKEventAttrs)
             | SDKEventAttrs,
-        eventType?: valueof<typeof EventType>
+        eventType: valueof<typeof EventType>
     ): void {
         let elements: ArrayLike<Element> | Element[] = [],
             handler = function(e: Event): void {

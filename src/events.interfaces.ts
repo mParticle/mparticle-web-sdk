@@ -1,4 +1,5 @@
 import {
+    Callback,
     SDKEventAttrs,
     SDKEventOptions,
     TransactionAttributes,
@@ -17,20 +18,13 @@ import { EventType, ProductActionType, PromotionActionType } from './types';
 // Supports wrapping event handlers functions that will ideally return a specific type
 type EventHandlerFunction<T> = (element: HTMLLinkElement | HTMLFormElement) => T;
 
-// Runtime may call with a position object or with no args (error / rejected path)
-export type TrackingCallback = (
-    location?: {
-        coords: { latitude: number | string; longitude: number | string };
-    }
-) => void;
-
 export interface IEvents {
     addEventHandler(
         domEvent: string,
         selector: string | Node,
         eventName: EventHandlerFunction<string> | string,
         data: EventHandlerFunction<SDKEventAttrs> | SDKEventAttrs,
-        eventType?: valueof<typeof EventType>
+        eventType: valueof<typeof EventType>
     ): void;
     logAST(): void;
     logCheckoutEvent(
@@ -68,7 +62,7 @@ export interface IEvents {
     ): void;
     logPromotionEvent(
         promotionType: valueof<typeof PromotionActionType>,
-        promotion: SDKPromotion | SDKPromotion[],
+        promotion: SDKPromotion,
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions
@@ -85,6 +79,6 @@ export interface IEvents {
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags
     ): void;
-    startTracking(callback: TrackingCallback): void;
+    startTracking(callback: Callback): void;
     stopTracking(): void;
 }

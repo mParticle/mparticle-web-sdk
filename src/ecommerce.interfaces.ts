@@ -165,14 +165,14 @@ export interface IECommerce extends IECommerceShared {
         promotionActionType: valueof<typeof PromotionActionType>
     ): number | null;
     calculateProductActionTotalAmount(
-        productAction: ProductAction | SDKProductAction
-    ): ProductAction | SDKProductAction;
+        productAction: SDKProductAction
+    ): SDKProductAction;
     convertTransactionAttributesToProductAction(
         transactionAttributes: TransactionAttributes,
-        productAction: ProductAction | SDKProductAction
+        productAction: SDKProductAction
     ): void;
     createCommerceEventObject(
-        customFlags?: SDKEventCustomFlags,
+        customFlags: SDKEventCustomFlags,
         options?: SDKEventOptions
     ): SDKEvent | null;
     expandProductAction(commerceEvent: CommerceEvent): SDKEvent[];
