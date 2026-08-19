@@ -393,7 +393,7 @@ export interface SDKHelpersApi {
     filterUserIdentities?(
         userIdentitiesObject: Dictionary<string>,
         filterList: number[]
-    ): Array<{ Type: number; Identity: string }>;
+    ): ISDKUserIdentity[];
     invokeAliasCallback(
         aliasCallback: IAliasCallback,
         number: number,

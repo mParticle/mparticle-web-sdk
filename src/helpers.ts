@@ -5,10 +5,8 @@ import Validators from './validators';
 import KitFilterHelper from './kitFilterHelper';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { SDKHelpersApi } from './sdkRuntimeModels';
-import { Dictionary, valueof } from './utils';
-import { IMParticleUser } from './identity-user-interfaces';
+import { IMParticleUser, ISDKUserIdentity } from './identity-user-interfaces';
 import { MPID } from '@mparticle/web-sdk';
-import { EventType } from './types';
 
 const StorageNames = Constants.StorageNames;
 
@@ -97,7 +95,7 @@ export default function Helpers(
         }
         try {
             if (self.Validators.isFunction(callback)) {
-                const callbackMessage: Dictionary = {
+                const callbackMessage: utils.Dictionary = {
                     httpCode: code,
                 };
                 if (message) {
@@ -145,11 +143,13 @@ export default function Helpers(
 
         if (xhr && cb && 'withCredentials' in xhr) {
             xhr.onreadystatechange = cb;
-        } else if (typeof (window as Dictionary).XDomainRequest !== 'undefined') {
+        } else if (
+            typeof (window as utils.Dictionary).XDomainRequest !== 'undefined'
+        ) {
             mpInstance.Logger.verbose('Creating XDomainRequest object');
 
             try {
-                xhr = new (window as Dictionary).XDomainRequest();
+                xhr = new (window as utils.Dictionary).XDomainRequest();
                 xhr.onload = cb;
             } catch (e) {
                 mpInstance.Logger.error('Error creating XDomainRequest object');
@@ -160,13 +160,10 @@ export default function Helpers(
     };
 
     this.filterUserIdentities = function(
-        userIdentitiesObject: Dictionary<string>,
+        userIdentitiesObject: utils.Dictionary<string>,
         filterList: number[]
-    ): Array<{ Type: number; Identity: string }> {
-        const filteredUserIdentities: Array<{
-            Type: number;
-            Identity: string;
-        }> = [];
+    ): ISDKUserIdentity[] {
+        const filteredUserIdentities: ISDKUserIdentity[] = [];
 
         if (userIdentitiesObject && Object.keys(userIdentitiesObject).length) {
             for (const userIdentityName in userIdentitiesObject) {
@@ -175,7 +172,7 @@ export default function Helpers(
                         userIdentityName
                     );
                     if (!self.inArray(filterList, userIdentityType)) {
-                        const identity = {
+                        const identity: ISDKUserIdentity = {
                             Type: userIdentityType,
                             Identity: userIdentitiesObject[userIdentityName],
                         };
@@ -198,7 +195,9 @@ export default function Helpers(
         KitFilterHelper.filterUserIdentities;
     this.filterUserAttributes = KitFilterHelper.filterUserAttributes;
 
-    this.isEventType = function(type: valueof<typeof EventType>): boolean {
+    this.isEventType = function(
+        type: utils.valueof<typeof Types.EventType>
+    ): boolean {
         for (const prop in Types.EventType) {
             if (Types.EventType.hasOwnProperty(prop)) {
                 if (Types.EventType[prop] === type) {
@@ -210,14 +209,14 @@ export default function Helpers(
     };
 
     this.sanitizeAttributes = function(
-        attrs: Dictionary,
+        attrs: utils.Dictionary,
         name: string
-    ): Dictionary<string> | null {
+    ): utils.Dictionary<string> | null {
         if (!attrs || !self.isObject(attrs)) {
             return null;
         }
 
-        const sanitizedAttrs: Dictionary<string> = {};
+        const sanitizedAttrs: utils.Dictionary<string> = {};
 
         for (const prop in attrs) {
             // Make sure that attribute values are not objects or arrays, which are not valid
@@ -241,7 +240,7 @@ export default function Helpers(
     };
 
     this.isDelayedByIntegration = function(
-        delayedIntegrations: Dictionary<boolean>,
+        delayedIntegrations: utils.Dictionary<boolean>,
         timeoutStart: number,
         now: number
     ): boolean {
