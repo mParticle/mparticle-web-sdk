@@ -1,5 +1,5 @@
 {
-  "name": "@mparticle/web-leanplum-kit-1",
+  "name": "@mparticle/web-leanplum-kit",
   "version": "2.0.5",
   "author": "mParticle Developers <developers@mparticle.com> (https://www.mparticle.com)",
   "description": "mParticle integration sdk for Leanplum",
