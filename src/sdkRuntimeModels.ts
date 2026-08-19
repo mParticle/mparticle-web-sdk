@@ -378,17 +378,33 @@ export interface SDKHelpersApi {
     generateHash?(value: string): string;
     // https://go.mparticle.com/work/SQDSDKS-6317
     getFeatureFlag?(feature: string): boolean | string; // TODO: Feature Constants should be converted to enum
+    decoded?(s: string): string;
+    parseStringOrNumber?(value: string | number): string | number | null;
+    inArray?(items: any[], value: any): boolean;
+    converted?(s: string): string;
+    filterUserIdentitiesForForwarders?(
+        userIdentities: Dictionary,
+        filterList: number[]
+    ): Dictionary;
+    filterUserAttributes?(
+        userAttributes: Dictionary,
+        filterList: number[]
+    ): Dictionary;
+    filterUserIdentities?(
+        userIdentitiesObject: Dictionary<string>,
+        filterList: number[]
+    ): Array<{ Type: number; Identity: string }>;
     invokeAliasCallback(
         aliasCallback: IAliasCallback,
         number: number,
-        errorMessage: string
+        errorMessage?: string
     ): void;
     isDelayedByIntegration?(
         delayedIntegrations: Dictionary<boolean>,
         timeoutStart: number,
         now: number
     ): boolean;
-    isEventType?(type: valueof<typeof EventType>): boolean;
+    isEventType?(type: number | valueof<typeof EventType>): boolean;
     isObject?(item: any);
     invokeCallback?(
         callback: IdentityCallback,
