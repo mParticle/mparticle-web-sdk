@@ -1,4 +1,3 @@
-console.info('[mParticle QA kit path smoke] Loaded kits/adobe-target/dist/AdobeTarget-Kit.iife.js from monorepo GitHub path');
 var AdobeTargetKit = (function (exports) {
     'use strict';
 

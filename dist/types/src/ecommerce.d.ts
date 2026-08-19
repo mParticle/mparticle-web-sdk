@@ -5,14 +5,13 @@ export default class Ecommerce {
     calculateProductActionTotalAmount: (productAction: any) => any;
     getProductActionEventName: (productActionType: any) => "AddToCart" | "AddToWishlist" | "Checkout" | "CheckoutOption" | "Click" | "Purchase" | "Refund" | "RemoveFromCart" | "RemoveFromWishlist" | "ViewDetail" | "ViewCart" | "AddShippingInfo" | "AddPaymentInfo" | "PaymentMethodSelected" | "PaymentAttempted" | "PaymentSucceeded" | "PaymentFailed" | "RefundInitiated" | "Unknown";
     getPromotionActionEventName: (promotionActionType: any) => "Unknown" | "PromotionClick" | "PromotionView";
-    convertProductActionToEventType: (productActionType: any) => 0 | 20 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 21;
+    convertProductActionToEventType: (productActionType: any) => 0 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 20 | 21;
     convertPromotionActionToEventType: (promotionActionType: any) => 18 | 19;
     generateExpandedEcommerceName: (eventName: any, plusOne: any) => string;
     extractProductAttributes: (attributes: any, product: any) => void;
     extractTransactionId: (attributes: any, productAction: any) => void;
     extractActionAttributes: (attributes: any, productAction: any) => void;
     extractPromotionAttributes: (attributes: any, promotion: any) => void;
-    buildProductList: (event: any, product: any) => any;
     createProduct: (name: any, sku: any, price: any, quantity: any, variant: any, category: any, brand: any, position: any, couponCode: any, attributes: any) => {
         Name: string;
         Sku: any;

@@ -58,7 +58,6 @@ export default class KitBlocker {
         ProductAction?: import("./sdkRuntimeModels").SDKProductAction;
         PromotionAction?: import("./sdkRuntimeModels").SDKPromotionAction;
         ProductImpressions?: import("./sdkRuntimeModels").SDKProductImpression[];
-        ShoppingCart?: import("./sdkRuntimeModels").SDKShoppingCart;
         UserIdentityChanges?: import("./identity-user-interfaces").ISDKUserIdentityChanges;
         UserAttributeChanges?: import("./identity-user-interfaces").ISDKUserAttributeChangeData;
         CurrencyCode: string;
@@ -103,7 +102,6 @@ export default class KitBlocker {
         ProductAction?: import("./sdkRuntimeModels").SDKProductAction;
         PromotionAction?: import("./sdkRuntimeModels").SDKPromotionAction;
         ProductImpressions?: import("./sdkRuntimeModels").SDKProductImpression[];
-        ShoppingCart?: import("./sdkRuntimeModels").SDKShoppingCart;
         UserIdentityChanges?: import("./identity-user-interfaces").ISDKUserIdentityChanges;
         UserAttributeChanges?: import("./identity-user-interfaces").ISDKUserAttributeChangeData;
         CurrencyCode: string;

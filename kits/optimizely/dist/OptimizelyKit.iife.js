@@ -1,4 +1,3 @@
-console.info('[mParticle QA kit path smoke] Loaded kits/optimizely/dist/OptimizelyKit.iife.js from monorepo GitHub path');
 var OptimizelyKit = (function (exports) {
     'use strict';
 

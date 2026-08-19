@@ -44,7 +44,6 @@ export interface SDKConfig {
     userAudienceUrl?: string;
     isIOS?: boolean;
     maxAliasWindow: number;
-    maxProducts: number;
     requestConfig?: boolean;
     sessionTimeout?: number;
     useNativeSdk?: boolean;

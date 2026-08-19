@@ -4,7 +4,7 @@ import { ICachedIdentityCall, IKnownIdentities } from './identity-utils';
 import { BaseVault } from './vault';
 import { Dictionary, Environment, valueof } from './utils';
 import Constants from './constants';
-import { IdentityCallback, IUserAttributeChangeEvent, IUserIdentityChangeEvent, IMParticleUser, mParticleUserCart, IIdentityResponse } from './identity-user-interfaces';
+import { IdentityCallback, IUserAttributeChangeEvent, IUserIdentityChangeEvent, IMParticleUser, IIdentityResponse } from './identity-user-interfaces';
 import { IdentitySearchCallback } from './identity/search';
 declare const platform: "web", sdkVendor: "mparticle", sdkVersion: string, HTTPCodes: {
     readonly noHttpCoverage: -1;
@@ -146,8 +146,4 @@ export interface IIdentity {
     parseIdentityResponse(identityResponse: IIdentityResponse, previousMPID: MPID, callback: IdentityCallback, identityApiData: IdentityApiData, method: IdentityAPIMethod, knownIdentities: UserIdentities, parsingCachedResponse: boolean): void;
     sendUserAttributeChangeEvent(attributeKey: string, newUserAttributeValue: string, previousUserAttributeValue: string, isNewAttribute: boolean, deleted: boolean, user: IMParticleUser): void;
     sendUserIdentityChangeEvent(newUserIdentities: UserIdentities, method: IdentityAPIMethod, mpid: MPID, prevUserIdentities: UserIdentities): void;
-    /**
-     * @deprecated
-     */
-    mParticleUserCart(): mParticleUserCart;
 }

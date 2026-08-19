@@ -1,4 +1,3 @@
-console.info('[mParticle QA kit path smoke] Loaded kits/localytics/localytics-4/dist/LocalyticsEventForwarder.iife.js from monorepo GitHub path');
 var mpLocalyticsKit = (function (exports) {
   /*!
    * isobject <https://github.com/jonschlinkert/isobject>

@@ -7,10 +7,8 @@ export default class Events {
     logOptOut: () => void;
     logAST: () => void;
     logPageView: () => void;
-    logCheckoutEvent: (step: any, option: any, attrs: any, customFlags: any) => void;
-    logProductActionEvent: (productActionType: any, product: any, customAttrs: any, customFlags: any, transactionAttributes: any, options: any) => void;
     logPurchaseEvent: (transactionAttributes: any, product: any, attrs: any, customFlags: any) => void;
-    logRefundEvent: (transactionAttributes: any, product: any, attrs: any, customFlags: any) => void;
+    logProductActionEvent: (productActionType: any, product: any, customAttrs: any, customFlags: any, transactionAttributes: any, options: any) => void;
     logPromotionEvent: (promotionType: any, promotion: any, attrs: any, customFlags: any, eventOptions: any) => void;
     logImpressionEvent: (impression: any, attrs: any, customFlags: any, options: any) => void;
     logCommerceEvent: (commerceEvent: any, attrs: any, options: any) => void;

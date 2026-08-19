@@ -1,4 +1,3 @@
-console.info('[mParticle QA kit path smoke] Loaded kits/adobe/packages/AdobeClient/dist/AdobeClientSideKit.iife.js from monorepo GitHub path');
 var mParticleAdobeClient = (function () {
     function Common() {
         this.playheadPosition = 0;

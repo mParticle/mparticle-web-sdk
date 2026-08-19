@@ -25,7 +25,6 @@ export declare function convertProducts(sdkProducts: SDKProduct[]): EventsApi.Pr
 export declare function convertPromotionAction(sdkEvent: SDKEvent): EventsApi.PromotionAction | null;
 export declare function convertPromotions(sdkPromotions: SDKPromotion[]): EventsApi.Promotion[] | null;
 export declare function convertImpressions(sdkEvent: SDKEvent): EventsApi.ProductImpression[] | null;
-export declare function convertShoppingCart(sdkEvent: SDKEvent): EventsApi.ShoppingCart | null;
 export declare function convertCommerceEvent(sdkEvent: SDKEvent): EventsApi.CommerceEvent;
 export declare function convertCrashReportEvent(sdkEvent: SDKEvent): EventsApi.CrashReportEvent;
 export declare function convertAST(sdkEvent: SDKEvent): EventsApi.ApplicationStateTransitionEvent;
