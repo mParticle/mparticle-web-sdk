@@ -12,6 +12,57 @@ import { EventType } from './types';
 
 const StorageNames = Constants.StorageNames;
 
+type FilteredUserIdentity = { Type: number; Identity: string };
+
+function appendFilteredUserIdentity(
+    filteredUserIdentities: FilteredUserIdentity[],
+    identity: FilteredUserIdentity,
+    userIdentityType: number
+): void {
+    if (userIdentityType === Types.IdentityType.CustomerId) {
+        filteredUserIdentities.unshift(identity);
+    } else {
+        filteredUserIdentities.push(identity);
+    }
+}
+
+function buildFilteredUserIdentities(
+    userIdentitiesObject: Dictionary<string> | null | undefined,
+    filterList: number[],
+    inArray: (items: any[], value: any) => boolean
+): FilteredUserIdentity[] {
+    const filteredUserIdentities: FilteredUserIdentity[] = [];
+
+    if (!userIdentitiesObject || !Object.keys(userIdentitiesObject).length) {
+        return filteredUserIdentities;
+    }
+
+    for (const userIdentityName in userIdentitiesObject) {
+        if (!userIdentitiesObject.hasOwnProperty(userIdentityName)) {
+            continue;
+        }
+
+        const userIdentityType = Types.IdentityType.getIdentityType(
+            userIdentityName
+        );
+
+        if (inArray(filterList, userIdentityType)) {
+            continue;
+        }
+
+        appendFilteredUserIdentity(
+            filteredUserIdentities,
+            {
+                Type: userIdentityType,
+                Identity: userIdentitiesObject[userIdentityName],
+            },
+            userIdentityType
+        );
+    }
+
+    return filteredUserIdentities;
+}
+
 export default function Helpers(
     this: SDKHelpersApi,
     mpInstance: IMParticleWebSDKInstance
@@ -163,35 +214,11 @@ export default function Helpers(
         userIdentitiesObject: Dictionary<string>,
         filterList: number[]
     ): Array<{ Type: number; Identity: string }> {
-        const filteredUserIdentities: Array<{
-            Type: number;
-            Identity: string;
-        }> = [];
-
-        if (userIdentitiesObject && Object.keys(userIdentitiesObject).length) {
-            for (const userIdentityName in userIdentitiesObject) {
-                if (userIdentitiesObject.hasOwnProperty(userIdentityName)) {
-                    const userIdentityType = Types.IdentityType.getIdentityType(
-                        userIdentityName
-                    );
-                    if (!self.inArray(filterList, userIdentityType)) {
-                        const identity = {
-                            Type: userIdentityType,
-                            Identity: userIdentitiesObject[userIdentityName],
-                        };
-                        if (
-                            userIdentityType === Types.IdentityType.CustomerId
-                        ) {
-                            filteredUserIdentities.unshift(identity);
-                        } else {
-                            filteredUserIdentities.push(identity);
-                        }
-                    }
-                }
-            }
-        }
-
-        return filteredUserIdentities;
+        return buildFilteredUserIdentities(
+            userIdentitiesObject,
+            filterList,
+            self.inArray
+        );
     };
 
     this.filterUserIdentitiesForForwarders =
