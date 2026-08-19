@@ -17,13 +17,7 @@ const Base64 = {
 
     _encode: function _encode(input: string): string {
         let output = '';
-        let chr1: number,
-            chr2: number,
-            chr3: number,
-            enc1: number,
-            enc2: number,
-            enc3: number,
-            enc4: number;
+        let chr1, chr2, chr3, enc1, enc2, enc3, enc4;
         let i = 0;
 
         input = UTF8.encode(input);
@@ -67,8 +61,8 @@ const Base64 = {
 
     _decode: function _decode(input: string): string {
         let output = '';
-        let chr1: number, chr2: number, chr3: number;
-        let enc1: number, enc2: number, enc3: number, enc4: number;
+        let chr1, chr2, chr3;
+        let enc1, enc2, enc3, enc4;
         let i = 0;
 
         input = input.replace(/[^A-Za-z0-9\+\/\=]/g, '');
@@ -147,130 +141,107 @@ const UTF8 = {
     },
 };
 
-// forEach polyfill
-// Production steps of ECMA-262, Edition 5, 15.4.4.18
-// Reference: http://es5.github.io/#x15.4.4.18
-function polyfillForEach(
-    this: unknown,
-    callback: Function,
-    thisArg?: unknown
-): void {
-    let T: unknown, k: number;
-
-    if (this == null) {
-        throw new TypeError(' this is null or not defined');
-    }
-
-    const O = Object(this);
-    const len = O.length >>> 0;
-
-    if (typeof callback !== 'function') {
-        throw new TypeError(callback + ' is not a function');
-    }
-
-    if (arguments.length > 1) {
-        T = thisArg;
-    }
-
-    k = 0;
-
-    while (k < len) {
-        let kValue: unknown;
-        if (k in O) {
-            kValue = O[k];
-            callback.call(T, kValue, k, O);
-        }
-        k++;
-    }
-}
-
-// map polyfill
-// Production steps of ECMA-262, Edition 5, 15.4.4.19
-// Reference: http://es5.github.io/#x15.4.4.19
-function polyfillMap(
-    this: unknown,
-    callback: Function,
-    thisArg?: unknown
-): unknown[] {
-    let T: unknown, A: unknown[], k: number;
-
-    if (this === null) {
-        throw new TypeError(' this is null or not defined');
-    }
-
-    const O = Object(this);
-    const len = O.length >>> 0;
-
-    if (typeof callback !== 'function') {
-        throw new TypeError(callback + ' is not a function');
-    }
-
-    if (arguments.length > 1) {
-        T = thisArg;
-    }
-
-    A = new Array(len);
-
-    k = 0;
-
-    while (k < len) {
-        let kValue: unknown, mappedValue: unknown;
-        if (k in O) {
-            kValue = O[k];
-            mappedValue = callback.call(T, kValue, k, O);
-            A[k] = mappedValue;
-        }
-        k++;
-    }
-
-    return A;
-}
-
-// filter polyfill
-// Prodcution steps of ECMA-262, Edition 5
-// Reference: http://es5.github.io/#x15.4.4.20
-function polyfillFilter(this: unknown, fun: Function /*, thisArg*/): unknown[] {
-    'use strict';
-
-    if (this === void 0 || this === null) {
-        throw new TypeError();
-    }
-
-    const t = Object(this);
-    const len = t.length >>> 0;
-    if (typeof fun !== 'function') {
-        throw new TypeError();
-    }
-
-    const res: unknown[] = [];
-    const thisArg = arguments.length >= 2 ? arguments[1] : void 0;
-    for (let i = 0; i < len; i++) {
-        if (i in t) {
-            const val = t[i];
-            if (fun.call(thisArg, val, i, t)) {
-                res.push(val);
-            }
-        }
-    }
-
-    return res;
-}
-
 export default {
     // forEach polyfill
     // Production steps of ECMA-262, Edition 5, 15.4.4.18
     // Reference: http://es5.github.io/#x15.4.4.18
-    forEach: polyfillForEach as typeof Array.prototype.forEach,
+    forEach: function(callback, thisArg) {
+        let T, k;
+
+        if (this == null) {
+            throw new TypeError(' this is null or not defined');
+        }
+
+        const O = Object(this);
+        const len = O.length >>> 0;
+
+        if (typeof callback !== 'function') {
+            throw new TypeError(callback + ' is not a function');
+        }
+
+        if (arguments.length > 1) {
+            T = thisArg;
+        }
+
+        k = 0;
+
+        while (k < len) {
+            let kValue;
+            if (k in O) {
+                kValue = O[k];
+                callback.call(T, kValue, k, O);
+            }
+            k++;
+        }
+    },
 
     // map polyfill
     // Production steps of ECMA-262, Edition 5, 15.4.4.19
     // Reference: http://es5.github.io/#x15.4.4.19
-    map: polyfillMap as typeof Array.prototype.map,
+    map: function(callback, thisArg) {
+        let T, A, k;
+
+        if (this === null) {
+            throw new TypeError(' this is null or not defined');
+        }
+
+        const O = Object(this);
+        const len = O.length >>> 0;
+
+        if (typeof callback !== 'function') {
+            throw new TypeError(callback + ' is not a function');
+        }
+
+        if (arguments.length > 1) {
+            T = thisArg;
+        }
+
+        A = new Array(len);
+
+        k = 0;
+
+        while (k < len) {
+            let kValue, mappedValue;
+            if (k in O) {
+                kValue = O[k];
+                mappedValue = callback.call(T, kValue, k, O);
+                A[k] = mappedValue;
+            }
+            k++;
+        }
+
+        return A;
+    },
 
     // filter polyfill
     // Prodcution steps of ECMA-262, Edition 5
     // Reference: http://es5.github.io/#x15.4.4.20
-    filter: polyfillFilter as typeof Array.prototype.filter,
+    filter: function(fun /*, thisArg*/) {
+        'use strict';
+
+        if (this === void 0 || this === null) {
+            throw new TypeError();
+        }
+
+        const t = Object(this);
+        const len = t.length >>> 0;
+        if (typeof fun !== 'function') {
+            throw new TypeError();
+        }
+
+        const res = [];
+        const thisArg = arguments.length >= 2 ? arguments[1] : void 0;
+        for (let i = 0; i < len; i++) {
+            if (i in t) {
+                const val = t[i];
+                if (fun.call(thisArg, val, i, t)) {
+                    res.push(val);
+                }
+            }
+        }
+
+        return res;
+    },
 
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray
     isArray: function(arg: unknown): boolean {
