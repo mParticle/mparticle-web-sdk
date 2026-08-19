@@ -660,7 +660,7 @@ describe('identity', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 1'
-                    ),
+                    ).toString(),
                     hasConsented: true,
                 },
             ],
@@ -676,7 +676,7 @@ describe('identity', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 2'
-                    ),
+                    ).toString(),
                     hasConsented: true,
                 },
             ],
