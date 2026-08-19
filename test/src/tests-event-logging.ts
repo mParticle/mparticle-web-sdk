@@ -657,6 +657,44 @@ describe('event logging', function() {
             );
             Should(reInitPageViewEvent).not.be.ok();
         });
+
+        it('should not log a duplicate page view when a fresh module replaces the tracker (Next.js module re-evaluation)', async () => {
+            mParticle._resetForTests(MPConfig);
+            window.mParticle.config.flags = { autoLogPageView: 'True' };
+
+            // First init — one page view fires; window.__mpApvInitPVLogged__ and
+            // window.__mpApvTracker__ are both set.
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const firstBatch = findBatch(fetchMock.calls(), 'screen_view');
+            firstBatch.events.filter(e => e.event_type === 'screen_view').length.should.equal(1);
+
+            // Simulate Next.js module re-evaluation: a fresh module creates a new
+            // SDK instance with no _PageViewTracker, while window.__mpApvTracker__
+            // and window.__mpApvInitPVLogged__ survive from the previous load.
+            const staleTracker = mParticle.getInstance()._PageViewTracker;
+            mParticle.getInstance()._PageViewTracker = undefined;
+
+            fetchMock.resetHistory();
+            fetchMock.post(urls.events, 200, { overwriteRoutes: true });
+            fetchMockSuccess(urls.identify, { mpid: testMPID, is_logged_in: false });
+
+            // Fresh-module init: should create a new tracker, tear down the stale
+            // one via the window singleton, and skip logPageView (flag already set).
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(() => mParticle.getInstance()?._Store?.identityCallInFlight === false);
+
+            // Stale tracker must have been torn down.
+            Should(staleTracker.isActive).not.be.ok();
+
+            // No duplicate page view from the fresh-module init.
+            const freshModulePageViewEvent = findEventFromRequest(
+                fetchMock.calls(),
+                'screen_view'
+            );
+            Should(freshModulePageViewEvent).not.be.ok();
+        });
     });
 
     it('should log opt out', async () => {
