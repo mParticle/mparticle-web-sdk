@@ -9,6 +9,18 @@ type MarkedHistoryMethod = HistoryStateMethod & {
     [WRAPPED_MARKER]?: boolean;
 };
 
+// window key under which the single active tracker is stored.
+// Survives module re-evaluation (Next.js re-executes the bundle on every SPA
+// navigation, resetting all module-level state, but window persists for the
+// lifetime of the tab).
+export const WIN_TRACKER_KEY = '__mpApvTracker__';
+
+type WindowWithTracker = Window & {
+    [WIN_TRACKER_KEY]?: PageViewTracker;
+};
+
+type NavigationSource = 'pushState' | 'replaceState' | 'popstate';
+
 export class PageViewTracker {
     mpInstance: IMParticleWebSDKInstance;
 
@@ -37,14 +49,24 @@ export class PageViewTracker {
     }
 
     public init(): void {
-        this.mpInstance.Logger.verbose(
-            'mParticle APV: [init] PageViewTracker Init'
-        );
+        this.mpInstance.Logger.verbose('mParticle APV: [init] PageViewTracker Init');
         if (!this.isSupportedEnvironment()) {
             this.mpInstance.Logger.verbose(
                 'mParticle APV: [init] unsupported environment (no History API), not starting'
             );
             return;
+        }
+
+        // Tear down any tracker left over from a previous module load.
+        // window[WIN_TRACKER_KEY] outlives module re-evaluation; this is the
+        // only way to reach a tracker instance in a dead module scope.
+        const win = window as WindowWithTracker;
+        const prev = win[WIN_TRACKER_KEY];
+        if (prev && prev !== this) {
+            this.mpInstance.Logger.verbose(
+                'mParticle APV: [init] found stale tracker from previous module load — tearing down to prevent stacked wrappers'
+            );
+            prev.teardown();
         }
 
         if (this.isActive) {
@@ -65,6 +87,8 @@ export class PageViewTracker {
         this.patchHistoryMethods();
         this.addNavigationListeners();
 
+        (window as WindowWithTracker)[WIN_TRACKER_KEY] = this;
+
         this.mpInstance.Logger.verbose(
             'mParticle APV: [init] patched pushState/replaceState + listening for popstate'
         );
@@ -76,7 +100,7 @@ export class PageViewTracker {
         const installed = window.history.pushState as MarkedHistoryMethod;
         if (installed[WRAPPED_MARKER]) {
             this.mpInstance.Logger.verbose(
-                'mParticle APV: [patch] history already wrapped, skipping to avoid double-wrap'
+                'mParticle APV: [patch] history already wrapped, skipping to avoid double-wrap — STACKED WRAPPER DETECTED'
             );
             return;
         }
@@ -147,7 +171,7 @@ export class PageViewTracker {
         window.addEventListener('popstate', this.popStateListener);
     }
 
-    private safeHandleNavigation(source: string): void {
+    private safeHandleNavigation(source: NavigationSource): void {
         try {
             this.handleNavigation(source);
         } catch (e) {
@@ -161,7 +185,7 @@ export class PageViewTracker {
         return window.location.pathname;
     }
 
-    private handleNavigation(source: string): void {
+    private handleNavigation(source: NavigationSource): void {
         const candidatePath = this.getCurrentKey();
 
         this.mpInstance.Logger.verbose(
@@ -221,47 +245,43 @@ export class PageViewTracker {
         });
     }
 
+    private restoreHistoryMethod(
+        methodName: 'pushState' | 'replaceState',
+        original: HistoryStateMethod | null,
+        wrapper: HistoryStateMethod | null
+    ): void {
+        if (!original) return;
+        const stillOurs = wrapper !== null && window.history[methodName] === wrapper;
+        if (stillOurs) {
+            window.history[methodName] = original;
+            this.mpInstance.Logger.verbose(
+                `mParticle APV: [teardown] restored original ${methodName}`
+            );
+        } else {
+            this.mpInstance.Logger.verbose(
+                `mParticle APV: [teardown] ${methodName} no longer ours; leaving in place, gating callback to no-op`
+            );
+        }
+    }
+
     public teardown(): void {
         if (this.popStateListener) {
             window.removeEventListener('popstate', this.popStateListener);
             this.popStateListener = null;
         }
-        const pushStateStillOurs =
-            this.pushStateWrapper !== null &&
-            window.history.pushState === this.pushStateWrapper;
-        if (this.originalPushState) {
-            if (pushStateStillOurs) {
-                window.history.pushState = this.originalPushState;
-                this.mpInstance.Logger.verbose(
-                    'mParticle APV: [teardown] restored original pushState'
-                );
-            } else {
-                this.mpInstance.Logger.verbose(
-                    'mParticle APV: [teardown] pushState no longer ours; leaving in place, gating callback to no-op'
-                );
-            }
-            this.originalPushState = null;
-            this.pushStateWrapper = null;
-        }
 
-        const replaceStateStillOurs =
-            this.replaceStateWrapper !== null &&
-            window.history.replaceState === this.replaceStateWrapper;
-        if (this.originalReplaceState) {
-            if (replaceStateStillOurs) {
-                window.history.replaceState = this.originalReplaceState;
-                this.mpInstance.Logger.verbose(
-                    'mParticle APV: [teardown] restored original replaceState'
-                );
-            } else {
-                this.mpInstance.Logger.verbose(
-                    'mParticle APV: [teardown] replaceState no longer ours; leaving in place, gating callback to no-op'
-                );
-            }
-            this.originalReplaceState = null;
-            this.replaceStateWrapper = null;
-        }
+        this.restoreHistoryMethod('pushState', this.originalPushState, this.pushStateWrapper);
+        this.originalPushState = null;
+        this.pushStateWrapper = null;
+
+        this.restoreHistoryMethod('replaceState', this.originalReplaceState, this.replaceStateWrapper);
+        this.originalReplaceState = null;
+        this.replaceStateWrapper = null;
 
         this.isActive = false;
+        const win = window as WindowWithTracker;
+        if (win[WIN_TRACKER_KEY] === this) {
+            delete win[WIN_TRACKER_KEY];
+        }
     }
 }

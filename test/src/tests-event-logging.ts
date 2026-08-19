@@ -626,6 +626,37 @@ describe('event logging', function() {
                 window.document.title
             );
         });
+
+        it('should not log a duplicate page view when init() is called again (SPA re-init)', async () => {
+            mParticle._resetForTests(MPConfig);
+            window.mParticle.config.flags = { autoLogPageView: 'True' };
+
+            // First init — one page view fires for the initial page load.
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const firstInitPageViewBatch = findBatch(fetchMock.calls(), 'screen_view');
+            const firstInitPageViews = firstInitPageViewBatch.events.filter(
+                event => event.event_type === 'screen_view'
+            );
+            firstInitPageViews.length.should.equal(1);
+
+            // Simulate a SPA framework calling mParticle.init() again on navigation.
+            fetchMock.resetHistory();
+            fetchMock.post(urls.events, 200, { overwriteRoutes: true });
+            fetchMockSuccess(urls.identify, { mpid: testMPID, is_logged_in: false });
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(() => mParticle.getInstance()?._Store?.identityCallInFlight === false);
+
+            // No duplicate page view should fire — the PageViewTracker already
+            // owns navigation tracking after the first init.
+            const reInitPageViewEvent = findEventFromRequest(
+                fetchMock.calls(),
+                'screen_view'
+            );
+            Should(reInitPageViewEvent).not.be.ok();
+        });
     });
 
     it('should log opt out', async () => {

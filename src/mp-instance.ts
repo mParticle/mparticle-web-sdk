@@ -57,7 +57,13 @@ import { LoggingDispatcher } from './reporting/loggingDispatcher';
 import { IErrorReportingService, ILoggingService } from './reporting/types';
 import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
 import { normalizeRoktLauncherOptions } from './roktLauncherOptions';
-import { PageViewTracker } from './pageViewTracker';
+import { PageViewTracker, WIN_TRACKER_KEY } from './pageViewTracker';
+
+const WIN_INIT_PV_KEY = '__mpApvInitPVLogged__' as const;
+type WindowWithApvFlags = Window & {
+    [WIN_INIT_PV_KEY]?: boolean;
+    [WIN_TRACKER_KEY]?: PageViewTracker;
+};
 
 export interface IErrorLogMessage {
     message?: string;
@@ -297,6 +303,15 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             window.localStorage
         );
         instance._Events.stopTracking();
+
+        if (instance._PageViewTracker) {
+            instance._PageViewTracker.teardown();
+            instance._PageViewTracker = undefined;
+        }
+        const win = window as WindowWithApvFlags;
+        delete win[WIN_INIT_PV_KEY];
+        delete win[WIN_TRACKER_KEY];
+
         if (!keepPersistence) {
             instance._Persistence.resetPersistence();
         }
@@ -1586,10 +1601,29 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         mpInstance._Events.logAST();
 
         if (getFeatureFlag(AutoLogPageView)) {
-            mpInstance._Events.logPageView();
-
             if (!mpInstance._PageViewTracker) {
+                mpInstance.Logger.verbose(
+                    'mParticle APV: [sdk-init] creating new PageViewTracker for this instance'
+                );
                 mpInstance._PageViewTracker = new PageViewTracker(mpInstance);
+
+                // Fire the initial page view once per page load (hard navigation).
+                // window[WIN_INIT_PV_KEY] survives module re-evaluation so
+                // repeated mParticle.init() calls from SPA re-renders don't
+                // fire duplicate logPageView() events for the same page.
+                const win = window as WindowWithApvFlags;
+                if (win[WIN_INIT_PV_KEY]) {
+                    mpInstance.Logger.verbose(
+                        'mParticle APV: [sdk-init] initial page view already logged this page load, skipping'
+                    );
+                } else {
+                    win[WIN_INIT_PV_KEY] = true;
+                    mpInstance._Events.logPageView();
+                }
+            } else {
+                mpInstance.Logger.verbose(
+                    'mParticle APV: [sdk-init] tracker already on this instance, skipping logPageView'
+                );
             }
             mpInstance._PageViewTracker.init();
         } else if (mpInstance._PageViewTracker) {
