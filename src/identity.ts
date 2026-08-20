@@ -4,7 +4,6 @@ import {
     cacheOrClearIdCache,
     createKnownIdentities,
     executeSearchRequest,
-    IKnownIdentities,
     IParseCachedIdentityResponse,
     normalizeUserIdentityKeys,
     tryCacheIdentity,
@@ -39,7 +38,6 @@ import {
     IAliasCallback,
     AliasRequestScope,
     SDKIdentityTypeEnum,
-    UserAttributeChangeValue,
 } from './identity.interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { IdentityApiData, UserIdentities, MPID, ConsentState, UserAttributesValue } from '@mparticle/web-sdk';
@@ -290,7 +288,7 @@ export default function Identity(
                     Constants.sdkVendor,
                     Constants.sdkVersion,
                     mpInstance._Store.deviceId,
-                    mpInstance._Store.context,
+                    mpInstance._Store.context as unknown as string | null,
                     mpid
                 );
                 if (
@@ -387,7 +385,7 @@ export default function Identity(
                         Constants.sdkVendor,
                         Constants.sdkVersion,
                         mpInstance._Store.deviceId,
-                        mpInstance._Store.context,
+                        mpInstance._Store.context as unknown as string | null,
                         mpid
                     );
 
@@ -425,8 +423,9 @@ export default function Identity(
                             mpInstance._Store.activeForwarders.forEach(function(
                                 forwarder
                             ) {
-                                if (typeof forwarder.logOut === 'function') {
-                                    forwarder.logOut(evt);
+                                const fwd = forwarder as unknown as Record<string, Function>;
+                                if (typeof fwd.logOut === 'function') {
+                                    fwd.logOut(evt);
                                 }
                             });
                         }
@@ -479,7 +478,7 @@ export default function Identity(
                     Constants.sdkVendor,
                     Constants.sdkVersion,
                     mpInstance._Store.deviceId,
-                    mpInstance._Store.context,
+                    mpInstance._Store.context as unknown as string | null,
                     mpid
                 );
 
@@ -581,7 +580,7 @@ export default function Identity(
                     Constants.platform,
                     Constants.sdkVendor,
                     Constants.sdkVersion,
-                    mpInstance._Store.context
+                    mpInstance._Store.context as unknown as string | null
                 );
 
                 if (mpInstance._Helpers.canLog()) {
@@ -1465,7 +1464,7 @@ export default function Identity(
         callback: IdentityCallback,
         identityApiData: IdentityApiData,
         method: IdentityAPIMethod,
-        knownIdentities: IKnownIdentities,
+        knownIdentities: UserIdentities,
         parsingCachedResponse: boolean
     ): void {
         const prevUser = mpInstance.Identity.getUser(previousMPID);
@@ -1594,8 +1593,8 @@ export default function Identity(
                     );
 
                     // https://go.mparticle.com/work/SQDSDKS-6357
-                    mpInstance._Store.context =
-                        identityApiResult.context || mpInstance._Store.context;
+                    mpInstance._Store.context = (identityApiResult.context ||
+                        mpInstance._Store.context) as typeof mpInstance._Store.context;
                 }
 
                 newUser = mpInstance.Identity.getCurrentUser();
@@ -1774,8 +1773,8 @@ export default function Identity(
 
     this.sendUserAttributeChangeEvent = function(
         attributeKey: string,
-        newUserAttributeValue: UserAttributeChangeValue,
-        previousUserAttributeValue: UserAttributeChangeValue,
+        newUserAttributeValue: string | string[] | null,
+        previousUserAttributeValue: string | string[] | null,
         isNewAttribute: boolean,
         deleted: boolean,
         user: IMParticleUser
@@ -1795,8 +1794,8 @@ export default function Identity(
 
     this.createUserAttributeChange = function(
         key: string,
-        newValue: UserAttributeChangeValue,
-        previousUserAttributeValue: UserAttributeChangeValue,
+        newValue: string | string[] | null,
+        previousUserAttributeValue: string | string[] | null,
         isNewAttribute: boolean,
         deleted: boolean,
         user: IMParticleUser

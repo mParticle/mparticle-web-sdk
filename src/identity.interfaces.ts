@@ -13,7 +13,7 @@ import {
     IIdentityResponse,
 } from './identity-user-interfaces';
 import { IdentitySearchCallback } from './identity/search';
-const { platform, sdkVendor, sdkVersion, HTTPCodes } = Constants;
+const { HTTPCodes } = Constants;
 
 export type IdentityPreProcessResult = {
     valid: boolean;
@@ -109,10 +109,8 @@ export interface IIdentityRequest {
     ): IdentityPreProcessResult;
     createAliasNetworkRequest(aliasRequest: IAliasRequest): object;
     convertAliasToNative(aliasRequest: IAliasRequest): object;
-    convertToNative(identityApiData: IdentityApiData): object | undefined;
+    convertToNative(identityApiData: IdentityApiData): object | void;
 }
-
-export type UserAttributeChangeValue = string | string[] | null;
 
 export type AliasRequestScope = 'device' | 'mpid';
 
@@ -221,8 +219,8 @@ export interface IIdentity {
 
     createUserAttributeChange(
         key: string,
-        newValue: UserAttributeChangeValue,
-        previousUserAttributeValue: UserAttributeChangeValue,
+        newValue: string | string[] | null,
+        previousUserAttributeValue: string | string[] | null,
         isNewAttribute: boolean,
         deleted: boolean,
         user: IMParticleUser
@@ -240,13 +238,13 @@ export interface IIdentity {
         callback: IdentityCallback,
         identityApiData: IdentityApiData,
         method: IdentityAPIMethod,
-        knownIdentities: IKnownIdentities,
+        knownIdentities: UserIdentities,
         parsingCachedResponse: boolean
     ): void;
     sendUserAttributeChangeEvent(
         attributeKey: string,
-        newUserAttributeValue: UserAttributeChangeValue,
-        previousUserAttributeValue: UserAttributeChangeValue,
+        newUserAttributeValue: string | string[] | null,
+        previousUserAttributeValue: string | string[] | null,
         isNewAttribute: boolean,
         deleted: boolean,
         user: IMParticleUser

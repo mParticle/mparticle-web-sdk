@@ -5,7 +5,7 @@ import {
     XHRUploader,
     IFetchPayload,
 } from './uploaders';
-import { CACHE_HEADER, IKnownIdentities } from './identity-utils';
+import { CACHE_HEADER } from './identity-utils';
 import { obfuscateData, parseNumber, valueof, getErrorMessage } from './utils';
 import {
     IAliasCallback,
@@ -18,6 +18,7 @@ import {
 import {
     IdentityApiData,
     MPID,
+    UserIdentities,
 } from '@mparticle/web-sdk';
 import {
     IdentityCallback,
@@ -43,7 +44,7 @@ export interface IIdentityApiClient {
         originalIdentityApiData: IdentityApiData,
         parseIdentityResponse: IIdentity['parseIdentityResponse'],
         mpid: MPID,
-        knownIdentities?: IKnownIdentities
+        knownIdentities?: UserIdentities
     ) => Promise<void>;
     getUploadUrl: (method: IdentityAPIMethod, mpid: MPID) => string;
     getIdentityResponseFromFetch: (
@@ -192,7 +193,7 @@ export default function IdentityAPIClient(
         originalIdentityApiData: IdentityApiData,
         parseIdentityResponse: IIdentity['parseIdentityResponse'],
         mpid: MPID,
-        knownIdentities?: IKnownIdentities
+        knownIdentities?: UserIdentities
     ) {
         if (mpInstance._RoktManager?.isInitialized) {
             mpInstance._Store.identifyRequestCount = (mpInstance._Store.identifyRequestCount || 0) + 1;
