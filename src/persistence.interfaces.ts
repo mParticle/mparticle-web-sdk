@@ -118,7 +118,7 @@ export interface IPersistence {
     getCookieDomain(): string;
     getDomain(doc: string, locationHostname: string): string;
     saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDates): void;
-    savePersistence(persistance: IPersistenceMinified, mpid?: MPID): void;
+    savePersistence(persistance: IPersistenceMinified): void;
     getPersistence(): IPersistenceMinified;
     getFirstSeenTime(mpid: MPID): number | null;
     setFirstSeenTime(mpid: MPID, time?: number): void;

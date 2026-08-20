@@ -39,10 +39,10 @@ import {
     IAliasCallback,
     AliasRequestScope,
     SDKIdentityTypeEnum,
+    UserAttributeChangeValue,
 } from './identity.interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { IdentityApiData, UserIdentities, MPID, ConsentState, UserAttributesValue } from '@mparticle/web-sdk';
-import { Context } from '@mparticle/event-models';
 import { BaseEvent, SDKEvent, SDKLoggerApi } from './sdkRuntimeModels';
 import { IdentitySearchCallback } from './identity/search';
 
@@ -120,7 +120,7 @@ export default function Identity(
             sdkVendor: string,
             sdkVersion: string,
             deviceId: string,
-            context: Context | null,
+            context: string | null,
             mpid: MPID
         ) {
             const APIRequest: IIdentityAPIRequestData = {
@@ -151,7 +151,7 @@ export default function Identity(
             platform: string,
             sdkVendor: string,
             sdkVersion: string,
-            context: Context | null
+            context: string | null
         ) {
             return {
                 client_sdk: {
@@ -425,9 +425,8 @@ export default function Identity(
                             mpInstance._Store.activeForwarders.forEach(function(
                                 forwarder
                             ) {
-                                const fwd = forwarder as unknown as Record<string, Function>;
-                                if (typeof fwd.logOut === 'function') {
-                                    fwd.logOut(evt);
+                                if (typeof forwarder.logOut === 'function') {
+                                    forwarder.logOut(evt);
                                 }
                             });
                         }
@@ -1082,7 +1081,7 @@ export default function Identity(
 
                     if (cookies && cookies[mpid]) {
                         cookies[mpid].ua = userAttributes;
-                        mpInstance._Persistence.savePersistence(cookies, mpid);
+                        mpInstance._Persistence.savePersistence(cookies);
                     }
 
                     self.sendUserAttributeChangeEvent(
@@ -1466,7 +1465,7 @@ export default function Identity(
         callback: IdentityCallback,
         identityApiData: IdentityApiData,
         method: IdentityAPIMethod,
-        knownIdentities: IKnownIdentities | UserIdentities,
+        knownIdentities: IKnownIdentities,
         parsingCachedResponse: boolean
     ): void {
         const prevUser = mpInstance.Identity.getUser(previousMPID);
@@ -1720,17 +1719,19 @@ export default function Identity(
         for (const identityType in newUserIdentities) {
             // Verifies a change actually happened
             if (
-                prevUserIdentities[identityType] !==
-                newUserIdentities[identityType]
+                prevUserIdentities[identityType as keyof UserIdentities] !==
+                newUserIdentities[identityType as keyof UserIdentities]
             ) {
                 // If a new identity type was introduced when the identity changes
                 // we need to notify the server so that the user profile is updated in
                 // the mParticle UI.
-                const isNewUserIdentityType = !prevUserIdentities[identityType];
+                const isNewUserIdentityType = !prevUserIdentities[
+                    identityType as keyof UserIdentities
+                ];
                 const userIdentityChangeEvent = self.createUserIdentityChange(
-                    identityType,
-                    newUserIdentities[identityType],
-                    prevUserIdentities[identityType],
+                    identityType as SDKIdentityTypeEnum,
+                    newUserIdentities[identityType as keyof UserIdentities],
+                    prevUserIdentities[identityType as keyof UserIdentities],
                     isNewUserIdentityType,
                     currentUserInMemory
                 );
@@ -1742,7 +1743,7 @@ export default function Identity(
     };
 
     this.createUserIdentityChange = function(
-        identityType: string,
+        identityType: SDKIdentityTypeEnum,
         newIdentity: string,
         oldIdentity: string,
         isIdentityTypeNewToBatch: boolean,
@@ -1773,8 +1774,8 @@ export default function Identity(
 
     this.sendUserAttributeChangeEvent = function(
         attributeKey: string,
-        newUserAttributeValue: string | string[] | null,
-        previousUserAttributeValue: string | string[] | null,
+        newUserAttributeValue: UserAttributeChangeValue,
+        previousUserAttributeValue: UserAttributeChangeValue,
         isNewAttribute: boolean,
         deleted: boolean,
         user: IMParticleUser
@@ -1794,8 +1795,8 @@ export default function Identity(
 
     this.createUserAttributeChange = function(
         key: string,
-        newValue: string | string[] | null,
-        previousUserAttributeValue: string | string[] | null,
+        newValue: UserAttributeChangeValue,
+        previousUserAttributeValue: UserAttributeChangeValue,
         isNewAttribute: boolean,
         deleted: boolean,
         user: IMParticleUser
