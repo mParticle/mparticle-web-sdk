@@ -34,7 +34,7 @@ export default function Ecommerce(
         productAction: SDKProductAction
     ): void {
         if (transactionAttributes.hasOwnProperty('Id')) {
-            productAction.TransactionId = transactionAttributes.Id as string;
+            productAction.TransactionId = transactionAttributes.Id as unknown as string;
         }
         if (transactionAttributes.hasOwnProperty('Affiliation')) {
             productAction.Affiliation = transactionAttributes.Affiliation;
@@ -391,7 +391,7 @@ export default function Ecommerce(
             mpInstance.Logger.error(
                 'Position must be a number, it will be set to null.'
             );
-            position = null;
+            position = null as unknown as number;
         }
 
         if (!mpInstance._Helpers.Validators.isStringOrNumber(quantity)) {
@@ -402,15 +402,15 @@ export default function Ecommerce(
 
         return {
             Name: name,
-            Sku: sku as string,
-            Price: price,
-            Quantity: quantity,
+            Sku: sku as unknown as string,
+            Price: price as number,
+            Quantity: quantity as number,
             Brand: brand,
             Variant: variant,
             Category: category,
             Position: position,
             CouponCode: couponCode,
-            TotalAmount: quantity * price,
+            TotalAmount: (quantity as number) * (price as number),
             Attributes: attributes,
         };
     };
@@ -427,7 +427,7 @@ export default function Ecommerce(
         }
 
         return {
-            Id: id as string,
+            Id: id as unknown as string,
             Creative: creative,
             Name: name,
             Position: position as unknown as string,
@@ -523,7 +523,9 @@ export default function Ecommerce(
         return appEvents;
     };
 
-    this.expandCommerceEvent = function(event: SDKEvent): SDKEvent[] | null {
+    this.expandCommerceEvent = function(
+        event: SDKEvent
+    ): SDKEvent[] | null {
         if (!event) {
             return null;
         }
@@ -533,7 +535,9 @@ export default function Ecommerce(
             .concat(self.expandProductImpression(event));
     };
 
-    this.expandPromotionAction = function(commerceEvent: SDKEvent): SDKEvent[] {
+    this.expandPromotionAction = function(
+        commerceEvent: SDKEvent
+    ): SDKEvent[] {
         const appEvents = [];
         if (!commerceEvent.PromotionAction) {
             return appEvents;
@@ -547,8 +551,7 @@ export default function Ecommerce(
                 messageType: Types.MessageType.PageEvent,
                 name: self.generateExpandedEcommerceName(
                     Types.PromotionActionType.getExpansionName(
-                        (commerceEvent.PromotionAction
-                            .PromotionActionType as unknown) as number
+                        commerceEvent.PromotionAction.PromotionActionType as unknown as number
                     )
                 ),
                 data: attributes,
@@ -559,7 +562,9 @@ export default function Ecommerce(
         return appEvents;
     };
 
-    this.expandProductAction = function(commerceEvent: SDKEvent): SDKEvent[] {
+    this.expandProductAction = function(
+        commerceEvent: SDKEvent
+    ): SDKEvent[] {
         const appEvents = [];
         if (!commerceEvent.ProductAction) {
             return appEvents;
@@ -587,7 +592,7 @@ export default function Ecommerce(
                 messageType: Types.MessageType.PageEvent,
                 name: self.generateExpandedEcommerceName(
                     Types.ProductActionType.getExpansionName(
-                        commerceEvent.ProductAction.ProductActionType
+                        commerceEvent.ProductAction.ProductActionType as number
                     ),
                     true
                 ),
@@ -628,7 +633,7 @@ export default function Ecommerce(
                 messageType: Types.MessageType.PageEvent,
                 name: self.generateExpandedEcommerceName(
                     Types.ProductActionType.getExpansionName(
-                        commerceEvent.ProductAction.ProductActionType
+                        commerceEvent.ProductAction.ProductActionType as number
                     )
                 ),
                 data: attributes,
@@ -641,7 +646,7 @@ export default function Ecommerce(
     };
 
     this.createCommerceEventObject = function(
-        customFlags: SDKEventCustomFlags,
+        customFlags?: SDKEventCustomFlags,
         options?: SDKEventOptions
     ): SDKEvent | null {
         let baseEvent;
