@@ -85,7 +85,6 @@ export interface ConfiguredKit
     removeUserAttribute(key: string): string;
     setUserAttribute(key: string, value: string): string;
     setUserIdentity(id: UserIdentityId, type: UserIdentityType): void;
-    logOut?(evt: SDKEvent): void;
 
     // TODO: https://go.mparticle.com/work/SQDSDKS-5156
     isSandbox: boolean;

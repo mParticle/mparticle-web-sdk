@@ -1,4 +1,4 @@
-import { Batch } from '@mparticle/event-models';
+import { Batch, Context } from '@mparticle/event-models';
 import {
     DataPlanConfig,
     MPID,
@@ -187,7 +187,7 @@ export interface IStore {
     eventQueue: SDKEvent[];
     currencyCode: string | null;
     globalTimer: number | null;
-    context: string | null;
+    context: Context | null;
     configurationLoaded: boolean;
     identityCallInFlight: boolean;
     identityCallFailed: boolean;
