@@ -4,6 +4,7 @@ import {
     cacheOrClearIdCache,
     createKnownIdentities,
     executeSearchRequest,
+    IKnownIdentities,
     IParseCachedIdentityResponse,
     normalizeUserIdentityKeys,
     tryCacheIdentity,
@@ -36,8 +37,12 @@ import {
     IdentityAPIMethod,
     IAliasRequest,
     IAliasCallback,
+    IAliasNetworkRequest,
+    IAliasNativeRequest,
+    IIdentityNativeRequest,
     AliasRequestScope,
     SDKIdentityTypeEnum,
+    UserAttributeChangeValue,
 } from './identity.interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { IdentityApiData, UserIdentities, MPID, ConsentState, UserAttributesValue } from '@mparticle/web-sdk';
@@ -207,7 +212,7 @@ export default function Identity(
             return combinedUIByType;
         },
 
-        createAliasNetworkRequest: function(aliasRequest: IAliasRequest) {
+        createAliasNetworkRequest: function(aliasRequest: IAliasRequest): IAliasNetworkRequest {
             return {
                 request_id: mpInstance._Helpers.generateUniqueId(),
                 request_type: 'alias',
@@ -226,7 +231,7 @@ export default function Identity(
             };
         },
 
-        convertAliasToNative: function(aliasRequest: IAliasRequest) {
+        convertAliasToNative: function(aliasRequest: IAliasRequest): IAliasNativeRequest {
             return {
                 DestinationMpid: aliasRequest.destinationMpid,
                 SourceMpid: aliasRequest.sourceMpid,
@@ -236,7 +241,7 @@ export default function Identity(
             };
         },
 
-        convertToNative: function(identityApiData: IdentityApiData) {
+        convertToNative: function(identityApiData: IdentityApiData): IIdentityNativeRequest | undefined {
             const nativeIdentityRequest = [];
             if (identityApiData && identityApiData.userIdentities) {
                 for (const key in identityApiData.userIdentities) {
@@ -288,7 +293,7 @@ export default function Identity(
                     Constants.sdkVendor,
                     Constants.sdkVersion,
                     mpInstance._Store.deviceId,
-                    mpInstance._Store.context as unknown as string | null,
+                    mpInstance._Store.context,
                     mpid
                 );
                 if (
@@ -385,7 +390,7 @@ export default function Identity(
                         Constants.sdkVendor,
                         Constants.sdkVersion,
                         mpInstance._Store.deviceId,
-                        mpInstance._Store.context as unknown as string | null,
+                        mpInstance._Store.context,
                         mpid
                     );
 
@@ -423,9 +428,8 @@ export default function Identity(
                             mpInstance._Store.activeForwarders.forEach(function(
                                 forwarder
                             ) {
-                                const fwd = forwarder as unknown as Record<string, Function>;
-                                if (typeof fwd.logOut === 'function') {
-                                    fwd.logOut(evt);
+                                if (typeof forwarder.logOut === 'function') {
+                                    forwarder.logOut(evt);
                                 }
                             });
                         }
@@ -478,7 +482,7 @@ export default function Identity(
                     Constants.sdkVendor,
                     Constants.sdkVersion,
                     mpInstance._Store.deviceId,
-                    mpInstance._Store.context as unknown as string | null,
+                    mpInstance._Store.context,
                     mpid
                 );
 
@@ -580,7 +584,7 @@ export default function Identity(
                     Constants.platform,
                     Constants.sdkVendor,
                     Constants.sdkVersion,
-                    mpInstance._Store.context as unknown as string | null
+                    mpInstance._Store.context
                 );
 
                 if (mpInstance._Helpers.canLog()) {
@@ -758,7 +762,7 @@ export default function Identity(
                     );
                     const aliasRequestMessage = mpInstance._Identity.IdentityRequest.createAliasNetworkRequest(
                         aliasRequest
-                    ) as IAliasRequest;
+                    );
                     mpInstance._IdentityAPIClient.sendAliasRequest(
                         aliasRequestMessage,
                         callback
@@ -1464,7 +1468,7 @@ export default function Identity(
         callback: IdentityCallback,
         identityApiData: IdentityApiData,
         method: IdentityAPIMethod,
-        knownIdentities: UserIdentities,
+        knownIdentities: IKnownIdentities,
         parsingCachedResponse: boolean
     ): void {
         const prevUser = mpInstance.Identity.getUser(previousMPID);
@@ -1593,8 +1597,8 @@ export default function Identity(
                     );
 
                     // https://go.mparticle.com/work/SQDSDKS-6357
-                    mpInstance._Store.context = (identityApiResult.context ||
-                        mpInstance._Store.context) as typeof mpInstance._Store.context;
+                    mpInstance._Store.context =
+                        identityApiResult.context || mpInstance._Store.context;
                 }
 
                 newUser = mpInstance.Identity.getCurrentUser();
@@ -1773,8 +1777,8 @@ export default function Identity(
 
     this.sendUserAttributeChangeEvent = function(
         attributeKey: string,
-        newUserAttributeValue: string | string[] | null,
-        previousUserAttributeValue: string | string[] | null,
+        newUserAttributeValue: UserAttributeChangeValue,
+        previousUserAttributeValue: UserAttributeChangeValue,
         isNewAttribute: boolean,
         deleted: boolean,
         user: IMParticleUser
@@ -1794,8 +1798,8 @@ export default function Identity(
 
     this.createUserAttributeChange = function(
         key: string,
-        newValue: string | string[] | null,
-        previousUserAttributeValue: string | string[] | null,
+        newValue: UserAttributeChangeValue,
+        previousUserAttributeValue: UserAttributeChangeValue,
         isNewAttribute: boolean,
         deleted: boolean,
         user: IMParticleUser
