@@ -262,7 +262,7 @@ jobs:
               run: npm ci
 
             - name: Install Firefox Latest
-              uses: browser-actions/setup-firefox@latest
+              uses: browser-actions/setup-firefox@0bc507ddf224827e3b1af68e014d5e42ab93e795 # v1.7.2
 
             - name: Log Firefox Version
               run: firefox --version
@@ -424,7 +424,7 @@ jobs:
                   node-version: 24.x
 
             - name: Install Firefox Latest
-              uses: browser-actions/setup-firefox@latest
+              uses: browser-actions/setup-firefox@0bc507ddf224827e3b1af68e014d5e42ab93e795 # v1.7.2
 
             - name: Install, build, and test kit
               working-directory: ${{ matrix.kit.local_path }}
@@ -495,6 +495,7 @@ jobs:
                   ref: ${{ needs.confirm-staging-branch.outputs.development_branch }}
 
             - name: Create and push release branch
+              if: ${{ github.event.inputs.dryRun == 'false' }}
               env:
                   RELEASE_BRANCH: ${{ needs.confirm-staging-branch.outputs.release_branch }}
               run: |
@@ -542,6 +543,7 @@ jobs:
                   git_commit_gpgsign: true
 
             - name: Merge release branch into staging branch
+              if: ${{ github.event.inputs.dryRun == 'false' }}
               env:
                   RELEASE_BRANCH: ${{ needs.confirm-staging-branch.outputs.release_branch }}
               run: |
@@ -667,7 +669,7 @@ jobs:
                       printf -- '- Candidate SHA: `%s`\n' "$CANDIDATE_SHA"
                       printf -- '- npm dist-tag: `%s`\n\n' "$NPM_DIST_TAG"
                       printf 'Step 2 is optional and release-order A/B/C are unordered.\n\n'
-                      printf '### Next commands\n\n```sh\n'
+                      printf '### Preview commands\n\n```sh\n'
                       printf 'gh workflow run staging-step-2.yml -f releaseTag=%s -f releaseOrderBranch=release-order-a -f dryRun=true\n' "$RELEASE_TAG"
                       printf 'gh workflow run staging-step-3.yml -f releaseTag=%s\n' "$RELEASE_TAG"
                       printf '```\n'
