@@ -1,16 +1,10 @@
 import {
-    Product,
-} from '@mparticle/event-models';
-import {
     SDKEventAttrs,
     SDKEventOptions,
     TransactionAttributes,
 } from '@mparticle/web-sdk';
 import { valueof } from './utils';
-import {
-    ProductActionType,
-    PromotionActionType,
-} from './types';
+import { ProductActionType, PromotionActionType } from './types';
 import {
     SDKEvent,
     SDKEventCustomFlags,
@@ -33,7 +27,7 @@ interface IECommerceShared {
         couponCode?: string,
         attributes?: SDKEventAttrs
     ): SDKProduct | null;
-    createImpression(name: string, product: Product): SDKImpression | null;
+    createImpression(name: string, product: SDKProduct): SDKImpression | null;
     createPromotion(
         id: string | number,
         creative?: string,
@@ -81,7 +75,7 @@ export interface SDKECommerceAPI extends IECommerceShared {
     ): void;
     logPromotion(
         type: valueof<typeof PromotionActionType>,
-        promotion: SDKPromotion,
+        promotion: SDKPromotion | SDKPromotion[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions

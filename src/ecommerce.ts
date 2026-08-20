@@ -16,7 +16,6 @@ import {
     SDKEventOptions,
     TransactionAttributes,
 } from '@mparticle/web-sdk';
-import { Product } from '@mparticle/event-models';
 
 const Messages = Constants.Messages;
 
@@ -35,7 +34,7 @@ export default function Ecommerce(
         productAction: SDKProductAction
     ): void {
         if (transactionAttributes.hasOwnProperty('Id')) {
-            productAction.TransactionId = transactionAttributes.Id as unknown as string;
+            productAction.TransactionId = transactionAttributes.Id as string;
         }
         if (transactionAttributes.hasOwnProperty('Affiliation')) {
             productAction.Affiliation = transactionAttributes.Affiliation;
@@ -392,7 +391,7 @@ export default function Ecommerce(
             mpInstance.Logger.error(
                 'Position must be a number, it will be set to null.'
             );
-            position = null as unknown as number;
+            position = null;
         }
 
         if (!mpInstance._Helpers.Validators.isStringOrNumber(quantity)) {
@@ -403,15 +402,15 @@ export default function Ecommerce(
 
         return {
             Name: name,
-            Sku: sku as unknown as string,
-            Price: price as number,
-            Quantity: quantity as number,
+            Sku: sku as string,
+            Price: price,
+            Quantity: quantity,
             Brand: brand,
             Variant: variant,
             Category: category,
             Position: position,
             CouponCode: couponCode,
-            TotalAmount: (quantity as number) * (price as number),
+            TotalAmount: quantity * price,
             Attributes: attributes,
         };
     };
@@ -428,7 +427,7 @@ export default function Ecommerce(
         }
 
         return {
-            Id: id as unknown as string,
+            Id: id as string,
             Creative: creative,
             Name: name,
             Position: position as unknown as string,
@@ -437,7 +436,7 @@ export default function Ecommerce(
 
     this.createImpression = function(
         name: string,
-        product: Product
+        product: SDKProduct
     ): SDKImpression | null {
         if (typeof name !== 'string') {
             mpInstance.Logger.error(
@@ -455,7 +454,7 @@ export default function Ecommerce(
 
         return {
             Name: name,
-            Product: product as SDKProduct,
+            Product: product,
         };
     };
 
@@ -524,9 +523,7 @@ export default function Ecommerce(
         return appEvents;
     };
 
-    this.expandCommerceEvent = function(
-        event: SDKEvent
-    ): SDKEvent[] | null {
+    this.expandCommerceEvent = function(event: SDKEvent): SDKEvent[] | null {
         if (!event) {
             return null;
         }
@@ -536,9 +533,7 @@ export default function Ecommerce(
             .concat(self.expandProductImpression(event));
     };
 
-    this.expandPromotionAction = function(
-        commerceEvent: SDKEvent
-    ): SDKEvent[] {
+    this.expandPromotionAction = function(commerceEvent: SDKEvent): SDKEvent[] {
         const appEvents = [];
         if (!commerceEvent.PromotionAction) {
             return appEvents;
@@ -552,7 +547,8 @@ export default function Ecommerce(
                 messageType: Types.MessageType.PageEvent,
                 name: self.generateExpandedEcommerceName(
                     Types.PromotionActionType.getExpansionName(
-                        commerceEvent.PromotionAction.PromotionActionType as unknown as number
+                        (commerceEvent.PromotionAction
+                            .PromotionActionType as unknown) as number
                     )
                 ),
                 data: attributes,
@@ -563,9 +559,7 @@ export default function Ecommerce(
         return appEvents;
     };
 
-    this.expandProductAction = function(
-        commerceEvent: SDKEvent
-    ): SDKEvent[] {
+    this.expandProductAction = function(commerceEvent: SDKEvent): SDKEvent[] {
         const appEvents = [];
         if (!commerceEvent.ProductAction) {
             return appEvents;
@@ -593,7 +587,7 @@ export default function Ecommerce(
                 messageType: Types.MessageType.PageEvent,
                 name: self.generateExpandedEcommerceName(
                     Types.ProductActionType.getExpansionName(
-                        commerceEvent.ProductAction.ProductActionType as number
+                        commerceEvent.ProductAction.ProductActionType
                     ),
                     true
                 ),
@@ -634,7 +628,7 @@ export default function Ecommerce(
                 messageType: Types.MessageType.PageEvent,
                 name: self.generateExpandedEcommerceName(
                     Types.ProductActionType.getExpansionName(
-                        commerceEvent.ProductAction.ProductActionType as number
+                        commerceEvent.ProductAction.ProductActionType
                     )
                 ),
                 data: attributes,
@@ -647,7 +641,7 @@ export default function Ecommerce(
     };
 
     this.createCommerceEventObject = function(
-        customFlags?: SDKEventCustomFlags,
+        customFlags: SDKEventCustomFlags,
         options?: SDKEventOptions
     ): SDKEvent | null {
         let baseEvent;
