@@ -1,8 +1,5 @@
 import {
-    ProductAction,
     Product,
-    Promotion,
-    CommerceEvent,
 } from '@mparticle/event-models';
 import {
     SDKEventAttrs,
@@ -51,7 +48,7 @@ interface IECommerceShared {
         shipping?: string | number,
         tax?: number
     ): TransactionAttributes | null;
-    expandCommerceEvent(event: CommerceEvent): SDKEvent[] | null;
+    expandCommerceEvent(event: SDKEvent): SDKEvent[] | null;
 }
 
 export interface SDKCart {
@@ -175,26 +172,26 @@ export interface IECommerce extends IECommerceShared {
         customFlags: SDKEventCustomFlags,
         options?: SDKEventOptions
     ): SDKEvent | null;
-    expandProductAction(commerceEvent: CommerceEvent): SDKEvent[];
-    expandProductImpression(commerceEvent: CommerceEvent): SDKEvent[];
-    expandPromotionAction(commerceEvent: CommerceEvent): SDKEvent[];
+    expandProductAction(commerceEvent: SDKEvent): SDKEvent[];
+    expandProductImpression(commerceEvent: SDKEvent): SDKEvent[];
+    expandPromotionAction(commerceEvent: SDKEvent): SDKEvent[];
     extractActionAttributes(
         attributes: ExtractedActionAttributes,
-        productAction: ProductAction
+        productAction: SDKProductAction
     ): void;
     extractProductAttributes(
         attributes: ExtractedProductAttributes,
-        product: Product
+        product: SDKProduct
     ): void;
     extractPromotionAttributes(
         attributes: ExtractedPromotionAttributes,
-        promotion: Promotion
+        promotion: SDKPromotion
     ): void;
     extractTransactionId(
         attributes: ExtractedTransactionId,
-        productAction: ProductAction
+        productAction: SDKProductAction
     ): void;
-    generateExpandedEcommerceName(eventName: string, plusOne: boolean): string;
+    generateExpandedEcommerceName(eventName: string, plusOne?: boolean): string;
     getProductActionEventName(
         productActionType: valueof<typeof ProductActionType>
     ): string;
