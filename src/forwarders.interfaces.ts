@@ -1,8 +1,15 @@
-import { SDKEvent, SDKEventCustomFlags } from './sdkRuntimeModels';
+import { SDKEvent, SDKEventCustomFlags, SDKInitConfig, SDKLoggerApi } from './sdkRuntimeModels';
 import { Dictionary } from './utils';
-import { IKitConfigs, IKitFilterSettings } from './configAPIClient';
-import { IdentityApiData, IdentityType } from '@mparticle/web-sdk';
+import {
+    IKitConfigs,
+    IKitFilterSettings,
+    IFilteringUserAttributeValue,
+} from './configAPIClient';
+import { IdentityApiData, IdentityType, UserIdentities } from '@mparticle/web-sdk';
 import { Batch } from '@mparticle/event-models';
+import { IForwardingStatsData } from './apiClient';
+import { AsyncUploader } from './uploaders';
+import { IPixelConfiguration } from './cookieSyncManager';
 
 import {
     IMParticleUser,
@@ -57,7 +64,7 @@ export interface ConfiguredKit
         testMode: boolean,
         trackerId: string | null,
         userAttributes: UserAttributes,
-        userIdentities: ISDKUserIdentity,
+        userIdentities: ISDKUserIdentity[],
         appVersion: string,
         appName: string,
         customFlags: SDKEventCustomFlags,
@@ -84,11 +91,13 @@ export interface ConfiguredKit
     setOptOut(isOptingOut: boolean): string;
     removeUserAttribute(key: string): string;
     setUserAttribute(key: string, value: string): string;
-    setUserIdentity(id: UserIdentityId, type: UserIdentityType): void;
+    setUserIdentity(id: UserIdentityId, type: UserIdentityType): string | void;
 
     // TODO: https://go.mparticle.com/work/SQDSDKS-5156
     isSandbox: boolean;
     hasSandbox: boolean;
+    initialized?: boolean;
+    logger?: SDKLoggerApi;
 }
 
 export interface KitInterface {
@@ -140,3 +149,55 @@ export type forwardingStatsCallback = (
     forwarder: ConfiguredKit,
     event: SDKEvent
 ) => void;
+
+export interface IForwarders {
+    forwarderStatsUploader: AsyncUploader;
+    initForwarders(
+        userIdentities: UserIdentities,
+        forwardingStatsCallback: forwardingStatsCallback
+    ): void;
+    isEnabledForUserAttributes(
+        filterObject: Partial<IFilteringUserAttributeValue>,
+        user: IMParticleUser
+    ): boolean;
+    isEnabledForUnknownUser(
+        excludeAnonymousUserBoolean: boolean,
+        user: IMParticleUser
+    ): boolean;
+    applyToForwarders(functionName: string, functionArgs: unknown): void;
+    sendEventToForwarders(event: SDKEvent): void;
+    handleForwarderUserAttributes(
+        functionNameKey: string,
+        key: string,
+        value: string
+    ): void;
+    setForwarderUserIdentities(userIdentities: UserIdentities): void;
+    setForwarderOnUserIdentified(user: IMParticleUser): void;
+    setForwarderOnIdentityComplete(
+        user: IMParticleUser,
+        identityMethod: string
+    ): void;
+    getForwarderStatsQueue(): IForwardingStatsData[];
+    setForwarderStatsQueue(queue: IForwardingStatsData[]): void;
+    processForwarders(
+        config: SDKInitConfig,
+        forwardingStatsCallback: forwardingStatsCallback
+    ): void;
+    processUIEnabledKits(config: SDKInitConfig): void;
+    returnKitConstructors(): Dictionary<RegisteredKit>;
+    configureUIEnabledKit(
+        configuration: IKitConfigs,
+        kits: Dictionary<RegisteredKit>
+    ): void;
+    processSideloadedKits(mpConfig: SDKInitConfig): void;
+    configureSideloadedKit(kitConstructor: RegisteredKit): void;
+    returnConfiguredKit(
+        forwarder: RegisteredKit,
+        config?: Partial<IKitConfigs>
+    ): ConfiguredKit;
+    configurePixel(settings: IPixelConfiguration): void;
+    processPixelConfigs(config: SDKInitConfig): void;
+    sendSingleForwardingStatsToServer(
+        forwardingStatsData: IForwardingStatsData
+    ): Promise<void>;
+}

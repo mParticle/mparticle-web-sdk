@@ -48,6 +48,7 @@ import { Dictionary, SDKEventAttrs } from '@mparticle/web-sdk';
 import { IIdentity } from './identity.interfaces';
 import { IEvents } from './events.interfaces';
 import { IECommerce } from './ecommerce.interfaces';
+import { IForwarders } from './forwarders.interfaces';
 import { INativeSdkHelpers } from './nativeSdkHelpers.interfaces';
 import { IPersistence } from './persistence.interfaces';
 import ForegroundTimer from './foregroundTimeTracker';
@@ -88,7 +89,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _CookieSyncManager: ICookieSyncManager;
     _Ecommerce: IECommerce;
     _Events: IEvents;
-    _Forwarders: any; // https://go.mparticle.com/work/SQDSDKS-5767
+    _Forwarders: IForwarders;
     _ForwardingStatsUploader: IForwardingStatsUploader;
     _Helpers: SDKHelpersApi;
     _Identity: IIdentity;
