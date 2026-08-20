@@ -23,7 +23,8 @@ concurrency:
     cancel-in-progress: false
 
 jobs:
-    # SDK staging release is always performed from the resolved staging branch.
+    # SDK staging release is performed on the mapped staging branch:
+    # v2 -> staging; v3 -> v3-staging.
     confirm-staging-branch:
         name: Confirm ${{ inputs.track }} staging release state
         runs-on: ubuntu-latest
