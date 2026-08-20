@@ -17,7 +17,6 @@ import {
 import { hasExplicitIdentifier } from '../../src/identity-utils';
 import { IStore } from '../../src/store';
 import { MessageType } from '../../src/types';
-import { Context } from '@mparticle/event-models';
 
 describe('Identity', () => {
     describe('#types', () => {
@@ -123,7 +122,7 @@ describe('Identity', () => {
                     sdk_vendor: 'mparticle',
                     sdk_version: '1.0.0',
                 },
-                context: 'test-context' as unknown as Context,
+                context: 'test-context',
                 environment: 'development',
                 request_id: '123',
                 request_timestamp_ms: Date.now(),
@@ -143,7 +142,7 @@ describe('Identity', () => {
                     sdk_vendor: 'mparticle',
                     sdk_version: '1.0.0',
                 },
-                context: 'test-context' as unknown as Context,
+                context: 'test-context',
                 environment: 'development',
                 request_id: '123',
                 request_timestamp_ms: Date.now(),
