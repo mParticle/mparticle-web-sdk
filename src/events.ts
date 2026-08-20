@@ -1,4 +1,8 @@
-import Types from './types';
+import Types, {
+    EventType,
+    ProductActionType,
+    PromotionActionType,
+} from './types';
 import Constants from './constants';
 import { IEvents } from './events.interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
@@ -17,7 +21,6 @@ import {
     TransactionAttributes,
 } from '@mparticle/web-sdk';
 import { valueof } from './utils';
-import { EventType, ProductActionType, PromotionActionType } from './types';
 
 interface DOMHandlerElement extends HTMLElement {
     href?: string;
