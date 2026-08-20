@@ -1,5 +1,5 @@
 {
-  "name": "@mparticle/web-id5-kit-1",
+  "name": "@mparticle/web-id5-kit",
   "version": "1.0.4",
   "main": "dist/ID5Kit.common.js",
   "files": [
