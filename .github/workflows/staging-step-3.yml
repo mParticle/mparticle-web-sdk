@@ -1,11 +1,22 @@
 name: "Staging Release - Step 3: Release to CDN and Synchronize Branches"
+run-name: 'Staging Release - Step 3 [${{ inputs.releaseTag }}]'
 
 on:
     workflow_dispatch:
+        inputs:
+            releaseTag:
+                description: 'Semantic-release candidate tag (for example, v2.80.0 or v3.0.1)'
+                required: true
+                type: string
+            dryRun:
+                description: 'Validate the atomic synchronization without pushing [true/false]'
+                required: true
+                type: boolean
+                default: true
 
 jobs:
     synchronize-branches:
-      name: Synchronize SDK to all branches
+      name: Synchronize exact candidate ${{ inputs.releaseTag }}
       runs-on: ubuntu-latest
       env:
         GITHUB_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
@@ -15,24 +26,204 @@ jobs:
         GIT_COMMITTER_EMAIL: developers@mparticle.com
 
       steps:
-        - name: Checkout staging branch
+        - name: Checkout repository
           uses: actions/checkout@v6
           with:
             fetch-depth: 0
             repository: ${{ github.repository }}
             token: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
-            ref: staging
 
-        - name: Push release commits to development
+        - name: Validate workflow source
+          env:
+            SOURCE_REF: ${{ github.ref }}
+            DRY_RUN: ${{ github.event.inputs.dryRun }}
           run: |
-            git push origin HEAD:development
+            set -eu
+            case "$SOURCE_REF" in
+              refs/heads/master|refs/heads/main) ;;
+              *)
+                echo "Release workflows require source ref refs/heads/master or refs/heads/main; received ${SOURCE_REF}"
+                exit 1
+                ;;
+            esac
 
-        - name: Push release commits to master
-          run: |
-            git push origin HEAD:master
+            if [ "$DRY_RUN" = "false" ]; then
+              git fetch --no-tags --force origin \
+                refs/heads/master:refs/remotes/origin/master \
+                refs/heads/main:refs/remotes/origin/main
+              for WORKFLOW in \
+                .github/workflows/staging-step-1.yml \
+                .github/workflows/staging-step-2.yml \
+                .github/workflows/staging-step-3.yml; do
+                if ! git diff --quiet \
+                  "refs/remotes/origin/master:${WORKFLOW}" \
+                  "refs/remotes/origin/main:${WORKFLOW}"; then
+                  echo "${WORKFLOW} differs between origin/master and origin/main"
+                  echo "Both paired workflow PRs must merge before real synchronization"
+                  exit 1
+                fi
+              done
+            fi
 
-        - name: Push release commits to Release Order Branches
+        - name: Setup Node.js
+          uses: actions/setup-node@v6
+          with:
+            node-version: 24.x
+
+        - name: Resolve and preflight release candidate
+          id: candidate
+          env:
+            RELEASE_TAG: ${{ inputs.releaseTag }}
           run: |
-            git push origin HEAD:release-order-a
-            git push origin HEAD:release-order-b
-            git push origin HEAD:release-order-c
+            set -eu
+            if ! printf '%s\n' "$RELEASE_TAG" |
+                grep -Eq '^v(2|3)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+              echo "Invalid stable release tag: $RELEASE_TAG"
+              exit 1
+            fi
+
+            git tag -d "$RELEASE_TAG" >/dev/null 2>&1 || true
+            git fetch --no-tags --force origin \
+              "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+            CANDIDATE_SHA="$(git rev-parse "${RELEASE_TAG}^{commit}")"
+
+            REMOTE_TAG_REFS="$(git ls-remote --exit-code --tags origin \
+              "refs/tags/${RELEASE_TAG}" "refs/tags/${RELEASE_TAG}^{}")"
+            REMOTE_TAG_SHA="$(printf '%s\n' "$REMOTE_TAG_REFS" |
+              awk '$2 ~ /\^\{\}$/ { print $1; exit }')"
+            if [ -z "$REMOTE_TAG_SHA" ]; then
+              REMOTE_TAG_SHA="$(printf '%s\n' "$REMOTE_TAG_REFS" |
+                awk '$2 !~ /\^\{\}$/ { print $1; exit }')"
+            fi
+            if [ "$REMOTE_TAG_SHA" != "$CANDIDATE_SHA" ]; then
+              echo "Fetched tag does not match the remote peeled commit"
+              exit 1
+            fi
+
+            git checkout --detach "$CANDIDATE_SHA"
+            test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+            PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+            if [ "v${PACKAGE_VERSION}" != "$RELEASE_TAG" ]; then
+              echo "package.json version ${PACKAGE_VERSION} does not match ${RELEASE_TAG}"
+              exit 1
+            fi
+            PACKAGE_MAJOR="${PACKAGE_VERSION%%.*}"
+            case "$PACKAGE_MAJOR" in
+              2)
+                TRACK="v2"
+                STAGING_BRANCH="staging"
+                DEVELOPMENT_BRANCH="development"
+                TRUNK_BRANCH="master"
+                RELEASE_ORDER_A_BRANCH="release-order-a"
+                RELEASE_ORDER_B_BRANCH="release-order-b"
+                RELEASE_ORDER_C_BRANCH="release-order-c"
+                ;;
+              3)
+                TRACK="v3"
+                STAGING_BRANCH="v3-staging"
+                DEVELOPMENT_BRANCH="v3-development"
+                TRUNK_BRANCH="main"
+                RELEASE_ORDER_A_BRANCH="v3-release-order-a"
+                RELEASE_ORDER_B_BRANCH="v3-release-order-b"
+                RELEASE_ORDER_C_BRANCH="v3-release-order-c"
+                ;;
+              *) exit 1 ;;
+            esac
+            MAPPING="${TRACK}|${STAGING_BRANCH}|${DEVELOPMENT_BRANCH}|${TRUNK_BRANCH}|${RELEASE_ORDER_A_BRANCH}|${RELEASE_ORDER_B_BRANCH}|${RELEASE_ORDER_C_BRANCH}"
+            case "$MAPPING" in
+              "v2|staging|development|master|release-order-a|release-order-b|release-order-c") ;;
+              "v3|v3-staging|v3-development|main|v3-release-order-a|v3-release-order-b|v3-release-order-c") ;;
+              *) exit 1 ;;
+            esac
+
+            STAGING_SHA="$(git ls-remote --exit-code origin \
+              "refs/heads/${STAGING_BRANCH}" | awk 'NR == 1 { print $1 }')"
+            if [ "$STAGING_SHA" != "$CANDIDATE_SHA" ]; then
+              echo "${RELEASE_TAG} is stale: origin/${STAGING_BRANCH} is ${STAGING_SHA}"
+              exit 1
+            fi
+
+            for DESTINATION in \
+              "$DEVELOPMENT_BRANCH" \
+              "$TRUNK_BRANCH" \
+              "$RELEASE_ORDER_A_BRANCH" \
+              "$RELEASE_ORDER_B_BRANCH" \
+              "$RELEASE_ORDER_C_BRANCH"; do
+              DESTINATION_SHA="$(git ls-remote --exit-code origin \
+                "refs/heads/${DESTINATION}" | awk 'NR == 1 { print $1 }')"
+              git fetch --no-tags --force origin \
+                "refs/heads/${DESTINATION}:refs/remotes/origin/${DESTINATION}"
+              if [ "$DESTINATION_SHA" = "$CANDIDATE_SHA" ]; then
+                continue
+              fi
+              if ! git merge-base --is-ancestor "$DESTINATION_SHA" "$CANDIDATE_SHA"; then
+                echo "origin/${DESTINATION} cannot fast-forward to ${RELEASE_TAG}"
+                exit 1
+              fi
+            done
+
+            echo "track=$TRACK" >> "$GITHUB_OUTPUT"
+            echo "candidate_sha=$CANDIDATE_SHA" >> "$GITHUB_OUTPUT"
+            echo "development_branch=$DEVELOPMENT_BRANCH" >> "$GITHUB_OUTPUT"
+            echo "trunk_branch=$TRUNK_BRANCH" >> "$GITHUB_OUTPUT"
+            echo "release_order_a_branch=$RELEASE_ORDER_A_BRANCH" >> "$GITHUB_OUTPUT"
+            echo "release_order_b_branch=$RELEASE_ORDER_B_BRANCH" >> "$GITHUB_OUTPUT"
+            echo "release_order_c_branch=$RELEASE_ORDER_C_BRANCH" >> "$GITHUB_OUTPUT"
+
+        - name: Atomically synchronize all destinations
+          if: ${{ github.event.inputs.dryRun == 'false' }}
+          env:
+            DEVELOPMENT_BRANCH: ${{ steps.candidate.outputs.development_branch }}
+            TRUNK_BRANCH: ${{ steps.candidate.outputs.trunk_branch }}
+            RELEASE_ORDER_A_BRANCH: ${{ steps.candidate.outputs.release_order_a_branch }}
+            RELEASE_ORDER_B_BRANCH: ${{ steps.candidate.outputs.release_order_b_branch }}
+            RELEASE_ORDER_C_BRANCH: ${{ steps.candidate.outputs.release_order_c_branch }}
+          run: |
+            set -eu
+            git push --atomic origin \
+              "HEAD:refs/heads/${DEVELOPMENT_BRANCH}" \
+              "HEAD:refs/heads/${TRUNK_BRANCH}" \
+              "HEAD:refs/heads/${RELEASE_ORDER_A_BRANCH}" \
+              "HEAD:refs/heads/${RELEASE_ORDER_B_BRANCH}" \
+              "HEAD:refs/heads/${RELEASE_ORDER_C_BRANCH}"
+
+        - name: Report synchronized release
+          env:
+            RELEASE_TAG: ${{ inputs.releaseTag }}
+            TRACK: ${{ steps.candidate.outputs.track }}
+            CANDIDATE_SHA: ${{ steps.candidate.outputs.candidate_sha }}
+            DEVELOPMENT_BRANCH: ${{ steps.candidate.outputs.development_branch }}
+            TRUNK_BRANCH: ${{ steps.candidate.outputs.trunk_branch }}
+            RELEASE_ORDER_A_BRANCH: ${{ steps.candidate.outputs.release_order_a_branch }}
+            RELEASE_ORDER_B_BRANCH: ${{ steps.candidate.outputs.release_order_b_branch }}
+            RELEASE_ORDER_C_BRANCH: ${{ steps.candidate.outputs.release_order_c_branch }}
+            DRY_RUN: ${{ github.event.inputs.dryRun }}
+            SOURCE_REF: ${{ github.ref }}
+          run: |
+            set -eu
+            if [ "$DRY_RUN" = "true" ]; then
+              ACTION="Would run atomic push"
+            else
+              ACTION="Completed atomic push"
+            fi
+            {
+              printf '## Release synchronization\n\n'
+              printf -- '- Release tag: `%s`\n' "$RELEASE_TAG"
+              printf -- '- Source ref: `%s`\n' "$SOURCE_REF"
+              printf -- '- Track: `%s`\n' "$TRACK"
+              printf -- '- Candidate SHA: `%s`\n' "$CANDIDATE_SHA"
+              printf -- '- Dry run: `%s`\n' "$DRY_RUN"
+              printf -- '- Action: `%s`\n' "$ACTION"
+              printf -- '- Destinations: `%s`, `%s`, `%s`, `%s`, `%s`\n' \
+                "$DEVELOPMENT_BRANCH" "$TRUNK_BRANCH" \
+                "$RELEASE_ORDER_A_BRANCH" "$RELEASE_ORDER_B_BRANCH" \
+                "$RELEASE_ORDER_C_BRANCH"
+              printf '\n### Atomic command\n\n```sh\n'
+              printf 'git push --atomic origin \\\n'
+              printf '  HEAD:refs/heads/%s \\\n' "$DEVELOPMENT_BRANCH"
+              printf '  HEAD:refs/heads/%s \\\n' "$TRUNK_BRANCH"
+              printf '  HEAD:refs/heads/%s \\\n' "$RELEASE_ORDER_A_BRANCH"
+              printf '  HEAD:refs/heads/%s \\\n' "$RELEASE_ORDER_B_BRANCH"
+              printf '  HEAD:refs/heads/%s\n' "$RELEASE_ORDER_C_BRANCH"
+              printf '```\n'
+            } >> "$GITHUB_STEP_SUMMARY"
