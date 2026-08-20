@@ -53,6 +53,8 @@ jobs:
                           ;;
                   esac
 
+                  # Before a real release, confirm master and main use identical
+                  # copies of all three release workflows.
                   if [ "$DRY_RUN" = "false" ]; then
                       git fetch --no-tags --force origin \
                           refs/heads/master:refs/remotes/origin/master \
@@ -116,6 +118,8 @@ jobs:
                   RELEASE_CONFIG: ${{ steps.resolve.outputs.release_config }}
                   NPM_DIST_TAG: ${{ steps.resolve.outputs.npm_dist_tag }}
               run: |
+                  # Verify the selected track uses approved release settings and
+                  # the checkout matches the current remote staging commit.
                   set -eu
                   MAPPING="${TRACK}|${DEVELOPMENT_BRANCH}|${STAGING_BRANCH}|${RELEASE_BRANCH}|${RELEASE_CONFIG}|${NPM_DIST_TAG}"
                   case "$MAPPING" in
@@ -343,7 +347,6 @@ jobs:
 
     create-release-branch:
         name: Create release branch
-        if: ${{ github.event.inputs.dryRun == 'false' }}
         runs-on: ubuntu-latest
         needs:
             - test-core
@@ -370,87 +373,8 @@ jobs:
                   git checkout -b "$RELEASE_BRANCH"
                   git push origin "$RELEASE_BRANCH"
 
-    preview-release:
-        name: Preview Release Without Remote Mutation
-        if: ${{ github.event.inputs.dryRun == 'true' }}
-        runs-on: ubuntu-latest
-        needs:
-            - test-core
-            - test-stub
-            - test-integrations-common-js-browserfy
-            - test-integrations-common-js-webpack
-            - test-integrations-common-js-rollup
-            - test-integrations-module-js-webpack
-            - test-integrations-module-js-rollup
-            - test-integrations-require-js
-            - confirm-staging-branch
-        env:
-            TRACK: ${{ inputs.track }}
-            NPM_DIST_TAG: ${{ needs.confirm-staging-branch.outputs.npm_dist_tag }}
-            NPM_CONFIG_TAG: ${{ needs.confirm-staging-branch.outputs.npm_dist_tag }}
-        steps:
-            - name: Checkout ${{ needs.confirm-staging-branch.outputs.staging_branch }}
-              uses: actions/checkout@v6
-              with:
-                  fetch-depth: 0
-                  ref: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
-
-            - name: Combine staging and development locally
-              env:
-                  DEVELOPMENT_BRANCH: ${{ needs.confirm-staging-branch.outputs.development_branch }}
-              run: |
-                  set -eu
-                  git fetch --no-tags --force origin \
-                      "refs/heads/${DEVELOPMENT_BRANCH}:refs/remotes/origin/${DEVELOPMENT_BRANCH}"
-                  git merge --no-edit "refs/remotes/origin/${DEVELOPMENT_BRANCH}"
-
-            - name: Setup Node.js
-              uses: actions/setup-node@v6
-              with:
-                  node-version: 24.x
-                  registry-url: 'https://registry.npmjs.org'
-
-            - name: Install dependencies
-              run: npm ci
-
-            - name: Verify npm dist-tag
-              run: |
-                  set -eu
-                  test "$(npm config get tag)" = "$NPM_DIST_TAG"
-
-            - name: Preview semantic-release
-              env:
-                  RELEASE_CONFIG: ${{ needs.confirm-staging-branch.outputs.release_config }}
-                  STAGING_BRANCH: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
-              run: |
-                  set -eu
-                  set -- --branches "$STAGING_BRANCH"
-                  case "$RELEASE_CONFIG" in
-                      release.config.js) ;;
-                      release.v3.config.js)
-                          set -- --extends "./${RELEASE_CONFIG}" "$@"
-                          ;;
-                      *) exit 1 ;;
-                  esac
-                  npx semantic-release "$@" --dry-run
-
-            - name: Write preview summary
-              env:
-                  SOURCE_REF: ${{ github.ref }}
-              run: |
-                  set -eu
-                  {
-                      printf '## Release preview only\n\n'
-                      printf -- '- Source ref: `%s`\n' "$SOURCE_REF"
-                      printf -- '- Track: `%s`\n' "$TRACK"
-                      printf -- '- npm dist-tag: `%s`\n' "$NPM_DIST_TAG"
-                      printf -- '- Remote mutations: `none`\n'
-                      printf -- '- Candidate tag: `not created`\n'
-                  } >> "$GITHUB_STEP_SUMMARY"
-
     release:
         name: Perform Release
-        if: ${{ github.event.inputs.dryRun == 'false' }}
         runs-on: ubuntu-latest
         needs:
             - create-release-branch
@@ -516,7 +440,25 @@ jobs:
                       exit 1
                   fi
 
+            - name: Release --dry-run
+              if: ${{ github.event.inputs.dryRun == 'true' }}
+              env:
+                  RELEASE_CONFIG: ${{ needs.confirm-staging-branch.outputs.release_config }}
+                  STAGING_BRANCH: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
+              run: |
+                  set -eu
+                  set -- --branches "$STAGING_BRANCH"
+                  case "$RELEASE_CONFIG" in
+                      release.config.js) ;;
+                      release.v3.config.js)
+                          set -- --extends "./${RELEASE_CONFIG}" "$@"
+                          ;;
+                      *) exit 1 ;;
+                  esac
+                  npx semantic-release "$@" --dry-run
+
             - name: Snapshot existing stable release tags
+              if: ${{ github.event.inputs.dryRun == 'false' }}
               run: |
                   set -eu
                   git ls-remote --tags --refs origin |
@@ -527,6 +469,7 @@ jobs:
 
             # NPM Publish happens here
             - name: Release
+              if: ${{ github.event.inputs.dryRun == 'false' }}
               env:
                   RELEASE_CONFIG: ${{ needs.confirm-staging-branch.outputs.release_config }}
                   STAGING_BRANCH: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
@@ -550,6 +493,7 @@ jobs:
                   path: ~/.npm/_logs
 
             - name: Push automated release commits to release branch
+              if: ${{ github.event.inputs.dryRun == 'false' }}
               env:
                   RELEASE_BRANCH: ${{ needs.confirm-staging-branch.outputs.release_branch }}
               run: |
@@ -557,6 +501,7 @@ jobs:
                   git push origin "HEAD:${RELEASE_BRANCH}"
 
             - name: Verify and report release candidate
+              if: ${{ github.event.inputs.dryRun == 'false' }}
               run: |
                   set -eu
                   CANDIDATE_SHA="$(git rev-parse HEAD)"
