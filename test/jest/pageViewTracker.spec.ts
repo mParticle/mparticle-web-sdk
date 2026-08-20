@@ -548,10 +548,10 @@ describe('PageViewTracker', () => {
         });
 
         // Regression: a navigation queued by the stale tracker (setTimeout not yet
-        // flushed) must not fire after the new tracker takes over. The stale
-        // tracker's deferred callback checks isActive and aborts; the new tracker
-        // seeds lastPath with the destination so it is treated as already-seen.
-        it('should drop a pending page view from the stale tracker on module re-evaluation', () => {
+        // flushed) must be transferred to the replacement tracker via
+        // takePendingNavigations() so it is not silently dropped on module
+        // re-evaluation.
+        it('should transfer a pending page view from the stale tracker on module re-evaluation', () => {
             const staleTracker = createTracker();
             staleTracker.init(); // seeds lastPath = '/'
 
@@ -559,15 +559,18 @@ describe('PageViewTracker', () => {
             window.history.pushState({}, '', '/route-a');
             // Timer not yet flushed.
 
-            // Module re-evaluation: new tracker tears down the stale one.
+            // Module re-evaluation: new tracker transfers pending navigations then
+            // tears down the stale one.
             const newTracker = createTracker();
-            newTracker.init(); // seeds lastPath = '/route-a', tears down staleTracker
+            newTracker.init(); // takes '/route-a' from stale, tears it down
 
-            // Flush: stale tracker's callback aborts because isActive is false.
+            // Flush: '/route-a' fires via the new tracker, not the stale one.
             jest.runAllTimers();
-            expect(logEvent).not.toHaveBeenCalled();
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent.mock.calls[0][0].data.path).toBe('/route-a');
 
-            // A subsequent navigation from the new tracker fires normally.
+            // A subsequent navigation from the new tracker fires as normal.
+            logEvent.mockClear();
             window.history.pushState({}, '', '/route-b');
             jest.runAllTimers();
             expect(logEvent).toHaveBeenCalledTimes(1);

@@ -53,6 +53,11 @@ export class PageViewTracker {
     private lastPath: string | null = null;
     private isActive = false;
 
+    private pendingNavigations: Array<{
+        path: string;
+        timeoutId: ReturnType<typeof setTimeout>;
+    }> = [];
+
     private originalPushState: HistoryStateMethod | null = null;
     private originalReplaceState: HistoryStateMethod | null = null;
 
@@ -86,20 +91,17 @@ export class PageViewTracker {
         // Tear down any tracker left over from a previous module load.
         // window[WIN_TRACKER_KEY] outlives module re-evaluation; this is the
         // only way to reach a tracker instance in a dead module scope.
+        // Transfer any pending navigations first so a route change that queued a
+        // deferred fire before module re-evaluation occurs is not silently dropped.
         const win = window as WindowWithApvFlags;
         const prev = win[WIN_TRACKER_KEY];
+        let inheritedPaths: string[] = [];
         if (prev && prev !== this) {
             this.mpInstance.Logger.verbose(
-                'mParticle APV: [init] found stale tracker from previous module load — tearing down to prevent stacked wrappers'
+                'mParticle APV: [init] found stale tracker from previous module load — transferring pending navigations and tearing down'
             );
+            inheritedPaths = prev.takePendingNavigations();
             prev.teardown();
-            // Known limitation: if the previous tracker had already queued a
-            // deferred firePageView() via setTimeout, that callback will abort
-            // (isActive is now false) and the navigation will not be re-fired by
-            // this tracker (it seeds lastPath with the current pathname, so the
-            // destination is treated as already-seen). This sub-ms window is
-            // acceptable: stacking N wrappers after N reloads is worse than
-            // losing a single view on the overlap tick.
         }
 
         if (this.isActive) {
@@ -125,6 +127,21 @@ export class PageViewTracker {
         this.mpInstance.Logger.verbose(
             'mParticle APV: [init] patched pushState/replaceState + listening for popstate'
         );
+
+        // Re-fire navigations that the stale tracker had queued but not yet flushed
+        // when module re-evaluation occurred. Title is read at flush time so the
+        // router's post-navigation render commit still has a chance to update it.
+        inheritedPaths.forEach(path => {
+            const timeoutId = setTimeout(() => {
+                this.pendingNavigations = this.pendingNavigations.filter(
+                    p => p.timeoutId !== timeoutId
+                );
+                if (!this.isActive) return;
+                this.mpInstance._SessionManager.resetSessionTimer();
+                this.firePageView(path);
+            }, 0);
+            this.pendingNavigations.push({ path, timeoutId });
+        });
     }
 
     private patchHistoryMethods(): void {
@@ -244,7 +261,10 @@ export class PageViewTracker {
         // commit has a chance to update document.title first.
         const capturedPath = candidatePath;
 
-        setTimeout(() => {
+        const timeoutId = setTimeout(() => {
+            this.pendingNavigations = this.pendingNavigations.filter(
+                p => p.timeoutId !== timeoutId
+            );
             if (!this.isActive) {
                 this.mpInstance.Logger.verbose(
                     'mParticle APV: [defer] fire aborted, tracker inactive (torn down before flush)'
@@ -255,6 +275,7 @@ export class PageViewTracker {
             this.mpInstance._SessionManager.resetSessionTimer();
             this.firePageView(capturedPath);
         }, 0);
+        this.pendingNavigations.push({ path: capturedPath, timeoutId });
     }
 
     // Mirrors the event shape of the public mParticle.logPageView(), but carries
@@ -278,6 +299,16 @@ export class PageViewTracker {
         });
     }
 
+    // Cancels pending deferred fires and returns their captured paths so a
+    // successor tracker can re-schedule them. Call before teardown() during
+    // module-replacement handoff.
+    public takePendingNavigations(): string[] {
+        const paths = this.pendingNavigations.map(p => p.path);
+        this.pendingNavigations.forEach(p => clearTimeout(p.timeoutId));
+        this.pendingNavigations = [];
+        return paths;
+    }
+
     private restoreHistoryMethod(
         methodName: 'pushState' | 'replaceState',
         original: HistoryStateMethod | null,
@@ -298,6 +329,12 @@ export class PageViewTracker {
     }
 
     public teardown(): void {
+        // Cancel any pending deferred fires (e.g. when the feature flag is
+        // disabled on re-init). For module-replacement, call takePendingNavigations()
+        // before teardown() instead so paths are transferred, not discarded.
+        this.pendingNavigations.forEach(p => clearTimeout(p.timeoutId));
+        this.pendingNavigations = [];
+
         if (this.popStateListener) {
             window.removeEventListener('popstate', this.popStateListener);
             this.popStateListener = null;
