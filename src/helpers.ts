@@ -1,12 +1,14 @@
 import Types from './types';
 import Constants from './constants';
 import * as utils from './utils';
+import { Dictionary } from './utils';
 import Validators from './validators';
 import KitFilterHelper from './kitFilterHelper';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { SDKHelpersApi } from './sdkRuntimeModels';
-import { IMParticleUser, ISDKUserIdentity } from './identity-user-interfaces';
-import { MPID } from '@mparticle/web-sdk';
+import { IMParticleUser, IdentityCallback, IdentityResult, ISDKUserIdentity } from './identity-user-interfaces';
+import { IAliasResult } from './identity.interfaces';
+import { AliasUsersCallback, MPID } from '@mparticle/web-sdk';
 
 const StorageNames = Constants.StorageNames;
 
@@ -35,7 +37,7 @@ export default function Helpers(
     };
 
     this.invokeCallback = function(
-        callback: Function,
+        callback: IdentityCallback,
         code: number,
         body: string,
         mParticleUser?: IMParticleUser,
@@ -76,7 +78,7 @@ export default function Helpers(
                             return mpInstance.Identity.getUser(previousMpid);
                         }
                     },
-                });
+                } as unknown as IdentityResult);
             }
         } catch (e) {
             mpInstance.Logger.error(
@@ -86,7 +88,7 @@ export default function Helpers(
     };
 
     this.invokeAliasCallback = function(
-        callback: Function,
+        callback: AliasUsersCallback,
         code: number,
         message?: string
     ): void {
@@ -95,13 +97,13 @@ export default function Helpers(
         }
         try {
             if (self.Validators.isFunction(callback)) {
-                const callbackMessage: utils.Dictionary = {
+                const callbackMessage: Dictionary = {
                     httpCode: code,
                 };
                 if (message) {
                     callbackMessage.message = message;
                 }
-                callback(callbackMessage);
+                callback(callbackMessage as IAliasResult);
             }
         } catch (e) {
             mpInstance.Logger.error(
@@ -144,12 +146,12 @@ export default function Helpers(
         if (xhr && cb && 'withCredentials' in xhr) {
             xhr.onreadystatechange = cb;
         } else if (
-            typeof (window as utils.Dictionary).XDomainRequest !== 'undefined'
+            typeof (window as Dictionary).XDomainRequest !== 'undefined'
         ) {
             mpInstance.Logger.verbose('Creating XDomainRequest object');
 
             try {
-                xhr = new (window as utils.Dictionary).XDomainRequest();
+                xhr = new (window as Dictionary).XDomainRequest();
                 xhr.onload = cb;
             } catch (e) {
                 mpInstance.Logger.error('Error creating XDomainRequest object');
@@ -160,7 +162,7 @@ export default function Helpers(
     };
 
     this.filterUserIdentities = function(
-        userIdentitiesObject: utils.Dictionary<string>,
+        userIdentitiesObject: Dictionary<string>,
         filterList: number[]
     ): ISDKUserIdentity[] {
         const filteredUserIdentities: ISDKUserIdentity[] = [];
@@ -209,14 +211,14 @@ export default function Helpers(
     };
 
     this.sanitizeAttributes = function(
-        attrs: utils.Dictionary,
+        attrs: Dictionary,
         name: string
-    ): utils.Dictionary<string> | null {
+    ): Dictionary<string> | null {
         if (!attrs || !self.isObject(attrs)) {
             return null;
         }
 
-        const sanitizedAttrs: utils.Dictionary<string> = {};
+        const sanitizedAttrs: Dictionary<string> = {};
 
         for (const prop in attrs) {
             // Make sure that attribute values are not objects or arrays, which are not valid
@@ -240,7 +242,7 @@ export default function Helpers(
     };
 
     this.isDelayedByIntegration = function(
-        delayedIntegrations: utils.Dictionary<boolean>,
+        delayedIntegrations: Dictionary<boolean>,
         timeoutStart: number,
         now: number
     ): boolean {
