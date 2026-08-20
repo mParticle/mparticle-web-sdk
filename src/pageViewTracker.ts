@@ -108,6 +108,9 @@ export class PageViewTracker {
             this.mpInstance.Logger.verbose(
                 'mParticle APV: [init] starting (teardown-first for idempotency)'
             );
+            // Preserve pending navigations through the self-teardown so a route
+            // change queued before mParticle.init() was called again is not lost.
+            inheritedPaths = [...inheritedPaths, ...this.takePendingNavigations()];
             this.teardown();
         }
 

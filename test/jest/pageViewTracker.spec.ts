@@ -577,6 +577,25 @@ describe('PageViewTracker', () => {
             expect(logEvent.mock.calls[0][0].data.path).toBe('/route-b');
         });
 
+        // Regression: same-instance re-init (e.g. SPA framework calling
+        // mParticle.init() on navigation) must not drop a page view queued before
+        // the re-init call.
+        it('should preserve a pending page view when the same tracker re-inits', () => {
+            const tracker = createTracker();
+            tracker.init(); // seeds lastPath = '/'
+
+            // Route change queues a deferred fire — timer not yet flushed.
+            window.history.pushState({}, '', '/about');
+
+            // SPA framework calls mParticle.init() again before the timer fires.
+            tracker.init();
+
+            // The pending '/about' view should still fire.
+            jest.runAllTimers();
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent.mock.calls[0][0].data.path).toBe('/about');
+        });
+
         it('should not fire duplicate page views after a module re-evaluation', () => {
             // First module load: tracker A installs its wrapper.
             const trackerA = createTracker();
