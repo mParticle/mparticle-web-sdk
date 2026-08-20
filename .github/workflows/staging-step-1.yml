@@ -31,7 +31,6 @@ jobs:
             development_branch: ${{ steps.resolve.outputs.development_branch }}
             staging_branch: ${{ steps.resolve.outputs.staging_branch }}
             release_branch: ${{ steps.resolve.outputs.release_branch }}
-            release_config: ${{ steps.resolve.outputs.release_config }}
             npm_dist_tag: ${{ steps.resolve.outputs.npm_dist_tag }}
         steps:
             - name: Checkout workflow source
@@ -90,14 +89,12 @@ jobs:
                           echo "development_branch=development" >> "$GITHUB_OUTPUT"
                           echo "staging_branch=staging" >> "$GITHUB_OUTPUT"
                           echo "release_branch=release/${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
-                          echo "release_config=release.config.js" >> "$GITHUB_OUTPUT"
                           echo "npm_dist_tag=v2" >> "$GITHUB_OUTPUT"
                           ;;
                       v3)
                           echo "development_branch=v3-development" >> "$GITHUB_OUTPUT"
                           echo "staging_branch=v3-staging" >> "$GITHUB_OUTPUT"
                           echo "release_branch=v3-release/${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
-                          echo "release_config=release.v3.config.js" >> "$GITHUB_OUTPUT"
                           echo "npm_dist_tag=latest" >> "$GITHUB_OUTPUT"
                           ;;
                       *) exit 1 ;;
@@ -115,19 +112,39 @@ jobs:
                   DEVELOPMENT_BRANCH: ${{ steps.resolve.outputs.development_branch }}
                   STAGING_BRANCH: ${{ steps.resolve.outputs.staging_branch }}
                   RELEASE_BRANCH: ${{ steps.resolve.outputs.release_branch }}
-                  RELEASE_CONFIG: ${{ steps.resolve.outputs.release_config }}
                   NPM_DIST_TAG: ${{ steps.resolve.outputs.npm_dist_tag }}
               run: |
                   # Verify the selected track uses approved release settings and
                   # the checkout matches the current remote staging commit.
                   set -eu
-                  MAPPING="${TRACK}|${DEVELOPMENT_BRANCH}|${STAGING_BRANCH}|${RELEASE_BRANCH}|${RELEASE_CONFIG}|${NPM_DIST_TAG}"
+                  MAPPING="${TRACK}|${DEVELOPMENT_BRANCH}|${STAGING_BRANCH}|${RELEASE_BRANCH}|${NPM_DIST_TAG}"
                   case "$MAPPING" in
-                      "v2|development|staging|release/${GITHUB_RUN_NUMBER}|release.config.js|v2") ;;
-                      "v3|v3-development|v3-staging|v3-release/${GITHUB_RUN_NUMBER}|release.v3.config.js|latest") ;;
+                      "v2|development|staging|release/${GITHUB_RUN_NUMBER}|v2")
+                          EXPECTED_CONFIG_BRANCH="master"
+                          ;;
+                      "v3|v3-development|v3-staging|v3-release/${GITHUB_RUN_NUMBER}|latest")
+                          EXPECTED_CONFIG_BRANCH="v3-staging"
+                          ;;
                       *) exit 1 ;;
                   esac
-                  test -f "$RELEASE_CONFIG"
+                  if [ ! -f release.config.js ]; then
+                      echo "release.config.js is required on ${STAGING_BRANCH}"
+                      exit 1
+                  fi
+                  EXPECTED_CONFIG_BRANCH="$EXPECTED_CONFIG_BRANCH" node <<'NODE'
+                  const config = require('./release.config.js');
+                  const expected = process.env.EXPECTED_CONFIG_BRANCH;
+                  if (
+                      !Array.isArray(config.branches) ||
+                      config.branches.length !== 1 ||
+                      config.branches[0] !== expected
+                  ) {
+                      console.error(
+                          `release.config.js must declare branches: ['${expected}']`
+                      );
+                      process.exit(1);
+                  }
+                  NODE
                   CHECKED_OUT_SHA="$(git rev-parse HEAD)"
                   EXPECTED_SHA="$(git ls-remote --exit-code origin "refs/heads/${STAGING_BRANCH}" | awk 'NR == 1 { print $1 }')"
                   if [ -z "$EXPECTED_SHA" ] || [ "$CHECKED_OUT_SHA" != "$EXPECTED_SHA" ]; then
@@ -443,19 +460,10 @@ jobs:
             - name: Release --dry-run
               if: ${{ github.event.inputs.dryRun == 'true' }}
               env:
-                  RELEASE_CONFIG: ${{ needs.confirm-staging-branch.outputs.release_config }}
                   STAGING_BRANCH: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
               run: |
                   set -eu
-                  set -- --branches "$STAGING_BRANCH"
-                  case "$RELEASE_CONFIG" in
-                      release.config.js) ;;
-                      release.v3.config.js)
-                          set -- --extends "./${RELEASE_CONFIG}" "$@"
-                          ;;
-                      *) exit 1 ;;
-                  esac
-                  npx semantic-release "$@" --dry-run
+                  npx semantic-release --branches "$STAGING_BRANCH" --dry-run
 
             - name: Snapshot existing stable release tags
               if: ${{ github.event.inputs.dryRun == 'false' }}
@@ -471,19 +479,10 @@ jobs:
             - name: Release
               if: ${{ github.event.inputs.dryRun == 'false' }}
               env:
-                  RELEASE_CONFIG: ${{ needs.confirm-staging-branch.outputs.release_config }}
                   STAGING_BRANCH: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
               run: |
                   set -eu
-                  set -- --branches "$STAGING_BRANCH"
-                  case "$RELEASE_CONFIG" in
-                      release.config.js) ;;
-                      release.v3.config.js)
-                          set -- --extends "./${RELEASE_CONFIG}" "$@"
-                          ;;
-                      *) exit 1 ;;
-                  esac
-                  npx semantic-release "$@"
+                  npx semantic-release --branches "$STAGING_BRANCH"
 
             - name: Archive npm failure logs
               uses: actions/upload-artifact@v6
