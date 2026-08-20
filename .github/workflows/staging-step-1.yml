@@ -5,7 +5,7 @@ on:
     workflow_dispatch:
         inputs:
             track:
-                description: 'Release track'
+                description: 'Release track (v2 promotes to master; v3 promotes to main)'
                 required: true
                 type: choice
                 options:
