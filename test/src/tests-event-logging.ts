@@ -23,6 +23,10 @@ declare global {
 
 const mParticle = window.mParticle as IMParticleInstanceManager;
 
+function parseFetchJson(body: unknown) {
+    return JSON.parse(body as string);
+}
+
 describe('event logging', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
@@ -587,7 +591,7 @@ describe('event logging', function() {
             const eventTypeSequence = fetchMock
                 .calls()
                 .filter((call) => call[1].method.toLowerCase() === 'post')
-                .map((call) => JSON.parse(call[1].body as string))
+                .map((call) => parseFetchJson(call[1].body))
                 .filter((body) => body.events)
                 .flatMap((body) => body.events.map((event) => event.event_type));
 
@@ -755,7 +759,7 @@ describe('event logging', function() {
         );
 
         expect(identityCalls.length).to.equal(1);
-        const data = JSON.parse(identityCalls[0][1].body as string);
+        const data = parseFetchJson(identityCalls[0][1].body);
         data.should.have.properties(
             'client_sdk',
             'environment',
@@ -1067,7 +1071,7 @@ describe('event logging', function() {
 
         window.mParticle.logEvent('Test Event');
 
-        const batch = JSON.parse(fetchMock.lastOptions().body as unknown as string);
+        const batch = parseFetchJson(fetchMock.lastOptions().body);
 
         batch.application_info.should.have.property(
             'application_name',
@@ -1089,7 +1093,7 @@ describe('event logging', function() {
             );
         })
 
-        const batch = JSON.parse(fetchMock.lastOptions().body as unknown as string);
+        const batch = parseFetchJson(fetchMock.lastOptions().body);
         batch.events[0].data.should.have.property('is_first_run', true);
 
         await waitForCondition(() => {
@@ -1099,7 +1103,7 @@ describe('event logging', function() {
         })
 
         mParticle.init(apiKey, mParticle.config);
-        const batch2 = JSON.parse(fetchMock.lastOptions().body as unknown as string);
+        const batch2 = parseFetchJson(fetchMock.lastOptions().body);
         batch2.events[0].data.should.have.property('is_first_run', false);
 
         delete window.mParticle.config.flags;
@@ -1121,7 +1125,7 @@ describe('event logging', function() {
         });
 
 
-        const batch = JSON.parse(fetchMock.lastOptions().body as unknown as string);
+        const batch = parseFetchJson(fetchMock.lastOptions().body);
         batch.events[0].data.should.have.property('launch_referral');
         batch.events[0].data.launch_referral.should.startWith(
             'http://localhost'
@@ -1147,7 +1151,7 @@ describe('event logging', function() {
 
         window.mParticle.logEvent('Test Event');
 
-        const batch = JSON.parse(fetchMock.lastOptions().body as unknown as string);
+        const batch = parseFetchJson(fetchMock.lastOptions().body);
         batch.application_info.should.have.property(
             'application_name',
             'another name'
@@ -1176,7 +1180,7 @@ describe('event logging', function() {
         });
         window.mParticle.logEvent('Test Event');
 
-        const batch = JSON.parse(fetchMock.lastOptions().body as unknown as string);
+        const batch = parseFetchJson(fetchMock.lastOptions().body);
 
         batch.should.have.property('context');
         batch.context.should.have.property('data_plan');
@@ -1203,7 +1207,7 @@ describe('event logging', function() {
         });
         window.mParticle.logEvent('Test Event');
 
-        const batch = JSON.parse(fetchMock.lastOptions().body as unknown as string);
+        const batch = parseFetchJson(fetchMock.lastOptions().body);
 
         batch.should.have.property('context');
         batch.context.should.have.property('data_plan');
@@ -1230,7 +1234,7 @@ describe('event logging', function() {
         });
         window.mParticle.logEvent('Test Event');
 
-        const batch = JSON.parse(fetchMock.lastOptions().body as unknown as string);
+        const batch = parseFetchJson(fetchMock.lastOptions().body);
 
         batch.should.not.have.property('context');
 
@@ -1268,7 +1272,7 @@ describe('event logging', function() {
         errorMessage.should.equal(
             'Your data plan id must be a string and match the data plan slug format (i.e. under_case_slug)'
         );
-        const batch = JSON.parse(fetchMock.lastOptions().body as unknown as string);
+        const batch = parseFetchJson(fetchMock.lastOptions().body);
         batch.should.not.have.property('context');
         delete window.mParticle.config.flags;
     });
@@ -1318,7 +1322,7 @@ describe('event logging', function() {
 
         window.mParticle.logEvent('Test Event');
 
-        const batch = JSON.parse(fetchMock.lastOptions().body as unknown as string);
+        const batch = parseFetchJson(fetchMock.lastOptions().body);
 
         batch.should.have.property('consent_state');
         batch.consent_state.should.have.properties(['gdpr', 'ccpa']);
@@ -1409,7 +1413,7 @@ describe('event logging', function() {
             transactionAttributes
         );
 
-        const batch = JSON.parse(fetchMock.lastOptions().body as unknown as string);
+        const batch = parseFetchJson(fetchMock.lastOptions().body);
 
         batch.events[0].data.product_action.total_amount.should.equal(0);
         batch.events[0].data.product_action.shipping_amount.should.equal(0);
@@ -1470,7 +1474,7 @@ describe('event logging', function() {
             transactionAttributes
         );
 
-        const batch = JSON.parse(fetchMock.lastOptions().body as unknown as string);
+        const batch = parseFetchJson(fetchMock.lastOptions().body);
         (
             batch.events[0].data.product_action.products[0].position === null
         ).should.equal(true);
