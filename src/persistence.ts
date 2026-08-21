@@ -13,6 +13,10 @@ const Base64 = Polyfill.Base64,
     SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys,
     StorageNames = Constants.StorageNames;
 
+function removeLocalStorage(localStorageName: string): void {
+    localStorage.removeItem(localStorageName);
+}
+
 export default function _Persistence(
     this: IPersistence,
     mpInstance: IMParticleWebSDKInstance
@@ -380,10 +384,6 @@ export default function _Persistence(
 
         return null;
     };
-
-    function removeLocalStorage(localStorageName: string): void {
-        localStorage.removeItem(localStorageName);
-    }
 
     this.expireCookies = function(cookieName: string): void {
         let date = new Date(),
@@ -1186,7 +1186,7 @@ export default function _Persistence(
         self.expireCookies(StorageNames.cookieNameV4);
         self.expireCookies(mpInstance._Store.storageName);
 
-        if ((window as any).mParticle && (window as any).mParticle._isTestEnv) {
+        if ((window as any).mParticle?._isTestEnv) {
             let testWorkspaceToken = 'abcdef';
             removeLocalStorage(
                 mpInstance._Helpers.createMainStorageName(testWorkspaceToken)
