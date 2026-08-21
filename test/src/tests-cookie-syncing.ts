@@ -335,7 +335,7 @@ describe('cookie syncing', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 1'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -367,7 +367,7 @@ describe('cookie syncing', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 1'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -401,7 +401,7 @@ describe('cookie syncing', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 1'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -435,7 +435,7 @@ describe('cookie syncing', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 1'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -468,7 +468,7 @@ describe('cookie syncing', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 1'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -501,7 +501,7 @@ describe('cookie syncing', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 1'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -534,7 +534,7 @@ describe('cookie syncing', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 1'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -567,7 +567,7 @@ describe('cookie syncing', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 1'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -600,7 +600,7 @@ describe('cookie syncing', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '2' + 'data_sale_opt_out'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -632,7 +632,7 @@ describe('cookie syncing', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '2' + 'data_sale_opt_out'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -664,7 +664,7 @@ describe('cookie syncing', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '2' + 'data_sale_opt_out'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -696,7 +696,7 @@ describe('cookie syncing', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '2' + 'data_sale_opt_out'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -728,7 +728,7 @@ describe('cookie syncing', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '2' + 'data_sale_opt_out'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -760,7 +760,7 @@ describe('cookie syncing', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '2' + 'data_sale_opt_out'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -792,7 +792,7 @@ describe('cookie syncing', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '2' + 'data_sale_opt_out'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -823,7 +823,7 @@ describe('cookie syncing', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 1'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -884,7 +884,7 @@ describe('cookie syncing', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 1'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -945,7 +945,7 @@ describe('cookie syncing', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '2' + 'data_sale_opt_out'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -1007,7 +1007,7 @@ describe('cookie syncing', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '2' + 'data_sale_opt_out'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -1082,7 +1082,7 @@ describe('cookie syncing', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '2' + 'data_sale_opt_out'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -1166,7 +1166,7 @@ describe('cookie syncing', function() {
         const createConsentRules = (purpose: string, consentType: '1' | '2' = '1') => ({
             includeOnMatch: true,
             values: [{
-                consentPurpose: mParticle.generateHash(consentType + purpose),
+                consentPurpose: mParticle.generateHash(consentType + purpose).toString(),
                 hasConsented: true,
             }],
         });
