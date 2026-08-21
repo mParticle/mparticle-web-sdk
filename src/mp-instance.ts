@@ -57,7 +57,12 @@ import { LoggingDispatcher } from './reporting/loggingDispatcher';
 import { IErrorReportingService, ILoggingService } from './reporting/types';
 import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
 import { normalizeRoktLauncherOptions } from './roktLauncherOptions';
-import { PageViewTracker } from './pageViewTracker';
+import {
+    hasInitialPageViewFired,
+    markInitialPageViewFired,
+    PageViewTracker,
+    resetPageViewTracking,
+} from './pageViewTracker';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -298,12 +303,8 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         );
         instance._Events.stopTracking();
 
-        const instanceTracker = instance._PageViewTracker;
-        if (instanceTracker) {
-            instanceTracker.teardown();
-            instance._PageViewTracker = undefined;
-        }
-        PageViewTracker.resetWindowState(instanceTracker);
+        resetPageViewTracking();
+        instance._PageViewTracker = undefined;
 
         if (!keepPersistence) {
             instance._Persistence.resetPersistence();
@@ -1593,32 +1594,30 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         mpInstance._SessionManager.initialize();
         mpInstance._Events.logAST();
 
-        // Note: APV uses window-level singletons (WIN_TRACKER_KEY, WIN_INIT_PV_KEY)
-        // that assume a single active SDK instance. Multiple-instance support is
-        // out of scope
+        // Note: APV state (the active tracker and the initial-page-view flag) is
+        // window-scoped and assumes a single active SDK instance. Multiple-instance
+        // support is out of scope.
         if (getFeatureFlag(AutoLogPageView)) {
             if (!mpInstance._PageViewTracker) {
                 mpInstance.Logger.verbose(
                     'mParticle APV: [sdk-init] creating new PageViewTracker for this instance'
                 );
                 mpInstance._PageViewTracker = new PageViewTracker(mpInstance);
-
-                // Fire the initial page view once per page load (hard navigation).
-                // The flag survives module re-evaluation so repeated init() calls
-                // from SPA re-renders don't fire duplicate logPageView() events.
-                if (PageViewTracker.hasInitialPageViewFired()) {
-                    mpInstance.Logger.verbose(
-                        'mParticle APV: [sdk-init] initial page view already logged this page load, skipping'
-                    );
-                } else {
-                    PageViewTracker.markInitialPageViewFired();
-                    mpInstance._Events.logPageView();
-                }
-            } else {
-                mpInstance.Logger.verbose(
-                    'mParticle APV: [sdk-init] tracker already on this instance, skipping logPageView'
-                );
             }
+
+            // The initial page view fires once per hard page load, not once per
+            // init(): the window flag survives the module re-evaluation Next.js
+            // performs on every SPA navigation, so repeated init() calls from SPA
+            // re-renders don't fire duplicate logPageView() events.
+            if (hasInitialPageViewFired()) {
+                mpInstance.Logger.verbose(
+                    'mParticle APV: [sdk-init] initial page view already logged this page load, skipping'
+                );
+            } else {
+                markInitialPageViewFired();
+                mpInstance._Events.logPageView();
+            }
+
             mpInstance._PageViewTracker.init();
         } else if (mpInstance._PageViewTracker) {
             // AutoLogPageView was disabled on re-init: tear down the active tracker
