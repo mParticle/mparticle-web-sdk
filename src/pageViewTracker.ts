@@ -52,7 +52,11 @@ export class PageViewTracker {
     mpInstance: IMParticleWebSDKInstance;
 
     private lastPath: string | null = null;
-    private isActive = false;
+    private _isActive = false;
+
+    get isActive(): boolean {
+        return this._isActive;
+    }
 
     private pendingNavigations: Array<{
         path: string;
@@ -104,7 +108,7 @@ export class PageViewTracker {
             prev.teardown();
         }
 
-        if (this.isActive) {
+        if (this._isActive) {
             this.mpInstance.Logger.verbose(
                 'mParticle APV: [init] starting (teardown-first for idempotency)'
             );
@@ -114,7 +118,7 @@ export class PageViewTracker {
             this.teardown();
         }
 
-        this.isActive = true;
+        this._isActive = true;
 
         this.lastPath = this.getCurrentKey();
 
@@ -139,7 +143,7 @@ export class PageViewTracker {
                 this.pendingNavigations = this.pendingNavigations.filter(
                     p => p.timeoutId !== timeoutId
                 );
-                if (!this.isActive) return;
+                if (!this._isActive) return;
                 this.mpInstance._SessionManager.resetSessionTimer();
                 this.firePageView(path);
             }, 0);
@@ -268,7 +272,7 @@ export class PageViewTracker {
             this.pendingNavigations = this.pendingNavigations.filter(
                 p => p.timeoutId !== timeoutId
             );
-            if (!this.isActive) {
+            if (!this._isActive) {
                 this.mpInstance.Logger.verbose(
                     'mParticle APV: [defer] fire aborted, tracker inactive (torn down before flush)'
                 );
@@ -351,7 +355,7 @@ export class PageViewTracker {
         this.originalReplaceState = null;
         this.replaceStateWrapper = null;
 
-        this.isActive = false;
+        this._isActive = false;
         if (getWindowTracker() === this) {
             setWindowTracker(undefined);
         }
