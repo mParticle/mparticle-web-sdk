@@ -1,28 +1,155 @@
 name: 'Staging Release - Step 1: Prepare CDN Pre-Release, Publish NPM'
+run-name: 'Staging Release - Step 1 [${{ inputs.track }}]'
 
 on:
     workflow_dispatch:
         inputs:
+            track:
+                description: 'Release track (v2 promotes to master; v3 promotes to main)'
+                required: true
+                type: choice
+                options:
+                    - v2
+                    - v3
+                default: v2
             dryRun:
                 description: 'Do a dry run to preview instead of a real release [true/false]'
                 required: true
                 type: boolean
                 default: true
 
-jobs:
-    # SDK staging release must be done from the staging branch
-    confirm-staging-branch:
-        name: Confirm release is run on staging
-        runs-on: ubuntu-latest
-        steps:
-            - name: Git checkout
-              uses: actions/checkout@v6
+concurrency:
+    group: mparticle-web-sdk-release-publish
+    cancel-in-progress: false
 
-            - name: Branch Check
+jobs:
+    # SDK staging release is performed on the mapped staging branch:
+    # v2 -> staging; v3 -> v3-staging.
+    confirm-staging-branch:
+        name: Confirm ${{ inputs.track }} staging release state
+        runs-on: ubuntu-latest
+        outputs:
+            development_branch: ${{ steps.resolve.outputs.development_branch }}
+            staging_branch: ${{ steps.resolve.outputs.staging_branch }}
+            release_branch: ${{ steps.resolve.outputs.release_branch }}
+            npm_dist_tag: ${{ steps.resolve.outputs.npm_dist_tag }}
+        steps:
+            - name: Checkout workflow source
+              uses: actions/checkout@v6
+              with:
+                  fetch-depth: 0
+
+            - name: Validate workflow source
+              env:
+                  SOURCE_REF: ${{ github.ref }}
+                  DRY_RUN: ${{ github.event.inputs.dryRun }}
               run: |
-                  BRANCHNAME=${GITHUB_REF##*/}
-                  if [ $BRANCHNAME != "staging" ]; then
-                      echo "You can only run a staging release from the staging branch, you are trying to run it from ${BRANCHNAME}"
+                  set -eu
+                  case "$SOURCE_REF" in
+                      refs/heads/master|refs/heads/main) ;;
+                      *)
+                          echo "Release workflows require source ref refs/heads/master or refs/heads/main; received ${SOURCE_REF}"
+                          exit 1
+                          ;;
+                  esac
+
+                  # Before a real release, confirm master and main use identical
+                  # copies of all three release workflows.
+                  if [ "$DRY_RUN" = "false" ]; then
+                      git fetch --no-tags --force origin \
+                          refs/heads/master:refs/remotes/origin/master \
+                          refs/heads/main:refs/remotes/origin/main
+                      for WORKFLOW in \
+                          .github/workflows/staging-step-1.yml \
+                          .github/workflows/staging-step-2.yml \
+                          .github/workflows/staging-step-3.yml; do
+                          if ! git diff --quiet \
+                              "refs/remotes/origin/master:${WORKFLOW}" \
+                              "refs/remotes/origin/main:${WORKFLOW}"; then
+                              echo "${WORKFLOW} differs between origin/master and origin/main"
+                              echo "Both paired workflow PRs must merge before a real release"
+                              exit 1
+                          fi
+                      done
+                  fi
+
+                  {
+                      printf '## Workflow source validation\n\n'
+                      printf -- '- Source ref: `%s`\n' "$SOURCE_REF"
+                      printf -- '- Dry run: `%s`\n' "$DRY_RUN"
+                  } >> "$GITHUB_STEP_SUMMARY"
+
+            - name: Resolve exact branch mapping
+              id: resolve
+              env:
+                  TRACK: ${{ inputs.track }}
+              run: |
+                  set -eu
+                  case "$TRACK" in
+                      v2)
+                          echo "development_branch=development" >> "$GITHUB_OUTPUT"
+                          echo "staging_branch=staging" >> "$GITHUB_OUTPUT"
+                          echo "release_branch=release/${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+                          echo "npm_dist_tag=v2" >> "$GITHUB_OUTPUT"
+                          ;;
+                      v3)
+                          echo "development_branch=v3-development" >> "$GITHUB_OUTPUT"
+                          echo "staging_branch=v3-staging" >> "$GITHUB_OUTPUT"
+                          echo "release_branch=v3-release/${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+                          echo "npm_dist_tag=latest" >> "$GITHUB_OUTPUT"
+                          ;;
+                      *) exit 1 ;;
+                  esac
+
+            - name: Checkout ${{ steps.resolve.outputs.staging_branch }}
+              uses: actions/checkout@v6
+              with:
+                  fetch-depth: 0
+                  ref: ${{ steps.resolve.outputs.staging_branch }}
+
+            - name: Validate track mapping and checkout
+              env:
+                  TRACK: ${{ inputs.track }}
+                  DEVELOPMENT_BRANCH: ${{ steps.resolve.outputs.development_branch }}
+                  STAGING_BRANCH: ${{ steps.resolve.outputs.staging_branch }}
+                  RELEASE_BRANCH: ${{ steps.resolve.outputs.release_branch }}
+                  NPM_DIST_TAG: ${{ steps.resolve.outputs.npm_dist_tag }}
+              run: |
+                  # Verify the selected track uses approved release settings and
+                  # the checkout matches the current remote staging commit.
+                  set -eu
+                  MAPPING="${TRACK}|${DEVELOPMENT_BRANCH}|${STAGING_BRANCH}|${RELEASE_BRANCH}|${NPM_DIST_TAG}"
+                  case "$MAPPING" in
+                      "v2|development|staging|release/${GITHUB_RUN_NUMBER}|v2")
+                          EXPECTED_CONFIG_BRANCH="master"
+                          ;;
+                      "v3|v3-development|v3-staging|v3-release/${GITHUB_RUN_NUMBER}|latest")
+                          EXPECTED_CONFIG_BRANCH="v3-staging"
+                          ;;
+                      *) exit 1 ;;
+                  esac
+                  if [ ! -f release.config.js ]; then
+                      echo "release.config.js is required on ${STAGING_BRANCH}"
+                      exit 1
+                  fi
+                  EXPECTED_CONFIG_BRANCH="$EXPECTED_CONFIG_BRANCH" node <<'NODE'
+                  const config = require('./release.config.js');
+                  const expected = process.env.EXPECTED_CONFIG_BRANCH;
+                  if (
+                      !Array.isArray(config.branches) ||
+                      config.branches.length !== 1 ||
+                      config.branches[0] !== expected
+                  ) {
+                      console.error(
+                          `release.config.js must declare branches: ['${expected}']`
+                      );
+                      process.exit(1);
+                  }
+                  NODE
+                  CHECKED_OUT_SHA="$(git rev-parse HEAD)"
+                  EXPECTED_SHA="$(git ls-remote --exit-code origin "refs/heads/${STAGING_BRANCH}" | awk 'NR == 1 { print $1 }')"
+                  if [ -z "$EXPECTED_SHA" ] || [ "$CHECKED_OUT_SHA" != "$EXPECTED_SHA" ]; then
+                      echo "Checkout does not match origin/${STAGING_BRANCH}"
                       exit 1
                   fi
 
@@ -34,7 +161,7 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v6
               with:
-                  ref: development
+                  ref: ${{ needs.confirm-staging-branch.outputs.development_branch }}
 
             - name: NPM install
               uses: actions/setup-node@v6
@@ -60,7 +187,7 @@ jobs:
               uses: actions/upload-artifact@v6
               if: failure()
               with:
-                  name: npm-logs
+                  name: npm-logs-build-bundle
                   path: ~/.npm/_logs
 
     # Currently, we're only using Jest to test TypeScript modules
@@ -68,12 +195,15 @@ jobs:
     test-jest:
         name: 'Test Jest'
         runs-on: 'ubuntu-latest'
+        needs: confirm-staging-branch
         strategy:
             matrix:
-                node-version: [16.x, 17.x, 18.x, 19.x, 20.x, 21.x, 22.x, 23.x, 24.x, 25.x]
+                node-version: [18.x, 19.x, 20.x, 21.x, 22.x, 23.x, 24.x, 25.x]
         steps:
             - name: Checkout
               uses: actions/checkout@v6
+              with:
+                  ref: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
 
             - name: NPM install
               uses: actions/setup-node@v6
@@ -90,7 +220,7 @@ jobs:
               uses: actions/upload-artifact@v6
               if: failure()
               with:
-                  name: npm-logs
+                  name: npm-logs-test-jest-${{ matrix.node-version }}
                   path: ~/.npm/_logs
 
     # Only Core test requires bundle, but we want to make sure
@@ -99,25 +229,29 @@ jobs:
         name: Core Tests
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
+            - confirm-staging-branch
             - test-jest
             - build-bundle
         with:
             test_command_label: Core SDK Tests
             test_command: npm run test
             build_command: npm run build:iife
-            branch_name: ${{ vars.GITHUB_SHA }}
+            branch_name: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
 
     # Test Sub can be run independent of other tests
     test-stub:
         name: 'Test Stub'
         runs-on: ubuntu-latest
         needs:
+            - confirm-staging-branch
             - test-core
             - test-jest
             - build-bundle
         steps:
             - name: Checkout
               uses: actions/checkout@v6
+              with:
+                  ref: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
 
             - name: NPM install
               uses: actions/setup-node@v6
@@ -128,7 +262,7 @@ jobs:
               run: npm ci
 
             - name: Install Firefox Latest
-              uses: browser-actions/setup-firefox@latest
+              uses: browser-actions/setup-firefox@0bc507ddf224827e3b1af68e014d5e42ab93e795 # v1.7.2
 
             - name: Log Firefox Version
               run: firefox --version
@@ -140,7 +274,7 @@ jobs:
               uses: actions/upload-artifact@v6
               if: failure()
               with:
-                  name: npm-logs
+                  name: npm-logs-test-stub
                   path: ~/.npm/_logs
 
     # Integration Tests run the same suite of tests against various build systems
@@ -150,83 +284,198 @@ jobs:
         name: 'Integration Tests: Require JS'
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
+            - confirm-staging-branch
             - test-core
             - test-jest
             - build-bundle
         with:
             test_command_label: Require JS Test
             test_command: npm run test:requirejs
-            branch_name: ${{ vars.GITHUB_SHA }}
+            branch_name: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
 
     test-integrations-common-js-browserfy:
         name: 'Integration Tests: Browserfy Common JS'
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
+            - confirm-staging-branch
             - test-core
             - test-jest
             - build-bundle
         with:
             test_command_label: Browserfy CJS Test
             test_command: npm run test:integrations:cjs:browserfy
-            branch_name: ${{ vars.GITHUB_SHA }}
+            branch_name: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
             build_command: npm run build:npm && npm run build:test-bundle
 
     test-integrations-common-js-webpack:
         name: 'Integration Tests: webpack Common JS'
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
+            - confirm-staging-branch
             - test-core
             - test-jest
             - build-bundle
         with:
             test_command_label: webpack CJS Test
             test_command: npm run test:integrations:cjs:webpack
-            branch_name: ${{ vars.GITHUB_SHA }}
+            branch_name: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
             build_command: npm run build:npm && npm run build:test-bundle
 
     test-integrations-common-js-rollup:
         name: 'Integration Tests: Rollup Common JS'
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
+            - confirm-staging-branch
             - test-core
             - test-jest
             - build-bundle
         with:
             test_command_label: Rollup CJS Test
             test_command: npm run test:integrations:cjs:rollup
-            branch_name: ${{ vars.GITHUB_SHA }}
+            branch_name: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
             build_command: npm run build:npm && npm run build:test-bundle
 
     test-integrations-module-js-webpack:
         name: 'Integration Tests: webpack Module JS'
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
+            - confirm-staging-branch
             - test-core
             - test-jest
             - build-bundle
         with:
             test_command_label: webpack Module Test
             test_command: npm run test:integrations:module:webpack
-            branch_name: ${{ vars.GITHUB_SHA }}
+            branch_name: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
             build_command: npm run build:esm && npm run build:test-bundle
 
     test-integrations-module-js-rollup:
         name: 'Integration Tests: Rollup Module JS'
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
+            - confirm-staging-branch
             - test-core
             - test-jest
             - build-bundle
         with:
             test_command_label: Rollup Module Test
             test_command: npm run test:integrations:module:rollup
-            branch_name: ${{ vars.GITHUB_SHA }}
+            branch_name: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
             build_command: npm run build:esm && npm run build:test-bundle
+
+    load-kit-matrix:
+        name: Load V3 kit test matrix
+        if: ${{ inputs.track == 'v3' }}
+        runs-on: ubuntu-latest
+        needs: confirm-staging-branch
+        outputs:
+            matrix: ${{ steps.load.outputs.matrix }}
+        steps:
+            - name: Checkout ${{ needs.confirm-staging-branch.outputs.development_branch }}
+              uses: actions/checkout@v6
+              with:
+                  ref: ${{ needs.confirm-staging-branch.outputs.development_branch }}
+
+            - name: Validate and load kit test matrix
+              id: load
+              run: |
+                  set -eu
+                  MATRIX_FILE="kits/matrix.json"
+                  if [ ! -f "$MATRIX_FILE" ]; then
+                      echo "${MATRIX_FILE} is required for V3 kit testing"
+                      exit 1
+                  fi
+                  if ! jq -e '
+                      type == "array" and
+                      length > 0 and
+                      all(.[];
+                          type == "object" and
+                          (.name | type == "string" and length > 0) and
+                          (.local_path | type == "string" and length > 0)
+                      )
+                  ' "$MATRIX_FILE" > /dev/null; then
+                      echo "${MATRIX_FILE} must be a non-empty JSON array whose entries have non-empty string name and local_path fields"
+                      exit 1
+                  fi
+                  echo "matrix=$(jq -c . "$MATRIX_FILE")" >> "$GITHUB_OUTPUT"
+
+    run-kit-tests:
+        name: 'Kit Tests: ${{ matrix.kit.name }}'
+        if: ${{ inputs.track == 'v3' }}
+        needs:
+            - confirm-staging-branch
+            - load-kit-matrix
+            - build-bundle
+            - test-jest
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                kit: ${{ fromJson(needs.load-kit-matrix.outputs.matrix) }}
+        steps:
+            - name: Checkout ${{ needs.confirm-staging-branch.outputs.development_branch }}
+              uses: actions/checkout@v6
+              with:
+                  ref: ${{ needs.confirm-staging-branch.outputs.development_branch }}
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 24.x
+
+            - name: Install Firefox Latest
+              uses: browser-actions/setup-firefox@0bc507ddf224827e3b1af68e014d5e42ab93e795 # v1.7.2
+
+            - name: Install, build, and test kit
+              working-directory: ${{ matrix.kit.local_path }}
+              run: |
+                  set -eu
+                  npm ci
+                  npm run build
+                  npm test
+
+            - name: Archive npm failure logs
+              uses: actions/upload-artifact@v6
+              if: failure()
+              with:
+                  name: npm-logs-kit-${{ strategy.job-index }}
+                  path: ~/.npm/_logs
 
     create-release-branch:
         name: Create release branch
         runs-on: ubuntu-latest
+        # always() lets V2 continue past intentionally skipped kit jobs while
+        # exact result checks prevent failed, cancelled, or unexpected skips.
+        if: >-
+            ${{
+                always() &&
+                needs.confirm-staging-branch.result == 'success' &&
+                needs.build-bundle.result == 'success' &&
+                needs.test-jest.result == 'success' &&
+                needs.test-core.result == 'success' &&
+                needs.test-stub.result == 'success' &&
+                needs.test-integrations-common-js-browserfy.result == 'success' &&
+                needs.test-integrations-common-js-webpack.result == 'success' &&
+                needs.test-integrations-common-js-rollup.result == 'success' &&
+                needs.test-integrations-module-js-webpack.result == 'success' &&
+                needs.test-integrations-module-js-rollup.result == 'success' &&
+                needs.test-integrations-require-js.result == 'success' &&
+                (
+                    (
+                        inputs.track == 'v2' &&
+                        needs.load-kit-matrix.result == 'skipped' &&
+                        needs.run-kit-tests.result == 'skipped'
+                    ) ||
+                    (
+                        inputs.track == 'v3' &&
+                        needs.load-kit-matrix.result == 'success' &&
+                        needs.run-kit-tests.result == 'success'
+                    )
+                )
+            }}
         needs:
+            - build-bundle
+            - test-jest
             - test-core
             - test-stub
             - test-integrations-common-js-browserfy
@@ -235,24 +484,31 @@ jobs:
             - test-integrations-module-js-webpack
             - test-integrations-module-js-rollup
             - test-integrations-require-js
+            - load-kit-matrix
+            - run-kit-tests
             - confirm-staging-branch
         steps:
-            - name: Checkout development branch
+            - name: Checkout ${{ needs.confirm-staging-branch.outputs.development_branch }}
               uses: actions/checkout@v6
               with:
                   repository: mparticle/mparticle-web-sdk
-                  ref: development
+                  ref: ${{ needs.confirm-staging-branch.outputs.development_branch }}
 
             - name: Create and push release branch
+              if: ${{ github.event.inputs.dryRun == 'false' }}
+              env:
+                  RELEASE_BRANCH: ${{ needs.confirm-staging-branch.outputs.release_branch }}
               run: |
-                  git checkout -b release/${{ github.run_number }}
-                  git push origin release/${{ github.run_number }}
+                  set -eu
+                  git checkout -b "$RELEASE_BRANCH"
+                  git push origin "$RELEASE_BRANCH"
 
     release:
         name: Perform Release
         runs-on: ubuntu-latest
         needs:
             - create-release-branch
+            - confirm-staging-branch
 
         # OIDC permissions for npm trusted publishing
         permissions:
@@ -267,13 +523,16 @@ jobs:
             GIT_AUTHOR_EMAIL: developers@mparticle.com
             GIT_COMMITTER_NAME: mparticle-automation
             GIT_COMMITTER_EMAIL: developers@mparticle.com
+            TRACK: ${{ inputs.track }}
+            NPM_DIST_TAG: ${{ needs.confirm-staging-branch.outputs.npm_dist_tag }}
+            NPM_CONFIG_TAG: ${{ needs.confirm-staging-branch.outputs.npm_dist_tag }}
 
         steps:
-            - name: Checkout staging branch
+            - name: Checkout ${{ needs.confirm-staging-branch.outputs.staging_branch }}
               uses: actions/checkout@v6
               with:
                   fetch-depth: 0
-                  ref: staging
+                  ref: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
 
             - name: Import GPG Key
               uses: crazy-max/ghaction-import-gpg@e00cb83a68c1158b29afc5217dd0582cada6d172 #v4.4.0
@@ -283,9 +542,24 @@ jobs:
                   git_user_signingkey: true
                   git_commit_gpgsign: true
 
-            - name: Merge release branch into staging branch
+            - name: Merge development into staging preview
+              if: ${{ github.event.inputs.dryRun == 'true' }}
+              env:
+                  DEVELOPMENT_BRANCH: ${{ needs.confirm-staging-branch.outputs.development_branch }}
               run: |
-                  git pull origin release/${{ github.run_number }}
+                  set -eu
+                  git fetch --no-tags --force origin \
+                      "refs/heads/${DEVELOPMENT_BRANCH}:refs/remotes/origin/${DEVELOPMENT_BRANCH}"
+                  git merge --no-edit \
+                      "refs/remotes/origin/${DEVELOPMENT_BRANCH}"
+
+            - name: Merge release branch into staging branch
+              if: ${{ github.event.inputs.dryRun == 'false' }}
+              env:
+                  RELEASE_BRANCH: ${{ needs.confirm-staging-branch.outputs.release_branch }}
+              run: |
+                  set -eu
+                  git pull origin "$RELEASE_BRANCH"
 
             - name: Setup Node.js
               uses: actions/setup-node@v6
@@ -299,25 +573,115 @@ jobs:
             - name: Verify npm version
               run: npm --version
 
-            - name: Release --dry-run
-              if: ${{ github.event.inputs.dryRun == 'true'}}
+            - name: Verify npm dist-tag
               run: |
-                  npx semantic-release --branches staging --dry-run
+                  set -eu
+                  CONFIGURED_TAG="$(npm config get tag)"
+                  if [ "$CONFIGURED_TAG" != "$NPM_DIST_TAG" ]; then
+                      echo "Expected npm dist-tag ${NPM_DIST_TAG}, received ${CONFIGURED_TAG}"
+                      exit 1
+                  fi
+
+            - name: Release --dry-run
+              if: ${{ github.event.inputs.dryRun == 'true' }}
+              env:
+                  STAGING_BRANCH: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
+              run: |
+                  set -eu
+                  npx semantic-release --branches "$STAGING_BRANCH" --dry-run
+
+            - name: Snapshot existing stable release tags
+              if: ${{ github.event.inputs.dryRun == 'false' }}
+              run: |
+                  set -eu
+                  git ls-remote --tags --refs origin |
+                      awk '$2 ~ /^refs\/tags\/v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/ {
+                          sub("^refs/tags/", "", $2)
+                          print $2
+                      }' > "$RUNNER_TEMP/stable-release-tags-before"
 
             # NPM Publish happens here
             - name: Release
-              if: ${{ github.event.inputs.dryRun == 'false'}}
+              if: ${{ github.event.inputs.dryRun == 'false' }}
+              env:
+                  STAGING_BRANCH: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
               run: |
-                  npx semantic-release --branches staging
+                  set -eu
+                  npx semantic-release --branches "$STAGING_BRANCH"
 
             - name: Archive npm failure logs
               uses: actions/upload-artifact@v6
               if: failure()
               with:
-                  name: npm-logs
+                  name: npm-logs-release
                   path: ~/.npm/_logs
 
             - name: Push automated release commits to release branch
               if: ${{ github.event.inputs.dryRun == 'false' }}
+              env:
+                  RELEASE_BRANCH: ${{ needs.confirm-staging-branch.outputs.release_branch }}
               run: |
-                  git push origin HEAD:release/${{ github.run_number }}
+                  set -eu
+                  git push origin "HEAD:${RELEASE_BRANCH}"
+
+            - name: Verify and report release candidate
+              if: ${{ github.event.inputs.dryRun == 'false' }}
+              run: |
+                  set -eu
+                  CANDIDATE_SHA="$(git rev-parse HEAD)"
+                  git fetch --force --tags origin
+
+                  STABLE_TAGS="$(git tag --points-at "$CANDIDATE_SHA" |
+                      awk '/^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/')"
+                  TAG_COUNT="$(printf '%s\n' "$STABLE_TAGS" |
+                      awk 'NF { count++ } END { print count + 0 }')"
+                  if [ "$TAG_COUNT" -ne 1 ]; then
+                      echo "Expected exactly one stable release tag at ${CANDIDATE_SHA}; found ${TAG_COUNT}"
+                      exit 1
+                  fi
+                  RELEASE_TAG="$(printf '%s\n' "$STABLE_TAGS" | awk 'NF { print; exit }')"
+                  if grep -Fqx "$RELEASE_TAG" "$RUNNER_TEMP/stable-release-tags-before"; then
+                      echo "Release tag ${RELEASE_TAG} existed before this workflow run"
+                      exit 1
+                  fi
+
+                  PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+                  if [ "v${PACKAGE_VERSION}" != "$RELEASE_TAG" ]; then
+                      echo "package.json version ${PACKAGE_VERSION} does not match ${RELEASE_TAG}"
+                      exit 1
+                  fi
+                  PACKAGE_MAJOR="${PACKAGE_VERSION%%.*}"
+                  case "${TRACK}|${PACKAGE_MAJOR}" in
+                      "v2|2"|"v3|3") ;;
+                      *)
+                          echo "Track ${TRACK} does not match release major ${PACKAGE_MAJOR}"
+                          exit 1
+                          ;;
+                  esac
+
+                  REMOTE_TAG_REFS="$(git ls-remote --exit-code --tags origin \
+                      "refs/tags/${RELEASE_TAG}" "refs/tags/${RELEASE_TAG}^{}")"
+                  REMOTE_TAG_SHA="$(printf '%s\n' "$REMOTE_TAG_REFS" |
+                      awk '$2 ~ /\^\{\}$/ { print $1; exit }')"
+                  if [ -z "$REMOTE_TAG_SHA" ]; then
+                      REMOTE_TAG_SHA="$(printf '%s\n' "$REMOTE_TAG_REFS" |
+                          awk '$2 !~ /\^\{\}$/ { print $1; exit }')"
+                  fi
+                  if [ "$REMOTE_TAG_SHA" != "$CANDIDATE_SHA" ]; then
+                      echo "Remote tag ${RELEASE_TAG} does not resolve to ${CANDIDATE_SHA}"
+                      exit 1
+                  fi
+
+                  {
+                      printf '## Release candidate ready\n\n'
+                      printf -- '- Track: `%s`\n' "$TRACK"
+                      printf -- '- Release tag: `%s`\n' "$RELEASE_TAG"
+                      printf -- '- Version: `%s`\n' "$PACKAGE_VERSION"
+                      printf -- '- Candidate SHA: `%s`\n' "$CANDIDATE_SHA"
+                      printf -- '- npm dist-tag: `%s`\n\n' "$NPM_DIST_TAG"
+                      printf 'Step 2 is optional and release-order A/B/C are unordered.\n\n'
+                      printf '### Preview commands\n\n```sh\n'
+                      printf 'gh workflow run staging-step-2.yml -f releaseTag=%s -f releaseOrderBranch=release-order-a -f dryRun=true\n' "$RELEASE_TAG"
+                      printf 'gh workflow run staging-step-3.yml -f releaseTag=%s\n' "$RELEASE_TAG"
+                      printf '```\n'
+                  } >> "$GITHUB_STEP_SUMMARY"
