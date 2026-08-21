@@ -60,7 +60,7 @@ function createKitBlocker(options: {
 }
 
 describe('filteredMparticleUser', () => {
-    it('returns the MPID without constructing with new', () => {
+    it('should return the MPID without constructing with new', () => {
         const mpInstance = createMpInstance();
         const user = filteredMparticleUser(
             testMPID,
@@ -72,7 +72,7 @@ describe('filteredMparticleUser', () => {
     });
 
     describe('#getAllUserAttributes', () => {
-        it('returns {} when store attributes are missing', () => {
+        it('should return an empty object when store attributes are missing', () => {
             const mpInstance = createMpInstance({ userAttributes: null });
             const user = filteredMparticleUser(
                 testMPID,
@@ -83,7 +83,7 @@ describe('filteredMparticleUser', () => {
             expect(user.getAllUserAttributes()).toEqual({});
         });
 
-        it('copies list attributes so kits cannot mutate store values', () => {
+        it('should copy list attributes so kits cannot mutate store values', () => {
             const tags = ['a', 'b'];
             const mpInstance = createMpInstance({
                 userAttributes: { color: 'red', tags },
@@ -103,7 +103,7 @@ describe('filteredMparticleUser', () => {
             expect(tags).toEqual(['a', 'b']);
         });
 
-        it('omits kit-blocked attribute keys when no kit blocker is treated as allow-all', () => {
+        it('should omit kit-blocked attribute keys and allow all when kitBlocker is omitted', () => {
             const mpInstance = createMpInstance({
                 userAttributes: {
                     allowed: 'yes',
@@ -131,7 +131,7 @@ describe('filteredMparticleUser', () => {
             });
         });
 
-        it('applies forwarder userAttributeFilters after kit blocking', () => {
+        it('should apply forwarder userAttributeFilters after kit blocking', () => {
             const filteredKey = 'drop_me';
             const mpInstance = createMpInstance({
                 userAttributes: {
@@ -154,7 +154,7 @@ describe('filteredMparticleUser', () => {
     });
 
     describe('#getUserAttributesLists', () => {
-        it('returns only array attributes and copies them', () => {
+        it('should return only array attributes and copy them', () => {
             const tags = ['x'];
             const mpInstance = createMpInstance({
                 userAttributes: {
@@ -177,7 +177,7 @@ describe('filteredMparticleUser', () => {
             expect(lists.tags).not.toBe(tags);
         });
 
-        it('applies the method-argument forwarder filters to list keys', () => {
+        it('should apply the method-argument forwarder filters to list keys', () => {
             const mpInstance = createMpInstance({
                 userAttributes: {
                     tags: ['a'],
@@ -199,7 +199,7 @@ describe('filteredMparticleUser', () => {
             expect(lists).toEqual({ tags: ['a'] });
         });
 
-        it('does not include kit-blocked list attributes', () => {
+        it('should not include kit-blocked list attributes', () => {
             const mpInstance = createMpInstance({
                 userAttributes: {
                     tags: ['a'],
@@ -222,7 +222,7 @@ describe('filteredMparticleUser', () => {
     });
 
     describe('#getUserIdentities', () => {
-        it('maps store identity-type keys to names', () => {
+        it('should map store identity-type keys to names', () => {
             const mpInstance = createMpInstance();
             const user = filteredMparticleUser(
                 testMPID,
@@ -239,7 +239,7 @@ describe('filteredMparticleUser', () => {
             });
         });
 
-        it('omits kit-blocked identities and forwarder identity filters', () => {
+        it('should omit kit-blocked identities and forwarder identity filters', () => {
             const mpInstance = createMpInstance();
             const user = filteredMparticleUser(
                 testMPID,
@@ -258,7 +258,7 @@ describe('filteredMparticleUser', () => {
             });
         });
 
-        it('allows all identities when kitBlocker is omitted', () => {
+        it('should allow all identities when kitBlocker is omitted', () => {
             const mpInstance = createMpInstance();
             const user = filteredMparticleUser(
                 testMPID,
