@@ -1,3 +1,10 @@
+## [2.79.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.79.1...v2.79.2) (2026-08-21)
+
+
+### Bug Fixes
+
+* **apv:** prevent duplicate page views on SPA re-init (stacked wrapper + init guard) ([#1331](https://github.com/mParticle/mparticle-web-sdk/issues/1331)) ([415bb46](https://github.com/mParticle/mparticle-web-sdk/commit/415bb4622ce48fb76bf2c16b6716871f407a9008))
+
 ## [2.79.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.79.0...v2.79.1) (2026-08-21)
 
 
