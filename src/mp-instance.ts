@@ -297,6 +297,14 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             window.localStorage
         );
         instance._Events.stopTracking();
+
+        const instanceTracker = instance._PageViewTracker;
+        if (instanceTracker) {
+            instanceTracker.teardown();
+            instance._PageViewTracker = undefined;
+        }
+        PageViewTracker.resetWindowState(instanceTracker);
+
         if (!keepPersistence) {
             instance._Persistence.resetPersistence();
         }
@@ -1585,14 +1593,36 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         mpInstance._SessionManager.initialize();
         mpInstance._Events.logAST();
 
+        // Note: APV uses window-level singletons (WIN_TRACKER_KEY, WIN_INIT_PV_KEY)
+        // that assume a single active SDK instance. Multiple-instance support is
+        // out of scope
         if (getFeatureFlag(AutoLogPageView)) {
-            mpInstance._Events.logPageView();
-
             if (!mpInstance._PageViewTracker) {
+                mpInstance.Logger.verbose(
+                    'mParticle APV: [sdk-init] creating new PageViewTracker for this instance'
+                );
                 mpInstance._PageViewTracker = new PageViewTracker(mpInstance);
+
+                // Fire the initial page view once per page load (hard navigation).
+                // The flag survives module re-evaluation so repeated init() calls
+                // from SPA re-renders don't fire duplicate logPageView() events.
+                if (PageViewTracker.hasInitialPageViewFired()) {
+                    mpInstance.Logger.verbose(
+                        'mParticle APV: [sdk-init] initial page view already logged this page load, skipping'
+                    );
+                } else {
+                    PageViewTracker.markInitialPageViewFired();
+                    mpInstance._Events.logPageView();
+                }
+            } else {
+                mpInstance.Logger.verbose(
+                    'mParticle APV: [sdk-init] tracker already on this instance, skipping logPageView'
+                );
             }
             mpInstance._PageViewTracker.init();
         } else if (mpInstance._PageViewTracker) {
+            // AutoLogPageView was disabled on re-init: tear down the active tracker
+            // so it stops listening. Re-created if the flag is re-enabled later.
             mpInstance._PageViewTracker.teardown();
         }
 

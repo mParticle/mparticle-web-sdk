@@ -1,4 +1,4 @@
-import { PageViewTracker } from '../../src/pageViewTracker';
+import { PageViewTracker, WIN_TRACKER_KEY } from '../../src/pageViewTracker';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 import { MessageType } from '../../src/types';
 
@@ -64,6 +64,7 @@ describe('PageViewTracker', () => {
         window.history.pushState = NATIVE_PUSH_STATE;
         window.history.replaceState = NATIVE_REPLACE_STATE;
         NATIVE_REPLACE_STATE.call(window.history, {}, '', '/');
+        delete (window as any)[WIN_TRACKER_KEY];
 
         jest.clearAllTimers();
         jest.useRealTimers();
@@ -487,6 +488,17 @@ describe('PageViewTracker', () => {
             expect(tracker['isActive']).toBe(false);
         });
 
+        it('should clear window[WIN_TRACKER_KEY] after teardown', () => {
+            const tracker = createTracker();
+            tracker.init();
+
+            expect((window as any)[WIN_TRACKER_KEY]).toBe(tracker);
+
+            tracker.teardown();
+
+            expect((window as any)[WIN_TRACKER_KEY]).toBeUndefined();
+        });
+
         it('should be safe to call before init()', () => {
             const tracker = createTracker();
             expect(() => tracker.teardown()).not.toThrow();
@@ -504,6 +516,100 @@ describe('PageViewTracker', () => {
             jest.runAllTimers();
 
             expect(logEvent).not.toHaveBeenCalled();
+        });
+    });
+
+    // Regression: Next.js re-evaluates the SDK module on each SPA navigation,
+    // resetting all module-level state. Each fresh module creates a new
+    // PageViewTracker and calls init(). Without the singleton teardown, each
+    // init() stacks a new pushState wrapper on top of the previous one and fires
+    // N page views per navigation after N module loads.
+    describe('window singleton / stale tracker teardown (module re-evaluation)', () => {
+        it('should register itself in window[WIN_TRACKER_KEY] after init()', () => {
+            const tracker = createTracker();
+            tracker.init();
+
+            expect((window as any)[WIN_TRACKER_KEY]).toBe(tracker);
+        });
+
+        it('should tear down a stale tracker from a previous module load on init()', () => {
+            // Simulate a tracker left behind by a previous module load:
+            // the old module is gone, so the only handle to it is window[WIN_TRACKER_KEY].
+            const staleTracker = createTracker();
+            staleTracker.init();
+            const teardownSpy = jest.spyOn(staleTracker, 'teardown');
+
+            // A new module load creates a fresh tracker and calls init().
+            const newTracker = createTracker();
+            newTracker.init();
+
+            expect(teardownSpy).toHaveBeenCalled();
+            expect((window as any)[WIN_TRACKER_KEY]).toBe(newTracker);
+        });
+
+        // Regression: a navigation queued by the stale tracker (setTimeout not yet
+        // flushed) must be transferred to the replacement tracker via
+        // takePendingNavigations() so it is not silently dropped on module
+        // re-evaluation.
+        it('should transfer a pending page view from the stale tracker on module re-evaluation', () => {
+            const staleTracker = createTracker();
+            staleTracker.init(); // seeds lastPath = '/'
+
+            // Route change detected by the stale tracker — deferred fire queued.
+            window.history.pushState({}, '', '/route-a');
+            // Timer not yet flushed.
+
+            // Module re-evaluation: new tracker transfers pending navigations then
+            // tears down the stale one.
+            const newTracker = createTracker();
+            newTracker.init(); // takes '/route-a' from stale, tears it down
+
+            // Flush: '/route-a' fires via the new tracker, not the stale one.
+            jest.runAllTimers();
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent.mock.calls[0][0].data.path).toBe('/route-a');
+
+            // A subsequent navigation from the new tracker fires as normal.
+            logEvent.mockClear();
+            window.history.pushState({}, '', '/route-b');
+            jest.runAllTimers();
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent.mock.calls[0][0].data.path).toBe('/route-b');
+        });
+
+        // Regression: same-instance re-init (e.g. SPA framework calling
+        // mParticle.init() on navigation) must not drop a page view queued before
+        // the re-init call.
+        it('should preserve a pending page view when the same tracker re-inits', () => {
+            const tracker = createTracker();
+            tracker.init(); // seeds lastPath = '/'
+
+            // Route change queues a deferred fire — timer not yet flushed.
+            window.history.pushState({}, '', '/about');
+
+            // SPA framework calls mParticle.init() again before the timer fires.
+            tracker.init();
+
+            // The pending '/about' view should still fire.
+            jest.runAllTimers();
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent.mock.calls[0][0].data.path).toBe('/about');
+        });
+
+        it('should not fire duplicate page views after a module re-evaluation', () => {
+            // First module load: tracker A installs its wrapper.
+            const trackerA = createTracker();
+            trackerA.init();
+
+            // Second module load: tracker B tears down A and installs its own wrapper.
+            const trackerB = createTracker();
+            trackerB.init();
+
+            // One navigation should produce exactly one page view.
+            window.history.pushState({}, '', '/next');
+            jest.runAllTimers();
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
         });
     });
 });
