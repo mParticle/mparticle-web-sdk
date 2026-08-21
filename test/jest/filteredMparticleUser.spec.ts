@@ -9,9 +9,11 @@ import { Dictionary } from '../../src/utils';
 
 const testMPID = 'test-mpid';
 
-function createHelpers(mpInstance: IMParticleWebSDKInstance) {
-    return new Helpers(mpInstance);
-}
+const defaultIdentities: Dictionary<string> = {
+    [IdentityType.CustomerId]: 'cust-1',
+    [IdentityType.Email]: 'user@example.com',
+    [IdentityType.Google]: 'google-id',
+};
 
 function createMpInstance(options?: {
     userAttributes?: Dictionary | null;
@@ -20,15 +22,12 @@ function createMpInstance(options?: {
     const mockMPInstance = {
         _Store: {
             getUserAttributes: jest.fn(
-                () => options?.userAttributes ?? {}
+                () => (options && 'userAttributes' in options
+                    ? options.userAttributes
+                    : {})
             ),
             getUserIdentities: jest.fn(
-                () =>
-                    options?.userIdentities ?? {
-                        [IdentityType.CustomerId]: 'cust-1',
-                        [IdentityType.Email]: 'user@example.com',
-                        [IdentityType.Google]: 'google-id',
-                    }
+                () => options?.userIdentities ?? defaultIdentities
             ),
         },
         Logger: {
@@ -38,7 +37,7 @@ function createMpInstance(options?: {
         },
     } as unknown as IMParticleWebSDKInstance;
 
-    mockMPInstance._Helpers = createHelpers(mockMPInstance);
+    mockMPInstance._Helpers = new Helpers(mockMPInstance);
     return mockMPInstance;
 }
 
@@ -59,28 +58,40 @@ function createKitBlocker(options: {
     } as unknown as KitBlocker;
 }
 
+function createFilteredUser(
+    mpInstance: IMParticleWebSDKInstance,
+    forwarder: MPForwarder | { userAttributeFilters: number[] } = {
+        userAttributeFilters: [],
+    },
+    kitBlocker?: KitBlocker
+) {
+    return filteredMparticleUser(
+        testMPID,
+        forwarder,
+        mpInstance,
+        kitBlocker
+    );
+}
+
 describe('filteredMparticleUser', () => {
     it('should return the MPID without constructing with new', () => {
         const mpInstance = createMpInstance();
-        const user = filteredMparticleUser(
-            testMPID,
-            { userAttributeFilters: [] },
-            mpInstance
-        );
+        const user = createFilteredUser(mpInstance);
 
         expect(user.getMPID()).toBe(testMPID);
+        expect(mpInstance._Store.getUserAttributes).not.toHaveBeenCalled();
     });
 
     describe('#getAllUserAttributes', () => {
         it('should return an empty object when store attributes are missing', () => {
             const mpInstance = createMpInstance({ userAttributes: null });
-            const user = filteredMparticleUser(
-                testMPID,
-                { userAttributeFilters: [] },
-                mpInstance
-            );
 
-            expect(user.getAllUserAttributes()).toEqual({});
+            expect(
+                createFilteredUser(mpInstance).getAllUserAttributes()
+            ).toEqual({});
+            expect(mpInstance._Store.getUserAttributes).toHaveBeenCalledWith(
+                testMPID
+            );
         });
 
         it('should copy list attributes so kits cannot mutate store values', () => {
@@ -88,13 +99,8 @@ describe('filteredMparticleUser', () => {
             const mpInstance = createMpInstance({
                 userAttributes: { color: 'red', tags },
             });
-            const user = filteredMparticleUser(
-                testMPID,
-                { userAttributeFilters: [] },
-                mpInstance
-            );
+            const attrs = createFilteredUser(mpInstance).getAllUserAttributes();
 
-            const attrs = user.getAllUserAttributes();
             expect(attrs.color).toBe('red');
             expect(attrs.tags).toEqual(['a', 'b']);
             expect(attrs.tags).not.toBe(tags);
@@ -103,51 +109,50 @@ describe('filteredMparticleUser', () => {
             expect(tags).toEqual(['a', 'b']);
         });
 
-        it('should omit kit-blocked attribute keys and allow all when kitBlocker is omitted', () => {
+        it('should omit kit-blocked attribute keys', () => {
             const mpInstance = createMpInstance({
                 userAttributes: {
                     allowed: 'yes',
                     blocked_attr: 'no',
                 },
             });
-            const blockedUser = filteredMparticleUser(
-                testMPID,
-                { userAttributeFilters: [] },
+            const user = createFilteredUser(
                 mpInstance,
+                { userAttributeFilters: [] },
                 createKitBlocker({ blockedAttributes: ['blocked_attr'] })
             );
-            const unblockedUser = filteredMparticleUser(
-                testMPID,
-                { userAttributeFilters: [] },
-                mpInstance
-            );
 
-            expect(blockedUser.getAllUserAttributes()).toEqual({
-                allowed: 'yes',
+            expect(user.getAllUserAttributes()).toEqual({ allowed: 'yes' });
+        });
+
+        it('should allow all attributes when kitBlocker is omitted', () => {
+            const mpInstance = createMpInstance({
+                userAttributes: {
+                    allowed: 'yes',
+                    blocked_attr: 'no',
+                },
             });
-            expect(unblockedUser.getAllUserAttributes()).toEqual({
+
+            expect(
+                createFilteredUser(mpInstance).getAllUserAttributes()
+            ).toEqual({
                 allowed: 'yes',
                 blocked_attr: 'no',
             });
         });
 
-        it('should apply forwarder userAttributeFilters after kit blocking', () => {
-            const filteredKey = 'drop_me';
+        it('should apply factory forwarder userAttributeFilters', () => {
             const mpInstance = createMpInstance({
                 userAttributes: {
                     keep_me: '1',
                     drop_me: '2',
                 },
             });
-            const user = filteredMparticleUser(
-                testMPID,
-                {
-                    userAttributeFilters: [
-                        KitFilterHelper.hashUserAttribute(filteredKey),
-                    ],
-                } as MPForwarder,
-                mpInstance
-            );
+            const user = createFilteredUser(mpInstance, {
+                userAttributeFilters: [
+                    KitFilterHelper.hashUserAttribute('drop_me'),
+                ],
+            } as MPForwarder);
 
             expect(user.getAllUserAttributes()).toEqual({ keep_me: '1' });
         });
@@ -163,13 +168,9 @@ describe('filteredMparticleUser', () => {
                     empty: [],
                 },
             });
-            const user = filteredMparticleUser(
-                testMPID,
-                { userAttributeFilters: [] },
+            const lists = createFilteredUser(
                 mpInstance
-            );
-
-            const lists = user.getUserAttributesLists({
+            ).getUserAttributesLists({
                 userAttributeFilters: [],
             } as MPForwarder);
 
@@ -177,26 +178,27 @@ describe('filteredMparticleUser', () => {
             expect(lists.tags).not.toBe(tags);
         });
 
-        it('should apply the method-argument forwarder filters to list keys', () => {
+        it('should apply factory filters then method-argument forwarder filters', () => {
             const mpInstance = createMpInstance({
                 userAttributes: {
-                    tags: ['a'],
-                    secrets: ['s'],
+                    keep: ['a'],
+                    factory_drop: ['b'],
+                    method_drop: ['c'],
                 },
             });
-            const user = filteredMparticleUser(
-                testMPID,
-                { userAttributeFilters: [] },
-                mpInstance
-            );
-
-            const lists = user.getUserAttributesLists({
+            const user = createFilteredUser(mpInstance, {
                 userAttributeFilters: [
-                    KitFilterHelper.hashUserAttribute('secrets'),
+                    KitFilterHelper.hashUserAttribute('factory_drop'),
                 ],
             } as MPForwarder);
 
-            expect(lists).toEqual({ tags: ['a'] });
+            expect(
+                user.getUserAttributesLists({
+                    userAttributeFilters: [
+                        KitFilterHelper.hashUserAttribute('method_drop'),
+                    ],
+                } as MPForwarder)
+            ).toEqual({ keep: ['a'] });
         });
 
         it('should not include kit-blocked list attributes', () => {
@@ -206,10 +208,9 @@ describe('filteredMparticleUser', () => {
                     blocked_list: ['b'],
                 },
             });
-            const user = filteredMparticleUser(
-                testMPID,
-                { userAttributeFilters: [] },
+            const user = createFilteredUser(
                 mpInstance,
+                { userAttributeFilters: [] },
                 createKitBlocker({ blockedAttributes: ['blocked_list'] })
             );
 
@@ -222,13 +223,12 @@ describe('filteredMparticleUser', () => {
     });
 
     describe('#getUserIdentities', () => {
-        it('should map store identity-type keys to names', () => {
+        it('should map store identity-type keys to names when kitBlocker is omitted', () => {
             const mpInstance = createMpInstance();
-            const user = filteredMparticleUser(
-                testMPID,
-                { userAttributeFilters: [], userIdentityFilters: [] } as MPForwarder,
-                mpInstance
-            );
+            const user = createFilteredUser(mpInstance, {
+                userAttributeFilters: [],
+                userIdentityFilters: [],
+            } as MPForwarder);
 
             expect(user.getUserIdentities()).toEqual({
                 userIdentities: {
@@ -237,17 +237,29 @@ describe('filteredMparticleUser', () => {
                     google: 'google-id',
                 },
             });
+            expect(mpInstance._Store.getUserIdentities).toHaveBeenCalledWith(
+                testMPID
+            );
+        });
+
+        it('should return empty userIdentities when store identities are empty', () => {
+            const mpInstance = createMpInstance({ userIdentities: {} });
+            const user = createFilteredUser(mpInstance, {
+                userAttributeFilters: [],
+                userIdentityFilters: [],
+            } as MPForwarder);
+
+            expect(user.getUserIdentities()).toEqual({ userIdentities: {} });
         });
 
         it('should omit kit-blocked identities and forwarder identity filters', () => {
             const mpInstance = createMpInstance();
-            const user = filteredMparticleUser(
-                testMPID,
+            const user = createFilteredUser(
+                mpInstance,
                 {
                     userAttributeFilters: [],
                     userIdentityFilters: [IdentityType.Google],
                 } as MPForwarder,
-                mpInstance,
                 createKitBlocker({ blockedIdentities: ['email'] })
             );
 
@@ -258,13 +270,11 @@ describe('filteredMparticleUser', () => {
             });
         });
 
-        it('should allow all identities when kitBlocker is omitted', () => {
+        it('should not apply identity filters when the factory forwarder omits userIdentityFilters', () => {
             const mpInstance = createMpInstance();
-            const user = filteredMparticleUser(
-                testMPID,
-                { userAttributeFilters: [], userIdentityFilters: [] } as MPForwarder,
-                mpInstance
-            );
+            const user = createFilteredUser(mpInstance, {
+                userAttributeFilters: [],
+            });
 
             expect(user.getUserIdentities().userIdentities).toEqual({
                 customerid: 'cust-1',
