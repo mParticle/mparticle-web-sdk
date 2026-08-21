@@ -13,15 +13,13 @@ import { valueof } from './utils';
 import {
     ProductActionType,
     PromotionActionType,
-    CommerceEventType,
-    EventType,
 } from './types';
 import {
     SDKEvent,
     SDKEventCustomFlags,
     SDKImpression,
     SDKProduct,
-    SDKProductImpression,
+    SDKProductAction,
     SDKPromotion,
 } from './sdkRuntimeModels';
 
@@ -71,7 +69,7 @@ export interface SDKECommerceAPI extends IECommerceShared {
         customFlags?: SDKEventCustomFlags
     ): void;
     logImpression(
-        impression: SDKProductImpression,
+        impression: SDKImpression | SDKImpression[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions
@@ -155,17 +153,23 @@ interface ExtractedTransactionId {
 
 // Used for the private `_Ecommerce` namespace
 export interface IECommerce extends IECommerceShared {
-    buildProductList(event: SDKEvent, product: Product | Product[]): Product[];
+    buildProductList(
+        event: SDKEvent,
+        product: SDKProduct | SDKProduct[]
+    ): SDKProduct[];
     convertProductActionToEventType(
         productActionType: valueof<typeof ProductActionType>
     ): // https://go.mparticle.com/work/SQDSDKS-4801
-    typeof CommerceEventType | typeof EventType | null;
+    number | null;
     convertPromotionActionToEventType(
         promotionActionType: valueof<typeof PromotionActionType>
-    ): typeof CommerceEventType | null;
+    ): number | null;
+    calculateProductActionTotalAmount(
+        productAction: SDKProductAction
+    ): SDKProductAction;
     convertTransactionAttributesToProductAction(
         transactionAttributes: TransactionAttributes,
-        productAction: ProductAction
+        productAction: SDKProductAction
     ): void;
     createCommerceEventObject(
         customFlags: SDKEventCustomFlags,
