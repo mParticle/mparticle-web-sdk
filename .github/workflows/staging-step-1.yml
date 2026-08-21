@@ -542,6 +542,17 @@ jobs:
                   git_user_signingkey: true
                   git_commit_gpgsign: true
 
+            - name: Merge development into staging preview
+              if: ${{ github.event.inputs.dryRun == 'true' }}
+              env:
+                  DEVELOPMENT_BRANCH: ${{ needs.confirm-staging-branch.outputs.development_branch }}
+              run: |
+                  set -eu
+                  git fetch --no-tags --force origin \
+                      "refs/heads/${DEVELOPMENT_BRANCH}:refs/remotes/origin/${DEVELOPMENT_BRANCH}"
+                  git merge --no-edit \
+                      "refs/remotes/origin/${DEVELOPMENT_BRANCH}"
+
             - name: Merge release branch into staging branch
               if: ${{ github.event.inputs.dryRun == 'false' }}
               env:
