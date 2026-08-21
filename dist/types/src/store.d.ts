@@ -47,6 +47,7 @@ export interface SDKConfig {
     maxProducts: number;
     requestConfig?: boolean;
     sessionTimeout?: number;
+    timeout?: number;
     useNativeSdk?: boolean;
     useCookieStorage?: boolean;
     v1SecureServiceUrl?: string;

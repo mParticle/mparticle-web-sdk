@@ -186,7 +186,7 @@ export interface MParticleWebSDK {
     setOptOut(isOptingOut: boolean): void;
     startTrackingLocation(callback?: Callback): void;
     stopTrackingLocation(): void;
-    generateHash(value: string): string;
+    generateHash(value: string): number;
     setIntegrationAttribute(integrationModuleId: number, attrs: IntegrationAttribute): void;
     getIntegrationAttributes(integrationModuleId: number): IntegrationAttribute;
     captureTiming(metricName: string): void;
@@ -262,9 +262,16 @@ export interface SDKHelpersApi {
     findKeyInObject?(obj: any, key: string): string;
     parseNumber?(value: string | number): number;
     generateUniqueId(): any;
-    generateHash?(value: string): string;
+    generateHash?(value: string): number;
     getFeatureFlag?(feature: string): boolean | string;
-    invokeAliasCallback(aliasCallback: IAliasCallback, number: number, errorMessage: string): void;
+    decoded?(s: string): string;
+    parseStringOrNumber?(value: string | number): string | number | null;
+    inArray?(items: any[], value: any): boolean;
+    converted?(s: string): string;
+    filterUserIdentitiesForForwarders?(userIdentities: Dictionary, filterList: number[]): Dictionary;
+    filterUserAttributes?(userAttributes: Dictionary, filterList: number[]): Dictionary;
+    filterUserIdentities?(userIdentitiesObject: Dictionary<string>, filterList: number[]): ISDKUserIdentity[];
+    invokeAliasCallback(aliasCallback: IAliasCallback, number: number, errorMessage?: string): void;
     isDelayedByIntegration?(delayedIntegrations: Dictionary<boolean>, timeoutStart: number, now: number): boolean;
     isEventType?(type: valueof<typeof EventType>): boolean;
     isObject?(item: any): any;

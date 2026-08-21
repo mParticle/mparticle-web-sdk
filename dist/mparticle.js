@@ -134,7 +134,7 @@ var mParticle = (function () {
         }
         k = 0;
         while (k < len) {
-          var kValue;
+          var kValue = void 0;
           if (k in O) {
             kValue = O[k];
             callback.call(T, kValue, k, O);
@@ -161,7 +161,8 @@ var mParticle = (function () {
         A = new Array(len);
         k = 0;
         while (k < len) {
-          var kValue, mappedValue;
+          var kValue = void 0,
+            mappedValue = void 0;
           if (k in O) {
             kValue = O[k];
             mappedValue = callback.call(T, kValue, k, O);
@@ -203,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.79.0";
+    var version = "2.79.1";
 
     var Constants = {
       sdkVersion: version,
@@ -3858,6 +3859,33 @@ var mParticle = (function () {
     }();
 
     var StorageNames$1 = Constants.StorageNames;
+    function appendFilteredUserIdentity(filteredUserIdentities, identity, userIdentityType) {
+      if (userIdentityType === Types.IdentityType.CustomerId) {
+        filteredUserIdentities.unshift(identity);
+      } else {
+        filteredUserIdentities.push(identity);
+      }
+    }
+    function buildFilteredUserIdentities(userIdentitiesObject, filterList, inArray) {
+      var filteredUserIdentities = [];
+      if (!userIdentitiesObject || !Object.keys(userIdentitiesObject).length) {
+        return filteredUserIdentities;
+      }
+      for (var userIdentityName in userIdentitiesObject) {
+        if (!userIdentitiesObject.hasOwnProperty(userIdentityName)) {
+          continue;
+        }
+        var userIdentityType = Types.IdentityType.getIdentityType(userIdentityName);
+        if (inArray(filterList, userIdentityType)) {
+          continue;
+        }
+        appendFilteredUserIdentity(filteredUserIdentities, {
+          Type: userIdentityType,
+          Identity: userIdentitiesObject[userIdentityName]
+        }, userIdentityType);
+      }
+      return filteredUserIdentities;
+    }
     function Helpers(mpInstance) {
       var self = this;
       this.canLog = function () {
@@ -3960,26 +3988,7 @@ var mParticle = (function () {
         return xhr;
       };
       this.filterUserIdentities = function (userIdentitiesObject, filterList) {
-        var filteredUserIdentities = [];
-        if (userIdentitiesObject && Object.keys(userIdentitiesObject).length) {
-          for (var userIdentityName in userIdentitiesObject) {
-            if (userIdentitiesObject.hasOwnProperty(userIdentityName)) {
-              var userIdentityType = Types.IdentityType.getIdentityType(userIdentityName);
-              if (!self.inArray(filterList, userIdentityType)) {
-                var identity = {
-                  Type: userIdentityType,
-                  Identity: userIdentitiesObject[userIdentityName]
-                };
-                if (userIdentityType === Types.IdentityType.CustomerId) {
-                  filteredUserIdentities.unshift(identity);
-                } else {
-                  filteredUserIdentities.push(identity);
-                }
-              }
-            }
-          }
-        }
-        return filteredUserIdentities;
+        return buildFilteredUserIdentities(userIdentitiesObject, filterList, self.inArray);
       };
       this.filterUserIdentitiesForForwarders = KitFilterHelper.filterUserIdentities;
       this.filterUserAttributes = KitFilterHelper.filterUserAttributes;
@@ -4028,7 +4037,6 @@ var mParticle = (function () {
           return StorageNames$1.currentStorageName;
         }
       };
-
       // TODO: Refactor SDK to directly use these methods
       // https://go.mparticle.com/work/SQDSDKS-5239
       // Utility Functions
@@ -4041,7 +4049,6 @@ var mParticle = (function () {
       this.parseStringOrNumber = parseStringOrNumber;
       this.generateHash = generateHash;
       this.generateUniqueId = generateUniqueId;
-
       // Imported Validators
       this.Validators = Validators;
     }
@@ -6502,7 +6509,6 @@ var mParticle = (function () {
       };
       this.logCommerceEvent = function (commerceEvent, attrs, options) {
         mpInstance.Logger.verbose(Messages$3.InformationMessages.StartingLogCommerceEvent);
-
         // If a developer typos the ProductActionType, the event category will be
         // null, resulting in kit forwarding errors on the server.
         // The check for `ProductAction` is required to denote that these are
@@ -6511,23 +6517,21 @@ var mParticle = (function () {
           mpInstance.Logger.error('Commerce event not sent.  The mParticle.ProductActionType you passed was invalid. Re-check your code.');
           return;
         }
-        attrs = mpInstance._Helpers.sanitizeAttributes(attrs, commerceEvent.EventName);
+        var sanitizedAttrs = mpInstance._Helpers.sanitizeAttributes(attrs, commerceEvent.EventName);
         if (mpInstance._Helpers.canLog()) {
           if (mpInstance._Store.webviewBridgeEnabled) {
             // Don't send shopping cart to parent sdks
             commerceEvent.ShoppingCart = {};
           }
-          if (attrs) {
-            commerceEvent.EventAttributes = attrs;
+          if (sanitizedAttrs) {
+            commerceEvent.EventAttributes = sanitizedAttrs;
           }
-
           // When no transaction total (Revenue) was provided, derive it from
           // the products, shipping, and tax.
           if (commerceEvent.ProductAction) {
             mpInstance._Ecommerce.calculateProductActionTotalAmount(commerceEvent.ProductAction);
           }
           mpInstance._APIClient.sendEventToServer(commerceEvent, options);
-
           // https://go.mparticle.com/work/SQDSDKS-6038
           mpInstance._Persistence.update();
         } else {
@@ -6551,11 +6555,9 @@ var mParticle = (function () {
               data: typeof data === 'function' ? data(element) : data,
               eventType: eventType || Types.EventType.Other
             });
-
             // TODO: Handle middle-clicks and special keys (ctrl, alt, etc)
             if (element.href && element.target !== '_blank' || element.submit) {
               // Give xmlhttprequest enough time to execute before navigating a link or submitting form
-
               if (e.preventDefault) {
                 e.preventDefault();
               } else {
@@ -6570,7 +6572,6 @@ var mParticle = (function () {
           mpInstance.Logger.error("Can't bind event, selector is required");
           return;
         }
-
         // Handle a css selector string or a dom element
         if (typeof selector === 'string') {
           elements = document.querySelectorAll(selector);
