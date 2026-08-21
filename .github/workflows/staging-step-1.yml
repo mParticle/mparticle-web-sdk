@@ -595,7 +595,13 @@ jobs:
                   STAGING_BRANCH: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
               run: |
                   set -eu
-                  npx semantic-release --branches "$STAGING_BRANCH" --dry-run
+                  CANDIDATE_SHA="$(git rev-parse HEAD)"
+                  # Dispatch metadata points at the canonical workflow branch;
+                  # semantic-release must evaluate the checked-out candidate.
+                  GITHUB_REF="refs/heads/${STAGING_BRANCH}" \
+                      GITHUB_REF_NAME="$STAGING_BRANCH" \
+                      GITHUB_SHA="$CANDIDATE_SHA" \
+                      npx semantic-release --branches "$STAGING_BRANCH" --dry-run
 
             - name: Snapshot existing stable release tags
               if: ${{ github.event.inputs.dryRun == 'false' }}
@@ -614,7 +620,13 @@ jobs:
                   STAGING_BRANCH: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
               run: |
                   set -eu
-                  npx semantic-release --branches "$STAGING_BRANCH"
+                  CANDIDATE_SHA="$(git rev-parse HEAD)"
+                  # Dispatch metadata points at the canonical workflow branch;
+                  # semantic-release must evaluate the checked-out candidate.
+                  GITHUB_REF="refs/heads/${STAGING_BRANCH}" \
+                      GITHUB_REF_NAME="$STAGING_BRANCH" \
+                      GITHUB_SHA="$CANDIDATE_SHA" \
+                      npx semantic-release --branches "$STAGING_BRANCH"
 
             - name: Archive npm failure logs
               uses: actions/upload-artifact@v6
