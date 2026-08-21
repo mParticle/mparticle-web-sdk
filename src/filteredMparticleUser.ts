@@ -42,8 +42,7 @@ export default function filteredMparticleUser(
             }
         }
 
-        userAttributesCopy = ((mpInstance._Helpers as Dictionary)
-            .filterUserAttributes as Function)(
+        userAttributesCopy = mpInstance._Helpers.filterUserAttributes(
             userAttributesCopy,
             (forwarder as MPForwarder).userAttributeFilters
         );
@@ -72,8 +71,7 @@ export default function filteredMparticleUser(
                 }
             }
 
-            currentUserIdentities = ((mpInstance._Helpers as Dictionary)
-                .filterUserIdentitiesForForwarders as Function)(
+            currentUserIdentities = mpInstance._Helpers.filterUserIdentitiesForForwarders(
                 currentUserIdentities,
                 (forwarder as MPForwarder).userIdentityFilters
             );
@@ -106,8 +104,7 @@ export default function filteredMparticleUser(
                 }
             }
 
-            userAttributesLists = ((mpInstance._Helpers as Dictionary)
-                .filterUserAttributes as Function)(
+            userAttributesLists = mpInstance._Helpers.filterUserAttributes(
                 userAttributesLists,
                 forwarder.userAttributeFilters
             );
