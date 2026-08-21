@@ -1,6 +1,9 @@
 {
     "name": "@mparticle/web-braze-kit-4",
-    "version": "4.2.2",
+    "version": "3.0.0",
+    "publishConfig": {
+        "access": "public"
+    },
     "author": "mParticle Developers <developers@mparticle.com> (https://www.mparticle.com)",
     "description": "mParticle integration sdk for Braze",
     "main": "dist/BrazeKit.common.js",
@@ -37,7 +40,7 @@
     },
     "dependencies": {
         "@braze/web-sdk": "^4.2.1",
-        "@mparticle/web-sdk": "^2.23.0"
+        "@mparticle/web-sdk": "^3.0.0"
     },
     "license": "Apache-2.0",
     "homepage": "https://github.com/mParticle/mparticle-web-sdk/tree/master/kits/braze/braze-4#readme"

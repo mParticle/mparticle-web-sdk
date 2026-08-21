@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-double-click-kit",
-    "version": "2.2.1",
+    "version": "3.0.0",
     "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-doubleclick",
     "main": "dist/DoubleClick-Kit.common.js",
     "browser": "dist/DoubleClick-Kit.common.js",
@@ -17,7 +17,7 @@
         "testEndToEnd": "browserify node_modules/@mparticle/web-kit-wrapper/end-to-end-testapp/index.js -v -o test/end-to-end-testapp/build/compilation.js && open http://localhost:8082/node_modules/@mparticle/web-kit-wrapper/end-to-end-testapp/index.html && node node_modules/@mparticle/web-kit-wrapper/end-to-end-testapp/server"
     },
     "devDependencies": {
-        "@mparticle/web-sdk": "^2.23.4",
+        "@mparticle/web-sdk": "^3.0.0",
         "@semantic-release/changelog": "^5.0.1",
         "@semantic-release/exec": "^5.0.0",
         "@semantic-release/git": "^9.0.0",

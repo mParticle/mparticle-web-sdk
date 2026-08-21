@@ -1,0 +1,136 @@
+[
+    {
+        "name": "@mparticle/web-adobe-target-kit",
+        "local_path": "kits/adobe-target"
+    },
+    {
+        "name": "@mparticle/web-adwords-kit",
+        "local_path": "kits/adwords"
+    },
+    {
+        "name": "@mparticle/web-amplitude-kit",
+        "local_path": "kits/amplitude/amplitude-8"
+    },
+    {
+        "name": "@mparticle/web-bing-ads-kit",
+        "local_path": "kits/bingads"
+    },
+    {
+        "name": "@mparticle/web-braze-kit-3",
+        "local_path": "kits/braze/braze-3"
+    },
+    {
+        "name": "@mparticle/web-braze-kit-4",
+        "local_path": "kits/braze/braze-4"
+    },
+    {
+        "name": "@mparticle/web-braze-kit-5",
+        "local_path": "kits/braze/braze-5"
+    },
+    {
+        "name": "@mparticle/web-braze-kit-6",
+        "local_path": "kits/braze/braze-6"
+    },
+    {
+        "name": "@mparticle/web-criteo-kit",
+        "local_path": "kits/criteo"
+    },
+    {
+        "name": "@mparticle/web-device-match-kit",
+        "local_path": "kits/device-match"
+    },
+    {
+        "name": "@mparticle/web-double-click-kit",
+        "local_path": "kits/doubleclick"
+    },
+    {
+        "name": "@mparticle/web-dynamic-yield-kit",
+        "local_path": "kits/dynamic-yield"
+    },
+    {
+        "name": "@mparticle/web-facebook-kit",
+        "local_path": "kits/facebook"
+    },
+    {
+        "name": "@mparticle/web-google-tag-manager-kit",
+        "local_path": "kits/google-tag-manager"
+    },
+    {
+        "name": "@mparticle/web-heap-kit",
+        "local_path": "kits/heap"
+    },
+    {
+        "name": "@mparticle/web-id5-kit",
+        "local_path": "kits/id5/id5-1"
+    },
+    {
+        "name": "@mparticle/web-inspectlet-kit",
+        "local_path": "kits/inspectlet"
+    },
+    {
+        "name": "@mparticle/web-intercom-kit",
+        "local_path": "kits/intercom"
+    },
+    {
+        "name": "@mparticle/web-kissmetrics-kit",
+        "local_path": "kits/kissmetrics"
+    },
+    {
+        "name": "@mparticle/web-leanplum-kit",
+        "local_path": "kits/leanplum/leanplum-1"
+    },
+    {
+        "name": "@mparticle/web-localytics-kit",
+        "local_path": "kits/localytics/localytics-4"
+    },
+    {
+        "name": "@mparticle/web-mixpanel-kit",
+        "local_path": "kits/mixpanel/mixpanel-2"
+    },
+    {
+        "name": "@mparticle/web-onetrust-kit",
+        "local_path": "kits/onetrust"
+    },
+    {
+        "name": "@mparticle/web-optimizely-kit",
+        "local_path": "kits/optimizely"
+    },
+    {
+        "name": "@mparticle/web-rokt-kit",
+        "local_path": "kits/rokt"
+    },
+    {
+        "name": "@mparticle/web-simplereach-kit",
+        "local_path": "kits/simplereach"
+    },
+    {
+        "name": "@mparticle/web-taplytics-kit",
+        "local_path": "kits/taplytics"
+    },
+    {
+        "name": "@mparticle/web-twitter-kit",
+        "local_path": "kits/twitter"
+    },
+    {
+        "name": "@mparticle/web-google-analytics-4-client-kit",
+        "local_path": "kits/google-analytics-4/packages/GA4Client"
+    },
+    {
+        "name": "@mparticle/web-google-analytics-4-server-kit",
+        "local_path": "kits/google-analytics-4/packages/GA4Server"
+    },
+    {
+        "name": "@mparticle/web-adobe-client-kit",
+        "local_path": "kits/adobe/packages/AdobeClient",
+        "build_path": "kits/adobe"
+    },
+    {
+        "name": "@mparticle/web-adobe-server-kit",
+        "local_path": "kits/adobe/packages/AdobeServer",
+        "build_path": "kits/adobe"
+    },
+    {
+        "name": "@mparticle/web-rokt-pay-plus-kit",
+        "local_path": "kits/roktpayplus"
+    }
+]
