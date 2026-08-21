@@ -665,7 +665,7 @@ describe('forwarders', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 1'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -708,7 +708,7 @@ describe('forwarders', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 1'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -749,7 +749,7 @@ describe('forwarders', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 1'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -791,7 +791,7 @@ describe('forwarders', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 1'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -833,7 +833,7 @@ describe('forwarders', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 1'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -875,7 +875,7 @@ describe('forwarders', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 1'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -917,7 +917,7 @@ describe('forwarders', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 1'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -959,7 +959,7 @@ describe('forwarders', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 1'
-                    ),
+                    ).toString(),
                     hasConsented: consented,
                 },
             ],
@@ -1002,7 +1002,7 @@ describe('forwarders', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '2' + 'data_sale_opt_out'
-                    ),
+                    ).toString(),
                     hasConsented: consentPresent,
                 },
             ],
@@ -1047,7 +1047,7 @@ describe('forwarders', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '2' + 'data_sale_opt_out'
-                    ),
+                    ).toString(),
                     hasConsented: consentPresent,
                 },
             ],
@@ -1092,7 +1092,7 @@ describe('forwarders', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '2' + 'data_sale_opt_out'
-                    ),
+                    ).toString(),
                     hasConsented: consentPresent,
                 },
             ],
@@ -1138,7 +1138,7 @@ describe('forwarders', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '2' + 'data_sale_opt_out'
-                    ),
+                    ).toString(),
                     hasConsented: consentPresent,
                 },
             ],
@@ -1183,7 +1183,7 @@ describe('forwarders', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '2' + 'data_sale_opt_out'
-                    ),
+                    ).toString(),
                     hasConsented: consentPresent,
                 },
             ],
@@ -1228,7 +1228,7 @@ describe('forwarders', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '2' + 'data_sale_opt_out'
-                    ),
+                    ).toString(),
                     hasConsented: consentPresent,
                 },
             ],
@@ -1273,7 +1273,7 @@ describe('forwarders', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '2' + 'data_sale_opt_out'
-                    ),
+                    ).toString(),
                     hasConsented: consentPresent,
                 },
             ],
