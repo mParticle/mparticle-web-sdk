@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.79.1";
+    var version = "2.79.2";
 
     var Constants = {
       sdkVersion: version,
@@ -11173,10 +11173,19 @@ var mParticle = (function () {
     }();
 
     var WRAPPED_MARKER = '__mpApvWrapped__';
+    // window key under which the single active tracker is stored.
+    // Survives module re-evaluation (Next.js re-executes the bundle on every SPA
+    // navigation, resetting all module-level state, but window persists for the
+    // lifetime of the tab).
+    var WIN_TRACKER_KEY = '__mpApvTracker__';
+    // Guards the initial page view so repeated mParticle.init() calls from SPA
+    // re-renders don't fire duplicate logPageView() events for the same page.
+    var WIN_INIT_PV_KEY = '__mpApvInitPVLogged__';
     var PageViewTracker = /** @class */function () {
       function PageViewTracker(mpInstance) {
         this.lastPath = null;
-        this.isActive = false;
+        this._isActive = false;
+        this.pendingNavigations = [];
         this.originalPushState = null;
         this.originalReplaceState = null;
         this.pushStateWrapper = null;
@@ -11184,31 +11193,91 @@ var mParticle = (function () {
         this.popStateListener = null;
         this.mpInstance = mpInstance;
       }
+      PageViewTracker.hasInitialPageViewFired = function () {
+        return !!window[WIN_INIT_PV_KEY];
+      };
+      PageViewTracker.markInitialPageViewFired = function () {
+        window[WIN_INIT_PV_KEY] = true;
+      };
+      // Tears down any window-registered tracker that differs from instanceTracker
+      // (e.g. left by a previous module load), then clears both APV window flags.
+      // Call from _resetForTests after tearing down the instance-level tracker.
+      PageViewTracker.resetWindowState = function (instanceTracker) {
+        var windowTracker = getWindowTracker();
+        if (windowTracker && windowTracker !== instanceTracker) {
+          windowTracker.teardown();
+        }
+        if (typeof window !== 'undefined') {
+          delete window[WIN_INIT_PV_KEY];
+        }
+        setWindowTracker(undefined);
+      };
+      Object.defineProperty(PageViewTracker.prototype, "isActive", {
+        get: function get() {
+          return this._isActive;
+        },
+        enumerable: false,
+        configurable: true
+      });
       PageViewTracker.prototype.isSupportedEnvironment = function () {
         return typeof window !== 'undefined' && typeof window.history !== 'undefined' && typeof window.history.pushState === 'function' && typeof window.addEventListener === 'function';
       };
       PageViewTracker.prototype.init = function () {
+        var _this = this;
         this.mpInstance.Logger.verbose('mParticle APV: [init] PageViewTracker Init');
         if (!this.isSupportedEnvironment()) {
           this.mpInstance.Logger.verbose('mParticle APV: [init] unsupported environment (no History API), not starting');
           return;
         }
-        if (this.isActive) {
+        // Tear down any tracker left over from a previous module load.
+        // window[WIN_TRACKER_KEY] outlives module re-evaluation; this is the
+        // only way to reach a tracker instance in a dead module scope.
+        // Transfer any pending navigations first so a route change that queued a
+        // deferred fire before module re-evaluation occurs is not silently dropped.
+        var prev = getWindowTracker();
+        var inheritedPaths = [];
+        if (prev && prev !== this) {
+          this.mpInstance.Logger.verbose('mParticle APV: [init] found stale tracker from previous module load — transferring pending navigations and tearing down');
+          inheritedPaths = prev.takePendingNavigations();
+          prev.teardown();
+        }
+        if (this._isActive) {
           this.mpInstance.Logger.verbose('mParticle APV: [init] starting (teardown-first for idempotency)');
+          // Preserve pending navigations through the self-teardown so a route
+          // change queued before mParticle.init() was called again is not lost.
+          inheritedPaths = __spreadArray(__spreadArray([], inheritedPaths, true), this.takePendingNavigations(), true);
           this.teardown();
         }
-        this.isActive = true;
+        this._isActive = true;
         this.lastPath = this.getCurrentKey();
         this.mpInstance.Logger.verbose("mParticle APV: [init] seeded lastPath: ".concat(this.lastPath));
         this.patchHistoryMethods();
         this.addNavigationListeners();
+        setWindowTracker(this);
         this.mpInstance.Logger.verbose('mParticle APV: [init] patched pushState/replaceState + listening for popstate');
+        // Re-fire navigations that the stale tracker had queued but not yet flushed
+        // when module re-evaluation occurred. Title is read at flush time so the
+        // router's post-navigation render commit still has a chance to update it.
+        inheritedPaths.forEach(function (path) {
+          var timeoutId = setTimeout(function () {
+            _this.pendingNavigations = _this.pendingNavigations.filter(function (p) {
+              return p.timeoutId !== timeoutId;
+            });
+            if (!_this._isActive) return;
+            _this.mpInstance._SessionManager.resetSessionTimer();
+            _this.firePageView(path);
+          }, 0);
+          _this.pendingNavigations.push({
+            path: path,
+            timeoutId: timeoutId
+          });
+        });
       };
       PageViewTracker.prototype.patchHistoryMethods = function () {
         var self = this;
         var installed = window.history.pushState;
         if (installed[WRAPPED_MARKER]) {
-          this.mpInstance.Logger.verbose('mParticle APV: [patch] history already wrapped, skipping to avoid double-wrap');
+          this.mpInstance.Logger.verbose('mParticle APV: [patch] history already wrapped, skipping to avoid double-wrap — STACKED WRAPPER DETECTED');
           return;
         }
         var originalPushState = window.history.pushState;
@@ -11221,7 +11290,9 @@ var mParticle = (function () {
             args[_i] = arguments[_i];
           }
           var result = originalPushState.apply(this, args);
-          self.safeHandleNavigation('pushState');
+          if (self._isActive) {
+            self.safeHandleNavigation('pushState');
+          }
           return result;
         };
         var replaceStateWrapper = function replaceStateWrapper() {
@@ -11230,7 +11301,9 @@ var mParticle = (function () {
             args[_i] = arguments[_i];
           }
           var result = originalReplaceState.apply(this, args);
-          self.safeHandleNavigation('replaceState');
+          if (self._isActive) {
+            self.safeHandleNavigation('replaceState');
+          }
           return result;
         };
         Object.defineProperty(pushStateWrapper, WRAPPED_MARKER, {
@@ -11297,14 +11370,21 @@ var mParticle = (function () {
         // later (in the deferred flush) so the router's post-navigation render
         // commit has a chance to update document.title first.
         var capturedPath = candidatePath;
-        setTimeout(function () {
-          if (!_this.isActive) {
+        var timeoutId = setTimeout(function () {
+          _this.pendingNavigations = _this.pendingNavigations.filter(function (p) {
+            return p.timeoutId !== timeoutId;
+          });
+          if (!_this._isActive) {
             _this.mpInstance.Logger.verbose('mParticle APV: [defer] fire aborted, tracker inactive (torn down before flush)');
             return;
           }
           _this.mpInstance._SessionManager.resetSessionTimer();
           _this.firePageView(capturedPath);
         }, 0);
+        this.pendingNavigations.push({
+          path: capturedPath,
+          timeoutId: timeoutId
+        });
       };
       // Mirrors the event shape of the public mParticle.logPageView(), but carries
       // the captured SPA path rather than reading the live location.
@@ -11322,37 +11402,67 @@ var mParticle = (function () {
           eventType: EventType.Unknown
         });
       };
+      // Cancels pending deferred fires and returns their captured paths so a
+      // successor tracker can re-schedule them. Call before teardown() during
+      // module-replacement handoff.
+      PageViewTracker.prototype.takePendingNavigations = function () {
+        var paths = this.pendingNavigations.map(function (p) {
+          return p.path;
+        });
+        this.pendingNavigations.forEach(function (p) {
+          return clearTimeout(p.timeoutId);
+        });
+        this.pendingNavigations = [];
+        return paths;
+      };
+      PageViewTracker.prototype.restoreHistoryMethod = function (methodName, original, wrapper) {
+        if (!original) return;
+        var stillOurs = wrapper !== null && window.history[methodName] === wrapper;
+        if (stillOurs) {
+          window.history[methodName] = original;
+          this.mpInstance.Logger.verbose("mParticle APV: [teardown] restored original ".concat(methodName));
+        } else {
+          this.mpInstance.Logger.verbose("mParticle APV: [teardown] ".concat(methodName, " no longer ours; leaving in place, gating callback to no-op"));
+        }
+      };
       PageViewTracker.prototype.teardown = function () {
+        // Cancel any pending deferred fires (e.g. when the feature flag is
+        // disabled on re-init). For module-replacement, call takePendingNavigations()
+        // before teardown() instead so paths are transferred, not discarded.
+        this.pendingNavigations.forEach(function (p) {
+          return clearTimeout(p.timeoutId);
+        });
+        this.pendingNavigations = [];
         if (this.popStateListener) {
           window.removeEventListener('popstate', this.popStateListener);
           this.popStateListener = null;
         }
-        var pushStateStillOurs = this.pushStateWrapper !== null && window.history.pushState === this.pushStateWrapper;
-        if (this.originalPushState) {
-          if (pushStateStillOurs) {
-            window.history.pushState = this.originalPushState;
-            this.mpInstance.Logger.verbose('mParticle APV: [teardown] restored original pushState');
-          } else {
-            this.mpInstance.Logger.verbose('mParticle APV: [teardown] pushState no longer ours; leaving in place, gating callback to no-op');
-          }
-          this.originalPushState = null;
-          this.pushStateWrapper = null;
+        this.restoreHistoryMethod('pushState', this.originalPushState, this.pushStateWrapper);
+        this.originalPushState = null;
+        this.pushStateWrapper = null;
+        this.restoreHistoryMethod('replaceState', this.originalReplaceState, this.replaceStateWrapper);
+        this.originalReplaceState = null;
+        this.replaceStateWrapper = null;
+        this._isActive = false;
+        if (getWindowTracker() === this) {
+          setWindowTracker(undefined);
         }
-        var replaceStateStillOurs = this.replaceStateWrapper !== null && window.history.replaceState === this.replaceStateWrapper;
-        if (this.originalReplaceState) {
-          if (replaceStateStillOurs) {
-            window.history.replaceState = this.originalReplaceState;
-            this.mpInstance.Logger.verbose('mParticle APV: [teardown] restored original replaceState');
-          } else {
-            this.mpInstance.Logger.verbose('mParticle APV: [teardown] replaceState no longer ours; leaving in place, gating callback to no-op');
-          }
-          this.originalReplaceState = null;
-          this.replaceStateWrapper = null;
-        }
-        this.isActive = false;
       };
       return PageViewTracker;
     }();
+    function getWindowTracker() {
+      if (typeof window === 'undefined') return undefined;
+      return window[WIN_TRACKER_KEY];
+    }
+    function setWindowTracker(tracker) {
+      if (typeof window === 'undefined') return;
+      var win = window;
+      if (tracker) {
+        win[WIN_TRACKER_KEY] = tracker;
+      } else {
+        delete win[WIN_TRACKER_KEY];
+      }
+    }
 
     var Messages = Constants.Messages,
       HTTPCodes = Constants.HTTPCodes,
@@ -11506,6 +11616,12 @@ var mParticle = (function () {
         instance._Store = new Store(config, instance);
         instance._Store.isLocalStorageAvailable = instance._Persistence.determineLocalStorageAvailability(window.localStorage);
         instance._Events.stopTracking();
+        var instanceTracker = instance._PageViewTracker;
+        if (instanceTracker) {
+          instanceTracker.teardown();
+          instance._PageViewTracker = undefined;
+        }
+        PageViewTracker.resetWindowState(instanceTracker);
         if (!keepPersistence) {
           instance._Persistence.resetPersistence();
         }
@@ -12432,13 +12548,29 @@ var mParticle = (function () {
         // Logs a session start or session end event accordingly
         mpInstance._SessionManager.initialize();
         mpInstance._Events.logAST();
+        // Note: APV uses window-level singletons (WIN_TRACKER_KEY, WIN_INIT_PV_KEY)
+        // that assume a single active SDK instance. Multiple-instance support is
+        // out of scope
         if (getFeatureFlag(AutoLogPageView)) {
-          mpInstance._Events.logPageView();
           if (!mpInstance._PageViewTracker) {
+            mpInstance.Logger.verbose('mParticle APV: [sdk-init] creating new PageViewTracker for this instance');
             mpInstance._PageViewTracker = new PageViewTracker(mpInstance);
+            // Fire the initial page view once per page load (hard navigation).
+            // The flag survives module re-evaluation so repeated init() calls
+            // from SPA re-renders don't fire duplicate logPageView() events.
+            if (PageViewTracker.hasInitialPageViewFired()) {
+              mpInstance.Logger.verbose('mParticle APV: [sdk-init] initial page view already logged this page load, skipping');
+            } else {
+              PageViewTracker.markInitialPageViewFired();
+              mpInstance._Events.logPageView();
+            }
+          } else {
+            mpInstance.Logger.verbose('mParticle APV: [sdk-init] tracker already on this instance, skipping logPageView');
           }
           mpInstance._PageViewTracker.init();
         } else if (mpInstance._PageViewTracker) {
+          // AutoLogPageView was disabled on re-init: tear down the active tracker
+          // so it stops listening. Re-created if the flag is re-enabled later.
           mpInstance._PageViewTracker.teardown();
         }
         processIdentityCallback(mpInstance, currentUser, currentUserMPID, currentUserIdentities);

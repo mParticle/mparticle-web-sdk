@@ -1,8 +1,19 @@
 import { IMParticleWebSDKInstance } from './mp-instance';
+export declare const WIN_TRACKER_KEY = "__mpApvTracker__";
+export declare const WIN_INIT_PV_KEY: "__mpApvInitPVLogged__";
+export type WindowWithApvFlags = Window & {
+    [WIN_TRACKER_KEY]?: PageViewTracker;
+    [WIN_INIT_PV_KEY]?: boolean;
+};
 export declare class PageViewTracker {
+    static hasInitialPageViewFired(): boolean;
+    static markInitialPageViewFired(): void;
+    static resetWindowState(instanceTracker?: PageViewTracker): void;
     mpInstance: IMParticleWebSDKInstance;
     private lastPath;
-    private isActive;
+    private _isActive;
+    get isActive(): boolean;
+    private pendingNavigations;
     private originalPushState;
     private originalReplaceState;
     private pushStateWrapper;
@@ -17,5 +28,7 @@ export declare class PageViewTracker {
     private getCurrentKey;
     private handleNavigation;
     private firePageView;
+    takePendingNavigations(): string[];
+    private restoreHistoryMethod;
     teardown(): void;
 }
