@@ -506,6 +506,13 @@ jobs:
     release:
         name: Perform Release
         runs-on: ubuntu-latest
+        if: >-
+            ${{
+                always() &&
+                !cancelled() &&
+                needs.create-release-branch.result == 'success' &&
+                needs.confirm-staging-branch.result == 'success'
+            }}
         needs:
             - create-release-branch
             - confirm-staging-branch
