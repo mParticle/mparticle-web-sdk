@@ -172,7 +172,9 @@ export class PageViewTracker {
             ...args: Parameters<HistoryStateMethod>
         ): void {
             const result = originalPushState.apply(this, args);
-            self.safeHandleNavigation('pushState');
+            if (self._isActive) {
+                self.safeHandleNavigation('pushState');
+            }
             return result;
         };
 
@@ -181,7 +183,9 @@ export class PageViewTracker {
             ...args: Parameters<HistoryStateMethod>
         ): void {
             const result = originalReplaceState.apply(this, args);
-            self.safeHandleNavigation('replaceState');
+            if (self._isActive) {
+                self.safeHandleNavigation('replaceState');
+            }
             return result;
         };
 
