@@ -90,7 +90,7 @@ jobs:
                           echo "development_branch=development" >> "$GITHUB_OUTPUT"
                           echo "staging_branch=staging" >> "$GITHUB_OUTPUT"
                           echo "release_branch=release/${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
-                          echo "npm_dist_tag=latest" >> "$GITHUB_OUTPUT"
+                          echo "npm_dist_tag=legacy-v2-latest" >> "$GITHUB_OUTPUT"
                           ;;
                       v3)
                           echo "development_branch=v3-development" >> "$GITHUB_OUTPUT"
@@ -120,7 +120,7 @@ jobs:
                   set -eu
                   MAPPING="${TRACK}|${DEVELOPMENT_BRANCH}|${STAGING_BRANCH}|${RELEASE_BRANCH}|${NPM_DIST_TAG}"
                   case "$MAPPING" in
-                      "v2|development|staging|release/${GITHUB_RUN_NUMBER}|latest")
+                      "v2|development|staging|release/${GITHUB_RUN_NUMBER}|legacy-v2-latest")
                           EXPECTED_CONFIG_BRANCH="master"
                           ;;
                       "v3|v3-development|v3-staging|v3-release/${GITHUB_RUN_NUMBER}|latest")
