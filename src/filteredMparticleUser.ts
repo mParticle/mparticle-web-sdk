@@ -16,14 +16,14 @@ function isAttributeKeyAllowed(
     kitBlocker: KitBlocker | undefined,
     key: string
 ): boolean {
-    return !kitBlocker || !kitBlocker.isAttributeKeyBlocked(key);
+    return !kitBlocker?.isAttributeKeyBlocked(key);
 }
 
 function isIdentityAllowed(
     kitBlocker: KitBlocker | undefined,
     identityName: string
 ): boolean {
-    return !kitBlocker || !kitBlocker.isIdentityBlocked(identityName);
+    return !kitBlocker?.isIdentityBlocked(identityName);
 }
 
 function copyUserAttributeValue(value: unknown): unknown {
