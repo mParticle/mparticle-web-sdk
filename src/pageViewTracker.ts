@@ -39,13 +39,14 @@ export class PageViewTracker {
     // (e.g. left by a previous module load), then clears both APV window flags.
     // Call from _resetForTests after tearing down the instance-level tracker.
     static resetWindowState(instanceTracker?: PageViewTracker): void {
-        const win = window as WindowWithApvFlags;
-        const windowTracker = win[WIN_TRACKER_KEY];
+        const windowTracker = getWindowTracker();
         if (windowTracker && windowTracker !== instanceTracker) {
             windowTracker.teardown();
         }
-        delete win[WIN_INIT_PV_KEY];
-        delete win[WIN_TRACKER_KEY];
+        if (typeof window !== 'undefined') {
+            delete (window as WindowWithApvFlags)[WIN_INIT_PV_KEY];
+        }
+        setWindowTracker(undefined);
     }
 
     mpInstance: IMParticleWebSDKInstance;
@@ -93,8 +94,7 @@ export class PageViewTracker {
         // only way to reach a tracker instance in a dead module scope.
         // Transfer any pending navigations first so a route change that queued a
         // deferred fire before module re-evaluation occurs is not silently dropped.
-        const win = window as WindowWithApvFlags;
-        const prev = win[WIN_TRACKER_KEY];
+        const prev = getWindowTracker();
         let inheritedPaths: string[] = [];
         if (prev && prev !== this) {
             this.mpInstance.Logger.verbose(
@@ -125,7 +125,7 @@ export class PageViewTracker {
         this.patchHistoryMethods();
         this.addNavigationListeners();
 
-        (window as WindowWithApvFlags)[WIN_TRACKER_KEY] = this;
+        setWindowTracker(this);
 
         this.mpInstance.Logger.verbose(
             'mParticle APV: [init] patched pushState/replaceState + listening for popstate'
@@ -352,9 +352,23 @@ export class PageViewTracker {
         this.replaceStateWrapper = null;
 
         this.isActive = false;
-        const win = window as WindowWithApvFlags;
-        if (win[WIN_TRACKER_KEY] === this) {
-            delete win[WIN_TRACKER_KEY];
+        if (getWindowTracker() === this) {
+            setWindowTracker(undefined);
         }
+    }
+}
+
+function getWindowTracker(): PageViewTracker | undefined {
+    if (typeof window === 'undefined') return undefined;
+    return (window as WindowWithApvFlags)[WIN_TRACKER_KEY];
+}
+
+function setWindowTracker(tracker: PageViewTracker | undefined): void {
+    if (typeof window === 'undefined') return;
+    const win = window as WindowWithApvFlags;
+    if (tracker) {
+        win[WIN_TRACKER_KEY] = tracker;
+    } else {
+        delete win[WIN_TRACKER_KEY];
     }
 }
