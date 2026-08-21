@@ -1,3 +1,14 @@
+## [2.79.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.79.0...v2.79.1) (2026-08-21)
+
+
+### Bug Fixes
+
+* **ci:** keep v2 releases on latest ([#1355](https://github.com/mParticle/mparticle-web-sdk/issues/1355)) ([7ca40cf](https://github.com/mParticle/mparticle-web-sdk/commit/7ca40cf4a8f9367c215524b6eedd4c6d34f02122))
+* **ci:** preserve trusted publishing identity ([#1357](https://github.com/mParticle/mparticle-web-sdk/issues/1357)) ([6bdd7e7](https://github.com/mParticle/mparticle-web-sdk/commit/6bdd7e7d5ae66fb0342e6da0db874e2d761094ba))
+* **ci:** release checked-out staging candidate ([#1352](https://github.com/mParticle/mparticle-web-sdk/issues/1352)) ([a1b9245](https://github.com/mParticle/mparticle-web-sdk/commit/a1b9245ad120f80ddb92fe37f96b0c62fbe0666a))
+* **ci:** run release after skipped v2 kit jobs ([#1351](https://github.com/mParticle/mparticle-web-sdk/issues/1351)) ([3f3830b](https://github.com/mParticle/mparticle-web-sdk/commit/3f3830bc3728132ee82e09141fc5bfdbd75be3a7))
+* correct generateHash typings ([#1338](https://github.com/mParticle/mparticle-web-sdk/issues/1338)) ([f3eed5b](https://github.com/mParticle/mparticle-web-sdk/commit/f3eed5b268c732e82239cf73264c343e03320bba))
+
 # [2.79.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.78.0...v2.79.0) (2026-08-18)
 
 
