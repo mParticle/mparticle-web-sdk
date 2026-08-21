@@ -662,8 +662,8 @@ describe('event logging', function() {
             mParticle._resetForTests(MPConfig);
             window.mParticle.config.flags = { autoLogPageView: 'True' };
 
-            // First init — one page view fires; window.__mpApvInitPVLogged__ and
-            // window.__mpApvTracker__ are both set.
+            // First init — one page view fires; window.__mpApv__ now holds both
+            // the tracker and initialPageViewFired.
             mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);
 
@@ -671,8 +671,8 @@ describe('event logging', function() {
             firstBatch.events.filter(e => e.event_type === 'screen_view').length.should.equal(1);
 
             // Simulate Next.js module re-evaluation: a fresh module creates a new
-            // SDK instance with no _PageViewTracker, while window.__mpApvTracker__
-            // and window.__mpApvInitPVLogged__ survive from the previous load.
+            // SDK instance with no _PageViewTracker, while window.__mpApv__ survives
+            // from the previous load.
             const staleTracker = mParticle.getInstance()._PageViewTracker;
             mParticle.getInstance()._PageViewTracker = undefined;
 

@@ -14,21 +14,31 @@ type MarkedHistoryMethod = HistoryStateMethod & {
     [WRAPPED_MARKER]?: boolean;
 };
 
-// The window keys are the public debugging contract for APV: `window.__mpApvTracker__`
-// is what you inspect in a console to see whether tracking is live.
+// All APV state hangs off one window key, and it is the public debugging
+// contract: `window.__mpApv__` is what you inspect in a console to see whether
+// tracking is live.
 //
-// APV state lives on `window` rather than in module scope because Next.js
-// re-executes the SDK bundle on every SPA navigation: module-level state is
-// reset each time, but `window` persists for the lifetime of the tab.
-export const WIN_TRACKER_KEY = '__mpApvTracker__';
+// It lives on `window` rather than in module scope because Next.js re-executes
+// the SDK bundle on every SPA navigation: module-level state is reset each time,
+// but `window` persists for the lifetime of the tab.
+//
+// One object rather than a key per flag, so resetting is a single reassignment.
+// Nothing has to be deleted, and there is no ordering in which half the state
+// survives the reset.
+export const WIN_APV_KEY = '__mpApv__';
 
-// Guards the initial page view so repeated mParticle.init() calls from SPA
-// re-renders don't fire duplicate logPageView() events for the same page.
-export const WIN_INIT_PV_KEY = '__mpApvInitPVLogged__' as const;
+interface IApvState {
+    // The tracker that currently owns the history patch. May have been
+    // registered by a module scope that no longer exists.
+    tracker?: PageViewTracker;
 
-type WindowWithApvFlags = Window & {
-    [WIN_TRACKER_KEY]?: PageViewTracker;
-    [WIN_INIT_PV_KEY]?: boolean;
+    // Guards the initial page view so repeated mParticle.init() calls from SPA
+    // re-renders don't fire duplicate logPageView() events for the same page.
+    initialPageViewFired: boolean;
+}
+
+type WindowWithApv = Window & {
+    [WIN_APV_KEY]?: IApvState;
 };
 
 interface IPageViewData {
@@ -56,7 +66,7 @@ export const isNewPage = (
 
 export const supportsHistoryTracking = (win: Window | null): boolean =>
     !!win &&
-    typeof win.history !== 'undefined' &&
+    win.history !== undefined &&
     typeof win.history.pushState === 'function' &&
     typeof win.addEventListener === 'function';
 
@@ -70,35 +80,55 @@ export const buildPageViewEvent = (data: IPageViewData): BaseEvent => ({
 });
 
 // ---------------------------------------------------------------------------
-// Window-scoped APV state. Every read and write of the window flags goes through
-// these helpers, so neither the tracker nor mp-instance touches `window`
-// directly and `typeof window` is checked in exactly one place.
+// Window-scoped APV state. Every read and write goes through these helpers, so
+// neither the tracker nor mp-instance touches `window` directly and
+// `typeof window` is checked in exactly one place.
 // ---------------------------------------------------------------------------
 
-const apvWindow = (): WindowWithApvFlags | null =>
-    typeof window === 'undefined' ? null : (window as WindowWithApvFlags);
+const apvWindow = (): WindowWithApv | null =>
+    typeof window === 'undefined' ? null : (window as WindowWithApv);
 
-// The tracker that currently owns the history patch, which may have been
-// registered by a module scope that no longer exists.
-export const getActiveTracker = (): PageViewTracker | undefined => {
+const freshState = (): IApvState => ({ initialPageViewFired: false });
+
+// Reads tolerate absent state, so a read never mutates `window`. Only the
+// writers below create it.
+const readState = (): IApvState | undefined => {
     const win = apvWindow();
-    return win ? win[WIN_TRACKER_KEY] : undefined;
+    return win ? win[WIN_APV_KEY] : undefined;
+};
+
+const writeState = (): IApvState | null => {
+    const win = apvWindow();
+    if (!win) {
+        return null;
+    }
+
+    if (!win[WIN_APV_KEY]) {
+        win[WIN_APV_KEY] = freshState();
+    }
+
+    return win[WIN_APV_KEY];
+};
+
+export const getActiveTracker = (): PageViewTracker | undefined => {
+    const state = readState();
+    return state ? state.tracker : undefined;
 };
 
 export const hasInitialPageViewFired = (): boolean => {
-    const win = apvWindow();
-    return !!(win && win[WIN_INIT_PV_KEY]);
+    const state = readState();
+    return !!(state && state.initialPageViewFired);
 };
 
 export const markInitialPageViewFired = (): void => {
-    const win = apvWindow();
-    if (win) {
-        win[WIN_INIT_PV_KEY] = true;
+    const state = writeState();
+    if (state) {
+        state.initialPageViewFired = true;
     }
 };
 
 // Returns the page to its pre-APV state: stops the active tracker (restoring the
-// history methods it patched) and clears the window flags. The registry is the
+// history methods it patched), then swaps in fresh state. The state object is the
 // authoritative handle, so this reaches trackers whose owning module is gone.
 export const resetPageViewTracking = (): void => {
     const win = apvWindow();
@@ -106,28 +136,27 @@ export const resetPageViewTracking = (): void => {
         return;
     }
 
-    const active = win[WIN_TRACKER_KEY];
+    const active = getActiveTracker();
     if (active) {
         active.teardown();
     }
 
-    // teardown() clears WIN_TRACKER_KEY itself; delete unconditionally in case a
-    // tracker was registered by an older build whose teardown did not.
-    delete win[WIN_TRACKER_KEY];
-    delete win[WIN_INIT_PV_KEY];
+    // One reassignment replaces every flag at once, so nothing can be left behind
+    // whatever shape the previous state was in.
+    win[WIN_APV_KEY] = freshState();
 };
 
 const setActiveTracker = (tracker: PageViewTracker): void => {
-    const win = apvWindow();
-    if (win) {
-        win[WIN_TRACKER_KEY] = tracker;
+    const state = writeState();
+    if (state) {
+        state.tracker = tracker;
     }
 };
 
 const clearActiveTracker = (tracker: PageViewTracker): void => {
-    const win = apvWindow();
-    if (win && win[WIN_TRACKER_KEY] === tracker) {
-        delete win[WIN_TRACKER_KEY];
+    const state = readState();
+    if (state && state.tracker === tracker) {
+        state.tracker = undefined;
     }
 };
 
@@ -235,7 +264,7 @@ export class PageViewTracker {
     // True while this tracker owns the history patch and is listening for
     // navigations. Flips to false on teardown, including the teardown a
     // successor tracker performs during a handoff. Read-only, and the one thing
-    // worth checking on `window.__mpApvTracker__` from a console.
+    // worth checking on `window.__mpApv__.tracker` from a console.
     public get isActive(): boolean {
         return this.active;
     }

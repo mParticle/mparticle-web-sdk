@@ -8,8 +8,7 @@ import {
     patchHistory,
     resetPageViewTracking,
     supportsHistoryTracking,
-    WIN_INIT_PV_KEY,
-    WIN_TRACKER_KEY,
+    WIN_APV_KEY,
 } from '../../src/pageViewTracker';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 import { EventType, MessageType } from '../../src/types';
@@ -918,18 +917,37 @@ describe('PageViewTracker', () => {
             expect(() => resetPageViewTracking()).not.toThrow();
         });
 
-        // The window keys are a debugging contract: `window.__mpApvTracker__` is
-        // what you inspect in a console to see whether APV is live. Renaming
-        // either of them silently breaks that, so pin the literals.
-        it('should expose its state under the documented window keys', () => {
+        // The window key is a debugging contract: `window.__mpApv__` is what you
+        // inspect in a console to see whether APV is live. Renaming it silently
+        // breaks that, so pin the literal and the shape.
+        it('should expose all its state under one documented window key', () => {
             const tracker = createTracker();
             tracker.init();
             markInitialPageViewFired();
 
-            expect(WIN_TRACKER_KEY).toBe('__mpApvTracker__');
-            expect(WIN_INIT_PV_KEY).toBe('__mpApvInitPVLogged__');
-            expect((window as any).__mpApvTracker__).toBe(tracker);
-            expect((window as any).__mpApvInitPVLogged__).toBe(true);
+            expect(WIN_APV_KEY).toBe('__mpApv__');
+            expect((window as any).__mpApv__).toEqual({
+                tracker,
+                initialPageViewFired: true,
+            });
+        });
+
+        // The point of one object over two loose keys: reset is a single
+        // reassignment, so there is no ordering in which half the state survives.
+        it('should replace the whole state object on reset', () => {
+            const tracker = createTracker();
+            tracker.init();
+            markInitialPageViewFired();
+            const before = (window as any).__mpApv__;
+
+            resetPageViewTracking();
+
+            const after = (window as any).__mpApv__;
+            expect(after).not.toBe(before);
+            expect(after).toEqual({
+                tracker: undefined,
+                initialPageViewFired: false,
+            });
         });
     });
 });
