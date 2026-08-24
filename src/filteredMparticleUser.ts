@@ -13,7 +13,7 @@ export interface IFilteredMparticleUser {
 }
 
 function isAttributeKeyAllowed(
-    kitBlocker?: KitBlocker,
+    kitBlocker: KitBlocker | undefined,
     key: string
 ): boolean {
     return !kitBlocker?.isAttributeKeyBlocked(key);
