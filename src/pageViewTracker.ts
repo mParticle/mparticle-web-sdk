@@ -477,8 +477,8 @@ export class PageViewTracker {
     private takePendingNavigations(): IPageSnapshot[] {
         const pending = this.pendingNavigations;
         this.pendingNavigations = [];
-        pending.forEach(p => clearTimeout(p.timeoutId));
-        return pending.map(p => p.page);
+        pending.forEach(({ timeoutId }) => clearTimeout(timeoutId));
+        return pending.map(({ page }) => page);
     }
 
     private safeHandleNavigation(source: NavigationSource): void {
