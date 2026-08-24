@@ -43,7 +43,8 @@ export interface IGlobalStoreV2MinifiedKeys {
 export interface IPersistenceMinified extends Dictionary {
     cu: MPID; // Current User MPID
     gs: IGlobalStoreV2MinifiedKeys;
-    l: boolean; // IsLoggedIn
+    // Written as 0/1 on disk, coerced to boolean on decode
+    l: boolean | 0 | 1;
 
     // Persistence Minified can also store optional dictionaries with
     // an idex of MPID
@@ -100,7 +101,7 @@ export interface IPersistence {
     initializeStorage(): void;
     update(): void;
     storeDataInMemory(obj: IPersistenceMinified, currentMPID?: MPID): void;
-    determineLocalStorageAvailability(storage: Storage): boolean;
+            determineLocalStorageAvailability(storage?: Storage): boolean;
     setLocalStorage(): void;
     getLocalStorage(): IPersistenceMinified | null;
     expireCookies(cookieName: string): void;
@@ -114,7 +115,7 @@ export interface IPersistence {
     ): string;
     findPrevCookiesBasedOnUI(identityApiData: IdentityApiData): void;
     encodePersistence(persistence: string): string;
-    decodePersistence(persistenceString: string): string | void;
+    decodePersistence(persistenceString: string | null): string | void;
     getCookieDomain(): string;
     getDomain(doc: Document, locationHostname: string): string;
     saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDates): void;
