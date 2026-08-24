@@ -165,17 +165,22 @@ export const supportsHistoryTracking = (win: Window | null): boolean =>
 // Mirrors the event shape of the public mParticle.logPageView(), but carries the
 // path and query params captured when the navigation was accepted rather than the
 // live location.
-export const buildPageViewEvent = (data: IPageViewData): BaseEvent => ({
+export const buildPageViewEvent = ({
+    params,
+    hostname,
+    title,
+    path,
+}: IPageViewData): BaseEvent => ({
     messageType: MessageType.PageView,
     name: 'PageView',
     // Params spread first, then the core fields by name, so a core field always
     // wins. No allowlist entry collides with hostname/title/path today; naming
     // them here is what keeps a later addition from silently overwriting one.
     data: {
-        ...data.params,
-        hostname: data.hostname,
-        title: data.title,
-        path: data.path,
+        ...params,
+        hostname,
+        title,
+        path,
     },
     eventType: EventType.Unknown,
 });
