@@ -107,6 +107,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     captureTiming(metricName: string);
     processQueueOnIdentityFailure?: () => void;
     processQueueOnNoFunctional?: () => void;
+    uiwebviewBridgeName?: string;
 }
 
 const { Messages, HTTPCodes, FeatureFlags, CaptureIntegrationSpecificIdsV2Modes } = Constants;

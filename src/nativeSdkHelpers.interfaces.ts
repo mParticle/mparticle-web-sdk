@@ -1,3 +1,23 @@
+export interface IWKScriptMessageHandler {
+    postMessage(message: string): void;
+}
+
+export interface IAndroidNativeBridge {
+    [methodName: string]: ((payload?: string) => void) | undefined;
+}
+
+declare global {
+    interface Window {
+        webkit?: {
+            messageHandlers?: Record<
+                string,
+                IWKScriptMessageHandler | undefined
+            >;
+        };
+        mParticleAndroid?: IAndroidNativeBridge;
+    }
+}
+
 export interface INativeSdkHelpers {
     initializeSessionAttributes: (apiKey: string) => void;
     isBridgeV2Available: (bridgeName: string) => boolean;
