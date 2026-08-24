@@ -377,11 +377,10 @@ export default function _Persistence(
             decodedPersistence
         ) as IPersistenceMinified;
         const obj: IPersistenceMinified = {} as IPersistenceMinified;
-        let j: string;
 
-        for (j in parsedPersistence) {
-            if (parsedPersistence.hasOwnProperty(j)) {
-                obj[j] = parsedPersistence[j];
+        for (const key in parsedPersistence) {
+            if (parsedPersistence.hasOwnProperty(key)) {
+                obj[key] = parsedPersistence[key];
             }
         }
 
