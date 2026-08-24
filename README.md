@@ -138,6 +138,58 @@ where browserBrand can be another browser such as Edge or IE.
 
 This package comes with the NPM package [pre-commit](https://www.npmjs.com/package/pre-commit), which will run [ESLint](http://eslint.org/) when you try to commit.
 
+## Three-step release process (maintainers)
+
+Releases have separate v2 and v3 tracks. In GitHub Actions, choose the
+track-specific branch from the **Use workflow from** dropdown and run these
+workflows in order:
+
+1. **Staging Release - Step 1: Prepare CDN Pre-Release, Publish NPM**
+   (`staging-step-1.yml`): select `staging` for `track=v2`, or `v3-staging` for
+   `track=v3`. This workflow builds and tests the track, creates and merges a
+   generated release branch, runs semantic-release, and publishes the npm
+   release. `dryRun=true` previews the merge and semantic-release result
+   without creating a branch or publishing; `dryRun=false` creates/pushes the
+   release branch and publishes.
+2. **Staging Release - Step 2: Publish SDK Release to Release Order Branch**
+   (`staging-step-2.yml`, optional): select `master` for v2 or `main` for v3.
+   The source-ref guard accepts either `master` or `main`, but use the track's
+   matching trunk. For `releaseTag`, enter the exact Git tag created by the
+   successful Step 1 run (for example, `v2.80.0` or `v3.0.1`). Choose
+   `release-order-a`, `-b`, or `-c` as `releaseOrderBranch`. For v3, that
+   logical choice maps to the corresponding `v3-release-order-*` branch.
+   `dryRun=true` validates the exact candidate and fast-forward without
+   pushing; `dryRun=false` promotes it.
+3. **Staging Release - Step 3: Release to CDN and Synchronize Branches**
+   (`staging-step-3.yml`): select `master` for v2 or `main` for v3 (the
+   source-ref guard accepts either). For `releaseTag`, enter the same exact Git
+   tag created by the successful Step 1 run. The workflow verifies that the tag
+   matches `package.json`, resolves to the current track staging head, and can
+   fast-forward every destination. It then uses one atomic push to synchronize
+   the track's development branch, trunk (`master` or `main`), and all three
+   release-order branches; either every ref updates or none does. `dryRun=true`
+   performs all validation without pushing. `dryRun=false` performs the atomic
+   synchronization and releases the candidate to those destinations.
+
+Safe sequence: run Step 1 with `dryRun=true`, then Step 1 with `dryRun=false`;
+copy its release tag; optionally preview and run Step 2 for each needed
+release-order branch; finally run Step 3 with `dryRun=true`, then
+`dryRun=false`.
+
+The release controls must remain synchronized across the v2 and v3 trunks.
+These files must be byte-for-byte identical on `master` and `main`:
+
+- `.github/workflows/staging-step-1.yml`
+- `.github/workflows/staging-step-2.yml`
+- `.github/workflows/staging-step-3.yml`
+
+Any change to any release step must be applied to both `master` and `main`
+before running a real release. Every `dryRun=false` workflow verifies all three
+files and rejects the release if either branch has a different version.
+Additionally, the current Step 1 workflow must be present on `staging` for v2
+and `v3-staging` for v3 because GitHub executes the workflow definition from
+the branch selected in the **Use workflow from** dropdown.
+
 ## Support
 
 <support@mparticle.com>
