@@ -373,7 +373,7 @@ export interface SDKHelpersApi {
     createXHR?(cb: () => void): XMLHttpRequest;
     extend?(...args: any[]);
     findKeyInObject?(obj: any, key: string): string;
-    parseNumber?(value: string | number): number;
+    parseNumber(value: string | number): number;
     generateUniqueId();
     generateHash?(value: string): number;
     // https://go.mparticle.com/work/SQDSDKS-6317
@@ -382,11 +382,11 @@ export interface SDKHelpersApi {
     parseStringOrNumber?(value: string | number): string | number | null;
     inArray?(items: any[], value: any): boolean;
     converted?(s: string): string;
-    filterUserIdentitiesForForwarders?(
+    filterUserIdentitiesForForwarders(
         userIdentities: Dictionary,
         filterList: number[]
     ): Dictionary;
-    filterUserAttributes?(
+    filterUserAttributes(
         userAttributes: Dictionary,
         filterList: number[]
     ): Dictionary;
