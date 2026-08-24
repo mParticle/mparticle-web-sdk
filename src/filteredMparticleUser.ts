@@ -1,6 +1,6 @@
 import Types from './types';
 import { IMParticleWebSDKInstance } from './mp-instance';
-import { MPID } from '@mparticle/web-sdk';
+import { MPID, UserIdentities } from '@mparticle/web-sdk';
 import { Dictionary } from './utils';
 import KitBlocker from './kitBlocking';
 import { MPForwarder } from './forwarders.interfaces';
@@ -12,6 +12,98 @@ export interface IFilteredMparticleUser {
     getAllUserAttributes(): Dictionary;
 }
 
+function isAttributeKeyAllowed(
+    kitBlocker: KitBlocker | undefined,
+    key: string
+): boolean {
+    return !kitBlocker?.isAttributeKeyBlocked(key);
+}
+
+function isIdentityAllowed(
+    kitBlocker: KitBlocker | undefined,
+    identityName: string
+): boolean {
+    return !kitBlocker?.isIdentityBlocked(identityName);
+}
+
+function copyUserAttributeValue(value: unknown): unknown {
+    return Array.isArray(value) ? (value as string[]).slice() : value;
+}
+
+function buildUserAttributesCopy(
+    userAttributes?: Dictionary,
+    kitBlocker?: KitBlocker
+): Dictionary {
+    const userAttributesCopy: Dictionary = {};
+
+    if (!userAttributes) {
+        return userAttributesCopy;
+    }
+
+    for (const prop in userAttributes) {
+        if (
+            !userAttributes.hasOwnProperty(prop) ||
+            !isAttributeKeyAllowed(kitBlocker, prop)
+        ) {
+            continue;
+        }
+
+        userAttributesCopy[prop] = copyUserAttributeValue(
+            userAttributes[prop]
+        );
+    }
+
+    return userAttributesCopy;
+}
+
+function buildUserAttributeLists(
+    userAttributes: Dictionary,
+    kitBlocker?: KitBlocker
+): Dictionary<string[]> {
+    const userAttributesLists: Dictionary<string[]> = {};
+
+    for (const key in userAttributes) {
+        if (
+            !userAttributes.hasOwnProperty(key) ||
+            !Array.isArray(userAttributes[key]) ||
+            !isAttributeKeyAllowed(kitBlocker, key)
+        ) {
+            continue;
+        }
+
+        userAttributesLists[key] = userAttributes[key].slice();
+    }
+
+    return userAttributesLists;
+}
+
+function buildFilteredUserIdentities(
+    identities: UserIdentities,
+    kitBlocker: KitBlocker | undefined,
+    parseNumber: (value: string | number) => number
+): Dictionary<string> {
+    const currentUserIdentities: Dictionary<string> = {};
+    const identitiesByType = identities as Dictionary<string>;
+
+    for (const identityType in identitiesByType) {
+        if (!identitiesByType.hasOwnProperty(identityType)) {
+            continue;
+        }
+
+        const identityName = Types.IdentityType.getIdentityName(
+            parseNumber(identityType)
+        );
+
+        if (!isIdentityAllowed(kitBlocker, identityName)) {
+            continue;
+        }
+
+        currentUserIdentities[identityName] = identitiesByType[identityType];
+    }
+
+    return currentUserIdentities;
+}
+
 export default function filteredMparticleUser(
     mpid: MPID,
     forwarder: MPForwarder | { userAttributeFilters: number[] },
@@ -19,57 +111,24 @@ export default function filteredMparticleUser(
     kitBlocker?: KitBlocker
 ): IFilteredMparticleUser {
     function getAllUserAttributes(): Dictionary {
-        let userAttributesCopy: Dictionary = {};
-        const userAttributes = mpInstance._Store.getUserAttributes(mpid);
+        const userAttributesCopy = buildUserAttributesCopy(
+            mpInstance._Store.getUserAttributes(mpid),
+            kitBlocker
+        );
 
-        if (userAttributes) {
-            for (const prop in userAttributes) {
-                if (userAttributes.hasOwnProperty(prop)) {
-                    if (
-                        !kitBlocker ||
-                        (kitBlocker &&
-                            !kitBlocker.isAttributeKeyBlocked(prop))
-                    ) {
-                        if (Array.isArray(userAttributes[prop])) {
-                            userAttributesCopy[prop] = (userAttributes[
-                                prop
-                            ] as string[]).slice();
-                        } else {
-                            userAttributesCopy[prop] = userAttributes[prop];
-                        }
-                    }
-                }
-            }
-        }
-
-        userAttributesCopy = mpInstance._Helpers.filterUserAttributes(
+        return mpInstance._Helpers.filterUserAttributes(
             userAttributesCopy,
             (forwarder as MPForwarder).userAttributeFilters
         );
-
-        return userAttributesCopy;
     }
 
     return {
         getUserIdentities: function(): { userIdentities: Dictionary<string> } {
-            let currentUserIdentities: Dictionary<string> = {};
-            const identities = mpInstance._Store.getUserIdentities(mpid);
-
-            for (const identityType in identities) {
-                if (identities.hasOwnProperty(identityType)) {
-                    const identityName = Types.IdentityType.getIdentityName(
-                        mpInstance._Helpers.parseNumber(identityType)
-                    );
-                    if (
-                        !kitBlocker ||
-                        (kitBlocker &&
-                            !kitBlocker.isIdentityBlocked(identityName))
-                    )
-                        //if identity type is not blocked
-                        currentUserIdentities[identityName] =
-                            identities[identityType];
-                }
-            }
+            let currentUserIdentities = buildFilteredUserIdentities(
+                mpInstance._Store.getUserIdentities(mpid),
+                kitBlocker,
+                mpInstance._Helpers.parseNumber
+            );
 
             currentUserIdentities = mpInstance._Helpers.filterUserIdentitiesForForwarders(
                 currentUserIdentities,
@@ -86,30 +145,15 @@ export default function filteredMparticleUser(
         getUserAttributesLists: function(
             forwarder: MPForwarder
         ): Dictionary<string[]> {
-            let userAttributes: Dictionary;
-            let userAttributesLists: Dictionary<string[]> = {};
-
-            userAttributes = getAllUserAttributes();
-            for (const key in userAttributes) {
-                if (
-                    userAttributes.hasOwnProperty(key) &&
-                    Array.isArray(userAttributes[key])
-                ) {
-                    if (
-                        !kitBlocker ||
-                        (kitBlocker && !kitBlocker.isAttributeKeyBlocked(key))
-                    ) {
-                        userAttributesLists[key] = userAttributes[key].slice();
-                    }
-                }
-            }
-
-            userAttributesLists = mpInstance._Helpers.filterUserAttributes(
-                userAttributesLists,
-                forwarder.userAttributeFilters
+            const userAttributesLists = buildUserAttributeLists(
+                getAllUserAttributes(),
+                kitBlocker
             );
 
-            return userAttributesLists;
+            return mpInstance._Helpers.filterUserAttributes(
+                userAttributesLists,
+                forwarder.userAttributeFilters
+            ) as Dictionary<string[]>;
         },
         getAllUserAttributes: getAllUserAttributes,
     };
