@@ -28,6 +28,46 @@ import { IPixelConfiguration } from './cookieSyncManager';
 
 const { Modify, Identify, Login, Logout } = Constants.IdentityMethods;
 
+// Maps an identity method to the kit callback that reports its completion.
+const identityCompleteKitMethods: Dictionary<
+    | 'onIdentifyComplete'
+    | 'onLoginComplete'
+    | 'onLogoutComplete'
+    | 'onModifyComplete'
+> = {
+    [Identify]: 'onIdentifyComplete',
+    [Login]: 'onLoginComplete',
+    [Logout]: 'onLogoutComplete',
+    [Modify]: 'onModifyComplete',
+};
+
+function userAttributesMatchFilter(
+    userAttributes: Dictionary,
+    filterObject: Partial<IFilteringUserAttributeValue>
+): boolean {
+    for (const attrName in userAttributes) {
+        if (!userAttributes.hasOwnProperty(attrName)) {
+            continue;
+        }
+
+        const attrHash = KitFilterHelper.hashAttributeConditionalForwarding(
+            attrName
+        );
+        const valueHash = KitFilterHelper.hashAttributeConditionalForwarding(
+            userAttributes[attrName]
+        );
+
+        if (
+            attrHash === filterObject.userAttributeName &&
+            valueHash === filterObject.userAttributeValue
+        ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 export default function Forwarders(
     this: IForwarders,
     mpInstance: IMParticleWebSDKInstance,
@@ -132,47 +172,23 @@ export default function Forwarders(
             return true;
         }
 
-        let attrHash, valueHash, userAttributes;
-
         if (!user) {
             return false;
-        } else {
-            userAttributes = user.getAllUserAttributes();
         }
 
-        let isMatch = false;
+        const userAttributes = user.getAllUserAttributes();
 
         try {
-            if (
+            const hasUserAttributes =
                 userAttributes &&
                 mpInstance._Helpers.isObject(userAttributes) &&
-                Object.keys(userAttributes).length
-            ) {
-                for (let attrName in userAttributes) {
-                    if (userAttributes.hasOwnProperty(attrName)) {
-                        attrHash = KitFilterHelper.hashAttributeConditionalForwarding(
-                            attrName
-                        );
-                        valueHash = KitFilterHelper.hashAttributeConditionalForwarding(
-                            userAttributes[attrName]
-                        );
+                Object.keys(userAttributes).length > 0;
 
-                        if (
-                            attrHash === filterObject.userAttributeName &&
-                            valueHash === filterObject.userAttributeValue
-                        ) {
-                            isMatch = true;
-                            break;
-                        }
-                    }
-                }
-            }
+            const isMatch = hasUserAttributes
+                ? userAttributesMatchFilter(userAttributes, filterObject)
+                : false;
 
-            if (filterObject) {
-                return filterObject.includeOnMatch === isMatch;
-            } else {
-                return true;
-            }
+            return filterObject.includeOnMatch === isMatch;
         } catch (e) {
             // in any error scenario, err on side of returning true and forwarding event
             return true;
@@ -211,84 +227,82 @@ export default function Forwarders(
     };
 
     this.sendEventToForwarders = function(event: SDKEvent): void {
-        let clonedEvent;
-        let hashedEventName;
-        let hashedEventType;
-
         if (
-            !mpInstance._Store.webviewBridgeEnabled &&
-            mpInstance._Store.activeForwarders
+            mpInstance._Store.webviewBridgeEnabled ||
+            !mpInstance._Store.activeForwarders
         ) {
-            hashedEventName = KitFilterHelper.hashEventName(
-                event.EventName,
-                event.EventCategory as any
-            );
-            hashedEventType = KitFilterHelper.hashEventType(
-                event.EventCategory as any
-            );
+            return;
+        }
 
-            for (
-                let i = 0;
-                i < mpInstance._Store.activeForwarders.length;
-                i++
-            ) {
-                const forwarder = mpInstance._Store.activeForwarders[i];
+        const hashedEventName = KitFilterHelper.hashEventName(
+            event.EventName,
+            event.EventCategory as any
+        );
+        const hashedEventType = KitFilterHelper.hashEventType(
+            event.EventCategory as any
+        );
 
-                if (
-                    isBlockedByForwardingRule(
-                        event.EventDataType,
-                        event.EventAttributes,
-                        forwarder
-                    )
-                ) {
-                    continue;
-                }
-
-                // Clone the event object, as we could be sending different attributes to each forwarder
-                clonedEvent = extend(true, {}, event);
-
-                if (
-                    isBlockedByEventFilter(
-                        event.EventDataType,
-                        hashedEventName,
-                        hashedEventType,
-                        forwarder
-                    )
-                ) {
-                    continue;
-                }
-
-                clonedEvent.EventAttributes = filterEventAttributes(
+        const forwardEvent = function(forwarder: ConfiguredKit): void {
+            if (
+                isBlockedByForwardingRule(
                     event.EventDataType,
-                    event.EventCategory,
-                    event.EventName,
-                    clonedEvent.EventAttributes,
+                    event.EventAttributes,
                     forwarder
-                );
-
-                // Check user identity filtering rules
-                clonedEvent.UserIdentities = filterUserIdentities(
-                    clonedEvent.UserIdentities,
-                    forwarder.userIdentityFilters
-                );
-
-                // Check user attribute filtering rules
-                clonedEvent.UserAttributes = KitFilterHelper.filterUserAttributes(
-                    clonedEvent.UserAttributes,
-                    forwarder.userAttributeFilters
-                );
-
-                if (forwarder.process) {
-                    mpInstance.Logger.verbose(
-                        'Sending message to forwarder: ' + forwarder.name
-                    );
-                    const result = forwarder.process(clonedEvent);
-
-                    if (result) {
-                        mpInstance.Logger.verbose(result);
-                    }
-                }
+                )
+            ) {
+                return;
             }
+
+            // Clone the event object, as we could be sending different attributes to each forwarder
+            const clonedEvent = extend(true, {}, event);
+
+            if (
+                isBlockedByEventFilter(
+                    event.EventDataType,
+                    hashedEventName,
+                    hashedEventType,
+                    forwarder
+                )
+            ) {
+                return;
+            }
+
+            clonedEvent.EventAttributes = filterEventAttributes(
+                event.EventDataType,
+                event.EventCategory,
+                event.EventName,
+                clonedEvent.EventAttributes,
+                forwarder
+            );
+
+            // Check user identity filtering rules
+            clonedEvent.UserIdentities = filterUserIdentities(
+                clonedEvent.UserIdentities,
+                forwarder.userIdentityFilters
+            );
+
+            // Check user attribute filtering rules
+            clonedEvent.UserAttributes = KitFilterHelper.filterUserAttributes(
+                clonedEvent.UserAttributes,
+                forwarder.userAttributeFilters
+            );
+
+            if (!forwarder.process) {
+                return;
+            }
+
+            mpInstance.Logger.verbose(
+                'Sending message to forwarder: ' + forwarder.name
+            );
+            const result = forwarder.process(clonedEvent);
+
+            if (result) {
+                mpInstance.Logger.verbose(result);
+            }
+        };
+
+        for (let i = 0; i < mpInstance._Store.activeForwarders.length; i++) {
+            forwardEvent(mpInstance._Store.activeForwarders[i]);
         }
     };
 
@@ -381,58 +395,34 @@ export default function Forwarders(
         user: IMParticleUser,
         identityMethod: string
     ): void {
-        let result;
+        const kitMethodName = identityCompleteKitMethods[identityMethod];
+
+        if (!kitMethodName) {
+            return;
+        }
 
         mpInstance._Store.activeForwarders.forEach(function(forwarder) {
-            let filteredUser = filteredMparticleUser(
+            const onIdentityComplete = forwarder[kitMethodName];
+
+            if (!onIdentityComplete) {
+                return;
+            }
+
+            const filteredUser = filteredMparticleUser(
                 user.getMPID(),
                 forwarder,
                 mpInstance,
                 kitBlocker
             );
 
-            const filteredUserIdentities = filteredUser.getUserIdentities();
+            const result = onIdentityComplete.call(
+                forwarder,
+                filteredUser,
+                filteredUser.getUserIdentities()
+            );
 
-            if (identityMethod === Identify) {
-                if (forwarder.onIdentifyComplete) {
-                    result = forwarder.onIdentifyComplete(
-                        filteredUser,
-                        filteredUserIdentities
-                    );
-                    if (result) {
-                        mpInstance.Logger.verbose(result);
-                    }
-                }
-            } else if (identityMethod === Login) {
-                if (forwarder.onLoginComplete) {
-                    result = forwarder.onLoginComplete(
-                        filteredUser,
-                        filteredUserIdentities
-                    );
-                    if (result) {
-                        mpInstance.Logger.verbose(result);
-                    }
-                }
-            } else if (identityMethod === Logout) {
-                if (forwarder.onLogoutComplete) {
-                    result = forwarder.onLogoutComplete(
-                        filteredUser,
-                        filteredUserIdentities
-                    );
-                    if (result) {
-                        mpInstance.Logger.verbose(result);
-                    }
-                }
-            } else if (identityMethod === Modify) {
-                if (forwarder.onModifyComplete) {
-                    result = forwarder.onModifyComplete(
-                        filteredUser,
-                        filteredUserIdentities
-                    );
-                    if (result) {
-                        mpInstance.Logger.verbose(result);
-                    }
-                }
+            if (result) {
+                mpInstance.Logger.verbose(result);
             }
         });
     };
