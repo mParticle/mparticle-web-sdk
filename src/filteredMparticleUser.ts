@@ -58,7 +58,7 @@ function buildUserAttributesCopy(
 
 function buildUserAttributeLists(
     userAttributes: Dictionary,
-    kitBlocker: KitBlocker | undefined
+    kitBlocker?: KitBlocker
 ): Dictionary<string[]> {
     const userAttributesLists: Dictionary<string[]> = {};
 
