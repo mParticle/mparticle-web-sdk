@@ -204,6 +204,7 @@ export interface IMParticleInstanceManager extends MParticleWebSDK {
     sessionManager: Pick<ISessionManager, 'getSession'>;
     Store: IStore;
     getInstance(instanceName?: string): IMParticleWebSDKInstance;
+    uiwebviewBridgeName?: string;
 }
 export type BooleanStringLowerCase = 'false' | 'true';
 export type BooleanStringTitleCase = 'False' | 'True';
@@ -260,7 +261,7 @@ export interface SDKHelpersApi {
     createXHR?(cb: () => void): XMLHttpRequest;
     extend?(...args: any[]): any;
     findKeyInObject?(obj: any, key: string): string;
-    parseNumber?(value: string | number): number;
+    parseNumber(value: string | number): number;
     generateUniqueId(): any;
     generateHash?(value: string): number;
     getFeatureFlag?(feature: string): boolean | string;
@@ -268,8 +269,8 @@ export interface SDKHelpersApi {
     parseStringOrNumber?(value: string | number): string | number | null;
     inArray?(items: any[], value: any): boolean;
     converted?(s: string): string;
-    filterUserIdentitiesForForwarders?(userIdentities: Dictionary, filterList: number[]): Dictionary;
-    filterUserAttributes?(userAttributes: Dictionary, filterList: number[]): Dictionary;
+    filterUserIdentitiesForForwarders(userIdentities: Dictionary, filterList: number[]): Dictionary;
+    filterUserAttributes(userAttributes: Dictionary, filterList: number[]): Dictionary;
     filterUserIdentities?(userIdentitiesObject: Dictionary<string>, filterList: number[]): ISDKUserIdentity[];
     invokeAliasCallback(aliasCallback: IAliasCallback, number: number, errorMessage?: string): void;
     isDelayedByIntegration?(delayedIntegrations: Dictionary<boolean>, timeoutStart: number, now: number): boolean;

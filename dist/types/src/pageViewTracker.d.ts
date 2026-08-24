@@ -1,34 +1,38 @@
 import { IMParticleWebSDKInstance } from './mp-instance';
-export declare const WIN_TRACKER_KEY = "__mpApvTracker__";
-export declare const WIN_INIT_PV_KEY: "__mpApvInitPVLogged__";
-export type WindowWithApvFlags = Window & {
-    [WIN_TRACKER_KEY]?: PageViewTracker;
-    [WIN_INIT_PV_KEY]?: boolean;
-};
+import { BaseEvent } from './sdkRuntimeModels';
+type HistoryMethodName = 'pushState' | 'replaceState';
+type NavigationSource = HistoryMethodName | 'popstate';
+export declare const WIN_APV_KEY = "__mpApv__";
+interface IPageViewData {
+    hostname: string;
+    title: string;
+    path: string;
+}
+export declare const isNewPage: (lastPath: string | null, candidatePath: string) => boolean;
+export declare const supportsHistoryTracking: (win: Window | null) => boolean;
+export declare const buildPageViewEvent: (data: IPageViewData) => BaseEvent;
+export declare const getActiveTracker: () => PageViewTracker | undefined;
+export declare const hasInitialPageViewFired: () => boolean;
+export declare const markInitialPageViewFired: () => void;
+export declare const resetPageViewTracking: () => void;
+export declare const patchHistory: (onNavigate: (source: NavigationSource) => void, log: (message: string) => void) => (() => void) | null;
 export declare class PageViewTracker {
-    static hasInitialPageViewFired(): boolean;
-    static markInitialPageViewFired(): void;
-    static resetWindowState(instanceTracker?: PageViewTracker): void;
-    mpInstance: IMParticleWebSDKInstance;
+    private readonly mpInstance;
     private lastPath;
-    private _isActive;
-    get isActive(): boolean;
+    private active;
     private pendingNavigations;
-    private originalPushState;
-    private originalReplaceState;
-    private pushStateWrapper;
-    private replaceStateWrapper;
+    private undoHistoryPatch;
     private popStateListener;
     constructor(mpInstance: IMParticleWebSDKInstance);
-    private isSupportedEnvironment;
+    get isActive(): boolean;
     init(): void;
-    private patchHistoryMethods;
-    private addNavigationListeners;
-    private safeHandleNavigation;
-    private getCurrentKey;
-    private handleNavigation;
-    private firePageView;
-    takePendingNavigations(): string[];
-    private restoreHistoryMethod;
     teardown(): void;
+    private retire;
+    private takePendingNavigations;
+    private safeHandleNavigation;
+    private handleNavigation;
+    private scheduleFire;
+    private firePageView;
+    private log;
 }
+export {};

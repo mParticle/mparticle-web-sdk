@@ -1,5 +1,5 @@
-export default function forwardingStatsUploader(mpInstance: any): void;
-export default class forwardingStatsUploader {
-    constructor(mpInstance: any);
-    startForwardingStatsTimer: () => void;
+import { IMParticleWebSDKInstance } from './mp-instance';
+export interface IForwardingStatsUploader {
+    startForwardingStatsTimer(): void;
 }
+export default function forwardingStatsUploader(this: IForwardingStatsUploader, mpInstance: IMParticleWebSDKInstance): void;

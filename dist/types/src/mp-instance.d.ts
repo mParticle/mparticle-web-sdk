@@ -3,7 +3,7 @@ import { ICookieSyncManager } from './cookieSyncManager';
 import { ISessionManager } from './sessionManager';
 import { IStore } from './store';
 import { IServerModel } from './serverModel';
-import ForwardingStatsUploader from './forwardingStatsUploader';
+import { IForwardingStatsUploader } from './forwardingStatsUploader';
 import { IConsent } from './consent';
 import IdentityAPIClient from './identityApiClient';
 import IntegrationCapture from './integrationCapture';
@@ -39,7 +39,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _Ecommerce: IECommerce;
     _Events: IEvents;
     _Forwarders: any;
-    _ForwardingStatsUploader: ForwardingStatsUploader;
+    _ForwardingStatsUploader: IForwardingStatsUploader;
     _Helpers: SDKHelpersApi;
     _Identity: IIdentity;
     _IdentityAPIClient: typeof IdentityAPIClient;
@@ -62,6 +62,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     captureTiming(metricName: string): any;
     processQueueOnIdentityFailure?: () => void;
     processQueueOnNoFunctional?: () => void;
+    uiwebviewBridgeName?: string;
 }
 /**
  * <p>All of the following methods can be called on the primary mParticle class. In version 2.10.0, we introduced <a href="https://docs.mparticle.com/developers/sdk/web/multiple-instances/">multiple instances</a>. If you are using multiple instances (self hosted environments only), you should call these methods on each instance.</p>
