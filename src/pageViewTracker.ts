@@ -1,6 +1,7 @@
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { BaseEvent } from './sdkRuntimeModels';
 import { EventType, MessageType } from './types';
+import { Dictionary, getHref, queryStringParser } from './utils';
 
 type HistoryStateMethod = History['pushState'];
 type HistoryMethodName = 'pushState' | 'replaceState';
@@ -41,14 +42,71 @@ type WindowWithApv = Window & {
     [WIN_APV_KEY]?: IApvState;
 };
 
-interface IPageViewData {
+// The query params an auto page view may carry. An allowlist, not a denylist:
+// partner URLs routinely hold order ids, email addresses and session tokens, and
+// none of those should reach the event stream because someone forgot to exclude
+// them. Anything absent from this list is dropped.
+//
+// SECURITY: `code`, `state` and `nonce` are the OAuth 2.0 / OIDC authorization
+// code and the CSRF/replay tokens. They are credentials until redeemed, and
+// attaching them here persists them in the event store and forwards them to
+// every configured kit. They are on the list by explicit product decision —
+// deleting that line is the whole of the fix if that decision is revisited.
+export const ALLOWED_QUERY_PARAMS: string[] = [
+    // Campaign attribution
+    'utm_source',
+    'utm_medium',
+    'utm_campaign',
+    'utm_term',
+    'utm_content',
+    'utm_id',
+
+    // Ad-network click ids
+    'gclid',
+    'gbraid',
+    'wbraid',
+    'fbclid',
+    'msclkid',
+    'ttclid',
+    'twclid',
+    'li_fat_id',
+    'dclid',
+
+    // OAuth / OIDC — see the SECURITY note above
+    'client_id',
+    'redirect_uri',
+    'response_type',
+    'scope',
+    'state',
+    'code',
+    'nonce',
+
+    // Pagination and search
+    'page',
+    'limit',
+    'offset',
+    'cursor',
+    'per_page',
+    'q',
+    'search',
+
+    // Referral
+    'ref',
+    'referrer',
+];
+
+interface IPageSnapshot {
+    path: string;
+    params: Dictionary<string>;
+}
+
+interface IPageViewData extends IPageSnapshot {
     hostname: string;
     title: string;
-    path: string;
 }
 
 interface IPendingNavigation {
-    path: string;
+    page: IPageSnapshot;
     timeoutId: ReturnType<typeof setTimeout>;
 }
 
@@ -57,12 +115,46 @@ interface IPendingNavigation {
 // on their own, which is where the interesting rules live.
 // ---------------------------------------------------------------------------
 
-// Dedup keys on pathname only: a query-string- or hash-only change is the same
-// page and must not fire a view.
+// Pulls the allowlisted query params off a URL. Delegates to the SDK's own
+// parser, which lowercases keys (so `?UTM_Source=` and `?utm_source=` land on one
+// attribute), drops empty values, and carries the fallback for browsers without
+// URLSearchParams. Tolerates an empty href, so SSR yields no params rather than
+// throwing.
+export const allowedQueryParams = (href: string): Dictionary<string> =>
+    queryStringParser(href, ALLOWED_QUERY_PARAMS);
+
+// The captured params, in allowlist order. Ordering comes from the constant
+// rather than a sort: it is deterministic without needing a comparator, and it
+// does not depend on the object's insertion order, so reordering the query string
+// cannot produce a different key.
+const capturedNames = (params: Dictionary<string>): string[] =>
+    ALLOWED_QUERY_PARAMS.filter(name => name in params);
+
+// The dedup key: pathname plus the allowlisted params in a fixed order, so that
+// reordering the query string is not a new page. Params outside the allowlist
+// never make it into `page.params` and so cannot key a view — nor can the hash.
+//
+// Values are re-encoded because queryStringParser hands them back DECODED. A
+// value holding the pair delimiters would otherwise serialize exactly like two
+// separate params — `{q: 'a&search=b'}` and `{q: 'a', search: 'b'}` both becoming
+// `q=a&search=b` — and dedup would treat a real navigation between them as the
+// same page and drop the view. `q`, `search` and `redirect_uri` carry `&` and `=`
+// routinely, so this is reachable rather than theoretical.
+export const pageKey = (page: IPageSnapshot): string => {
+    const query = capturedNames(page.params)
+        .map(name => `${name}=${encodeURIComponent(page.params[name])}`)
+        .join('&');
+
+    return query ? `${page.path}?${query}` : page.path;
+};
+
+// Dedup keys on the pageKey above: a change to any captured param is a new page
+// (`?page=2` is a distinct pagination view), while a hash-only change, or a
+// change confined to params we do not capture, is the same page.
 export const isNewPage = (
-    lastPath: string | null,
-    candidatePath: string
-): boolean => candidatePath !== lastPath;
+    lastKey: string | null,
+    candidateKey: string
+): boolean => candidateKey !== lastKey;
 
 export const supportsHistoryTracking = (win: Window | null): boolean =>
     !!win &&
@@ -71,11 +163,25 @@ export const supportsHistoryTracking = (win: Window | null): boolean =>
     typeof win.addEventListener === 'function';
 
 // Mirrors the event shape of the public mParticle.logPageView(), but carries the
-// path captured when the navigation was accepted rather than the live location.
-export const buildPageViewEvent = (data: IPageViewData): BaseEvent => ({
+// path and query params captured when the navigation was accepted rather than the
+// live location.
+export const buildPageViewEvent = ({
+    params,
+    hostname,
+    title,
+    path,
+}: IPageViewData): BaseEvent => ({
     messageType: MessageType.PageView,
     name: 'PageView',
-    data: { ...data },
+    // Params spread first, then the core fields by name, so a core field always
+    // wins. No allowlist entry collides with hostname/title/path today; naming
+    // them here is what keeps a later addition from silently overwriting one.
+    data: {
+        ...params,
+        hostname,
+        title,
+        path,
+    },
     eventType: EventType.Unknown,
 });
 
@@ -160,7 +266,25 @@ const clearActiveTracker = (tracker: PageViewTracker): void => {
     }
 };
 
-const currentPathname = (): string => window.location.pathname;
+const currentPage = (): IPageSnapshot => ({
+    path: window.location.pathname,
+    params: allowedQueryParams(getHref()),
+});
+
+// Log-safe description of a page: the path, plus the NAMES of the captured
+// params. Values are deliberately omitted — verbose logging goes to the console,
+// and session-replay tooling ships console output off-domain, which is not a
+// place for an OAuth code or a consumer's search terms.
+// Only reachable before init() assigns lastPage, which is ahead of any navigation
+// handler being able to run, so this returns nothing rather than a sentinel.
+const describePage = (page: IPageSnapshot | null): string => {
+    if (!page) {
+        return '';
+    }
+
+    const names = capturedNames(page.params);
+    return names.length ? `${page.path} (params: ${names.join()})` : page.path;
+};
 
 // ---------------------------------------------------------------------------
 // History patching
@@ -250,7 +374,7 @@ export const patchHistory = (
 export class PageViewTracker {
     private readonly mpInstance: IMParticleWebSDKInstance;
 
-    private lastPath: string | null = null;
+    private lastPage: IPageSnapshot | null = null;
     private active = false;
     private pendingNavigations: IPendingNavigation[] = [];
 
@@ -285,14 +409,14 @@ export class PageViewTracker {
         // dropped — a route change may have queued a deferred fire that has not
         // flushed yet, and dropping it loses a page view entirely.
         const active = getActiveTracker();
-        let inheritedPaths = this.retire(active);
+        let inheritedPages = this.retire(active);
         if (this.active && active !== this) {
-            inheritedPaths = inheritedPaths.concat(this.retire(this));
+            inheritedPages = inheritedPages.concat(this.retire(this));
         }
 
         this.active = true;
-        this.lastPath = currentPathname();
-        this.log(`[init] seeded lastPath: ${this.lastPath}`);
+        this.lastPage = currentPage();
+        this.log(`[init] seeded lastPage: ${describePage(this.lastPage)}`);
 
         this.undoHistoryPatch = patchHistory(
             source => this.safeHandleNavigation(source),
@@ -307,7 +431,7 @@ export class PageViewTracker {
             '[init] patched pushState/replaceState + listening for popstate'
         );
 
-        inheritedPaths.forEach(path => this.scheduleFire(path));
+        inheritedPages.forEach(page => this.scheduleFire(page));
     }
 
     public teardown(): void {
@@ -330,10 +454,10 @@ export class PageViewTracker {
         clearActiveTracker(this);
     }
 
-    // Stops the outgoing tracker and returns the paths it had queued so this
+    // Stops the outgoing tracker and returns the pages it had queued so this
     // tracker can re-schedule them once it is active. Private, but reachable
     // across instances: the handoff protocol stays internal to the class.
-    private retire(outgoing: PageViewTracker | undefined): string[] {
+    private retire(outgoing: PageViewTracker | undefined): IPageSnapshot[] {
         if (!outgoing) {
             return [];
         }
@@ -344,17 +468,17 @@ export class PageViewTracker {
                 : '[init] retiring a tracker from a previous module load — transferring pending navigations and tearing down'
         );
 
-        const paths = outgoing.takePendingNavigations();
+        const pages = outgoing.takePendingNavigations();
         outgoing.teardown();
-        return paths;
+        return pages;
     }
 
-    // Cancels this tracker's deferred fires and hands back their captured paths.
-    private takePendingNavigations(): string[] {
+    // Cancels this tracker's deferred fires and hands back their captured pages.
+    private takePendingNavigations(): IPageSnapshot[] {
         const pending = this.pendingNavigations;
         this.pendingNavigations = [];
-        pending.forEach(p => clearTimeout(p.timeoutId));
-        return pending.map(p => p.path);
+        pending.forEach(({ timeoutId }) => clearTimeout(timeoutId));
+        return pending.map(({ page }) => page);
     }
 
     private safeHandleNavigation(source: NavigationSource): void {
@@ -377,31 +501,39 @@ export class PageViewTracker {
     }
 
     private handleNavigation(source: NavigationSource): void {
-        const candidatePath = currentPathname();
+        const candidate = currentPage();
+        const lastKey = this.lastPage ? pageKey(this.lastPage) : null;
 
         this.log(
-            `[detect] navigation signal (source: ${source}, candidatePath: ${candidatePath}, lastPath: ${this.lastPath})`
+            `[detect] navigation signal (source: ${source}, candidate: ${describePage(
+                candidate
+            )}, last: ${describePage(this.lastPage)})`
         );
 
-        if (!isNewPage(this.lastPath, candidatePath)) {
+        if (!isNewPage(lastKey, pageKey(candidate))) {
             this.log(
-                `[dedupe] pathname unchanged, skipping (source: ${source}, path: ${candidatePath})`
+                `[dedupe] page unchanged, skipping (source: ${source}, page: ${describePage(
+                    candidate
+                )})`
             );
             return;
         }
 
         this.log(
-            `[accept] pathname changed, scheduling fire (source: ${source}, from: ${this.lastPath}, to: ${candidatePath})`
+            `[accept] page changed, scheduling fire (source: ${source}, from: ${describePage(
+                this.lastPage
+            )}, to: ${describePage(candidate)})`
         );
-        this.lastPath = candidatePath;
-        this.scheduleFire(candidatePath);
+        this.lastPage = candidate;
+        this.scheduleFire(candidate);
     }
 
     // Deferred by a macrotask so the router's post-navigation render commit has a
-    // chance to update document.title before the event is built. The path is
-    // snapshotted now because it is already settled, whereas a same-tick
-    // navigation would overwrite window.location before the flush reads it.
-    private scheduleFire(path: string): void {
+    // chance to update document.title before the event is built. The path and
+    // query params are snapshotted now because they are already settled, whereas a
+    // same-tick navigation would overwrite window.location before the flush reads
+    // it.
+    private scheduleFire(page: IPageSnapshot): void {
         const timeoutId = setTimeout(() => {
             this.pendingNavigations = this.pendingNavigations.filter(
                 p => p.timeoutId !== timeoutId
@@ -415,22 +547,24 @@ export class PageViewTracker {
             }
 
             this.mpInstance._SessionManager.resetSessionTimer();
-            this.firePageView(path);
+            this.firePageView(page);
         }, 0);
 
-        this.pendingNavigations.push({ path, timeoutId });
+        this.pendingNavigations.push({ page, timeoutId });
     }
 
-    private firePageView(path: string): void {
+    private firePageView(page: IPageSnapshot): void {
         const title = window.document.title;
         const event = buildPageViewEvent({
+            ...page,
             hostname: window.location.hostname,
             title,
-            path,
         });
 
         this.log(
-            `[fire] deferred flush -> _Events.logEvent(PageView) (path: ${path}, title: ${title})`
+            `[fire] deferred flush -> _Events.logEvent(PageView) (page: ${describePage(
+                page
+            )}, title: ${title})`
         );
 
         this.mpInstance._Events.logEvent(event);

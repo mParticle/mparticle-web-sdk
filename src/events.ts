@@ -20,7 +20,8 @@ import {
     SDKEventOptions,
     TransactionAttributes,
 } from '@mparticle/web-sdk';
-import { valueof } from './utils';
+import { getHref, valueof } from './utils';
+import { allowedQueryParams } from './pageViewTracker';
 
 interface DOMHandlerElement extends HTMLElement {
     href?: string;
@@ -144,11 +145,18 @@ export default function Events(
         self.logEvent({ messageType: Types.MessageType.AppStateTransition });
     };
 
+    // The auto page view for the landing page. The SPA navigations that follow it
+    // come from PageViewTracker instead, so both emitters attach the same
+    // allowlisted query params — and this is the one that matters for campaign
+    // attribution, since utm_*/gclid live on the entry URL.
     this.logPageView = function(): void {
         self.logEvent({
             messageType: Types.MessageType.PageView,
             name: 'PageView',
             data: {
+                // Params first so the core fields always win. See
+                // buildPageViewEvent, which does the same for SPA views.
+                ...allowedQueryParams(getHref()),
                 hostname: window.location.hostname,
                 title: window.document.title,
             },
