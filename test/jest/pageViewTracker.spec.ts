@@ -1,9 +1,12 @@
 import {
+    ALLOWED_QUERY_PARAMS,
+    allowedQueryParams,
     buildPageViewEvent,
     getActiveTracker,
     hasInitialPageViewFired,
     isNewPage,
     markInitialPageViewFired,
+    pageKey,
     PageViewTracker,
     patchHistory,
     resetPageViewTracking,
@@ -45,17 +48,87 @@ const unmarkedForeignWrapper = (): History['pushState'] =>
 // ---------------------------------------------------------------------------
 
 describe('pageViewTracker pure helpers', () => {
+    describe('#allowedQueryParams', () => {
+        it('should keep an allowlisted param', () => {
+            expect(
+                allowedQueryParams('https://example.com/?utm_source=google')
+            ).toEqual({ utm_source: 'google' });
+        });
+
+        // The allowlist is the whole point: anything not named is dropped, so a
+        // partner URL carrying an order id or an email cannot leak through.
+        it('should drop a param that is not allowlisted', () => {
+            expect(
+                allowedQueryParams(
+                    'https://example.com/?utm_source=google&email=someone@example.com&order_id=42'
+                )
+            ).toEqual({ utm_source: 'google' });
+        });
+
+        it('should fold key casing onto the allowlisted name', () => {
+            expect(
+                allowedQueryParams('https://example.com/?UTM_Source=google')
+            ).toEqual({ utm_source: 'google' });
+        });
+
+        it('should return nothing for a URL with no query string', () => {
+            expect(allowedQueryParams('https://example.com/cart')).toEqual({});
+        });
+
+        // getHref() yields '' under SSR, so this is the path that must not throw.
+        it('should return nothing for an empty href', () => {
+            expect(allowedQueryParams('')).toEqual({});
+        });
+
+        it('should keep every param on the allowlist', () => {
+            const query = ALLOWED_QUERY_PARAMS.map(
+                name => `${name}=v-${name}`
+            ).join('&');
+
+            expect(
+                Object.keys(allowedQueryParams(`https://example.com/?${query}`))
+            ).toHaveLength(ALLOWED_QUERY_PARAMS.length);
+        });
+    });
+
+    describe('#pageKey', () => {
+        it('should be the pathname alone when no params are captured', () => {
+            expect(pageKey({ path: '/cart', params: {} })).toBe('/cart');
+        });
+
+        it('should include the captured params', () => {
+            expect(pageKey({ path: '/search', params: { q: 'shoes' } })).toBe(
+                '/search?q=shoes'
+            );
+        });
+
+        // Sorted, so a router that reorders the query string on an otherwise
+        // identical navigation does not produce a spurious second page view.
+        it('should be stable against param reordering', () => {
+            const a = pageKey({ path: '/s', params: { q: 'x', page: '2' } });
+            const b = pageKey({ path: '/s', params: { page: '2', q: 'x' } });
+
+            expect(a).toBe(b);
+        });
+
+        it('should distinguish two values of the same param', () => {
+            expect(pageKey({ path: '/s', params: { page: '1' } })).not.toBe(
+                pageKey({ path: '/s', params: { page: '2' } })
+            );
+        });
+    });
+
     describe('#isNewPage', () => {
-        it('should treat a different pathname as a new page', () => {
+        it('should treat a different key as a new page', () => {
             expect(isNewPage('/a', '/b')).toBe(true);
         });
 
-        it('should treat an identical pathname as the same page', () => {
+        it('should treat an identical key as the same page', () => {
             expect(isNewPage('/a', '/a')).toBe(false);
         });
 
-        // The caller passes pathnames only, so query strings and hashes never
-        // reach here — which is exactly why they cannot trigger a page view.
+        // The caller passes pageKey() output, so an unallowlisted param and the
+        // hash are already absent — which is why they cannot trigger a view.
         it('should treat the first navigation after construction as new', () => {
             expect(isNewPage(null, '/a')).toBe(true);
         });
@@ -100,6 +173,7 @@ describe('pageViewTracker pure helpers', () => {
                 hostname: 'example.com',
                 title: 'Cart',
                 path: '/cart',
+                params: {},
             });
 
             expect(event).toEqual({
@@ -114,13 +188,51 @@ describe('pageViewTracker pure helpers', () => {
             });
         });
 
+        it('should flatten the captured params alongside the core fields', () => {
+            const event = buildPageViewEvent({
+                hostname: 'example.com',
+                title: 'Cart',
+                path: '/cart',
+                params: { utm_source: 'google', gclid: 'Cj0KC' },
+            });
+
+            expect(event.data).toEqual({
+                hostname: 'example.com',
+                title: 'Cart',
+                path: '/cart',
+                utm_source: 'google',
+                gclid: 'Cj0KC',
+            });
+        });
+
+        // No allowlist entry collides with the core fields today; this asserts the
+        // spread ordering that keeps a later addition from overwriting one.
+        it('should not let a param overwrite a core field', () => {
+            const event = buildPageViewEvent({
+                hostname: 'example.com',
+                title: 'Cart',
+                path: '/cart',
+                params: { path: '/spoofed', hostname: 'evil.com' },
+            });
+
+            expect(event.data.path).toBe('/cart');
+            expect(event.data.hostname).toBe('example.com');
+        });
+
         it('should not alias the caller data into the event', () => {
-            const data = { hostname: 'example.com', title: 'Cart', path: '/cart' };
+            const data = {
+                hostname: 'example.com',
+                title: 'Cart',
+                path: '/cart',
+                params: { q: 'shoes' },
+            };
             const event = buildPageViewEvent(data);
 
             data.path = '/mutated-after-the-fact';
+            data.params.q = 'mutated-after-the-fact';
 
             expect(event.data.path).toBe('/cart');
+            expect(event.data.q).toBe('shoes');
         });
     });
 });
@@ -350,9 +462,9 @@ describe('PageViewTracker', () => {
             expect(getActiveTracker()).toBe(tracker);
         });
 
-        // The seed is the pathname alone, so a query-string change against the
-        // landing URL is still the same page.
-        it('should seed the current page by pathname only', () => {
+        // The seed is the pathname plus the allowlisted params, so a change to an
+        // unallowlisted param (`tab`) against the landing URL is the same page.
+        it('should seed the current page by path and allowlisted params only', () => {
             navigateNatively('/dashboard?tab=1#section');
 
             const tracker = createTracker();
@@ -365,6 +477,24 @@ describe('PageViewTracker', () => {
             window.history.pushState({}, '', '/settings');
             jest.runAllTimers();
             expect(loggedPaths()).toEqual(['/settings']);
+        });
+
+        // The seed includes the params, so arriving on `?page=2` and navigating to
+        // `?page=3` is a fresh view rather than a dedup against the landing URL.
+        it('should seed the allowlisted params so a change to one fires', () => {
+            navigateNatively('/dashboard?page=2');
+
+            const tracker = createTracker();
+            tracker.init();
+
+            window.history.pushState({}, '', '/dashboard?page=2');
+            jest.runAllTimers();
+            expect(logEvent).not.toHaveBeenCalled();
+
+            window.history.pushState({}, '', '/dashboard?page=3');
+            jest.runAllTimers();
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent.mock.calls[0][0].data.page).toBe('3');
         });
 
         it('should patch pushState/replaceState and register listeners', () => {
@@ -493,13 +623,30 @@ describe('PageViewTracker', () => {
             expect(logEvent).not.toHaveBeenCalled();
         });
 
-        // Dedup keys on pathname only, so a query-string-only change is treated
-        // as the same page and does not fire.
-        it('should not fire a view on a query-string-only change', () => {
+        // Dedup keys on the pathname plus the allowlisted params, so a change
+        // confined to a param we do not capture is the same page.
+        it('should not fire a view on an unallowlisted query-param change', () => {
             window.history.pushState({}, '', '/?tab=settings');
             jest.runAllTimers();
 
             expect(logEvent).not.toHaveBeenCalled();
+        });
+
+        // The counterpart: an allowlisted param IS part of the key, which is what
+        // makes pagination and search navigations visible at all.
+        it('should fire a view on an allowlisted query-param change', () => {
+            window.history.pushState({}, '', '/?q=shoes');
+            jest.runAllTimers();
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+
+            window.history.pushState({}, '', '/?q=boots');
+            jest.runAllTimers();
+
+            expect(logEvent).toHaveBeenCalledTimes(2);
+            expect(
+                logEvent.mock.calls.map(([event]) => event.data.q)
+            ).toEqual(['shoes', 'boots']);
         });
 
         // Hash support is deferred to a follow-up; a hash-only change leaves the
@@ -598,20 +745,79 @@ describe('PageViewTracker', () => {
             tracker.init();
 
             window.document.title = 'Next Page';
-            window.history.pushState({}, '', '/next?q=1#top');
+            window.history.pushState({}, '', '/next?tab=1#top');
             jest.runAllTimers();
 
             expect(logEvent).toHaveBeenCalledTimes(1);
             const [event] = logEvent.mock.calls[0];
-            expect(event).toMatchObject({
+            expect(event).toEqual({
                 messageType: MessageType.PageView,
                 name: 'PageView',
+                eventType: EventType.Unknown,
                 data: {
                     hostname: 'localhost',
                     title: 'Next Page',
                     path: '/next',
                 },
             });
+        });
+
+        it('should attach the allowlisted query params as flat attributes', () => {
+            navigateNatively('/');
+            const tracker = createTracker();
+            tracker.init();
+
+            window.document.title = 'Landing';
+            window.history.pushState(
+                {},
+                '',
+                '/promo?utm_source=google&utm_medium=cpc&gclid=Cj0KC&session_token=secret#top'
+            );
+            jest.runAllTimers();
+
+            expect(logEvent.mock.calls[0][0].data).toEqual({
+                hostname: 'localhost',
+                title: 'Landing',
+                path: '/promo',
+                utm_source: 'google',
+                utm_medium: 'cpc',
+                gclid: 'Cj0KC',
+            });
+        });
+
+        // Each deferred fire carries the params captured when its navigation was
+        // accepted, for the same reason as the path: a same-tick navigation would
+        // otherwise overwrite window.location before the flush reads it.
+        it('should capture the params at navigation time, not flush time', () => {
+            navigateNatively('/a');
+            const tracker = createTracker();
+            tracker.init();
+
+            window.history.pushState({}, '', '/b?utm_source=first');
+            window.history.pushState({}, '', '/c?utm_source=second');
+
+            jest.runAllTimers();
+
+            expect(
+                logEvent.mock.calls.map(([event]) => event.data.utm_source)
+            ).toEqual(['first', 'second']);
+        });
+
+        // Verbose logging goes to the console, and session-replay tooling ships
+        // console output off-domain. Param names are useful for debugging dedup;
+        // the values are not worth the exposure.
+        it('should log param names but never their values', () => {
+            navigateNatively('/');
+            const tracker = createTracker();
+            tracker.init();
+
+            window.history.pushState({}, '', '/callback?code=SECRET-AUTH-CODE');
+            jest.runAllTimers();
+
+            const logged = verbose.mock.calls.map(([message]) => message).join('\n');
+
+            expect(logged).toContain('code');
+            expect(logged).not.toContain('SECRET-AUTH-CODE');
         });
 
         // The title is read at flush time, not when the navigation is accepted,
