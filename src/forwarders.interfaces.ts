@@ -16,6 +16,7 @@ import {
     ISDKUserIdentity,
     UserAttributes,
 } from './identity-user-interfaces';
+import type { IFilteredMparticleUser } from './filteredMparticleUser';
 
 // TODO: https://go.mparticle.com/work/SQDSDKS-4475
 export type MPForwarder = Dictionary;
@@ -71,22 +72,22 @@ export interface ConfiguredKit
         clientId: string
     ): string;
     onIdentifyComplete(
-        user: IMParticleUser,
+        user: IFilteredMparticleUser,
         filteredIdentityRequest: IdentityApiData
     ): string;
     onLoginComplete(
-        user: IMParticleUser,
+        user: IFilteredMparticleUser,
         filteredIdentityRequest: IdentityApiData
     ): string;
     onLogoutComplete(
-        user: IMParticleUser,
+        user: IFilteredMparticleUser,
         filteredIdentityRequest: IdentityApiData
     ): string;
     onModifyComplete(
-        user: IMParticleUser,
+        user: IFilteredMparticleUser,
         filteredIdentityRequest: IdentityApiData
     ): string;
-    onUserIdentified(user: IMParticleUser): string;
+    onUserIdentified(user: IFilteredMparticleUser): string;
     process(event: SDKEvent): string;
     setOptOut(isOptingOut: boolean): string;
     removeUserAttribute(key: string): string;
