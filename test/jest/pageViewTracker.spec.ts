@@ -92,6 +92,14 @@ describe('pageViewTracker pure helpers', () => {
     });
 
     describe('#pageKey', () => {
+        // Builds a snapshot the way currentPage() does, so a case can be stated
+        // as a URL and still exercise the real parser rather than a hand-made
+        // params object.
+        const pageFromHref = (href: string) => ({
+            path: new URL(href).pathname,
+            params: allowedQueryParams(href),
+        });
+
         it('should be the pathname alone when no params are captured', () => {
             expect(pageKey({ path: '/cart', params: {} })).toBe('/cart');
         });
@@ -115,6 +123,31 @@ describe('pageViewTracker pure helpers', () => {
             expect(pageKey({ path: '/s', params: { page: '1' } })).not.toBe(
                 pageKey({ path: '/s', params: { page: '2' } })
             );
+        });
+
+        // queryStringParser hands values back DECODED, so a value carrying the
+        // pair delimiters would serialize exactly like two separate params and
+        // dedup a real navigation away. `search` follows `q` in the allowlist, so
+        // the two below collide unless the value is re-encoded.
+        it('should not collide when a value contains the pair delimiters', () => {
+            const injected = pageKey({
+                path: '/s',
+                params: { q: 'a&search=b' },
+            });
+            const genuine = pageKey({
+                path: '/s',
+                params: { q: 'a', search: 'b' },
+            });
+
+            expect(injected).not.toBe(genuine);
+        });
+
+        // The same collision reached through the tracker rather than by hand:
+        // ?q=a%26search%3Db and ?q=a&search=b are different pages.
+        it('should fire a view between a colliding encoded and real pair', () => {
+            expect(
+                pageKey(pageFromHref('https://x.com/s?q=a%26search%3Db'))
+            ).not.toBe(pageKey(pageFromHref('https://x.com/s?q=a&search=b')));
         });
     });
 

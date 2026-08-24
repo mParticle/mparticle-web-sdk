@@ -133,9 +133,16 @@ const capturedNames = (params: Dictionary<string>): string[] =>
 // The dedup key: pathname plus the allowlisted params in a fixed order, so that
 // reordering the query string is not a new page. Params outside the allowlist
 // never make it into `page.params` and so cannot key a view — nor can the hash.
+//
+// Values are re-encoded because queryStringParser hands them back DECODED. A
+// value holding the pair delimiters would otherwise serialize exactly like two
+// separate params — `{q: 'a&search=b'}` and `{q: 'a', search: 'b'}` both becoming
+// `q=a&search=b` — and dedup would treat a real navigation between them as the
+// same page and drop the view. `q`, `search` and `redirect_uri` carry `&` and `=`
+// routinely, so this is reachable rather than theoretical.
 export const pageKey = (page: IPageSnapshot): string => {
     const query = capturedNames(page.params)
-        .map(name => `${name}=${page.params[name]}`)
+        .map(name => `${name}=${encodeURIComponent(page.params[name])}`)
         .join('&');
 
     return query ? `${page.path}?${query}` : page.path;
@@ -158,16 +165,18 @@ export const supportsHistoryTracking = (win: Window | null): boolean =>
 // Mirrors the event shape of the public mParticle.logPageView(), but carries the
 // path and query params captured when the navigation was accepted rather than the
 // live location.
-export const buildPageViewEvent = ({
-    params,
-    ...page
-}: IPageViewData): BaseEvent => ({
+export const buildPageViewEvent = (data: IPageViewData): BaseEvent => ({
     messageType: MessageType.PageView,
     name: 'PageView',
-    // Params spread first so the core fields always win. No allowlist entry
-    // collides with hostname/title/path today; this ordering is what keeps a
-    // later addition from silently overwriting one.
-    data: { ...params, ...page },
+    // Params spread first, then the core fields by name, so a core field always
+    // wins. No allowlist entry collides with hostname/title/path today; naming
+    // them here is what keeps a later addition from silently overwriting one.
+    data: {
+        ...data.params,
+        hostname: data.hostname,
+        title: data.title,
+        path: data.path,
+    },
     eventType: EventType.Unknown,
 });
 
@@ -261,9 +270,11 @@ const currentPage = (): IPageSnapshot => ({
 // params. Values are deliberately omitted — verbose logging goes to the console,
 // and session-replay tooling ships console output off-domain, which is not a
 // place for an OAuth code or a consumer's search terms.
+// Only reachable before init() assigns lastPage, which is ahead of any navigation
+// handler being able to run, so this returns nothing rather than a sentinel.
 const describePage = (page: IPageSnapshot | null): string => {
     if (!page) {
-        return 'null';
+        return '';
     }
 
     const names = capturedNames(page.params);
