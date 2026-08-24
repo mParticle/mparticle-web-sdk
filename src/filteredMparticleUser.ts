@@ -31,8 +31,8 @@ function copyUserAttributeValue(value: unknown): unknown {
 }
 
 function buildUserAttributesCopy(
-    userAttributes: Dictionary | null | undefined,
-    kitBlocker: KitBlocker | undefined
+    userAttributes?: Dictionary,
+    kitBlocker?: KitBlocker
 ): Dictionary {
     const userAttributesCopy: Dictionary = {};
 
