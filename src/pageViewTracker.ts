@@ -123,12 +123,18 @@ interface IPendingNavigation {
 export const allowedQueryParams = (href: string): Dictionary<string> =>
     queryStringParser(href, ALLOWED_QUERY_PARAMS);
 
-// The dedup key: pathname plus the allowlisted params, sorted so that reordering
-// the query string is not a new page. Params outside the allowlist never make it
-// into `page.params` and so cannot key a view — nor can the hash.
+// The captured params, in allowlist order. Ordering comes from the constant
+// rather than a sort: it is deterministic without needing a comparator, and it
+// does not depend on the object's insertion order, so reordering the query string
+// cannot produce a different key.
+const capturedNames = (params: Dictionary<string>): string[] =>
+    ALLOWED_QUERY_PARAMS.filter(name => name in params);
+
+// The dedup key: pathname plus the allowlisted params in a fixed order, so that
+// reordering the query string is not a new page. Params outside the allowlist
+// never make it into `page.params` and so cannot key a view — nor can the hash.
 export const pageKey = (page: IPageSnapshot): string => {
-    const query = Object.keys(page.params)
-        .sort()
+    const query = capturedNames(page.params)
         .map(name => `${name}=${page.params[name]}`)
         .join('&');
 
@@ -260,7 +266,7 @@ const describePage = (page: IPageSnapshot | null): string => {
         return 'null';
     }
 
-    const names = Object.keys(page.params).sort();
+    const names = capturedNames(page.params);
     return names.length ? `${page.path} (params: ${names.join()})` : page.path;
 };
 
