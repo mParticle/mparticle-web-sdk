@@ -1,12 +1,33 @@
 import Constants from './constants';
 import { IMParticleWebSDKInstance } from './mp-instance';
-import { INativeSdkHelpers } from './nativeSdkHelpers.interfaces';
-import { Dictionary } from './utils';
+import {
+    IAndroidNativeBridge,
+    INativeSdkHelpers,
+} from './nativeSdkHelpers.interfaces';
 
 const Messages = Constants.Messages;
 
 const androidBridgeNameBase = 'mParticleAndroid';
 const iosBridgeNameBase = 'mParticle';
+
+function getAndroidBridge(name: string): IAndroidNativeBridge | undefined {
+    if (!Object.prototype.hasOwnProperty.call(window, name)) {
+        return undefined;
+    }
+
+    return (window as unknown as Record<string, IAndroidNativeBridge | undefined>)[
+        name
+    ];
+}
+
+function getInstanceNamedValue(
+    instance: IMParticleWebSDKInstance,
+    name: string
+): unknown {
+    return (instance as IMParticleWebSDKInstance & Record<string, unknown>)[
+        name
+    ];
+}
 
 export default function NativeSdkHelpers(
     this: INativeSdkHelpers,
@@ -40,22 +61,15 @@ export default function NativeSdkHelpers(
         const iosBridgeName = iosBridgeNameBase + '_' + bridgeName + '_v2';
 
         // iOS v2 bridge
-        if (
-            (window as Dictionary).webkit &&
-            (window as Dictionary).webkit.messageHandlers &&
-            (window as Dictionary).webkit.messageHandlers.hasOwnProperty(
-                iosBridgeName
-            )
-        ) {
+        if (window.webkit?.messageHandlers?.hasOwnProperty(iosBridgeName)) {
             return true;
         }
         // other iOS v2 bridge
         // TODO: what to do about people setting things on mParticle itself?
         if (
             window.mParticle &&
-            (window.mParticle as Dictionary).uiwebviewBridgeName &&
-            (window.mParticle as Dictionary).uiwebviewBridgeName ===
-                iosBridgeName
+            window.mParticle.uiwebviewBridgeName &&
+            window.mParticle.uiwebviewBridgeName === iosBridgeName
         ) {
             return true;
         }
@@ -70,20 +84,20 @@ export default function NativeSdkHelpers(
         requiredWebviewBridgeName: string,
         minWebviewBridgeVersion: number
     ): boolean {
-        (mpInstance._Store as Dictionary).bridgeV2Available = self.isBridgeV2Available(
+        mpInstance._Store.bridgeV2Available = self.isBridgeV2Available(
             requiredWebviewBridgeName
         );
-        (mpInstance._Store as Dictionary).bridgeV1Available = self.isBridgeV1Available();
+        mpInstance._Store.bridgeV1Available = self.isBridgeV1Available();
 
         if (minWebviewBridgeVersion === 2) {
-            return (mpInstance._Store as Dictionary).bridgeV2Available;
+            return mpInstance._Store.bridgeV2Available;
         }
 
         // iOS BridgeV1 can be available via mParticle.isIOS, but return false if uiwebviewBridgeName doesn't match requiredWebviewBridgeName
         if (window.mParticle) {
             if (
-                (window.mParticle as Dictionary).uiwebviewBridgeName &&
-                (window.mParticle as Dictionary).uiwebviewBridgeName !==
+                window.mParticle.uiwebviewBridgeName &&
+                window.mParticle.uiwebviewBridgeName !==
                     iosBridgeNameBase + '_' + requiredWebviewBridgeName + '_v2'
             ) {
                 return false;
@@ -93,8 +107,8 @@ export default function NativeSdkHelpers(
         if (minWebviewBridgeVersion < 2) {
             // ios
             return (
-                (mpInstance._Store as Dictionary).bridgeV2Available ||
-                (mpInstance._Store as Dictionary).bridgeV1Available
+                mpInstance._Store.bridgeV2Available ||
+                mpInstance._Store.bridgeV1Available
             );
         }
 
@@ -104,7 +118,7 @@ export default function NativeSdkHelpers(
     this.isBridgeV1Available = function(): boolean {
         if (
             mpInstance._Store.SDKConfig.useNativeSdk ||
-            (window as Dictionary).mParticleAndroid ||
+            window.mParticleAndroid ||
             mpInstance._Store.SDKConfig.isIOS
         ) {
             return true;
@@ -115,7 +129,7 @@ export default function NativeSdkHelpers(
 
     this.sendToNative = function(path: string, value?: string): void {
         if (
-            (mpInstance._Store as Dictionary).bridgeV2Available &&
+            mpInstance._Store.bridgeV2Available &&
             mpInstance._Store.SDKConfig.minWebviewBridgeVersion === 2
         ) {
             self.sendViaBridgeV2(
@@ -126,7 +140,7 @@ export default function NativeSdkHelpers(
             return;
         }
         if (
-            (mpInstance._Store as Dictionary).bridgeV2Available &&
+            mpInstance._Store.bridgeV2Available &&
             mpInstance._Store.SDKConfig.minWebviewBridgeVersion < 2
         ) {
             self.sendViaBridgeV2(
@@ -137,7 +151,7 @@ export default function NativeSdkHelpers(
             return;
         }
         if (
-            (mpInstance._Store as Dictionary).bridgeV1Available &&
+            mpInstance._Store.bridgeV1Available &&
             mpInstance._Store.SDKConfig.minWebviewBridgeVersion < 2
         ) {
             self.sendViaBridgeV1(path, value);
@@ -147,13 +161,13 @@ export default function NativeSdkHelpers(
 
     this.sendViaBridgeV1 = function(path: string, value: string): void {
         if (
-            (window as Dictionary).mParticleAndroid &&
-            (window as Dictionary).mParticleAndroid.hasOwnProperty(path)
+            window.mParticleAndroid &&
+            window.mParticleAndroid.hasOwnProperty(path)
         ) {
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.SendAndroid + path
             );
-            (window as Dictionary).mParticleAndroid[path](value);
+            window.mParticleAndroid[path](value);
         } else if (mpInstance._Store.SDKConfig.isIOS) {
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.SendIOS + path
@@ -183,24 +197,21 @@ export default function NativeSdkHelpers(
 
         const androidBridgeName =
                 androidBridgeNameBase + '_' + requiredWebviewBridgeName + '_v2',
-            androidBridge = (window as Dictionary)[androidBridgeName],
+            androidBridge = getAndroidBridge(androidBridgeName),
             iosBridgeName =
                 iosBridgeNameBase + '_' + requiredWebviewBridgeName + '_v2';
         let iOSBridgeMessageHandler, iOSBridgeNonMessageHandler;
 
-        if (
-            (window as Dictionary).webkit &&
-            (window as Dictionary).webkit.messageHandlers &&
-            (window as Dictionary).webkit.messageHandlers[iosBridgeName]
-        ) {
-            iOSBridgeMessageHandler = (window as Dictionary).webkit
-                .messageHandlers[iosBridgeName];
+        if (window.webkit?.messageHandlers?.[iosBridgeName]) {
+            iOSBridgeMessageHandler =
+                window.webkit.messageHandlers[iosBridgeName];
         }
 
-        if ((mpInstance as Dictionary).uiwebviewBridgeName === iosBridgeName) {
-            iOSBridgeNonMessageHandler = (mpInstance as Dictionary)[
+        if (mpInstance.uiwebviewBridgeName === iosBridgeName) {
+            iOSBridgeNonMessageHandler = getInstanceNamedValue(
+                mpInstance,
                 iosBridgeName
-            ];
+            );
         }
 
         if (androidBridge && androidBridge.hasOwnProperty(path)) {

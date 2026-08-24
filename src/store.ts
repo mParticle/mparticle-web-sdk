@@ -207,6 +207,8 @@ export interface IStore {
     pixelConfigurations: IPixelConfiguration[];
     integrationDelayTimeoutStart: number; // UNIX Timestamp
     webviewBridgeEnabled?: boolean;
+    bridgeV1Available?: boolean;
+    bridgeV2Available?: boolean;
     wrapperSDKInfo: WrapperSDKInfo;
     roktAccountId: string | null;
     integrationName: string | null;

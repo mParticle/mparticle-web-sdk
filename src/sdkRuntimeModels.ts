@@ -297,6 +297,7 @@ export interface IMParticleInstanceManager extends MParticleWebSDK {
 
     // Public Methods
     getInstance(instanceName?: string): IMParticleWebSDKInstance;
+    uiwebviewBridgeName?: string;
 }
 
 // Used in cases where server requires booleans as strings
