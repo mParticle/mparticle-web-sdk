@@ -447,19 +447,18 @@ export default function _Persistence(
                 break;
             }
 
-            if (!key && result && typeof result !== 'string') {
-                result[name] = (mpInstance._Helpers as Dictionary).converted(
-                    cookie
-                );
+            if (!key) {
+                (result as Dictionary<string>)[name as string] = (
+                    mpInstance._Helpers as Dictionary
+                ).converted(cookie);
             }
         }
 
-        if (result && typeof result === 'string') {
+        if (result) {
             mpInstance.Logger.verbose(Messages.InformationMessages.CookieFound);
-            const decodedCookie = self.decodePersistence(result);
-            return decodedCookie
-                ? (JSON.parse(decodedCookie) as IPersistenceMinified)
-                : null;
+            return JSON.parse(
+                self.decodePersistence(result as string) as string
+            );
         } else {
             return null;
         }
@@ -963,10 +962,7 @@ export default function _Persistence(
             }
             return JSON.stringify(persistence);
         } catch (e) {
-            mpInstance.Logger.error(
-                'Problem with decoding cookie' +
-                    (e instanceof Error ? ': ' + e.message : '')
-            );
+            mpInstance.Logger.error('Problem with decoding cookie');
         }
     };
 

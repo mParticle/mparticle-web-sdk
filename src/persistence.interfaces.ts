@@ -101,7 +101,7 @@ export interface IPersistence {
     initializeStorage(): void;
     update(): void;
     storeDataInMemory(obj: IPersistenceMinified, currentMPID?: MPID): void;
-            determineLocalStorageAvailability(storage?: Storage): boolean;
+    determineLocalStorageAvailability(storage?: Storage): boolean;
     setLocalStorage(): void;
     getLocalStorage(): IPersistenceMinified | null;
     expireCookies(cookieName: string): void;
