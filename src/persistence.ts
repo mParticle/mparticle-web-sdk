@@ -267,7 +267,8 @@ export default function _Persistence(
     this.determineLocalStorageAvailability = function(
         storage?: Storage
     ): boolean {
-        if (getMParticleManager()?._forceNoLocalStorage) {
+        const mParticleManager = getMParticleManager();
+        if (mParticleManager?._forceNoLocalStorage) {
             return false;
         }
 
@@ -1189,7 +1190,8 @@ export default function _Persistence(
         self.expireCookies(StorageNames.cookieNameV4);
         self.expireCookies(mpInstance._Store.storageName);
 
-        if (getMParticleManager()?._isTestEnv) {
+        const mParticleManager = getMParticleManager();
+        if (mParticleManager?._isTestEnv) {
             let testWorkspaceToken = 'abcdef';
             localStorage.removeItem(
                 mpInstance._Helpers.createMainStorageName(testWorkspaceToken)
