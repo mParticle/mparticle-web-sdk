@@ -6,6 +6,7 @@ import {
     SDKEventOptions,
     SDKEventAttrs,
     Callback,
+    UserIdentities,
 } from '@mparticle/web-sdk';
 import {
     IntegrationAttribute,
@@ -393,7 +394,7 @@ export interface SDKHelpersApi {
         filterList: number[]
     ): Dictionary;
     filterUserIdentities?(
-        userIdentitiesObject: Dictionary<string>,
+        userIdentitiesObject: UserIdentities | Dictionary<string>,
         filterList: number[]
     ): ISDKUserIdentity[];
     invokeAliasCallback(
