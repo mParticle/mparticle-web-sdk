@@ -12,6 +12,7 @@ import {
     SDKProduct,
     SDKPromotion,
 } from './sdkRuntimeModels';
+import { ProductActionTransactionAttributes } from './ecommerce.interfaces';
 import { valueof } from './utils';
 import { EventType, ProductActionType, PromotionActionType } from './types';
 
@@ -57,12 +58,12 @@ export interface IEvents {
         product: SDKProduct | SDKProduct[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
-        transactionAttributes?: TransactionAttributes,
+        transactionAttributes?: ProductActionTransactionAttributes,
         eventOptions?: SDKEventOptions
     ): void;
     logPromotionEvent(
         promotionType: valueof<typeof PromotionActionType>,
-        promotion: SDKPromotion | SDKPromotion[],
+        promotion: SDKPromotion | Array<SDKPromotion>,
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions

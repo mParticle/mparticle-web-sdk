@@ -14,6 +14,13 @@ import {
     SDKPromotion,
 } from './sdkRuntimeModels';
 
+export interface ProductActionTransactionAttributes
+    extends Omit<Partial<TransactionAttributes>, 'Shipping'> {
+    Step?: number;
+    Option?: string;
+    Shipping?: string | number;
+}
+
 interface IECommerceShared {
     createProduct(
         name: string,
@@ -70,12 +77,12 @@ export interface SDKECommerceAPI extends IECommerceShared {
         product: SDKProduct | SDKProduct[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
-        transactionAttributes?: TransactionAttributes,
+        transactionAttributes?: ProductActionTransactionAttributes,
         eventOptions?: SDKEventOptions
     ): void;
     logPromotion(
         type: valueof<typeof PromotionActionType>,
-        promotion: SDKPromotion | SDKPromotion[],
+        promotion: SDKPromotion | Array<SDKPromotion>,
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions
@@ -120,7 +127,7 @@ interface ExtractedActionAttributes {
     'Checkout Step'?: number;
     'Transaction ID'?: string;
 }
-interface ExtractedProductAttributes {
+export interface ExtractedProductAttributes {
     'Coupon Code'?: string;
     Brand?: string;
     Category?: string;
@@ -159,7 +166,7 @@ export interface IECommerce extends IECommerceShared {
         productAction: SDKProductAction
     ): SDKProductAction;
     convertTransactionAttributesToProductAction(
-        transactionAttributes: TransactionAttributes,
+        transactionAttributes: ProductActionTransactionAttributes,
         productAction: SDKProductAction
     ): void;
     createCommerceEventObject(

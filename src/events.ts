@@ -5,6 +5,7 @@ import Types, {
 } from './types';
 import Constants from './constants';
 import { IEvents } from './events.interfaces';
+import { ProductActionTransactionAttributes } from './ecommerce.interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import {
     BaseEvent,
@@ -196,7 +197,7 @@ export default function Events(
         product: SDKProduct | SDKProduct[],
         customAttrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
-        transactionAttributes?: TransactionAttributes,
+        transactionAttributes?: ProductActionTransactionAttributes,
         options?: SDKEventOptions
     ): void {
         const event = mpInstance._Ecommerce.createCommerceEventObject(
@@ -342,7 +343,7 @@ export default function Events(
 
     this.logPromotionEvent = function(
         promotionType: valueof<typeof PromotionActionType>,
-        promotion: SDKPromotion | SDKPromotion[],
+        promotion: SDKPromotion | Array<SDKPromotion>,
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions
