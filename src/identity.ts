@@ -359,7 +359,7 @@ export default function Identity(
                     preProcessResult.error
                 );
                 mpInstance.Logger.verbose(
-                    preProcessResult.error ?? JSON.stringify(preProcessResult)
+                    preProcessResult as unknown as string
                 );
             }
         },
@@ -428,7 +428,7 @@ export default function Identity(
                             mpInstance._Store.activeForwarders.forEach(function(
                                 forwarder
                             ) {
-                                if (typeof forwarder.logOut === 'function') {
+                                if (forwarder.logOut) {
                                     forwarder.logOut(evt);
                                 }
                             });
@@ -451,7 +451,7 @@ export default function Identity(
                     preProcessResult.error
                 );
                 mpInstance.Logger.verbose(
-                    preProcessResult.error ?? JSON.stringify(preProcessResult)
+                    preProcessResult as unknown as string
                 );
             }
         },
@@ -549,7 +549,7 @@ export default function Identity(
                     preProcessResult.error
                 );
                 mpInstance.Logger.verbose(
-                    preProcessResult.error ?? JSON.stringify(preProcessResult)
+                    preProcessResult as unknown as string
                 );
             }
         },
@@ -629,7 +629,7 @@ export default function Identity(
                     preProcessResult.error
                 );
                 mpInstance.Logger.verbose(
-                    preProcessResult.error ?? JSON.stringify(preProcessResult)
+                    preProcessResult as unknown as string
                 );
             }
         },
