@@ -1,19 +1,10 @@
 import {
-    ProductAction,
-    Product,
-    Promotion,
-    CommerceEvent,
-} from '@mparticle/event-models';
-import {
     SDKEventAttrs,
     SDKEventOptions,
     TransactionAttributes,
 } from '@mparticle/web-sdk';
 import { valueof } from './utils';
-import {
-    ProductActionType,
-    PromotionActionType,
-} from './types';
+import { ProductActionType, PromotionActionType } from './types';
 import {
     SDKEvent,
     SDKEventCustomFlags,
@@ -36,7 +27,7 @@ interface IECommerceShared {
         couponCode?: string,
         attributes?: SDKEventAttrs
     ): SDKProduct | null;
-    createImpression(name: string, product: Product): SDKImpression | null;
+    createImpression(name: string, product: SDKProduct): SDKImpression | null;
     createPromotion(
         id: string | number,
         creative?: string,
@@ -51,7 +42,7 @@ interface IECommerceShared {
         shipping?: string | number,
         tax?: number
     ): TransactionAttributes | null;
-    expandCommerceEvent(event: CommerceEvent): SDKEvent[] | null;
+    expandCommerceEvent(event: SDKEvent): SDKEvent[] | null;
 }
 
 export interface SDKCart {
@@ -84,7 +75,7 @@ export interface SDKECommerceAPI extends IECommerceShared {
     ): void;
     logPromotion(
         type: valueof<typeof PromotionActionType>,
-        promotion: SDKPromotion,
+        promotion: SDKPromotion | SDKPromotion[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions
@@ -175,26 +166,26 @@ export interface IECommerce extends IECommerceShared {
         customFlags: SDKEventCustomFlags,
         options?: SDKEventOptions
     ): SDKEvent | null;
-    expandProductAction(commerceEvent: CommerceEvent): SDKEvent[];
-    expandProductImpression(commerceEvent: CommerceEvent): SDKEvent[];
-    expandPromotionAction(commerceEvent: CommerceEvent): SDKEvent[];
+    expandProductAction(commerceEvent: SDKEvent): SDKEvent[];
+    expandProductImpression(commerceEvent: SDKEvent): SDKEvent[];
+    expandPromotionAction(commerceEvent: SDKEvent): SDKEvent[];
     extractActionAttributes(
         attributes: ExtractedActionAttributes,
-        productAction: ProductAction
+        productAction: SDKProductAction
     ): void;
     extractProductAttributes(
         attributes: ExtractedProductAttributes,
-        product: Product
+        product: SDKProduct
     ): void;
     extractPromotionAttributes(
         attributes: ExtractedPromotionAttributes,
-        promotion: Promotion
+        promotion: SDKPromotion
     ): void;
     extractTransactionId(
         attributes: ExtractedTransactionId,
-        productAction: ProductAction
+        productAction: SDKProductAction
     ): void;
-    generateExpandedEcommerceName(eventName: string, plusOne: boolean): string;
+    generateExpandedEcommerceName(eventName: string, plusOne?: boolean): string;
     getProductActionEventName(
         productActionType: valueof<typeof ProductActionType>
     ): string;
