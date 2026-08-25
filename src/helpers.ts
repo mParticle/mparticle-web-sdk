@@ -8,7 +8,7 @@ import { IMParticleWebSDKInstance } from './mp-instance';
 import { SDKHelpersApi } from './sdkRuntimeModels';
 import { IMParticleUser, IdentityCallback, IdentityResult, ISDKUserIdentity } from './identity-user-interfaces';
 import { IAliasResult } from './identity.interfaces';
-import { AliasUsersCallback, MPID } from '@mparticle/web-sdk';
+import { AliasUsersCallback, MPID, UserIdentities } from '@mparticle/web-sdk';
 
 const StorageNames = Constants.StorageNames;
 
@@ -25,7 +25,11 @@ function appendFilteredUserIdentity(
 }
 
 function buildFilteredUserIdentities(
-    userIdentitiesObject: utils.Dictionary<string> | null | undefined,
+    userIdentitiesObject:
+        | UserIdentities
+        | utils.Dictionary<string>
+        | null
+        | undefined,
     filterList: number[],
     inArray: (items: any[], value: any) => boolean
 ): ISDKUserIdentity[] {
@@ -211,7 +215,7 @@ export default function Helpers(
     };
 
     this.filterUserIdentities = function(
-        userIdentitiesObject: Dictionary<string>,
+        userIdentitiesObject: UserIdentities | Dictionary<string>,
         filterList: number[]
     ): ISDKUserIdentity[] {
         return buildFilteredUserIdentities(
