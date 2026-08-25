@@ -5,7 +5,6 @@ import {
     createKnownIdentities,
     executeSearchRequest,
     IKnownIdentities,
-    IParseCachedIdentityResponse,
     normalizeUserIdentityKeys,
     tryCacheIdentity,
 } from './identity-utils';
@@ -15,7 +14,6 @@ const { ErrorMessages } = Messages;
 const { CacheIdentity } = FeatureFlags;
 const { Identify, Modify, Login, Logout } = IdentityMethods;
 import {
-    Environment,
     generateDeprecationMessage,
     isEmpty,
     isFunction,
@@ -243,7 +241,7 @@ export default function Identity(
 
         convertToNative: function(identityApiData: IdentityApiData): IIdentityNativeRequest | undefined {
             const nativeIdentityRequest = [];
-            if (identityApiData && identityApiData.userIdentities) {
+            if (identityApiData?.userIdentities) {
                 for (const key in identityApiData.userIdentities) {
                     if (identityApiData.userIdentities.hasOwnProperty(key)) {
                         nativeIdentityRequest.push({
@@ -304,7 +302,7 @@ export default function Identity(
                     const successfullyCachedIdentity = tryCacheIdentity(
                         identityApiRequest.known_identities,
                         self.idCache,
-                        self.parseIdentityResponse as IParseCachedIdentityResponse,
+                        self.parseIdentityResponse,
                         mpid,
                         callback,
                         identityApiData,
@@ -490,7 +488,7 @@ export default function Identity(
                     const successfullyCachedIdentity = tryCacheIdentity(
                         identityApiRequest.known_identities,
                         self.idCache,
-                        self.parseIdentityResponse as IParseCachedIdentityResponse,
+                        self.parseIdentityResponse,
                         mpid,
                         callback,
                         identityApiData,
@@ -566,10 +564,9 @@ export default function Identity(
                 mpid = currentUser.getMPID();
             }
             if (preProcessResult.valid) {
-                const newUserIdentities =
-                    identityApiData && identityApiData.userIdentities
-                        ? preProcessResult.cleanedIdentities.userIdentities
-                        : {};
+                const newUserIdentities = identityApiData?.userIdentities
+                    ? preProcessResult.cleanedIdentities.userIdentities
+                    : {};
                 const identityApiRequest = mpInstance._Identity.IdentityRequest.createModifyIdentityRequest(
                     currentUser
                         ? currentUser.getUserIdentities().userIdentities
