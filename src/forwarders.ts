@@ -301,7 +301,9 @@ export default function Forwarders(
             }
         };
 
-        mpInstance._Store.activeForwarders.forEach(forwardEvent);
+        for (const forwarder of mpInstance._Store.activeForwarders) {
+            forwardEvent(forwarder);
+        }
     };
 
     this.handleForwarderUserAttributes = function(
