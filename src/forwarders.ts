@@ -301,9 +301,10 @@ export default function Forwarders(
             }
         };
 
-        for (const forwarder of mpInstance._Store.activeForwarders) {
+        // Not for...of: the downleveled loop is miscompiled in cjs/esm builds.
+        mpInstance._Store.activeForwarders.forEach(function(forwarder) {
             forwardEvent(forwarder);
-        }
+        });
     };
 
     this.handleForwarderUserAttributes = function(
