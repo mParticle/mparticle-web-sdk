@@ -2,7 +2,10 @@ import Types, { ProductActionType, PromotionActionType } from './types';
 import Constants from './constants';
 import { extend, parseNumber, valueof } from './utils';
 import { IMParticleWebSDKInstance } from './mp-instance';
-import { IECommerce } from './ecommerce.interfaces';
+import {
+    IECommerce,
+    ProductActionTransactionAttributes,
+} from './ecommerce.interfaces';
 import {
     SDKEvent,
     SDKEventCustomFlags,
@@ -27,10 +30,7 @@ export default function Ecommerce(
 
     // https://go.mparticle.com/work/SQDSDKS-4801
     this.convertTransactionAttributesToProductAction = function(
-        transactionAttributes: TransactionAttributes & {
-            Step?: number;
-            Option?: string;
-        },
+        transactionAttributes: ProductActionTransactionAttributes,
         productAction: SDKProductAction
     ): void {
         if (transactionAttributes.hasOwnProperty('Id')) {
@@ -236,7 +236,7 @@ export default function Ecommerce(
 
     // https://go.mparticle.com/work/SQDSDKS-4801
     this.extractProductAttributes = function(
-        attributes: { [key: string]: any },
+        attributes: SDKEventAttrs,
         product: SDKProduct
     ): void {
         if (product.CouponCode) {
@@ -271,7 +271,7 @@ export default function Ecommerce(
 
     // https://go.mparticle.com/work/SQDSDKS-4801
     this.extractTransactionId = function(
-        attributes: { [key: string]: any },
+        attributes: SDKEventAttrs,
         productAction: SDKProductAction
     ): void {
         if (productAction.TransactionId) {
@@ -280,11 +280,11 @@ export default function Ecommerce(
     };
 
     // https://go.mparticle.com/work/SQDSDKS-4801
-    this.extractActionAttributes = function(
-        attributes: { [key: string]: any },
+    this.extractActionAttributes = (
+        attributes: SDKEventAttrs,
         productAction: SDKProductAction
-    ): void {
-        self.extractTransactionId(attributes, productAction);
+    ): void => {
+        this.extractTransactionId(attributes, productAction);
 
         if (productAction.Affiliation) {
             attributes['Affiliation'] = productAction.Affiliation;
@@ -317,7 +317,7 @@ export default function Ecommerce(
 
     // https://go.mparticle.com/work/SQDSDKS-4801
     this.extractPromotionAttributes = function(
-        attributes: { [key: string]: any },
+        attributes: SDKEventAttrs,
         promotion: SDKPromotion
     ): void {
         if (promotion.Id) {
