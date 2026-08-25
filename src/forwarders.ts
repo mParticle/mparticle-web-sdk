@@ -48,7 +48,7 @@ export default function Forwarders(
         userIdentities: UserIdentities,
         forwardingStatsCallback: forwardingStatsCallback
     ): void {
-        let user = mpInstance.Identity.getCurrentUser();
+        const user = mpInstance.Identity.getCurrentUser();
         if (
             !mpInstance._Store.webviewBridgeEnabled &&
             mpInstance._Store.configuredForwarders
@@ -89,7 +89,7 @@ export default function Forwarders(
                         return false;
                     }
 
-                    let filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(
+                    const filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(
                         userIdentities,
                         forwarder.userIdentityFilters
                     );
@@ -342,7 +342,7 @@ export default function Forwarders(
     // TODO: https://go.mparticle.com/work/SQDSDKS-6036
     this.setForwarderUserIdentities = function(userIdentities: UserIdentities): void {
         mpInstance._Store.activeForwarders.forEach(function(forwarder) {
-            let filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(
+            const filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(
                 userIdentities,
                 forwarder.userIdentityFilters
             );
