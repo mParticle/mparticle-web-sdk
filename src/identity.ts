@@ -426,8 +426,11 @@ export default function Identity(
                             mpInstance._Store.activeForwarders.forEach(function(
                                 forwarder
                             ) {
-                                if (forwarder.logOut) {
-                                    forwarder.logOut(evt);
+                                const kit = forwarder as {
+                                    logOut?: (event: SDKEvent) => void;
+                                };
+                                if (kit.logOut) {
+                                    kit.logOut(evt);
                                 }
                             });
                         }
