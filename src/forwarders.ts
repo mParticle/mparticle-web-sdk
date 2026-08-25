@@ -88,7 +88,7 @@ export default function Forwarders(
         userIdentities: UserIdentities,
         forwardingStatsCallback: forwardingStatsCallback
     ): void {
-        let user = mpInstance.Identity.getCurrentUser();
+        const user = mpInstance.Identity.getCurrentUser();
         if (
             !mpInstance._Store.webviewBridgeEnabled &&
             mpInstance._Store.configuredForwarders
@@ -129,7 +129,7 @@ export default function Forwarders(
                         return false;
                     }
 
-                    let filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(
+                    const filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(
                         userIdentities,
                         forwarder.userIdentityFilters
                     );
@@ -210,10 +210,10 @@ export default function Forwarders(
     this.applyToForwarders = function(functionName: string, functionArgs: unknown): void {
         if (mpInstance._Store.activeForwarders.length) {
             mpInstance._Store.activeForwarders.forEach(function(forwarder) {
-                let forwarderFunction = (forwarder as any)[functionName];
+                const forwarderFunction = (forwarder as any)[functionName];
                 if (forwarderFunction) {
                     try {
-                        let result = (forwarder as any)[functionName](functionArgs);
+                        const result = (forwarder as any)[functionName](functionArgs);
 
                         if (result) {
                             mpInstance.Logger.verbose(result);
@@ -356,13 +356,13 @@ export default function Forwarders(
     // TODO: https://go.mparticle.com/work/SQDSDKS-6036
     this.setForwarderUserIdentities = function(userIdentities: UserIdentities): void {
         mpInstance._Store.activeForwarders.forEach(function(forwarder) {
-            let filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(
+            const filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(
                 userIdentities,
                 forwarder.userIdentityFilters
             );
             if (forwarder.setUserIdentity) {
                 filteredUserIdentities.forEach(function(identity) {
-                    let result = forwarder.setUserIdentity(
+                    const result = forwarder.setUserIdentity(
                         identity.Identity,
                         identity.Type
                     );
