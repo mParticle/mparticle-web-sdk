@@ -3,6 +3,7 @@ import Constants from './constants';
 import { extend, parseNumber, valueof } from './utils';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import {
+    ExtractedProductAttributes,
     IECommerce,
     ProductActionTransactionAttributes,
 } from './ecommerce.interfaces';
@@ -236,7 +237,7 @@ export default function Ecommerce(
 
     // https://go.mparticle.com/work/SQDSDKS-4801
     this.extractProductAttributes = function(
-        attributes: SDKEventAttrs,
+        attributes: ExtractedProductAttributes,
         product: SDKProduct
     ): void {
         if (product.CouponCode) {

@@ -117,6 +117,38 @@ export interface SDKECommerceAPI extends IECommerceShared {
     ): void;
 }
 
+interface ExtractedActionAttributes {
+    Affiliation?: string;
+    'Coupon Code'?: string;
+    'Total Amount'?: number;
+    'Shipping Amount'?: number;
+    'Tax Amount'?: number;
+    'Checkout Option'?: string;
+    'Checkout Step'?: number;
+    'Transaction ID'?: string;
+}
+export interface ExtractedProductAttributes {
+    'Coupon Code'?: string;
+    Brand?: string;
+    Category?: string;
+    Name?: string;
+    Id?: string;
+    'Item Price'?: number;
+    Quantity?: number;
+    Position?: number;
+    Variant?: string;
+    'Total Product Amount': number;
+}
+interface ExtractedPromotionAttributes {
+    Id?: string;
+    Creative?: string;
+    Name?: string;
+    Position?: number;
+}
+interface ExtractedTransactionId {
+    'Transaction ID'?: string;
+}
+
 // Used for the private `_Ecommerce` namespace
 export interface IECommerce extends IECommerceShared {
     buildProductList(
@@ -145,19 +177,19 @@ export interface IECommerce extends IECommerceShared {
     expandProductImpression(commerceEvent: SDKEvent): SDKEvent[];
     expandPromotionAction(commerceEvent: SDKEvent): SDKEvent[];
     extractActionAttributes(
-        attributes: SDKEventAttrs,
+        attributes: ExtractedActionAttributes,
         productAction: SDKProductAction
     ): void;
     extractProductAttributes(
-        attributes: SDKEventAttrs,
+        attributes: ExtractedProductAttributes,
         product: SDKProduct
     ): void;
     extractPromotionAttributes(
-        attributes: SDKEventAttrs,
+        attributes: ExtractedPromotionAttributes,
         promotion: SDKPromotion
     ): void;
     extractTransactionId(
-        attributes: SDKEventAttrs,
+        attributes: ExtractedTransactionId,
         productAction: SDKProductAction
     ): void;
     generateExpandedEcommerceName(eventName: string, plusOne?: boolean): string;
