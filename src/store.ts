@@ -205,7 +205,7 @@ export interface IStore {
     activeForwarders: ConfiguredKit[];
     kits: Dictionary<MPForwarder>;
     sideloadedKits: MPForwarder[];
-    configuredForwarders: MPForwarder[];
+    configuredForwarders: ConfiguredKit[];
     pixelConfigurations: IPixelConfiguration[];
     integrationDelayTimeoutStart: number; // UNIX Timestamp
     webviewBridgeEnabled?: boolean;
