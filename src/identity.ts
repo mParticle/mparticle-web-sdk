@@ -351,7 +351,9 @@ export default function Identity(
                     HTTPCodes.validationIssue,
                     preProcessResult.error
                 );
-                mpInstance.Logger.verbose(preProcessResult.error);
+                mpInstance.Logger.verbose(
+                    preProcessResult as unknown as string
+                );
             }
         },
         /**
@@ -444,7 +446,9 @@ export default function Identity(
                     HTTPCodes.validationIssue,
                     preProcessResult.error
                 );
-                mpInstance.Logger.verbose(preProcessResult.error);
+                mpInstance.Logger.verbose(
+                    preProcessResult as unknown as string
+                );
             }
         },
         /**
@@ -540,7 +544,9 @@ export default function Identity(
                     HTTPCodes.validationIssue,
                     preProcessResult.error
                 );
-                mpInstance.Logger.verbose(preProcessResult.error);
+                mpInstance.Logger.verbose(
+                    preProcessResult as unknown as string
+                );
             }
         },
         /**
@@ -617,7 +623,9 @@ export default function Identity(
                     HTTPCodes.validationIssue,
                     preProcessResult.error
                 );
-                mpInstance.Logger.verbose(preProcessResult.error);
+                mpInstance.Logger.verbose(
+                    preProcessResult as unknown as string
+                );
             }
         },
         /**
