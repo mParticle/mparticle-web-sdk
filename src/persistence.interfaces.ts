@@ -1,4 +1,3 @@
-import { Context } from '@mparticle/event-models';
 import {
     IdentityApiData,
     MPID,
@@ -34,7 +33,7 @@ export interface IGlobalStoreV2MinifiedKeys {
     cgid: string; // Client Generated ID
     das: string; // Device ID/ Device Application String
     ia: IntegrationAttributes;
-    c: Context;
+    c: string | null;
     csm: MPID[]; // Current Session MPIDs
     les: number; // Last Event Sent Timestamp
     ssd: number; // Session Start Date
@@ -118,7 +117,7 @@ export interface IPersistence {
     getCookieDomain(): string;
     getDomain(doc: Document, locationHostname: string): string;
     saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDates): void;
-    savePersistence(persistance: IPersistenceMinified): void;
+    savePersistence(persistence: IPersistenceMinified): void;
     getPersistence(): IPersistenceMinified | null;
     getFirstSeenTime(mpid: MPID): number | null;
     setFirstSeenTime(mpid: MPID, time?: number): void;

@@ -5,19 +5,19 @@ import {
     XHRUploader,
     IFetchPayload,
 } from './uploaders';
-import { CACHE_HEADER } from './identity-utils';
+import { CACHE_HEADER, IKnownIdentities } from './identity-utils';
 import { obfuscateData, parseNumber, valueof, getErrorMessage } from './utils';
 import {
     IAliasCallback,
-    IAliasRequest,
+    IAliasNetworkRequest,
     IdentityAPIMethod,
     IIdentity,
     IIdentityAPIRequestData,
+    IIdentityAPIModifyRequestData,
 } from './identity.interfaces';
 import {
     IdentityApiData,
     MPID,
-    UserIdentities,
 } from '@mparticle/web-sdk';
 import {
     IdentityCallback,
@@ -33,17 +33,17 @@ const { Modify } = IdentityMethods;
 
 export interface IIdentityApiClient {
     sendAliasRequest: (
-        aliasRequest: IAliasRequest,
+        aliasRequest: IAliasNetworkRequest,
         aliasCallback: IAliasCallback
     ) => Promise<void>;
     sendIdentityRequest: (
-        identityApiRequest: IIdentityAPIRequestData,
+        identityApiRequest: IIdentityAPIRequestData | IIdentityAPIModifyRequestData,
         method: IdentityAPIMethod,
         callback: IdentityCallback,
         originalIdentityApiData: IdentityApiData,
         parseIdentityResponse: IIdentity['parseIdentityResponse'],
         mpid: MPID,
-        knownIdentities: UserIdentities
+        knownIdentities?: IKnownIdentities
     ) => Promise<void>;
     getUploadUrl: (method: IdentityAPIMethod, mpid: MPID) => string;
     getIdentityResponseFromFetch: (
@@ -86,7 +86,7 @@ export default function IdentityAPIClient(
     mpInstance: IMParticleWebSDKInstance
 ) {
     this.sendAliasRequest = async function(
-        aliasRequest: IAliasRequest,
+        aliasRequest: IAliasNetworkRequest,
         aliasCallback: IAliasCallback
     ) {
         const { Logger } = mpInstance;
@@ -186,13 +186,13 @@ export default function IdentityAPIClient(
     };
 
     this.sendIdentityRequest = async function(
-        identityApiRequest: IIdentityAPIRequestData,
+        identityApiRequest: IIdentityAPIRequestData | IIdentityAPIModifyRequestData,
         method: IdentityAPIMethod,
         callback: IdentityCallback,
         originalIdentityApiData: IdentityApiData,
         parseIdentityResponse: IIdentity['parseIdentityResponse'],
         mpid: MPID,
-        knownIdentities: UserIdentities
+        knownIdentities?: IKnownIdentities
     ) {
         if (mpInstance._RoktManager?.isInitialized) {
             mpInstance._Store.identifyRequestCount = (mpInstance._Store.identifyRequestCount || 0) + 1;

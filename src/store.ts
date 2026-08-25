@@ -1,4 +1,4 @@
-import { Batch, Context } from '@mparticle/event-models';
+import { Batch } from '@mparticle/event-models';
 import {
     DataPlanConfig,
     MPID,
@@ -160,6 +160,7 @@ export interface IFeatureFlags {
 export interface IStore {
     isEnabled: boolean;
     isInitialized: boolean;
+    mpid: MPID;
 
     // Session Attributes are persistent attributes that are tied to the current session and
     // are uploaded then cleared when the session ends.
@@ -186,7 +187,7 @@ export interface IStore {
     eventQueue: SDKEvent[];
     currencyCode: string | null;
     globalTimer: number | null;
-    context: Context | null;
+    context: string | null;
     configurationLoaded: boolean;
     identityCallInFlight: boolean;
     identityCallFailed: boolean;
@@ -204,7 +205,7 @@ export interface IStore {
     activeForwarders: ConfiguredKit[];
     kits: Dictionary<MPForwarder>;
     sideloadedKits: MPForwarder[];
-    configuredForwarders: MPForwarder[];
+    configuredForwarders: ConfiguredKit[];
     pixelConfigurations: IPixelConfiguration[];
     integrationDelayTimeoutStart: number; // UNIX Timestamp
     webviewBridgeEnabled?: boolean;

@@ -20,6 +20,7 @@ export interface IKitConfigs extends IKitFilterSettings {
     suffix?: string;
     moduleId: number;
     isDebug: boolean;
+    isSandbox?: boolean;
     isVisible: boolean;
     isDebugString: BooleanStringLowerCase;
     hasDebugString: BooleanStringLowerCase;

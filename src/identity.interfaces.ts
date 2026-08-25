@@ -13,11 +13,12 @@ import {
     IIdentityResponse,
 } from './identity-user-interfaces';
 import { IdentitySearchCallback } from './identity/search';
-const { platform, sdkVendor, sdkVersion, HTTPCodes } = Constants;
+const { HTTPCodes } = Constants;
 
 export type IdentityPreProcessResult = {
     valid: boolean;
     error?: string;
+    cleanedIdentities?: IdentityApiData;
 };
 
 export type IdentityAPIMethod = valueof<typeof Constants.IdentityMethods>;
@@ -49,14 +50,14 @@ export enum SDKIdentityTypeEnum {
 
 export interface IIdentityAPIRequestData {
     client_sdk: {
-        platform: typeof platform;
-        sdk_vendor: typeof sdkVendor;
-        sdk_version: typeof sdkVersion;
+        platform: string;
+        sdk_vendor: string;
+        sdk_version: string;
     };
     context: string | null;
     environment: Environment;
     request_id: string;
-    request_timestamp_unixtime_ms: number;
+    request_timestamp_ms: number;
     previous_mpid: MPID | null;
     known_identities: IKnownIdentities;
 }
@@ -99,14 +100,19 @@ export interface IIdentityRequest {
     ): IIdentityAPIModifyRequestData;
     createIdentityChanges(
         previousIdentities: UserIdentities,
-        newIdentitie: UserIdentities
-    ): IIdentityAPIIdentityChangeData;
+        newIdentities: UserIdentities
+    ): IIdentityAPIIdentityChangeData[];
     preProcessIdentityRequest(
         identityApiData: IdentityApiData,
         callback: IdentityCallback,
         method: IdentityAPIMethod
     ): IdentityPreProcessResult;
+    createAliasNetworkRequest(aliasRequest: IAliasRequest): IAliasNetworkRequest;
+    convertAliasToNative(aliasRequest: IAliasRequest): IAliasNativeRequest;
+    convertToNative(identityApiData: IdentityApiData): IIdentityNativeRequest | undefined;
 }
+
+export type UserAttributeChangeValue = string | string[] | null;
 
 export type AliasRequestScope = 'device' | 'mpid';
 
@@ -116,6 +122,36 @@ export interface IAliasRequest {
     startTime: number;
     endTime: number;
     scope?: AliasRequestScope;
+}
+
+export interface IAliasNetworkRequest {
+    request_id: string;
+    request_type: 'alias';
+    environment: Environment;
+    api_key: string;
+    data: {
+        destination_mpid: MPID;
+        source_mpid: MPID;
+        start_unixtime_ms: number;
+        end_unixtime_ms: number;
+        scope?: AliasRequestScope;
+        device_application_stamp: string;
+    };
+}
+
+export interface IAliasNativeRequest {
+    DestinationMpid: MPID;
+    SourceMpid: MPID;
+    StartUnixtimeMs: number;
+    EndUnixtimeMs: number;
+    Scope?: AliasRequestScope;
+}
+
+export interface IIdentityNativeRequest {
+    UserIdentities: Array<{
+        Type: number;
+        Identity: string;
+    }>;
 }
 
 export interface IAliasCallback {
@@ -150,7 +186,7 @@ export interface SDKIdentityApi {
     getUsers?(): IMParticleUser[];
     aliasUsers?(
         aliasRequest?: IAliasRequest,
-        callback?: IdentityCallback
+        callback?: IAliasCallback
     ): void;
     createAliasRequest?(
         sourceUser: IMParticleUser,
@@ -211,12 +247,12 @@ export interface IIdentity {
     IdentityAPI: SDKIdentityApi;
     IdentityRequest: IIdentityRequest;
 
-    mParticleUser(mpid: MPID, IsLoggedIn: boolean): IMParticleUser;
+    mParticleUser(mpid?: MPID, IsLoggedIn?: boolean): IMParticleUser;
 
     createUserAttributeChange(
         key: string,
-        newValue: string,
-        previousUserAttributeValue: string,
+        newValue: UserAttributeChangeValue,
+        previousUserAttributeValue: UserAttributeChangeValue,
         isNewAttribute: boolean,
         deleted: boolean,
         user: IMParticleUser
@@ -234,13 +270,13 @@ export interface IIdentity {
         callback: IdentityCallback,
         identityApiData: IdentityApiData,
         method: IdentityAPIMethod,
-        knownIdentities: UserIdentities,
+        knownIdentities: IKnownIdentities,
         parsingCachedResponse: boolean
     ): void;
     sendUserAttributeChangeEvent(
         attributeKey: string,
-        newUserAttributeValue: string,
-        previousUserAttributeValue: string,
+        newUserAttributeValue: UserAttributeChangeValue,
+        previousUserAttributeValue: UserAttributeChangeValue,
         isNewAttribute: boolean,
         deleted: boolean,
         user: IMParticleUser
@@ -250,6 +286,14 @@ export interface IIdentity {
         method: IdentityAPIMethod,
         mpid: MPID,
         prevUserIdentities: UserIdentities
+    ): void;
+    reinitForwardersOnUserChange(
+        prevUser: IMParticleUser,
+        newUser: IMParticleUser
+    ): void;
+    setForwarderCallbacks(
+        user: IMParticleUser,
+        method: IdentityAPIMethod
     ): void;
 
     /**
