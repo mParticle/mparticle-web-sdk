@@ -353,9 +353,7 @@ export default function Identity(
                     HTTPCodes.validationIssue,
                     preProcessResult.error
                 );
-                mpInstance.Logger.verbose(
-                    preProcessResult as unknown as string
-                );
+                mpInstance.Logger.verbose(preProcessResult.error);
             }
         },
         /**
@@ -423,11 +421,11 @@ export default function Identity(
                             mpInstance._Store.activeForwarders.forEach(function(
                                 forwarder
                             ) {
-                                const logOut = (forwarder as {
+                                const kit = forwarder as {
                                     logOut?: (event: SDKEvent) => void;
-                                }).logOut;
-                                if (logOut) {
-                                    logOut(evt);
+                                };
+                                if (kit.logOut) {
+                                    kit.logOut(evt);
                                 }
                             });
                         }
@@ -448,9 +446,7 @@ export default function Identity(
                     HTTPCodes.validationIssue,
                     preProcessResult.error
                 );
-                mpInstance.Logger.verbose(
-                    preProcessResult as unknown as string
-                );
+                mpInstance.Logger.verbose(preProcessResult.error);
             }
         },
         /**
@@ -546,9 +542,7 @@ export default function Identity(
                     HTTPCodes.validationIssue,
                     preProcessResult.error
                 );
-                mpInstance.Logger.verbose(
-                    preProcessResult as unknown as string
-                );
+                mpInstance.Logger.verbose(preProcessResult.error);
             }
         },
         /**
@@ -626,9 +620,7 @@ export default function Identity(
                     HTTPCodes.validationIssue,
                     preProcessResult.error
                 );
-                mpInstance.Logger.verbose(
-                    preProcessResult as unknown as string
-                );
+                mpInstance.Logger.verbose(preProcessResult.error);
             }
         },
         /**
