@@ -423,7 +423,6 @@ export default function Identity(
                             mpInstance._Store.activeForwarders.forEach(function(
                                 forwarder
                             ) {
-                                // Match JS: truthy logOut is invoked (non-functions throw).
                                 const logOut = (forwarder as {
                                     logOut?: (event: SDKEvent) => void;
                                 }).logOut;
