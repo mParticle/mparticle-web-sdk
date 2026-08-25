@@ -354,7 +354,7 @@ export default function Identity(
                     preProcessResult.error
                 );
                 mpInstance.Logger.verbose(
-                    preProcessResult.error ?? JSON.stringify(preProcessResult)
+                    preProcessResult as unknown as string
                 );
             }
         },
@@ -423,9 +423,12 @@ export default function Identity(
                             mpInstance._Store.activeForwarders.forEach(function(
                                 forwarder
                             ) {
-                                const fwd = forwarder as unknown as Record<string, Function>;
-                                if (typeof fwd.logOut === 'function') {
-                                    fwd.logOut(evt);
+                                // Match JS: truthy logOut is invoked (non-functions throw).
+                                const logOut = (forwarder as {
+                                    logOut?: (event: SDKEvent) => void;
+                                }).logOut;
+                                if (logOut) {
+                                    logOut(evt);
                                 }
                             });
                         }
@@ -447,7 +450,7 @@ export default function Identity(
                     preProcessResult.error
                 );
                 mpInstance.Logger.verbose(
-                    preProcessResult.error ?? JSON.stringify(preProcessResult)
+                    preProcessResult as unknown as string
                 );
             }
         },
@@ -545,7 +548,7 @@ export default function Identity(
                     preProcessResult.error
                 );
                 mpInstance.Logger.verbose(
-                    preProcessResult.error ?? JSON.stringify(preProcessResult)
+                    preProcessResult as unknown as string
                 );
             }
         },
@@ -625,7 +628,7 @@ export default function Identity(
                     preProcessResult.error
                 );
                 mpInstance.Logger.verbose(
-                    preProcessResult.error ?? JSON.stringify(preProcessResult)
+                    preProcessResult as unknown as string
                 );
             }
         },
