@@ -132,13 +132,11 @@ export default function Forwarders(
             return true;
         }
 
-        let attrHash, valueHash, userAttributes;
-
         if (!user) {
             return false;
-        } else {
-            userAttributes = user.getAllUserAttributes();
         }
+
+        const userAttributes = user.getAllUserAttributes();
 
         let isMatch = false;
 
@@ -150,10 +148,10 @@ export default function Forwarders(
             ) {
                 for (let attrName in userAttributes) {
                     if (userAttributes.hasOwnProperty(attrName)) {
-                        attrHash = KitFilterHelper.hashAttributeConditionalForwarding(
+                        const attrHash = KitFilterHelper.hashAttributeConditionalForwarding(
                             attrName
                         );
-                        valueHash = KitFilterHelper.hashAttributeConditionalForwarding(
+                        const valueHash = KitFilterHelper.hashAttributeConditionalForwarding(
                             userAttributes[attrName]
                         );
 
@@ -194,10 +192,10 @@ export default function Forwarders(
     this.applyToForwarders = function(functionName: string, functionArgs: unknown): void {
         if (mpInstance._Store.activeForwarders.length) {
             mpInstance._Store.activeForwarders.forEach(function(forwarder) {
-                let forwarderFunction = (forwarder as any)[functionName];
+                const forwarderFunction = (forwarder as any)[functionName];
                 if (forwarderFunction) {
                     try {
-                        let result = (forwarder as any)[functionName](functionArgs);
+                        const result = (forwarder as any)[functionName](functionArgs);
 
                         if (result) {
                             mpInstance.Logger.verbose(result);
@@ -348,7 +346,7 @@ export default function Forwarders(
             );
             if (forwarder.setUserIdentity) {
                 filteredUserIdentities.forEach(function(identity) {
-                    let result = forwarder.setUserIdentity(
+                    const result = forwarder.setUserIdentity(
                         identity.Identity,
                         identity.Type
                     );
