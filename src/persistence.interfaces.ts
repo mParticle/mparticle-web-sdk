@@ -43,7 +43,7 @@ export interface IGlobalStoreV2MinifiedKeys {
 export interface IPersistenceMinified extends Dictionary {
     cu: MPID; // Current User MPID
     gs: IGlobalStoreV2MinifiedKeys;
-    l: boolean; // IsLoggedIn
+    l: boolean | 0 | 1; // IsLoggedIn
 
     // Persistence Minified can also store optional dictionaries with
     // an idex of MPID
@@ -99,8 +99,8 @@ export interface IPersistence {
     useLocalStorage(): boolean;
     initializeStorage(): void;
     update(): void;
-    storeDataInMemory(obj: IPersistenceMinified, currentMPID: MPID): void;
-    determineLocalStorageAvailability(storage: Storage): boolean;
+    storeDataInMemory(obj: IPersistenceMinified, currentMPID?: MPID): void;
+    determineLocalStorageAvailability(storage?: Storage): boolean;
     setLocalStorage(): void;
     getLocalStorage(): IPersistenceMinified | null;
     expireCookies(cookieName: string): void;
@@ -113,13 +113,13 @@ export interface IPersistence {
         maxCookieSize: number
     ): string;
     findPrevCookiesBasedOnUI(identityApiData: IdentityApiData): void;
-    encodePersistence(persistence: IPersistenceMinified): string;
-    decodePersistence(persistenceString: string): string;
+    encodePersistence(persistence: string): string;
+    decodePersistence(persistenceString: string | null): string | void;
     getCookieDomain(): string;
-    getDomain(doc: string, locationHostname: string): string;
+    getDomain(doc: Document, locationHostname: string): string;
     saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDates): void;
-    savePersistence(persistance: IPersistenceMinified): void;
-    getPersistence(): IPersistenceMinified;
+    savePersistence(persistence: IPersistenceMinified): void;
+    getPersistence(): IPersistenceMinified | null;
     getFirstSeenTime(mpid: MPID): number | null;
     setFirstSeenTime(mpid: MPID, time?: number): void;
     getLastSeenTime(mpid: MPID): number | null;

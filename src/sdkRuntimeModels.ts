@@ -285,6 +285,7 @@ export interface IMParticleInstanceManager extends MParticleWebSDK {
     _BatchValidator: _BatchValidator;
     _instances: Dictionary<IMParticleWebSDKInstance>;
     _isTestEnv?: boolean;
+    _forceNoLocalStorage?: boolean;
 
     // Public Properties
     config: SDKInitConfig;
