@@ -1,3 +1,10 @@
+# [2.80.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.79.3...v2.80.0) (2026-08-25)
+
+
+### Features
+
+* **apv:** attach allowlisted query params to auto page views ([#1366](https://github.com/mParticle/mparticle-web-sdk/issues/1366)) ([95c8024](https://github.com/mParticle/mparticle-web-sdk/commit/95c80249f6f91927eddceb8af5492abcd155bac8))
+
 ## [2.79.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.79.2...v2.79.3) (2026-08-24)
 
 ## [2.79.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.79.1...v2.79.2) (2026-08-21)
