@@ -851,7 +851,7 @@ describe('persistence', () => {
                 .getInstance()
                 // TODO: Refactor or rename this to highlight that it is
                 //       a string function
-                ._Persistence.decodePersistence(cookiesWithoutExpiration)
+                ._Persistence.decodePersistence(cookiesWithoutExpiration) as string
         );
         expect(cookiesResult['mpid1']).to.not.be.ok;
         expect(cookiesResult['mpid2']).be.ok;
@@ -1102,7 +1102,7 @@ describe('persistence', () => {
         const cookiesResult = JSON.parse(
             mParticle
                 .getInstance()
-                ._Persistence.decodePersistence(cookiesWithoutExpiration)
+                ._Persistence.decodePersistence(cookiesWithoutExpiration) as string
         );
 
         expect(cookiesResult['mpid1']).to.not.be.ok;
