@@ -30,7 +30,7 @@ export interface IGlobalStoreV2MinifiedKeys {
 export interface IPersistenceMinified extends Dictionary {
     cu: MPID;
     gs: IGlobalStoreV2MinifiedKeys;
-    l: boolean;
+    l: boolean | 0 | 1;
 }
 export interface IUserPersistenceMinified extends Dictionary {
     csd: CookieSyncDates;
@@ -45,8 +45,8 @@ export interface IPersistence {
     useLocalStorage(): boolean;
     initializeStorage(): void;
     update(): void;
-    storeDataInMemory(obj: IPersistenceMinified, currentMPID: MPID): void;
-    determineLocalStorageAvailability(storage: Storage): boolean;
+    storeDataInMemory(obj: IPersistenceMinified, currentMPID?: MPID): void;
+    determineLocalStorageAvailability(storage?: Storage): boolean;
     setLocalStorage(): void;
     getLocalStorage(): IPersistenceMinified | null;
     expireCookies(cookieName: string): void;
@@ -54,17 +54,17 @@ export interface IPersistence {
     setCookie(): void;
     reduceAndEncodePersistence(persistence: IPersistenceMinified, expires: string, domain: string, maxCookieSize: number): string;
     findPrevCookiesBasedOnUI(identityApiData: IdentityApiData): void;
-    encodePersistence(persistence: IPersistenceMinified): string;
-    decodePersistence(persistenceString: string): string;
+    encodePersistence(persistence: string): string;
+    decodePersistence(persistenceString: string | null): string | void;
     getCookieDomain(): string;
-    getDomain(doc: string, locationHostname: string): string;
+    getDomain(doc: Document, locationHostname: string): string;
     saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDates): void;
     savePersistence(persistance: IPersistenceMinified): void;
-    getPersistence(): IPersistenceMinified;
-    getFirstSeenTime(mpid: MPID): string | null;
-    setFirstSeenTime(mpid: MPID, time: number): void;
+    getPersistence(): IPersistenceMinified | null;
+    getFirstSeenTime(mpid: MPID): number | null;
+    setFirstSeenTime(mpid: MPID, time?: number): void;
     getLastSeenTime(mpid: MPID): number | null;
-    setLastSeenTime(mpid: MPID, time: number): void;
+    setLastSeenTime(mpid: MPID, time?: number): void;
     getDeviceId(): string;
     setDeviceId(guid: string): void;
     resetPersistence(): void;

@@ -29,6 +29,7 @@ export interface SDKConfig {
     kits: Dictionary<UnregisteredKit>;
     logLevel?: LogLevelType;
     cookieDomain?: string;
+    cookieExpiration?: number;
     maxCookieSize?: number | undefined;
     minWebviewBridgeVersion: 1 | 2 | undefined;
     identifyRequest: IdentifyRequest;

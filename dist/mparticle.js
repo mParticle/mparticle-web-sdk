@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.79.3";
+    var version = "2.80.0";
 
     var Constants = {
       sdkVersion: version,
@@ -5605,90 +5605,101 @@ var mParticle = (function () {
       Base64CookieKeys = Constants.Base64CookieKeys,
       SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys,
       StorageNames = Constants.StorageNames;
+    function getMParticleManager() {
+      return window.mParticle;
+    }
     function _Persistence(mpInstance) {
       var self = this;
-
       // https://go.mparticle.com/work/SQDSDKS-5022
       this.useLocalStorage = function () {
         return !mpInstance._Store.SDKConfig.useCookieStorage && mpInstance._Store.isLocalStorageAvailable;
       };
+      function setFirstRunFromExistingData(localStorageData, cookies) {
+        if (!localStorageData && !cookies) {
+          mpInstance._Store.isFirstRun = true;
+          mpInstance._Store.mpid = 0;
+          return;
+        }
+        mpInstance._Store.isFirstRun = false;
+      }
+      function mergeStorageSources(localStorageData, cookies) {
+        if (localStorageData && cookies) {
+          // https://go.mparticle.com/work/SQDSDKS-6047
+          return extend(false, localStorageData, cookies);
+        }
+        return localStorageData || cookies;
+      }
+      // For migrating from localStorage to cookies -- If an instance switches from
+      // localStorage to cookies, then no mParticle cookie exists yet and there is
+      // localStorage. Get the localStorage, set them to cookies, then delete the
+      // localStorage item.
+      function migrateLocalStorageToCookies(storage, localStorageData, cookies) {
+        var allData;
+        if (localStorageData) {
+          allData = mergeStorageSources(localStorageData, cookies);
+          storage.removeItem(mpInstance._Store.storageName);
+        } else if (cookies) {
+          allData = cookies;
+        }
+        self.storeDataInMemory(allData);
+        return allData;
+      }
+      // For migrating from cookie to localStorage -- If an instance is newly
+      // switching from cookies to localStorage, then no mParticle localStorage
+      // exists yet and there are cookies. Get the cookies, set them to
+      // localStorage, then delete the cookies.
+      function migrateCookiesToLocalStorage(localStorageData, cookies) {
+        if (!cookies) {
+          self.storeDataInMemory(localStorageData);
+          return;
+        }
+        var allData = mergeStorageSources(localStorageData, cookies);
+        self.storeDataInMemory(allData);
+        self.expireCookies(mpInstance._Store.storageName);
+        return allData;
+      }
+      function loadPersistenceIntoMemory(localStorageData, cookies) {
+        if (!mpInstance._Store.isLocalStorageAvailable) {
+          self.storeDataInMemory(cookies);
+          return;
+        }
+        if (mpInstance._Store.SDKConfig.useCookieStorage) {
+          return migrateLocalStorageToCookies(window.localStorage, localStorageData, cookies);
+        }
+        return migrateCookiesToLocalStorage(localStorageData, cookies);
+      }
+      function copyNonCurrentUserMpids(allData) {
+        for (var key in allData) {
+          if (allData.hasOwnProperty(key) && !SDKv2NonMPIDCookieKeys[key]) {
+            mpInstance._Store.nonCurrentUserMPIDs[key] = allData[key];
+          }
+        }
+      }
+      function clearCorruptStorage() {
+        if (self.useLocalStorage() && mpInstance._Store.isLocalStorageAvailable) {
+          localStorage.removeItem(mpInstance._Store.storageName);
+          return;
+        }
+        self.expireCookies(mpInstance._Store.storageName);
+      }
       this.initializeStorage = function () {
         try {
-          var storage,
-            localStorageData = self.getLocalStorage(),
-            cookies = self.getCookie(),
-            allData;
-
+          var localStorageData = self.getLocalStorage();
+          var cookies = self.getCookie();
           // https://go.mparticle.com/work/SQDSDKS-6045
-          // Determine if there is any data in cookies or localStorage to figure out if it is the first time the browser is loading mParticle
-          if (!localStorageData && !cookies) {
-            mpInstance._Store.isFirstRun = true;
-            mpInstance._Store.mpid = 0;
-          } else {
-            mpInstance._Store.isFirstRun = false;
-          }
-
+          setFirstRunFromExistingData(localStorageData, cookies);
           // https://go.mparticle.com/work/SQDSDKS-6045
           if (!mpInstance._Store.isLocalStorageAvailable) {
             mpInstance._Store.SDKConfig.useCookieStorage = true;
           }
-
           // https://go.mparticle.com/work/SQDSDKS-6046
-          if (mpInstance._Store.isLocalStorageAvailable) {
-            storage = window.localStorage;
-            if (mpInstance._Store.SDKConfig.useCookieStorage) {
-              // For migrating from localStorage to cookies -- If an instance switches from localStorage to cookies, then
-              // no mParticle cookie exists yet and there is localStorage. Get the localStorage, set them to cookies, then delete the localStorage item.
-              if (localStorageData) {
-                if (cookies) {
-                  // https://go.mparticle.com/work/SQDSDKS-6047
-                  allData = extend(false, localStorageData, cookies);
-                } else {
-                  allData = localStorageData;
-                }
-                storage.removeItem(mpInstance._Store.storageName);
-              } else if (cookies) {
-                allData = cookies;
-              }
-              self.storeDataInMemory(allData);
-            } else {
-              // For migrating from cookie to localStorage -- If an instance is newly switching from cookies to localStorage, then
-              // no mParticle localStorage exists yet and there are cookies. Get the cookies, set them to localStorage, then delete the cookies.
-              if (cookies) {
-                if (localStorageData) {
-                  // https://go.mparticle.com/work/SQDSDKS-6047
-                  allData = extend(false, localStorageData, cookies);
-                } else {
-                  allData = cookies;
-                }
-                self.storeDataInMemory(allData);
-                self.expireCookies(mpInstance._Store.storageName);
-              } else {
-                self.storeDataInMemory(localStorageData);
-              }
-            }
-          } else {
-            self.storeDataInMemory(cookies);
-          }
-
-          // https://go.mparticle.com/work/SQDSDKS-6046
-          // Stores all non-current user MPID information into the store
-          for (var key in allData) {
-            if (allData.hasOwnProperty(key)) {
-              if (!SDKv2NonMPIDCookieKeys[key]) {
-                mpInstance._Store.nonCurrentUserMPIDs[key] = allData[key];
-              }
-            }
-          }
+          var allData = loadPersistenceIntoMemory(localStorageData, cookies);
+          copyNonCurrentUserMpids(allData);
           self.update();
         } catch (e) {
           // If cookies or local storage is corrupt, we want to remove it
           // so that in the future, initializeStorage will work
-          if (self.useLocalStorage() && mpInstance._Store.isLocalStorageAvailable) {
-            localStorage.removeItem(mpInstance._Store.storageName);
-          } else {
-            self.expireCookies(mpInstance._Store.storageName);
-          }
+          clearCorruptStorage();
           mpInstance.Logger.error('Error initializing storage: ' + e);
         }
       };
@@ -5700,86 +5711,83 @@ var mParticle = (function () {
           self.setLocalStorage();
         }
       };
-
+      function applyEmptyPersistenceDefaults() {
+        mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieNotFound);
+        mpInstance._Store.clientId = mpInstance._Store.clientId || mpInstance._Helpers.generateUniqueId();
+        mpInstance._Store.deviceId = mpInstance._Store.deviceId || mpInstance._Helpers.generateUniqueId();
+      }
+      function hydrateStoreFromPersistence(obj, currentMPID) {
+        // Set MPID first, then change object to match MPID data
+        if (currentMPID) {
+          mpInstance._Store.mpid = currentMPID;
+        } else {
+          mpInstance._Store.mpid = obj.cu || 0;
+        }
+        obj.gs = obj.gs || {};
+        mpInstance._Store.sessionId = obj.gs.sid || mpInstance._Store.sessionId;
+        mpInstance._Store.isEnabled = typeof obj.gs.ie !== 'undefined' ? obj.gs.ie : mpInstance._Store.isEnabled;
+        mpInstance._Store.sessionAttributes = obj.gs.sa || mpInstance._Store.sessionAttributes;
+        mpInstance._Store.localSessionAttributes = obj.gs.lsa || mpInstance._Store.localSessionAttributes;
+        mpInstance._Store.serverSettings = obj.gs.ss || mpInstance._Store.serverSettings;
+        mpInstance._Store.devToken = mpInstance._Store.devToken || obj.gs.dt;
+        mpInstance._Store.SDKConfig.appVersion = mpInstance._Store.SDKConfig.appVersion || obj.gs.av;
+        mpInstance._Store.clientId = obj.gs.cgid || mpInstance._Store.clientId || mpInstance._Helpers.generateUniqueId();
+        // For most persistence values, we prioritize localstorage/cookie values over
+        // Store. However, we allow device ID to be overriden via a config value and
+        // thus the priority of the deviceId value is
+        // 1. value passed via config.deviceId
+        // 2. previous value in persistence
+        // 3. generate new guid
+        mpInstance._Store.deviceId = mpInstance._Store.deviceId || obj.gs.das || mpInstance._Helpers.generateUniqueId();
+        mpInstance._Store.integrationAttributes = obj.gs.ia || {};
+        mpInstance._Store.context = obj.gs.c || mpInstance._Store.context;
+        mpInstance._Store.currentSessionMPIDs = obj.gs.csm || mpInstance._Store.currentSessionMPIDs;
+        mpInstance._Store.isLoggedIn = obj.l === true;
+        if (obj.gs.les) {
+          mpInstance._Store.dateLastEventSent = new Date(obj.gs.les);
+        }
+        mpInstance._Store.sessionStartDate = obj.gs.ssd ? new Date(obj.gs.ssd) : new Date();
+        if (currentMPID) {
+          obj = obj[currentMPID];
+        } else {
+          obj = obj[obj.cu];
+        }
+      }
       // https://go.mparticle.com/work/SQDSDKS-6045
       this.storeDataInMemory = function (obj, currentMPID) {
         try {
           if (!obj) {
-            mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieNotFound);
-            mpInstance._Store.clientId = mpInstance._Store.clientId || mpInstance._Helpers.generateUniqueId();
-            mpInstance._Store.deviceId = mpInstance._Store.deviceId || mpInstance._Helpers.generateUniqueId();
-          } else {
-            // Set MPID first, then change object to match MPID data
-            if (currentMPID) {
-              mpInstance._Store.mpid = currentMPID;
-            } else {
-              mpInstance._Store.mpid = obj.cu || 0;
-            }
-            obj.gs = obj.gs || {};
-            mpInstance._Store.sessionId = obj.gs.sid || mpInstance._Store.sessionId;
-            mpInstance._Store.isEnabled = typeof obj.gs.ie !== 'undefined' ? obj.gs.ie : mpInstance._Store.isEnabled;
-            mpInstance._Store.sessionAttributes = obj.gs.sa || mpInstance._Store.sessionAttributes;
-            mpInstance._Store.localSessionAttributes = obj.gs.lsa || mpInstance._Store.localSessionAttributes;
-            mpInstance._Store.serverSettings = obj.gs.ss || mpInstance._Store.serverSettings;
-            mpInstance._Store.devToken = mpInstance._Store.devToken || obj.gs.dt;
-            mpInstance._Store.SDKConfig.appVersion = mpInstance._Store.SDKConfig.appVersion || obj.gs.av;
-            mpInstance._Store.clientId = obj.gs.cgid || mpInstance._Store.clientId || mpInstance._Helpers.generateUniqueId();
-
-            // For most persistence values, we prioritize localstorage/cookie values over
-            // Store. However, we allow device ID to be overriden via a config value and
-            // thus the priority of the deviceId value is
-            // 1. value passed via config.deviceId
-            // 2. previous value in persistence
-            // 3. generate new guid
-            mpInstance._Store.deviceId = mpInstance._Store.deviceId || obj.gs.das || mpInstance._Helpers.generateUniqueId();
-            mpInstance._Store.integrationAttributes = obj.gs.ia || {};
-            mpInstance._Store.context = obj.gs.c || mpInstance._Store.context;
-            mpInstance._Store.currentSessionMPIDs = obj.gs.csm || mpInstance._Store.currentSessionMPIDs;
-            mpInstance._Store.isLoggedIn = obj.l === true;
-            if (obj.gs.les) {
-              mpInstance._Store.dateLastEventSent = new Date(obj.gs.les);
-            }
-            if (obj.gs.ssd) {
-              mpInstance._Store.sessionStartDate = new Date(obj.gs.ssd);
-            } else {
-              mpInstance._Store.sessionStartDate = new Date();
-            }
-            if (currentMPID) {
-              obj = obj[currentMPID];
-            } else {
-              obj = obj[obj.cu];
-            }
+            applyEmptyPersistenceDefaults();
+            return;
           }
+          hydrateStoreFromPersistence(obj, currentMPID);
         } catch (e) {
           mpInstance.Logger.error(Messages$4.ErrorMessages.CookieParseError);
         }
       };
-
       // https://go.mparticle.com/work/SQDSDKS-5022
       this.determineLocalStorageAvailability = function (storage) {
-        var result;
-        if (window.mParticle && window.mParticle._forceNoLocalStorage) {
-          storage = undefined;
+        var mParticleManager = getMParticleManager();
+        if (mParticleManager === null || mParticleManager === void 0 ? void 0 : mParticleManager._forceNoLocalStorage) {
+          return false;
         }
         try {
           storage.setItem('mparticle', 'test');
-          result = storage.getItem('mparticle') === 'test';
+          var result = storage.getItem('mparticle') === 'test';
           storage.removeItem('mparticle');
-          return result && storage;
+          return Boolean(result && storage);
         } catch (e) {
           return false;
         }
       };
-
       // https://go.mparticle.com/work/SQDSDKS-6021
       this.setLocalStorage = function () {
-        var _mpInstance$_CookieCo;
+        var _a;
         if (!mpInstance._Store.isLocalStorageAvailable) {
           return;
         }
-
         // Block mprtcl-v4 localStorage when noFunctional is true
-        if ((_mpInstance$_CookieCo = mpInstance._CookieConsentManager) !== null && _mpInstance$_CookieCo !== void 0 && _mpInstance$_CookieCo.getNoFunctional()) {
+        if ((_a = mpInstance._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) {
           return;
         }
         var key = mpInstance._Store.storageName,
@@ -5829,16 +5837,16 @@ var mParticle = (function () {
         if (!mpInstance._Store.isLocalStorageAvailable) {
           return null;
         }
-        var key = mpInstance._Store.storageName,
-          localStorageData = self.decodePersistence(window.localStorage.getItem(key)),
-          obj = {},
-          j;
-        if (localStorageData) {
-          localStorageData = JSON.parse(localStorageData);
-          for (j in localStorageData) {
-            if (localStorageData.hasOwnProperty(j)) {
-              obj[j] = localStorageData[j];
-            }
+        var key = mpInstance._Store.storageName;
+        var decodedPersistence = self.decodePersistence(window.localStorage.getItem(key));
+        if (!decodedPersistence) {
+          return null;
+        }
+        var parsedPersistence = JSON.parse(decodedPersistence);
+        var obj = {};
+        for (var key_1 in parsedPersistence) {
+          if (parsedPersistence.hasOwnProperty(key_1)) {
+            obj[key_1] = parsedPersistence[key_1];
           }
         }
         if (Object.keys(obj).length) {
@@ -5846,9 +5854,6 @@ var mParticle = (function () {
         }
         return null;
       };
-      function removeLocalStorage(localStorageName) {
-        localStorage.removeItem(localStorageName);
-      }
       this.expireCookies = function (cookieName) {
         var date = new Date(),
           expires,
@@ -5903,13 +5908,12 @@ var mParticle = (function () {
           return null;
         }
       };
-
       // https://go.mparticle.com/work/SQDSDKS-5022
       // https://go.mparticle.com/work/SQDSDKS-6021
       this.setCookie = function () {
-        var _mpInstance$_CookieCo2;
+        var _a;
         // Block mprtcl-v4 cookies when noFunctional is true
-        if ((_mpInstance$_CookieCo2 = mpInstance._CookieConsentManager) !== null && _mpInstance$_CookieCo2 !== void 0 && _mpInstance$_CookieCo2.getNoFunctional()) {
+        if ((_a = mpInstance._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) {
           return;
         }
         var mpid,
@@ -5920,7 +5924,7 @@ var mParticle = (function () {
         var date = new Date(),
           key = mpInstance._Store.storageName,
           cookies = self.getCookie() || {},
-          expires = new Date(date.getTime() + mpInstance._Store.SDKConfig.cookieExpiration * 24 * 60 * 60 * 1000).toGMTString(),
+          expires = new Date(date.getTime() + mpInstance._Store.SDKConfig.cookieExpiration * 24 * 60 * 60 * 1000).toUTCString(),
           cookieDomain,
           domain,
           encodedCookiesWithExpirationAndPath;
@@ -5947,7 +5951,6 @@ var mParticle = (function () {
         mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieSet);
         window.document.cookie = encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
       };
-
       /*  This function determines if a cookie is greater than the configured maxCookieSize.
           - If it is, we remove an MPID and its associated UI/UA/CSD from the cookie.
           - Once removed, check size, and repeat.
@@ -5959,171 +5962,258 @@ var mParticle = (function () {
           b. Then remove MPIDs based on order in currentSessionMPIDs array, which
           stores MPIDs based on earliest login.
       */
-      this.reduceAndEncodePersistence = function (persistence, expires, domain, maxCookieSize) {
-        var encodedCookiesWithExpirationAndPath,
-          currentSessionMPIDs = persistence.gs.csm ? persistence.gs.csm : [];
-        // Comment 1 above
-        if (!currentSessionMPIDs.length) {
-          for (var key in persistence) {
-            if (persistence.hasOwnProperty(key)) {
-              encodedCookiesWithExpirationAndPath = createFullEncodedCookie(persistence, expires, domain);
-              if (encodedCookiesWithExpirationAndPath.length > maxCookieSize) {
-                if (!SDKv2NonMPIDCookieKeys[key] && key !== persistence.cu) {
-                  delete persistence[key];
-                }
-              }
-            }
+      function isEncodedCookieTooLarge(encoded, maxCookieSize) {
+        return encoded.length > maxCookieSize;
+      }
+      function removeUnsessionedMpidsWhenOversized(persistence, expires, domain, maxCookieSize) {
+        var encodedCookiesWithExpirationAndPath;
+        for (var key in persistence) {
+          if (!persistence.hasOwnProperty(key)) {
+            continue;
           }
-        } else {
-          // Comment 2 above - First create an object of all MPIDs on the cookie
-          var MPIDsOnCookie = {};
-          for (var potentialMPID in persistence) {
-            if (persistence.hasOwnProperty(potentialMPID)) {
-              if (!SDKv2NonMPIDCookieKeys[potentialMPID] && potentialMPID !== persistence.cu) {
-                MPIDsOnCookie[potentialMPID] = 1;
-              }
-            }
+          encodedCookiesWithExpirationAndPath = createFullEncodedCookie(persistence, expires, domain);
+          if (!isEncodedCookieTooLarge(encodedCookiesWithExpirationAndPath, maxCookieSize)) {
+            continue;
           }
-          // Comment 2a above
-          if (Object.keys(MPIDsOnCookie).length) {
-            for (var mpid in MPIDsOnCookie) {
-              encodedCookiesWithExpirationAndPath = createFullEncodedCookie(persistence, expires, domain);
-              if (encodedCookiesWithExpirationAndPath.length > maxCookieSize) {
-                if (MPIDsOnCookie.hasOwnProperty(mpid)) {
-                  if (currentSessionMPIDs.indexOf(mpid) === -1) {
-                    delete persistence[mpid];
-                  }
-                }
-              }
-            }
+          if (SDKv2NonMPIDCookieKeys[key] || key === persistence.cu) {
+            continue;
           }
-          // Comment 2b above
-          for (var i = 0; i < currentSessionMPIDs.length; i++) {
-            encodedCookiesWithExpirationAndPath = createFullEncodedCookie(persistence, expires, domain);
-            if (encodedCookiesWithExpirationAndPath.length > maxCookieSize) {
-              var MPIDtoRemove = currentSessionMPIDs[i];
-              if (persistence[MPIDtoRemove]) {
-                mpInstance.Logger.verbose('Size of new encoded cookie is larger than maxCookieSize setting of ' + maxCookieSize + '. Removing from cookie the earliest logged in MPID containing: ' + JSON.stringify(persistence[MPIDtoRemove], 0, 2));
-                delete persistence[MPIDtoRemove];
-              } else {
-                mpInstance.Logger.error('Unable to save MPID data to cookies because the resulting encoded cookie is larger than the maxCookieSize setting of ' + maxCookieSize + '. We recommend using a maxCookieSize of 1500.');
-              }
-            } else {
-              break;
-            }
+          delete persistence[key];
+        }
+        return encodedCookiesWithExpirationAndPath;
+      }
+      function collectRemovableMpids(persistence) {
+        var MPIDsOnCookie = {};
+        for (var potentialMPID in persistence) {
+          if (!persistence.hasOwnProperty(potentialMPID)) {
+            continue;
+          }
+          if (SDKv2NonMPIDCookieKeys[potentialMPID] || potentialMPID === persistence.cu) {
+            continue;
+          }
+          MPIDsOnCookie[potentialMPID] = 1;
+        }
+        return MPIDsOnCookie;
+      }
+      function removeMpidsNotInCurrentSession(persistence, MPIDsOnCookie, currentSessionMPIDs, expires, domain, maxCookieSize) {
+        var encodedCookiesWithExpirationAndPath;
+        for (var mpid in MPIDsOnCookie) {
+          encodedCookiesWithExpirationAndPath = createFullEncodedCookie(persistence, expires, domain);
+          if (!isEncodedCookieTooLarge(encodedCookiesWithExpirationAndPath, maxCookieSize)) {
+            continue;
+          }
+          if (!MPIDsOnCookie.hasOwnProperty(mpid)) {
+            continue;
+          }
+          if (currentSessionMPIDs.indexOf(mpid) === -1) {
+            delete persistence[mpid];
           }
         }
         return encodedCookiesWithExpirationAndPath;
+      }
+      function logAndRemoveOversizedMpid(persistence, MPIDtoRemove, maxCookieSize) {
+        if (persistence[MPIDtoRemove]) {
+          mpInstance.Logger.verbose('Size of new encoded cookie is larger than maxCookieSize setting of ' + maxCookieSize + '. Removing from cookie the earliest logged in MPID containing: ' + JSON.stringify(persistence[MPIDtoRemove], null, 2));
+          delete persistence[MPIDtoRemove];
+          return;
+        }
+        mpInstance.Logger.error('Unable to save MPID data to cookies because the resulting encoded cookie is larger than the maxCookieSize setting of ' + maxCookieSize + '. We recommend using a maxCookieSize of 1500.');
+      }
+      function removeCurrentSessionMpidsByAge(persistence, currentSessionMPIDs, expires, domain, maxCookieSize) {
+        var encodedCookiesWithExpirationAndPath;
+        for (var i = 0; i < currentSessionMPIDs.length; i++) {
+          encodedCookiesWithExpirationAndPath = createFullEncodedCookie(persistence, expires, domain);
+          if (!isEncodedCookieTooLarge(encodedCookiesWithExpirationAndPath, maxCookieSize)) {
+            break;
+          }
+          logAndRemoveOversizedMpid(persistence, currentSessionMPIDs[i], maxCookieSize);
+        }
+        return encodedCookiesWithExpirationAndPath;
+      }
+      this.reduceAndEncodePersistence = function (persistence, expires, domain, maxCookieSize) {
+        var currentSessionMPIDs = persistence.gs.csm ? persistence.gs.csm : [];
+        if (!currentSessionMPIDs.length) {
+          return removeUnsessionedMpidsWhenOversized(persistence, expires, domain, maxCookieSize);
+        }
+        var MPIDsOnCookie = collectRemovableMpids(persistence);
+        if (Object.keys(MPIDsOnCookie).length) {
+          removeMpidsNotInCurrentSession(persistence, MPIDsOnCookie, currentSessionMPIDs, expires, domain, maxCookieSize);
+        }
+        return removeCurrentSessionMpidsByAge(persistence, currentSessionMPIDs, expires, domain, maxCookieSize);
       };
       function createFullEncodedCookie(persistence, expires, domain) {
         return self.encodePersistence(JSON.stringify(persistence)) + ';expires=' + expires + ';path=/' + domain;
       }
-      this.findPrevCookiesBasedOnUI = function (identityApiData) {
-        var persistence = mpInstance._Persistence.getPersistence();
-        var matchedUser;
-        if (identityApiData) {
-          for (var requestedIdentityType in identityApiData.userIdentities) {
-            if (persistence && Object.keys(persistence).length) {
-              for (var key in persistence) {
-                // any value in persistence that has an MPID key will be an MPID to search through
-                // other keys on the cookie are currentSessionMPIDs and currentMPID which should not be searched
-                if (persistence[key].mpid) {
-                  var cookieUIs = persistence[key].ui;
-                  for (var cookieUIType in cookieUIs) {
-                    if (requestedIdentityType === cookieUIType && identityApiData.userIdentities[requestedIdentityType] === cookieUIs[cookieUIType]) {
-                      matchedUser = key;
-                      break;
-                    }
-                  }
-                }
-              }
-            }
+      function cookieUiMatchesRequestedIdentity(cookieUIs, requestedIdentityType, requestedValue) {
+        for (var cookieUIType in cookieUIs) {
+          if (requestedIdentityType === cookieUIType && requestedValue === cookieUIs[cookieUIType]) {
+            return true;
           }
         }
+        return false;
+      }
+      function findMpidForRequestedIdentity(persistence, requestedIdentityType, requestedValue) {
+        var matchedUser;
+        for (var key in persistence) {
+          // any value in persistence that has an MPID key will be an MPID to search through
+          // other keys on the cookie are currentSessionMPIDs and currentMPID which should not be searched
+          if (!persistence[key].mpid) {
+            continue;
+          }
+          if (cookieUiMatchesRequestedIdentity(persistence[key].ui, requestedIdentityType, requestedValue)) {
+            matchedUser = key;
+          }
+        }
+        return matchedUser;
+      }
+      function findMpidMatchingIdentities(persistence, identityApiData) {
+        var matchedUser;
+        for (var requestedIdentityType in identityApiData.userIdentities) {
+          if (!persistence || !Object.keys(persistence).length) {
+            continue;
+          }
+          var match = findMpidForRequestedIdentity(persistence, requestedIdentityType, identityApiData.userIdentities[requestedIdentityType]);
+          if (match) {
+            matchedUser = match;
+          }
+        }
+        return matchedUser;
+      }
+      this.findPrevCookiesBasedOnUI = function (identityApiData) {
+        var persistence = mpInstance._Persistence.getPersistence();
+        if (!identityApiData) {
+          return;
+        }
+        var matchedUser = findMpidMatchingIdentities(persistence, identityApiData);
         if (matchedUser) {
           self.storeDataInMemory(persistence, matchedUser);
         }
       };
-      this.encodePersistence = function (persistence) {
-        persistence = JSON.parse(persistence);
-        for (var key in persistence.gs) {
-          if (persistence.gs.hasOwnProperty(key)) {
-            if (Base64CookieKeys[key]) {
-              if (persistence.gs[key]) {
-                // base64 encode any value that is an object or Array in globalSettings
-                if (Array.isArray(persistence.gs[key]) && persistence.gs[key].length || mpInstance._Helpers.isObject(persistence.gs[key]) && Object.keys(persistence.gs[key]).length) {
-                  persistence.gs[key] = Base64.encode(JSON.stringify(persistence.gs[key]));
-                } else {
-                  delete persistence.gs[key];
-                }
-              } else {
-                delete persistence.gs[key];
-              }
-            } else if (key === 'ie') {
-              persistence.gs[key] = persistence.gs[key] ? 1 : 0;
-            } else if (!persistence.gs[key]) {
-              delete persistence.gs[key];
-            }
+      function isNonEmptyArrayOrObject(value) {
+        if (Array.isArray(value)) {
+          return value.length > 0;
+        }
+        if (!mpInstance._Helpers.isObject(value)) {
+          return false;
+        }
+        return Object.keys(value).length > 0;
+      }
+      function encodeGsBase64Field(gs, key) {
+        if (!gs[key] || !isNonEmptyArrayOrObject(gs[key])) {
+          delete gs[key];
+          return;
+        }
+        gs[key] = Base64.encode(JSON.stringify(gs[key]));
+      }
+      function encodeGlobalSettings(gs) {
+        for (var key in gs) {
+          if (!gs.hasOwnProperty(key)) {
+            continue;
+          }
+          if (Base64CookieKeys[key]) {
+            encodeGsBase64Field(gs, key);
+            continue;
+          }
+          if (key === 'ie') {
+            gs[key] = gs[key] ? 1 : 0;
+            continue;
+          }
+          if (!gs[key]) {
+            delete gs[key];
           }
         }
+      }
+      function encodeMpidBase64Field(container, key) {
+        var value = container[key];
+        if (mpInstance._Helpers.isObject(value) && Object.keys(value).length) {
+          container[key] = Base64.encode(JSON.stringify(value));
+          return;
+        }
+        delete container[key];
+      }
+      function encodeMpidRecord(record) {
+        for (var key in record) {
+          if (!record.hasOwnProperty(key)) {
+            continue;
+          }
+          if (Base64CookieKeys[key]) {
+            encodeMpidBase64Field(record, key);
+          }
+        }
+      }
+      function encodeMpidRecords(persistence) {
         for (var mpid in persistence) {
-          if (persistence.hasOwnProperty(mpid)) {
-            if (!SDKv2NonMPIDCookieKeys[mpid]) {
-              for (key in persistence[mpid]) {
-                if (persistence[mpid].hasOwnProperty(key)) {
-                  if (Base64CookieKeys[key]) {
-                    if (mpInstance._Helpers.isObject(persistence[mpid][key]) && Object.keys(persistence[mpid][key]).length) {
-                      persistence[mpid][key] = Base64.encode(JSON.stringify(persistence[mpid][key]));
-                    } else {
-                      delete persistence[mpid][key];
-                    }
-                  }
-                }
-              }
-            }
+          if (!persistence.hasOwnProperty(mpid)) {
+            continue;
           }
+          if (SDKv2NonMPIDCookieKeys[mpid]) {
+            continue;
+          }
+          encodeMpidRecord(persistence[mpid]);
         }
+      }
+      this.encodePersistence = function (persistenceString) {
+        var persistence = JSON.parse(persistenceString);
+        encodeGlobalSettings(persistence.gs);
+        encodeMpidRecords(persistence);
         return createCookieString(JSON.stringify(persistence));
       };
-
+      function decodeGlobalSettings(gs) {
+        for (var key in gs) {
+          if (!gs.hasOwnProperty(key)) {
+            continue;
+          }
+          if (Base64CookieKeys[key]) {
+            gs[key] = JSON.parse(Base64.decode(gs[key]));
+            continue;
+          }
+          if (key === 'ie') {
+            gs[key] = Boolean(gs[key]);
+          }
+        }
+      }
+      function decodeMpidRecord(record) {
+        for (var key in record) {
+          if (!record.hasOwnProperty(key)) {
+            continue;
+          }
+          if (!Base64CookieKeys[key]) {
+            continue;
+          }
+          if (record[key].length) {
+            record[key] = JSON.parse(Base64.decode(record[key]));
+          }
+        }
+      }
+      function decodeMpidRecords(persistence) {
+        for (var mpid in persistence) {
+          if (!persistence.hasOwnProperty(mpid)) {
+            continue;
+          }
+          if (!SDKv2NonMPIDCookieKeys[mpid]) {
+            decodeMpidRecord(persistence[mpid]);
+            continue;
+          }
+          if (mpid === 'l') {
+            persistence[mpid] = Boolean(persistence[mpid]);
+          }
+        }
+      }
       // TODO: This should actually be decodePersistenceString or
       //       we should refactor this to take a string and return an object
-      this.decodePersistence = function (persistence) {
+      this.decodePersistence = function (persistenceString) {
         try {
-          if (persistence) {
-            persistence = JSON.parse(revertCookieString(persistence));
-            if (mpInstance._Helpers.isObject(persistence) && Object.keys(persistence).length) {
-              for (var key in persistence.gs) {
-                if (persistence.gs.hasOwnProperty(key)) {
-                  if (Base64CookieKeys[key]) {
-                    persistence.gs[key] = JSON.parse(Base64.decode(persistence.gs[key]));
-                  } else if (key === 'ie') {
-                    persistence.gs[key] = Boolean(persistence.gs[key]);
-                  }
-                }
-              }
-              for (var mpid in persistence) {
-                if (persistence.hasOwnProperty(mpid)) {
-                  if (!SDKv2NonMPIDCookieKeys[mpid]) {
-                    for (key in persistence[mpid]) {
-                      if (persistence[mpid].hasOwnProperty(key)) {
-                        if (Base64CookieKeys[key]) {
-                          if (persistence[mpid][key].length) {
-                            persistence[mpid][key] = JSON.parse(Base64.decode(persistence[mpid][key]));
-                          }
-                        }
-                      }
-                    }
-                  } else if (mpid === 'l') {
-                    persistence[mpid] = Boolean(persistence[mpid]);
-                  }
-                }
-              }
-            }
-            return JSON.stringify(persistence);
+          if (!persistenceString) {
+            return;
           }
+          var persistence = JSON.parse(revertCookieString(persistenceString));
+          if (mpInstance._Helpers.isObject(persistence) && Object.keys(persistence).length) {
+            decodeGlobalSettings(persistence.gs);
+            decodeMpidRecords(persistence);
+          }
+          return JSON.stringify(persistence);
         } catch (e) {
-          mpInstance.Logger.error('Problem with decoding cookie', e);
+          mpInstance.Logger.error('Problem with decoding cookie');
         }
       };
       this.getCookieDomain = function () {
@@ -6138,7 +6228,6 @@ var mParticle = (function () {
           }
         }
       };
-
       // This function loops through the parts of a full hostname, attempting to set a cookie on that domain. It will set a cookie at the highest level possible.
       // For example subdomain.domain.co.uk would try the following combinations:
       // "co.uk" -> fail
@@ -6184,18 +6273,17 @@ var mParticle = (function () {
           }
         }
       };
-
       // https://go.mparticle.com/work/SQDSDKS-6021
       this.savePersistence = function (persistence) {
-        var _mpInstance$_CookieCo3;
+        var _a;
         // Block mprtcl-v4 persistence when noFunctional is true
-        if ((_mpInstance$_CookieCo3 = mpInstance._CookieConsentManager) !== null && _mpInstance$_CookieCo3 !== void 0 && _mpInstance$_CookieCo3.getNoFunctional()) {
+        if ((_a = mpInstance._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) {
           return;
         }
         var encodedPersistence = self.encodePersistence(JSON.stringify(persistence)),
           date = new Date(),
           key = mpInstance._Store.storageName,
-          expires = new Date(date.getTime() + mpInstance._Store.SDKConfig.cookieExpiration * 24 * 60 * 60 * 1000).toGMTString(),
+          expires = new Date(date.getTime() + mpInstance._Store.SDKConfig.cookieExpiration * 24 * 60 * 60 * 1000).toUTCString(),
           cookieDomain = self.getCookieDomain(),
           domain;
         if (cookieDomain === '') {
@@ -6231,7 +6319,6 @@ var mParticle = (function () {
           return null;
         }
       };
-
       /**
        * set the "first seen" time for a user. the time will only be set once for a given
        * mpid after which subsequent calls will be ignored
@@ -6255,7 +6342,6 @@ var mParticle = (function () {
           }
         }
       };
-
       /**
        * returns the "last seen" time for a user. If the mpid represents the current user, the
        * return value will always be the current time, otherwise it will be to stored "last seen"
@@ -6304,13 +6390,13 @@ var mParticle = (function () {
         self.expireCookies(StorageNames.cookieNameV3);
         self.expireCookies(StorageNames.cookieNameV4);
         self.expireCookies(mpInstance._Store.storageName);
-        if (mParticle._isTestEnv) {
+        var mParticleManager = getMParticleManager();
+        if (mParticleManager === null || mParticleManager === void 0 ? void 0 : mParticleManager._isTestEnv) {
           var testWorkspaceToken = 'abcdef';
-          removeLocalStorage(mpInstance._Helpers.createMainStorageName(testWorkspaceToken));
+          localStorage.removeItem(mpInstance._Helpers.createMainStorageName(testWorkspaceToken));
           self.expireCookies(mpInstance._Helpers.createMainStorageName(testWorkspaceToken));
         }
       };
-
       // https://go.mparticle.com/work/SQDSDKS-6045
       // Forwarder Batching Code
       this.forwardingStatsBatches = {
@@ -6318,6 +6404,425 @@ var mParticle = (function () {
         forwardingStatsEventQueue: []
       };
     }
+
+    var HISTORY_METHODS = ['pushState', 'replaceState'];
+    var WRAPPED_MARKER = '__mpApvWrapped__';
+    // All APV state hangs off one window key, and it is the public debugging
+    // contract: `window.__mpApv__` is what you inspect in a console to see whether
+    // tracking is live.
+    //
+    // It lives on `window` rather than in module scope because Next.js re-executes
+    // the SDK bundle on every SPA navigation: module-level state is reset each time,
+    // but `window` persists for the lifetime of the tab.
+    //
+    // One object rather than a key per flag, so resetting is a single reassignment.
+    // Nothing has to be deleted, and there is no ordering in which half the state
+    // survives the reset.
+    var WIN_APV_KEY = '__mpApv__';
+    // The query params an auto page view may carry. An allowlist, not a denylist:
+    // partner URLs routinely hold order ids, email addresses and session tokens, and
+    // none of those should reach the event stream because someone forgot to exclude
+    // them. Anything absent from this list is dropped.
+    //
+    // SECURITY: `code`, `state` and `nonce` are the OAuth 2.0 / OIDC authorization
+    // code and the CSRF/replay tokens. They are credentials until redeemed, and
+    // attaching them here persists them in the event store and forwards them to
+    // every configured kit. They are on the list by explicit product decision —
+    // deleting that line is the whole of the fix if that decision is revisited.
+    var ALLOWED_QUERY_PARAMS = [
+    // Campaign attribution
+    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id',
+    // Ad-network click ids
+    'gclid', 'gbraid', 'wbraid', 'fbclid', 'msclkid', 'ttclid', 'twclid', 'li_fat_id', 'dclid',
+    // OAuth / OIDC — see the SECURITY note above
+    'client_id', 'redirect_uri', 'response_type', 'scope', 'state', 'code', 'nonce',
+    // Pagination and search
+    'page', 'limit', 'offset', 'cursor', 'per_page', 'q', 'search',
+    // Referral
+    'ref', 'referrer'];
+    // ---------------------------------------------------------------------------
+    // Pure helpers. No `this`, no globals, no side effects — callable and assertable
+    // on their own, which is where the interesting rules live.
+    // ---------------------------------------------------------------------------
+    // Pulls the allowlisted query params off a URL. Delegates to the SDK's own
+    // parser, which lowercases keys (so `?UTM_Source=` and `?utm_source=` land on one
+    // attribute), drops empty values, and carries the fallback for browsers without
+    // URLSearchParams. Tolerates an empty href, so SSR yields no params rather than
+    // throwing.
+    var allowedQueryParams = function allowedQueryParams(href) {
+      return queryStringParser(href, ALLOWED_QUERY_PARAMS);
+    };
+    // The captured params, in allowlist order. Ordering comes from the constant
+    // rather than a sort: it is deterministic without needing a comparator, and it
+    // does not depend on the object's insertion order, so reordering the query string
+    // cannot produce a different key.
+    var capturedNames = function capturedNames(params) {
+      return ALLOWED_QUERY_PARAMS.filter(function (name) {
+        return name in params;
+      });
+    };
+    // The dedup key: pathname plus the allowlisted params in a fixed order, so that
+    // reordering the query string is not a new page. Params outside the allowlist
+    // never make it into `page.params` and so cannot key a view — nor can the hash.
+    //
+    // Values are re-encoded because queryStringParser hands them back DECODED. A
+    // value holding the pair delimiters would otherwise serialize exactly like two
+    // separate params — `{q: 'a&search=b'}` and `{q: 'a', search: 'b'}` both becoming
+    // `q=a&search=b` — and dedup would treat a real navigation between them as the
+    // same page and drop the view. `q`, `search` and `redirect_uri` carry `&` and `=`
+    // routinely, so this is reachable rather than theoretical.
+    var pageKey = function pageKey(page) {
+      var query = capturedNames(page.params).map(function (name) {
+        return "".concat(name, "=").concat(encodeURIComponent(page.params[name]));
+      }).join('&');
+      return query ? "".concat(page.path, "?").concat(query) : page.path;
+    };
+    // Dedup keys on the pageKey above: a change to any captured param is a new page
+    // (`?page=2` is a distinct pagination view), while a hash-only change, or a
+    // change confined to params we do not capture, is the same page.
+    var isNewPage = function isNewPage(lastKey, candidateKey) {
+      return candidateKey !== lastKey;
+    };
+    var supportsHistoryTracking = function supportsHistoryTracking(win) {
+      return !!win && win.history !== undefined && typeof win.history.pushState === 'function' && typeof win.addEventListener === 'function';
+    };
+    // Mirrors the event shape of the public mParticle.logPageView(), but carries the
+    // path and query params captured when the navigation was accepted rather than the
+    // live location.
+    var buildPageViewEvent = function buildPageViewEvent(_a) {
+      var params = _a.params,
+        hostname = _a.hostname,
+        title = _a.title,
+        path = _a.path;
+      return {
+        messageType: MessageType$1.PageView,
+        name: 'PageView',
+        // Params spread first, then the core fields by name, so a core field always
+        // wins. No allowlist entry collides with hostname/title/path today; naming
+        // them here is what keeps a later addition from silently overwriting one.
+        data: __assign(__assign({}, params), {
+          hostname: hostname,
+          title: title,
+          path: path
+        }),
+        eventType: EventType.Unknown
+      };
+    };
+    // ---------------------------------------------------------------------------
+    // Window-scoped APV state. Every read and write goes through these helpers, so
+    // neither the tracker nor mp-instance touches `window` directly and
+    // `typeof window` is checked in exactly one place.
+    // ---------------------------------------------------------------------------
+    var apvWindow = function apvWindow() {
+      return typeof window === 'undefined' ? null : window;
+    };
+    var freshState = function freshState() {
+      return {
+        initialPageViewFired: false
+      };
+    };
+    // Reads tolerate absent state, so a read never mutates `window`. Only the
+    // writers below create it.
+    var readState = function readState() {
+      var win = apvWindow();
+      return win ? win[WIN_APV_KEY] : undefined;
+    };
+    var writeState = function writeState() {
+      var win = apvWindow();
+      if (!win) {
+        return null;
+      }
+      if (!win[WIN_APV_KEY]) {
+        win[WIN_APV_KEY] = freshState();
+      }
+      return win[WIN_APV_KEY];
+    };
+    var getActiveTracker = function getActiveTracker() {
+      var state = readState();
+      return state ? state.tracker : undefined;
+    };
+    var hasInitialPageViewFired = function hasInitialPageViewFired() {
+      var state = readState();
+      return !!(state && state.initialPageViewFired);
+    };
+    var markInitialPageViewFired = function markInitialPageViewFired() {
+      var state = writeState();
+      if (state) {
+        state.initialPageViewFired = true;
+      }
+    };
+    // Returns the page to its pre-APV state: stops the active tracker (restoring the
+    // history methods it patched), then swaps in fresh state. The state object is the
+    // authoritative handle, so this reaches trackers whose owning module is gone.
+    var resetPageViewTracking = function resetPageViewTracking() {
+      var win = apvWindow();
+      if (!win) {
+        return;
+      }
+      var active = getActiveTracker();
+      if (active) {
+        active.teardown();
+      }
+      // One reassignment replaces every flag at once, so nothing can be left behind
+      // whatever shape the previous state was in.
+      win[WIN_APV_KEY] = freshState();
+    };
+    var setActiveTracker = function setActiveTracker(tracker) {
+      var state = writeState();
+      if (state) {
+        state.tracker = tracker;
+      }
+    };
+    var clearActiveTracker = function clearActiveTracker(tracker) {
+      var state = readState();
+      if (state && state.tracker === tracker) {
+        state.tracker = undefined;
+      }
+    };
+    var currentPage = function currentPage() {
+      return {
+        path: window.location.pathname,
+        params: allowedQueryParams(getHref())
+      };
+    };
+    // Log-safe description of a page: the path, plus the NAMES of the captured
+    // params. Values are deliberately omitted — verbose logging goes to the console,
+    // and session-replay tooling ships console output off-domain, which is not a
+    // place for an OAuth code or a consumer's search terms.
+    // Only reachable before init() assigns lastPage, which is ahead of any navigation
+    // handler being able to run, so this returns nothing rather than a sentinel.
+    var describePage = function describePage(page) {
+      if (!page) {
+        return '';
+      }
+      var names = capturedNames(page.params);
+      return names.length ? "".concat(page.path, " (params: ").concat(names.join(), ")") : page.path;
+    };
+    // ---------------------------------------------------------------------------
+    // History patching
+    // ---------------------------------------------------------------------------
+    // Wraps pushState/replaceState so `onNavigate` runs after the real method, and
+    // returns the single function that undoes it — or null when nothing was
+    // installed (history is already wrapped, or a frozen/sealed History rejected the
+    // assignment). Handing back one undo closure keeps the wrapper and original
+    // references out of the tracker entirely: there is no half-patched state for a
+    // caller to inspect, and no way to restore the wrong pair.
+    var patchHistory = function patchHistory(onNavigate, log) {
+      if (window.history.pushState[WRAPPED_MARKER]) {
+        log('[patch] history already wrapped, skipping to avoid double-wrap — STACKED WRAPPER DETECTED');
+        return null;
+      }
+      var originals = {};
+      var wrappers = {};
+      HISTORY_METHODS.forEach(function (name) {
+        var original = window.history[name];
+        originals[name] = original;
+        var wrapper = function wrapper() {
+          var args = [];
+          for (var _i = 0; _i < arguments.length; _i++) {
+            args[_i] = arguments[_i];
+          }
+          var result = original.apply(this, args);
+          onNavigate(name);
+          return result;
+        };
+        Object.defineProperty(wrapper, WRAPPED_MARKER, {
+          value: true,
+          enumerable: false
+        });
+        wrappers[name] = wrapper;
+      });
+      // Restore per method: a third party may have patched one of the two on top of
+      // ours after we installed. Clobbering theirs would break their tracking, so
+      // leave anything that is no longer ours in place.
+      var restore = function restore() {
+        return HISTORY_METHODS.forEach(function (name) {
+          if (window.history[name] === wrappers[name]) {
+            window.history[name] = originals[name];
+            log("[teardown] restored original ".concat(name));
+          } else {
+            log("[teardown] ".concat(name, " no longer ours; leaving in place, gating callback to no-op"));
+          }
+        });
+      };
+      try {
+        HISTORY_METHODS.forEach(function (name) {
+          window.history[name] = wrappers[name];
+        });
+      } catch (e) {
+        log("[error] failed to patch history methods (frozen/sealed), rolling back: ".concat(e));
+        try {
+          restore();
+        } catch (restoreError) {
+          log("[error] failed to restore history methods after patch failure: ".concat(restoreError));
+        }
+        return null;
+      }
+      return restore;
+    };
+    // ---------------------------------------------------------------------------
+    // Tracker
+    // ---------------------------------------------------------------------------
+    var PageViewTracker = /** @class */function () {
+      function PageViewTracker(mpInstance) {
+        this.lastPage = null;
+        this.active = false;
+        this.pendingNavigations = [];
+        this.undoHistoryPatch = null;
+        this.popStateListener = null;
+        this.mpInstance = mpInstance;
+      }
+      Object.defineProperty(PageViewTracker.prototype, "isActive", {
+        // True while this tracker owns the history patch and is listening for
+        // navigations. Flips to false on teardown, including the teardown a
+        // successor tracker performs during a handoff. Read-only, and the one thing
+        // worth checking on `window.__mpApv__.tracker` from a console.
+        get: function get() {
+          return this.active;
+        },
+        enumerable: false,
+        configurable: true
+      });
+      PageViewTracker.prototype.init = function () {
+        var _this = this;
+        this.log('[init] PageViewTracker Init');
+        if (!supportsHistoryTracking(apvWindow())) {
+          this.log('[init] unsupported environment (no History API), not starting');
+          return;
+        }
+        // Take over from whichever tracker is currently active: one left behind by
+        // a previous module load, or this same tracker on a repeat
+        // mParticle.init(). Their pending navigations are transferred rather than
+        // dropped — a route change may have queued a deferred fire that has not
+        // flushed yet, and dropping it loses a page view entirely.
+        var active = getActiveTracker();
+        var inheritedPages = this.retire(active);
+        if (this.active && active !== this) {
+          inheritedPages = inheritedPages.concat(this.retire(this));
+        }
+        this.active = true;
+        this.lastPage = currentPage();
+        this.log("[init] seeded lastPage: ".concat(describePage(this.lastPage)));
+        this.undoHistoryPatch = patchHistory(function (source) {
+          return _this.safeHandleNavigation(source);
+        }, function (message) {
+          return _this.log(message);
+        });
+        this.popStateListener = function () {
+          return _this.safeHandleNavigation('popstate');
+        };
+        window.addEventListener('popstate', this.popStateListener);
+        setActiveTracker(this);
+        this.log('[init] patched pushState/replaceState + listening for popstate');
+        inheritedPages.forEach(function (page) {
+          return _this.scheduleFire(page);
+        });
+      };
+      PageViewTracker.prototype.teardown = function () {
+        // Discard pending deferred fires (e.g. AutoLogPageView switched off on
+        // re-init). A handoff calls takePendingNavigations() first, so by this
+        // point those paths are already transferred rather than dropped.
+        this.takePendingNavigations();
+        if (this.popStateListener) {
+          window.removeEventListener('popstate', this.popStateListener);
+          this.popStateListener = null;
+        }
+        if (this.undoHistoryPatch) {
+          this.undoHistoryPatch();
+          this.undoHistoryPatch = null;
+        }
+        this.active = false;
+        clearActiveTracker(this);
+      };
+      // Stops the outgoing tracker and returns the pages it had queued so this
+      // tracker can re-schedule them once it is active. Private, but reachable
+      // across instances: the handoff protocol stays internal to the class.
+      PageViewTracker.prototype.retire = function (outgoing) {
+        if (!outgoing) {
+          return [];
+        }
+        this.log(outgoing === this ? '[init] retiring this tracker for a repeat mParticle.init() — transferring pending navigations and tearing down' : '[init] retiring a tracker from a previous module load — transferring pending navigations and tearing down');
+        var pages = outgoing.takePendingNavigations();
+        outgoing.teardown();
+        return pages;
+      };
+      // Cancels this tracker's deferred fires and hands back their captured pages.
+      PageViewTracker.prototype.takePendingNavigations = function () {
+        var pending = this.pendingNavigations;
+        this.pendingNavigations = [];
+        pending.forEach(function (_a) {
+          var timeoutId = _a.timeoutId;
+          return clearTimeout(timeoutId);
+        });
+        return pending.map(function (_a) {
+          var page = _a.page;
+          return page;
+        });
+      };
+      PageViewTracker.prototype.safeHandleNavigation = function (source) {
+        // An orphaned wrapper still calls in: teardown can only restore a history
+        // method that is still ours, so one a third party patched over stays
+        // installed and keeps firing at a dead tracker. Bail before touching
+        // lastPath or queueing a fire the flush would just abort. Guarding here
+        // rather than at each wrapper also covers the popstate path.
+        if (!this.active) {
+          return;
+        }
+        try {
+          this.handleNavigation(source);
+        } catch (e) {
+          this.log("[error] navigation handler threw (".concat(source, "), page view skipped: ").concat(e));
+        }
+      };
+      PageViewTracker.prototype.handleNavigation = function (source) {
+        var candidate = currentPage();
+        var lastKey = this.lastPage ? pageKey(this.lastPage) : null;
+        this.log("[detect] navigation signal (source: ".concat(source, ", candidate: ").concat(describePage(candidate), ", last: ").concat(describePage(this.lastPage), ")"));
+        if (!isNewPage(lastKey, pageKey(candidate))) {
+          this.log("[dedupe] page unchanged, skipping (source: ".concat(source, ", page: ").concat(describePage(candidate), ")"));
+          return;
+        }
+        this.log("[accept] page changed, scheduling fire (source: ".concat(source, ", from: ").concat(describePage(this.lastPage), ", to: ").concat(describePage(candidate), ")"));
+        this.lastPage = candidate;
+        this.scheduleFire(candidate);
+      };
+      // Deferred by a macrotask so the router's post-navigation render commit has a
+      // chance to update document.title before the event is built. The path and
+      // query params are snapshotted now because they are already settled, whereas a
+      // same-tick navigation would overwrite window.location before the flush reads
+      // it.
+      PageViewTracker.prototype.scheduleFire = function (page) {
+        var _this = this;
+        var timeoutId = setTimeout(function () {
+          _this.pendingNavigations = _this.pendingNavigations.filter(function (p) {
+            return p.timeoutId !== timeoutId;
+          });
+          if (!_this.active) {
+            _this.log('[defer] fire aborted, tracker inactive (torn down before flush)');
+            return;
+          }
+          _this.mpInstance._SessionManager.resetSessionTimer();
+          _this.firePageView(page);
+        }, 0);
+        this.pendingNavigations.push({
+          page: page,
+          timeoutId: timeoutId
+        });
+      };
+      PageViewTracker.prototype.firePageView = function (page) {
+        var title = window.document.title;
+        var event = buildPageViewEvent(__assign(__assign({}, page), {
+          hostname: window.location.hostname,
+          title: title
+        }));
+        this.log("[fire] deferred flush -> _Events.logEvent(PageView) (page: ".concat(describePage(page), ", title: ").concat(title, ")"));
+        this.mpInstance._Events.logEvent(event);
+      };
+      PageViewTracker.prototype.log = function (message) {
+        this.mpInstance.Logger.verbose("mParticle APV: ".concat(message));
+      };
+      return PageViewTracker;
+    }();
 
     var Messages$3 = Constants.Messages;
     function Events(mpInstance) {
@@ -6396,14 +6901,18 @@ var mParticle = (function () {
           messageType: Types.MessageType.AppStateTransition
         });
       };
+      // The auto page view for the landing page. The SPA navigations that follow it
+      // come from PageViewTracker instead, so both emitters attach the same
+      // allowlisted query params — and this is the one that matters for campaign
+      // attribution, since utm_*/gclid live on the entry URL.
       this.logPageView = function () {
         self.logEvent({
           messageType: Types.MessageType.PageView,
           name: 'PageView',
-          data: {
+          data: __assign(__assign({}, allowedQueryParams(getHref())), {
             hostname: window.location.hostname,
             title: window.document.title
-          },
+          }),
           eventType: Types.EventType.Unknown
         });
       };
@@ -11191,339 +11700,6 @@ var mParticle = (function () {
         });
       };
       return LoggingDispatcher;
-    }();
-
-    var HISTORY_METHODS = ['pushState', 'replaceState'];
-    var WRAPPED_MARKER = '__mpApvWrapped__';
-    // All APV state hangs off one window key, and it is the public debugging
-    // contract: `window.__mpApv__` is what you inspect in a console to see whether
-    // tracking is live.
-    //
-    // It lives on `window` rather than in module scope because Next.js re-executes
-    // the SDK bundle on every SPA navigation: module-level state is reset each time,
-    // but `window` persists for the lifetime of the tab.
-    //
-    // One object rather than a key per flag, so resetting is a single reassignment.
-    // Nothing has to be deleted, and there is no ordering in which half the state
-    // survives the reset.
-    var WIN_APV_KEY = '__mpApv__';
-    // ---------------------------------------------------------------------------
-    // Pure helpers. No `this`, no globals, no side effects — callable and assertable
-    // on their own, which is where the interesting rules live.
-    // ---------------------------------------------------------------------------
-    // Dedup keys on pathname only: a query-string- or hash-only change is the same
-    // page and must not fire a view.
-    var isNewPage = function isNewPage(lastPath, candidatePath) {
-      return candidatePath !== lastPath;
-    };
-    var supportsHistoryTracking = function supportsHistoryTracking(win) {
-      return !!win && win.history !== undefined && typeof win.history.pushState === 'function' && typeof win.addEventListener === 'function';
-    };
-    // Mirrors the event shape of the public mParticle.logPageView(), but carries the
-    // path captured when the navigation was accepted rather than the live location.
-    var buildPageViewEvent = function buildPageViewEvent(data) {
-      return {
-        messageType: MessageType$1.PageView,
-        name: 'PageView',
-        data: __assign({}, data),
-        eventType: EventType.Unknown
-      };
-    };
-    // ---------------------------------------------------------------------------
-    // Window-scoped APV state. Every read and write goes through these helpers, so
-    // neither the tracker nor mp-instance touches `window` directly and
-    // `typeof window` is checked in exactly one place.
-    // ---------------------------------------------------------------------------
-    var apvWindow = function apvWindow() {
-      return typeof window === 'undefined' ? null : window;
-    };
-    var freshState = function freshState() {
-      return {
-        initialPageViewFired: false
-      };
-    };
-    // Reads tolerate absent state, so a read never mutates `window`. Only the
-    // writers below create it.
-    var readState = function readState() {
-      var win = apvWindow();
-      return win ? win[WIN_APV_KEY] : undefined;
-    };
-    var writeState = function writeState() {
-      var win = apvWindow();
-      if (!win) {
-        return null;
-      }
-      if (!win[WIN_APV_KEY]) {
-        win[WIN_APV_KEY] = freshState();
-      }
-      return win[WIN_APV_KEY];
-    };
-    var getActiveTracker = function getActiveTracker() {
-      var state = readState();
-      return state ? state.tracker : undefined;
-    };
-    var hasInitialPageViewFired = function hasInitialPageViewFired() {
-      var state = readState();
-      return !!(state && state.initialPageViewFired);
-    };
-    var markInitialPageViewFired = function markInitialPageViewFired() {
-      var state = writeState();
-      if (state) {
-        state.initialPageViewFired = true;
-      }
-    };
-    // Returns the page to its pre-APV state: stops the active tracker (restoring the
-    // history methods it patched), then swaps in fresh state. The state object is the
-    // authoritative handle, so this reaches trackers whose owning module is gone.
-    var resetPageViewTracking = function resetPageViewTracking() {
-      var win = apvWindow();
-      if (!win) {
-        return;
-      }
-      var active = getActiveTracker();
-      if (active) {
-        active.teardown();
-      }
-      // One reassignment replaces every flag at once, so nothing can be left behind
-      // whatever shape the previous state was in.
-      win[WIN_APV_KEY] = freshState();
-    };
-    var setActiveTracker = function setActiveTracker(tracker) {
-      var state = writeState();
-      if (state) {
-        state.tracker = tracker;
-      }
-    };
-    var clearActiveTracker = function clearActiveTracker(tracker) {
-      var state = readState();
-      if (state && state.tracker === tracker) {
-        state.tracker = undefined;
-      }
-    };
-    var currentPathname = function currentPathname() {
-      return window.location.pathname;
-    };
-    // ---------------------------------------------------------------------------
-    // History patching
-    // ---------------------------------------------------------------------------
-    // Wraps pushState/replaceState so `onNavigate` runs after the real method, and
-    // returns the single function that undoes it — or null when nothing was
-    // installed (history is already wrapped, or a frozen/sealed History rejected the
-    // assignment). Handing back one undo closure keeps the wrapper and original
-    // references out of the tracker entirely: there is no half-patched state for a
-    // caller to inspect, and no way to restore the wrong pair.
-    var patchHistory = function patchHistory(onNavigate, log) {
-      if (window.history.pushState[WRAPPED_MARKER]) {
-        log('[patch] history already wrapped, skipping to avoid double-wrap — STACKED WRAPPER DETECTED');
-        return null;
-      }
-      var originals = {};
-      var wrappers = {};
-      HISTORY_METHODS.forEach(function (name) {
-        var original = window.history[name];
-        originals[name] = original;
-        var wrapper = function wrapper() {
-          var args = [];
-          for (var _i = 0; _i < arguments.length; _i++) {
-            args[_i] = arguments[_i];
-          }
-          var result = original.apply(this, args);
-          onNavigate(name);
-          return result;
-        };
-        Object.defineProperty(wrapper, WRAPPED_MARKER, {
-          value: true,
-          enumerable: false
-        });
-        wrappers[name] = wrapper;
-      });
-      // Restore per method: a third party may have patched one of the two on top of
-      // ours after we installed. Clobbering theirs would break their tracking, so
-      // leave anything that is no longer ours in place.
-      var restore = function restore() {
-        return HISTORY_METHODS.forEach(function (name) {
-          if (window.history[name] === wrappers[name]) {
-            window.history[name] = originals[name];
-            log("[teardown] restored original ".concat(name));
-          } else {
-            log("[teardown] ".concat(name, " no longer ours; leaving in place, gating callback to no-op"));
-          }
-        });
-      };
-      try {
-        HISTORY_METHODS.forEach(function (name) {
-          window.history[name] = wrappers[name];
-        });
-      } catch (e) {
-        log("[error] failed to patch history methods (frozen/sealed), rolling back: ".concat(e));
-        try {
-          restore();
-        } catch (restoreError) {
-          log("[error] failed to restore history methods after patch failure: ".concat(restoreError));
-        }
-        return null;
-      }
-      return restore;
-    };
-    // ---------------------------------------------------------------------------
-    // Tracker
-    // ---------------------------------------------------------------------------
-    var PageViewTracker = /** @class */function () {
-      function PageViewTracker(mpInstance) {
-        this.lastPath = null;
-        this.active = false;
-        this.pendingNavigations = [];
-        this.undoHistoryPatch = null;
-        this.popStateListener = null;
-        this.mpInstance = mpInstance;
-      }
-      Object.defineProperty(PageViewTracker.prototype, "isActive", {
-        // True while this tracker owns the history patch and is listening for
-        // navigations. Flips to false on teardown, including the teardown a
-        // successor tracker performs during a handoff. Read-only, and the one thing
-        // worth checking on `window.__mpApv__.tracker` from a console.
-        get: function get() {
-          return this.active;
-        },
-        enumerable: false,
-        configurable: true
-      });
-      PageViewTracker.prototype.init = function () {
-        var _this = this;
-        this.log('[init] PageViewTracker Init');
-        if (!supportsHistoryTracking(apvWindow())) {
-          this.log('[init] unsupported environment (no History API), not starting');
-          return;
-        }
-        // Take over from whichever tracker is currently active: one left behind by
-        // a previous module load, or this same tracker on a repeat
-        // mParticle.init(). Their pending navigations are transferred rather than
-        // dropped — a route change may have queued a deferred fire that has not
-        // flushed yet, and dropping it loses a page view entirely.
-        var active = getActiveTracker();
-        var inheritedPaths = this.retire(active);
-        if (this.active && active !== this) {
-          inheritedPaths = inheritedPaths.concat(this.retire(this));
-        }
-        this.active = true;
-        this.lastPath = currentPathname();
-        this.log("[init] seeded lastPath: ".concat(this.lastPath));
-        this.undoHistoryPatch = patchHistory(function (source) {
-          return _this.safeHandleNavigation(source);
-        }, function (message) {
-          return _this.log(message);
-        });
-        this.popStateListener = function () {
-          return _this.safeHandleNavigation('popstate');
-        };
-        window.addEventListener('popstate', this.popStateListener);
-        setActiveTracker(this);
-        this.log('[init] patched pushState/replaceState + listening for popstate');
-        inheritedPaths.forEach(function (path) {
-          return _this.scheduleFire(path);
-        });
-      };
-      PageViewTracker.prototype.teardown = function () {
-        // Discard pending deferred fires (e.g. AutoLogPageView switched off on
-        // re-init). A handoff calls takePendingNavigations() first, so by this
-        // point those paths are already transferred rather than dropped.
-        this.takePendingNavigations();
-        if (this.popStateListener) {
-          window.removeEventListener('popstate', this.popStateListener);
-          this.popStateListener = null;
-        }
-        if (this.undoHistoryPatch) {
-          this.undoHistoryPatch();
-          this.undoHistoryPatch = null;
-        }
-        this.active = false;
-        clearActiveTracker(this);
-      };
-      // Stops the outgoing tracker and returns the paths it had queued so this
-      // tracker can re-schedule them once it is active. Private, but reachable
-      // across instances: the handoff protocol stays internal to the class.
-      PageViewTracker.prototype.retire = function (outgoing) {
-        if (!outgoing) {
-          return [];
-        }
-        this.log(outgoing === this ? '[init] retiring this tracker for a repeat mParticle.init() — transferring pending navigations and tearing down' : '[init] retiring a tracker from a previous module load — transferring pending navigations and tearing down');
-        var paths = outgoing.takePendingNavigations();
-        outgoing.teardown();
-        return paths;
-      };
-      // Cancels this tracker's deferred fires and hands back their captured paths.
-      PageViewTracker.prototype.takePendingNavigations = function () {
-        var pending = this.pendingNavigations;
-        this.pendingNavigations = [];
-        pending.forEach(function (p) {
-          return clearTimeout(p.timeoutId);
-        });
-        return pending.map(function (p) {
-          return p.path;
-        });
-      };
-      PageViewTracker.prototype.safeHandleNavigation = function (source) {
-        // An orphaned wrapper still calls in: teardown can only restore a history
-        // method that is still ours, so one a third party patched over stays
-        // installed and keeps firing at a dead tracker. Bail before touching
-        // lastPath or queueing a fire the flush would just abort. Guarding here
-        // rather than at each wrapper also covers the popstate path.
-        if (!this.active) {
-          return;
-        }
-        try {
-          this.handleNavigation(source);
-        } catch (e) {
-          this.log("[error] navigation handler threw (".concat(source, "), page view skipped: ").concat(e));
-        }
-      };
-      PageViewTracker.prototype.handleNavigation = function (source) {
-        var candidatePath = currentPathname();
-        this.log("[detect] navigation signal (source: ".concat(source, ", candidatePath: ").concat(candidatePath, ", lastPath: ").concat(this.lastPath, ")"));
-        if (!isNewPage(this.lastPath, candidatePath)) {
-          this.log("[dedupe] pathname unchanged, skipping (source: ".concat(source, ", path: ").concat(candidatePath, ")"));
-          return;
-        }
-        this.log("[accept] pathname changed, scheduling fire (source: ".concat(source, ", from: ").concat(this.lastPath, ", to: ").concat(candidatePath, ")"));
-        this.lastPath = candidatePath;
-        this.scheduleFire(candidatePath);
-      };
-      // Deferred by a macrotask so the router's post-navigation render commit has a
-      // chance to update document.title before the event is built. The path is
-      // snapshotted now because it is already settled, whereas a same-tick
-      // navigation would overwrite window.location before the flush reads it.
-      PageViewTracker.prototype.scheduleFire = function (path) {
-        var _this = this;
-        var timeoutId = setTimeout(function () {
-          _this.pendingNavigations = _this.pendingNavigations.filter(function (p) {
-            return p.timeoutId !== timeoutId;
-          });
-          if (!_this.active) {
-            _this.log('[defer] fire aborted, tracker inactive (torn down before flush)');
-            return;
-          }
-          _this.mpInstance._SessionManager.resetSessionTimer();
-          _this.firePageView(path);
-        }, 0);
-        this.pendingNavigations.push({
-          path: path,
-          timeoutId: timeoutId
-        });
-      };
-      PageViewTracker.prototype.firePageView = function (path) {
-        var title = window.document.title;
-        var event = buildPageViewEvent({
-          hostname: window.location.hostname,
-          title: title,
-          path: path
-        });
-        this.log("[fire] deferred flush -> _Events.logEvent(PageView) (path: ".concat(path, ", title: ").concat(title, ")"));
-        this.mpInstance._Events.logEvent(event);
-      };
-      PageViewTracker.prototype.log = function (message) {
-        this.mpInstance.Logger.verbose("mParticle APV: ".concat(message));
-      };
-      return PageViewTracker;
     }();
 
     var Messages = Constants.Messages,

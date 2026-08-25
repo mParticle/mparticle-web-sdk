@@ -1,16 +1,23 @@
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { BaseEvent } from './sdkRuntimeModels';
+import { Dictionary } from './utils';
 type HistoryMethodName = 'pushState' | 'replaceState';
 type NavigationSource = HistoryMethodName | 'popstate';
 export declare const WIN_APV_KEY = "__mpApv__";
-interface IPageViewData {
+export declare const ALLOWED_QUERY_PARAMS: string[];
+interface IPageSnapshot {
+    path: string;
+    params: Dictionary<string>;
+}
+interface IPageViewData extends IPageSnapshot {
     hostname: string;
     title: string;
-    path: string;
 }
-export declare const isNewPage: (lastPath: string | null, candidatePath: string) => boolean;
+export declare const allowedQueryParams: (href: string) => Dictionary<string>;
+export declare const pageKey: (page: IPageSnapshot) => string;
+export declare const isNewPage: (lastKey: string | null, candidateKey: string) => boolean;
 export declare const supportsHistoryTracking: (win: Window | null) => boolean;
-export declare const buildPageViewEvent: (data: IPageViewData) => BaseEvent;
+export declare const buildPageViewEvent: ({ params, hostname, title, path, }: IPageViewData) => BaseEvent;
 export declare const getActiveTracker: () => PageViewTracker | undefined;
 export declare const hasInitialPageViewFired: () => boolean;
 export declare const markInitialPageViewFired: () => void;
@@ -18,7 +25,7 @@ export declare const resetPageViewTracking: () => void;
 export declare const patchHistory: (onNavigate: (source: NavigationSource) => void, log: (message: string) => void) => (() => void) | null;
 export declare class PageViewTracker {
     private readonly mpInstance;
-    private lastPath;
+    private lastPage;
     private active;
     private pendingNavigations;
     private undoHistoryPatch;
