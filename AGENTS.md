@@ -1,6 +1,241 @@
-# mParticle Web SDK - Agent Instructions
+# AGENTS
 
-This file provides guidance for AI coding agents working with the mParticle Web SDK codebase.
+---
+description: Development guidelines and standards for the mParticle Web SDK
+globs: ['**/*']
+alwaysApply: true
+---
+
+This file is the operating contract for AI coding agents in this repo. Follow the
+web-specific rules below first. The common SDK section is product context; the
+architecture section is a map, not a license to expand scope.
+
+<!-- ============================================ -->
+<!-- WEB PLATFORM — AGENT RULES                    -->
+<!-- Inspired by Rokt WSDK AGENTS.md conventions   -->
+<!-- ============================================ -->
+
+## High-level principles
+
+Keep these in mind while satisfying any other requirement. In order of importance:
+
+1. **Security** — this SDK is loaded on partner and customer pages, including
+   checkout. Call out any security concern. Never introduce XSS, injection,
+   `eval` / `new Function`, or unescaped HTML. Never log raw PII in production.
+2. **Compatibility** — public API, snippet stubs, published types, and
+   multi-instance behavior are contracts. A silent break in `snippet.js` is a
+   production incident for every script-tag customer.
+3. **Performance** — latency, main-thread time, memory, and gzip bundle size are
+   product requirements. CI reports gzip size vs `master` on every PR.
+4. **Clarity** — code must be easy for a human to follow. Prefer the obvious
+   implementation over a clever one.
+
+## Coding style
+
+- Linting lives in `.eslintrc`. Formatting lives in `.prettierrc` (4-space
+  indent, single quotes, ES5 trailing commas). These apply repo-wide.
+- Match the file you are in. Existing modules are constructor functions that
+  receive `mpInstance` (dependency injection). Do not convert a file to a class
+  — or from a class to functions — unless that is the task. `PageViewTracker`
+  and `BaseVault` are already classes; follow them when extending those files.
+- New source files are TypeScript. Do not add new `.js` modules.
+- Prefer iteration and modularization over duplication. Before adding a generic
+  helper (record guards, parsers, safe stringify, error-message extraction),
+  search `src/utils.ts` and `src/helpers.ts` and reuse or export a shared helper.
+- Use descriptive names with auxiliary verbs (`isLoading`, `hasIdentifyReturned`,
+  `shouldForward`). Avoid opaque names (`k`, `v`, `x`, `d`).
+- Private members are prefixed `_` (`_Store`, `_resetForTests`). Do not promote
+  a `_` member to public API without an explicit request and a snippet update.
+- Do not use `console.log`. Use `mpInstance.Logger` for local diagnostics and
+  `src/reporting/` (`ErrorCodes`, `IErrorReportingService`) for structured
+  reportable errors. Convert a new failure mode to a reporting call, not a
+  console dump.
+
+### Comments
+
+Do **not** write comments. This is a hard default, not a preference. Before
+adding one, make the code self-explanatory — rename, or extract a well-named
+helper. A good name almost always removes the need for the comment.
+
+Comments that explain WHAT the code does or WHY you chose an approach are
+forbidden. That rationale belongs in the commit message and PR description.
+
+The only allowed exceptions: (a) a tooling/legal directive the build requires
+(`eslint-disable`, license header), or (b) a genuine non-obvious external gotcha
+a reader cannot infer from the code (e.g. Next.js re-executes the bundle on SPA
+navigation so APV state must live on `window.__mpApv__`). If you are not sure it
+qualifies, and the user does not explicitly tell you to keep the comment, leave
+it out.
+
+## Readability and merge safety
+
+Avoid AI-style refactors that are concise but hide precedence or mutation.
+
+| Prefer | Over | Why |
+|---|---|---|
+| Explicit copy and targeted assignment | Layered conditional object spreads in a single return | Makes key precedence explicit |
+| Clear names (`fieldName`, `fieldValue`) | Opaque names (`k`, `v`, `x`) | Faster review |
+| Simple multi-line conditionals | Dense one-liners with nested `&&` / `?:` | Safer edits |
+| Intentional, narrow cloning of nested objects | Broad spreads with unclear purpose | Fewer accidental shape changes |
+| Explicit assignment order when precedence matters | Relying on spread merge order | Avoids fragile refactors |
+
+### Opportunistic readability refactoring (required)
+
+When a session touches a file for any reason, scan the changed functions for
+violations of the table above.
+
+- If an anti-pattern exists in code you are already modifying, refactor it in
+  the same changeset (no TODOs). Behavior must stay identical.
+- If an anti-pattern is in code you are not modifying, do not refactor it.
+  Capture it in the PR description under "Deferred readability opportunities".
+
+### Test integrity
+
+Opportunistic readability (or performance) refactors are implementation-only.
+
+- Existing unit/integration tests must pass as-is with **zero** test file edits.
+- If a readability refactor causes test failures, the refactor is wrong. Revert.
+- Never weaken, skip, or rewrite assertions to accommodate a refactor.
+
+## Performance
+
+This SDK is a third-party script on customer pages. A performance regression is
+a product regression.
+
+| Prefer | Over | Why |
+|---|---|---|
+| `Map` / `Set` for dynamic key sets | Plain objects as hash maps | Safer for large/dynamic keys |
+| `for` / `for...of` on hot paths | `.forEach()` on hot paths | Avoids per-iteration closures |
+| Batched work / `queueMicrotask` | Long synchronous loops | Long tasks (`>50ms`) are bugs |
+| `structuredClone` (feature-detected) or explicit shallow copy | `JSON.parse(JSON.stringify(...))` | Cheaper, richer types |
+| Native browser APIs | New dependencies / polyfills | Bundle size is gated in CI |
+| `vault.ts` storage writes | Raw `localStorage.setItem` that can throw | Quota and `SecurityError` must not break event logging |
+
+### Third-party embedding hard rules
+
+- **Zero unapproved global pollution.** No top-level `var`. No `window.*`
+  assignment outside `window.mParticle` and the documented APV debug contract
+  (`window.__mpApv__` in `pageViewTracker.ts`).
+- **CSP-safe.** Never `eval`, `new Function`, or inline event handlers.
+- **Bundle-size awareness.** Flag every new dependency or polyfill in the PR.
+  Compare `npm run bundle && npm run report:bundled:human` against `master`.
+- **Do not block the main thread.** Chunk work; do not add synchronous network
+  or storage in `logEvent` / identity hot paths without a clear reason.
+
+## Public API and compatibility
+
+The script-tag snippet is a preload queue, not a convenience. A method that
+exists on the live SDK but is missing from the snippet is silently dropped for
+every customer who calls it before load.
+
+When adding or renaming a **public** method:
+
+1. Implement it on the instance / `Identity` / `eCommerce` / `Rokt` surface.
+2. Add the stub to **both** `snippet.js` and `snippet.rokt.js` (keep the two
+   lists in sync).
+3. Add it to `src/stub/mparticle.stub.js` if it belongs on the stub build.
+4. Export customer-facing types from `src/public-types.ts` only. Types shared
+   with the Rokt kit but not customers go in `src/internal-types.ts`
+   (`@mparticle/web-sdk/internal`).
+5. Cover the method with a Karma test that goes through `mParticle.init`.
+
+Do not change existing public signatures. Identity methods are async and take
+callbacks; do not turn them into unannounced promises.
+
+`queueIfNotInitialized` is the preload contract inside the SDK. Methods called
+before init must keep queuing.
+
+## Logging and PII
+
+PII (email, name, phone, and similar) must not appear in production logs.
+
+- `obfuscateDevData(data, isDevelopmentMode)` from `src/utils.ts` — raw in
+  development, structure-only in production. Use this for payloads.
+- `obfuscateData(data)` — always obfuscate a specific field.
+- Never log identity maps, request bodies, or attribute bags without one of
+  the above.
+
+## Rokt surface
+
+`src/roktManager.ts` is the bridge to Rokt (`selectPlacements`, hashing,
+extensions, `terminate`). The kit attaches via `mParticle.Rokt.attachKit`.
+
+- Launcher option normalization lives in `src/roktLauncherOptions.ts`.
+  `noDeviceId` / `noDeviceID` is the strongest privacy flag and implies
+  `noFunctional` and `noTargeting`. Keep that invariant if you touch options.
+- Do not load Rokt `launcher.js` from this repo. The kit / WSDK owns that.
+- New `mParticle.Rokt.*` methods need snippet stubs (see Public API).
+
+## Automatic page views
+
+`src/pageViewTracker.ts` owns history patching and the initial page view.
+
+- APV state lives on `window.__mpApv__` because some hosts (e.g. Next.js)
+  re-execute the bundle on SPA navigation and wipe module scope.
+- Tests must not reach into tracker internals. Drive behavior through public
+  APIs (`logPageView`, `init`, history), not private fields.
+- Do not fire a second initial page view on re-`init` in the same tab.
+
+## Version control
+
+This repo is gitflow.
+
+- **Day-to-day PRs target `development`**, not `master`. `master` is the
+  release branch. CI's gitflow check will reject the wrong base.
+- Branch names follow conventional types: `feat/…`, `fix/…`, `docs/…`,
+  `refactor/…`, `chore/…`, `test/…`, `ci/…`.
+- Conventional Commits drive semantic-release (`feat` → minor, `fix` → patch).
+  See the common section for the full type list.
+- **Do not commit** `dist/`, `CHANGELOG.md`, or version bumps in
+  `package.json` / `package-lock.json`. Release CI generates those.
+- Do not commit unless the user explicitly asks.
+- When asked to open a PR: push the named branch, fill a real description
+  (what / why / test plan), leave checklist boxes for the author, and compare
+  against `development`. After creating the PR, do not add further commits
+  unless asked.
+
+## Testing
+
+- Jest (`test/jest/*.spec.ts`, jsdom) for isolated TypeScript units.
+- Karma (`test/src/tests-*.ts`, ChromeHeadless + Firefox) for browser
+  integration. This is the suite that proves public API + snippet behavior.
+- Add tests for every behavior change. Cover success and failure paths.
+- Karma: `mParticle._resetForTests(MPConfig)` in `beforeEach`. Mock HTTP with
+  `fetch-mock/esm/client`. Wait on async identity with `waitForCondition()`
+  from `test/src/config/utils.js` (it is `.js`, not `.ts`).
+- Chai in Karma (`expect(...).to.equal()`). Jest matchers in Jest.
+- Do not add Playwright here; this repo does not use it.
+- After code changes, run `/verify` (`.claude/skills/verify/skill.md`) before
+  claiming the work is done:
+
+  ```bash
+  npm run lint
+  npm run test:jest
+  npm run test          # build + Karma; slower, required for public API
+  ```
+
+## Review guidelines
+
+When reviewing PRs that touch this SDK, apply these severity levels.
+
+### P0 — block merge
+
+- Hardcoded secrets or credentials
+- XSS, `eval` / `new Function`, or unescaped HTML
+- Raw PII in production logs or checked-in fixtures
+- Public method added without `snippet.js` **and** `snippet.rokt.js` stubs
+- Breaking change to a public signature without `BREAKING CHANGE:`
+
+### P1 — strongly recommend fixing before merge
+
+- Missing tests for the changed behavior
+- New dependency or polyfill with no bundle-size note
+- `console.log` / `console.error` instead of Logger / reporting
+- Reaching into `_` internals from new tests when a public API exists
+- Storage writes that ignore quota / `SecurityError` (use `vault.ts`)
+- Identity or Rokt options that drop the `noDeviceId` → `noFunctional` +
+  `noTargeting` implication
+- Types that belong in `internal-types.ts` exported from `public-types.ts`
 
 ---
 
@@ -159,398 +394,196 @@ Feature Flags & Kit Configs (runtime)
 
 ## Web SDK Architecture
 
+**Gitflow override:** feature PRs target `development`. The common-section `master` target applies to release, not day-to-day work.
+
 ### Tech Stack
 
-- **Languages**: TypeScript and JavaScript
-- **Build Tool**: Rollup with multiple output formats:
-  - IIFE (Immediately Invoked Function Expression) for browser `<script>` tags
-  - CommonJS for npm/Node.js environments
-  - ES Modules for modern bundlers with tree-shaking support
-  - Stub for capturing API calls before SDK loads
-- **Testing**: Karma (browser integration), Jest (TypeScript modules), BrowserStack (cross-browser)
-- **Code Quality**: ESLint, Prettier, GTS (Google TypeScript Style)
-- **Package Manager**: npm
+- **Languages**: TypeScript (new code) and remaining JavaScript modules
+- **Build**: Rollup → IIFE (`dist/mparticle.js`), CJS, ESM, stub
+- **Tests**: Karma (browser integration), Jest (TS units), BrowserStack (cross-browser)
+- **Quality**: ESLint, Prettier, GTS
+- **Package manager**: npm
 
 ### Project Structure
 
 ```
 /                                       # Repo root
-  jest.config.js                        # Jest config for TypeScript unit tests
-/src/                                   # Source code
-  ├── mparticle-instance-manager.ts  # Global manager, creates and retrieves named SDK instances
-  ├── mp-instance.ts            # Core SDK instance, initialization flow, public APIs, and private modules
-  ├── apiClient.ts              # HTTP client for making requests to mParticle Events API
-  ├── batchUploader.ts          # Batches events and uploads them to server with retry logic
-  ├── identityApiClient.ts      # Handles identity API calls (identify, login, logout, modify)
-  ├── configAPIClient.ts        # Fetches SDK configuration and kit settings from server
-  ├── identity.js               # User identity operations, MPID management, and identity callbacks
-  ├── identity-utils.ts         # Identity request validation and preprocessing helpers
-  ├── events.js                 # Event logging, validation, and processing before forwarding
-  ├── ecommerce.js              # Commerce event creation (purchases, product views, promotions)
-  ├── forwarders.js             # Manages third-party kits, event forwarding, and filtering rules
-  ├── kitBlocking.ts            # Blocks events from kits based on data plan violations
-  ├── integrationCapture.ts     # Captures integration-specific events and metadata
-  ├── consent.ts                # GDPR/CCPA consent state management and filtering
-  ├── cookieConsentManager.ts   # Cookie-specific consent management and compliance
-  ├── sessionManager.ts         # Session creation, timeout tracking, and session ID generation
-  ├── roktManager.ts            # Bridge to Rokt services (selectPlacements, placement rendering)
-  ├── store.ts                  # In-memory runtime state (config, flags, session data)
-  ├── persistence.js            # LocalStorage and cookie read/write operations
-  ├── cookieSyncManager.ts      # Synchronizes user data across domains via cookies
-  ├── validators.ts             # Input validation for events, attributes, and identities
-  ├── constants.ts              # SDK constants, error messages, and configuration defaults
-  ├── types.ts                  # TypeScript type definitions and enums
-  ├── utils.ts                  # Helper functions (parsing, formatting, feature detection)
-  ├── helpers.js                # General utility functions for data manipulation
-  ├── logger.ts                 # Logging utility for errors, warnings, and debug messages
-  └── *.interfaces.ts           # TypeScript interface definitions for public APIs
-/test/                          # Test suite
-  ├── karma.config.js           # Karma test runner config
-  ├── src/tests-*.ts            # Test files
-  └── jest/*.spec.ts            # Jest unit tests
-/dist/                          # Built output
-  ├── mparticle.js              # IIFE bundle (browser <script> tag)
-  ├── mparticle.common.js       # CommonJS bundle (npm)
-  └── mparticle.esm.js          # ES Modules bundle
-/scripts/                       # Build and release automation
-/.github/workflows/             # CI/CD pipelines
+  snippet.js / snippet.rokt.js          # Script-tag preload stubs (keep in sync)
+  jest.config.js
+/src/
+  ├── mparticle-instance-manager.ts     # Named instances
+  ├── mp-instance.ts                    # Core instance, public APIs, module wiring
+  ├── pageViewTracker.ts                # Automatic page views; state on window.__mpApv__
+  ├── apiClient.ts / identityApiClient.ts / configAPIClient.ts
+  ├── batchUploader.ts                  # Event batch + retry
+  ├── identity.js / identity-utils.ts / identity/search.ts
+  ├── events.ts / ecommerce.js
+  ├── forwarders.js / kitBlocking.ts / sideloadedKit.ts
+  ├── consent.ts / cookieConsentManager.ts
+  ├── sessionManager.ts
+  ├── roktManager.ts / roktLauncherOptions.ts
+  ├── store.ts / persistence.js / vault.ts
+  ├── validators.ts / constants.ts / types.ts / utils.ts / helpers.ts
+  ├── logger.ts / reporting/            # Logger + structured ErrorCodes
+  ├── public-types.ts                   # Customer-facing types
+  ├── internal-types.ts                 # Kit/Rokt-shared, not public
+  └── stub/                             # Stub build
+/test/
+  ├── karma.config.js
+  ├── src/tests-*.ts                    # Karma
+  ├── src/config/utils.js               # waitForCondition, fetchMockSuccess
+  └── jest/*.spec.ts                    # Jest
+/dist/                                  # Generated — do not commit by hand
+/scripts/
+/.github/workflows/                     # PR CI targets development; release from master
 ```
 
-### TypeScript & JavaScript Conventions
-
-**TypeScript Configuration:**
-- Target: ES5
-- Lib: ES5, ES6, DOM
-- Module Resolution: Node
-- Strict type checking: strictNullChecks=false, noImplicitAny=false
-
-**Naming Conventions:**
-```typescript
-// Interfaces (prefix with 'I' or 'SDK')
-interface IFeatureName { }
-interface SDKFeatureName { }
-
-// Enums
-enum EventType { }
-enum MessageType { }
-
-// Constants
-const UPPER_SNAKE_CASE = 'value';
-
-// Methods
-function publicMethod() { }
-function _privateMethod() { }
-function getProperty() { }
-function setProperty() { }
-```
-
-**Code Style (Prettier):**
-- Tab width: 4 spaces
-- Quotes: Single quotes (`'`)
-- Trailing commas: ES5 style
-- Line length: 80 characters (suggested)
-
-**ESLint Rules:**
-- Prettier enforcement enabled
-- No unused variables
-- Avoid console.log in production code; prefer Logger (not currently enforced by ESLint)
-
-**Linting & Code Quality Commands:**
-
-```bash
-# Linting
-npm run lint                # ESLint check (both .js and .ts files)
-npm run prettier            # Prettier check (.js files only)
-
-# Bundle Analysis
-npm run bundle              # Uglify + gzip for size reporting
-npm run uglify              # Minify bundle
-npm run gzip                # Gzip bundle
-```
-
-**Linting by File Type:**
-- **JavaScript (.js)**: ESLint + Prettier
-- **TypeScript (.ts)**: ESLint + GTS (Google TypeScript Style)
-
-**Pre-commit Hooks:**
-- ESLint runs automatically before commits
-- Commit will fail if linting errors exist
-
-### Instance-Based Architecture
-
-The Web SDK uses an instance manager pattern to support multiple SDK instances:
+### Instance-based architecture
 
 ```javascript
 mParticle.init(apiKey, config, instanceName?)
 mParticle.getInstance(instanceName?)
 ```
 
-**Key Concepts:**
-- **Default Instance**: Used when no instance name is specified (typically named `default_instance`)
-- **Multiple Instances**: Support for multiple workspaces or isolated data streams
-- **Instance Isolation**: Each instance has its own configuration, user identity, and state
-
-**Use Cases for Multiple Instances:**
-- Multiple mParticle workspaces in a single application
-- Isolated analytics streams (e.g., separate tracking for different features)
-- Testing scenarios requiring separate SDK states
-
-### Instance Structure
-
-The Web SDK uses a global instance manager that creates individual SDK instances:
+- Default instance name: `default_instance`
+- Each instance has its own config, identity, store, and kits
+- `mParticle` is the manager; `mpInstance` is one SDK instance
+- Modules take `mpInstance` so they can reach `_Store`, `Logger`, etc. without
+  circular imports
 
 ```typescript
-// Global manager
-mParticle {
-  init(apiKey, config, instanceName?)
-  getInstance(instanceName?)
-  _instances: { [name: string]: IMParticleWebSDKInstance }
-}
-
-// Individual instance
 IMParticleWebSDKInstance {
-  // Public API
   logEvent(), logPurchase(), setUserAttribute()
-  Identity, eCommerce, Consent
+  Identity, eCommerce, Consent, Rokt
 
-  // Private modules (accessed via mpInstance._ModuleName)
-  _APIClient              // HTTP communication
-  _Identity               // Identity management
-  _Events                 // Event logging
-  _Ecommerce              // Commerce events
-  _Consent                // Consent management
-  _Persistence            // Storage (LocalStorage/Cookies)
-  _Store                  // Runtime state
-  _SessionManager         // Session lifecycle
-  _Forwarders             // Kit management
-  _Logger                 // Logging utility
+  _APIClient, _Identity, _Events, _Ecommerce, _Consent
+  _Persistence, _Store, _SessionManager, _Forwarders, _Logger
 }
 ```
 
-### Key Files Reference
+### Key files
 
-When working on specific features, refer to these files:
-
-| Feature | Main Files |
-|---------|-----------|
-| Entry Point | `mparticle-instance-manager.ts` |
-| Core Instance | `mp-instance.ts` |
-| Identity | `identity.js`, `identity-utils.ts`, `identity.interfaces.ts` |
-| Events | `events.js`, `events.interfaces.ts` |
+| Feature | Main files |
+|---|---|
+| Entry / instances | `mparticle-instance-manager.ts`, `mp-instance.ts` |
+| Identity | `identity.js`, `identity-utils.ts`, `identity/search.ts` |
+| Events | `events.ts`, `events.interfaces.ts` |
+| Page views | `pageViewTracker.ts` |
 | eCommerce | `ecommerce.js`, `ecommerce.interfaces.ts` |
-| Forwarders | `forwarders.js`, `forwarders.interfaces.ts`, `kitBlocking.ts` |
-| Consent | `consent.ts` |
+| Forwarders | `forwarders.js`, `kitBlocking.ts`, `sideloadedKit.ts` |
+| Consent | `consent.ts`, `cookieConsentManager.ts` |
 | Session | `sessionManager.ts` |
-| Storage | `persistence.js`, `store.ts` |
-| HTTP | `apiClient.ts`, `identityApiClient.ts`, `configAPIClient.ts` |
-| Validation | `validators.ts` |
-| Constants | `constants.ts` |
-| Types | `types.ts` |
+| Storage | `persistence.js`, `store.ts`, `vault.ts` |
+| HTTP | `apiClient.ts`, `identityApiClient.ts`, `configAPIClient.ts`, `batchUploader.ts` |
+| Rokt | `roktManager.ts`, `roktLauncherOptions.ts` |
+| Types | `public-types.ts`, `internal-types.ts`, `types.ts`, `sdkRuntimeModels.ts` |
+| Reporting | `logger.ts`, `reporting/` |
 
-### Build System
-
-**Build Commands:**
+### Build
 
 ```bash
-# Development
-npm run watch                # Watch IIFE and rebuild
-npm run watch:all           # Watch all formats
-npm run watch:tests         # Watch and rebuild tests
-npm run build:dev           # Dev build with sourcemap
-
-# Production Builds
-npm run build               # Build all formats
-npm run build:iife          # Browser bundle (dist/mparticle.js)
-npm run build:npm           # CommonJS (dist/mparticle.common.js)
-npm run build:esm           # ES Modules (dist/mparticle.esm.js)
-npm run build:stub          # Stub file (pre-init API)
-
-# Specialized
-npm run build:snippet       # Minified snippets
-npm run build:ts            # TypeScript compilation only
+npm run watch            # IIFE + sourcemap
+npm run watch:all
+npm run watch:tests
+npm run build:dev
+npm run build            # all formats + types
+npm run build:iife       # dist/mparticle.js
+npm run build:npm        # CJS
+npm run build:esm
+npm run build:stub
+npm run build:snippet    # snippet.min.js + snippet.rokt.min.js
+npm run bundle           # uglify + gzip (size report)
 ```
 
-**Rollup Configuration:**
-- Entry: `src/mparticle-instance-manager.ts`
-- Plugins: Babel, TypeScript, Node Resolve, CommonJS, Uglify
+Rollup entry: `src/mparticle-instance-manager.ts`.
+Env: `ENVIRONMENT=dev|prod`, `BUILD=iife|cjs|esm|stub`, `BUILDALL=true`.
 
-**Environment Variables:**
-- `ENVIRONMENT`: `dev` or `production`
-- `BUILD`: Target build format (e.g., `iife`, `cjs`)
-- `BUILDALL`: Build all formats
-
-### Testing Strategy
-
-**Test Commands:**
+### Testing commands
 
 ```bash
-npm run test                # Full suite (Karma + Jest)
-npm run test:debug          # Interactive Chrome debug mode
-npm run test:jest           # Jest unit tests only (TypeScript)
-npm run test:jest:watch     # Jest watch mode
-npm run test:browserstack   # BrowserStack cross-browser tests
-npm run test:integrations   # All integrations (CJS, ESM, RequireJS)
+npm run test                # build + Karma (ChromeHeadless, Firefox)
+npm run test:debug          # interactive Chrome
+npm run test:jest
+npm run test:jest:watch
+npm run test:stub
+npm run test:browserstack
+npm run test:integrations   # CJS / ESM / RequireJS host bundlers
 ```
 
-**Karma (Browser Integration Tests):**
-- **Purpose**: Full SDK integration tests in real browser environment
-- **Files**: `test/src/tests-*.ts` or `tests-*.js` (legacy)
-- **Browsers**: ChromeHeadless, Firefox
-- **Key Patterns**:
-  - Reset state with `mParticle._resetForTests(MPConfig)` in `beforeEach`
-  - Mock HTTP with fetch-mock/esm/client
-  - Use `waitForCondition()` helper from `test/src/config/utils.ts` for async operations
-  - Chai assertions: `expect(...).to.equal()`, `expect(...).to.be.ok`, `expect(...).to.have.keys()`
-  - Sinon for spies/stubs
+**Karma:** reset with `_resetForTests`, mock HTTP with fetch-mock, await
+`waitForCondition()` from `test/src/config/utils.js`.
 
-**Jest (TypeScript Unit Tests):**
-- **Purpose**: Fast isolated unit tests for TypeScript modules
-- **Files**: `test/jest/*.spec.ts`
-- **Environment**: jsdom (simulates browser)
-- **Key Patterns**:
-  - Mock timers with `jest.useFakeTimers()` and `jest.advanceTimersByTime()`
-  - Mock global.fetch with `jest.fn().mockResolvedValue()`
-  - Create mock mpInstance objects as needed
-  - Jest matchers: `toBe()`, `toEqual()`, `toBeDefined()`, `toHaveBeenCalled()`
+**Jest:** jsdom, `jest.useFakeTimers()` / `jest.fn()`, mock `mpInstance` as needed.
 
-### Storage Strategy
+### Storage
 
-The Web SDK uses a tiered storage approach:
+1. Primary: `localStorage`
+2. Fallback: cookies (`document.cookie`)
+3. Key pattern: `mp_[workspace]_[mpid]` (minified field names; see
+   `persistence.interfaces.ts`)
+4. Writes go through `vault.ts` so quota / disabled-storage failures do not
+   throw out of event logging
 
-1. **Primary**: LocalStorage (`window.localStorage`)
-2. **Fallback**: Cookies (`document.cookie`)
-3. **Key Pattern**: `mp_[workspace]_[mpid]`
-
-**Stored Data:**
-- User MPID (mParticle ID)
-- User attributes
-- Identity information
-- Session data
-- Consent state
-- Cookie sync information
-
-**Access Pattern:**
 ```javascript
-// Via instance
 mpInstance._Persistence.setLocalStorage(key, value);
-const value = mpInstance._Persistence.getLocalStorage(key);
-
-// Store for runtime state
 mpInstance._Store.devToken = 'xyz';
 ```
 
-### API Communication
+### API communication
 
-**Endpoints:**
-- **Events**: `/v1/[workspace]/events`
-- **Identity**: `/v1/[workspace]/identify`, `/login`, `/logout`, `/modify`
-- **Config**: `/v1/[workspace]/config`
+- Events: `/v1/[workspace]/events`
+- Identity: `/v1/[workspace]/identify`, `/login`, `/logout`, `/modify`, `/search`
+- Config: `/v1/[workspace]/config`
 
-**Request Flow:**
+`fetch` (polyfilled) → batch uploader → retry / timeout. Do not add a second
+HTTP stack.
+
+### Forwarders (kits)
+
 ```
-Event/Identity Call → Validation → mpInstance._APIClient.send() → Batch → HTTP POST
-                                                                            ↓
-Callback Invoked ← Response Processed ← Server Response ← ← ← ← ← ← ← ← ←
-```
-
-**HTTP Client:**
-- Uses `fetch` API (polyfilled if needed)
-- Automatic retry logic for failed requests
-- Batch upload with configurable intervals
-- Request timeout handling
-
-### Forwarder (Kit) System
-
-**Forwarder Flow:**
-```
-Event Logged → Kit Filters Applied → Forwarded to Active Kits → Kit Processes Event
-                  ↓
-    Consent Check, User Attribute Filters,
-    Anonymous User Rules, Kit Blocking
+Event → consent / attribute / anonymous / data-plan filters → active kits
 ```
 
-**Kit Configuration:**
-- Fetched from mParticle servers on init
-- Applied at runtime based on server config
-- Can be dynamically enabled/disabled
-- Each kit has its own filtering rules
+Kit config is server-driven and can change at runtime. Sideloaded kits go
+through `sideloadedKit.ts`.
 
-**Key Files:**
-- `forwarders.js`: Main forwarder logic
-- `forwarders.interfaces.ts`: Forwarder types
-- `kitBlocking.ts`: Data plan violation handling
-- `integrationCapture.ts`: Integration event capture
+### Session
 
-### Session Management
+Default timeout 30 minutes (`config.sessionTimeout`). Session id is on every
+event. Reset the timer on user activity via `_SessionManager.resetSessionTimer()`.
 
-**Session Lifecycle:**
-```
-SDK Init → Session Start → Activity → Timeout Check → Session End
-             ↓                           ↓               ↓
-        Session ID Created      Session Extended   New Session Created
-```
+### Common gotchas
 
-**Session Configuration:**
-- Default timeout: 30 minutes
-- Configurable via `config.sessionTimeout`
-- Tracked in `sessionManager.ts`
-- Session ID included in all events
+1. **Manager vs instance** — `mParticle` is not `mpInstance`.
+2. **`_` is private** — do not build new features or tests on private members
+   when a public API exists.
+3. **Identity is async** — always wait (`waitForCondition(hasIdentifyReturned)`).
+4. **Snippet is a contract** — missing stub = silent data loss for script-tag users.
+5. **Storage throws** — quota and `SecurityError` are real; use `vault.ts`.
+6. **Kits are late** — they may not be ready at the first `logEvent`.
+7. **Filters drop events** — data plan, consent, and kit filters all fire.
+8. **APV state is on `window`** — module-level flags will reset on SPA re-exec.
+9. **`noDeviceId` implies `noFunctional` + `noTargeting`** — do not split them.
+10. **`dist/` is generated** — never hand-edit or hand-commit it.
 
-### Logging
+### Debugging
 
-**Logger Usage:**
-```javascript
-// Via instance
-mpInstance.Logger.error('Error message');
-mpInstance.Logger.warning('Warning message');
-mpInstance.Logger.verbose('Debug message');
-```
+- `config.logLevel = 'verbose'` or `mParticle.setLogLevel('verbose')`
+- `npm run test:debug`
+- Network: `/config`, `/events`, `/identity`
+- Application tab: `localStorage` / cookies
+- APV: inspect `window.__mpApv__`
+- Dev builds include source maps
 
-**Log Levels:**
-- `error`: Critical errors
-- `warning`: Important warnings
-- `verbose`: Debug information (only in development)
+### Available skills
 
-**Best Practices:**
-- Use Logger instead of `console.log`
-- Include context in error messages
-- Reference constants for standard messages: `Constants.Messages.ErrorMessages`
+- **`/verify`**: lint + Jest + Karma. Run this before claiming a change is done.
+  See `.claude/skills/verify/skill.md`.
+- **`/kickstart`** / **`/handoff`**: session restore. See `.claude/skills/`.
 
-### Dependency Injection Pattern
+### Additional resources
 
-Core modules receive `mpInstance` as a parameter, allowing them to access other modules (e.g., `mpInstance._Store`, `mpInstance.Logger`). This provides testability, clear dependencies, no circular dependencies, and instance isolation.
-
-### Common Gotchas
-
-1. **Instance vs Manager**: `mParticle` is the manager, `mpInstance` is the SDK instance
-2. **Private Methods**: Methods prefixed with `_` are private/internal
-3. **Async Identity**: Identity calls are async, use callbacks
-4. **Storage Limits**: LocalStorage has size limits (~5-10MB), cookies have 4KB limit
-5. **Forwarder Timing**: Kits may not be initialized immediately
-6. **Filtering Rules**: Events may be blocked by data plan rules or consent state
-
-### Performance Considerations
-
-- **Batch Events**: Events are batched before upload (default: 100 events or 30 seconds)
-- **Minimize Storage**: Only store essential data in LocalStorage/Cookies
-- **Async Operations**: Use callbacks for async operations (don't block)
-- **Bundle Size**: Monitor bundle size with `npm run bundle`
-- **Tree Shaking**: ESM build supports tree shaking for smaller bundles
-- **Lazy Loading**: Kits are loaded on-demand when configured
-
-### Debugging Tips
-
-1. **Enable Verbose Logging**: Set `config.logLevel = 'verbose'` in init
-2. **Use Debug Mode**: Run `npm run test:debug` for interactive debugging
-3. **Check Network**: Inspect Network tab for API calls
-4. **Inspect Storage**: Check Application tab for LocalStorage/Cookies
-5. **Use Source Maps**: Dev builds include source maps
-
-### Available Skills
-
-- **`/verify`**: Run lint, build, and Jest tests to validate your changes before committing. Use this after making code changes to ensure nothing is broken. See `.claude/skills/verify/skill.md`.
-
-### Additional Resources
-
-- **Documentation**: https://docs.mparticle.com/developers/sdk/web/
-- **GitHub**: https://github.com/mParticle/mparticle-web-sdk
+- Docs: https://docs.mparticle.com/developers/sdk/web/
+- GitHub: https://github.com/mParticle/mparticle-web-sdk
+- Architecture diagrams: `ARCHITECTURE.md`
+- Contributing / commit types: `CONTRIBUTING.md`
