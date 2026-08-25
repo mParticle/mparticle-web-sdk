@@ -1,4 +1,4 @@
-import { Batch, Context } from '@mparticle/event-models';
+import { Batch } from '@mparticle/event-models';
 import { MPID, IdentifyRequest, SDKEventCustomFlags, ConsentState, UserIdentities } from '@mparticle/web-sdk';
 import { IKitConfigs } from './configAPIClient';
 import { DataPlanResult, KitBlockerOptions, LogLevelType, SDKDataPlan, SDKEvent, SDKGeoLocation, SDKInitConfig, SDKProduct } from './sdkRuntimeModels';
@@ -84,6 +84,7 @@ export interface IFeatureFlags {
 export interface IStore {
     isEnabled: boolean;
     isInitialized: boolean;
+    mpid: MPID;
     sessionAttributes: SessionAttributes;
     localSessionAttributes: LocalSessionAttributes;
     currentSessionMPIDs: MPID[];
@@ -103,7 +104,7 @@ export interface IStore {
     eventQueue: SDKEvent[];
     currencyCode: string | null;
     globalTimer: number | null;
-    context: Context | null;
+    context: string | null;
     configurationLoaded: boolean;
     identityCallInFlight: boolean;
     identityCallFailed: boolean;
@@ -121,7 +122,7 @@ export interface IStore {
     activeForwarders: ConfiguredKit[];
     kits: Dictionary<MPForwarder>;
     sideloadedKits: MPForwarder[];
-    configuredForwarders: MPForwarder[];
+    configuredForwarders: ConfiguredKit[];
     pixelConfigurations: IPixelConfiguration[];
     integrationDelayTimeoutStart: number;
     webviewBridgeEnabled?: boolean;

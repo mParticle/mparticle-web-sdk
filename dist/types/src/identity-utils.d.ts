@@ -1,14 +1,14 @@
 import { Dictionary, Environment } from './utils';
 import { BaseVault } from './vault';
-import { IdentityApiData, UserIdentities, IdentityCallback } from '@mparticle/web-sdk';
+import { IdentityApiData, UserIdentities } from '@mparticle/web-sdk';
 import { IdentityAPIMethod } from './identity.interfaces';
-import { IIdentityResponse, IMParticleUser } from './identity-user-interfaces';
+import { IdentityCallback, IIdentityResponse, IMParticleUser } from './identity-user-interfaces';
 import { IStore } from './store';
 import type { IMParticleWebSDKInstance } from './mp-instance';
 import { IIdentitySearchRequestBody, IdentitySearchCallback } from './identity/search';
 export declare const CACHE_HEADER: "x-mp-max-age";
 export type IdentityCache = BaseVault<Dictionary<ICachedIdentityCall>>;
-export type IParseCachedIdentityResponse = (cachedIdentity: IIdentityResponse, mpid: string, callback: IdentityCallback, identityApiData: IdentityApiData, identityMethod: string, knownIdentities: IKnownIdentities, fromCachedIdentity: boolean) => void;
+export type IParseCachedIdentityResponse = (cachedIdentity: IIdentityResponse, mpid: string, callback: IdentityCallback, identityApiData: IdentityApiData, identityMethod: IdentityAPIMethod, knownIdentities: IKnownIdentities, fromCachedIdentity: boolean) => void;
 export interface IKnownIdentities extends UserIdentities {
     device_application_stamp?: string;
 }

@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.80.0";
+    var version = "2.80.1";
 
     var Constants = {
       sdkVersion: version,
@@ -422,14 +422,14 @@ var mParticle = (function () {
     var HTTP_NOT_FOUND = 404;
     var HTTP_SERVER_ERROR = 500;
 
-    function _typeof$1(o) {
+    function _typeof(o) {
       "@babel/helpers - typeof";
 
-      return _typeof$1 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) {
+      return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) {
         return typeof o;
       } : function (o) {
         return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o;
-      }, _typeof$1(o);
+      }, _typeof(o);
     }
 
     /******************************************************************************
@@ -923,7 +923,7 @@ var mParticle = (function () {
         return obfuscated;
       }
       // For primitives and other types, return the type as a string
-      return _typeof$1(value);
+      return _typeof(value);
     };
     /**
      * For verbose logging: returns raw data when isDevelopmentMode is true, else obfuscated data.
@@ -996,7 +996,7 @@ var mParticle = (function () {
         target = args[1] || {};
         i = 2;
       }
-      if (_typeof$1(target) !== 'object' && !objectHelper.isFunction(target)) {
+      if (_typeof(target) !== 'object' && !objectHelper.isFunction(target)) {
         target = {};
       }
       if (length === i) {
@@ -1044,7 +1044,7 @@ var mParticle = (function () {
         return e;
       }
       // fetch-mock and some network libs reject with { message } rather than Error
-      if (e && _typeof$1(e) === 'object' && typeof e.message === 'string') {
+      if (e && _typeof(e) === 'object' && typeof e.message === 'string') {
         return e.message;
       }
       return fallback;
@@ -1518,10 +1518,6 @@ var mParticle = (function () {
       Warning: 'warning',
       Error: 'error'
     };
-
-    function getDefaultExportFromCjs (x) {
-    	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
-    }
 
     var dist = {};
 
@@ -3385,11 +3381,11 @@ var mParticle = (function () {
       });
     };
 
-    var _a = Constants.IdentityMethods,
-      Identify$2 = _a.Identify,
-      Modify$3 = _a.Modify,
-      Login$2 = _a.Login,
-      Logout$2 = _a.Logout;
+    var _a$1 = Constants.IdentityMethods,
+      Identify$2 = _a$1.Identify,
+      Modify$3 = _a$1.Modify,
+      Login$2 = _a$1.Login,
+      Logout$2 = _a$1.Logout;
     var HTTPCodes$3 = Constants.HTTPCodes,
       Messages$9 = Constants.Messages;
     var CACHE_HEADER = 'x-mp-max-age';
@@ -4474,7 +4470,6 @@ var mParticle = (function () {
     var Messages$5 = Constants.Messages;
     function Ecommerce(mpInstance) {
       var self = this;
-
       // https://go.mparticle.com/work/SQDSDKS-4801
       this.convertTransactionAttributesToProductAction = function (transactionAttributes, productAction) {
         if (transactionAttributes.hasOwnProperty('Id')) {
@@ -4502,7 +4497,6 @@ var mParticle = (function () {
           productAction.CheckoutOptions = transactionAttributes.Option;
         }
       };
-
       // When the caller does not supply a transaction-level total via
       // transactionAttributes.Revenue, derive it from the product list
       // (quantity * price) plus shipping and tax. A total that the caller provided
@@ -4594,13 +4588,11 @@ var mParticle = (function () {
             return Types.CommerceEventType.ProductRemoveFromCart;
           case Types.ProductActionType.RemoveFromWishlist:
             return Types.CommerceEventType.ProductRemoveFromWishlist;
-
           // https://go.mparticle.com/work/SQDSDKS-4801
           case Types.ProductActionType.Unknown:
             return Types.EventType.Unknown;
           case Types.ProductActionType.ViewDetail:
             return Types.CommerceEventType.ProductViewDetail;
-
           // Rokt Brain commerce-adjacent types map to Unknown on server
           case Types.ProductActionType.ViewCart:
           case Types.ProductActionType.AddShippingInfo:
@@ -4630,7 +4622,6 @@ var mParticle = (function () {
       this.generateExpandedEcommerceName = function (eventName, plusOne) {
         return 'eCommerce - ' + eventName + ' - ' + (plusOne ? 'Total' : 'Item');
       };
-
       // https://go.mparticle.com/work/SQDSDKS-4801
       this.extractProductAttributes = function (attributes, product) {
         if (product.CouponCode) {
@@ -4662,14 +4653,12 @@ var mParticle = (function () {
         }
         attributes['Total Product Amount'] = product.TotalAmount || 0;
       };
-
       // https://go.mparticle.com/work/SQDSDKS-4801
       this.extractTransactionId = function (attributes, productAction) {
         if (productAction.TransactionId) {
           attributes['Transaction Id'] = productAction.TransactionId;
         }
       };
-
       // https://go.mparticle.com/work/SQDSDKS-4801
       this.extractActionAttributes = function (attributes, productAction) {
         self.extractTransactionId(attributes, productAction);
@@ -4695,7 +4684,6 @@ var mParticle = (function () {
           attributes['Checkout Step'] = productAction.CheckoutStep;
         }
       };
-
       // https://go.mparticle.com/work/SQDSDKS-4801
       this.extractPromotionAttributes = function (attributes, promotion) {
         if (promotion.Id) {
@@ -4919,15 +4907,13 @@ var mParticle = (function () {
         }
         return null;
       };
-
       // sanitizes any non number, non string value to 0
       this.sanitizeAmount = function (amount, category) {
         if (!mpInstance._Helpers.Validators.isStringOrNumber(amount)) {
-          var message = [category, 'must be of type number. A', _typeof$1(amount), 'was passed. Converting to 0'].join(' ');
+          var message = [category, 'must be of type number. A', _typeof(amount), 'was passed. Converting to 0'].join(' ');
           mpInstance.Logger.warning(message);
           return 0;
         }
-
         // if amount is a string, it will be parsed into a number if possible, or set to 0
         return mpInstance._Helpers.parseNumber(amount);
       };
@@ -5199,7 +5185,7 @@ var mParticle = (function () {
           if (mpInstance._Helpers.Validators.isFunction(callback)) {
             this.SDKConfig.identityCallback = config.identityCallback;
           } else {
-            mpInstance.Logger.warning('The optional callback must be a function. You tried entering a(n) ' + _typeof$1(callback) + ' . Callback not set. Please set your callback again.');
+            mpInstance.Logger.warning('The optional callback must be a function. You tried entering a(n) ' + _typeof(callback) + ' . Callback not set. Please set your callback again.');
           }
         }
         if (config.hasOwnProperty('appVersion')) {
@@ -7116,386 +7102,6 @@ var mParticle = (function () {
       };
     }
 
-    function asyncGeneratorStep(gen, resolve, reject, _next, _throw, key, arg) {
-      try {
-        var info = gen[key](arg);
-        var value = info.value;
-      } catch (error) {
-        reject(error);
-        return;
-      }
-      if (info.done) {
-        resolve(value);
-      } else {
-        Promise.resolve(value).then(_next, _throw);
-      }
-    }
-    function _asyncToGenerator(fn) {
-      return function () {
-        var self = this,
-          args = arguments;
-        return new Promise(function (resolve, reject) {
-          var gen = fn.apply(self, args);
-          function _next(value) {
-            asyncGeneratorStep(gen, resolve, reject, _next, _throw, "next", value);
-          }
-          function _throw(err) {
-            asyncGeneratorStep(gen, resolve, reject, _next, _throw, "throw", err);
-          }
-          _next(undefined);
-        });
-      };
-    }
-
-    var regeneratorRuntime$1 = {exports: {}};
-
-    var _typeof = {exports: {}};
-
-    _typeof.exports;
-
-    (function (module) {
-    	function _typeof(o) {
-    	  "@babel/helpers - typeof";
-
-    	  return (module.exports = _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) {
-    	    return typeof o;
-    	  } : function (o) {
-    	    return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o;
-    	  }, module.exports.__esModule = true, module.exports["default"] = module.exports), _typeof(o);
-    	}
-    	module.exports = _typeof, module.exports.__esModule = true, module.exports["default"] = module.exports; 
-    } (_typeof));
-
-    var _typeofExports = _typeof.exports;
-
-    regeneratorRuntime$1.exports;
-
-    (function (module) {
-    	var _typeof = _typeofExports["default"];
-    	function _regeneratorRuntime() {
-    	  module.exports = _regeneratorRuntime = function _regeneratorRuntime() {
-    	    return e;
-    	  }, module.exports.__esModule = true, module.exports["default"] = module.exports;
-    	  var t,
-    	    e = {},
-    	    r = Object.prototype,
-    	    n = r.hasOwnProperty,
-    	    o = Object.defineProperty || function (t, e, r) {
-    	      t[e] = r.value;
-    	    },
-    	    i = "function" == typeof Symbol ? Symbol : {},
-    	    a = i.iterator || "@@iterator",
-    	    c = i.asyncIterator || "@@asyncIterator",
-    	    u = i.toStringTag || "@@toStringTag";
-    	  function define(t, e, r) {
-    	    return Object.defineProperty(t, e, {
-    	      value: r,
-    	      enumerable: !0,
-    	      configurable: !0,
-    	      writable: !0
-    	    }), t[e];
-    	  }
-    	  try {
-    	    define({}, "");
-    	  } catch (t) {
-    	    define = function define(t, e, r) {
-    	      return t[e] = r;
-    	    };
-    	  }
-    	  function wrap(t, e, r, n) {
-    	    var i = e && e.prototype instanceof Generator ? e : Generator,
-    	      a = Object.create(i.prototype),
-    	      c = new Context(n || []);
-    	    return o(a, "_invoke", {
-    	      value: makeInvokeMethod(t, r, c)
-    	    }), a;
-    	  }
-    	  function tryCatch(t, e, r) {
-    	    try {
-    	      return {
-    	        type: "normal",
-    	        arg: t.call(e, r)
-    	      };
-    	    } catch (t) {
-    	      return {
-    	        type: "throw",
-    	        arg: t
-    	      };
-    	    }
-    	  }
-    	  e.wrap = wrap;
-    	  var h = "suspendedStart",
-    	    l = "suspendedYield",
-    	    f = "executing",
-    	    s = "completed",
-    	    y = {};
-    	  function Generator() {}
-    	  function GeneratorFunction() {}
-    	  function GeneratorFunctionPrototype() {}
-    	  var p = {};
-    	  define(p, a, function () {
-    	    return this;
-    	  });
-    	  var d = Object.getPrototypeOf,
-    	    v = d && d(d(values([])));
-    	  v && v !== r && n.call(v, a) && (p = v);
-    	  var g = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(p);
-    	  function defineIteratorMethods(t) {
-    	    ["next", "throw", "return"].forEach(function (e) {
-    	      define(t, e, function (t) {
-    	        return this._invoke(e, t);
-    	      });
-    	    });
-    	  }
-    	  function AsyncIterator(t, e) {
-    	    function invoke(r, o, i, a) {
-    	      var c = tryCatch(t[r], t, o);
-    	      if ("throw" !== c.type) {
-    	        var u = c.arg,
-    	          h = u.value;
-    	        return h && "object" == _typeof(h) && n.call(h, "__await") ? e.resolve(h.__await).then(function (t) {
-    	          invoke("next", t, i, a);
-    	        }, function (t) {
-    	          invoke("throw", t, i, a);
-    	        }) : e.resolve(h).then(function (t) {
-    	          u.value = t, i(u);
-    	        }, function (t) {
-    	          return invoke("throw", t, i, a);
-    	        });
-    	      }
-    	      a(c.arg);
-    	    }
-    	    var r;
-    	    o(this, "_invoke", {
-    	      value: function value(t, n) {
-    	        function callInvokeWithMethodAndArg() {
-    	          return new e(function (e, r) {
-    	            invoke(t, n, e, r);
-    	          });
-    	        }
-    	        return r = r ? r.then(callInvokeWithMethodAndArg, callInvokeWithMethodAndArg) : callInvokeWithMethodAndArg();
-    	      }
-    	    });
-    	  }
-    	  function makeInvokeMethod(e, r, n) {
-    	    var o = h;
-    	    return function (i, a) {
-    	      if (o === f) throw new Error("Generator is already running");
-    	      if (o === s) {
-    	        if ("throw" === i) throw a;
-    	        return {
-    	          value: t,
-    	          done: !0
-    	        };
-    	      }
-    	      for (n.method = i, n.arg = a;;) {
-    	        var c = n.delegate;
-    	        if (c) {
-    	          var u = maybeInvokeDelegate(c, n);
-    	          if (u) {
-    	            if (u === y) continue;
-    	            return u;
-    	          }
-    	        }
-    	        if ("next" === n.method) n.sent = n._sent = n.arg;else if ("throw" === n.method) {
-    	          if (o === h) throw o = s, n.arg;
-    	          n.dispatchException(n.arg);
-    	        } else "return" === n.method && n.abrupt("return", n.arg);
-    	        o = f;
-    	        var p = tryCatch(e, r, n);
-    	        if ("normal" === p.type) {
-    	          if (o = n.done ? s : l, p.arg === y) continue;
-    	          return {
-    	            value: p.arg,
-    	            done: n.done
-    	          };
-    	        }
-    	        "throw" === p.type && (o = s, n.method = "throw", n.arg = p.arg);
-    	      }
-    	    };
-    	  }
-    	  function maybeInvokeDelegate(e, r) {
-    	    var n = r.method,
-    	      o = e.iterator[n];
-    	    if (o === t) return r.delegate = null, "throw" === n && e.iterator["return"] && (r.method = "return", r.arg = t, maybeInvokeDelegate(e, r), "throw" === r.method) || "return" !== n && (r.method = "throw", r.arg = new TypeError("The iterator does not provide a '" + n + "' method")), y;
-    	    var i = tryCatch(o, e.iterator, r.arg);
-    	    if ("throw" === i.type) return r.method = "throw", r.arg = i.arg, r.delegate = null, y;
-    	    var a = i.arg;
-    	    return a ? a.done ? (r[e.resultName] = a.value, r.next = e.nextLoc, "return" !== r.method && (r.method = "next", r.arg = t), r.delegate = null, y) : a : (r.method = "throw", r.arg = new TypeError("iterator result is not an object"), r.delegate = null, y);
-    	  }
-    	  function pushTryEntry(t) {
-    	    var e = {
-    	      tryLoc: t[0]
-    	    };
-    	    1 in t && (e.catchLoc = t[1]), 2 in t && (e.finallyLoc = t[2], e.afterLoc = t[3]), this.tryEntries.push(e);
-    	  }
-    	  function resetTryEntry(t) {
-    	    var e = t.completion || {};
-    	    e.type = "normal", delete e.arg, t.completion = e;
-    	  }
-    	  function Context(t) {
-    	    this.tryEntries = [{
-    	      tryLoc: "root"
-    	    }], t.forEach(pushTryEntry, this), this.reset(!0);
-    	  }
-    	  function values(e) {
-    	    if (e || "" === e) {
-    	      var r = e[a];
-    	      if (r) return r.call(e);
-    	      if ("function" == typeof e.next) return e;
-    	      if (!isNaN(e.length)) {
-    	        var o = -1,
-    	          i = function next() {
-    	            for (; ++o < e.length;) if (n.call(e, o)) return next.value = e[o], next.done = !1, next;
-    	            return next.value = t, next.done = !0, next;
-    	          };
-    	        return i.next = i;
-    	      }
-    	    }
-    	    throw new TypeError(_typeof(e) + " is not iterable");
-    	  }
-    	  return GeneratorFunction.prototype = GeneratorFunctionPrototype, o(g, "constructor", {
-    	    value: GeneratorFunctionPrototype,
-    	    configurable: !0
-    	  }), o(GeneratorFunctionPrototype, "constructor", {
-    	    value: GeneratorFunction,
-    	    configurable: !0
-    	  }), GeneratorFunction.displayName = define(GeneratorFunctionPrototype, u, "GeneratorFunction"), e.isGeneratorFunction = function (t) {
-    	    var e = "function" == typeof t && t.constructor;
-    	    return !!e && (e === GeneratorFunction || "GeneratorFunction" === (e.displayName || e.name));
-    	  }, e.mark = function (t) {
-    	    return Object.setPrototypeOf ? Object.setPrototypeOf(t, GeneratorFunctionPrototype) : (t.__proto__ = GeneratorFunctionPrototype, define(t, u, "GeneratorFunction")), t.prototype = Object.create(g), t;
-    	  }, e.awrap = function (t) {
-    	    return {
-    	      __await: t
-    	    };
-    	  }, defineIteratorMethods(AsyncIterator.prototype), define(AsyncIterator.prototype, c, function () {
-    	    return this;
-    	  }), e.AsyncIterator = AsyncIterator, e.async = function (t, r, n, o, i) {
-    	    void 0 === i && (i = Promise);
-    	    var a = new AsyncIterator(wrap(t, r, n, o), i);
-    	    return e.isGeneratorFunction(r) ? a : a.next().then(function (t) {
-    	      return t.done ? t.value : a.next();
-    	    });
-    	  }, defineIteratorMethods(g), define(g, u, "Generator"), define(g, a, function () {
-    	    return this;
-    	  }), define(g, "toString", function () {
-    	    return "[object Generator]";
-    	  }), e.keys = function (t) {
-    	    var e = Object(t),
-    	      r = [];
-    	    for (var n in e) r.push(n);
-    	    return r.reverse(), function next() {
-    	      for (; r.length;) {
-    	        var t = r.pop();
-    	        if (t in e) return next.value = t, next.done = !1, next;
-    	      }
-    	      return next.done = !0, next;
-    	    };
-    	  }, e.values = values, Context.prototype = {
-    	    constructor: Context,
-    	    reset: function reset(e) {
-    	      if (this.prev = 0, this.next = 0, this.sent = this._sent = t, this.done = !1, this.delegate = null, this.method = "next", this.arg = t, this.tryEntries.forEach(resetTryEntry), !e) for (var r in this) "t" === r.charAt(0) && n.call(this, r) && !isNaN(+r.slice(1)) && (this[r] = t);
-    	    },
-    	    stop: function stop() {
-    	      this.done = !0;
-    	      var t = this.tryEntries[0].completion;
-    	      if ("throw" === t.type) throw t.arg;
-    	      return this.rval;
-    	    },
-    	    dispatchException: function dispatchException(e) {
-    	      if (this.done) throw e;
-    	      var r = this;
-    	      function handle(n, o) {
-    	        return a.type = "throw", a.arg = e, r.next = n, o && (r.method = "next", r.arg = t), !!o;
-    	      }
-    	      for (var o = this.tryEntries.length - 1; o >= 0; --o) {
-    	        var i = this.tryEntries[o],
-    	          a = i.completion;
-    	        if ("root" === i.tryLoc) return handle("end");
-    	        if (i.tryLoc <= this.prev) {
-    	          var c = n.call(i, "catchLoc"),
-    	            u = n.call(i, "finallyLoc");
-    	          if (c && u) {
-    	            if (this.prev < i.catchLoc) return handle(i.catchLoc, !0);
-    	            if (this.prev < i.finallyLoc) return handle(i.finallyLoc);
-    	          } else if (c) {
-    	            if (this.prev < i.catchLoc) return handle(i.catchLoc, !0);
-    	          } else {
-    	            if (!u) throw new Error("try statement without catch or finally");
-    	            if (this.prev < i.finallyLoc) return handle(i.finallyLoc);
-    	          }
-    	        }
-    	      }
-    	    },
-    	    abrupt: function abrupt(t, e) {
-    	      for (var r = this.tryEntries.length - 1; r >= 0; --r) {
-    	        var o = this.tryEntries[r];
-    	        if (o.tryLoc <= this.prev && n.call(o, "finallyLoc") && this.prev < o.finallyLoc) {
-    	          var i = o;
-    	          break;
-    	        }
-    	      }
-    	      i && ("break" === t || "continue" === t) && i.tryLoc <= e && e <= i.finallyLoc && (i = null);
-    	      var a = i ? i.completion : {};
-    	      return a.type = t, a.arg = e, i ? (this.method = "next", this.next = i.finallyLoc, y) : this.complete(a);
-    	    },
-    	    complete: function complete(t, e) {
-    	      if ("throw" === t.type) throw t.arg;
-    	      return "break" === t.type || "continue" === t.type ? this.next = t.arg : "return" === t.type ? (this.rval = this.arg = t.arg, this.method = "return", this.next = "end") : "normal" === t.type && e && (this.next = e), y;
-    	    },
-    	    finish: function finish(t) {
-    	      for (var e = this.tryEntries.length - 1; e >= 0; --e) {
-    	        var r = this.tryEntries[e];
-    	        if (r.finallyLoc === t) return this.complete(r.completion, r.afterLoc), resetTryEntry(r), y;
-    	      }
-    	    },
-    	    "catch": function _catch(t) {
-    	      for (var e = this.tryEntries.length - 1; e >= 0; --e) {
-    	        var r = this.tryEntries[e];
-    	        if (r.tryLoc === t) {
-    	          var n = r.completion;
-    	          if ("throw" === n.type) {
-    	            var o = n.arg;
-    	            resetTryEntry(r);
-    	          }
-    	          return o;
-    	        }
-    	      }
-    	      throw new Error("illegal catch attempt");
-    	    },
-    	    delegateYield: function delegateYield(e, r, n) {
-    	      return this.delegate = {
-    	        iterator: values(e),
-    	        resultName: r,
-    	        nextLoc: n
-    	      }, "next" === this.method && (this.arg = t), y;
-    	    }
-    	  }, e;
-    	}
-    	module.exports = _regeneratorRuntime, module.exports.__esModule = true, module.exports["default"] = module.exports; 
-    } (regeneratorRuntime$1));
-
-    var regeneratorRuntimeExports = regeneratorRuntime$1.exports;
-
-    // TODO(Babel 8): Remove this file.
-
-    var runtime = regeneratorRuntimeExports();
-    var regenerator = runtime;
-
-    // Copied from https://github.com/facebook/regenerator/blob/main/packages/runtime/runtime.js#L736=
-    try {
-      regeneratorRuntime = runtime;
-    } catch (accidentalStrictMode) {
-      if (typeof globalThis === "object") {
-        globalThis.regeneratorRuntime = runtime;
-      } else {
-        Function("r", "regeneratorRuntime = r")(runtime);
-      }
-    }
-
-    var _regeneratorRuntime = /*@__PURE__*/getDefaultExportFromCjs(regenerator);
-
     function isAttributeKeyAllowed(kitBlocker, key) {
       return !(kitBlocker === null || kitBlocker === void 0 ? void 0 : kitBlocker.isAttributeKeyBlocked(key));
     }
@@ -7640,11 +7246,27 @@ var mParticle = (function () {
       });
     }
 
-    var _Constants$IdentityMe = Constants.IdentityMethods,
-      Modify$2 = _Constants$IdentityMe.Modify,
-      Identify$1 = _Constants$IdentityMe.Identify,
-      Login$1 = _Constants$IdentityMe.Login,
-      Logout$1 = _Constants$IdentityMe.Logout;
+    var _a;
+    var _b = Constants.IdentityMethods,
+      Modify$2 = _b.Modify,
+      Identify$1 = _b.Identify,
+      Login$1 = _b.Login,
+      Logout$1 = _b.Logout;
+    // Maps an identity method to the kit callback that reports its completion.
+    var identityCompleteKitMethods = (_a = {}, _a[Identify$1] = 'onIdentifyComplete', _a[Login$1] = 'onLoginComplete', _a[Logout$1] = 'onLogoutComplete', _a[Modify$2] = 'onModifyComplete', _a);
+    function userAttributesMatchFilter(userAttributes, filterObject) {
+      for (var attrName in userAttributes) {
+        if (!userAttributes.hasOwnProperty(attrName)) {
+          continue;
+        }
+        var attrHash = KitFilterHelper.hashAttributeConditionalForwarding(attrName);
+        var valueHash = KitFilterHelper.hashAttributeConditionalForwarding(userAttributes[attrName]);
+        if (attrHash === filterObject.userAttributeName && valueHash === filterObject.userAttributeValue) {
+          return true;
+        }
+      }
+      return false;
+    }
     function Forwarders(mpInstance, kitBlocker) {
       var _this = this;
       var self = this;
@@ -7687,31 +7309,14 @@ var mParticle = (function () {
         if (!filterObject || !mpInstance._Helpers.isObject(filterObject) || !Object.keys(filterObject).length) {
           return true;
         }
-        var attrHash, valueHash, userAttributes;
         if (!user) {
           return false;
-        } else {
-          userAttributes = user.getAllUserAttributes();
         }
-        var isMatch = false;
+        var userAttributes = user.getAllUserAttributes();
         try {
-          if (userAttributes && mpInstance._Helpers.isObject(userAttributes) && Object.keys(userAttributes).length) {
-            for (var attrName in userAttributes) {
-              if (userAttributes.hasOwnProperty(attrName)) {
-                attrHash = KitFilterHelper.hashAttributeConditionalForwarding(attrName);
-                valueHash = KitFilterHelper.hashAttributeConditionalForwarding(userAttributes[attrName]);
-                if (attrHash === filterObject.userAttributeName && valueHash === filterObject.userAttributeValue) {
-                  isMatch = true;
-                  break;
-                }
-              }
-            }
-          }
-          if (filterObject) {
-            return filterObject.includeOnMatch === isMatch;
-          } else {
-            return true;
-          }
+          var hasUserAttributes = userAttributes && mpInstance._Helpers.isObject(userAttributes) && Object.keys(userAttributes).length > 0;
+          var isMatch = hasUserAttributes ? userAttributesMatchFilter(userAttributes, filterObject) : false;
+          return filterObject.includeOnMatch === isMatch;
         } catch (e) {
           // in any error scenario, err on side of returning true and forwarding event
           return true;
@@ -7743,39 +7348,38 @@ var mParticle = (function () {
         }
       };
       this.sendEventToForwarders = function (event) {
-        var clonedEvent;
-        var hashedEventName;
-        var hashedEventType;
-        if (!mpInstance._Store.webviewBridgeEnabled && mpInstance._Store.activeForwarders) {
-          hashedEventName = KitFilterHelper.hashEventName(event.EventName, event.EventCategory);
-          hashedEventType = KitFilterHelper.hashEventType(event.EventCategory);
-          for (var i = 0; i < mpInstance._Store.activeForwarders.length; i++) {
-            var forwarder = mpInstance._Store.activeForwarders[i];
-            if (isBlockedByForwardingRule(event.EventDataType, event.EventAttributes, forwarder)) {
-              continue;
-            }
-
-            // Clone the event object, as we could be sending different attributes to each forwarder
-            clonedEvent = extend(true, {}, event);
-            if (isBlockedByEventFilter(event.EventDataType, hashedEventName, hashedEventType, forwarder)) {
-              continue;
-            }
-            clonedEvent.EventAttributes = filterEventAttributes(event.EventDataType, event.EventCategory, event.EventName, clonedEvent.EventAttributes, forwarder);
-
-            // Check user identity filtering rules
-            clonedEvent.UserIdentities = filterUserIdentities(clonedEvent.UserIdentities, forwarder.userIdentityFilters);
-
-            // Check user attribute filtering rules
-            clonedEvent.UserAttributes = KitFilterHelper.filterUserAttributes(clonedEvent.UserAttributes, forwarder.userAttributeFilters);
-            if (forwarder.process) {
-              mpInstance.Logger.verbose('Sending message to forwarder: ' + forwarder.name);
-              var result = forwarder.process(clonedEvent);
-              if (result) {
-                mpInstance.Logger.verbose(result);
-              }
-            }
-          }
+        if (mpInstance._Store.webviewBridgeEnabled || !mpInstance._Store.activeForwarders) {
+          return;
         }
+        var hashedEventName = KitFilterHelper.hashEventName(event.EventName, event.EventCategory);
+        var hashedEventType = KitFilterHelper.hashEventType(event.EventCategory);
+        var forwardEvent = function forwardEvent(forwarder) {
+          if (isBlockedByForwardingRule(event.EventDataType, event.EventAttributes, forwarder)) {
+            return;
+          }
+          // Clone the event object, as we could be sending different attributes to each forwarder
+          var clonedEvent = extend(true, {}, event);
+          if (isBlockedByEventFilter(event.EventDataType, hashedEventName, hashedEventType, forwarder)) {
+            return;
+          }
+          clonedEvent.EventAttributes = filterEventAttributes(event.EventDataType, event.EventCategory, event.EventName, clonedEvent.EventAttributes, forwarder);
+          // Check user identity filtering rules
+          clonedEvent.UserIdentities = filterUserIdentities(clonedEvent.UserIdentities, forwarder.userIdentityFilters);
+          // Check user attribute filtering rules
+          clonedEvent.UserAttributes = KitFilterHelper.filterUserAttributes(clonedEvent.UserAttributes, forwarder.userAttributeFilters);
+          if (!forwarder.process) {
+            return;
+          }
+          mpInstance.Logger.verbose('Sending message to forwarder: ' + forwarder.name);
+          var result = forwarder.process(clonedEvent);
+          if (result) {
+            mpInstance.Logger.verbose(result);
+          }
+        };
+        // Not for...of: the downleveled loop is miscompiled in cjs/esm builds.
+        mpInstance._Store.activeForwarders.forEach(function (forwarder) {
+          forwardEvent(forwarder);
+        });
       };
       this.handleForwarderUserAttributes = function (functionNameKey, key, value) {
         if (kitBlocker && kitBlocker.isAttributeKeyBlocked(key) || !mpInstance._Store.activeForwarders.length) {
@@ -7787,7 +7391,7 @@ var mParticle = (function () {
             return;
           }
           try {
-            var result;
+            var result = void 0;
             if (functionNameKey === UserAttributeActionTypes.setUserAttribute) {
               result = forwarder.setUserAttribute(key, value);
             } else if (functionNameKey === UserAttributeActionTypes.removeUserAttribute) {
@@ -7801,7 +7405,6 @@ var mParticle = (function () {
           }
         });
       };
-
       // TODO: https://go.mparticle.com/work/SQDSDKS-6036
       this.setForwarderUserIdentities = function (userIdentities) {
         mpInstance._Store.activeForwarders.forEach(function (forwarder) {
@@ -7828,38 +7431,19 @@ var mParticle = (function () {
         });
       };
       this.setForwarderOnIdentityComplete = function (user, identityMethod) {
-        var result;
+        var kitMethodName = identityCompleteKitMethods[identityMethod];
+        if (!kitMethodName) {
+          return;
+        }
         mpInstance._Store.activeForwarders.forEach(function (forwarder) {
+          var onIdentityComplete = forwarder[kitMethodName];
+          if (!onIdentityComplete) {
+            return;
+          }
           var filteredUser = filteredMparticleUser(user.getMPID(), forwarder, mpInstance, kitBlocker);
-          var filteredUserIdentities = filteredUser.getUserIdentities();
-          if (identityMethod === Identify$1) {
-            if (forwarder.onIdentifyComplete) {
-              result = forwarder.onIdentifyComplete(filteredUser, filteredUserIdentities);
-              if (result) {
-                mpInstance.Logger.verbose(result);
-              }
-            }
-          } else if (identityMethod === Login$1) {
-            if (forwarder.onLoginComplete) {
-              result = forwarder.onLoginComplete(filteredUser, filteredUserIdentities);
-              if (result) {
-                mpInstance.Logger.verbose(result);
-              }
-            }
-          } else if (identityMethod === Logout$1) {
-            if (forwarder.onLogoutComplete) {
-              result = forwarder.onLogoutComplete(filteredUser, filteredUserIdentities);
-              if (result) {
-                mpInstance.Logger.verbose(result);
-              }
-            }
-          } else if (identityMethod === Modify$2) {
-            if (forwarder.onModifyComplete) {
-              result = forwarder.onModifyComplete(filteredUser, filteredUserIdentities);
-              if (result) {
-                mpInstance.Logger.verbose(result);
-              }
-            }
+          var result = onIdentityComplete.call(forwarder, filteredUser, filteredUser.getUserIdentities());
+          if (result) {
+            mpInstance.Logger.verbose(result);
           }
         });
       };
@@ -7869,7 +7453,6 @@ var mParticle = (function () {
       this.setForwarderStatsQueue = function (queue) {
         mpInstance._Persistence.forwardingStatsBatches.forwardingStatsEventQueue = queue;
       };
-
       // Processing forwarders is a 2 step process:
       //   1. Configure the kit
       //   2. Initialize the kit
@@ -7885,7 +7468,6 @@ var mParticle = (function () {
           self.initForwarders(mpInstance._Store.SDKConfig.identifyRequest.userIdentities, forwardingStatsCallback);
         }
       };
-
       // These are kits that are enabled via the mParticle UI.
       // A kit that is UI-enabled will have a kit configuration that returns from
       // the server, or in rare cases, is passed in by the developer.
@@ -7932,25 +7514,23 @@ var mParticle = (function () {
       this.configureUIEnabledKit = function (configuration, kits) {
         var newKit = null;
         var config = configuration;
-        for (var name in kits) {
+        for (var name_1 in kits) {
           // Configs are returned with suffixes also. We need to consider the
           // config suffix here to match the constructor suffix
           var kitNameWithConfigSuffix = void 0;
           if (config.suffix) {
             kitNameWithConfigSuffix = "".concat(config.name, "-").concat(config.suffix);
           }
-          if (name === kitNameWithConfigSuffix || name === config.name) {
+          if (name_1 === kitNameWithConfigSuffix || name_1 === config.name) {
             if (config.isDebug === mpInstance._Store.SDKConfig.isDevelopmentMode || config.isSandbox === mpInstance._Store.SDKConfig.isDevelopmentMode) {
-              newKit = this.returnConfiguredKit(kits[name], config);
+              newKit = this.returnConfiguredKit(kits[name_1], config);
               mpInstance._Store.configuredForwarders.push(newKit);
               break;
             }
           }
         }
       };
-
       // Unlike UI enabled kits, sideloaded kits are always added to active forwarders.
-
       // TODO: Sideloading kits currently require the use of a register method
       // which requires an object on which to be registered.
       // In the future, when all kits are moved to the mpConfig rather than
@@ -7959,7 +7539,7 @@ var mParticle = (function () {
       this.processSideloadedKits = function (mpConfig) {
         try {
           if (Array.isArray(mpConfig.sideloadedKits)) {
-            var registeredSideloadedKits = {
+            var registeredSideloadedKits_1 = {
               kits: {}
             };
             var unregisteredSideloadedKits = mpConfig.sideloadedKits;
@@ -7967,25 +7547,23 @@ var mParticle = (function () {
               try {
                 // Register each sideloaded kit, which adds a key of the sideloaded kit name
                 // and a value of the sideloaded kit constructor.
-                unregisteredKit.kitInstance.register(registeredSideloadedKits);
+                unregisteredKit.kitInstance.register(registeredSideloadedKits_1);
                 var kitName = unregisteredKit.kitInstance.name;
                 // Then add the kit filters to each registered kit.
-                registeredSideloadedKits.kits[kitName].filters = unregisteredKit.filterDictionary;
+                registeredSideloadedKits_1.kits[kitName].filters = unregisteredKit.filterDictionary;
               } catch (e) {
                 console.error('Error registering sideloaded kit ' + unregisteredKit.kitInstance.name);
               }
             });
-
             // Then configure each registered kit
-            for (var registeredKitKey in registeredSideloadedKits.kits) {
-              var registeredKit = registeredSideloadedKits.kits[registeredKitKey];
+            for (var registeredKitKey in registeredSideloadedKits_1.kits) {
+              var registeredKit = registeredSideloadedKits_1.kits[registeredKitKey];
               self.configureSideloadedKit(registeredKit);
             }
-
             // If Sideloaded Kits are successfully registered,
             // record this in the Store.
-            if (!isEmpty(registeredSideloadedKits.kits)) {
-              var kitKeys = Object.keys(registeredSideloadedKits.kits);
+            if (!isEmpty(registeredSideloadedKits_1.kits)) {
+              var kitKeys = Object.keys(registeredSideloadedKits_1.kits);
               mpInstance._Store.sideloadedKitsCount = kitKeys.length;
             }
           }
@@ -7993,16 +7571,16 @@ var mParticle = (function () {
           mpInstance.Logger.error('Sideloaded Kits not configured propertly. Kits may not be initialized. ' + e);
         }
       };
-
       // kits can be included via mParticle UI, or via sideloaded kit config API
       this.configureSideloadedKit = function (kitConstructor) {
         mpInstance._Store.configuredForwarders.push(this.returnConfiguredKit(kitConstructor, kitConstructor.filters));
       };
-      this.returnConfiguredKit = function (forwarder) {
-        var config = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+      this.returnConfiguredKit = function (forwarder, config) {
+        if (config === void 0) {
+          config = {};
+        }
         var newForwarder = new forwarder.constructor();
         newForwarder.id = config.moduleId;
-
         // TODO: isSandbox, hasSandbox is never used in any kit or in core SDK.
         // isVisible.  Investigate is only used in 1 place. It is always true if
         // it is sent to JS. Investigate further to determine if these can be removed.
@@ -8041,14 +7619,13 @@ var mParticle = (function () {
           mpInstance.Logger.error('Cookie Sync configs not configured propertly. Cookie Sync may not be initialized. ' + e);
         }
       };
-      this.sendSingleForwardingStatsToServer = /*#__PURE__*/function () {
-        var _ref = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee(forwardingStatsData) {
-          var _mpInstance$Logger;
+      this.sendSingleForwardingStatsToServer = function (forwardingStatsData) {
+        return __awaiter(_this, void 0, void 0, function () {
           var fetchPayload, response, message;
-          return _regeneratorRuntime.wrap(function _callee$(_context) {
-            while (1) switch (_context.prev = _context.next) {
+          var _a;
+          return __generator(this, function (_b) {
+            switch (_b.label) {
               case 0:
-                // https://go.mparticle.com/work/SQDSDKS-6568
                 fetchPayload = {
                   method: 'post',
                   body: JSON.stringify(forwardingStatsData),
@@ -8057,10 +7634,9 @@ var mParticle = (function () {
                     'Content-Type': 'text/plain;charset=UTF-8'
                   }
                 };
-                _context.next = 3;
-                return _this.forwarderStatsUploader.upload(fetchPayload);
-              case 3:
-                response = _context.sent;
+                return [4 /*yield*/, this.forwarderStatsUploader.upload(fetchPayload)];
+              case 1:
+                response = _b.sent();
                 // This is a fire and forget, so we only need to log the response based on the code, and not return any response body
                 if (response.status === 202) {
                   // https://go.mparticle.com/work/SQDSDKS-6670
@@ -8068,17 +7644,12 @@ var mParticle = (function () {
                 } else {
                   message = 'Issue with forwarding stats to mParticle Servers, received HTTP Code of ' + response.statusText;
                 }
-                mpInstance === null || mpInstance === void 0 || (_mpInstance$Logger = mpInstance.Logger) === null || _mpInstance$Logger === void 0 || _mpInstance$Logger.verbose(message);
-              case 6:
-              case "end":
-                return _context.stop();
+                (_a = mpInstance === null || mpInstance === void 0 ? void 0 : mpInstance.Logger) === null || _a === void 0 ? void 0 : _a.verbose(message);
+                return [2 /*return*/];
             }
-          }, _callee);
-        }));
-        return function (_x) {
-          return _ref.apply(this, arguments);
-        };
-      }();
+          });
+        });
+      };
     }
 
     // TODO: This file is no longer the server model because the web SDK payload
@@ -8413,37 +7984,6 @@ var mParticle = (function () {
       }
     }
 
-    function _toPrimitive(input, hint) {
-      if (_typeof$1(input) !== "object" || input === null) return input;
-      var prim = input[Symbol.toPrimitive];
-      if (prim !== undefined) {
-        var res = prim.call(input, hint || "default");
-        if (_typeof$1(res) !== "object") return res;
-        throw new TypeError("@@toPrimitive must return a primitive value.");
-      }
-      return (hint === "string" ? String : Number)(input);
-    }
-
-    function _toPropertyKey(arg) {
-      var key = _toPrimitive(arg, "string");
-      return _typeof$1(key) === "symbol" ? key : String(key);
-    }
-
-    function _defineProperty(obj, key, value) {
-      key = _toPropertyKey(key);
-      if (key in obj) {
-        Object.defineProperty(obj, key, {
-          value: value,
-          enumerable: true,
-          configurable: true,
-          writable: true
-        });
-      } else {
-        obj[key] = value;
-      }
-      return obj;
-    }
-
     var AudienceManager = /** @class */function () {
       function AudienceManager(userAudienceUrl, apiKey, logger) {
         this.url = '';
@@ -8570,8 +8110,6 @@ var mParticle = (function () {
       }
     };
 
-    function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
-    function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
     var Messages$2 = Constants.Messages,
       HTTPCodes$2 = Constants.HTTPCodes,
       FeatureFlags$1 = Constants.FeatureFlags,
@@ -8583,23 +8121,20 @@ var mParticle = (function () {
       Login = IdentityMethods$1.Login,
       Logout = IdentityMethods$1.Logout;
     function Identity(mpInstance) {
-      var _mpInstance$_Helpers = mpInstance._Helpers,
-        getFeatureFlag = _mpInstance$_Helpers.getFeatureFlag,
-        extend = _mpInstance$_Helpers.extend;
+      var _a = mpInstance._Helpers,
+        getFeatureFlag = _a.getFeatureFlag,
+        extend = _a.extend;
       var self = this;
       this.idCache = null;
       this.audienceManager = null;
-
       // https://go.mparticle.com/work/SQDSDKS-6353
       this.IdentityRequest = {
         preProcessIdentityRequest: function preProcessIdentityRequest(identityApiData, callback, method) {
           mpInstance.Logger.verbose(Messages$2.InformationMessages.StartingLogEvent + ': ' + method);
-
           // First, remove any falsy identity values and warn about them
           var removedFalsyIdentityData = mpInstance._Helpers.Validators.removeFalsyIdentityValues(identityApiData, mpInstance.Logger);
-
           // Normalize convenience aliases (email_sha256 → other, mobile_sha256 → other2)
-          var cleanedIdentityApiData = removedFalsyIdentityData !== null && removedFalsyIdentityData !== void 0 && removedFalsyIdentityData.userIdentities ? _objectSpread(_objectSpread({}, removedFalsyIdentityData), {}, {
+          var cleanedIdentityApiData = (removedFalsyIdentityData === null || removedFalsyIdentityData === void 0 ? void 0 : removedFalsyIdentityData.userIdentities) ? __assign(__assign({}, removedFalsyIdentityData), {
             userIdentities: normalizeUserIdentityKeys(removedFalsyIdentityData.userIdentities)
           }) : removedFalsyIdentityData;
           var identityValidationResult = mpInstance._Helpers.Validators.validateIdentities(cleanedIdentityApiData, method);
@@ -8611,7 +8146,7 @@ var mParticle = (function () {
             };
           }
           if (callback && !mpInstance._Helpers.Validators.isFunction(callback)) {
-            var error = 'The optional callback must be a function. You tried entering a(n) ' + _typeof$1(callback);
+            var error = 'The optional callback must be a function. You tried entering a(n) ' + _typeof(callback);
             mpInstance.Logger.error(error);
             return {
               valid: false,
@@ -8655,9 +8190,8 @@ var mParticle = (function () {
         },
         createIdentityChanges: function createIdentityChanges(previousIdentities, newIdentities) {
           var identityChanges = [];
-          var key;
           if (newIdentities && isObject(newIdentities) && previousIdentities && isObject(previousIdentities)) {
-            for (key in newIdentities) {
+            for (var key in newIdentities) {
               identityChanges.push({
                 old_value: previousIdentities[key] || null,
                 new_value: newIdentities[key],
@@ -8707,7 +8241,7 @@ var mParticle = (function () {
         },
         convertToNative: function convertToNative(identityApiData) {
           var nativeIdentityRequest = [];
-          if (identityApiData && identityApiData.userIdentities) {
+          if (identityApiData === null || identityApiData === void 0 ? void 0 : identityApiData.userIdentities) {
             for (var key in identityApiData.userIdentities) {
               if (identityApiData.userIdentities.hasOwnProperty(key)) {
                 nativeIdentityRequest.push({
@@ -8720,6 +8254,7 @@ var mParticle = (function () {
               UserIdentities: nativeIdentityRequest
             };
           }
+          return undefined;
         }
       };
       /**
@@ -8737,9 +8272,9 @@ var mParticle = (function () {
          */
         identify: function identify(identityApiData, callback) {
           // https://go.mparticle.com/work/SQDSDKS-6337
-          var mpid,
-            currentUser = mpInstance.Identity.getCurrentUser(),
-            preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(identityApiData, callback, Identify);
+          var mpid;
+          var currentUser = mpInstance.Identity.getCurrentUser();
+          var preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(identityApiData, callback, Identify);
           if (currentUser) {
             mpid = currentUser.getMPID();
           }
@@ -8775,29 +8310,30 @@ var mParticle = (function () {
          */
         logout: function logout(identityApiData, callback) {
           // https://go.mparticle.com/work/SQDSDKS-6337
-          var mpid,
-            currentUser = mpInstance.Identity.getCurrentUser(),
-            preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(identityApiData, callback, Logout);
+          var mpid;
+          var currentUser = mpInstance.Identity.getCurrentUser();
+          var preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(identityApiData, callback, Logout);
           if (currentUser) {
             mpid = currentUser.getMPID();
           }
           if (preProcessResult.valid) {
-            var evt,
-              identityApiRequest = mpInstance._Identity.IdentityRequest.createIdentityRequest(preProcessResult.cleanedIdentities, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, mpInstance._Store.deviceId, mpInstance._Store.context, mpid);
+            var evt_1;
+            var identityApiRequest = mpInstance._Identity.IdentityRequest.createIdentityRequest(preProcessResult.cleanedIdentities, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, mpInstance._Store.deviceId, mpInstance._Store.context, mpid);
             if (mpInstance._Helpers.canLog()) {
               if (mpInstance._Store.webviewBridgeEnabled) {
                 mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Logout, JSON.stringify(mpInstance._Identity.IdentityRequest.convertToNative(identityApiData)));
                 mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.nativeIdentityRequest, 'Logout request sent to native sdk');
               } else {
                 mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, Logout, callback, identityApiData, self.parseIdentityResponse, mpid);
-                evt = mpInstance._ServerModel.createEventObject({
+                evt_1 = mpInstance._ServerModel.createEventObject({
                   messageType: Types.MessageType.Profile
                 });
-                evt.ProfileMessageType = Types.ProfileMessageType.Logout;
+                evt_1.ProfileMessageType = Types.ProfileMessageType.Logout;
                 if (mpInstance._Store.activeForwarders.length) {
                   mpInstance._Store.activeForwarders.forEach(function (forwarder) {
-                    if (forwarder.logOut) {
-                      forwarder.logOut(evt);
+                    var kit = forwarder;
+                    if (kit.logOut) {
+                      kit.logOut(evt_1);
                     }
                   });
                 }
@@ -8819,9 +8355,9 @@ var mParticle = (function () {
          */
         login: function login(identityApiData, callback) {
           // https://go.mparticle.com/work/SQDSDKS-6337
-          var mpid,
-            currentUser = mpInstance.Identity.getCurrentUser(),
-            preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(identityApiData, callback, Login);
+          var mpid;
+          var currentUser = mpInstance.Identity.getCurrentUser();
+          var preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(identityApiData, callback, Login);
           if (currentUser) {
             mpid = currentUser.getMPID();
           }
@@ -8857,21 +8393,21 @@ var mParticle = (function () {
          */
         modify: function modify(identityApiData, callback) {
           // https://go.mparticle.com/work/SQDSDKS-6337
-          var mpid,
-            currentUser = mpInstance.Identity.getCurrentUser(),
-            preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(identityApiData, callback, Modify$1);
+          var mpid;
+          var currentUser = mpInstance.Identity.getCurrentUser();
+          var preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(identityApiData, callback, Modify$1);
           if (currentUser) {
             mpid = currentUser.getMPID();
           }
           if (preProcessResult.valid) {
-            var newUserIdentities = identityApiData && identityApiData.userIdentities ? preProcessResult.cleanedIdentities.userIdentities : {};
+            var newUserIdentities = (identityApiData === null || identityApiData === void 0 ? void 0 : identityApiData.userIdentities) ? preProcessResult.cleanedIdentities.userIdentities : {};
             var identityApiRequest = mpInstance._Identity.IdentityRequest.createModifyIdentityRequest(currentUser ? currentUser.getUserIdentities().userIdentities : {}, newUserIdentities, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, mpInstance._Store.context);
             if (mpInstance._Helpers.canLog()) {
               if (mpInstance._Store.webviewBridgeEnabled) {
                 mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Modify, JSON.stringify(mpInstance._Identity.IdentityRequest.convertToNative(identityApiData)));
                 mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.nativeIdentityRequest, 'Modify request sent to native sdk');
               } else {
-                mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, Modify$1, callback, identityApiData, self.parseIdentityResponse, mpid, identityApiRequest.known_identities);
+                mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, Modify$1, callback, identityApiData, self.parseIdentityResponse, mpid);
               }
             } else {
               mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.loggingDisabledOrMissingAPIKey, Messages$2.InformationMessages.AbandonLogEvent);
@@ -9012,15 +8548,15 @@ var mParticle = (function () {
         using the sourceUser's firstSeenTime as the startTime, and its lastSeenTime as the endTime.
         
         In the unlikely scenario that the sourceUser does not have a firstSeenTime, which will only
-        be the case if they have not been the current user since this functionality was added, the 
+        be the case if they have not been the current user since this functionality was added, the
         startTime will be populated with the earliest firstSeenTime out of any stored user. Similarly,
         if the sourceUser does not have a lastSeenTime, the endTime will be populated with the current time
         
         There is a limit to how old the startTime can be, represented by the config field 'aliasMaxWindow', in days.
-        If the startTime falls before the limit, it will be adjusted to the oldest allowed startTime. 
-        In rare cases, where the sourceUser's lastSeenTime also falls outside of the aliasMaxWindow limit, 
-        after applying this adjustment it will be impossible to create an aliasRequest passes the aliasUsers() 
-        validation that the startTime must be less than the endTime 
+        If the startTime falls before the limit, it will be adjusted to the oldest allowed startTime.
+        In rare cases, where the sourceUser's lastSeenTime also falls outside of the aliasMaxWindow limit,
+        after applying this adjustment it will be impossible to create an aliasRequest passes the aliasUsers()
+        validation that the startTime must be less than the endTime
         */
         createAliasRequest: function createAliasRequest(sourceUser, destinationUser, scope) {
           try {
@@ -9028,27 +8564,27 @@ var mParticle = (function () {
               mpInstance.Logger.error("'destinationUser' and 'sourceUser' must both be present");
               return null;
             }
-            var startTime = sourceUser.getFirstSeenTime();
-            if (!startTime) {
+            var startTime_1 = sourceUser.getFirstSeenTime();
+            if (!startTime_1) {
               mpInstance.Identity.getUsers().forEach(function (user) {
-                if (user.getFirstSeenTime() && (!startTime || user.getFirstSeenTime() < startTime)) {
-                  startTime = user.getFirstSeenTime();
+                if (user.getFirstSeenTime() && (!startTime_1 || user.getFirstSeenTime() < startTime_1)) {
+                  startTime_1 = user.getFirstSeenTime();
                 }
               });
             }
             var minFirstSeenTimeMs = new Date().getTime() - mpInstance._Store.SDKConfig.aliasMaxWindow * 24 * 60 * 60 * 1000;
             var endTime = sourceUser.getLastSeenTime() || new Date().getTime();
             //if the startTime is greater than $maxAliasWindow ago, adjust the startTime to the earliest allowed
-            if (startTime < minFirstSeenTimeMs) {
-              startTime = minFirstSeenTimeMs;
-              if (endTime < startTime) {
+            if (startTime_1 < minFirstSeenTimeMs) {
+              startTime_1 = minFirstSeenTimeMs;
+              if (endTime < startTime_1) {
                 mpInstance.Logger.warning('Source User has not been seen in the last ' + mpInstance._Store.SDKConfig.maxAliasWindow + ' days, Alias Request will likely fail');
               }
             }
             return {
               destinationMpid: destinationUser.getMPID(),
               sourceMpid: sourceUser.getMPID(),
-              startTime: startTime,
+              startTime: startTime_1,
               endTime: endTime,
               scope: scope || 'device'
             };
@@ -9058,7 +8594,6 @@ var mParticle = (function () {
           }
         }
       };
-
       // https://go.mparticle.com/work/SQDSDKS-6354
       /**
        * Invoke these methods on the mParticle.Identity.getCurrentUser() object.
@@ -9066,7 +8601,6 @@ var mParticle = (function () {
        * @class mParticle.Identity.getCurrentUser()
        */
       this.mParticleUser = function (mpid, _isLoggedIn) {
-        var self = this;
         return {
           /**
            * Get user identities for current user
@@ -9143,8 +8677,8 @@ var mParticle = (function () {
                 }));
               } else {
                 var userAttributes = this.getAllUserAttributes();
-                var previousUserAttributeValue;
-                var isNewAttribute;
+                var previousUserAttributeValue = void 0;
+                var isNewAttribute = void 0;
                 var existingProp = mpInstance._Helpers.findKeyInObject(userAttributes, key);
                 if (existingProp) {
                   isNewAttribute = false;
@@ -9178,7 +8712,7 @@ var mParticle = (function () {
                 }
               }
             } else {
-              mpInstance.Logger.error('Must pass an object into setUserAttributes. You passed a ' + _typeof$1(userAttributes));
+              mpInstance.Logger.error('Must pass an object into setUserAttributes. You passed a ' + _typeof(userAttributes));
             }
           },
           /**
@@ -9187,7 +8721,8 @@ var mParticle = (function () {
            * @param {String} key
            */
           removeUserAttribute: function removeUserAttribute(key) {
-            var cookies, userAttributes;
+            var cookies;
+            var userAttributes;
             mpInstance._SessionManager.resetSessionTimer();
             if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
               mpInstance.Logger.error(Messages$2.ErrorMessages.BadKey);
@@ -9209,7 +8744,7 @@ var mParticle = (function () {
               delete userAttributes[key];
               if (cookies && cookies[mpid]) {
                 cookies[mpid].ua = userAttributes;
-                mpInstance._Persistence.savePersistence(cookies, mpid);
+                mpInstance._Persistence.savePersistence(cookies);
               }
               self.sendUserAttributeChangeEvent(key, null, deletedUAKeyCopy, false, true, this);
               mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities(), mpInstance._APIClient.prepareForwardingStats);
@@ -9230,7 +8765,7 @@ var mParticle = (function () {
               return;
             }
             if (!Array.isArray(newValue)) {
-              mpInstance.Logger.error('The value you passed in to setUserAttributeList must be an array. You passed in a ' + (typeof value === "undefined" ? "undefined" : _typeof$1(value)));
+              mpInstance.Logger.error('The value you passed in to setUserAttributeList must be an array. You passed in a ' + _typeof(newValue));
               return;
             }
             var arrayCopy = newValue.slice();
@@ -9241,9 +8776,9 @@ var mParticle = (function () {
               }));
             } else {
               var userAttributes = this.getAllUserAttributes();
-              var previousUserAttributeValue;
-              var isNewAttribute;
-              var userAttributeChange;
+              var previousUserAttributeValue = void 0;
+              var isNewAttribute = void 0;
+              var userAttributeChange = void 0;
               var existingProp = mpInstance._Helpers.findKeyInObject(userAttributes, key);
               if (existingProp) {
                 isNewAttribute = false;
@@ -9254,7 +8789,6 @@ var mParticle = (function () {
               }
               userAttributes[key] = arrayCopy;
               mpInstance._Store.setUserAttributes(mpid, userAttributes);
-
               // If the new attributeList length is different than the previous, then there is a change event.
               // Loop through new attributes list, see if they are all in the same index as previous user attributes list
               // If there are any changes, break, and immediately send a userAttributeChangeEvent with full array as a value
@@ -9305,8 +8839,8 @@ var mParticle = (function () {
            * @return {Object} an object of only keys with array values. Example: { attr1: [1, 2, 3], attr2: ['a', 'b', 'c'] }
            */
           getUserAttributesLists: function getUserAttributesLists() {
-            var userAttributes,
-              userAttributesLists = {};
+            var userAttributes;
+            var userAttributesLists = {};
             userAttributes = this.getAllUserAttributes();
             for (var key in userAttributes) {
               if (userAttributes.hasOwnProperty(key) && Array.isArray(userAttributes[key])) {
@@ -9327,10 +8861,11 @@ var mParticle = (function () {
             if (userAttributes) {
               for (var prop in userAttributes) {
                 if (userAttributes.hasOwnProperty(prop)) {
-                  if (Array.isArray(userAttributes[prop])) {
-                    userAttributesCopy[prop] = userAttributes[prop].slice();
+                  var attrValue = userAttributes[prop];
+                  if (Array.isArray(attrValue)) {
+                    userAttributesCopy[prop] = attrValue.slice();
                   } else {
-                    userAttributesCopy[prop] = userAttributes[prop];
+                    userAttributesCopy[prop] = attrValue;
                   }
                 }
               }
@@ -9389,13 +8924,12 @@ var mParticle = (function () {
               return;
             }
             if (self.audienceManager === null) {
-              self.audienceManager = new AudienceManager(mpInstance._Store.SDKConfig.userAudienceUrl, mpInstance._Store.devToken, mpInstance.Logger, mpid);
+              self.audienceManager = new AudienceManager(mpInstance._Store.SDKConfig.userAudienceUrl, mpInstance._Store.devToken, mpInstance.Logger);
             }
             self.audienceManager.sendGetUserAudienceRequest(mpid, callback);
           }
         };
       };
-
       /**
        * Invoke these methods on the mParticle.Identity.getCurrentUser().getCart() object.
        * Example: mParticle.Identity.getCurrentUser().getCart().add(...);
@@ -9452,9 +8986,9 @@ var mParticle = (function () {
           }
         };
       };
-
       // https://go.mparticle.com/work/SQDSDKS-6355
       this.parseIdentityResponse = function (identityResponse, previousMPID, callback, identityApiData, method, knownIdentities, parsingCachedResponse) {
+        var _a, _b, _c;
         var prevUser = mpInstance.Identity.getUser(previousMPID);
         var prevUserMPID = prevUser ? prevUser.getMPID() : null;
         var previousUIByName = prevUser ? prevUser.getUserIdentities().userIdentities : {};
@@ -9464,11 +8998,9 @@ var mParticle = (function () {
         var newIdentitiesByType = {};
         mpInstance._Store.identityCallInFlight = false;
         try {
-          var _identityResponse$res, _identityApiResult, _mpInstance$_APIClien;
           mpInstance.Logger.verbose('Parsing "' + method + '" identity response from server');
-          identityApiResult = (_identityResponse$res = identityResponse.responseText) !== null && _identityResponse$res !== void 0 ? _identityResponse$res : null;
-          mpInstance._Store.isLoggedIn = ((_identityApiResult = identityApiResult) === null || _identityApiResult === void 0 ? void 0 : _identityApiResult.is_logged_in) || false;
-
+          identityApiResult = (_a = identityResponse.responseText) !== null && _a !== void 0 ? _a : null;
+          mpInstance._Store.isLoggedIn = (identityApiResult === null || identityApiResult === void 0 ? void 0 : identityApiResult.is_logged_in) || false;
           // https://go.mparticle.com/work/SQDSDKS-6504
           // set currentUser
           if (hasMPIDChanged(prevUser, identityApiResult)) {
@@ -9478,12 +9010,10 @@ var mParticle = (function () {
               mpInstance._Persistence.setLastSeenTime(previousMPID);
             }
             mpidIsNotInCookies = !mpInstance._Persistence.getFirstSeenTime(identityApiResult.mpid);
-
             // https://go.mparticle.com/work/SQDSDKS-6329
             mpInstance._Persistence.setFirstSeenTime(identityApiResult.mpid);
           }
           if (identityResponse.status === HTTP_OK) {
-            var _mpInstance$_CookieCo;
             if (getFeatureFlag(CacheIdentity)) {
               cacheOrClearIdCache(method, knownIdentities, self.idCache, identityResponse, parsingCachedResponse);
             }
@@ -9507,18 +9037,15 @@ var mParticle = (function () {
               if (identityApiData && !isEmpty(identityApiData.userIdentities)) {
                 newIdentitiesByType = self.IdentityRequest.combineUserIdentities(incomingUIByName, identityApiData.userIdentities);
               }
-
               // https://go.mparticle.com/work/SQDSDKS-6041
               mpInstance._Store.setUserIdentities(identityApiResult.mpid, newIdentitiesByType);
               mpInstance._Persistence.update();
               mpInstance._Store.syncPersistenceData();
               mpInstance._Persistence.findPrevCookiesBasedOnUI(identityApiData);
-
               // https://go.mparticle.com/work/SQDSDKS-6357
               mpInstance._Store.context = identityApiResult.context || mpInstance._Store.context;
             }
             newUser = mpInstance.Identity.getCurrentUser();
-
             // https://go.mparticle.com/work/SQDSDKS-6359
             tryOnUserAlias(prevUser, newUser, identityApiData, mpInstance.Logger, mpInstance._ErrorReportingDispatcher);
             var persistence = mpInstance._Persistence.getPersistence();
@@ -9529,14 +9056,12 @@ var mParticle = (function () {
             }
             var newIdentitiesByName = IdentityType.getNewIdentitiesByName(newIdentitiesByType);
             var uiByName = method === Modify$1 ? previousUIByName : incomingUIByName;
-
             // Sync $NoTargeting before sendUserIdentityChangeEvent
             // because UIC events call sendEventToServer which triggers
             // processQueuedEvents, draining the event queue. The
             // attribute must be in the store before that happens so
             // appendUserInfo picks it up.
-            (_mpInstance$_CookieCo = mpInstance._CookieConsentManager) === null || _mpInstance$_CookieCo === void 0 || _mpInstance$_CookieCo.syncNoTargetingAttribute(newUser);
-
+            (_b = mpInstance._CookieConsentManager) === null || _b === void 0 ? void 0 : _b.syncNoTargetingAttribute(newUser);
             // https://go.mparticle.com/work/SQDSDKS-6501
             self.sendUserIdentityChangeEvent(newIdentitiesByName, method, identityApiResult.mpid, uiByName);
           }
@@ -9548,9 +9073,8 @@ var mParticle = (function () {
             mpInstance.Logger.error('Received HTTP response code of ' + identityResponse.status + ' - ' + identityApiResult.errors[0].message);
           }
           mpInstance.Logger.verbose('Successfully parsed Identity Response');
-
           // https://go.mparticle.com/work/SQDSDKS-6654
-          (_mpInstance$_APIClien = mpInstance._APIClient) === null || _mpInstance$_APIClien === void 0 || _mpInstance$_APIClien.processQueuedEvents();
+          (_c = mpInstance._APIClient) === null || _c === void 0 ? void 0 : _c.processQueuedEvents();
         } catch (e) {
           if (callback) {
             mpInstance._Helpers.invokeCallback(callback, identityResponse.status, identityApiResult || null);
@@ -9561,36 +9085,33 @@ var mParticle = (function () {
         mpInstance._RoktManager.onIdentityComplete();
         mpInstance._preInit.readyQueue = processReadyQueue(mpInstance._preInit.readyQueue, mpInstance.Logger);
       };
-
       // send a user identity change request on identify, login, logout, modify when any values change.
       // compare what identities exist vs what is previously was for the specific user if they were in memory before.
       // if it's the first time the user is logging in, send a user identity change request with
       this.sendUserIdentityChangeEvent = function (newUserIdentities, method, mpid, prevUserIdentities) {
+        var _a;
         if (!mpid) {
           // https://go.mparticle.com/work/SQDSDKS-6501
           if (method !== Modify$1) {
             return;
           }
         }
-
         // https://go.mparticle.com/work/SQDSDKS-6354
         var currentUserInMemory = this.IdentityAPI.getUser(mpid);
         for (var identityType in newUserIdentities) {
           // Verifies a change actually happened
           if (prevUserIdentities[identityType] !== newUserIdentities[identityType]) {
-            var _mpInstance$_APIClien2;
             // If a new identity type was introduced when the identity changes
             // we need to notify the server so that the user profile is updated in
             // the mParticle UI.
             var isNewUserIdentityType = !prevUserIdentities[identityType];
             var userIdentityChangeEvent = self.createUserIdentityChange(identityType, newUserIdentities[identityType], prevUserIdentities[identityType], isNewUserIdentityType, currentUserInMemory);
-            (_mpInstance$_APIClien2 = mpInstance._APIClient) === null || _mpInstance$_APIClien2 === void 0 || _mpInstance$_APIClien2.sendEventToServer(userIdentityChangeEvent);
+            (_a = mpInstance._APIClient) === null || _a === void 0 ? void 0 : _a.sendEventToServer(userIdentityChangeEvent);
           }
         }
       };
       this.createUserIdentityChange = function (identityType, newIdentity, oldIdentity, isIdentityTypeNewToBatch, userInMemory) {
         var userIdentityChangeEvent;
-
         // https://go.mparticle.com/work/SQDSDKS-6439
         userIdentityChangeEvent = mpInstance._ServerModel.createEventObject({
           messageType: Types.MessageType.UserIdentityChange,
@@ -9611,10 +9132,10 @@ var mParticle = (function () {
         return userIdentityChangeEvent;
       };
       this.sendUserAttributeChangeEvent = function (attributeKey, newUserAttributeValue, previousUserAttributeValue, isNewAttribute, deleted, user) {
+        var _a;
         var userAttributeChangeEvent = self.createUserAttributeChange(attributeKey, newUserAttributeValue, previousUserAttributeValue, isNewAttribute, deleted, user);
         if (userAttributeChangeEvent) {
-          var _mpInstance$_APIClien3;
-          (_mpInstance$_APIClien3 = mpInstance._APIClient) === null || _mpInstance$_APIClien3 === void 0 || _mpInstance$_APIClien3.sendEventToServer(userAttributeChangeEvent);
+          (_a = mpInstance._APIClient) === null || _a === void 0 ? void 0 : _a.sendEventToServer(userAttributeChangeEvent);
         }
       };
       this.createUserAttributeChange = function (key, newValue, previousUserAttributeValue, isNewAttribute, deleted, user) {
@@ -9638,20 +9159,19 @@ var mParticle = (function () {
         return userAttributeChangeEvent;
       };
       this.reinitForwardersOnUserChange = function (prevUser, newUser) {
+        var _a;
         if (hasMPIDAndUserLoginChanged(prevUser, newUser)) {
-          var _mpInstance$_Forwarde;
-          (_mpInstance$_Forwarde = mpInstance._Forwarders) === null || _mpInstance$_Forwarde === void 0 || _mpInstance$_Forwarde.initForwarders(newUser.getUserIdentities().userIdentities, mpInstance._APIClient.prepareForwardingStats);
+          (_a = mpInstance._Forwarders) === null || _a === void 0 ? void 0 : _a.initForwarders(newUser.getUserIdentities().userIdentities, mpInstance._APIClient.prepareForwardingStats);
         }
       };
       this.setForwarderCallbacks = function (user, method) {
-        var _mpInstance$_Forwarde2, _mpInstance$_Forwarde3, _mpInstance$_Forwarde4;
+        var _a, _b, _c;
         // https://go.mparticle.com/work/SQDSDKS-6036
-        (_mpInstance$_Forwarde2 = mpInstance._Forwarders) === null || _mpInstance$_Forwarde2 === void 0 || _mpInstance$_Forwarde2.setForwarderUserIdentities(user.getUserIdentities().userIdentities);
-        (_mpInstance$_Forwarde3 = mpInstance._Forwarders) === null || _mpInstance$_Forwarde3 === void 0 || _mpInstance$_Forwarde3.setForwarderOnIdentityComplete(user, method);
-        (_mpInstance$_Forwarde4 = mpInstance._Forwarders) === null || _mpInstance$_Forwarde4 === void 0 || _mpInstance$_Forwarde4.setForwarderOnUserIdentified(user);
+        (_a = mpInstance._Forwarders) === null || _a === void 0 ? void 0 : _a.setForwarderUserIdentities(user.getUserIdentities().userIdentities);
+        (_b = mpInstance._Forwarders) === null || _b === void 0 ? void 0 : _b.setForwarderOnIdentityComplete(user, method);
+        (_c = mpInstance._Forwarders) === null || _c === void 0 ? void 0 : _c.setForwarderOnUserIdentified(user);
       };
     }
-
     // https://go.mparticle.com/work/SQDSDKS-6359
     function tryOnUserAlias(previousUser, newUser, identityApiData, logger, errorReporter) {
       if (identityApiData && identityApiData.onUserAlias && isFunction(identityApiData.onUserAlias)) {
@@ -10369,7 +9889,7 @@ var mParticle = (function () {
         if (typeof matchedAttributes === 'boolean' && matchedAttributes) {
           return false;
         }
-        if (_typeof$1(matchedAttributes) === "object") {
+        if (_typeof(matchedAttributes) === "object") {
           if (matchedAttributes[key] === true) {
             return false;
           } else {
@@ -11316,7 +10836,7 @@ var mParticle = (function () {
             switch (_b.label) {
               case 0:
                 _b.trys.push([0, 2,, 3]);
-                if (!attributes || _typeof$1(attributes) !== 'object') {
+                if (!attributes || _typeof(attributes) !== 'object') {
                   return [2 /*return*/, {}];
                 }
                 keys = Object.keys(attributes);
@@ -12165,11 +11685,11 @@ var mParticle = (function () {
               title: window.document.title
             };
           } else if (!self._Helpers.isObject(attrs)) {
-            self.Logger.error('The attributes argument must be an object. A ' + _typeof$1(attrs) + ' was entered. Please correct and retry.');
+            self.Logger.error('The attributes argument must be an object. A ' + _typeof(attrs) + ' was entered. Please correct and retry.');
             return;
           }
           if (customFlags && !self._Helpers.isObject(customFlags)) {
-            self.Logger.error('The customFlags argument must be an object. A ' + _typeof$1(customFlags) + ' was entered. Please correct and retry.');
+            self.Logger.error('The customFlags argument must be an object. A ' + _typeof(customFlags) + ' was entered. Please correct and retry.');
             return;
           }
         }
@@ -12599,17 +12119,17 @@ var mParticle = (function () {
                     self._Store.integrationAttributes[integrationId][key] = attrs[key];
                   }
                 } else {
-                  self.Logger.error('Values for integration attributes must be strings. You entered a ' + _typeof$1(attrs[key]));
+                  self.Logger.error('Values for integration attributes must be strings. You entered a ' + _typeof(attrs[key]));
                   continue;
                 }
               } else {
-                self.Logger.error('Keys must be strings, you entered a ' + _typeof$1(key));
+                self.Logger.error('Keys must be strings, you entered a ' + _typeof(key));
                 continue;
               }
             }
           }
         } else {
-          self.Logger.error('Attrs must be an object with keys and values. You entered a ' + _typeof$1(attrs));
+          self.Logger.error('Attrs must be an object with keys and values. You entered a ' + _typeof(attrs));
           return;
         }
         self._Persistence.update();

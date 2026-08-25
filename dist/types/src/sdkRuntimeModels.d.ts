@@ -1,6 +1,6 @@
 import * as EventsApi from '@mparticle/event-models';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
-import { MPConfiguration, MPID, SDKEventOptions, SDKEventAttrs, Callback } from '@mparticle/web-sdk';
+import { MPConfiguration, MPID, SDKEventOptions, SDKEventAttrs, Callback, UserIdentities } from '@mparticle/web-sdk';
 import { IntegrationAttribute, IntegrationAttributes, IStore, WrapperSDKTypes } from './store';
 import Validators from './validators';
 import { Dictionary, valueof } from './utils';
@@ -272,7 +272,7 @@ export interface SDKHelpersApi {
     converted?(s: string): string;
     filterUserIdentitiesForForwarders(userIdentities: Dictionary, filterList: number[]): Dictionary;
     filterUserAttributes(userAttributes: Dictionary, filterList: number[]): Dictionary;
-    filterUserIdentities?(userIdentitiesObject: Dictionary<string>, filterList: number[]): ISDKUserIdentity[];
+    filterUserIdentities?(userIdentitiesObject: UserIdentities | Dictionary<string>, filterList: number[]): ISDKUserIdentity[];
     invokeAliasCallback(aliasCallback: IAliasCallback, number: number, errorMessage?: string): void;
     isDelayedByIntegration?(delayedIntegrations: Dictionary<boolean>, timeoutStart: number, now: number): boolean;
     isEventType?(type: valueof<typeof EventType>): boolean;

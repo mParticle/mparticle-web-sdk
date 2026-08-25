@@ -5,7 +5,7 @@ import { IStore } from './store';
 import { IServerModel } from './serverModel';
 import { IForwardingStatsUploader } from './forwardingStatsUploader';
 import { IConsent } from './consent';
-import IdentityAPIClient from './identityApiClient';
+import { IIdentityApiClient } from './identityApiClient';
 import IntegrationCapture from './integrationCapture';
 import { IPreInit } from './pre-init-utils';
 import { MParticleWebSDK, SDKHelpersApi } from './sdkRuntimeModels';
@@ -42,7 +42,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _ForwardingStatsUploader: IForwardingStatsUploader;
     _Helpers: SDKHelpersApi;
     _Identity: IIdentity;
-    _IdentityAPIClient: typeof IdentityAPIClient;
+    _IdentityAPIClient: IIdentityApiClient;
     _IntegrationCapture: IntegrationCapture;
     _NativeSdkHelpers: INativeSdkHelpers;
     _PageViewTracker?: PageViewTracker;
