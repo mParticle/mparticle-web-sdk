@@ -301,9 +301,7 @@ export default function Forwarders(
             }
         };
 
-        for (let i = 0; i < mpInstance._Store.activeForwarders.length; i++) {
-            forwardEvent(mpInstance._Store.activeForwarders[i]);
-        }
+        mpInstance._Store.activeForwarders.forEach(forwardEvent);
     };
 
     this.handleForwarderUserAttributes = function(
