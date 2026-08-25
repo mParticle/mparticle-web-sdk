@@ -17,7 +17,7 @@ import {
     TransactionAttributes,
 } from '@mparticle/web-sdk';
 
-const Messages = Constants.Messages;
+const { Messages } = Constants;
 
 export default function Ecommerce(
     this: IECommerce,
