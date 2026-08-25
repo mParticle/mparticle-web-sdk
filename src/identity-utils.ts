@@ -5,10 +5,10 @@ import Types from './types';
 import {
     IdentityApiData,
     UserIdentities,
-    IdentityCallback,
 } from '@mparticle/web-sdk';
 import { IdentityAPIMethod, IIdentityRequest } from './identity.interfaces';
 import {
+    IdentityCallback,
     IdentityResultBody,
     IIdentityResponse,
     IMParticleUser,
@@ -33,7 +33,7 @@ export type IParseCachedIdentityResponse = (
     mpid: string,
     callback: IdentityCallback,
     identityApiData: IdentityApiData,
-    identityMethod: string,
+    identityMethod: IdentityAPIMethod,
     knownIdentities: IKnownIdentities,
     fromCachedIdentity: boolean
 ) => void;
