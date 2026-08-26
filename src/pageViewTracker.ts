@@ -43,16 +43,15 @@ type WindowWithApv = Window & {
     [WIN_APV_KEY]?: IApvState;
 };
 
-// The query params an auto page view may carry. An allowlist, not a denylist:
-// partner URLs routinely hold order ids, email addresses and session tokens, and
-// none of those should reach the event stream because someone forgot to exclude
-// them. Anything absent from this list is dropped.
+// The default allowlist. A floor, not a ceiling: customers add their own names in the
+// Web input's Advanced Settings and they are unioned with this list, which is what
+// makes keeping the default narrow safe.
 //
-// SECURITY: `code`, `state` and `nonce` are the OAuth 2.0 / OIDC authorization
-// code and the CSRF/replay tokens. They are credentials until redeemed, and
-// attaching them here persists them in the event store and forwards them to
-// every configured kit. They are on the list by explicit product decision —
-// deleting that line is the whole of the fix if that decision is revisited.
+// Do NOT re-add the OAuth/OIDC params (code, state, nonce, client_id, redirect_uri,
+// response_type, scope). They were removed deliberately — code is an authorization
+// code and state/nonce are CSRF and replay tokens, so capturing them by default put
+// credentials in the event store and every connected kit. A customer who needs one
+// configures it per input.
 export const ALLOWED_QUERY_PARAMS: string[] = [
     // Campaign attribution
     'utm_source',
@@ -72,15 +71,6 @@ export const ALLOWED_QUERY_PARAMS: string[] = [
     'twclid',
     'li_fat_id',
     'dclid',
-
-    // OAuth / OIDC — see the SECURITY note above
-    'client_id',
-    'redirect_uri',
-    'response_type',
-    'scope',
-    'state',
-    'code',
-    'nonce',
 
     // Pagination and search
     'page',
@@ -117,7 +107,7 @@ const RESERVED_QUERY_PARAMS: string[] = [
 // Excludes `&`, `=`, `%` and whitespace: they would distort the dedup key.
 const QUERY_PARAM_NAME = /^[a-z0-9_][a-z0-9_.-]{0,63}$/;
 
-// mParticle caps attributes per event; 31 built-ins plus this leaves headroom.
+// mParticle caps attributes per event; 24 built-ins plus this leaves headroom.
 export const MAX_CUSTOM_QUERY_PARAMS = 25;
 
 // One parse, stored whole by processFlags, so no second validator can drift from it.

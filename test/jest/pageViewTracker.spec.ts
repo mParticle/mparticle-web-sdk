@@ -97,6 +97,58 @@ describe('pageViewTracker pure helpers', () => {
             ).toEqual([{ name: 'utm_source', value: 'google' }]);
         });
 
+        // Removed from the default list deliberately: `code` is an OAuth
+        // authorization code and `state`/`nonce` are CSRF/replay tokens, and
+        // capturing them by default put credentials in the event store and every
+        // connected kit for customers who had no use for them. A customer who needs
+        // them configures them per input — see the next test.
+        it.each([
+            'code',
+            'state',
+            'nonce',
+            'client_id',
+            'redirect_uri',
+            'response_type',
+            'scope',
+        ])('should not capture the OAuth/OIDC param %s by default', name => {
+            expect(
+                allowedQueryParams(
+                    `https://example.com/callback?${name}=sensitive&utm_source=g`
+                )
+            ).toEqual([{ name: 'utm_source', value: 'g' }]);
+        });
+
+        // The removal is a change of DEFAULT, not of capability. This is what makes
+        // it a safe change rather than a regression.
+        it('should still capture an OAuth param when a customer configures it', () => {
+            expect(
+                allowedQueryParams('https://example.com/callback?code=abc123', [
+                    'code',
+                ])
+            ).toEqual([{ name: 'code', value: 'abc123' }]);
+        });
+
+        // The same escape hatch through the path a real customer takes: the value
+        // arrives as a comma-separated string and processFlags validates it before
+        // anything downstream sees it.
+        //
+        // This assertion is the one that matters for this PR. While `code` was a
+        // built-in, parseQueryParamAllowlist dropped it as a duplicate — so a
+        // customer typing `code` into Advanced Settings would have got an empty list
+        // and the escape hatch would have silently done nothing. Removing it from the
+        // defaults is precisely what makes that work, and nothing else pins it.
+        it('should accept a configured OAuth param through the string config path', () => {
+            const { allowed } = parseQueryParamAllowlist('code');
+
+            expect(allowed).toEqual(['code']);
+            expect(
+                allowedQueryParams(
+                    'https://example.com/callback?code=abc123',
+                    allowed
+                )
+            ).toEqual([{ name: 'code', value: 'abc123' }]);
+        });
+
         it('should capture a configured custom param', () => {
             expect(
                 allowedQueryParams(
@@ -1306,13 +1358,13 @@ describe('PageViewTracker', () => {
             const tracker = createTracker();
             tracker.init();
 
-            window.history.pushState({}, '', '/callback?code=SECRET-AUTH-CODE');
+            window.history.pushState({}, '', '/search?q=SECRET-SEARCH-TERM');
             jest.runAllTimers();
 
             const logged = verbose.mock.calls.map(([message]) => message).join('\n');
 
-            expect(logged).toContain('code');
-            expect(logged).not.toContain('SECRET-AUTH-CODE');
+            expect(logged).toContain('q');
+            expect(logged).not.toContain('SECRET-SEARCH-TERM');
         });
 
         // The title is read at flush time, not when the navigation is accepted,
