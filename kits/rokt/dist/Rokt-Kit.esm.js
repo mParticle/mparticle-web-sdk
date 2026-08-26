@@ -763,7 +763,7 @@ const m = class m {
       ...g,
       ...v,
       ...w.length ? { [Me]: JSON.stringify(w) } : {},
-      ...f ? { [Ke]: f } : {},
+      ...f ? { [Ke]: JSON.stringify(f) } : {},
       ...this.userIdentifiedInWorkspace ? { [Ne]: !0 } : {},
       ...A ? { [De]: A } : {},
       ...I ? { [Fe]: I } : {},

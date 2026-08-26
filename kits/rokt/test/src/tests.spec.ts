@@ -6607,6 +6607,56 @@ describe('Rokt Forwarder', () => {
         ]);
       });
 
+      it('surfaces captured UTM params through selectPlacements as stringified page_view_attributes', async () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+          value: new URL(
+            'https://www.example.com/?utm_source=google&utm_medium=cpc&utm_campaign=spring',
+          ),
+          writable: true,
+          configurable: true,
+        });
+
+        try {
+          await (window as any).mParticle.forwarder.init(
+            {
+              accountId: '123456',
+            },
+            reportService.cb,
+            true,
+            null,
+            {},
+          );
+
+          await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+          (window as any).mParticle._Store.localSessionAttributes = {};
+          (window as any).mParticle.forwarder.process({
+            EventName: 'Home Page',
+            EventCategory: EventType.Unknown,
+            EventDataType: MessageType.PageView,
+            SourceMessageId: 'source-message-id-utm',
+            Timestamp: 1712345678000,
+          });
+
+          await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+          const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+          expect(typeof forwardedAttributes.page_view_attributes).toBe('string');
+          expect(JSON.parse(forwardedAttributes.page_view_attributes)).toEqual({
+            utm_source: 'google',
+            utm_medium: 'cpc',
+            utm_campaign: 'spring',
+          });
+        } finally {
+          Object.defineProperty(window, 'location', {
+            value: originalLocation,
+            writable: true,
+            configurable: true,
+          });
+        }
+      });
+
       it('carries pageTitle and canonicalUrl through selectPlacements when stored', async () => {
         seedStoredPageViews([
           {
