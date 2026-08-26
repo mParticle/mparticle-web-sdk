@@ -24,6 +24,23 @@ import {
   removeSelectPlacementsAttributePersistenceDeniedAttributes,
 } from './selectPlacementsAttributePersistence';
 
+import {
+  PageEvent,
+  PAGE_VIEWS_MAX_COUNT,
+  buildPageEvents,
+  migrateLegacyPageViewStorage,
+  loadPageViews,
+  writePageViews,
+  clearPageViews,
+  readCanonicalUrl,
+  captureUtmParams,
+  loadUtmParams,
+  clearUtmParams,
+} from './pageViewStorage';
+import { isLocalStorageAvailable } from './storage';
+
+import { isObject, isString, isEmpty, isFunction, sanitizeUrl } from './utils';
+
 interface RoktKitSettings {
   accountId: string;
   roktExtensions?: string;
@@ -59,17 +76,6 @@ interface PlacementEventMappingEntry {
 
 interface RoktExtensionEntry {
   value: string;
-}
-
-interface PageEvent {
-  pageUrl: string;
-  sourceMessageId: string;
-  timestamp: number;
-  activeTimeOnSite?: number;
-  // Derived at transmission not at capture based
-  // on the next page view's activeTimeOnSite,
-  // so it is absent on stored records.
-  activeTimeOnPage?: number;
 }
 
 interface RoktSelection {
@@ -160,7 +166,8 @@ interface MParticleExtended {
   logEvent(name: string, type: number, attrs?: Record<string, unknown>): void;
   EventType: { Other: number };
   getInstance(): MParticleInstance;
-  sessionManager?: { getSession(): string };
+  getDeviceId?(): string;
+  sessionManager?: { getSession?(): string; getSessionId?(): string };
   _getActiveForwarders(): Array<{ name: string }>;
   config?: { isLocalLauncherEnabled?: boolean; isLoggingEnabled?: boolean };
   captureTiming?(metricName: string): void;
@@ -257,16 +264,10 @@ const USER_IDENTIFIED_IN_WORKSPACE_KEY = 'userIdentifiedInWorkspace';
 
 const MESSAGE_TYPE_PAGE_VIEW = 3; // mParticle MessageType.PageView
 const MESSAGE_TYPE_SESSION_END = 2; // mParticle MessageType.SessionEnd
-// localStorage key under which captured page views are persisted (as a JSON
-// string). The kit owns this storage directly — separate from mParticle's
-// cookie/localStorage — so page-view capture does not affect mParticle
-// persistence or cookie sync. Distinct from PAGE_EVENTS_KEY, which is the
-// flattened wire shape sent to Rokt on selectPlacements.
-const LS_PAGE_VIEWS_KEY = 'mpPageViews';
-// Fixed cap on the number of persisted page views (oldest evicted first). Code
-// constant, not a kit setting — change it here.
-const PAGE_VIEWS_MAX_COUNT = 25;
 const PAGE_EVENTS_KEY = 'page_events';
+const PAGE_VIEW_ATTRIBUTES_KEY = 'page_view_attributes';
+const MPARTICLE_SESSION_ID_KEY = 'mparticle_session_id';
+const MPARTICLE_DEVICE_ID_KEY = 'mparticle_device_id';
 
 // Bound on how long selectPlacements will wait for an in-flight Workspace
 // IDSync search before proceeding without the userIdentifiedInWorkspace flag.
@@ -311,27 +312,6 @@ function mp(): MParticleExtended {
 // Module-level utility functions
 // ============================================================
 
-function readPageViewsStorage(): PageEvent[] {
-  try {
-    const stored = window.localStorage.getItem(LS_PAGE_VIEWS_KEY);
-    if (stored === null) {
-      return [];
-    }
-    const parsed = JSON.parse(stored);
-    return Array.isArray(parsed) ? (parsed as PageEvent[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function writePageViewsStorage(pageViews: PageEvent[]): void {
-  window.localStorage.setItem(LS_PAGE_VIEWS_KEY, JSON.stringify(pageViews));
-}
-
-function clearPageViewsStorage(): void {
-  window.localStorage.removeItem(LS_PAGE_VIEWS_KEY);
-}
-
 function generateLauncherScript(domain: string | undefined, extensions: string[]): string {
   const launcherPath = '/wsdk/integrations/launcher.js';
   const baseUrl = [generateBaseUrl(domain), launcherPath].join('');
@@ -349,6 +329,11 @@ function generateThankYouElementScript(domain: string | undefined) {
 
 function generateBaseUrl(domain: string | undefined) {
   const resolvedDomain = typeof domain !== 'undefined' ? domain : DEFAULT_ROKT_DOMAIN;
+
+  if (resolvedDomain.includes('://')) {
+    return resolvedDomain.replace(/\/+$/, '');
+  }
+
   const protocol = 'https://';
 
   return [protocol, resolvedDomain].join('');
@@ -362,7 +347,10 @@ function generateReportingUrl(configuredUrl: string | undefined, domain: string 
     return 'https://' + configuredUrl;
   }
 
-  return generateBaseUrl(domain) + endpoint;
+  const hasNonHttpScheme = domain?.includes('://') && !/^https?:\/\//i.test(domain);
+  const reportingDomain = hasNonHttpScheme ? undefined : domain;
+
+  return generateBaseUrl(reportingDomain) + endpoint;
 }
 
 function loadRoktScript(
@@ -383,10 +371,6 @@ function loadRoktScript(
   if (handlers?.onLoad) script.onload = handlers.onLoad;
   if (handlers?.onError) script.onerror = handlers.onError;
   target.appendChild(script);
-}
-
-function isObject(val: unknown): val is Record<string, unknown> {
-  return val != null && typeof val === 'object' && Array.isArray(val) === false;
 }
 
 function parseSettingsString<T>(settingsString?: string): T[] {
@@ -480,34 +464,6 @@ function hashEventMessage(messageType: number, eventType: number, eventName: str
   return mp().generateHash([messageType, eventType, eventName].join(''));
 }
 
-function isEmpty(value: unknown): boolean {
-  if (value == null) return true;
-  if (typeof value === 'object') {
-    return Object.keys(value as object).length === 0;
-  }
-  if (Array.isArray(value)) {
-    return (value as unknown[]).length === 0;
-  }
-  return false;
-}
-
-function isString(value: unknown): value is string {
-  return typeof value === 'string';
-}
-
-// Strips the query string from a page-view URL before it is persisted and sent
-// to Rokt, since query params commonly carry PII (emails, tokens, order refs).
-// Returns the input unchanged if it can't be parsed as a URL.
-function sanitizeUrl(href: string): string {
-  try {
-    const url = new URL(href);
-    url.search = '';
-    return url.toString();
-  } catch {
-    return href;
-  }
-}
-
 function generateIntegrationName(customIntegrationName?: string): string {
   const coreSdkVersion = mp().getVersion();
   const kitVersion = process.env.PACKAGE_VERSION;
@@ -561,6 +517,10 @@ function sendAdBlockMeasurementSignals(domain: string | undefined, version: stri
     return;
   }
 
+  if (domain && domain.includes('://') && !/^https:\/\//i.test(domain)) {
+    return;
+  }
+
   const pageUrl = window.location.href.split('?')[0].split('#')[0];
   const params =
     'version=' +
@@ -570,8 +530,8 @@ function sendAdBlockMeasurementSignals(domain: string | undefined, version: stri
     '&pageUrl=' +
     encodeURIComponent(pageUrl);
 
-  const existingDomain = domain || 'apps.rokt.com';
-  createAutoRemovedIframe('https://' + existingDomain + '/v1/wsdk-init/index.html?' + params);
+  const existingBaseUrl = domain ? generateBaseUrl(domain) : 'https://apps.rokt.com';
+  createAutoRemovedIframe(existingBaseUrl + '/v1/wsdk-init/index.html?' + params);
 
   createAutoRemovedIframe(
     'https://' + ADBLOCK_CONTROL_DOMAIN + '/v1/wsdk-init/index.html?' + params + '&isControl=true',
@@ -759,6 +719,22 @@ class LoggingService {
   }
 }
 
+function buildPageEvent(event: SDKEvent): PageEvent {
+  const pageUrl = sanitizeUrl(window.location.href);
+  const pageTitle = event.EventAttributes?.title || document.title;
+  const canonicalUrl = readCanonicalUrl();
+  const activeTimeOnSite = event.ActiveTimeOnSite;
+
+  return {
+    pageUrl,
+    sourceMessageId: event.SourceMessageId,
+    timestamp: event.Timestamp,
+    ...(pageTitle ? { pageTitle } : {}),
+    ...(canonicalUrl !== undefined ? { canonicalUrl } : {}),
+    ...(Number.isFinite(activeTimeOnSite) ? { activeTimeOnSite } : {}),
+  };
+}
+
 // ============================================================
 // RoktKit class
 // ============================================================
@@ -909,37 +885,36 @@ class RoktKit implements KitInterface {
     try {
       pageUrl = sanitizeUrl(window.location.href);
 
-      const pageViews = readPageViewsStorage();
-
-      const pageView: PageEvent = {
-        pageUrl,
-        sourceMessageId: event.SourceMessageId,
-        timestamp: event.Timestamp,
-      };
-
-      if (Number.isFinite(event.ActiveTimeOnSite)) {
-        pageView.activeTimeOnSite = event.ActiveTimeOnSite;
-      }
-
+      const pageViews = loadPageViews(this.loggingService);
+      const pageView = buildPageEvent(event);
       pageViews.push(pageView);
 
-      while (pageViews.length > PAGE_VIEWS_MAX_COUNT) {
-        pageViews.shift();
+      const requested = Math.min(pageViews.length, PAGE_VIEWS_MAX_COUNT);
+      const stored = writePageViews(pageViews);
+      if (stored === 0) {
+        const reason = isLocalStorageAvailable() ? 'quota' : 'ls_unavailable';
+        this.loggingService?.log({
+          message: `Rokt Kit: Failed to persist page view for ${pageUrl} [reason: ${reason}]`,
+          code: 'PAGE_VIEW_CAPTURE_FAILED',
+        });
+      } else if (stored < requested) {
+        this.loggingService?.log({
+          message: `Rokt Kit: Page view storage reduced from ${requested} to ${stored} record(s) under quota pressure [reason: quota_eviction]`,
+          code: 'PAGE_VIEW_QUOTA_EVICTION',
+        });
       }
-
-      writePageViewsStorage(pageViews);
     } catch (err) {
-      this.errorReportingService?.report({
-        message: `Rokt Kit: Failed to capture page view for ${pageUrl}`,
+      const reason = isLocalStorageAvailable() ? 'exception' : 'ls_unavailable';
+      const errMessage = err instanceof Error ? err.message : String(err);
+      this.loggingService?.log({
+        message: `Rokt Kit: Failed to capture page view for ${pageUrl}: ${errMessage} [reason: ${reason}]`,
         code: 'PAGE_VIEW_CAPTURE_FAILED',
-        severity: WSDKErrorSeverity.INFO,
-        stackTrace: err instanceof Error ? err.stack : undefined,
       });
     }
   }
 
   private isLauncherReadyToAttach(): boolean {
-    return !!window.Rokt && typeof window.Rokt.createLauncher === 'function';
+    return !!window.Rokt && isFunction(window.Rokt.createLauncher);
   }
 
   /**
@@ -960,34 +935,6 @@ class RoktKit implements KitInterface {
       return {};
     }
     return mp().Rokt.getLocalSessionAttributes!();
-  }
-
-  private buildPageEvents(pageViews: PageEvent[]): PageEvent[] {
-    return pageViews.map((pageView, index) => {
-      const pageEvent: PageEvent = {
-        pageUrl: pageView.pageUrl,
-        sourceMessageId: pageView.sourceMessageId,
-        timestamp: pageView.timestamp,
-      };
-
-      const activeTimeOnSite = pageView.activeTimeOnSite;
-      const hasActiveTime = activeTimeOnSite !== undefined && Number.isFinite(activeTimeOnSite);
-      if (hasActiveTime) {
-        pageEvent.activeTimeOnSite = activeTimeOnSite;
-      }
-
-      const next = pageViews[index + 1];
-      const nextActiveTimeOnSite = next?.activeTimeOnSite;
-      const hasNextActiveTimeOnSite = nextActiveTimeOnSite !== undefined && Number.isFinite(nextActiveTimeOnSite);
-
-      if (hasActiveTime && hasNextActiveTimeOnSite) {
-        const diff = nextActiveTimeOnSite - activeTimeOnSite;
-        if (diff >= 0) {
-          pageEvent.activeTimeOnPage = diff;
-        }
-      }
-      return pageEvent;
-    });
   }
 
   private replaceOtherIdentityWithEmailsha256(userIdentities: IUserIdentities): Record<string, string> {
@@ -1023,7 +970,7 @@ class RoktKit implements KitInterface {
     }
     try {
       const mpInstance = mp().getInstance();
-      if (mpInstance && typeof mpInstance.setIntegrationAttribute === 'function') {
+      if (mpInstance && isFunction(mpInstance.setIntegrationAttribute)) {
         mpInstance.setIntegrationAttribute(moduleId, {
           roktSessionId: sessionId,
         });
@@ -1033,20 +980,35 @@ class RoktKit implements KitInterface {
     }
   }
 
+  private readMpSessionId(): string | undefined {
+    // The public mParticle.sessionManager facade exposes only getSession(), which already returns
+    // the session id. getSessionId() lives on the internal _SessionManager and has never been
+    // re-exported, so prefer it if a future core adds it and fall back to getSession() until then.
+    const sessionManager = mp()?.sessionManager;
+    const readSessionId = sessionManager?.getSessionId ?? sessionManager?.getSession;
+    if (!isFunction(readSessionId)) {
+      return undefined;
+    }
+
+    return readSessionId.call(sessionManager) || undefined;
+  }
+
+  private readMpDeviceId(): string | undefined {
+    // The device application stamp (`das`) outlives the session id: core clears the session on
+    // timeout, cross-tab rotation and endSession(), but never the device id, which lives in
+    // localStorage/cookie for cookieExpiration days (365 by default) and survives login/logout.
+    // Read it per call anyway — a partner can reassign it at any time via setDeviceId().
+    return mp()?.getDeviceId?.() || undefined;
+  }
+
   private attachLauncher(
     accountId: string,
     launcherOptions: Record<string, unknown>,
     legacyRoktExtensions: string[] = [],
   ): void {
-    const mpSessionId =
-      mp() && mp().sessionManager && typeof mp().sessionManager!.getSession === 'function'
-        ? mp().sessionManager!.getSession()
-        : undefined;
-
     const options: Record<string, unknown> = {
       accountId,
       ...(launcherOptions || {}),
-      ...(mpSessionId ? { mpSessionId } : {}),
     };
 
     let launcherPromise: Promise<RoktLauncher>;
@@ -1217,7 +1179,8 @@ class RoktKit implements KitInterface {
 
     if (this.isTargetingDisabled()) {
       try {
-        clearPageViewsStorage();
+        clearPageViews();
+        clearUtmParams();
       } catch (err) {
         this.errorReportingService?.report({
           message: 'Rokt Kit: Failed to clear page views when targeting is disabled',
@@ -1301,20 +1264,14 @@ class RoktKit implements KitInterface {
   public process(event: SDKEvent): string {
     if (!this.isTargetingDisabled()) {
       if (event.EventDataType === MESSAGE_TYPE_PAGE_VIEW) {
+        captureUtmParams(this.loggingService);
         this.capturePageView(event);
       }
 
       if (event.EventDataType === MESSAGE_TYPE_SESSION_END) {
-        try {
-          clearPageViewsStorage();
-        } catch (err) {
-          this.errorReportingService?.report({
-            message: 'Rokt Kit: Failed to clear page views on session end',
-            code: 'PAGE_VIEW_CAPTURE_FAILED',
-            severity: WSDKErrorSeverity.INFO,
-            stackTrace: err instanceof Error ? err.stack : undefined,
-          });
-        }
+        migrateLegacyPageViewStorage(this.loggingService);
+        clearPageViews();
+        clearUtmParams();
       }
     }
 
@@ -1324,7 +1281,7 @@ class RoktKit implements KitInterface {
       return 'Kit not ready for forwarder: ' + name;
     }
 
-    if (typeof mp().Rokt?.setLocalSessionAttribute === 'function') {
+    if (isFunction(mp().Rokt?.setLocalSessionAttribute)) {
       if (!isEmpty(this.placementEventAttributeMappingLookup)) {
         this.applyPlacementEventAttributeMapping(event);
       }
@@ -1533,7 +1490,10 @@ class RoktKit implements KitInterface {
     const filteredUserIdentities = this.returnUserIdentities(filteredUser);
 
     const sessionAttributes = this.returnLocalSessionAttributes();
-    const pageEvents = this.buildPageEvents(readPageViewsStorage());
+    const pageEvents = buildPageEvents(loadPageViews(this.loggingService));
+    const utmParams = loadUtmParams();
+    const mpSessionId = this.readMpSessionId();
+    const mpDeviceId = this.readMpDeviceId();
 
     const selectPlacementsAttributes: Record<string, unknown> = {
       ...(filteredUserIdentities as Record<string, unknown>),
@@ -1541,7 +1501,10 @@ class RoktKit implements KitInterface {
       ...optimizelyAttributes,
       ...sessionAttributes,
       ...(pageEvents.length ? { [PAGE_EVENTS_KEY]: JSON.stringify(pageEvents) } : {}),
+      ...(utmParams ? { [PAGE_VIEW_ATTRIBUTES_KEY]: JSON.stringify(utmParams) } : {}),
       ...(this.userIdentifiedInWorkspace ? { [USER_IDENTIFIED_IN_WORKSPACE_KEY]: true } : {}),
+      ...(mpSessionId ? { [MPARTICLE_SESSION_ID_KEY]: mpSessionId } : {}),
+      ...(mpDeviceId ? { [MPARTICLE_DEVICE_ID_KEY]: mpDeviceId } : {}),
       mpid,
     };
 
@@ -1639,3 +1602,4 @@ if (typeof window !== 'undefined' && window.mParticle && mp().addForwarder) {
 }
 
 export { register };
+export type { LoggingService };
