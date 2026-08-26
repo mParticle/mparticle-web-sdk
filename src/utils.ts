@@ -309,6 +309,13 @@ const mergeObjects = <T extends object>(...objects: T[]): T => {
 const moveElementToEnd = <T>(array: T[], index: number): T[] =>
     array.slice(0, index).concat(array.slice(index + 1), array[index]);
 
+// Own-property check that ignores inherited Object.prototype members. Needed
+// wherever a key is looked up by a name that did not come from the object itself:
+// `obj[name]` and `name in obj` both walk the prototype chain, so a name like
+// `constructor` resolves to something truthy on any plain object.
+const hasOwnProp = (obj: object, key: string): boolean =>
+    Object.prototype.hasOwnProperty.call(obj, key);
+
 const queryStringParser = (
     url: string,
     keys: string[] = []
@@ -334,7 +341,18 @@ const queryStringParser = (
         return lowerCaseUrlParams;
     } else {
         keys.forEach(key => {
-            const value = lowerCaseUrlParams[key.toLowerCase()];
+            const name = key.toLowerCase();
+
+            // The requested key may not have come from this URL — callers pass
+            // their own lists. Without the own-property guard, a key named
+            // `constructor` resolves to Object.prototype.constructor, passes the
+            // truthiness check below, and is copied out as if the URL had
+            // supplied it.
+            if (!hasOwnProp(lowerCaseUrlParams, name)) {
+                return;
+            }
+
+            const value = lowerCaseUrlParams[name];
             if (value) {
                 results[key] = value;
             }
@@ -706,6 +724,7 @@ export {
     mergeObjects,
     moveElementToEnd,
     queryStringParser,
+    hasOwnProp,
     getCookies,
     getHref,
     replaceMPID,

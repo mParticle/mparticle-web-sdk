@@ -112,6 +112,42 @@ describe('Utils', () => {
 
                 expect(queryStringParser(url)).toEqual(expectedResult);
             });
+
+            // Callers supply their own key list, so a key may name an
+            // Object.prototype member. Looking that up on a plain object resolves
+            // through the prototype chain to something truthy, which without an
+            // own-property guard gets copied out as though the URL supplied it.
+            it('does not resolve keys naming inherited Object.prototype members', () => {
+                const keys = [
+                    'foo',
+                    'constructor',
+                    '__proto__',
+                    'toString',
+                    'valueOf',
+                    'hasOwnProperty',
+                ];
+
+                expect(queryStringParser(url, keys)).toEqual({ foo: 'bar' });
+            });
+
+            it('still resolves a real query param sharing a prototype member name', () => {
+                expect(
+                    queryStringParser(
+                        'https://www.example.com?constructor=legitimate',
+                        ['constructor']
+                    )
+                ).toEqual({ constructor: 'legitimate' });
+            });
+
+            it('returns a plain object so callers can call hasOwnProperty on it', () => {
+                // integrationCapture calls .hasOwnProperty() directly on the
+                // result, which is why the fix guards the lookup rather than
+                // dropping the returned object's prototype.
+                const result = queryStringParser(url, ['foo']);
+
+                expect(() => result.hasOwnProperty('foo')).not.toThrow();
+                expect(result.hasOwnProperty('foo')).toBe(true);
+            });
         });
 
         describe('without URLSearchParams', () => {
