@@ -985,7 +985,7 @@ describe('eCommerce', function() {
             product,
             eventAttributes,
             null,
-            { Step: 4, Option: 'Visa' }
+            { Step: 4, Option: 'Visa' } as unknown as TransactionAttributes
         );
         window.MockForwarder1.instance.receivedEvent.should.have.property(
             'ProductAction'
@@ -1246,8 +1246,8 @@ describe('eCommerce', function() {
 
     it('should be empty when transactionAttributes is empty', () => {
         const mparticle = mParticle.getInstance()
-        const productAction = {}
-        mparticle._Ecommerce.convertTransactionAttributesToProductAction({}, productAction)
+        const productAction = {} as SDKProductAction
+        mparticle._Ecommerce.convertTransactionAttributesToProductAction({} as TransactionAttributes, productAction)
         Object.keys(productAction).length.should.equal(0);
     });
 
@@ -1271,8 +1271,8 @@ describe('eCommerce', function() {
             Tax: "tax"
         };
 
-        const productAction = {};
-        mparticle._Ecommerce.convertTransactionAttributesToProductAction(transactionAttributes, productAction)
+        const productAction = {} as SDKProductAction;
+        mparticle._Ecommerce.convertTransactionAttributesToProductAction(transactionAttributes as unknown as TransactionAttributes, productAction)
         productAction.TransactionId.should.equal("id")
         productAction.Affiliation.should.equal("affiliation")
         productAction.CouponCode.should.equal("couponCode")
@@ -1291,7 +1291,7 @@ describe('eCommerce', function() {
             ],
             ShippingAmount: 10,
             TaxAmount: 5,
-        };
+        } as SDKProductAction;
 
         mParticle
             .getInstance()
@@ -1302,7 +1302,7 @@ describe('eCommerce', function() {
     });
 
     it('should default to zero when there are no products, shipping, or tax', () => {
-        const productAction = { ProductList: [] };
+        const productAction = { ProductList: [] } as SDKProductAction;
 
         mParticle
             .getInstance()
@@ -1315,7 +1315,7 @@ describe('eCommerce', function() {
         const productAction = {
             TotalAmount: 0,
             ProductList: [{ Price: 100, Quantity: 1 }],
-        };
+        } as SDKProductAction;
 
         mParticle
             .getInstance()
