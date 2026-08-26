@@ -57,6 +57,7 @@ import CookieConsentManager, { ICookieConsentManager } from './cookieConsentMana
 import { ErrorReportingDispatcher } from './reporting/errorReportingDispatcher';
 import { LoggingDispatcher } from './reporting/loggingDispatcher';
 import { IErrorReportingService, ILoggingService } from './reporting/types';
+import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
 import { normalizeRoktLauncherOptions } from './roktLauncherOptions';
 import {
     hasInitialPageViewFired,
