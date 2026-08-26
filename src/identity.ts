@@ -1346,8 +1346,6 @@ export default function Identity(
         };
     };
 
-    };
-
     // https://go.mparticle.com/work/SQDSDKS-6355
     this.parseIdentityResponse = function(
         identityResponse: IIdentityResponse,
