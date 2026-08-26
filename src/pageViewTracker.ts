@@ -1,3 +1,4 @@
+import Constants from './constants';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { BaseEvent } from './sdkRuntimeModels';
 import { EventType, MessageType } from './types';
@@ -95,9 +96,69 @@ export const ALLOWED_QUERY_PARAMS: string[] = [
     'referrer',
 ];
 
+// Names a customer may not add, on top of the format rule below.
+//
+// hostname/title/path are the three core event fields. buildPageViewEvent's spread
+// order already stops a param overwriting them, but rejecting the names here keeps
+// them out of the dedup key as well, rather than leaving one guard doing all the
+// work.
+//
+// constructor/__proto__/prototype resolve to something truthy through the
+// prototype chain. hasOwnProp neutralises them at capture, and rejecting them at
+// the config boundary means they never travel far enough to depend on that.
+const RESERVED_QUERY_PARAMS: string[] = [
+    'hostname',
+    'title',
+    'path',
+    'constructor',
+    '__proto__',
+    'prototype',
+];
+
+// Must start with a letter, digit or underscore, then up to 63 more of the same
+// plus dot and hyphen. Excludes `&`, `=`, `%` and whitespace — the characters that
+// would let a name distort the dedup key or an event attribute name.
+const QUERY_PARAM_NAME = /^[a-z0-9_][a-z0-9_.-]{0,63}$/;
+
+// mParticle caps attributes per event; 31 built-ins plus this leaves headroom.
+export const MAX_CUSTOM_QUERY_PARAMS = 25;
+
+// How much of a rejected entry is safe to name in a log.
+const REJECTED_LABEL_LIMIT = 32;
+
+// A log-safe label for a rejected entry.
+//
+// An entry is rejected BECAUSE of a character, and everything from that character
+// onwards is untrusted: a customer who types `password=hunter2` into the field must
+// not have the value echoed into the console, where session-replay tooling would
+// ship it off-domain. So cut at the first character that is not name-legal, and cap
+// the length. The surviving prefix is still enough to identify which entry was
+// dropped, which is the whole point of reporting it.
+const rejectedLabel = (entry: string): string => {
+    const legalPrefix = /^[a-z0-9_.-]*/.exec(entry);
+    const kept = (legalPrefix ? legalPrefix[0] : '').slice(
+        0,
+        REJECTED_LABEL_LIMIT
+    );
+
+    return kept.length < entry.length ? `${kept}...` : kept;
+};
+
+// Applies to CUSTOM params only — see allowedQueryParams.
+export const MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH = 512;
+
+// One captured param. An ordered list rather than a dictionary because the dedup
+// key depends on a stable order, and once the allowlist is configurable that order
+// can no longer come from a module constant. Capturing it here means pageKey and
+// describePage need no knowledge of the allowlist at all.
+export interface ICapturedParam {
+    name: string;
+    value: string;
+}
+
 interface IPageSnapshot {
     path: string;
-    params: Dictionary<string>;
+    params: ICapturedParam[];
 }
 
 interface IPageViewData extends IPageSnapshot {
@@ -115,40 +176,160 @@ interface IPendingNavigation {
 // on their own, which is where the interesting rules live.
 // ---------------------------------------------------------------------------
 
-// Pulls the allowlisted query params off a URL. Delegates to the SDK's own
-// parser, which lowercases keys (so `?UTM_Source=` and `?utm_source=` land on one
-// attribute), drops empty values, and carries the fallback for browsers without
-// URLSearchParams. Tolerates an empty href, so SSR yields no params rather than
-// throwing.
-export const allowedQueryParams = (href: string): Dictionary<string> =>
-    queryStringParser(href, ALLOWED_QUERY_PARAMS);
-
-// The captured params, in allowlist order. Ordering comes from the constant
-// rather than a sort: it is deterministic without needing a comparator, and it
-// does not depend on the object's insertion order, so reordering the query string
-// cannot produce a different key.
+// Normalises the customer's additions, as delivered by remote config.
 //
-// Membership is an own-property check, not `in`. `in` walks the prototype
-// chain, so a name matching an Object.prototype member reports as present on
-// any plain object. ALLOWED_QUERY_PARAMS contains no such name, which was the
-// only thing making `in` safe here — and it stops being a safe assumption the
-// moment this list can be extended from configuration.
-const capturedNames = (params: Dictionary<string>): string[] =>
-    ALLOWED_QUERY_PARAMS.filter(name => hasOwnProp(params, name));
-
-// The dedup key: pathname plus the allowlisted params in a fixed order, so that
-// reordering the query string is not a new page. Params outside the allowlist
-// never make it into `page.params` and so cannot key a view — nor can the hash.
+// Runs in the SDK even though the dashboard validates too, because remote config is
+// untrusted input: it arrives over the network into a third-party embed on the
+// customer's page, and the SDK cannot assume anything validated it. Accepts an
+// array as well as a comma-separated string so a self-hosted config can pass one
+// directly.
 //
-// Values are re-encoded because queryStringParser hands them back DECODED. A
-// value holding the pair delimiters would otherwise serialize exactly like two
-// separate params — `{q: 'a&search=b'}` and `{q: 'a', search: 'b'}` both becoming
-// `q=a&search=b` — and dedup would treat a real navigation between them as the
-// same page and drop the view. `q`, `search` and `redirect_uri` carry `&` and `=`
+// Returns the accepted names alongside log-safe labels for what it dropped. The raw
+// rejected entry never escapes this function — see rejectedLabel.
+export const parseQueryParamAllowlist = (
+    configured: string | string[]
+): { allowed: string[]; rejected: string[] } => {
+    const allowed: string[] = [];
+    const rejected: string[] = [];
+
+    if (!configured) {
+        return { allowed, rejected };
+    }
+
+    const entries: string[] = Array.isArray(configured)
+        ? configured
+        : String(configured).split(',');
+
+    entries.forEach(entry => {
+        if (allowed.length >= MAX_CUSTOM_QUERY_PARAMS) {
+            return;
+        }
+
+        // Lowercased because queryStringParser matches case-insensitively and keys
+        // its result by the allowlist's casing — so this is what makes the emitted
+        // attribute name stable however the customer typed it.
+        const name = String(entry)
+            .trim()
+            .toLowerCase();
+
+        if (!name) {
+            return;
+        }
+
+        if (
+            !QUERY_PARAM_NAME.test(name) ||
+            RESERVED_QUERY_PARAMS.indexOf(name) !== -1
+        ) {
+            rejected.push(rejectedLabel(name));
+            return;
+        }
+
+        // Already built in, or already accepted. Not a rejection — there is nothing
+        // wrong with asking for something you already have.
+        if (
+            ALLOWED_QUERY_PARAMS.indexOf(name) !== -1 ||
+            allowed.indexOf(name) !== -1
+        ) {
+            return;
+        }
+
+        allowed.push(name);
+    });
+
+    return { allowed, rejected };
+};
+
+// Built-ins first, in their existing order, then the customer's additions in the
+// order given.
+//
+// The order is load-bearing, not cosmetic. pageKey walks this list, so keeping the
+// built-in prefix intact means a customer who adds params gets byte-identical keys
+// for pages that use none of them. Without it, adding a single param would change
+// every key at once and fire one spurious page view per page on the first
+// navigation after rollout.
+export const effectiveAllowlist = (
+    extras: string | string[] = []
+): string[] => {
+    // Tolerates a raw comma-separated string as well as the validated list
+    // processFlags stores. Not decoration: a mis-shaped config value reaching this
+    // unguarded would throw inside logPageView and take every page view with it,
+    // which is a much worse failure than ignoring a bad setting.
+    //
+    // An array is trusted as already validated. That is deliberate — it is what
+    // lets the tests inject hostile names directly and prove the own-property check
+    // in allowedQueryParams is a real backstop rather than dead code behind
+    // validation.
+    const list = Array.isArray(extras)
+        ? extras
+        : parseQueryParamAllowlist(extras).allowed;
+
+    return ALLOWED_QUERY_PARAMS.concat(
+        list.filter(name => ALLOWED_QUERY_PARAMS.indexOf(name) === -1)
+    );
+};
+
+// Pulls the allowlisted query params off a URL, in allowlist order.
+//
+// Delegates to the SDK's own parser, which lowercases keys (so `?UTM_Source=` and
+// `?utm_source=` land on one attribute), drops empty values, and carries the
+// fallback for browsers without URLSearchParams. Tolerates an empty href, so SSR
+// yields no params rather than throwing.
+//
+// Membership is an own-property check, not `in`: `in` walks the prototype chain, so
+// a configured name matching an Object.prototype member would report as present on
+// every page.
+export const allowedQueryParams = (
+    href: string,
+    extras: string | string[] = []
+): ICapturedParam[] => {
+    const allowlist = effectiveAllowlist(extras);
+    const found = queryStringParser(href, allowlist);
+
+    return allowlist
+        .filter(name => hasOwnProp(found, name))
+        .filter(name => {
+            // The length cap applies to CUSTOM params only. Built-in behaviour is
+            // deliberately untouched, so no existing customer can lose a long
+            // utm_content on upgrade. Custom params are where unbounded choice
+            // enters: a param holding a base64 blob would bloat every APV event
+            // and every dedup key.
+            //
+            // Dropped, not truncated — truncating makes two different long values
+            // produce the same key, which silently swallows a real page view.
+            if (ALLOWED_QUERY_PARAMS.indexOf(name) !== -1) {
+                return true;
+            }
+
+            return found[name].length <= MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH;
+        })
+        .map(name => ({ name, value: found[name] }));
+};
+
+// Folds the ordered pairs into the flat attribute map an event carries.
+export const paramsToAttributes = (
+    params: ICapturedParam[]
+): Dictionary<string> => {
+    const attributes: Dictionary<string> = {};
+    params.forEach(({ name, value }) => {
+        attributes[name] = value;
+    });
+    return attributes;
+};
+
+// The dedup key: pathname plus the captured params in allowlist order, so that
+// reordering the query string is not a new page. Params outside the effective
+// allowlist never make it into `page.params` and so cannot key a view — nor can the
+// hash.
+//
+// Values are re-encoded because queryStringParser hands them back DECODED. A value
+// holding the pair delimiters would otherwise serialize exactly like two separate
+// params — `{q: 'a&search=b'}` and `{q: 'a', search: 'b'}` both becoming
+// `q=a&search=b` — and dedup would treat a real navigation between them as the same
+// page and drop the view. `q`, `search` and `redirect_uri` carry `&` and `=`
 // routinely, so this is reachable rather than theoretical.
 export const pageKey = (page: IPageSnapshot): string => {
-    const query = capturedNames(page.params)
-        .map(name => `${name}=${encodeURIComponent(page.params[name])}`)
+    const query = page.params
+        .map(({ name, value }) => `${name}=${encodeURIComponent(value)}`)
         .join('&');
 
     return query ? `${page.path}?${query}` : page.path;
@@ -183,7 +364,7 @@ export const buildPageViewEvent = ({
     // wins. No allowlist entry collides with hostname/title/path today; naming
     // them here is what keeps a later addition from silently overwriting one.
     data: {
-        ...params,
+        ...paramsToAttributes(params),
         hostname,
         title,
         path,
@@ -272,9 +453,9 @@ const clearActiveTracker = (tracker: PageViewTracker): void => {
     }
 };
 
-const currentPage = (): IPageSnapshot => ({
+const currentPage = (extras: string[]): IPageSnapshot => ({
     path: window.location.pathname,
-    params: allowedQueryParams(getHref()),
+    params: allowedQueryParams(getHref(), extras),
 });
 
 // Log-safe description of a page: the path, plus the NAMES of the captured
@@ -288,7 +469,7 @@ const describePage = (page: IPageSnapshot | null): string => {
         return '';
     }
 
-    const names = capturedNames(page.params);
+    const names = page.params.map(({ name }) => name);
     return names.length ? `${page.path} (params: ${names.join()})` : page.path;
 };
 
@@ -382,6 +563,11 @@ export class PageViewTracker {
 
     private lastPage: IPageSnapshot | null = null;
     private active = false;
+
+    // The customer's additions to the allowlist, read once per init() rather than
+    // per navigation: config cannot change without a re-init, and re-reading it on
+    // every pushState would re-validate the same list thousands of times.
+    private customQueryParams: string[] = [];
     private pendingNavigations: IPendingNavigation[] = [];
 
     private undoHistoryPatch: (() => void) | null = null;
@@ -421,7 +607,8 @@ export class PageViewTracker {
         }
 
         this.active = true;
-        this.lastPage = currentPage();
+        this.customQueryParams = this.readCustomQueryParams();
+        this.lastPage = currentPage(this.customQueryParams);
         this.log(`[init] seeded lastPage: ${describePage(this.lastPage)}`);
 
         this.undoHistoryPatch = patchHistory(
@@ -458,6 +645,29 @@ export class PageViewTracker {
 
         this.active = false;
         clearActiveTracker(this);
+    }
+
+    // Reads and validates the configured additions. Logs the names it rejected —
+    // names only, never values, for the same reason describePage omits them.
+    private readCustomQueryParams(): string[] {
+        const configured = this.mpInstance._Helpers.getFeatureFlag(
+            Constants.FeatureFlags.AutoLogPageViewQueryParams
+        ) as string | string[];
+
+        const { allowed, rejected } = parseQueryParamAllowlist(configured);
+
+        if (rejected.length) {
+            this.mpInstance.Logger.warning(
+                'mParticle APV: ignoring invalid additional page view query ' +
+                    `parameters: ${rejected.join()}`
+            );
+        }
+
+        if (allowed.length) {
+            this.log(`[init] additional query params: ${allowed.join()}`);
+        }
+
+        return allowed;
     }
 
     // Stops the outgoing tracker and returns the pages it had queued so this
@@ -507,7 +717,7 @@ export class PageViewTracker {
     }
 
     private handleNavigation(source: NavigationSource): void {
-        const candidate = currentPage();
+        const candidate = currentPage(this.customQueryParams);
         const lastKey = this.lastPage ? pageKey(this.lastPage) : null;
 
         this.log(
