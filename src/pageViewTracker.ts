@@ -123,16 +123,16 @@ interface IPendingNavigation {
 export const allowedQueryParams = (href: string): Dictionary<string> =>
     queryStringParser(href, ALLOWED_QUERY_PARAMS);
 
-// The captured params, in allowlist order. Ordering comes from the constant rather
-// than a sort: it is deterministic without needing a comparator, and it does not
-// depend on the object's insertion order, so reordering the query string cannot
-// produce a different key.
+// The captured params, in allowlist order. Ordering comes from the constant
+// rather than a sort: it is deterministic without needing a comparator, and it
+// does not depend on the object's insertion order, so reordering the query string
+// cannot produce a different key.
 //
-// Membership is an own-property check, not `in`. `in` walks the prototype chain, so
-// a name matching an Object.prototype member reports as present on any plain
-// object. ALLOWED_QUERY_PARAMS contains no such name, which was the only thing
-// making `in` safe here — and it stops being a safe assumption the moment this
-// list can be extended from configuration.
+// Membership is an own-property check, not `in`. `in` walks the prototype
+// chain, so a name matching an Object.prototype member reports as present on
+// any plain object. ALLOWED_QUERY_PARAMS contains no such name, which was the
+// only thing making `in` safe here — and it stops being a safe assumption the
+// moment this list can be extended from configuration.
 const capturedNames = (params: Dictionary<string>): string[] =>
     ALLOWED_QUERY_PARAMS.filter(name => hasOwnProp(params, name));
 

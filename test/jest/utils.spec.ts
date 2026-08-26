@@ -115,8 +115,18 @@ describe('Utils', () => {
 
             // Callers supply their own key list, so a key may name an
             // Object.prototype member. Looking that up on a plain object resolves
-            // through the prototype chain to something truthy, which without an
-            // own-property guard gets copied out as though the URL supplied it.
+            // through the prototype chain, and without an own-property guard a
+            // truthy result gets copied out as though the URL supplied it.
+            //
+            // Only `constructor` actually exercises the guard. queryStringParser
+            // lowercases the key before the lookup, so `toString`, `valueOf` and
+            // `hasOwnProperty` become `tostring`/`valueof`/`hasownproperty` and
+            // resolve to undefined; `__proto__` resolves to Object.prototype but
+            // assigning it back onto `results` hits the setter rather than
+            // creating an own property. That makes the `.toLowerCase()` in
+            // queryStringParser load-bearing for five of these six names: remove
+            // it and they stop being inert. The other five are kept as
+            // documentation of the name class, not as independent coverage.
             it('does not resolve keys naming inherited Object.prototype members', () => {
                 const keys = [
                     'foo',
@@ -140,9 +150,11 @@ describe('Utils', () => {
             });
 
             it('returns a plain object so callers can call hasOwnProperty on it', () => {
-                // integrationCapture calls .hasOwnProperty() directly on the
-                // result, which is why the fix guards the lookup rather than
-                // dropping the returned object's prototype.
+                // integrationCapture#applyProcessors calls .hasOwnProperty() on
+                // its `clickIds` argument, and getQueryParams passes the return
+                // value of queryStringParser straight in — which is why the fix
+                // guards the lookup rather than dropping the returned object's
+                // prototype.
                 const result = queryStringParser(url, ['foo']);
 
                 expect(() => result.hasOwnProperty('foo')).not.toThrow();
@@ -229,6 +241,29 @@ describe('Utils', () => {
                 };
 
                 expect(queryStringParser(url, keys)).toEqual(expectedResult);
+            });
+
+            // The fallback builds its param map from the URL, so a param NAMED
+            // after a prototype method gives that map an own property shadowing
+            // the method with a string. Calling it on the next iteration threw
+            // `TypeError: params.hasOwnProperty is not a function` out of
+            // queryStringParser — and this needs no configuration, just a URL.
+            it('survives a query param named after a prototype method', () => {
+                expect(
+                    queryStringParser(
+                        'https://www.example.com?hasOwnProperty=1&foo=bar',
+                        ['foo']
+                    )
+                ).toEqual({ foo: 'bar' });
+            });
+
+            it('still returns a param named after a prototype method when asked for it', () => {
+                expect(
+                    queryStringParser(
+                        'https://www.example.com?hasOwnProperty=1&foo=bar',
+                        ['hasOwnProperty']
+                    )
+                ).toEqual({ hasOwnProperty: '1' });
             });
         });
     });

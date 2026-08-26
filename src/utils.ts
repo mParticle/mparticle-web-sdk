@@ -390,7 +390,13 @@ const queryStringParserFallback = (url: string): URLSearchParamsFallback => {
         },
         forEach: function(callback: (value: string, key: string) => void) {
             for (var key in params) {
-                if (params.hasOwnProperty(key)) {
+                // Not `params.hasOwnProperty(key)`. The keys here come straight
+                // off the URL, so `?hasOwnProperty=1` gives `params` an own
+                // property shadowing the inherited method with the string `'1'`,
+                // and the next iteration calls it: `TypeError: params
+                // .hasOwnProperty is not a function`. That throws out of
+                // queryStringParser on the init path.
+                if (hasOwnProp(params, key)) {
                     callback(params[key], key);
                 }
             }
