@@ -17,4 +17,4 @@ export type { KitInterface, } from './forwarders.interfaces';
 export type { RoktAttributeValue, RoktAttributeValueType, RoktAttributeValueArray, RoktAttributes, IRoktPartnerExtensionData, IRoktSelectPlacementsOptions, IRoktSelection, IRoktLauncher, IRoktMessage, RoktKitFilterSettings, IRoktKitSettings, IRoktKit, IRoktOptions, IRoktLauncherOptions, } from './roktManager';
 export type { ErrorCodes, WSDKErrorSeverity, } from './reporting/types';
 export type { ISDKError, ISDKLogEntry, IErrorReportingService, ILoggingService, } from './reporting/types';
-export type { SDKEvent, SDKProductAction, SDKProductActionType, SDKPromotionAction, SDKShoppingCart, SDKGeoLocation, SDKDataPlan, SDKLoggerApi, SDKConfigApi, IMParticleInstanceManager, } from './sdkRuntimeModels';
+export type { SDKEvent, SDKProductAction, SDKProductActionType, SDKPromotionAction, SDKGeoLocation, SDKDataPlan, SDKLoggerApi, SDKConfigApi, IMParticleInstanceManager, } from './sdkRuntimeModels';
