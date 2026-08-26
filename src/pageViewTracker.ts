@@ -282,6 +282,10 @@ export const parseQueryParamAllowlist = (
 // config boundary, once. Passing an array directly is also what lets the tests
 // inject hostile names and prove the own-property check in allowedQueryParams is a
 // real backstop rather than dead code behind validation.
+// Total, locale-independent ordering for the dedup key. See the comment in
+// effectiveAllowlist for why localeCompare is the wrong tool here.
+const byName = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+
 export const effectiveAllowlist = (extras: string[] = []): string[] =>
     // `|| []` as well as the default parameter, because they cover different
     // things: the default only fires for `undefined`, and getFeatureFlag returns
@@ -289,7 +293,13 @@ export const effectiveAllowlist = (extras: string[] = []): string[] =>
     ALLOWED_QUERY_PARAMS.concat(
         (extras || [])
             .filter(name => ALLOWED_QUERY_PARAMS.indexOf(name) === -1)
-            .sort()
+            // Explicit comparator, and deliberately NOT localeCompare, which is what
+            // Sonar's S2871 message suggests. This ordering feeds the dedup key, so it
+            // has to be identical everywhere: localeCompare varies by locale, which
+            // would make two browsers disagree about whether a page had changed. Names
+            // are validated to /^[a-z0-9_][a-z0-9_.-]{0,63}$/, so a plain code-unit
+            // comparison is total and stable over the whole input domain.
+            .sort(byName)
     );
 
 // Pulls the allowlisted query params off a URL, in allowlist order.
