@@ -21,7 +21,11 @@ import {
     TransactionAttributes,
 } from '@mparticle/web-sdk';
 import { getHref, valueof } from './utils';
-import { allowedQueryParams, paramsToAttributes } from './pageViewTracker';
+import {
+    allowedQueryParams,
+    IQueryParamAllowlist,
+    paramsToAttributes,
+} from './pageViewTracker';
 
 interface DOMHandlerElement extends HTMLElement {
     href?: string;
@@ -159,11 +163,12 @@ export default function Events(
                 ...paramsToAttributes(
                     allowedQueryParams(
                         getHref(),
-                        // getFeatureFlag is declared boolean | string; processFlags
-                        // stores this one as a validated string[].
+                        // processFlags validated these at the config boundary, so
+                        // only the accepted names are needed here. `?.` because
+                        // getFeatureFlag returns null when the flag is absent.
                         (mpInstance._Helpers.getFeatureFlag(
                             Constants.FeatureFlags.AutoLogPageViewQueryParams
-                        ) as unknown) as string[]
+                        ) as IQueryParamAllowlist)?.allowed
                     )
                 ),
                 hostname: window.location.hostname,

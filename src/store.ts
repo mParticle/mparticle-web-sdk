@@ -9,7 +9,10 @@ import {
 } from '@mparticle/web-sdk';
 import { IKitConfigs } from './configAPIClient';
 import Constants from './constants';
-import { parseQueryParamAllowlist } from './pageViewTracker';
+import {
+    IQueryParamAllowlist,
+    parseQueryParamAllowlist,
+} from './pageViewTracker';
 import {
     DataPlanResult,
     KitBlockerOptions,
@@ -154,8 +157,10 @@ export interface IFeatureFlags {
     'captureIntegrationSpecificIds.V2'?: string;
     astBackgroundEvents?: boolean;
     autoLogPageView?: boolean;
-    // Processed into a validated list; the server sends a comma-separated string.
-    autoLogPageViewQueryParams?: string[];
+    // The server sends a comma-separated string; processFlags validates it into
+    // accepted names plus a report of what it dropped. Both halves are kept so that
+    // the tracker can log the rejections without validating a second time.
+    autoLogPageViewQueryParams?: IQueryParamAllowlist;
 }
 
 // Temporary Interface until Store can be refactored as a class
@@ -802,12 +807,16 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[CaptureIntegrationSpecificIdsV2] = (config.flags[CaptureIntegrationSpecificIdsV2] || 'none');
     flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
     flags[AutoLogPageView] = config.flags[AutoLogPageView] === 'True';
-    // The server sends a comma-separated string; parse and validate it here so the
-    // rest of the SDK only ever sees a clean list. Rejected names are logged by the
-    // tracker, which has a Logger to hand.
+    // The server sends a comma-separated string. It is parsed and validated HERE,
+    // once, at the config boundary — and the whole result is stored, including what
+    // was rejected. The tracker warns about the rejections when it starts, because
+    // that is where the Logger is; it does not re-derive them.
+    //
+    // Storing only `.allowed` is what made that warning dead code: re-parsing an
+    // already-clean list downstream has nothing left to reject.
     flags[AutoLogPageViewQueryParams] = parseQueryParamAllowlist(
         (config.flags[AutoLogPageViewQueryParams] as unknown) as string
-    ).allowed;
+    );
     return flags;
 }
 
