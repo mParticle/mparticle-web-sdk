@@ -17,6 +17,7 @@ import {
     supportsHistoryTracking,
     WIN_APV_KEY,
 } from '../../src/pageViewTracker';
+import Constants from '../../src/constants';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 import { EventType, MessageType } from '../../src/types';
 
@@ -188,8 +189,10 @@ describe('pageViewTracker pure helpers', () => {
     describe('#parseQueryParamAllowlist', () => {
         const allowed = (input: string | string[]): string[] =>
             parseQueryParamAllowlist(input).allowed;
-        const rejected = (input: string | string[]): string[] =>
-            parseQueryParamAllowlist(input).rejected;
+        const rejectedPositions = (input: string | string[]): number[] =>
+            parseQueryParamAllowlist(input).rejectedPositions;
+        const overLimit = (input: string | string[]): number =>
+            parseQueryParamAllowlist(input).overLimit;
 
         it('should split, trim and lowercase a comma-separated string', () => {
             expect(allowed(' Promo_Code , AFFILIATE_ID ')).toEqual([
@@ -212,42 +215,63 @@ describe('pageViewTracker pure helpers', () => {
         it('should drop a duplicate of a built-in without rejecting it', () => {
             // Asking for something you already have is not an error.
             expect(allowed('utm_source, promo_code')).toEqual(['promo_code']);
-            expect(rejected('utm_source')).toEqual([]);
+            expect(rejectedPositions('utm_source')).toEqual([]);
         });
 
         it('should drop a repeat of itself', () => {
             expect(allowed('promo_code, promo_code')).toEqual(['promo_code']);
         });
 
-        // The reported label is cut at the first illegal character, so it can
-        // identify the entry without echoing anything that followed. See
-        // 'should not echo a value back in the rejected label' below.
         it.each([
-            ['a name with spaces', 'bad name', 'bad...'],
-            ['an equals sign', 'a=b', 'a...'],
-            ['an ampersand', 'a&b', 'a...'],
-            ['a percent', 'a%20b', 'a...'],
-            ['a leading hyphen', '-lead', '-lead'],
-            ['a leading dot', '.lead', '.lead'],
-        ])('should reject %s', (_label, name, expectedLabel) => {
+            ['a name with spaces', 'bad name'],
+            ['an equals sign', 'a=b'],
+            ['an ampersand', 'a&b'],
+            ['a percent', 'a%20b'],
+            ['a leading hyphen', '-lead'],
+            ['a leading dot', '.lead'],
+            ['a non-ASCII name', 'émail'],
+        ])('should reject %s', (_label, name) => {
             expect(allowed(name)).toEqual([]);
-            expect(rejected(name)).toEqual([expectedLabel]);
+            expect(rejectedPositions(name)).toEqual([1]);
         });
 
-        // A malformed entry can carry a value inside it. The rule is names only, so
-        // nothing after the offending character may reach a log.
-        it('should not echo a value back in the rejected label', () => {
-            const [label] = rejected('password=hunter2');
+        // Positions are 1-based and count every comma-separated slot, so a reported
+        // position lines up with what the customer typed into the field.
+        it('should report the position of each rejected entry', () => {
+            expect(
+                rejectedPositions('promo_code, bad name, affiliate_id, a=b')
+            ).toEqual([2, 4]);
+        });
 
-            expect(label).toBe('password...');
-            expect(label).not.toContain('hunter2');
+        it('should count a blank slot as a position without rejecting it', () => {
+            expect(rejectedPositions('promo_code, , bad name')).toEqual([3]);
+        });
+
+        // No part of a rejected entry may reach a log. An earlier version reported a
+        // prefix cut at the first illegal character, which does not achieve that:
+        // `.`, `-` and `_` are all legal, so these leaked whole or nearly whole.
+        it.each([
+            'password=hunter2',
+            'token.hunter2 x',
+            'user.email.hunter2@x',
+            '-secret-value-abcdef',
+            '.hunter2',
+        ])('should report only a position for %p', entry => {
+            const { allowed: names, rejectedPositions: positions } =
+                parseQueryParamAllowlist(entry);
+
+            expect(names).toEqual([]);
+            expect(positions).toEqual([1]);
+            // A number cannot carry the customer's text at all, which is the point.
+            expect(JSON.stringify(positions)).not.toContain('hunter2');
+            expect(JSON.stringify(positions)).not.toContain('secret');
+            expect(JSON.stringify(positions)).not.toContain('abc');
         });
 
         it('should reject a name longer than 64 characters', () => {
             const long = 'a'.repeat(65);
             expect(allowed(long)).toEqual([]);
-            // Legal characters throughout, so the label is a length-capped prefix.
-            expect(rejected(long)).toEqual([`${'a'.repeat(32)}...`]);
+            expect(rejectedPositions(long)).toEqual([1]);
         });
 
         it('should accept a name of exactly 64 characters', () => {
@@ -259,7 +283,7 @@ describe('pageViewTracker pure helpers', () => {
             'should reject the core event field %s',
             name => {
                 expect(allowed(name)).toEqual([]);
-                expect(rejected(name)).toEqual([name]);
+                expect(rejectedPositions(name)).toEqual([1]);
             }
         );
 
@@ -267,7 +291,18 @@ describe('pageViewTracker pure helpers', () => {
             'should reject the prototype member name %s',
             name => {
                 expect(allowed(name)).toEqual([]);
-                expect(rejected(name)).toEqual([name]);
+                expect(rejectedPositions(name)).toEqual([1]);
+            }
+        );
+
+        // Every other flag in this SDK is a string compared against 'True', so
+        // setting this one to `True` is a plausible operator slip — and `true` is a
+        // legal param name, so nothing else would catch it.
+        it.each(['True', 'true', 'False', 'false'])(
+            'should reject the boolean-looking value %p',
+            name => {
+                expect(allowed(name)).toEqual([]);
+                expect(rejectedPositions(name)).toEqual([1]);
             }
         );
 
@@ -278,6 +313,36 @@ describe('pageViewTracker pure helpers', () => {
             ).join(',');
 
             expect(allowed(many)).toHaveLength(MAX_CUSTOM_QUERY_PARAMS);
+        });
+
+        // Entries past the cap used to be dropped with no report of any kind: the
+        // cap was checked at the top of the loop, so they were neither accepted nor
+        // rejected. They are counted so the warning can say how many were lost.
+        it('should count the entries dropped past the cap', () => {
+            const many = Array.from(
+                { length: MAX_CUSTOM_QUERY_PARAMS + 15 },
+                (_unused, i) => `p${i}`
+            ).join(',');
+
+            expect(overLimit(many)).toBe(15);
+            expect(rejectedPositions(many)).toEqual([]);
+        });
+
+        // The cap is checked after the duplicate and blank filters, so neither
+        // consumes headroom that a real addition could have used.
+        it('should not let duplicates consume cap headroom', () => {
+            const names = Array.from(
+                { length: MAX_CUSTOM_QUERY_PARAMS },
+                (_unused, i) => `p${i}`
+            );
+            const withDuplicates = names
+                .concat(names)
+                .concat(['utm_source', '', 'last_one'])
+                .join(',');
+
+            expect(allowed(withDuplicates)).toEqual(names);
+            // Only `last_one` was a genuine addition with nowhere to go.
+            expect(overLimit(withDuplicates)).toBe(1);
         });
     });
 
@@ -299,19 +364,24 @@ describe('pageViewTracker pure helpers', () => {
             expect(list[list.length - 1]).toBe('promo_code');
         });
 
-        it('should append extras in the order given', () => {
-            expect(
-                effectiveAllowlist(['zeta', 'alpha']).slice(
-                    ALLOWED_QUERY_PARAMS.length
-                )
-            ).toEqual(['zeta', 'alpha']);
+        // Sorted, not in config order. The suffix has to depend on the SET of
+        // custom params, because pageKey walks this list: appended in config order,
+        // a customer who merely swaps two co-occurring params in the Advanced
+        // Settings field changes the key of every page carrying both, and each of
+        // those fires one spurious page view.
+        it('should append extras sorted, whatever order they were given in', () => {
+            const suffix = (extras: string[]): string[] =>
+                effectiveAllowlist(extras).slice(ALLOWED_QUERY_PARAMS.length);
+
+            expect(suffix(['zeta', 'alpha'])).toEqual(['alpha', 'zeta']);
+            expect(suffix(['alpha', 'zeta'])).toEqual(['alpha', 'zeta']);
         });
 
-        // A mis-shaped config value must not throw: the crash would land inside
-        // logPageView and take every page view with it.
-        it('should tolerate a raw comma-separated string', () => {
-            expect(effectiveAllowlist('promo_code, bad name')).toEqual(
-                ALLOWED_QUERY_PARAMS.concat(['promo_code'])
+        // getFeatureFlag returns null when the flag is absent, and a default
+        // parameter only fires for undefined.
+        it.each([undefined, null])('should tolerate %p', extras => {
+            expect(effectiveAllowlist(extras as string[])).toEqual(
+                ALLOWED_QUERY_PARAMS
             );
         });
 
@@ -385,17 +455,27 @@ describe('pageViewTracker pure helpers', () => {
         // custom params must key identically before and after a customer adds them.
         // If this breaks, every such page fires one spurious view on the first
         // navigation after rollout.
-        it('should be unchanged for a page that uses no custom params', () => {
+        //
+        // Asserted against a literal, which is what "byte-identical" means. Comparing
+        // two calls to the current allowedQueryParams would compare new against new
+        // and pass even if the whole union were reordered, since both sides move
+        // together.
+        const keyFor = (extras?: string[]): string => {
             const href = 'https://x.com/p?utm_source=google&gclid=abc';
 
-            expect(pageKey(pageFromHref(href))).toBe(
-                pageKey({
-                    path: new URL(href).pathname,
-                    params: allowedQueryParams(href, [
-                        'promo_code',
-                        'affiliate_id',
-                    ]),
-                })
+            return pageKey({
+                path: new URL(href).pathname,
+                params: allowedQueryParams(href, extras),
+            });
+        };
+
+        it('should be this exact key with no custom params configured', () => {
+            expect(keyFor()).toBe('/p?utm_source=google&gclid=abc');
+        });
+
+        it('should be the same key once custom params are configured', () => {
+            expect(keyFor(['promo_code', 'affiliate_id'])).toBe(
+                '/p?utm_source=google&gclid=abc'
             );
         });
 
@@ -908,8 +988,23 @@ describe('PageViewTracker', () => {
     });
 
     describe('configured additional query params', () => {
+        // Mirrors production: the raw comma-separated string is parsed ONCE, by
+        // processFlags, and the flag holds the whole IQueryParamAllowlist. The
+        // tracker never sees the raw string, so neither does this test.
+        //
+        // That distinction is load-bearing rather than pedantic. These tests used to
+        // mock getFeatureFlag with the raw string, which let the tracker re-parse it
+        // and made the rejection warning look alive when in production it received
+        // an already-clean list and could never fire.
         const initWith = (configured: string | undefined): PageViewTracker => {
-            getFeatureFlag.mockReturnValue(configured);
+            const parsed = parseQueryParamAllowlist(configured);
+
+            getFeatureFlag.mockImplementation((flag: string) =>
+                flag === Constants.FeatureFlags.AutoLogPageViewQueryParams
+                    ? parsed
+                    : undefined
+            );
+
             const tracker = createTracker();
             tracker.init();
             return tracker;
@@ -952,20 +1047,37 @@ describe('PageViewTracker', () => {
             expect(logEvent.mock.calls[0][0].data.promo_code).toBe('B');
         });
 
-        it('should warn with log-safe labels for what it rejected, never values', () => {
+        it('should warn with positions for what it rejected, never text', () => {
             navigateNatively('/');
-            initWith('promo_code, bad name, password=hunter2');
+            initWith('promo_code, bad name, affiliate_id, password=hunter2');
 
             expect(warning).toHaveBeenCalledTimes(1);
             const [message] = warning.mock.calls[0];
 
             // Enough to identify which entries were dropped...
-            expect(message).toContain('bad...');
-            expect(message).toContain('password...');
-            // ...and nothing that followed the offending character.
+            expect(message).toContain('positions 2, 4');
+            // ...and none of the customer's text, valid or otherwise.
             expect(message).not.toContain('hunter2');
-            // The valid entry is not reported as a problem.
+            expect(message).not.toContain('password');
+            expect(message).not.toContain('bad');
             expect(message).not.toContain('promo_code');
+        });
+
+        // The whole point of F5's fix: processFlags validates, the tracker reports.
+        // If the tracker re-parsed the clean list it was handed, this could not fire.
+        it('should warn about entries dropped past the cap', () => {
+            navigateNatively('/');
+            initWith(
+                Array.from(
+                    { length: MAX_CUSTOM_QUERY_PARAMS + 3 },
+                    (_unused, i) => `p${i}`
+                ).join(',')
+            );
+
+            expect(warning).toHaveBeenCalledTimes(1);
+            expect(warning.mock.calls[0][0]).toContain(
+                `ignoring 3 additional page view query parameters beyond the limit of ${MAX_CUSTOM_QUERY_PARAMS}`
+            );
         });
 
         it('should not warn when every configured name is valid', () => {
@@ -974,6 +1086,18 @@ describe('PageViewTracker', () => {
 
             expect(warning).not.toHaveBeenCalled();
         });
+
+        // A hand-mutated or absent flag must not throw on the init path.
+        it.each([undefined, null, 'promo_code', []])(
+            'should tolerate a flag value of %p',
+            value => {
+                navigateNatively('/');
+                getFeatureFlag.mockReturnValue(value);
+
+                expect(() => createTracker().init()).not.toThrow();
+                expect(warning).not.toHaveBeenCalled();
+            }
+        );
     });
 
     describe('navigation detection', () => {

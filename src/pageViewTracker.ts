@@ -106,6 +106,11 @@ export const ALLOWED_QUERY_PARAMS: string[] = [
 // constructor/__proto__/prototype resolve to something truthy through the
 // prototype chain. hasOwnProp neutralises them at capture, and rejecting them at
 // the config boundary means they never travel far enough to depend on that.
+//
+// true/false are here because every other flag in this SDK is a string compared
+// against 'True'. An operator who sets this one the same way sends the literal
+// `True`, which is a legal param name — so it would silently pass validation and
+// the SDK would start capturing `?true=`. Rejecting it surfaces the mistake.
 const RESERVED_QUERY_PARAMS: string[] = [
     'hostname',
     'title',
@@ -113,6 +118,8 @@ const RESERVED_QUERY_PARAMS: string[] = [
     'constructor',
     '__proto__',
     'prototype',
+    'true',
+    'false',
 ];
 
 // Must start with a letter, digit or underscore, then up to 63 more of the same
@@ -123,26 +130,32 @@ const QUERY_PARAM_NAME = /^[a-z0-9_][a-z0-9_.-]{0,63}$/;
 // mParticle caps attributes per event; 31 built-ins plus this leaves headroom.
 export const MAX_CUSTOM_QUERY_PARAMS = 25;
 
-// How much of a rejected entry is safe to name in a log.
-const REJECTED_LABEL_LIMIT = 32;
+// The outcome of validating the customer's additions: one value with three parts,
+// produced by a single parse. processFlags stores it whole and the tracker reports
+// from it, so there is no second validator that can drift from the first.
+export interface IQueryParamAllowlist {
+    // The names to union with ALLOWED_QUERY_PARAMS.
+    allowed: string[];
 
-// A log-safe label for a rejected entry.
-//
-// An entry is rejected BECAUSE of a character, and everything from that character
-// onwards is untrusted: a customer who types `password=hunter2` into the field must
-// not have the value echoed into the console, where session-replay tooling would
-// ship it off-domain. So cut at the first character that is not name-legal, and cap
-// the length. The surviving prefix is still enough to identify which entry was
-// dropped, which is the whole point of reporting it.
-const rejectedLabel = (entry: string): string => {
-    const legalPrefix = /^[a-z0-9_.-]*/.exec(entry);
-    const kept = (legalPrefix ? legalPrefix[0] : '').slice(
-        0,
-        REJECTED_LABEL_LIMIT
-    );
+    // 1-based positions, in the order the customer wrote them, of the entries whose
+    // name was illegal or reserved.
+    //
+    // Positions rather than the text, because none of the text is safe to log. An
+    // entry is rejected BECAUSE of a character, so the entry may be something the
+    // customer pasted into the wrong field: `password=hunter2` must not reach
+    // Logger.warning, where session-replay tooling ships the console off-domain.
+    // Truncating at the first illegal character does not achieve that — `.`, `-`
+    // and `_` are all legal, so `token.hunter2` and `-secret-value` survive whole.
+    // A position cannot leak anything, and it still identifies the entry, which is
+    // the entire point of reporting it. It also works for a non-ASCII name, where
+    // every character is illegal and a legal prefix would be empty.
+    rejectedPositions: number[];
 
-    return kept.length < entry.length ? `${kept}...` : kept;
-};
+    // How many otherwise-valid entries were dropped for exceeding
+    // MAX_CUSTOM_QUERY_PARAMS. A count, not positions: past the cap the remedy is
+    // "ask for fewer", not "fix entry 31".
+    overLimit: number;
+}
 
 // Applies to CUSTOM params only — see allowedQueryParams.
 export const MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH = 512;
@@ -184,26 +197,27 @@ interface IPendingNavigation {
 // array as well as a comma-separated string so a self-hosted config can pass one
 // directly.
 //
-// Returns the accepted names alongside log-safe labels for what it dropped. The raw
-// rejected entry never escapes this function — see rejectedLabel.
+// Returns the accepted names alongside positions for what it dropped. No part of a
+// rejected entry escapes this function — see IQueryParamAllowlist.
 export const parseQueryParamAllowlist = (
     configured: string | string[]
-): { allowed: string[]; rejected: string[] } => {
+): IQueryParamAllowlist => {
     const allowed: string[] = [];
-    const rejected: string[] = [];
+    const rejectedPositions: number[] = [];
+    let overLimit = 0;
 
     if (!configured) {
-        return { allowed, rejected };
+        return { allowed, rejectedPositions, overLimit };
     }
 
     const entries: string[] = Array.isArray(configured)
         ? configured
         : String(configured).split(',');
 
-    entries.forEach(entry => {
-        if (allowed.length >= MAX_CUSTOM_QUERY_PARAMS) {
-            return;
-        }
+    entries.forEach((entry, index) => {
+        // 1-based, and counted over every comma-separated slot including the blank
+        // ones, so a reported position matches what the customer typed.
+        const position = index + 1;
 
         // Lowercased because queryStringParser matches case-insensitively and keys
         // its result by the allowlist's casing — so this is what makes the emitted
@@ -220,7 +234,7 @@ export const parseQueryParamAllowlist = (
             !QUERY_PARAM_NAME.test(name) ||
             RESERVED_QUERY_PARAMS.indexOf(name) !== -1
         ) {
-            rejected.push(rejectedLabel(name));
+            rejectedPositions.push(position);
             return;
         }
 
@@ -233,40 +247,50 @@ export const parseQueryParamAllowlist = (
             return;
         }
 
+        // The cap is checked here rather than at the top of the loop so that a
+        // blank or a duplicate does not consume headroom, and — the reason it
+        // moved — so the entries that lose out are counted instead of vanishing
+        // with no report at all.
+        if (allowed.length >= MAX_CUSTOM_QUERY_PARAMS) {
+            overLimit++;
+            return;
+        }
+
         allowed.push(name);
     });
 
-    return { allowed, rejected };
+    return { allowed, rejectedPositions, overLimit };
 };
 
-// Built-ins first, in their existing order, then the customer's additions in the
-// order given.
+// Built-ins first, in their existing order, then the customer's additions sorted.
 //
 // The order is load-bearing, not cosmetic. pageKey walks this list, so keeping the
 // built-in prefix intact means a customer who adds params gets byte-identical keys
 // for pages that use none of them. Without it, adding a single param would change
 // every key at once and fire one spurious page view per page on the first
 // navigation after rollout.
-export const effectiveAllowlist = (
-    extras: string | string[] = []
-): string[] => {
-    // Tolerates a raw comma-separated string as well as the validated list
-    // processFlags stores. Not decoration: a mis-shaped config value reaching this
-    // unguarded would throw inside logPageView and take every page view with it,
-    // which is a much worse failure than ignoring a bad setting.
-    //
-    // An array is trusted as already validated. That is deliberate — it is what
-    // lets the tests inject hostile names directly and prove the own-property check
-    // in allowedQueryParams is a real backstop rather than dead code behind
-    // validation.
-    const list = Array.isArray(extras)
-        ? extras
-        : parseQueryParamAllowlist(extras).allowed;
-
-    return ALLOWED_QUERY_PARAMS.concat(
-        list.filter(name => ALLOWED_QUERY_PARAMS.indexOf(name) === -1)
+//
+// The additions are sorted for the same reason one step further in. They arrive in
+// the order the customer typed them into a config string, so appending them in that
+// order makes the key of every page carrying two of them depend on which order they
+// were listed — swap `promo_code, affiliate_id` around and each such page fires one
+// spurious view. Sorting makes the suffix depend on the SET rather than the
+// sequence. Built-ins keep their positions, and custom params do not exist in
+// 2.80.x, so no key that exists today moves.
+//
+// The list is trusted as already validated: processFlags parses and validates at the
+// config boundary, once. Passing an array directly is also what lets the tests
+// inject hostile names and prove the own-property check in allowedQueryParams is a
+// real backstop rather than dead code behind validation.
+export const effectiveAllowlist = (extras: string[] = []): string[] =>
+    // `|| []` as well as the default parameter, because they cover different
+    // things: the default only fires for `undefined`, and getFeatureFlag returns
+    // null when the flag is absent.
+    ALLOWED_QUERY_PARAMS.concat(
+        (extras || [])
+            .filter(name => ALLOWED_QUERY_PARAMS.indexOf(name) === -1)
+            .sort()
     );
-};
 
 // Pulls the allowlisted query params off a URL, in allowlist order.
 //
@@ -280,7 +304,7 @@ export const effectiveAllowlist = (
 // every page.
 export const allowedQueryParams = (
     href: string,
-    extras: string | string[] = []
+    extras: string[] = []
 ): ICapturedParam[] => {
     const allowlist = effectiveAllowlist(extras);
     const found = queryStringParser(href, allowlist);
@@ -647,19 +671,36 @@ export class PageViewTracker {
         clearActiveTracker(this);
     }
 
-    // Reads and validates the configured additions. Logs the names it rejected —
-    // names only, never values, for the same reason describePage omits them.
+    // Reports what processFlags rejected, and returns what it accepted.
+    //
+    // It does NOT re-validate. processFlags already parsed the customer's string at
+    // the config boundary and stored the whole result; parsing that clean list a
+    // second time here would have nothing left to reject, which is precisely how
+    // this warning was dead in production while its test passed — the test handed
+    // the tracker a raw string that production never sends.
+    //
+    // The warning names positions, never text. See IQueryParamAllowlist.
     private readCustomQueryParams(): string[] {
-        const configured = this.mpInstance._Helpers.getFeatureFlag(
+        const {
+            allowed = [],
+            rejectedPositions = [],
+            overLimit = 0,
+        } = (this.mpInstance._Helpers.getFeatureFlag(
             Constants.FeatureFlags.AutoLogPageViewQueryParams
-        ) as string | string[];
+        ) || {}) as IQueryParamAllowlist;
 
-        const { allowed, rejected } = parseQueryParamAllowlist(configured);
-
-        if (rejected.length) {
+        if (rejectedPositions.length) {
             this.mpInstance.Logger.warning(
                 'mParticle APV: ignoring invalid additional page view query ' +
-                    `parameters: ${rejected.join()}`
+                    `parameters at positions ${rejectedPositions.join(', ')}`
+            );
+        }
+
+        if (overLimit) {
+            this.mpInstance.Logger.warning(
+                `mParticle APV: ignoring ${overLimit} additional page view ` +
+                    `query parameters beyond the limit of ` +
+                    `${MAX_CUSTOM_QUERY_PARAMS}`
             );
         }
 
