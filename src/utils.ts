@@ -309,10 +309,8 @@ const mergeObjects = <T extends object>(...objects: T[]): T => {
 const moveElementToEnd = <T>(array: T[], index: number): T[] =>
     array.slice(0, index).concat(array.slice(index + 1), array[index]);
 
-// Own-property check that ignores inherited Object.prototype members. Needed
-// wherever a key is looked up by a name that did not come from the object itself:
-// `obj[name]` and `name in obj` both walk the prototype chain, so a name like
-// `constructor` resolves to something truthy on any plain object.
+// For keys that did not come from the object itself: `obj[name]` and `name in obj`
+// both walk the prototype chain, so `constructor` is truthy on any plain object.
 const hasOwnProp = (obj: object, key: string): boolean =>
     Object.prototype.hasOwnProperty.call(obj, key);
 
@@ -343,11 +341,7 @@ const queryStringParser = (
         keys.forEach(key => {
             const name = key.toLowerCase();
 
-            // The requested key may not have come from this URL — callers pass
-            // their own lists. Without the own-property guard, a key named
-            // `constructor` resolves to Object.prototype.constructor, passes the
-            // truthiness check below, and is copied out as if the URL had
-            // supplied it.
+            // Callers pass their own key list, so `name` may not be from this URL.
             if (!hasOwnProp(lowerCaseUrlParams, name)) {
                 return;
             }
@@ -390,12 +384,8 @@ const queryStringParserFallback = (url: string): URLSearchParamsFallback => {
         },
         forEach: function(callback: (value: string, key: string) => void) {
             for (var key in params) {
-                // Not `params.hasOwnProperty(key)`. The keys here come straight
-                // off the URL, so `?hasOwnProperty=1` gives `params` an own
-                // property shadowing the inherited method with the string `'1'`,
-                // and the next iteration calls it: `TypeError: params
-                // .hasOwnProperty is not a function`. That throws out of
-                // queryStringParser on the init path.
+                // Keys come straight off the URL, so `?hasOwnProperty=1` would
+                // shadow the method and `params.hasOwnProperty(key)` would throw.
                 if (hasOwnProp(params, key)) {
                     callback(params[key], key);
                 }

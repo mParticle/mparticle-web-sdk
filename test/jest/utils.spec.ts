@@ -113,31 +113,19 @@ describe('Utils', () => {
                 expect(queryStringParser(url)).toEqual(expectedResult);
             });
 
-            // Callers supply their own key list, so a key may name an
-            // Object.prototype member. Looking that up on a plain object resolves
-            // through the prototype chain, and without an own-property guard a
-            // truthy result gets copied out as though the URL supplied it.
-            //
-            // Only `constructor` actually exercises the guard. queryStringParser
-            // lowercases the key before the lookup, so `toString`, `valueOf` and
-            // `hasOwnProperty` become `tostring`/`valueof`/`hasownproperty` and
-            // resolve to undefined; `__proto__` resolves to Object.prototype but
-            // assigning it back onto `results` hits the setter rather than
-            // creating an own property. That makes the `.toLowerCase()` in
-            // queryStringParser load-bearing for five of these six names: remove
-            // it and they stop being inert. The other five are kept as
-            // documentation of the name class, not as independent coverage.
-            it('does not resolve keys naming inherited Object.prototype members', () => {
-                const keys = [
-                    'foo',
-                    'constructor',
-                    '__proto__',
-                    'toString',
-                    'valueOf',
-                    'hasOwnProperty',
-                ];
+            it('does not resolve a key naming an inherited prototype member', () => {
+                expect(
+                    queryStringParser(url, ['foo', 'constructor', '__proto__'])
+                ).toEqual({ foo: 'bar' });
+            });
 
-                expect(queryStringParser(url, keys)).toEqual({ foo: 'bar' });
+            // Held inert by the lookup being lowercased (`toString` -> `tostring`),
+            // not by the own-property guard. Pinned so that making the lookup
+            // case-sensitive fails here rather than silently.
+            it('does not resolve mixed-case prototype member names either', () => {
+                expect(
+                    queryStringParser(url, ['foo', 'toString', 'valueOf', 'hasOwnProperty'])
+                ).toEqual({ foo: 'bar' });
             });
 
             it('still resolves a real query param sharing a prototype member name', () => {
@@ -150,11 +138,8 @@ describe('Utils', () => {
             });
 
             it('returns a plain object so callers can call hasOwnProperty on it', () => {
-                // integrationCapture#applyProcessors calls .hasOwnProperty() on
-                // its `clickIds` argument, and getQueryParams passes the return
-                // value of queryStringParser straight in — which is why the fix
-                // guards the lookup rather than dropping the returned object's
-                // prototype.
+                // integrationCapture#applyProcessors calls .hasOwnProperty() on this
+                // return value, so it must keep its prototype.
                 const result = queryStringParser(url, ['foo']);
 
                 expect(() => result.hasOwnProperty('foo')).not.toThrow();
