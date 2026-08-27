@@ -9,20 +9,15 @@ interface IECommerceShared {
     createTransactionAttributes(id: string | number, affiliation?: string, couponCode?: string, revenue?: string | number, shipping?: string | number, tax?: number): TransactionAttributes | null;
     expandCommerceEvent(event: SDKEvent): SDKEvent[] | null;
 }
-export interface SDKCart {
-    add(product: SDKProduct | SDKProduct[], logEvent?: boolean): void;
-    remove(product: SDKProduct | SDKProduct[], logEvent?: boolean): void;
-    clear(): void;
-}
 export interface SDKECommerceAPI extends IECommerceShared {
-    logCheckout(step: number, option?: string, attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags): void;
     logImpression(impression: SDKImpression | SDKImpression[], attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): void;
     logProductAction(productActionType: valueof<typeof ProductActionType>, product: SDKProduct | SDKProduct[], attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, transactionAttributes?: TransactionAttributes, eventOptions?: SDKEventOptions): void;
     logPromotion(type: valueof<typeof PromotionActionType>, promotion: SDKPromotion | SDKPromotion[], attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): void;
     setCurrencyCode(code: string): void;
-    Cart: SDKCart;
+    /**
+     * @deprecated Use `logProductAction` with `ProductActionType.Purchase` instead.
+     */
     logPurchase(transactionAttributes: TransactionAttributes, product: SDKProduct | SDKProduct[], clearCart?: boolean, attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags): void;
-    logRefund(transactionAttributes: TransactionAttributes, product: SDKProduct | SDKProduct[], clearCart?: boolean, attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags): void;
 }
 interface ExtractedActionAttributes {
     Affiliation?: string;
@@ -56,7 +51,6 @@ interface ExtractedTransactionId {
     'Transaction ID'?: string;
 }
 export interface IECommerce extends IECommerceShared {
-    buildProductList(event: SDKEvent, product: SDKProduct | SDKProduct[]): SDKProduct[];
     convertProductActionToEventType(productActionType: valueof<typeof ProductActionType>): // https://go.mparticle.com/work/SQDSDKS-4801
     number | null;
     convertPromotionActionToEventType(promotionActionType: valueof<typeof PromotionActionType>): number | null;

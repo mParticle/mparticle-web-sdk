@@ -4,7 +4,7 @@ import { ICachedIdentityCall, IKnownIdentities } from './identity-utils';
 import { BaseVault } from './vault';
 import { Dictionary, Environment, valueof } from './utils';
 import Constants from './constants';
-import { IdentityCallback, IUserAttributeChangeEvent, IUserIdentityChangeEvent, IMParticleUser, mParticleUserCart, IIdentityResponse } from './identity-user-interfaces';
+import { IdentityCallback, IUserAttributeChangeEvent, IUserIdentityChangeEvent, IMParticleUser, IIdentityResponse } from './identity-user-interfaces';
 import { IdentitySearchCallback } from './identity/search';
 declare const HTTPCodes: {
     readonly noHttpCoverage: -1;
@@ -180,8 +180,4 @@ export interface IIdentity {
     sendUserIdentityChangeEvent(newUserIdentities: UserIdentities, method: IdentityAPIMethod, mpid: MPID, prevUserIdentities: UserIdentities): void;
     reinitForwardersOnUserChange(prevUser: IMParticleUser, newUser: IMParticleUser): void;
     setForwarderCallbacks(user: IMParticleUser, method: IdentityAPIMethod): void;
-    /**
-     * @deprecated
-     */
-    mParticleUserCart(): mParticleUserCart;
 }
