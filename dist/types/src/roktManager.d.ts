@@ -57,6 +57,7 @@ export interface IRoktKit {
     setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void;
     use: <T>(name: string) => Promise<T>;
     onShoppableAdsReady(callback: () => void): void;
+    terminate?: () => Promise<void>;
     launcherOptions?: Dictionary<any>;
     settings?: IRoktKitSettings;
     integrationName?: string;
@@ -136,6 +137,23 @@ export default class RoktManager {
     hashAttributes(attributes: RoktAttributes): Promise<RoktAttributes>;
     setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void;
     use<T>(name: string): Promise<T>;
+    /**
+     * Tears down the current Rokt launcher and removes the placements it rendered.
+     *
+     * Intended for hosts that cannot simply destroy the container element —
+     * SPA route changes and confirmation pages, for example.
+     *
+     * Unlike the other proxied methods, a call made before the kit is ready is
+     * *not* queued. Replaying a teardown against a launcher created later would
+     * silently tear down placements the caller never asked to remove; with no
+     * launcher there is nothing to terminate, so this resolves as a no-op.
+     *
+     * @example
+     * await window.mParticle.Rokt.terminate();
+     *
+     * @returns {Promise<void>} Resolves once the launcher has torn down. Never rejects.
+     */
+    terminate(): Promise<void>;
     onShoppableAdsReady(callback: () => void): void;
     flushOnShoppableAdsReadyMessageQueue(kit: IRoktKit): void;
     /**

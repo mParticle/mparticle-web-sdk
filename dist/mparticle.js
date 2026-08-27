@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "2.80.1";
+    var version = "2.81.0";
 
     var Constants = {
       sdkVersion: version,
@@ -10906,6 +10906,57 @@ var mParticle = (function () {
           return Promise.reject(error instanceof Error ? error : new Error('Error using extension: ' + name));
         }
       };
+      /**
+       * Tears down the current Rokt launcher and removes the placements it rendered.
+       *
+       * Intended for hosts that cannot simply destroy the container element —
+       * SPA route changes and confirmation pages, for example.
+       *
+       * Unlike the other proxied methods, a call made before the kit is ready is
+       * *not* queued. Replaying a teardown against a launcher created later would
+       * silently tear down placements the caller never asked to remove; with no
+       * launcher there is nothing to terminate, so this resolves as a no-op.
+       *
+       * @example
+       * await window.mParticle.Rokt.terminate();
+       *
+       * @returns {Promise<void>} Resolves once the launcher has torn down. Never rejects.
+       */
+      RoktManager.prototype.terminate = function () {
+        var _a, _b, _c;
+        return __awaiter(this, void 0, void 0, function () {
+          var error_2;
+          return __generator(this, function (_d) {
+            switch (_d.label) {
+              case 0:
+                if (!this.isReady()) {
+                  (_a = this.logger) === null || _a === void 0 ? void 0 : _a.verbose('mParticle.Rokt.terminate called before the Rokt kit was ready. Nothing to terminate.');
+                  return [2 /*return*/];
+                }
+
+                if (!isFunction(this.kit.terminate)) {
+                  (_b = this.logger) === null || _b === void 0 ? void 0 : _b.error('mParticle.Rokt.terminate is not supported by the attached Rokt Kit version.');
+                  return [2 /*return*/];
+                }
+
+                _d.label = 1;
+              case 1:
+                _d.trys.push([1, 3,, 4]);
+                return [4 /*yield*/, this.kit.terminate()];
+              case 2:
+                _d.sent();
+                return [3 /*break*/, 4];
+              case 3:
+                error_2 = _d.sent();
+                (_c = this.logger) === null || _c === void 0 ? void 0 : _c.error("Failed to terminate the Rokt launcher: ".concat(getErrorMessage(error_2)));
+                return [3 /*break*/, 4];
+              case 4:
+                return [2 /*return*/];
+            }
+          });
+        });
+      };
+
       RoktManager.prototype.onShoppableAdsReady = function (callback) {
         if (!this.kit || !this.isShoppableAdsLoaded) {
           this.deferredCall('onShoppableAdsReady', callback);
@@ -10942,7 +10993,7 @@ var mParticle = (function () {
        */
       RoktManager.prototype.hashSha256 = function (attribute) {
         return __awaiter(this, void 0, void 0, function () {
-          var normalizedValue, error_2;
+          var normalizedValue, error_3;
           return __generator(this, function (_a) {
             switch (_a.label) {
               case 0:
@@ -10958,8 +11009,8 @@ var mParticle = (function () {
               case 2:
                 return [2 /*return*/, _a.sent()];
               case 3:
-                error_2 = _a.sent();
-                this.logger.error("Failed to hashSha256, returning undefined: ".concat(getErrorMessage(error_2)));
+                error_3 = _a.sent();
+                this.logger.error("Failed to hashSha256, returning undefined: ".concat(getErrorMessage(error_3)));
                 return [2 /*return*/, undefined];
               case 4:
                 return [2 /*return*/];
