@@ -1,3 +1,10 @@
+# [2.81.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.80.1...v2.81.0) (2026-08-27)
+
+
+### Features
+
+* **rokt:** expose terminate on the window.mParticle.Rokt interface ([#1328](https://github.com/mParticle/mparticle-web-sdk/issues/1328)) ([f194a2d](https://github.com/mParticle/mparticle-web-sdk/commit/f194a2df1245ce4f6d124ec7457aa877be038fed))
+
 ## [2.80.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.80.0...v2.80.1) (2026-08-25)
 
 # [2.80.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.79.3...v2.80.0) (2026-08-25)
