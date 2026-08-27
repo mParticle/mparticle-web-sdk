@@ -814,13 +814,8 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[CaptureIntegrationSpecificIdsV2] = (config.flags[CaptureIntegrationSpecificIdsV2] || 'none');
     flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
     flags[AutoLogPageView] = config.flags[AutoLogPageView] === 'True';
-    // The server sends a comma-separated string. It is parsed and validated HERE,
-    // once, at the config boundary — and the whole result is stored, including what
-    // was rejected. The tracker warns about the rejections when it starts, because
-    // that is where the Logger is; it does not re-derive them.
-    //
-    // Storing only `.allowed` is what made that warning dead code: re-parsing an
-    // already-clean list downstream has nothing left to reject.
+    // Parsed once here, at the config boundary, and stored whole — including the
+    // rejections, which the tracker warns about because that is where the Logger is.
     flags[AutoLogPageViewQueryParams] = parseQueryParamAllowlist(
         (config.flags[AutoLogPageViewQueryParams] as unknown) as string
     );

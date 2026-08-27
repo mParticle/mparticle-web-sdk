@@ -96,74 +96,49 @@ export const ALLOWED_QUERY_PARAMS: string[] = [
     'referrer',
 ];
 
-// Names a customer may not add, on top of the format rule below.
-//
-// hostname/title/path are the three core event fields. buildPageViewEvent's spread
-// order already stops a param overwriting them, but rejecting the names here keeps
-// them out of the dedup key as well, rather than leaving one guard doing all the
-// work.
-//
-// constructor/__proto__/prototype resolve to something truthy through the
-// prototype chain. hasOwnProp neutralises them at capture, and rejecting them at
-// the config boundary means they never travel far enough to depend on that.
-//
-// true/false are here because every other flag in this SDK is a string compared
-// against 'True'. An operator who sets this one the same way sends the literal
-// `True`, which is a legal param name — so it would silently pass validation and
-// the SDK would start capturing `?true=`. Rejecting it surfaces the mistake.
+// Rejected whatever their format, grouped by why.
 const RESERVED_QUERY_PARAMS: string[] = [
+    // Core event fields: must not reach the dedup key or an attribute name.
     'hostname',
     'title',
     'path',
+
+    // Truthy through the prototype chain.
     'constructor',
     '__proto__',
     'prototype',
+
+    // Every other flag here is compared against 'True'; an operator copying that
+    // convention would silently start capturing `?true=`.
     'true',
     'false',
 ];
 
-// Must start with a letter, digit or underscore, then up to 63 more of the same
-// plus dot and hyphen. Excludes `&`, `=`, `%` and whitespace — the characters that
-// would let a name distort the dedup key or an event attribute name.
+// Excludes `&`, `=`, `%` and whitespace: they would distort the dedup key.
 const QUERY_PARAM_NAME = /^[a-z0-9_][a-z0-9_.-]{0,63}$/;
 
 // mParticle caps attributes per event; 31 built-ins plus this leaves headroom.
 export const MAX_CUSTOM_QUERY_PARAMS = 25;
 
-// The outcome of validating the customer's additions: one value with three parts,
-// produced by a single parse. processFlags stores it whole and the tracker reports
-// from it, so there is no second validator that can drift from the first.
+// One parse, stored whole by processFlags, so no second validator can drift from it.
 export interface IQueryParamAllowlist {
-    // The names to union with ALLOWED_QUERY_PARAMS.
     allowed: string[];
 
-    // 1-based positions, in the order the customer wrote them, of the entries whose
-    // name was illegal or reserved.
-    //
-    // Positions rather than the text, because none of the text is safe to log. An
-    // entry is rejected BECAUSE of a character, so the entry may be something the
-    // customer pasted into the wrong field: `password=hunter2` must not reach
-    // Logger.warning, where session-replay tooling ships the console off-domain.
-    // Truncating at the first illegal character does not achieve that — `.`, `-`
-    // and `_` are all legal, so `token.hunter2` and `-secret-value` survive whole.
-    // A position cannot leak anything, and it still identifies the entry, which is
-    // the entire point of reporting it. It also works for a non-ASCII name, where
-    // every character is illegal and a legal prefix would be empty.
+    // 1-based, in the order the customer wrote them. Positions and not names because
+    // a rejected entry may be something pasted into the wrong field, and
+    // `password=hunter2` must not reach Logger.warning. Truncating at the first
+    // illegal character does not work: `.`, `-` and `_` are all legal.
     rejectedPositions: number[];
 
-    // How many otherwise-valid entries were dropped for exceeding
-    // MAX_CUSTOM_QUERY_PARAMS. A count, not positions: past the cap the remedy is
-    // "ask for fewer", not "fix entry 31".
+    // Count, not positions: past the cap the remedy is "ask for fewer".
     overLimit: number;
 }
 
 // Applies to CUSTOM params only — see allowedQueryParams.
 export const MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH = 512;
 
-// One captured param. An ordered list rather than a dictionary because the dedup
-// key depends on a stable order, and once the allowlist is configurable that order
-// can no longer come from a module constant. Capturing it here means pageKey and
-// describePage need no knowledge of the allowlist at all.
+// Ordered rather than a dictionary: the dedup key needs a stable order, and once the
+// allowlist is configurable that order cannot come from a module constant.
 export interface ICapturedParam {
     name: string;
     value: string;
@@ -262,56 +237,28 @@ export const parseQueryParamAllowlist = (
     return { allowed, rejectedPositions, overLimit };
 };
 
-// Built-ins first, in their existing order, then the customer's additions sorted.
-//
-// The order is load-bearing, not cosmetic. pageKey walks this list, so keeping the
-// built-in prefix intact means a customer who adds params gets byte-identical keys
-// for pages that use none of them. Without it, adding a single param would change
-// every key at once and fire one spurious page view per page on the first
-// navigation after rollout.
-//
-// The additions are sorted for the same reason one step further in. They arrive in
-// the order the customer typed them into a config string, so appending them in that
-// order makes the key of every page carrying two of them depend on which order they
-// were listed — swap `promo_code, affiliate_id` around and each such page fires one
-// spurious view. Sorting makes the suffix depend on the SET rather than the
-// sequence. Built-ins keep their positions, and custom params do not exist in
-// 2.80.x, so no key that exists today moves.
-//
-// The list is trusted as already validated: processFlags parses and validates at the
-// config boundary, once. Passing an array directly is also what lets the tests
-// inject hostile names and prove the own-property check in allowedQueryParams is a
-// real backstop rather than dead code behind validation.
-// Total, locale-independent ordering for the dedup key. See the comment in
-// effectiveAllowlist for why localeCompare is the wrong tool here.
+// Not localeCompare: this ordering feeds the dedup key, so it has to be identical in
+// every browser, and localeCompare is locale-dependent.
 const byName = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
+// Ordering is load-bearing — pageKey walks this list, so it decides which navigations
+// count as a new page. Built-ins keep their positions so no key that exists today moves
+// (asserted by the pageKey tests), and additions are sorted so a key depends on the SET
+// a customer configured rather than the order they typed it in.
+//
+// `extras` is trusted as already validated; processFlags does that once, at the config
+// boundary. `|| []` covers the null getFeatureFlag returns for an absent flag, which the
+// default parameter does not.
 export const effectiveAllowlist = (extras: string[] = []): string[] =>
-    // `|| []` as well as the default parameter, because they cover different
-    // things: the default only fires for `undefined`, and getFeatureFlag returns
-    // null when the flag is absent.
     ALLOWED_QUERY_PARAMS.concat(
         (extras || [])
             .filter(name => ALLOWED_QUERY_PARAMS.indexOf(name) === -1)
-            // Explicit comparator, and deliberately NOT localeCompare, which is what
-            // Sonar's S2871 message suggests. This ordering feeds the dedup key, so it
-            // has to be identical everywhere: localeCompare varies by locale, which
-            // would make two browsers disagree about whether a page had changed. Names
-            // are validated to /^[a-z0-9_][a-z0-9_.-]{0,63}$/, so a plain code-unit
-            // comparison is total and stable over the whole input domain.
             .sort(byName)
     );
 
-// Pulls the allowlisted query params off a URL, in allowlist order.
-//
-// Delegates to the SDK's own parser, which lowercases keys (so `?UTM_Source=` and
-// `?utm_source=` land on one attribute), drops empty values, and carries the
-// fallback for browsers without URLSearchParams. Tolerates an empty href, so SSR
-// yields no params rather than throwing.
-//
-// Membership is an own-property check, not `in`: `in` walks the prototype chain, so
-// a configured name matching an Object.prototype member would report as present on
-// every page.
+// queryStringParser lowercases keys, drops empty values, carries the
+// pre-URLSearchParams fallback, and tolerates an empty href — so SSR yields no params
+// rather than throwing.
 export const allowedQueryParams = (
     href: string,
     extras: string[] = []
@@ -322,14 +269,9 @@ export const allowedQueryParams = (
     return allowlist
         .filter(name => hasOwnProp(found, name))
         .filter(name => {
-            // The length cap applies to CUSTOM params only. Built-in behaviour is
-            // deliberately untouched, so no existing customer can lose a long
-            // utm_content on upgrade. Custom params are where unbounded choice
-            // enters: a param holding a base64 blob would bloat every APV event
-            // and every dedup key.
-            //
-            // Dropped, not truncated — truncating makes two different long values
-            // produce the same key, which silently swallows a real page view.
+            // Custom params only, so nobody loses a long utm_content on upgrade.
+            // Dropped rather than truncated: two long values sharing a truncated
+            // prefix would share a dedup key and swallow a real view.
             if (ALLOWED_QUERY_PARAMS.indexOf(name) !== -1) {
                 return true;
             }
@@ -350,17 +292,9 @@ export const paramsToAttributes = (
     return attributes;
 };
 
-// The dedup key: pathname plus the captured params in allowlist order, so that
-// reordering the query string is not a new page. Params outside the effective
-// allowlist never make it into `page.params` and so cannot key a view — nor can the
-// hash.
-//
-// Values are re-encoded because queryStringParser hands them back DECODED. A value
-// holding the pair delimiters would otherwise serialize exactly like two separate
-// params — `{q: 'a&search=b'}` and `{q: 'a', search: 'b'}` both becoming
-// `q=a&search=b` — and dedup would treat a real navigation between them as the same
-// page and drop the view. `q`, `search` and `redirect_uri` carry `&` and `=`
-// routinely, so this is reachable rather than theoretical.
+// Values are re-encoded because queryStringParser returns them DECODED: otherwise
+// `{q: 'a&search=b'}` and `{q: 'a', search: 'b'}` both serialize to `q=a&search=b`, so
+// a real navigation between the two would dedup away.
 export const pageKey = (page: IPageSnapshot): string => {
     const query = page.params
         .map(({ name, value }) => `${name}=${encodeURIComponent(value)}`)
@@ -681,15 +615,9 @@ export class PageViewTracker {
         clearActiveTracker(this);
     }
 
-    // Reports what processFlags rejected, and returns what it accepted.
-    //
-    // It does NOT re-validate. processFlags already parsed the customer's string at
-    // the config boundary and stored the whole result; parsing that clean list a
-    // second time here would have nothing left to reject, which is precisely how
-    // this warning was dead in production while its test passed — the test handed
-    // the tracker a raw string that production never sends.
-    //
-    // The warning names positions, never text. See IQueryParamAllowlist.
+    // Reports what processFlags rejected; deliberately does NOT re-validate. Parsing
+    // the already-clean list again would have nothing left to reject, which is how
+    // this warning was once dead in production while its test passed.
     private readCustomQueryParams(): string[] {
         const {
             allowed = [],
