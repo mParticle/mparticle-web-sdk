@@ -35,14 +35,11 @@ declare namespace mParticle {
         export { returnProduct as createProduct };
         export { returnPromotion as createPromotion };
         export { returnTransactionAttributes as createTransactionAttributes };
-        export { voidFunction as logCheckout };
         export { voidFunction as logImpression };
         export { voidFunction as logProductAction };
         export { voidFunction as logPromotion };
         export { voidFunction as logPurchase };
-        export { voidFunction as logRefund };
         export { voidFunction as setCurrencyCode };
-        export let Cart: any;
     }
     export namespace Consent {
         export { createConsentState };
@@ -140,7 +137,6 @@ declare function returnUser(): {
     removeAllUserAttributes: typeof voidFunction;
     getUserAttributesLists: typeof returnObject;
     getAllUserAttributes: typeof returnObject;
-    getCart: typeof Cart;
     getConsentState: typeof createConsentState;
     setConsentState: typeof voidFunction;
 };
@@ -158,27 +154,8 @@ declare function returnUsers(): {
     removeAllUserAttributes: typeof voidFunction;
     getUserAttributesLists: typeof returnObject;
     getAllUserAttributes: typeof returnObject;
-    getCart: typeof Cart;
     getConsentState: typeof createConsentState;
     setConsentState: typeof voidFunction;
 }[];
 declare function returnThis(): any;
 declare function returnObject(): {};
-declare function Cart_1(): {
-    add: typeof voidFunction;
-    clear: typeof voidFunction;
-    remove: typeof voidFunction;
-    getCartProducts: () => {
-        Name: string;
-        Sku: string;
-        Price: number;
-        Quantity: number;
-        Brand: string;
-        Variant: string;
-        Category: string;
-        Position: string;
-        CouponCode: string;
-        TotalAmount: number;
-        Attributes: {};
-    }[];
-};

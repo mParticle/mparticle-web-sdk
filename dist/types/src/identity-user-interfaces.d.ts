@@ -1,7 +1,7 @@
 import { AllUserAttributes, MPID, User } from '@mparticle/web-sdk';
 import { SDKIdentityTypeEnum } from './identity.interfaces';
 import { MessageType } from './types';
-import { BaseEvent, SDKProduct } from './sdkRuntimeModels';
+import { BaseEvent } from './sdkRuntimeModels';
 declare const HTTPCodes: {
     readonly noHttpCoverage: -1;
     readonly activeIdentityRequest: -2;
@@ -11,30 +11,11 @@ declare const HTTPCodes: {
     readonly loggingDisabledOrMissingAPIKey: -6;
     readonly tooManyRequests: 429;
 };
-interface ICart {
-    /**
-     * @deprecated Cart persistence in mParticle has been deprecated. Please use mParticle.eCommerce.logProductAction(mParticle.ProductActionType.AddToCart, [products])
-     */
-    add: (product: SDKProduct, logEventBoolean?: boolean) => void;
-    /**
-     * @deprecated Cart persistence in mParticle has been deprecated. Please use mParticle.eCommerce.logProductAction(mParticle.ProductActionType.RemoveFromCart, [products])
-     */
-    remove: (product: SDKProduct, logEventBoolean?: boolean) => void;
-    /**
-     * @deprecated Cart persistence in mParticle has been deprecated.
-     */
-    clear: () => void;
-    /**
-     * @deprecated Cart Products have been deprecated
-     */
-    getCartProducts: () => SDKProduct[];
-}
-export interface IMParticleUser extends User {
+export interface IMParticleUser extends Omit<User, 'getCart'> {
     getAllUserAttributes(): any;
     setUserTag(tagName: string, value?: any): void;
     setUserAttribute(key: string, value: any): void;
     getUserAudiences?(callback?: IdentityCallback): void;
-    getCart(): ICart;
 }
 export interface ISDKUserIdentity {
     Identity: string;
@@ -95,12 +76,6 @@ export interface IdentityModifyResultBody {
         identity_type: SDKIdentityTypeEnum;
         modified_mpid: MPID;
     };
-}
-export interface mParticleUserCart {
-    add(): void;
-    remove(): void;
-    clear(): void;
-    getCartProducts(): SDKProduct[];
 }
 export type UserAttributes = AllUserAttributes;
 export {};

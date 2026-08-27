@@ -58,9 +58,6 @@ export interface IConsentRules {
     includeOnMatch: boolean;
     values: IConsentRulesValues[];
 }
-export interface IConsentState extends ConsentState {
-    removeCCPAState: () => ConsentState;
-}
 export interface IConsent {
     isEnabledForUserConsent: (consentRules: IConsentRules, user: IMParticleUser) => boolean;
     createPrivacyConsent: ICreatePrivacyConsentFunction;
