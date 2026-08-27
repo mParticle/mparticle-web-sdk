@@ -1,3 +1,84 @@
+## [1.36.1](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.36.0...v1.36.1) (2026-08-27)
+
+# [1.36.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.35.0...v1.36.0) (2026-08-27)
+
+
+### Features
+
+* forward terminate from the kit to the Rokt launcher ([#122](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/122)) ([87354d4](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/87354d4a05e428482e01829418effa6437c3457b)), closes [#terminate](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/terminate)
+
+# [1.35.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.34.1...v1.35.0) (2026-08-21)
+
+
+### Features
+
+* capture UTM params from page views and forward to selectPlacements ([#129](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/129)) ([e1f70d1](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/e1f70d132c06f30efd15a45dbd34285b51715457))
+
+## [1.34.1](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.34.0...v1.34.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* retry page-view storage writes on quota failure and log eviction ([#126](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/126)) ([2e88327](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/2e88327d658e9adca21948ed736c81a9e74d262c))
+
+# [1.34.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.33.4...v1.34.0) (2026-08-19)
+
+
+### Features
+
+* send the mParticle device id as a selectPlacements attribute ([#121](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/121)) ([bb754ca](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/bb754ca5d4a313358c3cb9ec612ce98009a46724))
+
+## [1.33.4](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.33.3...v1.33.4) (2026-08-18)
+
+
+### Bug Fixes
+
+* stop retrying legacy page-view migration on every page load ([#118](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/118)) ([c4772f8](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/c4772f8c6b490acaf81f211ad369474bf683fc0b))
+
+## [1.33.3](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.33.2...v1.33.3) (2026-08-18)
+
+
+### Bug Fixes
+
+* limit page-view history to 25 most-recent records ([#123](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/123)) ([26f5a5b](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/26f5a5b1f1dc39ad02f896a2c8b6a900c24a56dd))
+
+## [1.33.2](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.33.1...v1.33.2) (2026-08-18)
+
+
+### Bug Fixes
+
+* add reason codes to PAGE_VIEW_CAPTURE_FAILED logs ([#119](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/119)) ([a4e5255](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/a4e5255ce5b749b406f0938cb8ad7acb5fc1bacc))
+
+## [1.33.1](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.33.0...v1.33.1) (2026-08-17)
+
+
+### Bug Fixes
+
+* read the mParticle session id from the public sessionManager facade ([#117](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/117)) ([ae19fd6](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/ae19fd690feafdfd7240ec296588008274370d9c))
+
+# [1.33.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.32.0...v1.33.0) (2026-08-17)
+
+
+### Features
+
+* send the current mParticle session id as a selectPlacements attribute ([#116](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/116)) ([b96ef4a](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/b96ef4a8474c4eb5cddfb9046c469cc666d6b648))
+
+# [1.32.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.31.0...v1.32.0) (2026-08-14)
+
+
+### Features
+
+* allow a full origin in domain so the launcher can load from a bundled extension ([#115](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/115)) ([c13e719](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/c13e719f051587a9e1a83e1f4a4c4c63bb37c743))
+
+# [1.31.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.30.2...v1.31.0) (2026-08-14)
+
+
+### Features
+
+* cap page-view storage by byte budget instead of fixed count ([#114](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/114)) ([4b041a5](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/4b041a5065a74c589640ec147fcd6b4d3a48b78f))
+* capture page title and canonical URL in page view events ([#112](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/112)) ([7b65606](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/7b6560624832e99f2e8f894a1257cd58df587e5a))
+* namespace page-view localStorage key and migrate legacy key ([#113](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/issues/113)) ([b428b15](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/commit/b428b15c101786885d462f3c27125113c558f534))
+
 ## [1.30.2](https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt/compare/v1.30.1...v1.30.2) (2026-08-05)
 
 

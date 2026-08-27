@@ -26,6 +26,7 @@
   sessionManager: {
     getSession: () => 'test-mp-session-id',
   },
+  getDeviceId: () => 'test-mp-device-id',
   _getActiveForwarders: () => [],
   generateHash: (input: string) => 'hashed-<' + input + '>-value',
   loggedEvents: [] as unknown[],
