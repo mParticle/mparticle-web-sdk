@@ -49,7 +49,17 @@ describe('AdobeServerSide Forwarder', function() {
         server.requests = [];
     });
 
-    beforeEach(function() {
+    beforeEach(function(done) {
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(
+                200,
+                JSON.stringify({
+                    Store: {},
+                    mpid: 'testMPID'
+                })
+            );
+        };
         window.AppMeasurement = MockAppMeasurement;
         window.mock = new MockVisitorInstance();
         window.Visitor = Visitor;
@@ -89,6 +99,7 @@ describe('AdobeServerSide Forwarder', function() {
             ]
         };
         mParticle.init('apikey', mParticle.config);
+        setTimeout(done, 0);
     });
 
     test('should call setIntegrationAttribute properly', function(done) {
@@ -128,25 +139,16 @@ describe('AdobeServerSide Forwarder', function() {
 
     test('should log play event', function(done) {
         settings.mediaTrackingServer = 'test';
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    Store: {},
-                    mpid: 'testMPID'
-                })
-            );
-        };
 
         mParticle.init('apiKey', mParticle.config);
-
-        mParticle.logBaseEvent({
-            name: 'play event',
-            messageType: 20,
-            eventType: 23
+        setTimeout(function() {
+            mParticle.logBaseEvent({
+                name: 'play event',
+                messageType: 20,
+                eventType: 23
+            });
+            expect(window.trackPlayCalled).toBe(true);
+            done();
         });
-        expect(window.trackPlayCalled).toBe(true);
-        done();
     });
 });
