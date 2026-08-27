@@ -3030,6 +3030,106 @@ describe('RoktManager', () => {
         });
     });
 
+    describe('#terminate', () => {
+        const makeKit = (): IRoktKit => ({
+            launcher: {
+                selectPlacements: jest.fn(),
+                hashAttributes: jest.fn(),
+                use: jest.fn(),
+            },
+            filters: undefined,
+            filteredUser: undefined,
+            userAttributes: undefined,
+            selectPlacements: jest.fn(),
+            hashAttributes: jest.fn(),
+            setExtensionData: jest.fn(),
+            use: jest.fn(),
+            onShoppableAdsReady: jest.fn(),
+            terminate: jest.fn().mockResolvedValue(undefined),
+        });
+
+        it('should call kit.terminate when a kit and launcher are attached', async () => {
+            const kit = makeKit();
+            roktManager.attachKit(kit);
+
+            await roktManager.terminate();
+
+            expect(kit.terminate).toHaveBeenCalledTimes(1);
+        });
+
+        it('should await the kit terminate promise before resolving', async () => {
+            const kit = makeKit();
+            let settled = false;
+            (kit.terminate as jest.Mock).mockImplementation(
+                () => new Promise<void>(resolve => setTimeout(() => {
+                    settled = true;
+                    resolve();
+                }, 0))
+            );
+            roktManager.attachKit(kit);
+
+            await roktManager.terminate();
+
+            expect(settled).toBe(true);
+        });
+
+        it('should resolve as a no-op and not queue when no kit is attached', async () => {
+            await expect(roktManager.terminate()).resolves.toBeUndefined();
+
+            expect(roktManager['kit']).toBeNull();
+            expect(roktManager['messageQueue'].size).toBe(0);
+            expect(mockMPInstance.Logger.verbose).toHaveBeenCalledWith(
+                'mParticle.Rokt.terminate called before the Rokt kit was ready. Nothing to terminate.'
+            );
+        });
+
+        it('should resolve as a no-op when a kit is attached without a launcher', async () => {
+            const kit = makeKit();
+            kit.launcher = null;
+            roktManager.attachKit(kit);
+
+            await expect(roktManager.terminate()).resolves.toBeUndefined();
+
+            expect(kit.terminate).not.toHaveBeenCalled();
+            expect(roktManager['messageQueue'].size).toBe(0);
+        });
+
+        it('should log an error when the attached kit predates terminate support', async () => {
+            const kit = makeKit();
+            delete kit.terminate;
+            roktManager.attachKit(kit);
+
+            await expect(roktManager.terminate()).resolves.toBeUndefined();
+
+            expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
+                'mParticle.Rokt.terminate is not supported by the attached Rokt Kit version.'
+            );
+        });
+
+        it('should log an error and resolve when kit.terminate rejects', async () => {
+            const kit = makeKit();
+            (kit.terminate as jest.Mock).mockRejectedValue(new Error('teardown failed'));
+            roktManager.attachKit(kit);
+
+            await expect(roktManager.terminate()).resolves.toBeUndefined();
+
+            expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
+                'Failed to terminate the Rokt launcher: teardown failed'
+            );
+        });
+
+        it('should stay ready so repeat calls keep reaching the kit', async () => {
+            const kit = makeKit();
+            roktManager.attachKit(kit);
+
+            await roktManager.terminate();
+            await roktManager.terminate();
+
+            expect(roktManager.isReady()).toBe(true);
+            expect(kit.terminate).toHaveBeenCalledTimes(2);
+        });
+    });
+
     describe('#onShoppableAdsReady', () => {
         const makeKit = (): IRoktKit => ({
             launcher: {

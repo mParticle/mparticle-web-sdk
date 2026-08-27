@@ -83,6 +83,9 @@ export interface IRoktKit {
     setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void;
     use: <T>(name: string) => Promise<T>;
     onShoppableAdsReady(callback: () => void): void;
+    // Optional because the Rokt Kit ships on its own release cadence; a kit
+    // published before terminate() existed will not implement it.
+    terminate?: () => Promise<void>;
     launcherOptions?: Dictionary<any>;
     settings?: IRoktKitSettings;
     integrationName?: string;
@@ -476,6 +479,40 @@ export default class RoktManager {
             return this.kit.use<T>(name);
         } catch (error) {
             return Promise.reject(error instanceof Error ? error : new Error('Error using extension: ' + name));
+        }
+    }
+
+    /**
+     * Tears down the current Rokt launcher and removes the placements it rendered.
+     *
+     * Intended for hosts that cannot simply destroy the container element —
+     * SPA route changes and confirmation pages, for example.
+     *
+     * Unlike the other proxied methods, a call made before the kit is ready is
+     * *not* queued. Replaying a teardown against a launcher created later would
+     * silently tear down placements the caller never asked to remove; with no
+     * launcher there is nothing to terminate, so this resolves as a no-op.
+     *
+     * @example
+     * await window.mParticle.Rokt.terminate();
+     *
+     * @returns {Promise<void>} Resolves once the launcher has torn down. Never rejects.
+     */
+    public async terminate(): Promise<void> {
+        if (!this.isReady()) {
+            this.logger?.verbose('mParticle.Rokt.terminate called before the Rokt kit was ready. Nothing to terminate.');
+            return;
+        }
+
+        if (!isFunction(this.kit.terminate)) {
+            this.logger?.error('mParticle.Rokt.terminate is not supported by the attached Rokt Kit version.');
+            return;
+        }
+
+        try {
+            await this.kit.terminate();
+        } catch (error) {
+            this.logger?.error(`Failed to terminate the Rokt launcher: ${getErrorMessage(error)}`);
         }
     }
 
