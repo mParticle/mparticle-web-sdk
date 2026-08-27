@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-facebook-kit",
-    "version": "2.3.0",
+    "version": "3.0.0",
     "author": "mParticle Developers <developers@mparticle.com> (https://www.mparticle.com)",
     "description": "mParticle integration sdk for facebook",
     "main": "dist/FacebookEventForwarder.common.js",
@@ -22,7 +22,7 @@
         "test": "node test/boilerplate/test-karma.js"
     },
     "devDependencies": {
-        "@mparticle/web-sdk": "^2.50.0",
+        "@mparticle/web-sdk": "^3.0.0",
         "@semantic-release/changelog": "^6.0.3",
         "@semantic-release/exec": "^6.0.3",
         "@semantic-release/git": "^10.0.1",
