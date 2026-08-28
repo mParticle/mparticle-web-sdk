@@ -56,8 +56,8 @@ describe('pageViewTracker pure helpers', () => {
     describe('#allowedQueryParams', () => {
         it('should keep an allowlisted param', () => {
             expect(
-                allowedQueryParams('https://example.com/?utm_source=google')
-            ).toEqual([{ name: 'utm_source', value: 'google' }]);
+                allowedQueryParams('https://example.com/?ref=google')
+            ).toEqual([{ name: 'ref', value: 'google' }]);
         });
 
         // The allowlist is the whole point: anything not named is dropped, so a
@@ -65,15 +65,15 @@ describe('pageViewTracker pure helpers', () => {
         it('should drop a param that is not allowlisted', () => {
             expect(
                 allowedQueryParams(
-                    'https://example.com/?utm_source=google&email=someone@example.com&order_id=42'
+                    'https://example.com/?ref=google&email=someone@example.com&order_id=42'
                 )
-            ).toEqual([{ name: 'utm_source', value: 'google' }]);
+            ).toEqual([{ name: 'ref', value: 'google' }]);
         });
 
         it('should fold key casing onto the allowlisted name', () => {
             expect(
-                allowedQueryParams('https://example.com/?UTM_Source=google')
-            ).toEqual([{ name: 'utm_source', value: 'google' }]);
+                allowedQueryParams('https://example.com/?Ref=google')
+            ).toEqual([{ name: 'ref', value: 'google' }]);
         });
 
         it('should return nothing for a URL with no query string', () => {
@@ -92,9 +92,9 @@ describe('pageViewTracker pure helpers', () => {
         it('should drop params named after Object.prototype members', () => {
             expect(
                 allowedQueryParams(
-                    'https://example.com/?constructor=x&__proto__=y&toString=z&utm_source=google'
+                    'https://example.com/?constructor=x&__proto__=y&toString=z&ref=google'
                 )
-            ).toEqual([{ name: 'utm_source', value: 'google' }]);
+            ).toEqual([{ name: 'ref', value: 'google' }]);
         });
 
         // Removed from the default list deliberately: `code` is an OAuth
@@ -113,10 +113,56 @@ describe('pageViewTracker pure helpers', () => {
         ])('should not capture the OAuth/OIDC param %s by default', name => {
             expect(
                 allowedQueryParams(
-                    `https://example.com/callback?${name}=sensitive&utm_source=g`
+                    `https://example.com/callback?${name}=sensitive&ref=g`
                 )
-            ).toEqual([{ name: 'utm_source', value: 'g' }]);
+            ).toEqual([{ name: 'ref', value: 'g' }]);
         });
+
+        // Also removed from the default, for a different reason: these are already
+        // carried on planes built for them — click ids by IntegrationCapture as
+        // per-network custom flags, campaign data by the reserved `$utm_*` user
+        // attributes. As page view attributes they were a copy nothing read.
+        it.each([
+            'utm_source',
+            'utm_medium',
+            'utm_campaign',
+            'utm_term',
+            'utm_content',
+            'utm_id',
+            'gclid',
+            'gbraid',
+            'wbraid',
+            'fbclid',
+            'msclkid',
+            'ttclid',
+            'twclid',
+            'li_fat_id',
+            'dclid',
+        ])('should not capture the attribution param %s by default', name => {
+            expect(
+                allowedQueryParams(
+                    `https://example.com/landing?${name}=abc&ref=g`
+                )
+            ).toEqual([{ name: 'ref', value: 'g' }]);
+        });
+
+        // A customer who does want one as a page view attribute configures it, through
+        // the same path a real config takes. Nothing else pins this: while these were
+        // built-ins, parseQueryParamAllowlist dropped a configured copy as a duplicate.
+        it.each(['utm_source', 'gclid'])(
+            'should capture the attribution param %s once configured',
+            name => {
+                const { allowed } = parseQueryParamAllowlist(name);
+
+                expect(allowed).toEqual([name]);
+                expect(
+                    allowedQueryParams(
+                        `https://example.com/landing?${name}=abc`,
+                        allowed
+                    )
+                ).toEqual([{ name, value: 'abc' }]);
+            }
+        );
 
         // The removal is a change of DEFAULT, not of capability. This is what makes
         // it a safe change rather than a regression.
@@ -152,11 +198,11 @@ describe('pageViewTracker pure helpers', () => {
         it('should capture a configured custom param', () => {
             expect(
                 allowedQueryParams(
-                    'https://example.com/?promo_code=SAVE20&utm_source=google',
+                    'https://example.com/?promo_code=SAVE20&ref=google',
                     ['promo_code']
                 )
             ).toEqual([
-                { name: 'utm_source', value: 'google' },
+                { name: 'ref', value: 'google' },
                 { name: 'promo_code', value: 'SAVE20' },
             ]);
         });
@@ -179,11 +225,10 @@ describe('pageViewTracker pure helpers', () => {
             'should capture nothing for a configured extra named %s',
             name => {
                 expect(
-                    allowedQueryParams(
-                        'https://example.com/?utm_source=google',
-                        [name]
-                    )
-                ).toEqual([{ name: 'utm_source', value: 'google' }]);
+                    allowedQueryParams('https://example.com/?ref=google', [
+                        name,
+                    ])
+                ).toEqual([{ name: 'ref', value: 'google' }]);
             }
         );
 
@@ -203,10 +248,10 @@ describe('pageViewTracker pure helpers', () => {
 
             expect(
                 allowedQueryParams(
-                    `https://example.com/?blob=${tooLong}&utm_source=g`,
+                    `https://example.com/?blob=${tooLong}&ref=g`,
                     ['blob']
                 )
-            ).toEqual([{ name: 'utm_source', value: 'g' }]);
+            ).toEqual([{ name: 'ref', value: 'g' }]);
         });
 
         it('should keep a custom param whose value is exactly at the cap', () => {
@@ -218,13 +263,13 @@ describe('pageViewTracker pure helpers', () => {
         });
 
         // Built-in behaviour is deliberately untouched by the cap, so nobody can
-        // lose a long utm_content on upgrade.
+        // lose a long search term on upgrade.
         it('should keep a built-in param whose value exceeds the custom cap', () => {
             const tooLong = 'x'.repeat(MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH + 1);
 
             expect(
-                allowedQueryParams(`https://example.com/?utm_content=${tooLong}`)
-            ).toEqual([{ name: 'utm_content', value: tooLong }]);
+                allowedQueryParams(`https://example.com/?search=${tooLong}`)
+            ).toEqual([{ name: 'search', value: tooLong }]);
         });
 
         it('should keep every param on the allowlist', () => {
@@ -266,8 +311,8 @@ describe('pageViewTracker pure helpers', () => {
 
         it('should drop a duplicate of a built-in without rejecting it', () => {
             // Asking for something you already have is not an error.
-            expect(allowed('utm_source, promo_code')).toEqual(['promo_code']);
-            expect(rejectedPositions('utm_source')).toEqual([]);
+            expect(allowed('ref, promo_code')).toEqual(['promo_code']);
+            expect(rejectedPositions('ref')).toEqual([]);
         });
 
         it('should drop a repeat of itself', () => {
@@ -389,7 +434,7 @@ describe('pageViewTracker pure helpers', () => {
             );
             const withDuplicates = names
                 .concat(names)
-                .concat(['utm_source', '', 'last_one'])
+                .concat(['ref', '', 'last_one'])
                 .join(',');
 
             expect(allowed(withDuplicates)).toEqual(names);
@@ -438,9 +483,7 @@ describe('pageViewTracker pure helpers', () => {
         });
 
         it('should not duplicate an extra that is already built in', () => {
-            expect(effectiveAllowlist(['utm_source'])).toEqual(
-                ALLOWED_QUERY_PARAMS
-            );
+            expect(effectiveAllowlist(['ref'])).toEqual(ALLOWED_QUERY_PARAMS);
         });
     });
 
@@ -513,7 +556,7 @@ describe('pageViewTracker pure helpers', () => {
         // and pass even if the whole union were reordered, since both sides move
         // together.
         const keyFor = (extras?: string[]): string => {
-            const href = 'https://x.com/p?utm_source=google&gclid=abc';
+            const href = 'https://x.com/p?page=2&ref=google';
 
             return pageKey({
                 path: new URL(href).pathname,
@@ -522,12 +565,12 @@ describe('pageViewTracker pure helpers', () => {
         };
 
         it('should be this exact key with no custom params configured', () => {
-            expect(keyFor()).toBe('/p?utm_source=google&gclid=abc');
+            expect(keyFor()).toBe('/p?page=2&ref=google');
         });
 
         it('should be the same key once custom params are configured', () => {
             expect(keyFor(['promo_code', 'affiliate_id'])).toBe(
-                '/p?utm_source=google&gclid=abc'
+                '/p?page=2&ref=google'
             );
         });
 
@@ -616,8 +659,8 @@ describe('pageViewTracker pure helpers', () => {
                 title: 'Cart',
                 path: '/cart',
                 params: [
-                    { name: 'utm_source', value: 'google' },
-                    { name: 'gclid', value: 'Cj0KC' },
+                    { name: 'page', value: '2' },
+                    { name: 'ref', value: 'google' },
                 ],
             });
 
@@ -625,8 +668,8 @@ describe('pageViewTracker pure helpers', () => {
                 hostname: 'example.com',
                 title: 'Cart',
                 path: '/cart',
-                utm_source: 'google',
-                gclid: 'Cj0KC',
+                page: '2',
+                ref: 'google',
             });
         });
 
@@ -1318,7 +1361,7 @@ describe('PageViewTracker', () => {
             window.history.pushState(
                 {},
                 '',
-                '/promo?utm_source=google&utm_medium=cpc&gclid=Cj0KC&session_token=secret#top'
+                '/promo?page=2&q=boots&ref=google&session_token=secret#top'
             );
             jest.runAllTimers();
 
@@ -1326,9 +1369,9 @@ describe('PageViewTracker', () => {
                 hostname: 'localhost',
                 title: 'Landing',
                 path: '/promo',
-                utm_source: 'google',
-                utm_medium: 'cpc',
-                gclid: 'Cj0KC',
+                page: '2',
+                q: 'boots',
+                ref: 'google',
             });
         });
 
@@ -1340,13 +1383,13 @@ describe('PageViewTracker', () => {
             const tracker = createTracker();
             tracker.init();
 
-            window.history.pushState({}, '', '/b?utm_source=first');
-            window.history.pushState({}, '', '/c?utm_source=second');
+            window.history.pushState({}, '', '/b?ref=first');
+            window.history.pushState({}, '', '/c?ref=second');
 
             jest.runAllTimers();
 
             expect(
-                logEvent.mock.calls.map(([event]) => event.data.utm_source)
+                logEvent.mock.calls.map(([event]) => event.data.ref)
             ).toEqual(['first', 'second']);
         });
 

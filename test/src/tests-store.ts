@@ -1653,10 +1653,10 @@ describe('Store', () => {
                 astBackgroundEvents: 'True',
                 autoLogPageView: 'True',
                 // The server sends a comma-separated string; processFlags parses,
-                // validates and dedupes it into a list. `utm_source` is already
-                // built in and `bad name` is not a legal param name, so both drop.
+                // validates and dedupes it into a list. `ref` is already built in
+                // and `bad name` is not a legal param name, so both drop.
                 autoLogPageViewQueryParams:
-                    'promo_code, PROMO_CODE, utm_source, bad name',
+                    'promo_code, PROMO_CODE, ref, bad name',
             };
 
             const flags = processFlags(
