@@ -8,9 +8,9 @@ import {
 import { MessageType } from '../../src/types';
 
 // _Events.logPageView is the auto page view for the LANDING page — the SPA
-// navigations that follow it come from PageViewTracker instead. It is therefore
-// the emitter that carries campaign attribution, since utm_*/gclid live on the
-// entry URL, and it needs its own coverage for the query-param allowlist.
+// navigations that follow it come from PageViewTracker instead. The two emitters
+// share only the pure helpers, so the allowlist needs pinning on both or one of
+// them can silently stop attaching params.
 describe('Events#logPageView', () => {
     let events: IEvents;
     let createEventObject: jest.Mock;
@@ -62,7 +62,7 @@ describe('Events#logPageView', () => {
         window.history.replaceState(
             {},
             '',
-            '/?utm_source=google&utm_medium=cpc&gclid=Cj0KC'
+            '/?page=2&q=boots&ref=google'
         );
 
         events.logPageView();
@@ -70,24 +70,22 @@ describe('Events#logPageView', () => {
         expect(loggedPageView().data).toEqual({
             hostname: 'localhost',
             title: 'Landing',
-            utm_source: 'google',
-            utm_medium: 'cpc',
-            gclid: 'Cj0KC',
+            page: '2',
+            q: 'boots',
+            ref: 'google',
         });
     });
 
-    // The landing view is where campaign params live, so it is also where a
-    // customer's own campaign params have to work.
     it('should attach a configured additional query param', () => {
         // processFlags parses the customer's string once, at the config boundary,
         // and the flag holds the whole result — so that is what logPageView reads.
         configuredQueryParams = parseQueryParamAllowlist('promo_code');
-        window.history.replaceState({}, '', '/?promo_code=SAVE20&utm_source=g');
+        window.history.replaceState({}, '', '/?promo_code=SAVE20&ref=g');
 
         events.logPageView();
 
         expect(loggedPageView().data).toMatchObject({
-            utm_source: 'g',
+            ref: 'g',
             promo_code: 'SAVE20',
         });
     });
@@ -105,10 +103,10 @@ describe('Events#logPageView', () => {
     // and takes the landing page view with it.
     it('should not throw when the flag is absent', () => {
         configuredQueryParams = null;
-        window.history.replaceState({}, '', '/?utm_source=google');
+        window.history.replaceState({}, '', '/?ref=google');
 
         expect(() => events.logPageView()).not.toThrow();
-        expect(loggedPageView().data.utm_source).toBe('google');
+        expect(loggedPageView().data.ref).toBe('google');
     });
 
     // The allowlist is the point: a partner URL carrying an email or an order id
@@ -117,13 +115,13 @@ describe('Events#logPageView', () => {
         window.history.replaceState(
             {},
             '',
-            '/?utm_source=google&email=someone@example.com&order_id=42'
+            '/?ref=google&email=someone@example.com&order_id=42'
         );
 
         events.logPageView();
 
         const { data } = loggedPageView();
-        expect(data.utm_source).toBe('google');
+        expect(data.ref).toBe('google');
         expect(data).not.toHaveProperty('email');
         expect(data).not.toHaveProperty('order_id');
     });

@@ -43,41 +43,32 @@ type WindowWithApv = Window & {
     [WIN_APV_KEY]?: IApvState;
 };
 
-// The default allowlist. A floor, not a ceiling: customers add their own names in the
-// Web input's Advanced Settings and they are unioned with this list, which is what
-// makes keeping the default narrow safe.
+// The default allowlist: params that identify WHICH page you are on, which is also
+// what the dedup key needs. A floor, not a ceiling — customers add their own names in
+// the Web input's Advanced Settings.
 //
-// Do NOT re-add the OAuth/OIDC params (code, state, nonce, client_id, redirect_uri,
-// response_type, scope). They were removed deliberately — code is an authorization
-// code and state/nonce are CSRF and replay tokens, so capturing them by default put
-// credentials in the event store and every connected kit. A customer who needs one
-// configures it per input.
+// Two groups were removed deliberately and should not come back:
+//
+// OAuth/OIDC (code, state, nonce, client_id, redirect_uri, response_type, scope) —
+// `code` is an authorization code and state/nonce are CSRF and replay tokens, so
+// capturing them by default put credentials in the event store and every connected
+// kit.
+//
+// Attribution (utm_*, gclid, gbraid, wbraid, fbclid, msclkid, ttclid, twclid,
+// li_fat_id, dclid) — carried on better-suited planes already: click ids by
+// IntegrationCapture as per-network custom flags, campaign data by the reserved
+// `$utm_*` user attributes that forwarders actually read. As page view attributes they
+// were a copy nothing consumed, and 15 of them on every view displace the customer's
+// own wherever a forwarder caps the count (Flurry keeps 10).
 export const ALLOWED_QUERY_PARAMS: string[] = [
-    // Campaign attribution
-    'utm_source',
-    'utm_medium',
-    'utm_campaign',
-    'utm_term',
-    'utm_content',
-    'utm_id',
-
-    // Ad-network click ids
-    'gclid',
-    'gbraid',
-    'wbraid',
-    'fbclid',
-    'msclkid',
-    'ttclid',
-    'twclid',
-    'li_fat_id',
-    'dclid',
-
-    // Pagination and search
+    // Pagination
     'page',
     'limit',
     'offset',
     'cursor',
     'per_page',
+
+    // Search
     'q',
     'search',
 
@@ -107,7 +98,9 @@ const RESERVED_QUERY_PARAMS: string[] = [
 // Excludes `&`, `=`, `%` and whitespace: they would distort the dedup key.
 const QUERY_PARAM_NAME = /^[a-z0-9_][a-z0-9_.-]{0,63}$/;
 
-// mParticle caps attributes per event; 24 built-ins plus this leaves headroom.
+// A ceiling on what one input's config can add. The SDK imposes no per-event attribute
+// cap of its own, but forwarders do (Flurry keeps 10), so an unbounded list would
+// quietly displace the customer's own attributes.
 export const MAX_CUSTOM_QUERY_PARAMS = 25;
 
 // One parse, stored whole by processFlags, so no second validator can drift from it.
