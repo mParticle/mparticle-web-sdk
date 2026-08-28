@@ -105,8 +105,8 @@ None of these are visible from a script name, and each one costs real debugging 
    formatting the whole file**. Prefer an explicit local:
    `const win = getWindow(); win ? win.foo : undefined`. Check the pin in `package.json`
    before assuming this still bites.
-6. **Nothing checks your TypeScript.** `npm run lint` passes no `--ext`, so ESLint lints
-   `.js` only - measured: 21 `.js` files, zero `.ts`. `npm run prettier` globs `"**/*.js"`.
+6. **Nothing checks your TypeScript.** `npm run lint` passes no `--ext`, so ESLint reports
+   `.js` files only and never a `.ts` one. `npm run prettier` globs `"**/*.js"`.
    `gts:check` exists as a script but no hook or workflow calls it. And `build:types` runs
    `tsc -p tsconfig.types.json || true`, which **swallows type errors**. So neither CI nor the
    `pre-commit` hook (which just runs `npm run lint`) will catch a type error or a formatting
