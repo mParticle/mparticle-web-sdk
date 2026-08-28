@@ -10,7 +10,7 @@
         "dist/Amplitude.esm.js",
         "dist/Amplitude.iife.js"
     ],
-    "homepage": "https://github.com/mParticle/mparticle-web-sdk/tree/master/kits/amplitude/amplitude-8#readme",
+    "homepage": "https://github.com/mParticle/mparticle-web-sdk/tree/main/kits/amplitude/amplitude-8#readme",
     "repository": {
         "type": "git",
         "url": "https://github.com/mParticle/mparticle-web-sdk.git",
