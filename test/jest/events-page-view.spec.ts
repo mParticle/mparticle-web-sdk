@@ -2,8 +2,8 @@ import Events from '../../src/events';
 import { IEvents } from '../../src/events.interfaces';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 import {
-    IQueryParamAllowlist,
-    parseQueryParamAllowlist,
+    IQueryParamConfig,
+    parseQueryParamConfig,
 } from '../../src/pageViewTracker';
 import { MessageType } from '../../src/types';
 
@@ -15,7 +15,7 @@ describe('Events#logPageView', () => {
     let events: IEvents;
     let createEventObject: jest.Mock;
     let originalUrl: string;
-    let configuredQueryParams: IQueryParamAllowlist | undefined;
+    let configuredQueryParams: IQueryParamConfig | undefined;
 
     const loggedPageView = (): any => createEventObject.mock.calls[0][0];
 
@@ -79,7 +79,7 @@ describe('Events#logPageView', () => {
     it('should attach a configured additional query param', () => {
         // processFlags parses the customer's string once, at the config boundary,
         // and the flag holds the whole result — so that is what logPageView reads.
-        configuredQueryParams = parseQueryParamAllowlist('promo_code');
+        configuredQueryParams = parseQueryParamConfig('promo_code');
         window.history.replaceState({}, '', '/?promo_code=SAVE20&ref=g');
 
         events.logPageView();
