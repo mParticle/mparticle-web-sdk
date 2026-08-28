@@ -206,7 +206,6 @@ describe('AdobeEventForwarder Forwarder', function () {
         window.mParticle.useCookieStorage = false;
         mParticle.isDevelopmentMode = false;
         configureAdobeForwarderAndReInit('optional');
-        mParticle.eCommerce.Cart.clear();
     });
 
     test('should initialize properly', function(done) {
@@ -231,26 +230,31 @@ describe('AdobeEventForwarder Forwarder', function () {
 
     test('should set the customerId properly', function(done) {
         var appMeasurementInstance = s_gi('testReportSuiteId');
-        mParticle.Identity.login({ userIdentities: { customerid: '123' } }, function() { return; });
-        expect(appMeasurementInstance.visitor.userId.customerid.id).toBe('123');
-        
-        mParticle.Identity.modify({userIdentities: {customerid: '234', email: 'test@gmail.com'}});
-        expect(appMeasurementInstance.visitor.userId.customerid.id).toBe('234');
-        expect(appMeasurementInstance.visitor.userId.email.id).toBe('test@gmail.com');
+        mParticle.Identity.login({ userIdentities: { customerid: '123' } }, function() {
+            expect(appMeasurementInstance.visitor.userId.customerid.id).toBe('123');
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                Store: {},
-                mpid: 'loggedOut'
-            }));
-        };
+            mParticle.Identity.modify(
+                {userIdentities: {customerid: '234', email: 'test@gmail.com'}},
+                function() {
+                    expect(appMeasurementInstance.visitor.userId.customerid.id).toBe('234');
+                    expect(appMeasurementInstance.visitor.userId.email.id).toBe('test@gmail.com');
 
-        mParticle.Identity.logout();
-        expect(appMeasurementInstance.visitor.userId.customerid).toBeFalsy();
-        expect(appMeasurementInstance.visitor.userId.email).toBeFalsy();
+                    server.handle = function(request) {
+                        request.setResponseHeader('Content-Type', 'application/json');
+                        request.receive(200, JSON.stringify({
+                            Store: {},
+                            mpid: 'loggedOut'
+                        }));
+                    };
 
-        done();
+                    mParticle.Identity.logout({}, function() {
+                        expect(appMeasurementInstance.visitor.userId.customerid).toBeFalsy();
+                        expect(appMeasurementInstance.visitor.userId.email).toBeFalsy();
+                        done();
+                    });
+                }
+            );
+        });
     });
 
     test('should set the timestamp when timestamp === \'optional\' or \'required\' and not set it when it is \'notallowed\'', function(done) {
@@ -565,7 +569,7 @@ describe('AdobeEventForwarder Forwarder', function () {
     test('should log a product add to cart', function(done) {
         var product1 = mParticle.eCommerce.createProduct('nokia', '1234', 123, 1, null, null, null, null, null, {PI1: 'bob', PI2: 'tim', PM1: 'sneakers', PM2: 'shirt'});
         var product2 = mParticle.eCommerce.createProduct('apple', '2345', 234, 2, null, null, null, null, null, {PI1: 'Jones', PM2: 'abc', availability: true});
-        mParticle.eCommerce.Cart.add([product1, product2], true);
+        mParticle.eCommerce.logProductAction(ProductActionType.AddToCart, [product1, product2]);
 
         var appMeasurementInstance = s_gi('testReportSuiteId');
         expect(appMeasurementInstance.products).toBe(
@@ -583,10 +587,7 @@ describe('AdobeEventForwarder Forwarder', function () {
 
     test('should log a product remove from cart', function(done) {
         var product1 = mParticle.eCommerce.createProduct('nokia', '1234', 123, 1, null, null, null, null, null, {PI1: 'bob', PI2: 'tim', PM1: 'sneakers', PM2: 'shirt'});
-        var product2 = mParticle.eCommerce.createProduct('apple', '2345', 234, 2, null, null, null, null, null, {PI1: 'Jones', PM2: 'abc', availability: true});
-        mParticle.eCommerce.Cart.add([product1, product2], true);
-
-        mParticle.eCommerce.Cart.remove(product1, true);
+        mParticle.eCommerce.logProductAction(ProductActionType.RemoveFromCart, product1);
 
         var appMeasurementInstance = s_gi('testReportSuiteId');
         expect(appMeasurementInstance.products).toBe(';nokia;1234;1;123;event2=bob|event6=tim;eVar2=sneakers|eVar3=shirt');
@@ -623,7 +624,13 @@ describe('AdobeEventForwarder Forwarder', function () {
     });
 
     test('should log a product checkout', function(done) {
-        mParticle.eCommerce.logCheckout(1, {}, {gender: 'male', color: 'blue'});
+        mParticle.eCommerce.logProductAction(
+            ProductActionType.Checkout,
+            [],
+            {gender: 'male', color: 'blue'},
+            {},
+            {Step: 1}
+        );
 
         var appMeasurementInstance = s_gi('testReportSuiteId');
         expect(appMeasurementInstance.events).toBe('scCheckout');

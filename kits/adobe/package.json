@@ -1,6 +1,7 @@
 {
     "name": "@mparticle/web-adobe-kit",
-    "version": "2.0.1",
+    "version": "3.0.0",
+    "private": true,
     "description": "mParticle Adobe kit integration",
     "repository": {
         "type": "git",
@@ -31,7 +32,7 @@
     "devDependencies": {
         "@babel/core": "^7.5.5",
         "@babel/preset-env": "^7.5.5",
-        "@mparticle/web-sdk": "^2.23.0",
+        "@mparticle/web-sdk": "^3.0.0",
         "babel-jest": "^24.9.0",
         "jest": "^24.9.0",
         "lerna": "^3.16.4",

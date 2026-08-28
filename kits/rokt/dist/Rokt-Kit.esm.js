@@ -302,7 +302,7 @@ function ee(i, e, t) {
   return a().generateHash([i, e, t].join(""));
 }
 function Be(i) {
-  let n = "mParticle_wsdkv_" + a().getVersion() + "_kitv_" + "1.36.1";
+  let n = "mParticle_wsdkv_" + a().getVersion() + "_kitv_" + "3.0.0";
   return i && (n += "_" + i), n;
 }
 function de(i) {

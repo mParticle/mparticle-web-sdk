@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-adwords-kit",
-    "version": "2.3.2",
+    "version": "3.0.0",
     "author": "mParticle Developers <developers@mparticle.com> (https://www.mparticle.com)",
     "description": "mParticle integration sdk for Google Adwords",
     "main": "dist/GoogleAdWordsEventForwarder.common.js",
@@ -32,7 +32,7 @@
         "watchify": "^3.11.1"
     },
     "dependencies": {
-        "@mparticle/web-sdk": "^2.11.1"
+        "@mparticle/web-sdk": "^3.0.0"
     },
     "license": "Apache-2.0"
 }

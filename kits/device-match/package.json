@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-device-match-kit",
-    "version": "2.0.2",
+    "version": "3.0.0",
     "author": "mParticle Developers <developers@mparticle.com> (https://www.mparticle.com)",
     "description": "mParticle integration sdk for Device Match",
     "main": "dist/DeviceMatchEventForwarder.common.js",
@@ -31,7 +31,7 @@
     },
     "dependencies": {
         "isobject": "^4.0.0",
-        "@mparticle/web-sdk": "^2.11.1"
+        "@mparticle/web-sdk": "^3.0.0"
     },
     "license": "Apache-2.0"
 }

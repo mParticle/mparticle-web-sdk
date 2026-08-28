@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-optimizely-kit",
-    "version": "2.1.6",
+    "version": "3.0.0",
     "author": "mParticle Developers <developers@mparticle.com> (https://www.mparticle.com)",
     "description": "mParticle integration sdk for Optimizely",
     "main": "dist/OptimizelyKit.common.js",
@@ -37,7 +37,7 @@
     },
     "dependencies": {
         "isobject": "^4.0.0",
-        "@mparticle/web-sdk": "^2.11.1"
+        "@mparticle/web-sdk": "^3.0.0"
     },
     "license": "Apache-2.0"
 }
