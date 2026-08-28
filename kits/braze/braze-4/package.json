@@ -40,7 +40,7 @@
         "@mparticle/web-sdk": "^3.0.0"
     },
     "license": "Apache-2.0",
-    "homepage": "https://github.com/mParticle/mparticle-web-sdk/tree/master/kits/braze/braze-4#readme",
+    "homepage": "https://github.com/mParticle/mparticle-web-sdk/tree/main/kits/braze/braze-4#readme",
     "publishConfig": {
         "access": "public"
     }
