@@ -6,7 +6,7 @@ import Validators from './validators';
 import KitFilterHelper from './kitFilterHelper';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { SDKHelpersApi } from './sdkRuntimeModels';
-import { IQueryParamAllowlist } from './pageViewTracker';
+import { IQueryParamConfig } from './pageViewTracker';
 import { IMParticleUser, IdentityCallback, IdentityResult, ISDKUserIdentity } from './identity-user-interfaces';
 import { IAliasResult } from './identity.interfaces';
 import { AliasUsersCallback, MPID, UserIdentities } from '@mparticle/web-sdk';
@@ -84,11 +84,11 @@ export default function Helpers(
     };
 
     // The union is every shape processFlags can put in SDKConfig.flags. It has to
-    // include IQueryParamAllowlist or the APV callers need an `as unknown as` cast
+    // include IQueryParamConfig or the APV callers need an `as unknown as` cast
     // to read a value this function genuinely returns.
     this.getFeatureFlag = function(
         feature: string
-    ): boolean | string | IQueryParamAllowlist {
+    ): boolean | string | IQueryParamConfig {
         if (mpInstance._Store.SDKConfig.flags.hasOwnProperty(feature)) {
             return mpInstance._Store.SDKConfig.flags[feature];
         }

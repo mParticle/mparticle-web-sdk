@@ -23,7 +23,7 @@ import {
 import { getHref, valueof } from './utils';
 import {
     allowedQueryParams,
-    IQueryParamAllowlist,
+    IQueryParamConfig,
     paramsToAttributes,
 } from './pageViewTracker';
 
@@ -162,12 +162,12 @@ export default function Events(
                 ...paramsToAttributes(
                     allowedQueryParams(
                         getHref(),
-                        // processFlags validated these at the config boundary, so
-                        // only the accepted names are needed here. `?.` because
-                        // getFeatureFlag returns null when the flag is absent.
-                        (mpInstance._Helpers.getFeatureFlag(
+                        // Passed whole: processFlags validated it at the config
+                        // boundary, and allowedQueryParams needs both the additions
+                        // and the exclusions.
+                        mpInstance._Helpers.getFeatureFlag(
                             Constants.FeatureFlags.AutoLogPageViewQueryParams
-                        ) as IQueryParamAllowlist)?.allowed
+                        ) as IQueryParamConfig
                     )
                 ),
                 hostname: window.location.hostname,

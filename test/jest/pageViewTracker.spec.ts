@@ -10,7 +10,7 @@ import {
     MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH,
     MAX_CUSTOM_QUERY_PARAMS,
     pageKey,
-    parseQueryParamAllowlist,
+    parseQueryParamConfig,
     PageViewTracker,
     patchHistory,
     resetPageViewTracking,
@@ -148,17 +148,17 @@ describe('pageViewTracker pure helpers', () => {
 
         // A customer who does want one as a page view attribute configures it, through
         // the same path a real config takes. Nothing else pins this: while these were
-        // built-ins, parseQueryParamAllowlist dropped a configured copy as a duplicate.
+        // built-ins, parseQueryParamConfig dropped a configured copy as a duplicate.
         it.each(['utm_source', 'gclid'])(
             'should capture the attribution param %s once configured',
             name => {
-                const { allowed } = parseQueryParamAllowlist(name);
+                const config = parseQueryParamConfig(name);
 
-                expect(allowed).toEqual([name]);
+                expect(config.added).toEqual([name]);
                 expect(
                     allowedQueryParams(
                         `https://example.com/landing?${name}=abc`,
-                        allowed
+                        config
                     )
                 ).toEqual([{ name, value: 'abc' }]);
             }
@@ -168,9 +168,9 @@ describe('pageViewTracker pure helpers', () => {
         // it a safe change rather than a regression.
         it('should still capture an OAuth param when a customer configures it', () => {
             expect(
-                allowedQueryParams('https://example.com/callback?code=abc123', [
-                    'code',
-                ])
+                allowedQueryParams('https://example.com/callback?code=abc123', {
+                    added: ['code'],
+                })
             ).toEqual([{ name: 'code', value: 'abc123' }]);
         });
 
@@ -179,18 +179,18 @@ describe('pageViewTracker pure helpers', () => {
         // anything downstream sees it.
         //
         // This assertion is the one that matters for this PR. While `code` was a
-        // built-in, parseQueryParamAllowlist dropped it as a duplicate — so a
+        // built-in, parseQueryParamConfig dropped it as a duplicate — so a
         // customer typing `code` into Advanced Settings would have got an empty list
         // and the escape hatch would have silently done nothing. Removing it from the
         // defaults is precisely what makes that work, and nothing else pins it.
         it('should accept a configured OAuth param through the string config path', () => {
-            const { allowed } = parseQueryParamAllowlist('code');
+            const config = parseQueryParamConfig('code');
 
-            expect(allowed).toEqual(['code']);
+            expect(config.added).toEqual(['code']);
             expect(
                 allowedQueryParams(
                     'https://example.com/callback?code=abc123',
-                    allowed
+                    config
                 )
             ).toEqual([{ name: 'code', value: 'abc123' }]);
         });
@@ -199,7 +199,7 @@ describe('pageViewTracker pure helpers', () => {
             expect(
                 allowedQueryParams(
                     'https://example.com/?promo_code=SAVE20&ref=google',
-                    ['promo_code']
+                    { added: ['promo_code'] }
                 )
             ).toEqual([
                 { name: 'ref', value: 'google' },
@@ -211,7 +211,7 @@ describe('pageViewTracker pure helpers', () => {
             expect(
                 allowedQueryParams(
                     'https://example.com/?promo_code=x&email=a@b.com',
-                    ['promo_code']
+                    { added: ['promo_code'] }
                 )
             ).toEqual([{ name: 'promo_code', value: 'x' }]);
         });
@@ -219,23 +219,23 @@ describe('pageViewTracker pure helpers', () => {
         // This is the regression the hardening PR could not test: with a hardcoded
         // allowlist, `in` and hasOwnProperty are indistinguishable because no
         // built-in names a prototype member. A configured list makes it reachable.
-        // parseQueryParamAllowlist rejects these names, so reaching allowedQueryParams
+        // parseQueryParamConfig rejects these names, so reaching allowedQueryParams
         // with them means someone bypassed that — and it must still be inert.
         it.each(['constructor', '__proto__', 'toString', 'valueOf'])(
             'should capture nothing for a configured extra named %s',
             name => {
                 expect(
-                    allowedQueryParams('https://example.com/?ref=google', [
-                        name,
-                    ])
+                    allowedQueryParams('https://example.com/?ref=google', {
+                        added: [name],
+                    })
                 ).toEqual([{ name: 'ref', value: 'google' }]);
             }
         );
 
         it('should not pollute Object.prototype via a configured extra', () => {
-            allowedQueryParams('https://example.com/?__proto__=polluted', [
-                '__proto__',
-            ]);
+            allowedQueryParams('https://example.com/?__proto__=polluted', {
+                added: ['__proto__'],
+            });
 
             expect(({} as Record<string, unknown>).polluted).toBeUndefined();
         });
@@ -249,7 +249,7 @@ describe('pageViewTracker pure helpers', () => {
             expect(
                 allowedQueryParams(
                     `https://example.com/?blob=${tooLong}&ref=g`,
-                    ['blob']
+                    { added: ['blob'] }
                 )
             ).toEqual([{ name: 'ref', value: 'g' }]);
         });
@@ -258,7 +258,9 @@ describe('pageViewTracker pure helpers', () => {
             const exact = 'x'.repeat(MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH);
 
             expect(
-                allowedQueryParams(`https://example.com/?blob=${exact}`, ['blob'])
+                allowedQueryParams(`https://example.com/?blob=${exact}`, {
+                    added: ['blob'],
+                })
             ).toEqual([{ name: 'blob', value: exact }]);
         });
 
@@ -283,13 +285,15 @@ describe('pageViewTracker pure helpers', () => {
         });
     });
 
-    describe('#parseQueryParamAllowlist', () => {
+    describe('#parseQueryParamConfig', () => {
         const allowed = (input: string | string[]): string[] =>
-            parseQueryParamAllowlist(input).allowed;
+            parseQueryParamConfig(input).added;
+        const excluded = (input: string | string[]): string[] =>
+            parseQueryParamConfig(input).excluded;
         const rejectedPositions = (input: string | string[]): number[] =>
-            parseQueryParamAllowlist(input).rejectedPositions;
+            parseQueryParamConfig(input).rejectedPositions;
         const overLimit = (input: string | string[]): number =>
-            parseQueryParamAllowlist(input).overLimit;
+            parseQueryParamConfig(input).overLimit;
 
         it('should split, trim and lowercase a comma-separated string', () => {
             expect(allowed(' Promo_Code , AFFILIATE_ID ')).toEqual([
@@ -324,12 +328,54 @@ describe('pageViewTracker pure helpers', () => {
             ['an equals sign', 'a=b'],
             ['an ampersand', 'a&b'],
             ['a percent', 'a%20b'],
-            ['a leading hyphen', '-lead'],
             ['a leading dot', '.lead'],
             ['a non-ASCII name', 'émail'],
+            // `-` prefixes an exclusion, so what follows it still has to be a legal
+            // name: a bare or doubled hyphen leaves '' and '-x', which are not.
+            ['a bare hyphen', '-'],
+            ['a doubled hyphen', '--lead'],
         ])('should reject %s', (_label, name) => {
             expect(allowed(name)).toEqual([]);
+            expect(excluded(name)).toEqual([]);
             expect(rejectedPositions(name)).toEqual([1]);
+        });
+
+        it('should read a `-` prefix as an exclusion rather than an addition', () => {
+            expect(excluded('-ref')).toEqual(['ref']);
+            expect(allowed('-ref')).toEqual([]);
+            expect(rejectedPositions('-ref')).toEqual([]);
+        });
+
+        it('should split additions and exclusions out of one field', () => {
+            expect(allowed('promo_code, -ref, -page')).toEqual(['promo_code']);
+            expect(excluded('promo_code, -ref, -page')).toEqual(['ref', 'page']);
+        });
+
+        it('should drop a repeated exclusion', () => {
+            expect(excluded('-ref, -REF')).toEqual(['ref']);
+        });
+
+        // An exclusion naming something that is not a default is a no-op, not an
+        // error: rejecting it would turn every stored `-thatparam` into a warning the
+        // next time ALLOWED_QUERY_PARAMS changes underneath a config. The dashboard is
+        // where a customer gets told their exclusion matches nothing.
+        it('should accept an exclusion that matches no default', () => {
+            expect(excluded('-not_a_default')).toEqual(['not_a_default']);
+            expect(rejectedPositions('-not_a_default')).toEqual([]);
+        });
+
+        // Exclusions are not capped: they only ever shrink the list, so they cannot
+        // be the reason an event runs out of attribute headroom.
+        it('should not count exclusions against the addition cap', () => {
+            const exclusions = Array.from(
+                { length: MAX_CUSTOM_QUERY_PARAMS + 5 },
+                (_unused, i) => `-p${i}`
+            ).join(',');
+
+            expect(excluded(exclusions)).toHaveLength(
+                MAX_CUSTOM_QUERY_PARAMS + 5
+            );
+            expect(overLimit(exclusions)).toBe(0);
         });
 
         // Positions are 1-based and count every comma-separated slot, so a reported
@@ -351,11 +397,10 @@ describe('pageViewTracker pure helpers', () => {
             'password=hunter2',
             'token.hunter2 x',
             'user.email.hunter2@x',
-            '-secret-value-abcdef',
             '.hunter2',
         ])('should report only a position for %p', entry => {
-            const { allowed: names, rejectedPositions: positions } =
-                parseQueryParamAllowlist(entry);
+            const { added: names, rejectedPositions: positions } =
+                parseQueryParamConfig(entry);
 
             expect(names).toEqual([]);
             expect(positions).toEqual([1]);
@@ -446,14 +491,14 @@ describe('pageViewTracker pure helpers', () => {
     describe('#effectiveAllowlist', () => {
         it('should be the built-ins alone when nothing is configured', () => {
             expect(effectiveAllowlist()).toEqual(ALLOWED_QUERY_PARAMS);
-            expect(effectiveAllowlist([])).toEqual(ALLOWED_QUERY_PARAMS);
+            expect(effectiveAllowlist({})).toEqual(ALLOWED_QUERY_PARAMS);
         });
 
         // The built-in prefix is what keeps existing dedup keys byte-identical for
         // pages that use no custom params. Reordering here would fire one spurious
         // page view per page on the first navigation after a customer opts in.
         it('should keep the built-ins first, in their existing order', () => {
-            const list = effectiveAllowlist(['promo_code']);
+            const list = effectiveAllowlist({ added: ['promo_code'] });
 
             expect(list.slice(0, ALLOWED_QUERY_PARAMS.length)).toEqual(
                 ALLOWED_QUERY_PARAMS
@@ -467,8 +512,10 @@ describe('pageViewTracker pure helpers', () => {
         // Settings field changes the key of every page carrying both, and each of
         // those fires one spurious page view.
         it('should append extras sorted, whatever order they were given in', () => {
-            const suffix = (extras: string[]): string[] =>
-                effectiveAllowlist(extras).slice(ALLOWED_QUERY_PARAMS.length);
+            const suffix = (added: string[]): string[] =>
+                effectiveAllowlist({ added }).slice(
+                    ALLOWED_QUERY_PARAMS.length
+                );
 
             expect(suffix(['zeta', 'alpha'])).toEqual(['alpha', 'zeta']);
             expect(suffix(['alpha', 'zeta'])).toEqual(['alpha', 'zeta']);
@@ -476,14 +523,62 @@ describe('pageViewTracker pure helpers', () => {
 
         // getFeatureFlag returns null when the flag is absent, and a default
         // parameter only fires for undefined.
-        it.each([undefined, null])('should tolerate %p', extras => {
-            expect(effectiveAllowlist(extras as string[])).toEqual(
+        it.each([undefined, null])('should tolerate %p', config => {
+            expect(effectiveAllowlist(config)).toEqual(ALLOWED_QUERY_PARAMS);
+        });
+
+        it('should not duplicate an extra that is already built in', () => {
+            expect(effectiveAllowlist({ added: ['ref'] })).toEqual(
                 ALLOWED_QUERY_PARAMS
             );
         });
 
-        it('should not duplicate an extra that is already built in', () => {
-            expect(effectiveAllowlist(['ref'])).toEqual(ALLOWED_QUERY_PARAMS);
+        it('should take an excluded built-in out of the list', () => {
+            expect(effectiveAllowlist({ excluded: ['ref'] })).toEqual(
+                ALLOWED_QUERY_PARAMS.filter(name => name !== 'ref')
+            );
+        });
+
+        // Removal leaves the survivors in their existing relative order, so a page
+        // that never carried the excluded param keys exactly as it did before.
+        it('should keep the remaining built-ins in order after an exclusion', () => {
+            expect(effectiveAllowlist({ excluded: ['q', 'offset'] })).toEqual(
+                ALLOWED_QUERY_PARAMS.filter(
+                    name => name !== 'q' && name !== 'offset'
+                )
+            );
+        });
+
+        it('should let every built-in be excluded', () => {
+            expect(
+                effectiveAllowlist({ excluded: ALLOWED_QUERY_PARAMS })
+            ).toEqual([]);
+        });
+
+        it('should exclude a customer addition too', () => {
+            expect(
+                effectiveAllowlist({
+                    added: ['promo_code', 'variant'],
+                    excluded: ['promo_code'],
+                })
+            ).toEqual(ALLOWED_QUERY_PARAMS.concat(['variant']));
+        });
+
+        // Exclusion wins whatever the order in the field, so the outcome cannot
+        // depend on which side of the comma a customer wrote first.
+        it('should let an exclusion beat an addition of the same name', () => {
+            expect(
+                effectiveAllowlist(parseQueryParamConfig('-ref, ref'))
+            ).toEqual(effectiveAllowlist(parseQueryParamConfig('ref, -ref')));
+            expect(
+                effectiveAllowlist(parseQueryParamConfig('ref, -ref'))
+            ).not.toContain('ref');
+        });
+
+        it('should ignore an exclusion that names nothing on the list', () => {
+            expect(effectiveAllowlist({ excluded: ['nope'] })).toEqual(
+                ALLOWED_QUERY_PARAMS
+            );
         });
     });
 
@@ -555,12 +650,12 @@ describe('pageViewTracker pure helpers', () => {
         // two calls to the current allowedQueryParams would compare new against new
         // and pass even if the whole union were reordered, since both sides move
         // together.
-        const keyFor = (extras?: string[]): string => {
+        const keyFor = (added?: string[]): string => {
             const href = 'https://x.com/p?page=2&ref=google';
 
             return pageKey({
                 path: new URL(href).pathname,
-                params: allowedQueryParams(href, extras),
+                params: allowedQueryParams(href, added && { added }),
             });
         };
 
@@ -572,6 +667,18 @@ describe('pageViewTracker pure helpers', () => {
             expect(keyFor(['promo_code', 'affiliate_id'])).toBe(
                 '/p?page=2&ref=google'
             );
+        });
+
+        // An exclusion is the one config change that DOES move an existing key, which
+        // is the point of the warning the tracker logs for it: drop `page` and the
+        // pagination views of a list all collapse onto one key.
+        it('should drop an excluded param out of the key', () => {
+            const params = allowedQueryParams(
+                'https://x.com/p?page=2&ref=google',
+                { excluded: ['page'] }
+            );
+
+            expect(pageKey({ path: '/p', params })).toBe('/p?ref=google');
         });
 
         // The same collision reached through the tracker rather than by hand:
@@ -1084,7 +1191,7 @@ describe('PageViewTracker', () => {
 
     describe('configured additional query params', () => {
         // Mirrors production: the raw comma-separated string is parsed ONCE, by
-        // processFlags, and the flag holds the whole IQueryParamAllowlist. The
+        // processFlags, and the flag holds the whole IQueryParamConfig. The
         // tracker never sees the raw string, so neither does this test.
         //
         // That distinction is load-bearing rather than pedantic. These tests used to
@@ -1092,7 +1199,7 @@ describe('PageViewTracker', () => {
         // and made the rejection warning look alive when in production it received
         // an already-clean list and could never fire.
         const initWith = (configured: string | undefined): PageViewTracker => {
-            const parsed = parseQueryParamAllowlist(configured);
+            const parsed = parseQueryParamConfig(configured);
 
             getFeatureFlag.mockImplementation((flag: string) =>
                 flag === Constants.FeatureFlags.AutoLogPageViewQueryParams
@@ -1178,6 +1285,55 @@ describe('PageViewTracker', () => {
         it('should not warn when every configured name is valid', () => {
             navigateNatively('/');
             initWith('promo_code, affiliate_id');
+
+            expect(warning).not.toHaveBeenCalled();
+        });
+
+        it('should stop capturing an excluded built-in', () => {
+            navigateNatively('/');
+            initWith('-ref');
+
+            window.history.pushState({}, '', '/promo?ref=google&page=2');
+            jest.runAllTimers();
+
+            const { data } = logEvent.mock.calls[0][0];
+            expect(data.page).toBe('2');
+            expect(data).not.toHaveProperty('ref');
+        });
+
+        // An exclusion merges pages that used to be distinct, so it is warned about:
+        // it is the setting most likely to be blamed for missing page views by
+        // someone who does not know it is set.
+        it('should warn about the exclusions it applied', () => {
+            navigateNatively('/');
+            initWith('-ref, -page');
+
+            expect(warning).toHaveBeenCalledTimes(1);
+            expect(warning.mock.calls[0][0]).toContain(
+                'not capturing the excluded query parameters ref, page'
+            );
+        });
+
+        // `-` reaches past the validator: `-secret-abc` is a legal name behind the
+        // prefix, so it arrives as an exclusion rather than a rejection. It matches no
+        // built-in, so it must be silently inert — naming it would put the customer's
+        // own text in a log, which is exactly what the positions-not-names rule for
+        // rejections exists to prevent.
+        it('should never name an exclusion that matched no built-in', () => {
+            navigateNatively('/');
+            initWith('-ref, -secret-value-abcdef');
+
+            expect(warning).toHaveBeenCalledTimes(1);
+            const [message] = warning.mock.calls[0];
+
+            expect(message).toContain('ref');
+            expect(message).not.toContain('secret');
+            expect(message).not.toContain('abcdef');
+        });
+
+        it('should not warn about an exclusion that matched no built-in at all', () => {
+            navigateNatively('/');
+            initWith('-not_a_default');
 
             expect(warning).not.toHaveBeenCalled();
         });

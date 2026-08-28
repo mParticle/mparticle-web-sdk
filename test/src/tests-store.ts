@@ -1404,7 +1404,8 @@ describe('Store', () => {
                 astBackgroundEvents: true,
                 autoLogPageView: false,
                 autoLogPageViewQueryParams: {
-                    allowed: [],
+                    added: [],
+                    excluded: [],
                     rejectedPositions: [],
                     overLimit: 0,
                 },
@@ -1631,7 +1632,8 @@ describe('Store', () => {
                 astBackgroundEvents: false,
                 autoLogPageView: false,
                 autoLogPageViewQueryParams: {
-                    allowed: [],
+                    added: [],
+                    excluded: [],
                     rejectedPositions: [],
                     overLimit: 0,
                 },
@@ -1652,11 +1654,12 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'all',
                 astBackgroundEvents: 'True',
                 autoLogPageView: 'True',
-                // The server sends a comma-separated string; processFlags parses,
-                // validates and dedupes it into a list. `ref` is already built in
-                // and `bad name` is not a legal param name, so both drop.
+                // The server sends one comma-separated string carrying both additions
+                // and `-` exclusions; processFlags splits, validates and dedupes it.
+                // `ref` is already built in and `bad name` is not a legal param name,
+                // so both drop.
                 autoLogPageViewQueryParams:
-                    'promo_code, PROMO_CODE, ref, bad name',
+                    'promo_code, PROMO_CODE, ref, bad name, -page',
             };
 
             const flags = processFlags(
@@ -1674,12 +1677,13 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'all',
                 astBackgroundEvents: true,
                 autoLogPageView: true,
-                // Both halves are kept. Storing only `allowed` here is what left
-                // the tracker's rejection warning unable to ever fire: it re-parsed
-                // a list that had already had its rejects removed. `bad name` is
-                // the 4th comma-separated entry, and positions are 1-based.
+                // Every part is kept. Storing only `added` here is what left the
+                // tracker's rejection warning unable to ever fire: it re-parsed a list
+                // that had already had its rejects removed. `bad name` is the 4th
+                // comma-separated entry, and positions are 1-based.
                 autoLogPageViewQueryParams: {
-                    allowed: ['promo_code'],
+                    added: ['promo_code'],
+                    excluded: ['page'],
                     rejectedPositions: [4],
                     overLimit: 0,
                 },

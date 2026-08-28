@@ -17,7 +17,7 @@ import {
 import Validators from './validators';
 import { Dictionary, valueof } from './utils';
 import { IKitConfigs } from './configAPIClient';
-import { IQueryParamAllowlist } from './pageViewTracker';
+import { IQueryParamConfig } from './pageViewTracker';
 import { SDKConsentApi, SDKConsentState } from './consent';
 import MPSideloadedKit from './sideloadedKit';
 import { ISessionManager } from './sessionManager';
@@ -384,7 +384,7 @@ export interface SDKHelpersApi {
     // TODO: Feature Constants should be converted to enum
     getFeatureFlag?(
         feature: string
-    ): boolean | string | IQueryParamAllowlist;
+    ): boolean | string | IQueryParamConfig;
     decoded?(s: string): string;
     parseStringOrNumber?(value: string | number): string | number | null;
     inArray?(items: any[], value: any): boolean;

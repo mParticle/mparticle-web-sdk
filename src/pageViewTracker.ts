@@ -44,8 +44,8 @@ type WindowWithApv = Window & {
 };
 
 // The default allowlist: params that identify WHICH page you are on, which is also
-// what the dedup key needs. A floor, not a ceiling — customers add their own names in
-// the Web input's Advanced Settings.
+// what the dedup key needs. A default, not a floor — in the Web input's Advanced
+// Settings a customer adds their own names and removes any of these with a `-` prefix.
 //
 // Two groups were removed deliberately and should not come back:
 //
@@ -104,8 +104,13 @@ const QUERY_PARAM_NAME = /^[a-z0-9_][a-z0-9_.-]{0,63}$/;
 export const MAX_CUSTOM_QUERY_PARAMS = 25;
 
 // One parse, stored whole by processFlags, so no second validator can drift from it.
-export interface IQueryParamAllowlist {
-    allowed: string[];
+export interface IQueryParamConfig {
+    // Names to add to ALLOWED_QUERY_PARAMS.
+    added: string[];
+
+    // Names to take out of it, written with a leading `-`. Applied after `added`, so
+    // `-ref, ref` removes rather than adds however the two are ordered.
+    excluded: string[];
 
     // 1-based, in the order the customer wrote them. Positions and not names because
     // a rejected entry may be something pasted into the wrong field, and
@@ -117,7 +122,6 @@ export interface IQueryParamAllowlist {
     overLimit: number;
 }
 
-// Applies to CUSTOM params only — see allowedQueryParams.
 export const MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH = 512;
 
 // Ordered rather than a dictionary: the dedup key needs a stable order, and once the
@@ -147,7 +151,7 @@ interface IPendingNavigation {
 // on their own, which is where the interesting rules live.
 // ---------------------------------------------------------------------------
 
-// Normalises the customer's additions, as delivered by remote config.
+// Normalises the customer's additions and exclusions, as delivered by remote config.
 //
 // Runs in the SDK even though the dashboard validates too, because remote config is
 // untrusted input: it arrives over the network into a third-party embed on the
@@ -155,17 +159,17 @@ interface IPendingNavigation {
 // array as well as a comma-separated string so a self-hosted config can pass one
 // directly.
 //
-// Returns the accepted names alongside positions for what it dropped. No part of a
-// rejected entry escapes this function — see IQueryParamAllowlist.
-export const parseQueryParamAllowlist = (
+// No part of a rejected entry escapes this function — see IQueryParamConfig.
+export const parseQueryParamConfig = (
     configured: string | string[]
-): IQueryParamAllowlist => {
-    const allowed: string[] = [];
+): IQueryParamConfig => {
+    const added: string[] = [];
+    const excluded: string[] = [];
     const rejectedPositions: number[] = [];
     let overLimit = 0;
 
     if (!configured) {
-        return { allowed, rejectedPositions, overLimit };
+        return { added, excluded, rejectedPositions, overLimit };
     }
 
     const entries: string[] = Array.isArray(configured)
@@ -180,13 +184,19 @@ export const parseQueryParamAllowlist = (
         // Lowercased because queryStringParser matches case-insensitively and keys
         // its result by the allowlist's casing — so this is what makes the emitted
         // attribute name stable however the customer typed it.
-        const name = String(entry)
+        const raw = String(entry)
             .trim()
             .toLowerCase();
 
-        if (!name) {
+        if (!raw) {
             return;
         }
+
+        // A `-` prefix removes rather than adds. QUERY_PARAM_NAME forbids a leading
+        // hyphen, so before this every `-name` was a rejected entry — no stored config
+        // can already mean something else by it.
+        const isExclusion = raw.charAt(0) === '-';
+        const name = isExclusion ? raw.slice(1) : raw;
 
         if (
             !QUERY_PARAM_NAME.test(name) ||
@@ -196,11 +206,21 @@ export const parseQueryParamAllowlist = (
             return;
         }
 
+        // Not capped, and a name that is not built in is not an error: exclusions only
+        // ever shrink the list, and rejecting `-gclid` would make a config break the
+        // next time the default list changes underneath it.
+        if (isExclusion) {
+            if (excluded.indexOf(name) === -1) {
+                excluded.push(name);
+            }
+            return;
+        }
+
         // Already built in, or already accepted. Not a rejection — there is nothing
         // wrong with asking for something you already have.
         if (
             ALLOWED_QUERY_PARAMS.indexOf(name) !== -1 ||
-            allowed.indexOf(name) !== -1
+            added.indexOf(name) !== -1
         ) {
             return;
         }
@@ -209,15 +229,15 @@ export const parseQueryParamAllowlist = (
         // blank or a duplicate does not consume headroom, and — the reason it
         // moved — so the entries that lose out are counted instead of vanishing
         // with no report at all.
-        if (allowed.length >= MAX_CUSTOM_QUERY_PARAMS) {
+        if (added.length >= MAX_CUSTOM_QUERY_PARAMS) {
             overLimit++;
             return;
         }
 
-        allowed.push(name);
+        added.push(name);
     });
 
-    return { allowed, rejectedPositions, overLimit };
+    return { added, excluded, rejectedPositions, overLimit };
 };
 
 // Not localeCompare: this ordering feeds the dedup key, so it has to be identical in
@@ -229,30 +249,37 @@ const byName = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 // (asserted by the pageKey tests), and additions are sorted so a key depends on the SET
 // a customer configured rather than the order they typed it in.
 //
-// `extras` is trusted as already validated; processFlags does that once, at the config
-// boundary. `|| []` covers the null getFeatureFlag returns for an absent flag, which the
-// default parameter does not.
-export const effectiveAllowlist = (extras: string[] = []): string[] =>
-    ALLOWED_QUERY_PARAMS.concat(
-        (extras || [])
+// Excluding a param is a deliberate merge of pages that used to be distinct: drop
+// `page` and `?page=2` keys the same as `?page=3`, so the second view dedups away. That
+// is the customer's call to make, but it is why exclusion is not a cosmetic setting.
+//
+// `config` is trusted as already validated; processFlags does that once, at the config
+// boundary. Both `|| {}` and the field defaults are needed: getFeatureFlag returns null
+// for an absent flag, and a partial object reaches here from hand-written config.
+export const effectiveAllowlist = (config?: Partial<IQueryParamConfig>): string[] => {
+    const { added = [], excluded = [] } = config || {};
+
+    return ALLOWED_QUERY_PARAMS.concat(
+        added
             .filter(name => ALLOWED_QUERY_PARAMS.indexOf(name) === -1)
             .sort(byName)
-    );
+    ).filter(name => excluded.indexOf(name) === -1);
+};
 
 // queryStringParser lowercases keys, drops empty values, carries the
 // pre-URLSearchParams fallback, and tolerates an empty href — so SSR yields no params
 // rather than throwing.
 export const allowedQueryParams = (
     href: string,
-    extras: string[] = []
+    config?: Partial<IQueryParamConfig>
 ): ICapturedParam[] => {
-    const allowlist = effectiveAllowlist(extras);
+    const allowlist = effectiveAllowlist(config);
     const found = queryStringParser(href, allowlist);
 
     return allowlist
         .filter(name => hasOwnProp(found, name))
         .filter(name => {
-            // Custom params only, so nobody loses a long utm_content on upgrade.
+            // Custom params only, so nobody loses a long search term on upgrade.
             // Dropped rather than truncated: two long values sharing a truncated
             // prefix would share a dedup key and swallow a real view.
             if (ALLOWED_QUERY_PARAMS.indexOf(name) !== -1) {
@@ -404,9 +431,9 @@ const clearActiveTracker = (tracker: PageViewTracker): void => {
     }
 };
 
-const currentPage = (extras: string[]): IPageSnapshot => ({
+const currentPage = (config?: Partial<IQueryParamConfig>): IPageSnapshot => ({
     path: window.location.pathname,
-    params: allowedQueryParams(getHref(), extras),
+    params: allowedQueryParams(getHref(), config),
 });
 
 // Log-safe description of a page: the path, plus the NAMES of the captured
@@ -515,10 +542,10 @@ export class PageViewTracker {
     private lastPage: IPageSnapshot | null = null;
     private active = false;
 
-    // The customer's additions to the allowlist, read once per init() rather than
-    // per navigation: config cannot change without a re-init, and re-reading it on
-    // every pushState would re-validate the same list thousands of times.
-    private customQueryParams: string[] = [];
+    // The customer's additions and exclusions, read once per init() rather than per
+    // navigation: config cannot change without a re-init, and re-reading it on every
+    // pushState would re-validate the same list thousands of times.
+    private queryParamConfig: IQueryParamConfig | undefined;
     private pendingNavigations: IPendingNavigation[] = [];
 
     private undoHistoryPatch: (() => void) | null = null;
@@ -558,8 +585,8 @@ export class PageViewTracker {
         }
 
         this.active = true;
-        this.customQueryParams = this.readCustomQueryParams();
-        this.lastPage = currentPage(this.customQueryParams);
+        this.queryParamConfig = this.readQueryParamConfig();
+        this.lastPage = currentPage(this.queryParamConfig);
         this.log(`[init] seeded lastPage: ${describePage(this.lastPage)}`);
 
         this.undoHistoryPatch = patchHistory(
@@ -601,14 +628,17 @@ export class PageViewTracker {
     // Reports what processFlags rejected; deliberately does NOT re-validate. Parsing
     // the already-clean list again would have nothing left to reject, which is how
     // this warning was once dead in production while its test passed.
-    private readCustomQueryParams(): string[] {
+    private readQueryParamConfig(): IQueryParamConfig {
+        const config = (this.mpInstance._Helpers.getFeatureFlag(
+            Constants.FeatureFlags.AutoLogPageViewQueryParams
+        ) || {}) as IQueryParamConfig;
+
         const {
-            allowed = [],
+            added = [],
+            excluded = [],
             rejectedPositions = [],
             overLimit = 0,
-        } = (this.mpInstance._Helpers.getFeatureFlag(
-            Constants.FeatureFlags.AutoLogPageViewQueryParams
-        ) || {}) as IQueryParamAllowlist;
+        } = config;
 
         if (rejectedPositions.length) {
             this.mpInstance.Logger.warning(
@@ -625,11 +655,29 @@ export class PageViewTracker {
             );
         }
 
-        if (allowed.length) {
-            this.log(`[init] additional query params: ${allowed.join()}`);
+        if (added.length) {
+            this.log(`[init] additional query params: ${added.join()}`);
         }
 
-        return allowed;
+        // Only the exclusions that hit the default list are named, and those names are
+        // our own constants — an exclusion matching nothing is a no-op whose name is
+        // customer-typed text, which must not reach a log. `-` makes that reachable:
+        // `-secret-abc` fails no validation, so it arrives here as an exclusion.
+        //
+        // Warning rather than verbose because an exclusion merges pages that used to be
+        // distinct, so it is the setting most likely to be blamed for missing page
+        // views by someone who does not know it is set.
+        const applied = excluded.filter(
+            name => ALLOWED_QUERY_PARAMS.indexOf(name) !== -1
+        );
+        if (applied.length) {
+            this.mpInstance.Logger.warning(
+                'mParticle APV: not capturing the excluded query parameters ' +
+                    `${applied.join(', ')}`
+            );
+        }
+
+        return config;
     }
 
     // Stops the outgoing tracker and returns the pages it had queued so this
@@ -679,7 +727,7 @@ export class PageViewTracker {
     }
 
     private handleNavigation(source: NavigationSource): void {
-        const candidate = currentPage(this.customQueryParams);
+        const candidate = currentPage(this.queryParamConfig);
         const lastKey = this.lastPage ? pageKey(this.lastPage) : null;
 
         this.log(
