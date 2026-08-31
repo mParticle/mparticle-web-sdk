@@ -728,15 +728,11 @@ class LoggingService {
     this._send(this._transport, entry);
   }
 
-  // Ships at INFO severity like log(), but through a separate transport
-  // instance so it has its own rate-limit budget.
   logDiagnostic(entry: LogEntry | null | undefined): void {
     if (!entry) return;
     this._send(this._diagnosticTransport, entry);
   }
 
-  // Same as logDiagnostic(), but on its own transport/budget so a burst of
-  // setter diagnostics can't starve selectPlacements dispatch diagnostics.
   logPlacementDiagnostic(entry: LogEntry | null | undefined): void {
     if (!entry) return;
     this._send(this._placementDiagnosticTransport, entry);
