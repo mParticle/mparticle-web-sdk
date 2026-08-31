@@ -967,8 +967,6 @@ describe('Rokt Forwarder', () => {
           attributes: { test: 'test' },
         });
 
-        // One log for the setter call, one for the selectPlacements dispatch — no correlation between them,
-        // and each on its own logging method/budget so a setter burst can't starve a placement dispatch.
         expect(logDiagnosticSpy).toHaveBeenCalledTimes(1);
         expect(logDiagnosticSpy).toHaveBeenCalledWith(
           expect.objectContaining({ message: 'Rokt Kit: setUserAttribute called [attributeKeys=favoriteColor]' }),
@@ -8119,7 +8117,6 @@ describe('Rokt Forwarder', () => {
         'test-guid',
       );
 
-      // Exhaust log()'s INFO budget.
       for (let i = 0; i < 10; i++) {
         service.log({ message: 'operational log ' + i });
       }
@@ -8127,7 +8124,6 @@ describe('Rokt Forwarder', () => {
       service.log({ message: 'rate limited operational log' });
       expect(fetchCalls).toHaveLength(10);
 
-      // logDiagnostic still gets through on its own budget.
       service.logDiagnostic({ message: 'diagnostic entry', code: 'SELECT_PLACEMENTS_SETTER_TIMING' });
       expect(fetchCalls).toHaveLength(11);
     });
@@ -8141,7 +8137,6 @@ describe('Rokt Forwarder', () => {
         'test-guid',
       );
 
-      // Exhaust logDiagnostic's budget with a burst of setter-call diagnostics.
       for (let i = 0; i < 10; i++) {
         service.logDiagnostic({ message: 'setter diagnostic ' + i, code: 'ATTRIBUTE_SETTER_CALLED' });
       }
@@ -8149,7 +8144,6 @@ describe('Rokt Forwarder', () => {
       service.logDiagnostic({ message: 'rate limited setter diagnostic', code: 'ATTRIBUTE_SETTER_CALLED' });
       expect(fetchCalls).toHaveLength(10);
 
-      // logPlacementDiagnostic still gets through on its own budget.
       service.logPlacementDiagnostic({ message: 'placement diagnostic', code: 'SELECT_PLACEMENTS_DISPATCHED' });
       expect(fetchCalls).toHaveLength(11);
     });
