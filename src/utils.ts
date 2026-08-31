@@ -311,6 +311,11 @@ const moveElementToEnd = <T>(array: T[], index: number): T[] =>
 
 // For keys that did not come from the object itself: `obj[name]` and `name in obj`
 // both walk the prototype chain, so `constructor` is truthy on any plain object.
+//
+// Not `Object.hasOwn`, which Sonar recommends here (typescript:S6653). It is ES2022 and
+// does not compile under this project's `lib: ["es5", "es6", "dom"]`; widening that
+// would emit a call absent from every browser before 2021, and this same file still
+// carries a fallback for browsers with no URLSearchParams.
 const hasOwnProp = (obj: object, key: string): boolean =>
     Object.prototype.hasOwnProperty.call(obj, key);
 
@@ -342,13 +347,8 @@ const queryStringParser = (
             const name = key.toLowerCase();
 
             // Callers pass their own key list, so `name` may not be from this URL.
-            if (!hasOwnProp(lowerCaseUrlParams, name)) {
-                return;
-            }
-
-            const value = lowerCaseUrlParams[name];
-            if (value) {
-                results[key] = value;
+            if (hasOwnProp(lowerCaseUrlParams, name) && lowerCaseUrlParams[name]) {
+                results[key] = lowerCaseUrlParams[name];
             }
         });
     }
