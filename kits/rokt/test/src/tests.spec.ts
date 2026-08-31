@@ -955,6 +955,10 @@ describe('Rokt Forwarder', () => {
         );
 
         const logDiagnosticSpy = vi.spyOn((window as any).mParticle.forwarder.loggingService, 'logDiagnostic');
+        const logPlacementDiagnosticSpy = vi.spyOn(
+          (window as any).mParticle.forwarder.loggingService,
+          'logPlacementDiagnostic',
+        );
 
         (window as any).mParticle.forwarder.setUserAttribute('favoriteColor', 'blue');
 
@@ -963,18 +967,19 @@ describe('Rokt Forwarder', () => {
           attributes: { test: 'test' },
         });
 
-        // One log for the setter call, one for the selectPlacements dispatch — no correlation between them.
-        expect(logDiagnosticSpy).toHaveBeenCalledTimes(2);
+        // One log for the setter call, one for the selectPlacements dispatch — no correlation between them,
+        // and each on its own logging method/budget so a setter burst can't starve a placement dispatch.
+        expect(logDiagnosticSpy).toHaveBeenCalledTimes(1);
         expect(logDiagnosticSpy).toHaveBeenCalledWith(
           expect.objectContaining({ message: 'Rokt Kit: setUserAttribute called [attributeKeys=favoriteColor]' }),
         );
-        const dispatchEntry = logDiagnosticSpy.mock.calls.find(
-          (call) => call[0].code === 'SELECT_PLACEMENTS_DISPATCHED',
-        )?.[0];
+        expect(logPlacementDiagnosticSpy).toHaveBeenCalledTimes(1);
+        const dispatchEntry = logPlacementDiagnosticSpy.mock.calls[0][0];
         expect(dispatchEntry.message).toContain('placementAttributeKeys=');
         expect(dispatchEntry.message).toContain('favoriteColor');
         expect(dispatchEntry.message).not.toContain('blue');
         logDiagnosticSpy.mockRestore();
+        logPlacementDiagnosticSpy.mockRestore();
       });
 
       it('should send the mParticle session id current at the time of each call', async () => {
@@ -8099,7 +8104,7 @@ describe('Rokt Forwarder', () => {
         'test-guid',
       );
       service.logDiagnostic({ message: 'diagnostic entry', code: 'SELECT_PLACEMENTS_SETTER_TIMING' });
-      expect(fetchCalls.length).toBe(1);
+      expect(fetchCalls).toHaveLength(1);
       const body = JSON.parse(fetchCalls[0].options.body);
       expect(body.severity).toBe('INFO');
       expect(body.additionalInformation.message).toBe('diagnostic entry');
@@ -8118,13 +8123,35 @@ describe('Rokt Forwarder', () => {
       for (let i = 0; i < 10; i++) {
         service.log({ message: 'operational log ' + i });
       }
-      expect(fetchCalls.length).toBe(10);
+      expect(fetchCalls).toHaveLength(10);
       service.log({ message: 'rate limited operational log' });
-      expect(fetchCalls.length).toBe(10);
+      expect(fetchCalls).toHaveLength(10);
 
       // logDiagnostic still gets through on its own budget.
       service.logDiagnostic({ message: 'diagnostic entry', code: 'SELECT_PLACEMENTS_SETTER_TIMING' });
-      expect(fetchCalls.length).toBe(11);
+      expect(fetchCalls).toHaveLength(11);
+    });
+
+    it('logPlacementDiagnostic should not share its rate-limit budget with logDiagnostic', () => {
+      const errorService = new ErrorReportingServiceClass({ isLoggingEnabled: true }, '1.0.0', 'test-guid');
+      const service = new LoggingServiceClass(
+        { loggingUrl: 'test.com/v1/log', isLoggingEnabled: true },
+        errorService,
+        '1.0.0',
+        'test-guid',
+      );
+
+      // Exhaust logDiagnostic's budget with a burst of setter-call diagnostics.
+      for (let i = 0; i < 10; i++) {
+        service.logDiagnostic({ message: 'setter diagnostic ' + i, code: 'ATTRIBUTE_SETTER_CALLED' });
+      }
+      expect(fetchCalls).toHaveLength(10);
+      service.logDiagnostic({ message: 'rate limited setter diagnostic', code: 'ATTRIBUTE_SETTER_CALLED' });
+      expect(fetchCalls).toHaveLength(10);
+
+      // logPlacementDiagnostic still gets through on its own budget.
+      service.logPlacementDiagnostic({ message: 'placement diagnostic', code: 'SELECT_PLACEMENTS_DISPATCHED' });
+      expect(fetchCalls).toHaveLength(11);
     });
   });
 

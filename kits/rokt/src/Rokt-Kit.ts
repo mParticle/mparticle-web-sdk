@@ -690,13 +690,18 @@ class ErrorReportingService {
 }
 
 class LoggingService {
-  private _transport: ReportingTransport;
+  private readonly _transport: ReportingTransport;
   // Own ReportingTransport (and thus own RateLimiter) so a burst of
   // diagnostic timing entries can't starve the operational INFO budget
   // that _transport shares with page-view/quota logging via log().
-  private _diagnosticTransport: ReportingTransport;
-  private _loggingUrl: string;
-  private _errorReportingService: { report: (e: ErrorReport) => void };
+  private readonly _diagnosticTransport: ReportingTransport;
+  // Separate again from _diagnosticTransport: a burst of setter/identity
+  // calls (e.g. setUserAttributes looping per key) must not exhaust the
+  // budget a selectPlacements dispatch needs, or placement diagnostics go
+  // silent for the rest of the session.
+  private readonly _placementDiagnosticTransport: ReportingTransport;
+  private readonly _loggingUrl: string;
+  private readonly _errorReportingService: { report: (e: ErrorReport) => void };
 
   constructor(
     config: ReportingConfig,
@@ -708,6 +713,12 @@ class LoggingService {
   ) {
     this._transport = new ReportingTransport(config, integrationName, launcherInstanceGuid, accountId, rateLimiter);
     this._diagnosticTransport = new ReportingTransport(config, integrationName, launcherInstanceGuid, accountId);
+    this._placementDiagnosticTransport = new ReportingTransport(
+      config,
+      integrationName,
+      launcherInstanceGuid,
+      accountId,
+    );
     this._loggingUrl = generateReportingUrl(config?.loggingUrl, config?.integrationDomain, LOGGING_ENDPOINT);
     this._errorReportingService = errorReportingService;
   }
@@ -722,6 +733,13 @@ class LoggingService {
   logDiagnostic(entry: LogEntry | null | undefined): void {
     if (!entry) return;
     this._send(this._diagnosticTransport, entry);
+  }
+
+  // Same as logDiagnostic(), but on its own transport/budget so a burst of
+  // setter diagnostics can't starve selectPlacements dispatch diagnostics.
+  logPlacementDiagnostic(entry: LogEntry | null | undefined): void {
+    if (!entry) return;
+    this._send(this._placementDiagnosticTransport, entry);
   }
 
   private _send(transport: ReportingTransport, entry: LogEntry): void {
@@ -1572,7 +1590,7 @@ class RoktKit implements KitInterface {
 
     const selectPlacementsOptions: Record<string, unknown> = { ...options, attributes: selectPlacementsAttributes };
 
-    this.loggingService?.logDiagnostic(
+    this.loggingService?.logPlacementDiagnostic(
       buildSelectPlacementsDiagnosticLogEntry(Object.keys(selectPlacementsAttributes)),
     );
 
