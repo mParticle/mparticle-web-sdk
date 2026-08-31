@@ -82,7 +82,8 @@ ones whose names do not tell you what they cover:
 | Typecheck TypeScript (not run by CI) | `npm run build:ts` |
 | Lint TypeScript (not run by CI) | `npm run gts:check` |
 
-`/verify` runs lint, build and Jest in one step.
+`/verify` runs lint, then Jest and Karma. It calls `npm run test:jest` directly, so trap 3
+applies - build first.
 
 ### Command traps
 
