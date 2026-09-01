@@ -1,4 +1,3 @@
-console.info('[mParticle QA kit path smoke] Loaded kits/braze/braze-6/dist/BrazeKit.iife.js from monorepo GitHub path');
 var mpBrazeKitV6 = (function (exports) {
 
 	function getAugmentedNamespace(n) {

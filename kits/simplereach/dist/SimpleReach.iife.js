@@ -1,4 +1,3 @@
-console.info('[mParticle QA kit path smoke] Loaded kits/simplereach/dist/SimpleReach.iife.js from monorepo GitHub path');
 var mpSimpleReachKit = (function (exports) {
   /*!
    * isobject <https://github.com/jonschlinkert/isobject>

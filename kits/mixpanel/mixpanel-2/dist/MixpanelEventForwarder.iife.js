@@ -1,4 +1,3 @@
-console.info('[mParticle QA kit path smoke] Loaded kits/mixpanel/mixpanel-2/dist/MixpanelEventForwarder.iife.js from monorepo GitHub path');
 var mpMixpanelKit = (function (exports) {
     /* eslint-disable no-undef*/
     //  Copyright 2015 mParticle, Inc.
