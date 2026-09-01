@@ -152,6 +152,41 @@ jobs:
                       exit 1
                   fi
 
+            - name: Validate reachable release tag major
+              env:
+                  TRACK: ${{ inputs.track }}
+              run: |
+                  set -eu
+                  # Stop a wrong-major semantic-release lineage before expensive tests.
+                  STABLE_TAG_PATTERN='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+                  case "$TRACK" in
+                      v2) EXPECTED_MAJOR=2 ;;
+                      v3) EXPECTED_MAJOR=3 ;;
+                      *) exit 1 ;;
+                  esac
+                  BASELINE_TAG="$(
+                      git tag --merged HEAD --list 'v*' --sort=-v:refname |
+                          awk -v pattern="$STABLE_TAG_PATTERN" \
+                              '$0 ~ pattern { print; exit }'
+                  )"
+                  if [ -z "$BASELINE_TAG" ]; then
+                      echo "Track ${TRACK} expects major ${EXPECTED_MAJOR}, but no stable release tag is reachable from staging HEAD"
+                      exit 1
+                  fi
+
+                  FOUND_MAJOR="${BASELINE_TAG#v}"
+                  FOUND_MAJOR="${FOUND_MAJOR%%.*}"
+                  if [ "$FOUND_MAJOR" != "$EXPECTED_MAJOR" ]; then
+                      echo "Track ${TRACK} expects major ${EXPECTED_MAJOR}, but highest reachable stable tag ${BASELINE_TAG} has major ${FOUND_MAJOR}"
+                      exit 1
+                  fi
+
+                  {
+                      printf '## Release tag baseline\n\n'
+                      printf -- '- Track: `%s`\n' "$TRACK"
+                      printf -- '- Highest reachable stable tag: `%s`\n' "$BASELINE_TAG"
+                  } >> "$GITHUB_STEP_SUMMARY"
+
     build-bundle:
         name: Build Distribution Bundle
         runs-on: ubuntu-latest
