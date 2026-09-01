@@ -1,4 +1,3 @@
-console.info('[mParticle QA kit path smoke] Loaded kits/taplytics/dist/TaplyticsKit.iife.js from monorepo GitHub path');
 var mpTapylitcsKit = (function (exports) {
   /*!
    * isobject <https://github.com/jonschlinkert/isobject>

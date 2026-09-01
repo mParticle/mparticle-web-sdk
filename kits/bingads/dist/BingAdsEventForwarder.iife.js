@@ -1,4 +1,3 @@
-console.info('[mParticle QA kit path smoke] Loaded kits/bingads/dist/BingAdsEventForwarder.iife.js from monorepo GitHub path');
 var mpBingAdsKit = (function (exports) {
   /*!
    * isobject <https://github.com/jonschlinkert/isobject>

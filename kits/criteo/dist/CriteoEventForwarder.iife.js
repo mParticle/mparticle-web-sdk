@@ -1,4 +1,3 @@
-console.info('[mParticle QA kit path smoke] Loaded kits/criteo/dist/CriteoEventForwarder.iife.js from monorepo GitHub path');
 var mpCriteoKit = (function (exports) {
     /* eslint-disable no-undef */
 
