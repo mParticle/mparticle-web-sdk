@@ -42,6 +42,9 @@ module.exports = {
         [
             '@semantic-release/exec',
             {
+                // Authoritative guard after nextRelease is calculated and before prepare/publish.
+                verifyReleaseCmd:
+                    'node ./scripts/validate-release-track.js ${nextRelease.version}',
                 prepareCmd: 'sh ./scripts/release.sh ${nextRelease.version}',
                 publishCmd: 'npm publish',
             },
