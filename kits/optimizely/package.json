@@ -8,7 +8,11 @@
     "files": [
         "dist/OptimizelyKit.common.js"
     ],
-    "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-optimizely",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mParticle/mparticle-web-sdk",
+        "directory": "kits/optimizely"
+    },
     "scripts": {
         "test": "npm run testKarma",
         "testKarma": "node test/boilerplate/test-karma.js",

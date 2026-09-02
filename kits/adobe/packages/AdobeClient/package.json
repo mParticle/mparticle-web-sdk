@@ -3,6 +3,10 @@
     "version": "3.0.0",
     "description": "mParticle integration sdk for Adobe (client side)",
     "main": "dist/AdobeClientSideKit.common.js",
+    "files": [
+        "dist/AdobeClientSideKit.common.js",
+        "dist/AdobeClientSideKit.iife.js"
+    ],
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1"
     },
@@ -13,7 +17,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/mParticle/mparticle-web-sdk.git",
+        "url": "https://github.com/mParticle/mparticle-web-sdk",
         "directory": "kits/adobe/packages/AdobeClient"
     }
 }

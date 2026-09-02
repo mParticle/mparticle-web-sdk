@@ -8,7 +8,11 @@
     "files": [
         "dist/GoogleAdWordsEventForwarder.common.js"
     ],
-    "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-adwords",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mParticle/mparticle-web-sdk",
+        "directory": "kits/adwords"
+    },
     "scripts": {
         "build": "rollup --config rollup.config.js",
         "build:test": "rollup --config rollup.test.config.js",

@@ -5,7 +5,7 @@
     "description": "mParticle Adobe kit integration",
     "repository": {
         "type": "git",
-        "url": "https://github.com/mParticle/mparticle-web-sdk.git",
+        "url": "https://github.com/mParticle/mparticle-web-sdk",
         "directory": "kits/adobe"
     },
     "scripts": {

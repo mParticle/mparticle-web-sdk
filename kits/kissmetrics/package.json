@@ -8,7 +8,11 @@
     "files": [
         "dist/KissMetricsForwarder.common.js"
     ],
-    "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-kissmetrics",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mParticle/mparticle-web-sdk",
+        "directory": "kits/kissmetrics"
+    },
     "scripts": {
         "build": "rollup --config rollup.config.js",
         "watch": "rollup --config rollup.config.js -w",

@@ -42,7 +42,10 @@ module.exports = {
         [
             '@semantic-release/exec',
             {
-                prepareCmd: 'sh ./scripts/release.sh ${nextRelease.version}',
+                verifyReleaseCmd:
+                    'node scripts/publish-kits.js --preflight-tags ${nextRelease.version}',
+                prepareCmd:
+                    'sh ./scripts/release.sh ${nextRelease.version} && node scripts/publish-kits.js --preflight-artifacts ${nextRelease.version}',
                 publishCmd: 'npm publish',
             },
         ],
@@ -66,6 +69,7 @@ module.exports = {
                     'package-lock.json',
                     'CHANGELOG.md',
                     'kits/**/package.json',
+                    'kits/**/package-lock.json',
                 ],
                 message:
                     'chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}',

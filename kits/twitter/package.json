@@ -8,7 +8,11 @@
     "files": [
         "dist/TwitterEventForwarder.common.js"
     ],
-    "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-twitter",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mParticle/mparticle-web-sdk",
+        "directory": "kits/twitter"
+    },
     "scripts": {
         "build": "rollup --config rollup.config.js",
         "watch": "rollup --config rollup.config.js -w",

@@ -8,7 +8,11 @@
     "files": [
         "dist/DynamicYieldKit.common.js"
     ],
-    "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-dynamic-yield",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mParticle/mparticle-web-sdk",
+        "directory": "kits/dynamic-yield"
+    },
     "scripts": {
         "build": "rollup --config rollup.config.js",
         "watch": "rollup --config rollup.config.js -w",
