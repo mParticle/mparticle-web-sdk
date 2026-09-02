@@ -668,7 +668,6 @@ jobs:
             TRACK: ${{ inputs.track }}
             NPM_DIST_TAG: ${{ needs.confirm-staging-branch.outputs.npm_dist_tag }}
             NPM_CONFIG_TAG: ${{ needs.confirm-staging-branch.outputs.npm_dist_tag }}
-            NEXT_RELEASE_VERSION_FILE: ${{ runner.temp }}/next-release-version
 
         steps:
             - name: Checkout ${{ needs.confirm-staging-branch.outputs.staging_branch }}
@@ -676,6 +675,10 @@ jobs:
               with:
                   fetch-depth: 0
                   ref: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
+
+            - name: Configure release paths
+              run: |
+                  echo "NEXT_RELEASE_VERSION_FILE=$RUNNER_TEMP/next-release-version" >> "$GITHUB_ENV"
 
             - name: Import GPG Key
               uses: crazy-max/ghaction-import-gpg@e00cb83a68c1158b29afc5217dd0582cada6d172 #v4.4.0
@@ -955,6 +958,10 @@ jobs:
               if: ${{ always() }}
               run: |
                   set -eu
+                  if [ -z "${RELEASE_TAG:-}" ] || [ -z "${RELEASE_SHA:-}" ]; then
+                      echo "Skipping tag reverification because immutable source verification did not complete"
+                      exit 0
+                  fi
                   REMOTE_TAG_REFS="$(git ls-remote --exit-code --tags origin \
                       "refs/tags/${RELEASE_TAG}" "refs/tags/${RELEASE_TAG}^{}")"
                   REMOTE_TAG_SHA="$(printf '%s\n' "$REMOTE_TAG_REFS" |
