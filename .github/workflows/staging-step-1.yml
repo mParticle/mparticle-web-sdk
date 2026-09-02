@@ -17,6 +17,11 @@ on:
                 required: true
                 type: boolean
                 default: true
+            resumeKitReleaseTag:
+                description: 'V3 recovery only: resume kit publishing from an existing Step 1 tag'
+                required: false
+                type: string
+                default: ''
 
 concurrency:
     group: mparticle-web-sdk-release-publish
@@ -30,6 +35,7 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             development_branch: ${{ steps.resolve.outputs.development_branch }}
+            candidate_sha: ${{ steps.resolve.outputs.candidate_sha }}
             staging_branch: ${{ steps.resolve.outputs.staging_branch }}
             release_branch: ${{ steps.resolve.outputs.release_branch }}
             npm_dist_tag: ${{ steps.resolve.outputs.npm_dist_tag }}
@@ -44,6 +50,7 @@ jobs:
                   SOURCE_REF: ${{ github.ref }}
                   TRACK: ${{ inputs.track }}
                   DRY_RUN: ${{ github.event.inputs.dryRun }}
+                  RESUME_KIT_RELEASE_TAG: ${{ inputs.resumeKitReleaseTag }}
               run: |
                   set -eu
                   case "${TRACK}|${SOURCE_REF}" in
@@ -53,6 +60,18 @@ jobs:
                           exit 1
                           ;;
                   esac
+
+                  if [ -n "$RESUME_KIT_RELEASE_TAG" ]; then
+                      if [ "$TRACK" != "v3" ] || [ "$DRY_RUN" != "false" ]; then
+                          echo "Kit recovery requires track=v3 and dryRun=false"
+                          exit 1
+                      fi
+                      if ! printf '%s\n' "$RESUME_KIT_RELEASE_TAG" |
+                          grep -Eq '^v3\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+                          echo "Kit recovery requires a stable v3 release tag"
+                          exit 1
+                      fi
+                  fi
 
                   # The workflow must also remain identical on master and main
                   # so both promotion tracks use the same release controls.
@@ -72,6 +91,19 @@ jobs:
                               exit 1
                           fi
                       done
+
+                      case "$TRACK" in
+                          v2) APPROVED_TRUNK="refs/remotes/origin/master" ;;
+                          v3) APPROVED_TRUNK="refs/remotes/origin/main" ;;
+                      esac
+                      STEP_ONE_WORKFLOW=".github/workflows/staging-step-1.yml"
+                      if ! git diff --quiet \
+                          "HEAD:${STEP_ONE_WORKFLOW}" \
+                          "${APPROVED_TRUNK}:${STEP_ONE_WORKFLOW}"; then
+                          echo "${STEP_ONE_WORKFLOW} on ${SOURCE_REF} differs from ${APPROVED_TRUNK}"
+                          echo "Synchronize the staging branch from its approved trunk before releasing"
+                          exit 1
+                      fi
                   fi
 
                   {
@@ -84,23 +116,53 @@ jobs:
               id: resolve
               env:
                   TRACK: ${{ inputs.track }}
+                  RESUME_KIT_RELEASE_TAG: ${{ inputs.resumeKitReleaseTag }}
               run: |
                   set -eu
                   case "$TRACK" in
                       v2)
-                          echo "development_branch=development" >> "$GITHUB_OUTPUT"
-                          echo "staging_branch=staging" >> "$GITHUB_OUTPUT"
-                          echo "release_branch=release/${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
-                          echo "npm_dist_tag=latest" >> "$GITHUB_OUTPUT"
+                          DEVELOPMENT_BRANCH="development"
+                          STAGING_BRANCH="staging"
+                          RELEASE_BRANCH="release/${GITHUB_RUN_NUMBER}"
+                          NPM_DIST_TAG="latest"
                           ;;
                       v3)
-                          echo "development_branch=v3-development" >> "$GITHUB_OUTPUT"
-                          echo "staging_branch=v3-staging" >> "$GITHUB_OUTPUT"
-                          echo "release_branch=v3-release/${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
-                          echo "npm_dist_tag=latest" >> "$GITHUB_OUTPUT"
+                          DEVELOPMENT_BRANCH="v3-development"
+                          STAGING_BRANCH="v3-staging"
+                          RELEASE_BRANCH="v3-release/${GITHUB_RUN_NUMBER}"
+                          NPM_DIST_TAG="next"
                           ;;
                       *) exit 1 ;;
                   esac
+
+                  if [ -n "$RESUME_KIT_RELEASE_TAG" ]; then
+                      # Recovery is authoritative from the immutable Step 1 tag,
+                      # not from development, which intentionally remains at the
+                      # pre-release source commit.
+                      git tag -d "$RESUME_KIT_RELEASE_TAG" >/dev/null 2>&1 || true
+                      git fetch --no-tags --force origin \
+                          "refs/tags/${RESUME_KIT_RELEASE_TAG}:refs/tags/${RESUME_KIT_RELEASE_TAG}"
+                      CANDIDATE_SHA="$(
+                          git rev-parse "${RESUME_KIT_RELEASE_TAG}^{commit}"
+                      )"
+                  else
+                      # Freeze the candidate before any build or test starts.
+                      # Every downstream job checks out this exact commit rather
+                      # than a development branch that can move during the run.
+                      git fetch --no-tags --force origin \
+                          "refs/heads/${DEVELOPMENT_BRANCH}:refs/remotes/origin/${DEVELOPMENT_BRANCH}"
+                      CANDIDATE_SHA="$(
+                          git rev-parse "refs/remotes/origin/${DEVELOPMENT_BRANCH}^{commit}"
+                      )"
+                  fi
+
+                  {
+                      echo "development_branch=${DEVELOPMENT_BRANCH}"
+                      echo "candidate_sha=${CANDIDATE_SHA}"
+                      echo "staging_branch=${STAGING_BRANCH}"
+                      echo "release_branch=${RELEASE_BRANCH}"
+                      echo "npm_dist_tag=${NPM_DIST_TAG}"
+                  } >> "$GITHUB_OUTPUT"
 
             - name: Checkout ${{ steps.resolve.outputs.staging_branch }}
               uses: actions/checkout@v6
@@ -115,6 +177,8 @@ jobs:
                   STAGING_BRANCH: ${{ steps.resolve.outputs.staging_branch }}
                   RELEASE_BRANCH: ${{ steps.resolve.outputs.release_branch }}
                   NPM_DIST_TAG: ${{ steps.resolve.outputs.npm_dist_tag }}
+                  CANDIDATE_SHA: ${{ steps.resolve.outputs.candidate_sha }}
+                  RESUME_KIT_RELEASE_TAG: ${{ inputs.resumeKitReleaseTag }}
               run: |
                   # Verify the selected track uses approved release settings and
                   # the checkout matches the current remote staging commit.
@@ -123,7 +187,7 @@ jobs:
                   case "$MAPPING" in
                       "v2|development|staging|release/${GITHUB_RUN_NUMBER}|latest")
                           ;;
-                      "v3|v3-development|v3-staging|v3-release/${GITHUB_RUN_NUMBER}|latest")
+                      "v3|v3-development|v3-staging|v3-release/${GITHUB_RUN_NUMBER}|next")
                           ;;
                       *) exit 1 ;;
                   esac
@@ -151,8 +215,35 @@ jobs:
                       echo "Checkout does not match origin/${STAGING_BRANCH}"
                       exit 1
                   fi
+                  if ! printf '%s\n' "$CANDIDATE_SHA" |
+                      grep -Eq '^[0-9a-f]{40}$'; then
+                      echo "Candidate SHA is not a full commit SHA: ${CANDIDATE_SHA}"
+                      exit 1
+                  fi
+                  if [ -n "$RESUME_KIT_RELEASE_TAG" ]; then
+                      if [ "$CHECKED_OUT_SHA" != "$CANDIDATE_SHA" ]; then
+                          echo "Recovery tag ${RESUME_KIT_RELEASE_TAG} resolves to ${CANDIDATE_SHA}, but origin/${STAGING_BRANCH} is ${CHECKED_OUT_SHA}"
+                          exit 1
+                      fi
+                  elif ! git merge-base --is-ancestor \
+                      "$CHECKED_OUT_SHA" "$CANDIDATE_SHA"; then
+                      echo "origin/${STAGING_BRANCH} at ${CHECKED_OUT_SHA} is not an ancestor of candidate ${CANDIDATE_SHA}"
+                      echo "The release source must fast-forward from staging to the tested candidate"
+                      exit 1
+                  fi
+
+                  {
+                      printf '## Frozen release candidate\n\n'
+                      if [ -n "$RESUME_KIT_RELEASE_TAG" ]; then
+                          printf -- '- Recovery tag: `%s`\n' "$RESUME_KIT_RELEASE_TAG"
+                      else
+                          printf -- '- Development branch: `%s`\n' "$DEVELOPMENT_BRANCH"
+                      fi
+                      printf -- '- Candidate SHA: `%s`\n' "$CANDIDATE_SHA"
+                  } >> "$GITHUB_STEP_SUMMARY"
 
             - name: Validate reachable release tag major
+              if: ${{ inputs.resumeKitReleaseTag == '' }}
               env:
                   TRACK: ${{ inputs.track }}
               run: |
@@ -189,13 +280,14 @@ jobs:
 
     build-bundle:
         name: Build Distribution Bundle
+        if: ${{ inputs.resumeKitReleaseTag == '' }}
         runs-on: ubuntu-latest
         needs: confirm-staging-branch
         steps:
             - name: Checkout
               uses: actions/checkout@v6
               with:
-                  ref: ${{ needs.confirm-staging-branch.outputs.development_branch }}
+                  ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
             - name: NPM install
               uses: actions/setup-node@v6
@@ -228,6 +320,7 @@ jobs:
     # and they do not require any built files
     test-jest:
         name: 'Test Jest'
+        if: ${{ inputs.resumeKitReleaseTag == '' }}
         runs-on: 'ubuntu-latest'
         needs: confirm-staging-branch
         strategy:
@@ -237,7 +330,7 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v6
               with:
-                  ref: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
+                  ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
             - name: NPM install
               uses: actions/setup-node@v6
@@ -270,7 +363,7 @@ jobs:
             test_command_label: Core SDK Tests
             test_command: npm run test
             build_command: npm run build:iife
-            branch_name: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
+            branch_name: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
     # Test Sub can be run independent of other tests
     test-stub:
@@ -285,7 +378,7 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v6
               with:
-                  ref: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
+                  ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
             - name: NPM install
               uses: actions/setup-node@v6
@@ -325,7 +418,7 @@ jobs:
         with:
             test_command_label: Require JS Test
             test_command: npm run test:requirejs
-            branch_name: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
+            branch_name: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
     test-integrations-common-js-browserfy:
         name: 'Integration Tests: Browserfy Common JS'
@@ -338,7 +431,7 @@ jobs:
         with:
             test_command_label: Browserfy CJS Test
             test_command: npm run test:integrations:cjs:browserfy
-            branch_name: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
+            branch_name: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
             build_command: npm run build:npm && npm run build:test-bundle
 
     test-integrations-common-js-webpack:
@@ -352,7 +445,7 @@ jobs:
         with:
             test_command_label: webpack CJS Test
             test_command: npm run test:integrations:cjs:webpack
-            branch_name: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
+            branch_name: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
             build_command: npm run build:npm && npm run build:test-bundle
 
     test-integrations-common-js-rollup:
@@ -366,7 +459,7 @@ jobs:
         with:
             test_command_label: Rollup CJS Test
             test_command: npm run test:integrations:cjs:rollup
-            branch_name: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
+            branch_name: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
             build_command: npm run build:npm && npm run build:test-bundle
 
     test-integrations-module-js-webpack:
@@ -380,7 +473,7 @@ jobs:
         with:
             test_command_label: webpack Module Test
             test_command: npm run test:integrations:module:webpack
-            branch_name: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
+            branch_name: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
             build_command: npm run build:esm && npm run build:test-bundle
 
     test-integrations-module-js-rollup:
@@ -394,21 +487,25 @@ jobs:
         with:
             test_command_label: Rollup Module Test
             test_command: npm run test:integrations:module:rollup
-            branch_name: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
+            branch_name: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
             build_command: npm run build:esm && npm run build:test-bundle
 
     load-kit-matrix:
         name: Load V3 kit test matrix
-        if: ${{ inputs.track == 'v3' }}
+        if: >-
+            ${{
+                inputs.track == 'v3' &&
+                inputs.resumeKitReleaseTag == ''
+            }}
         runs-on: ubuntu-latest
         needs: confirm-staging-branch
         outputs:
             matrix: ${{ steps.load.outputs.matrix }}
         steps:
-            - name: Checkout ${{ needs.confirm-staging-branch.outputs.development_branch }}
+            - name: Checkout frozen release candidate
               uses: actions/checkout@v6
               with:
-                  ref: ${{ needs.confirm-staging-branch.outputs.development_branch }}
+                  ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
             - name: Validate and load kit test matrix
               id: load
@@ -447,10 +544,10 @@ jobs:
             matrix:
                 kit: ${{ fromJson(needs.load-kit-matrix.outputs.matrix) }}
         steps:
-            - name: Checkout ${{ needs.confirm-staging-branch.outputs.development_branch }}
+            - name: Checkout frozen release candidate
               uses: actions/checkout@v6
               with:
-                  ref: ${{ needs.confirm-staging-branch.outputs.development_branch }}
+                  ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
             - name: Setup Node.js
               uses: actions/setup-node@v6
@@ -483,6 +580,7 @@ jobs:
         if: >-
             ${{
                 always() &&
+                !cancelled() &&
                 needs.confirm-staging-branch.result == 'success' &&
                 needs.build-bundle.result == 'success' &&
                 needs.test-jest.result == 'success' &&
@@ -522,11 +620,11 @@ jobs:
             - run-kit-tests
             - confirm-staging-branch
         steps:
-            - name: Checkout ${{ needs.confirm-staging-branch.outputs.development_branch }}
+            - name: Checkout frozen release candidate
               uses: actions/checkout@v6
               with:
                   repository: mparticle/mparticle-web-sdk
-                  ref: ${{ needs.confirm-staging-branch.outputs.development_branch }}
+                  ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
             - name: Create and push release branch
               if: ${{ github.event.inputs.dryRun == 'false' }}
@@ -550,6 +648,9 @@ jobs:
         needs:
             - create-release-branch
             - confirm-staging-branch
+        outputs:
+            release_sha: ${{ steps.verify-release.outputs.release_sha }}
+            release_tag: ${{ steps.verify-release.outputs.release_tag }}
 
         # OIDC permissions for npm trusted publishing
         permissions:
@@ -567,6 +668,7 @@ jobs:
             TRACK: ${{ inputs.track }}
             NPM_DIST_TAG: ${{ needs.confirm-staging-branch.outputs.npm_dist_tag }}
             NPM_CONFIG_TAG: ${{ needs.confirm-staging-branch.outputs.npm_dist_tag }}
+            NEXT_RELEASE_VERSION_FILE: ${{ runner.temp }}/next-release-version
 
         steps:
             - name: Checkout ${{ needs.confirm-staging-branch.outputs.staging_branch }}
@@ -583,29 +685,44 @@ jobs:
                   git_user_signingkey: true
                   git_commit_gpgsign: true
 
-            - name: Merge development into staging preview
+            - name: Merge frozen candidate into staging preview
               if: ${{ github.event.inputs.dryRun == 'true' }}
               env:
-                  DEVELOPMENT_BRANCH: ${{ needs.confirm-staging-branch.outputs.development_branch }}
+                  CANDIDATE_SHA: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
               run: |
                   set -eu
-                  git fetch --no-tags --force origin \
-                      "refs/heads/${DEVELOPMENT_BRANCH}:refs/remotes/origin/${DEVELOPMENT_BRANCH}"
-                  git merge --no-edit \
-                      "refs/remotes/origin/${DEVELOPMENT_BRANCH}"
+                  git fetch --no-tags origin "$CANDIDATE_SHA"
+                  git merge --ff-only "$CANDIDATE_SHA"
+                  MERGED_SHA="$(git rev-parse HEAD)"
+                  if [ "$MERGED_SHA" != "$CANDIDATE_SHA" ]; then
+                      echo "Dry-run staging merge resolved to ${MERGED_SHA}, expected tested candidate ${CANDIDATE_SHA}"
+                      exit 1
+                  fi
 
             - name: Merge release branch into staging branch
               if: ${{ github.event.inputs.dryRun == 'false' }}
               env:
                   RELEASE_BRANCH: ${{ needs.confirm-staging-branch.outputs.release_branch }}
+                  CANDIDATE_SHA: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
               run: |
                   set -eu
-                  git pull origin "$RELEASE_BRANCH"
+                  git fetch --no-tags origin "$RELEASE_BRANCH"
+                  RELEASE_BRANCH_SHA="$(git rev-parse FETCH_HEAD)"
+                  if [ "$RELEASE_BRANCH_SHA" != "$CANDIDATE_SHA" ]; then
+                      echo "Release branch ${RELEASE_BRANCH} points to ${RELEASE_BRANCH_SHA}, expected tested candidate ${CANDIDATE_SHA}"
+                      exit 1
+                  fi
+                  git merge --ff-only "$RELEASE_BRANCH_SHA"
+                  MERGED_SHA="$(git rev-parse HEAD)"
+                  if [ "$MERGED_SHA" != "$CANDIDATE_SHA" ]; then
+                      echo "Staging merge resolved to ${MERGED_SHA}, expected tested candidate ${CANDIDATE_SHA}"
+                      exit 1
+                  fi
 
             - name: Setup Node.js
               uses: actions/setup-node@v6
               with:
-                  node-version: 24.x
+                  node-version: 24.19.0
                   registry-url: 'https://registry.npmjs.org'
 
             - name: Install dependencies
@@ -633,15 +750,36 @@ jobs:
                   # GitHub's authentic identity variables for OIDC provenance.
                   npx semantic-release --branches "$STAGING_BRANCH" --dry-run
 
+            - name: Preview V3 kit release
+              if: >-
+                  ${{
+                      github.event.inputs.dryRun == 'true' &&
+                      inputs.track == 'v3'
+                  }}
+              run: |
+                  set -eu
+                  if [ ! -s "$NEXT_RELEASE_VERSION_FILE" ]; then
+                      echo "No V3 release was predicted, so there are no kit artifacts to preview."
+                      exit 0
+                  fi
+                  RELEASE_VERSION="$(cat "$NEXT_RELEASE_VERSION_FILE")"
+                  node scripts/preview-kit-release.js "$RELEASE_VERSION"
+
             - name: Snapshot existing stable release tags
               if: ${{ github.event.inputs.dryRun == 'false' }}
               run: |
                   set -eu
-                  git ls-remote --tags --refs origin |
-                      awk '$2 ~ /^refs\/tags\/v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/ {
+                  REMOTE_TAG_REFS="$RUNNER_TEMP/remote-tag-refs-before"
+                  STABLE_TAGS="$RUNNER_TEMP/stable-release-tags-before"
+                  git ls-remote --exit-code --tags --refs origin > "$REMOTE_TAG_REFS"
+                  if [ ! -s "$REMOTE_TAG_REFS" ]; then
+                      echo "Remote tag snapshot is unexpectedly empty"
+                      exit 1
+                  fi
+                  awk '$2 ~ /^refs\/tags\/v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/ {
                           sub("^refs/tags/", "", $2)
                           print $2
-                      }' > "$RUNNER_TEMP/stable-release-tags-before"
+                      }' "$REMOTE_TAG_REFS" > "$STABLE_TAGS"
 
             # NPM Publish happens here
             - name: Release
@@ -670,6 +808,7 @@ jobs:
                   git push origin "HEAD:${RELEASE_BRANCH}"
 
             - name: Verify and report release candidate
+              id: verify-release
               if: ${{ github.event.inputs.dryRun == 'false' }}
               run: |
                   set -eu
@@ -716,6 +855,10 @@ jobs:
                       echo "Remote tag ${RELEASE_TAG} does not resolve to ${CANDIDATE_SHA}"
                       exit 1
                   fi
+                  {
+                      echo "release_sha=${CANDIDATE_SHA}"
+                      echo "release_tag=${RELEASE_TAG}"
+                  } >> "$GITHUB_OUTPUT"
 
                   {
                       printf '## Release candidate ready\n\n'
@@ -730,3 +873,104 @@ jobs:
                       printf 'gh workflow run staging-step-3.yml -f releaseTag=%s\n' "$RELEASE_TAG"
                       printf '```\n'
                   } >> "$GITHUB_STEP_SUMMARY"
+
+    publish-kits:
+        name: Publish and audit V3 kits
+        if: >-
+            ${{
+                always() &&
+                !cancelled() &&
+                inputs.track == 'v3' &&
+                github.event.inputs.dryRun == 'false' &&
+                needs.confirm-staging-branch.result == 'success' &&
+                (
+                    inputs.resumeKitReleaseTag != '' ||
+                    needs.release.result == 'success'
+                )
+            }}
+        needs:
+            - confirm-staging-branch
+            - release
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            id-token: write
+        env:
+            NPM_DIST_TAG: ${{ needs.confirm-staging-branch.outputs.npm_dist_tag }}
+            KIT_RELEASE_RECOVERY: ${{ inputs.resumeKitReleaseTag != '' }}
+        steps:
+            - name: Checkout immutable release tag
+              uses: actions/checkout@v6
+              with:
+                  fetch-depth: 0
+                  ref: ${{ inputs.resumeKitReleaseTag || needs.release.outputs.release_tag }}
+
+            - name: Verify immutable release source
+              env:
+                  EXPECTED_SHA: ${{ needs.release.outputs.release_sha }}
+                  RELEASE_TAG: ${{ inputs.resumeKitReleaseTag || needs.release.outputs.release_tag }}
+              run: |
+                  set -eu
+                  CHECKED_OUT_SHA="$(git rev-parse HEAD)"
+                  if [ -n "$EXPECTED_SHA" ] && [ "$CHECKED_OUT_SHA" != "$EXPECTED_SHA" ]; then
+                      echo "${RELEASE_TAG} resolves to ${CHECKED_OUT_SHA}, expected ${EXPECTED_SHA}"
+                      exit 1
+                  fi
+                  RELEASE_VERSION="${RELEASE_TAG#v}"
+                  if [ "v${RELEASE_VERSION}" != "$RELEASE_TAG" ]; then
+                      echo "Release version ${RELEASE_VERSION} does not match ${RELEASE_TAG}"
+                      exit 1
+                  fi
+                  REMOTE_TAG_REFS="$(git ls-remote --exit-code --tags origin \
+                      "refs/tags/${RELEASE_TAG}" "refs/tags/${RELEASE_TAG}^{}")"
+                  REMOTE_TAG_SHA="$(printf '%s\n' "$REMOTE_TAG_REFS" |
+                      awk '$2 ~ /\^\{\}$/ { print $1; exit }')"
+                  if [ -z "$REMOTE_TAG_SHA" ]; then
+                      REMOTE_TAG_SHA="$(printf '%s\n' "$REMOTE_TAG_REFS" |
+                          awk '$2 !~ /\^\{\}$/ { print $1; exit }')"
+                  fi
+                  if [ "$REMOTE_TAG_SHA" != "$CHECKED_OUT_SHA" ]; then
+                      echo "Remote tag ${RELEASE_TAG} does not resolve to ${CHECKED_OUT_SHA}"
+                      exit 1
+                  fi
+                  {
+                      echo "RELEASE_TAG=${RELEASE_TAG}"
+                      echo "RELEASE_VERSION=${RELEASE_VERSION}"
+                      echo "RELEASE_SHA=${CHECKED_OUT_SHA}"
+                  } >> "$GITHUB_ENV"
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 24.19.0
+                  registry-url: 'https://registry.npmjs.org'
+
+            - name: Publish kits sequentially and audit all packages
+              # Preserve GitHub's authentic dispatch identity for npm OIDC.
+              # The checked-out release source is bound separately by the
+              # verified tag SHA and exact tarball integrity.
+              run: node scripts/publish-kits.js
+
+            - name: Reverify immutable release tag
+              if: ${{ always() }}
+              run: |
+                  set -eu
+                  REMOTE_TAG_REFS="$(git ls-remote --exit-code --tags origin \
+                      "refs/tags/${RELEASE_TAG}" "refs/tags/${RELEASE_TAG}^{}")"
+                  REMOTE_TAG_SHA="$(printf '%s\n' "$REMOTE_TAG_REFS" |
+                      awk '$2 ~ /\^\{\}$/ { print $1; exit }')"
+                  if [ -z "$REMOTE_TAG_SHA" ]; then
+                      REMOTE_TAG_SHA="$(printf '%s\n' "$REMOTE_TAG_REFS" |
+                          awk '$2 !~ /\^\{\}$/ { print $1; exit }')"
+                  fi
+                  if [ "$REMOTE_TAG_SHA" != "$RELEASE_SHA" ]; then
+                      echo "Remote tag ${RELEASE_TAG} moved during kit publication"
+                      exit 1
+                  fi
+
+            - name: Archive npm failure logs
+              uses: actions/upload-artifact@v6
+              if: failure()
+              with:
+                  name: npm-logs-publish-kits
+                  path: ~/.npm/_logs
