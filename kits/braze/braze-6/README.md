@@ -15,9 +15,9 @@ If you are still on the V3, V4, or V5 kit, we recommend updating straight to V6 
 - [Upgrading from V3 to V6](#upgrading-from-v3-to-v6) — largest change; the `appboy` global goes away
 - [Upgrading from V4 to V6](#upgrading-from-v4-to-v6) — moderate; deprecated API cleanup plus News Feed removal
 - [Upgrading from V5 to V6](#upgrading-from-v5-to-v6) — smallest; News Feed removal and card-analytics renames
-- [Write version-tolerant code](#write-version-tolerant-code) — ship code that works before and after you select Version 6
+- [Write version-tolerant code](#write-version-tolerant-code) — snippet/CDN only; ship code that works before and after you select Version 6
 
-**Full, authoritative upgrade instructions live in the mParticle docs: [Braze Event Integration → Braze Web Kit Critical Updates and Timelines → Opt In to Braze SDK Version 6](https://docs.mparticle.com/integrations/braze/event/).**
+See the [Braze Event Integration](https://docs.mparticle.com/integrations/braze/event/) docs.
 
 ---
 
@@ -26,13 +26,13 @@ If you are still on the V3, V4, or V5 kit, we recommend updating straight to V6 
 Regardless of which version you are coming from, the mechanics are the same:
 
 1. **Install the kit** (only if you self-host mParticle via npm — snippet/CDN users have it delivered automatically):
-   - Core Web SDK v3: `npm install @mparticle/web-braze-kit-6`
-   - Core Web SDK v2: `npm install @mparticle/web-braze-kit@^6`
+   - Self-hosting via npm with **core Web SDK v3 (latest)**: `npm install @mparticle/web-braze-kit-6`
+   - Self-hosting via npm with **core Web SDK v2 (legacy)**: `npm install @mparticle/web-braze-kit@^6`
 2. **Select `Version 6`** under `Braze Web SDK Version` in your Braze connection settings in the mParticle UI. **This is required for both npm and snippet/CDN integrations** — installing the package alone does not switch you over.
-3. **Add defensive code**, if you call Braze directly, so your site works before and after the switch. See [Write version-tolerant code](#write-version-tolerant-code) and use the example for the version you are coming from.
+3. **Add defensive code** if you load mParticle via the snippet and call Braze directly. Skip this if you self-host via npm. See [Write version-tolerant code](#write-version-tolerant-code) and use the example for the version you are coming from.
 4. **Update your push service worker**, if you use push. See [Push notifications](#push-notifications).
 
-If you never call Braze directly from your own code, skip step 3; steps 1, 2, and 4 are the entire upgrade. The code samples below only matter if you reference `window.appboy` or `window.braze` yourself.
+If you never call Braze directly from your own code, or you self-host via npm, skip step 3. The code samples below only matter if you reference `window.appboy` or `window.braze` yourself.
 
 We recommend shipping your code changes **before** flipping the version setting wherever possible, so that the code change and the version change remain two separately revertible steps.
 
@@ -142,7 +142,9 @@ window.braze.logContentCardImpressions([card]);
 
 ## Write version-tolerant code
 
-Selecting `Version 6` in your connection settings swaps the kit that loads on your site, and that happens outside of your own deploy. If you call Braze directly, ship code that works against both versions first, then flip the setting.
+Do this if you load mParticle via the snippet. After you select `Version 6`, cache busting can leave some visitors on the old kit for a while, so if you call Braze directly, ship code that works against both versions first, then flip the setting.
+
+If you self-host via npm, you control when the kit version ships with your own deploy, so you do not need version-tolerant fallbacks — update your Braze calls and deploy them together with the V6 kit.
 
 Use the example that matches the version you are coming from. Search your codebase for every remaining direct `appboy` or `braze` call and apply the same pattern, using the mapping table for your starting version and Braze's changelog to find the V6 equivalent of each one.
 
