@@ -21,7 +21,8 @@
     ],
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/mParticle/mparticle-web-sdk.git"
+        "url": "https://github.com/mParticle/mparticle-web-sdk",
+        "directory": "kits/roktpayplus"
     },
     "scripts": {
         "build": "vite build",

@@ -15,7 +15,11 @@
         "provenance": true,
         "registry": "https://registry.npmjs.org"
     },
-    "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-facebook",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mParticle/mparticle-web-sdk",
+        "directory": "kits/facebook"
+    },
     "scripts": {
         "build": "rollup --config rollup.config.js",
         "watch": "rollup --config rollup.config.js -w",

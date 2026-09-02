@@ -1,7 +1,11 @@
 {
     "name": "@mparticle/web-double-click-kit",
     "version": "3.0.0",
-    "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-doubleclick",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mParticle/mparticle-web-sdk",
+        "directory": "kits/doubleclick"
+    },
     "main": "dist/DoubleClick-Kit.common.js",
     "browser": "dist/DoubleClick-Kit.common.js",
     "files": [

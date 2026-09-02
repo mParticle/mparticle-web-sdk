@@ -13,7 +13,7 @@
     "homepage": "https://github.com/mParticle/mparticle-web-sdk/tree/main/kits/amplitude/amplitude-8#readme",
     "repository": {
         "type": "git",
-        "url": "https://github.com/mParticle/mparticle-web-sdk.git",
+        "url": "https://github.com/mParticle/mparticle-web-sdk",
         "directory": "kits/amplitude/amplitude-8"
     },
     "scripts": {

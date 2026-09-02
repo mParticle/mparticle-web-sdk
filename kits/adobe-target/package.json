@@ -35,5 +35,10 @@
     },
     "dependencies": {
         "@mparticle/web-sdk": "^3.0.0"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mParticle/mparticle-web-sdk",
+        "directory": "kits/adobe-target"
     }
 }

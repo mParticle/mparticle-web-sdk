@@ -18,7 +18,11 @@
         "dist/Rokt-Kit.iife.js",
         "dist/Rokt-Kit.d.ts"
     ],
-    "repository": "https://github.com/mParticle/mparticle-web-sdk",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mParticle/mparticle-web-sdk",
+        "directory": "kits/rokt"
+    },
     "scripts": {
         "build": "vite build",
         "build:watch": "vite build --watch",
