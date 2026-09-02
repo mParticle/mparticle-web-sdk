@@ -196,8 +196,6 @@ If you use push notifications, your `service-worker.js` should import the V6 ser
 self.importScripts('https://static.mparticle.com/sdk/js/braze/service-worker-6.5.0.js');
 ```
 
-Earlier kits referenced `service-worker-3.5.0.js`, `service-worker-4.2.1.js`, and `service-worker-5.5.0.js` respectively. In mParticle's testing Braze's push notifications work regardless of which service worker version is used, but you should update this file to ensure future compatibility.
-
 mParticle hosts Braze's service worker to avoid unpredictable versioning issues — do not point at Braze's own service worker CDN.
 
 ---

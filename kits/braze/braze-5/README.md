@@ -86,7 +86,7 @@ If you use push notifications, update your `service-worker.js` to import the V6 
 self.importScripts('https://static.mparticle.com/sdk/js/braze/service-worker-6.5.0.js');
 ```
 
-The V5 kit references `service-worker-5.5.0.js`. mParticle hosts Braze's service worker to avoid unpredictable versioning issues — do not point at Braze's own service worker CDN.
+mParticle hosts Braze's service worker to avoid unpredictable versioning issues — do not point at Braze's own service worker CDN.
 
 ---
 
