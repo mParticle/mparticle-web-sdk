@@ -42,6 +42,15 @@ describe('kit release scripts', () => {
         expect(workflow).toContain(
             "if: ${{ inputs.resumeKitReleaseTag == '' }}"
         );
+        expect(workflow).not.toContain(
+            'NEXT_RELEASE_VERSION_FILE: ${{ runner.temp }}'
+        );
+        expect(workflow).toContain(
+            'NEXT_RELEASE_VERSION_FILE=$RUNNER_TEMP/next-release-version'
+        );
+        expect(workflow).toContain(
+            'if [ -z "${RELEASE_TAG:-}" ] || [ -z "${RELEASE_SHA:-}" ]; then'
+        );
     });
 
     it('loads a unique, complete publish inventory', () => {
@@ -97,6 +106,16 @@ describe('kit release scripts', () => {
                 'next'
             )
         ).not.toThrow();
+        expect(() =>
+            assertDistTagWillNotMoveBackward(
+                '@mparticle/example',
+                '3.1.0-rc.1',
+                '3.1.0',
+                'next'
+            )
+        ).toThrow(
+            '@mparticle/example dist-tag next must point to a stable semantic version'
+        );
     });
 
     it('blocks a new V3 release until every kit matches core next', () => {

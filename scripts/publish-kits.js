@@ -63,12 +63,25 @@ function compareStableVersions(left, right) {
     return 0;
 }
 
+function validateStableDistTagVersion(packageName, version, distTag) {
+    try {
+        validateVersion(version);
+    } catch {
+        throw new Error(
+            `${packageName} dist-tag ${distTag} must point to a stable semantic version, received ${version}`
+        );
+    }
+}
+
 function assertDistTagWillNotMoveBackward(
     packageName,
     currentVersion,
     targetVersion,
     distTag
 ) {
+    if (currentVersion) {
+        validateStableDistTagVersion(packageName, currentVersion, distTag);
+    }
     if (
         currentVersion &&
         compareStableVersions(currentVersion, targetVersion) > 0
@@ -129,7 +142,7 @@ function verifyCurrentReleaseComplete(
             `${corePackageName} has no ${distTag} version to use as the current V3 release baseline`
         );
     }
-    validateVersion(currentCoreVersion);
+    validateStableDistTagVersion(corePackageName, currentCoreVersion, distTag);
 
     const incompletePackages = [];
     let kitsWithCurrentVersion = 0;
