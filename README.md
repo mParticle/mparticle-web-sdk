@@ -148,9 +148,21 @@ workflows in order:
    (`staging-step-1.yml`): select `staging` for `track=v2`, or `v3-staging` for
    `track=v3`. This workflow builds and tests the track, creates and merges a
    generated release branch, runs semantic-release, and publishes the npm
-   release. `dryRun=true` previews the merge and semantic-release result
+   release. Before a new v3 release can advance, every existing kit `next` tag
+   must match the core SDK's current `next` version. The one-time `3.0.0`
+   bootstrap permits all kit tags to be absent so the first synchronized release
+   can establish them. After building the target version, Step 1 also packs and
+   registry-preflights all kit artifacts before publishing core. It then checks
+   out the immutable release tag, publishes all
+   packages in `kits/publish-matrix.json` sequentially, and verifies that the
+   core SDK and every kit have the expected version, artifact integrity, and
+   npm dist-tag. A rerun skips an existing kit only when its artifact is
+   identical. `dryRun=true` previews the merge and semantic-release result
    without creating a branch or publishing; `dryRun=false` creates/pushes the
-   release branch and publishes.
+   release branch and publishes. If core publishes but kit publication cannot
+   finish, rerun Step 1 from `v3-staging` with `track=v3`, `dryRun=false`, and
+   `resumeKitReleaseTag` set to the exact Step 1 tag. Recovery validates that
+   immutable tag and resumes kits without republishing core.
 2. **Staging Release - Step 2: Publish SDK Release to Release Order Branch**
    (`staging-step-2.yml`, optional): select `master` for v2 or `main` for v3.
    The source-ref guard accepts either `master` or `main`, but use the track's
@@ -175,6 +187,39 @@ Safe sequence: run Step 1 with `dryRun=true`, then Step 1 with `dryRun=false`;
 copy its release tag; optionally preview and run Step 2 for each needed
 release-order branch; finally run Step 3 with `dryRun=true`, then
 `dryRun=false`.
+
+### Recover an incomplete v3 kit publication
+
+A real v3 Step 1 run can publish core and create the GitHub Release before all
+33 kits finish. If the kit job fails:
+
+1. Do not start a newer release or run Step 2 or Step 3.
+2. Copy the exact release tag from the failed Step 1 run.
+3. Use the failed job and npm package audit summary to identify the first
+   missing or rejected kit. Correct its npm or trusted-publisher configuration.
+4. Dispatch **Staging Release - Step 1** from `v3-staging` with `track=v3`,
+   `dryRun=false`, and `resumeKitReleaseTag` set to the failed run's exact tag.
+5. Wait for recovery to verify core and all 33 kits at that version on `next`.
+   Existing byte-identical packages are skipped and only missing kits publish.
+6. Continue to Step 2 or Step 3 only after the recovery run is green.
+
+If recovery reports that the tagged core version is missing from npm, stop the
+kit recovery. Semantic-release may have pushed the generated staging commit and
+tag before core publication failed:
+
+1. Wait for npm propagation and confirm whether the tagged core version exists.
+2. If core appears, rerun the kit recovery above with the same tag.
+3. If core is confirmed absent, use the controlled maintainer procedure to
+   restore `v3-staging` to the parent of the generated release commit and delete
+   the automation-created orphan tag.
+4. Rerun a normal Step 1 release with `resumeKitReleaseTag` empty.
+
+Do not delete or move the tag until npm absence is confirmed. An npm publish
+that times out locally can still succeed in the registry.
+
+If core's `next` tag changes without a corresponding Step 1 Git tag, do not use
+the bootstrap exception or guess a recovery tag. Stop releases and reconcile
+the unexpected npm and Git state before continuing.
 
 The release controls must remain synchronized across the v2 and v3 trunks.
 These files must be byte-for-byte identical on `master` and `main`:
