@@ -10,8 +10,6 @@ This kit bundles **Braze Web SDK V4** (`@braze/web-sdk@^4.2.1`) and exposes it o
 
 Braze is now on **V6**, and V6 is the version mParticle recommends for all customers. We recommend updating straight to V6 for latest support of all Braze features.
 
-You already did the hard part: the `appboy` → `braze` rename happened in V4, so V4 → V6 is a much smaller change than V3 → V6.
-
 See the [Braze Event Integration](https://docs.mparticle.com/integrations/braze/event/) docs.
 
 ### How to upgrade

@@ -12,9 +12,9 @@ This kit bundles **Braze Web SDK V6** (`@braze/web-sdk@^6.0.0`) and exposes it o
 
 If you are still on the V3, V4, or V5 kit, we recommend updating straight to V6 for latest support of all Braze features. Jump to the section for your current version:
 
-- [Upgrading from V3 to V6](#upgrading-from-v3-to-v6) — largest change; the `appboy` global goes away
-- [Upgrading from V4 to V6](#upgrading-from-v4-to-v6) — moderate; deprecated API cleanup plus News Feed removal
-- [Upgrading from V5 to V6](#upgrading-from-v5-to-v6) — smallest; News Feed removal and card-analytics renames
+- [Upgrading from V3 to V6](#upgrading-from-v3-to-v6) — the `appboy` global goes away
+- [Upgrading from V4 to V6](#upgrading-from-v4-to-v6) — deprecated API cleanup plus News Feed removal
+- [Upgrading from V5 to V6](#upgrading-from-v5-to-v6) — News Feed removal and card-analytics renames
 - [Write version-tolerant code](#write-version-tolerant-code) — snippet/CDN only; ship code that works before and after you select Version 6
 
 See the [Braze Event Integration](https://docs.mparticle.com/integrations/braze/event/) docs.
@@ -85,7 +85,7 @@ window.braze.showContentCards();
 
 ## Upgrading from V4 to V6
 
-We recommend updating straight to V6 for latest support of all Braze features. You already have the `braze` global.
+We recommend updating straight to V6 for latest support of all Braze features.
 
 | V4 | V6 |
 | --- | --- |

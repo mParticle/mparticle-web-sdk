@@ -10,7 +10,7 @@ This kit bundles **Braze Web SDK V5** (`@braze/web-sdk@^5.5.0`) and exposes it o
 
 Braze is now on **V6**, and V6 is the version mParticle recommends for all customers. We recommend updating straight to V6 for latest support of all Braze features.
 
-This is the smallest of the Braze upgrades: the `braze` global, initialization options, and the vast majority of the API are unchanged. Only two areas break — the **legacy News Feed**, which V6 removes entirely, and **manual card-analytics method names**.
+The `braze` global, initialization options, and the vast majority of the API are unchanged. Two areas break — the **legacy News Feed**, which V6 removes entirely, and **manual card-analytics method names**.
 
 See the [Braze Event Integration](https://docs.mparticle.com/integrations/braze/event/) docs.
 
