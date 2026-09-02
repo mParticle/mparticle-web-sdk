@@ -19,8 +19,9 @@ Braze is now on **V6**, and V6 is the version mParticle recommends for all custo
    - Self-hosting via npm with **core Web SDK v3**: `npm install @mparticle/web-braze-kit-6`
    - Self-hosting via npm with **core Web SDK v2**: `npm install @mparticle/web-braze-kit@^6`
    - Loading mParticle via snippet/CDN: nothing to install; the kit is delivered for you.
-3. **Select `Version 6`** under `Braze Web SDK Version` in your Braze connection settings in the mParticle UI. This step is **required for both npm and snippet/CDN** integrations — installing the package alone does not switch you over.
-4. **Update your push service worker**, if you use push. See [Push notifications](#push-notifications).
+3. **Add defensive code**, if you call Braze directly, so your site works before and after the switch. See [Write version-tolerant code](#write-version-tolerant-code).
+4. **Select `Version 6`** under `Braze Web SDK Version` in your Braze connection settings in the mParticle UI. This step is **required for both npm and snippet/CDN** integrations — installing the package alone does not switch you over.
+5. **Update your push service worker**, if you use push. See [Push notifications](#push-notifications).
 
 ---
 
@@ -70,6 +71,26 @@ window.braze.showContentCards();
 
 ---
 
+## Write version-tolerant code
+
+Selecting `Version 6` in your connection settings swaps the kit that loads on your site, and that happens outside of your own deploy. If you call Braze directly, ship code that works against both versions first, then flip the setting.
+
+The V3 → V6 change that matters most is the global rename, so guard on which global is present:
+
+```javascript
+if (window.braze) {
+    window.braze.showContentCards();
+} else if (window.appboy) {
+    window.appboy.display.showContentCards();
+}
+```
+
+Search your codebase for every remaining direct `appboy` call and apply the same pattern, using the mapping table above and Braze's changelog to find the V6 equivalent of each one.
+
+Once V6 is live and verified, you can delete the `window.appboy` fallbacks and call `window.braze` directly.
+
+---
+
 ## Push notifications
 
 If you use push notifications, update your `service-worker.js` to import the V6 service worker that mParticle hosts:
@@ -79,14 +100,6 @@ self.importScripts('https://static.mparticle.com/sdk/js/braze/service-worker-6.5
 ```
 
 The V3 kit references `service-worker-3.5.0.js`. mParticle hosts Braze's service worker to avoid unpredictable versioning issues — do not point at Braze's own service worker CDN.
-
----
-
-## Transition from `@mparticle/web-appboy-kit` to `@mparticle/web-braze-kit`
-
-The legacy `@mparticle/web-appboy-kit` package on npm bundles **V2** of the Braze Web SDK and is deprecated. Its replacement is the Braze kit you are reading about now, which lives in this repository (the standalone [Braze web kit repo](https://github.com/mparticle-integrations/mparticle-javascript-integration-braze) superseded the deprecated [Appboy web kit repo](https://github.com/mparticle-integrations/mparticle-javascript-integration-appboy)).
-
-If you are still on `@mparticle/web-appboy-kit`, you are on Braze V2. Account for the [V2 → V3 breaking changes](https://github.com/braze-inc/braze-web-sdk/blob/master/UPGRADE_GUIDE.md#v2-to-v3) — removal of the `appboy.ab` namespace, the `InAppMessage.Button` → `InAppMessageButton` rename, removal of the `openSession()` / `changeUser()` callback parameters, and `baseUrl` becoming required — then follow the V3 → V6 instructions above. We recommend updating straight to V6 for latest support of all Braze features.
 
 ---
 

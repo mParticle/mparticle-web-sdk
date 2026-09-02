@@ -21,8 +21,9 @@ You already did the hard part: the `appboy` → `braze` rename happened in V4, s
    - Self-hosting via npm with **core Web SDK v3**: `npm install @mparticle/web-braze-kit-6`
    - Self-hosting via npm with **core Web SDK v2**: `npm install @mparticle/web-braze-kit@^6`
    - Loading mParticle via snippet/CDN: nothing to install; the kit is delivered for you.
-3. **Select `Version 6`** under `Braze Web SDK Version` in your Braze connection settings in the mParticle UI. This step is **required for both npm and snippet/CDN** integrations — installing the package alone does not switch you over.
-4. **Update your push service worker**, if you use push. See [Push notifications](#push-notifications).
+3. **Add defensive code**, if you call Braze directly, so your site works before and after the switch. See [Write version-tolerant code](#write-version-tolerant-code).
+4. **Select `Version 6`** under `Braze Web SDK Version` in your Braze connection settings in the mParticle UI. This step is **required for both npm and snippet/CDN** integrations — installing the package alone does not switch you over.
+5. **Update your push service worker**, if you use push. See [Push notifications](#push-notifications).
 
 ---
 
@@ -56,6 +57,26 @@ window.braze.logCardImpressions([card], true);
 // V6
 window.braze.logContentCardImpressions([card]);
 ```
+
+---
+
+## Write version-tolerant code
+
+Selecting `Version 6` in your connection settings swaps the kit that loads on your site, and that happens outside of your own deploy. If you call Braze directly, ship code that works against both versions first, then flip the setting.
+
+The `braze` global is the same in V4 and V6, so guard on the method instead. For the card-analytics renames:
+
+```javascript
+if (window.braze.logContentCardImpressions) {
+    window.braze.logContentCardImpressions([card]);
+} else {
+    window.braze.logCardImpressions([card], true);
+}
+```
+
+Search your codebase for every remaining direct `braze` call and apply the same pattern, using the mapping table above and Braze's changelog to find the V6 equivalent of each one.
+
+Once V6 is live and verified, you can delete the fallbacks and call the V6 methods directly.
 
 ---
 
