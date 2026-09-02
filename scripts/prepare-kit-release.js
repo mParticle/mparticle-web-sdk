@@ -118,6 +118,10 @@ function collectBuildPaths(publishEntries) {
     return buildPaths;
 }
 
+function serializeBuildPaths(buildPaths) {
+    return buildPaths.map(buildPath => `${buildPath}\n`).join('');
+}
+
 function collectManifestPaths(publishPaths, testEntries) {
     const manifestPaths = new Set(publishPaths);
     for (const entry of testEntries) {
@@ -208,6 +212,7 @@ if (require.main === module) {
 module.exports = {
     loadReleaseInventory,
     prepareKitRelease,
+    serializeBuildPaths,
     validateRepository,
     validateVersion,
 };

@@ -27,8 +27,12 @@ if [ "$TRACK" = "v3" ]; then
     trap 'rm -f "$BUILD_PATHS_FILE"' 0
     trap 'exit 1' 1 2 15
     node -e "
-        const inventory = require('./scripts/prepare-kit-release').loadReleaseInventory();
-        process.stdout.write(inventory.buildPaths.join('\n'));
+        const {
+            loadReleaseInventory,
+            serializeBuildPaths,
+        } = require('./scripts/prepare-kit-release');
+        const inventory = loadReleaseInventory();
+        process.stdout.write(serializeBuildPaths(inventory.buildPaths));
     " > "$BUILD_PATHS_FILE"
     while IFS= read -r KIT_PATH; do
         [ -n "$KIT_PATH" ] || continue

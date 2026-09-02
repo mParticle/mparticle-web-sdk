@@ -4,6 +4,7 @@ import * as path from 'path';
 
 const {
     loadReleaseInventory,
+    serializeBuildPaths,
     validateVersion,
 } = require('../../scripts/prepare-kit-release');
 const {
@@ -59,6 +60,15 @@ describe('kit release scripts', () => {
         expect(inventory.publishOutputPaths).toContain(
             'kits/adobe/packages/AdobeServer/dist'
         );
+    });
+
+    it('terminates every serialized kit build path with a newline', () => {
+        const buildPaths = loadReleaseInventory().buildPaths;
+        const serializedBuildPaths = serializeBuildPaths(buildPaths);
+
+        expect(serializedBuildPaths.endsWith('\n')).toBe(true);
+        expect(serializedBuildPaths.trimEnd().split('\n')).toEqual(buildPaths);
+        expect(buildPaths[buildPaths.length - 1]).toBe('kits/roktpayplus');
     });
 
     it('requires a stable semantic version', () => {
