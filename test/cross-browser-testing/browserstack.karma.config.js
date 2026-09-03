@@ -70,7 +70,8 @@ module.exports = function(config) {
     config.set({
       browserStack: {
         username: process.env.BS_USERNAME,
-        accessKey: process.env.BS_ACCESS_KEY
+        accessKey: process.env.BS_ACCESS_KEY,
+        idleTimeout: 300,
       },
       autoWatch: false,
       customLaunchers,
@@ -90,11 +91,11 @@ module.exports = function(config) {
         outputDir: 'reports/',
         outputFile: 'test-karma.xml',
       },
-      // These settings are added because the connection to Browserstack
-      // can sometimes be unstable, requiring re-connections, or a longer than 
-      // 2000 ms (default) timeout 
-      browserDisconnectTimeout: 50000,
-      browserDisconnectTolerance: 5,
-      concurrency: 5,
+      captureTimeout: 180000,
+      browserNoActivityTimeout: 180000,
+      browserDisconnectTimeout: 120000,
+      browserDisconnectTolerance: 1,
+      concurrency: 2,
+      retryLimit: 2,
     });
 };
