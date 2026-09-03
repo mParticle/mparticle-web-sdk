@@ -1,10 +1,12 @@
 // If we are testing this in a node environemnt, we load the common.js Braze kit
 
-var brazeInstance;
+var brazeInstance, packageVersion;
 if (typeof require !== 'undefined') {
+    packageVersion = require('../package.json').version;
     brazeInstance = require('../dist/BrazeKit.common').default;
 } else {
     brazeInstance = mpBrazeKitV5.default;
+    packageVersion = brazeInstance.getVersion();
 }
 
 describe('Braze Forwarder', function() {
@@ -167,6 +169,8 @@ describe('Braze Forwarder', function() {
             this.subscribeToInAppMessageCalled = false;
             this.eventProperties = [];
             this.purchaseEventProperties = [];
+            this.logEcommerceEventCalled = false;
+            this.loggedEcommerceEvents = [];
 
             this.user = new MockBrazeUser();
             this.display = new MockDisplay();
@@ -230,6 +234,14 @@ describe('Braze Forwarder', function() {
                     quantity,
                     attributes,
                 ]);
+
+                // Return true to indicate event should be reported
+                return true;
+            };
+
+            this.logEcommerceEvent = function(event) {
+                self.logEcommerceEventCalled = true;
+                self.loggedEcommerceEvents.push(event);
 
                 // Return true to indicate event should be reported
                 return true;
@@ -327,6 +339,10 @@ describe('Braze Forwarder', function() {
 
     it('should have a property of suffix', function() {
         window.mParticle.forwarder.should.have.property('suffix', 'v6');
+    });
+
+    it('should expose its package version', function() {
+        brazeInstance.getVersion().should.equal(packageVersion);
     });
 
     it('should register a forwarder with version number onto a config', function() {
@@ -2591,6 +2607,546 @@ user.getUserIdentities is not a function,\n`;
             };
 
             impressionEvent.should.eql(expectedImpressionEvent);
+        });
+    });
+    describe('Recommended eCommerce Events (useEcommerceRecommendedEvents)', function() {
+        function initRecommended(extraSettings) {
+            var settings = {
+                apiKey: '123456',
+                useEcommerceRecommendedEvents: 'True',
+            };
+            if (extraSettings) {
+                for (var key in extraSettings) {
+                    settings[key] = extraSettings[key];
+                }
+            }
+            mParticle.forwarder.init(
+                settings,
+                reportService.cb,
+                true,
+                null,
+                { gender: 'm' },
+                [{ Identity: 'testUser', Type: IdentityType.CustomerId }],
+                '1.1',
+                'My App'
+            );
+        }
+
+        function recommendedProduct() {
+            return {
+                Sku: 'sku1',
+                Name: 'Product Name',
+                Price: '10',
+                Quantity: 2,
+                Brand: 'brandX',
+                Category: 'catY',
+                Variant: 'variantZ',
+                Position: 3,
+                Attributes: {
+                    image_url: 'https://example.com/img.jpg',
+                    product_url: 'https://example.com/product',
+                    customKey: 'customVal',
+                },
+            };
+        }
+
+        beforeEach(function() {
+            initRecommended();
+        });
+
+        it('should forward add_to_cart as ecommerce.cart_updated with action add', function() {
+            mParticle.forwarder.process({
+                EventName: 'eCommerce - add_to_cart',
+                EventDataType: MessageType.Commerce,
+                EventCategory: CommerceEventType.ProductAddToCart,
+                CurrencyCode: 'USD',
+                EventAttributes: { cart_id: 'cart-123' },
+                ProductAction: {
+                    TotalAmount: 20,
+                    ProductList: [recommendedProduct()],
+                },
+            });
+            window.braze.should.have.property('logEcommerceEventCalled', true);
+            window.braze.loggedEcommerceEvents.should.have.lengthOf(1);
+            var event = window.braze.loggedEcommerceEvents[0];
+            event.name.should.equal('ecommerce.cart_updated');
+            event.properties.action.should.equal('add');
+            event.properties.cart_id.should.equal('cart-123');
+            event.properties.currency.should.equal('USD');
+            event.properties.source.should.equal('web');
+            event.properties.total_value.should.equal(20);
+            event.properties.products.should.have.lengthOf(1);
+            var lineItem = event.properties.products[0];
+            lineItem.product_id.should.equal('sku1');
+            lineItem.product_name.should.equal('Product Name');
+            lineItem.variant_id.should.equal('variantZ');
+            lineItem.quantity.should.equal(2);
+            lineItem.price.should.equal(10);
+            lineItem.image_url.should.equal('https://example.com/img.jpg');
+            lineItem.product_url.should.equal('https://example.com/product');
+            // custom/extra props live in metadata, never at the top level
+            lineItem.metadata.brand.should.equal('brandX');
+            lineItem.metadata.category.should.equal('catY');
+            lineItem.metadata.customKey.should.equal('customVal');
+            // cart_id is promoted to the typed cart_id field, so it must not be duplicated in metadata
+            (event.properties.metadata || {}).should.not.have.property(
+                'cart_id'
+            );
+        });
+
+        // Mirrors what the config API actually delivers: "custom JSON" with the
+        // quotes HTML-escaped, e.g.
+        //   [{&quot;jsmap&quot;:null,&quot;map&quot;:null,
+        //     &quot;maptype&quot;:&quot;EventAttributeClass.Name&quot;,
+        //     &quot;value&quot;:&quot;my_attr&quot;}]
+        // maptype varies (EventAttributeClass.Name for event attributes,
+        // ProductAttributeSelector.Name for product ones) and is not used.
+        function attributeMapping(attributeName, mapType) {
+            return JSON.stringify([
+                {
+                    jsmap: null,
+                    map: null,
+                    maptype: mapType || 'EventAttributeClass.Name',
+                    value: attributeName,
+                },
+            ]).replace(/"/g, '&quot;');
+        }
+
+        // Verbatim setting values from the /config endpoint of the QA1 workspace
+        // used to validate this feature. Every mapping test below is built on
+        // attributeMapping, so if that helper drifts from what the server really
+        // sends, those tests keep passing while the kit is broken in production -
+        // which is how the HTML escaping was missed the first time. Pinning the
+        // helper against real payloads is what makes the rest trustworthy.
+        var LIVE_EVENT_ATTRIBUTE_SETTING =
+            '[{&quot;jsmap&quot;:null,&quot;map&quot;:null,&quot;maptype&quot;:&quot;EventAttributeClass.Name&quot;,&quot;value&quot;:&quot;test_cart_id&quot;}]';
+        var LIVE_PRODUCT_ATTRIBUTE_SETTING =
+            '[{&quot;jsmap&quot;:null,&quot;map&quot;:null,&quot;maptype&quot;:&quot;ProductAttributeSelector.Name&quot;,&quot;value&quot;:&quot;Variant&quot;}]';
+
+        it('should build fixtures byte for byte identical to the live config', function() {
+            attributeMapping('test_cart_id').should.equal(
+                LIVE_EVENT_ATTRIBUTE_SETTING
+            );
+            attributeMapping(
+                'Variant',
+                'ProductAttributeSelector.Name'
+            ).should.equal(LIVE_PRODUCT_ATTRIBUTE_SETTING);
+        });
+
+        // Belt and braces: drive the kit with the live strings directly, so the
+        // mapping is proven even if the helper is wrong.
+        it('should honor the live config setting strings verbatim', function() {
+            initRecommended({
+                checkoutIdAttribute: LIVE_EVENT_ATTRIBUTE_SETTING,
+                imageUrlAttribute: LIVE_PRODUCT_ATTRIBUTE_SETTING,
+            });
+            var product = recommendedProduct();
+            product.Attributes = { Variant: 'https://example.com/hero.jpg' };
+
+            mParticle.forwarder.process({
+                EventName: 'eCommerce - checkout',
+                EventDataType: MessageType.Commerce,
+                EventCategory: CommerceEventType.ProductCheckout,
+                CurrencyCode: 'USD',
+                SessionId: 'session-abc',
+                EventAttributes: { test_cart_id: 'live-checkout-1' },
+                ProductAction: { TotalAmount: 20, ProductList: [product] },
+            });
+
+            var event = window.braze.loggedEcommerceEvents[0];
+            event.properties.checkout_id.should.equal('live-checkout-1');
+            event.properties.products[0].image_url.should.equal(
+                'https://example.com/hero.jpg'
+            );
+        });
+
+        function processAddToCart(eventAttributes, product) {
+            mParticle.forwarder.process({
+                EventName: 'eCommerce - add_to_cart',
+                EventDataType: MessageType.Commerce,
+                EventCategory: CommerceEventType.ProductAddToCart,
+                CurrencyCode: 'USD',
+                SessionId: 'session-abc',
+                EventAttributes: eventAttributes || {},
+                ProductAction: {
+                    TotalAmount: 20,
+                    ProductList: [product || recommendedProduct()],
+                },
+            });
+            return window.braze.loggedEcommerceEvents[0];
+        }
+
+        it('should read cart_id from the configured cartIdAttribute', function() {
+            initRecommended({
+                cartIdAttribute: attributeMapping('my_basket_ref'),
+            });
+            var event = processAddToCart({ my_basket_ref: 'basket-999' });
+            event.properties.cart_id.should.equal('basket-999');
+            // the mapped attribute is promoted, so it must not also sit in metadata
+            (event.properties.metadata || {}).should.not.have.property(
+                'my_basket_ref'
+            );
+        });
+
+        it('should read image_url and product_url from configured attributes', function() {
+            initRecommended({
+                imageUrlAttribute: attributeMapping('hero_shot'),
+                productUrlAttribute: attributeMapping('pdp_link'),
+            });
+            var product = recommendedProduct();
+            product.Attributes = {
+                hero_shot: 'https://example.com/hero.jpg',
+                pdp_link: 'https://example.com/pdp',
+            };
+            var lineItem = processAddToCart({}, product).properties.products[0];
+            lineItem.image_url.should.equal('https://example.com/hero.jpg');
+            lineItem.product_url.should.equal('https://example.com/pdp');
+            // promoted to typed fields, so not duplicated in product metadata
+            lineItem.metadata.should.not.have.property('hero_shot');
+            lineItem.metadata.should.not.have.property('pdp_link');
+        });
+
+        // The image/product URL settings select a product attribute, so the live
+        // config carries ProductAttributeSelector.Name rather than the event
+        // maptype. maptype is ignored, so both must behave identically.
+        it('should honor product-scoped maptype for URL attributes', function() {
+            initRecommended({
+                imageUrlAttribute: attributeMapping(
+                    'hero_shot',
+                    'ProductAttributeSelector.Name'
+                ),
+                productUrlAttribute: attributeMapping(
+                    'pdp_link',
+                    'ProductAttributeSelector.Name'
+                ),
+            });
+            var product = recommendedProduct();
+            product.Attributes = {
+                hero_shot: 'https://example.com/hero.jpg',
+                pdp_link: 'https://example.com/pdp',
+            };
+            var lineItem = processAddToCart({}, product).properties.products[0];
+            lineItem.image_url.should.equal('https://example.com/hero.jpg');
+            lineItem.product_url.should.equal('https://example.com/pdp');
+        });
+
+        // The configured name is prepended to the defaults rather than replacing
+        // them, so a product that uses the conventional key still resolves when the
+        // mapped attribute is absent.
+        it('should fall back to default URL keys when the mapped attribute is absent', function() {
+            initRecommended({
+                imageUrlAttribute: attributeMapping(
+                    'hero_shot',
+                    'ProductAttributeSelector.Name'
+                ),
+            });
+            var product = recommendedProduct();
+            product.Attributes = {
+                image_url: 'https://example.com/default.jpg',
+            };
+            var lineItem = processAddToCart({}, product).properties.products[0];
+            lineItem.image_url.should.equal(
+                'https://example.com/default.jpg'
+            );
+        });
+
+        // The same setting delivered without HTML escaping must still work.
+        it('should parse an attribute mapping that is not HTML escaped', function() {
+            initRecommended({
+                cartIdAttribute: JSON.stringify([
+                    {
+                        jsmap: null,
+                        map: null,
+                        maptype: 'EventAttributeClass.Name',
+                        value: 'my_basket_ref',
+                    },
+                ]),
+            });
+            processAddToCart({
+                my_basket_ref: 'basket-777',
+            }).properties.cart_id.should.equal('basket-777');
+        });
+
+        // maptype is not inspected, so a new selector type added by the platform
+        // cannot silently disable an otherwise valid mapping.
+        it('should honor a mapping regardless of maptype', function() {
+            initRecommended({
+                cartIdAttribute: attributeMapping(
+                    'my_basket_ref',
+                    'SomeFutureClass.Name'
+                ),
+            });
+            processAddToCart({
+                my_basket_ref: 'basket-999',
+            }).properties.cart_id.should.equal('basket-999');
+        });
+
+        it('should read subtotal_value from the configured subtotalValueAttribute', function() {
+            initRecommended({
+                subtotalValueAttribute: attributeMapping('order_subtotal'),
+            });
+            var event = processAddToCart({ order_subtotal: 42.5 });
+            event.properties.subtotal_value.should.equal(42.5);
+            // promoted to a typed field, so not duplicated in metadata
+            (event.properties.metadata || {}).should.not.have.property(
+                'order_subtotal'
+            );
+        });
+
+        it('should fall back to default attribute names when settings are unset', function() {
+            initRecommended({ cartIdAttribute: '[]', imageUrlAttribute: '[]' });
+            var event = processAddToCart({ cart_id: 'cart-123' });
+            event.properties.cart_id.should.equal('cart-123');
+            event.properties.products[0].image_url.should.equal(
+                'https://example.com/img.jpg'
+            );
+        });
+
+        it('should ignore a malformed attribute mapping setting', function() {
+            initRecommended({ cartIdAttribute: 'not-json' });
+            var event = processAddToCart({ cart_id: 'cart-123' });
+            event.properties.cart_id.should.equal('cart-123');
+        });
+
+        // Without this the kit generates a fresh id per event and Braze cannot
+        // correlate a cart across add/remove/checkout/order.
+        it('should fall back to the session id when no cart_id attribute exists', function() {
+            initRecommended();
+            var event = processAddToCart({});
+            event.properties.cart_id.should.equal('session-abc');
+        });
+
+        it('should forward remove_from_cart as ecommerce.cart_updated with action remove', function() {
+            mParticle.forwarder.process({
+                EventName: 'eCommerce - remove_from_cart',
+                EventDataType: MessageType.Commerce,
+                EventCategory: CommerceEventType.ProductRemoveFromCart,
+                CurrencyCode: 'USD',
+                EventAttributes: { cart_id: 'cart-123' },
+                ProductAction: { ProductList: [recommendedProduct()] },
+            });
+            window.braze.loggedEcommerceEvents.should.have.lengthOf(1);
+            var event = window.braze.loggedEcommerceEvents[0];
+            event.name.should.equal('ecommerce.cart_updated');
+            event.properties.action.should.equal('remove');
+        });
+
+        it('should forward checkout as ecommerce.checkout_started', function() {
+            mParticle.forwarder.process({
+                EventName: 'eCommerce - checkout',
+                EventDataType: MessageType.Commerce,
+                EventCategory: CommerceEventType.ProductCheckout,
+                CurrencyCode: 'USD',
+                EventAttributes: { checkout_id: 'checkout-9', cart_id: 'cart-123' },
+                ProductAction: {
+                    TotalAmount: 20,
+                    ProductList: [recommendedProduct()],
+                },
+            });
+            window.braze.loggedEcommerceEvents.should.have.lengthOf(1);
+            var event = window.braze.loggedEcommerceEvents[0];
+            event.name.should.equal('ecommerce.checkout_started');
+            event.properties.checkout_id.should.equal('checkout-9');
+            event.properties.cart_id.should.equal('cart-123');
+            event.properties.total_value.should.equal(20);
+        });
+
+        it('should forward view_detail as one ecommerce.product_viewed per product', function() {
+            mParticle.forwarder.process({
+                EventName: 'eCommerce - view_detail',
+                EventDataType: MessageType.Commerce,
+                EventCategory: CommerceEventType.ProductViewDetail,
+                CurrencyCode: 'USD',
+                ProductAction: {
+                    ProductList: [
+                        recommendedProduct(),
+                        {
+                            Sku: 'sku2',
+                            Name: 'Second',
+                            Price: '5',
+                            Quantity: 1,
+                        },
+                    ],
+                },
+            });
+            window.braze.loggedEcommerceEvents.should.have.lengthOf(2);
+            var first = window.braze.loggedEcommerceEvents[0];
+            first.name.should.equal('ecommerce.product_viewed');
+            first.properties.product_id.should.equal('sku1');
+            first.properties.image_url.should.equal(
+                'https://example.com/img.jpg'
+            );
+            var second = window.braze.loggedEcommerceEvents[1];
+            second.properties.product_id.should.equal('sku2');
+            // variant_id falls back to sku when the product has no variant
+            second.properties.variant_id.should.equal('sku2');
+        });
+
+        it('should forward purchase as ecommerce.order_placed', function() {
+            mParticle.forwarder.process({
+                EventName: 'eCommerce - purchase',
+                EventDataType: MessageType.Commerce,
+                EventCategory: CommerceEventType.ProductPurchase,
+                CurrencyCode: 'USD',
+                EventAttributes: { total_discounts: '3.5', subtotal_value: '40' },
+                ProductAction: {
+                    TransactionId: 'order-42',
+                    TotalAmount: 50,
+                    TaxAmount: 5,
+                    ShippingAmount: 7,
+                    Affiliation: 'the affiliation',
+                    ProductList: [recommendedProduct()],
+                },
+            });
+            window.braze.loggedEcommerceEvents.should.have.lengthOf(1);
+            var event = window.braze.loggedEcommerceEvents[0];
+            event.name.should.equal('ecommerce.order_placed');
+            event.properties.order_id.should.equal('order-42');
+            event.properties.total_value.should.equal(50);
+            event.properties.total_discounts.should.equal(3.5);
+            // tax/shipping/subtotal_value are recognized top-level attributes (Braze 6.9+)
+            event.properties.tax.should.equal(5);
+            event.properties.shipping.should.equal(7);
+            event.properties.subtotal_value.should.equal(40);
+            // affiliation has no typed field; preserved in metadata
+            event.properties.metadata.affiliation.should.equal(
+                'the affiliation'
+            );
+            // promoted top-level attrs must not be duplicated in metadata
+            event.properties.metadata.should.not.have.property(
+                'total_discounts'
+            );
+            event.properties.metadata.should.not.have.property(
+                'subtotal_value'
+            );
+        });
+
+        it('should send tax/shipping/subtotal_value as top-level attributes on cart_updated', function() {
+            mParticle.forwarder.process({
+                EventName: 'eCommerce - add_to_cart',
+                EventDataType: MessageType.Commerce,
+                EventCategory: CommerceEventType.ProductAddToCart,
+                CurrencyCode: 'USD',
+                EventAttributes: { cart_id: 'cart-123', subtotal_value: '40' },
+                ProductAction: {
+                    TotalAmount: 50,
+                    TaxAmount: 5,
+                    ShippingAmount: 7,
+                    ProductList: [recommendedProduct()],
+                },
+            });
+            var event = window.braze.loggedEcommerceEvents[0];
+            event.name.should.equal('ecommerce.cart_updated');
+            event.properties.tax.should.equal(5);
+            event.properties.shipping.should.equal(7);
+            event.properties.subtotal_value.should.equal(40);
+        });
+
+        it('should forward refund as an ecommerce.order_refunded custom event', function() {
+            mParticle.forwarder.process({
+                EventName: 'eCommerce - refund',
+                EventDataType: MessageType.Commerce,
+                EventCategory: CommerceEventType.ProductRefund,
+                CurrencyCode: 'USD',
+                EventAttributes: { subtotal_value: '40' },
+                ProductAction: {
+                    TransactionId: 'order-42',
+                    TotalAmount: 50,
+                    TaxAmount: 5,
+                    ShippingAmount: 7,
+                    ProductList: [recommendedProduct()],
+                },
+            });
+            // Refund has no typed Braze event; it is forwarded as a custom event.
+            window.braze.should.have.property('logEcommerceEventCalled', false);
+            window.braze.should.have.property('logCustomEventCalled', true);
+            var loggedEvent = window.braze.loggedEvents[0];
+            loggedEvent.name.should.equal('ecommerce.order_refunded');
+            loggedEvent.eventProperties.order_id.should.equal('order-42');
+            loggedEvent.eventProperties.source.should.equal('web');
+            loggedEvent.eventProperties.products.should.have.lengthOf(1);
+            // order_refunded has no recognized top-level tax/shipping/subtotal_value,
+            // so they are preserved in metadata rather than dropped.
+            loggedEvent.eventProperties.metadata.tax.should.equal(5);
+            loggedEvent.eventProperties.metadata.shipping.should.equal(7);
+            loggedEvent.eventProperties.metadata.subtotal_value.should.equal(40);
+        });
+
+        it('should fall back to legacy forwarding when the toggle is off', function() {
+            initRecommended({ useEcommerceRecommendedEvents: 'False' });
+            mParticle.forwarder.process({
+                EventName: 'eCommerce - purchase',
+                EventDataType: MessageType.Commerce,
+                EventCategory: CommerceEventType.ProductPurchase,
+                CurrencyCode: 'USD',
+                ProductAction: {
+                    TransactionId: 'order-42',
+                    TotalAmount: 50,
+                    ProductList: [recommendedProduct()],
+                },
+            });
+            window.braze.should.have.property('logEcommerceEventCalled', false);
+            window.braze.should.have.property('logPurchaseEventCalled', true);
+        });
+
+        it('should fall back to legacy forwarding for unsupported actions', function() {
+            mParticle.forwarder.process({
+                EventName: 'eCommerce - add_to_wishlist',
+                EventDataType: MessageType.Commerce,
+                EventCategory: CommerceEventType.ProductAddToWishlist,
+                CurrencyCode: 'USD',
+                ProductAction: { ProductList: [recommendedProduct()] },
+            });
+            // add_to_wishlist is not a recommended eCommerce event
+            window.braze.should.have.property('logEcommerceEventCalled', false);
+            window.braze.should.have.property('logCustomEventCalled', true);
+        });
+
+        it('should fall back to legacy forwarding when the host Braze SDK lacks logEcommerceEvent', function() {
+            delete window.braze.logEcommerceEvent;
+            mParticle.forwarder.process({
+                EventName: 'eCommerce - purchase',
+                EventDataType: MessageType.Commerce,
+                EventCategory: CommerceEventType.ProductPurchase,
+                CurrencyCode: 'USD',
+                ProductAction: {
+                    TransactionId: 'order-42',
+                    TotalAmount: 50,
+                    ProductList: [recommendedProduct()],
+                },
+            });
+            window.braze.should.have.property('logPurchaseEventCalled', true);
+        });
+
+        it('should fall back to a session/generated cart_id when none is provided', function() {
+            mParticle.forwarder.process({
+                EventName: 'eCommerce - add_to_cart',
+                EventDataType: MessageType.Commerce,
+                EventCategory: CommerceEventType.ProductAddToCart,
+                CurrencyCode: 'USD',
+                ProductAction: { ProductList: [recommendedProduct()] },
+            });
+            var event = window.braze.loggedEcommerceEvents[0];
+            // Matches Android/iOS: cart_id always resolves (custom attr ->
+            // session id -> generated id), never empty/undefined.
+            event.properties.cart_id.should.be.a.String();
+            event.properties.cart_id.should.not.be.empty();
+        });
+
+        it('should send an integer quantity even when the product quantity is fractional', function() {
+            var product = recommendedProduct();
+            product.Quantity = 2.9;
+            mParticle.forwarder.process({
+                EventName: 'eCommerce - add_to_cart',
+                EventDataType: MessageType.Commerce,
+                EventCategory: CommerceEventType.ProductAddToCart,
+                CurrencyCode: 'USD',
+                ProductAction: { ProductList: [product] },
+            });
+            var lineItem =
+                window.braze.loggedEcommerceEvents[0].properties.products[0];
+            lineItem.quantity.should.equal(2);
+            Number.isInteger(lineItem.quantity).should.equal(true);
         });
     });
 });
