@@ -96,13 +96,6 @@ var constructor = function() {
     var mappedImageUrlAttribute = null;
     var mappedProductUrlAttribute = null;
     var mappedSubtotalValueAttribute = null;
-    // Custom attributes promoted to typed recommended-event fields; excluded from metadata.
-    var RECOMMENDED_PROMOTED_METADATA_ATTRIBUTES = [
-        'cart_id',
-        'checkout_id',
-        'total_discounts',
-        'subtotal_value',
-    ];
 
     var brazeConsentKeys = [
         '$google_ad_user_data',
@@ -552,18 +545,38 @@ var constructor = function() {
             : RECOMMENDED_PRODUCT_URL_ATTRIBUTES;
     }
 
-    function getRecommendedPromotedEventAttributes() {
-        var promoted = RECOMMENDED_PROMOTED_METADATA_ATTRIBUTES.slice();
-        if (mappedCartIdAttribute) {
-            promoted.push(mappedCartIdAttribute);
+    function getRecommendedPromotedEventAttributes(eventCategory) {
+        var cartIdAttribute =
+            mappedCartIdAttribute || RECOMMENDED_CART_ID_ATTRIBUTE;
+        var checkoutIdAttribute =
+            mappedCheckoutIdAttribute || RECOMMENDED_CHECKOUT_ID_ATTRIBUTE;
+        var subtotalValueAttribute =
+            mappedSubtotalValueAttribute ||
+            RECOMMENDED_SUBTOTAL_VALUE_ATTRIBUTE;
+
+        switch (eventCategory) {
+            case CommerceEventType.ProductAddToCart:
+            case CommerceEventType.ProductRemoveFromCart:
+                return [cartIdAttribute, subtotalValueAttribute];
+            case CommerceEventType.ProductCheckout:
+                return [
+                    checkoutIdAttribute,
+                    cartIdAttribute,
+                    subtotalValueAttribute,
+                ];
+            case CommerceEventType.ProductViewDetail:
+                return [subtotalValueAttribute];
+            case CommerceEventType.ProductPurchase:
+                return [
+                    cartIdAttribute,
+                    'total_discounts',
+                    subtotalValueAttribute,
+                ];
+            case CommerceEventType.ProductRefund:
+                return ['total_discounts', subtotalValueAttribute];
+            default:
+                return [];
         }
-        if (mappedCheckoutIdAttribute) {
-            promoted.push(mappedCheckoutIdAttribute);
-        }
-        if (mappedSubtotalValueAttribute) {
-            promoted.push(mappedSubtotalValueAttribute);
-        }
-        return promoted;
     }
 
     function getRecommendedProductAttribute(product, keys) {
@@ -613,11 +626,14 @@ var constructor = function() {
     function buildRecommendedEventMetadata(event) {
         var metadata = {};
         var attributes = event.EventAttributes || {};
+        var promotedAttributes = getRecommendedPromotedEventAttributes(
+            event.EventCategory
+        );
         Object.keys(attributes).forEach(function(key) {
-            // Skip attributes already promoted to typed recommended-event fields to avoid
-            // emitting them both at the top level and inside metadata.
+            // Skip only attributes promoted by this event type so unrelated values
+            // remain available to Braze as metadata.
             if (
-                getRecommendedPromotedEventAttributes().indexOf(key) === -1 &&
+                promotedAttributes.indexOf(key) === -1 &&
                 attributes[key] != null &&
                 attributes[key] !== ''
             ) {

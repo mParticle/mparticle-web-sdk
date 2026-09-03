@@ -2660,7 +2660,12 @@ user.getUserIdentities is not a function,\n`;
                 EventDataType: MessageType.Commerce,
                 EventCategory: CommerceEventType.ProductAddToCart,
                 CurrencyCode: 'USD',
-                EventAttributes: { cart_id: 'cart-123' },
+                EventAttributes: {
+                    cart_id: 'cart-123',
+                    checkout_id: 'checkout-9',
+                    total_discounts: '3.5',
+                    subtotal_value: '18',
+                },
                 ProductAction: {
                     TotalAmount: 20,
                     ProductList: [recommendedProduct()],
@@ -2692,6 +2697,12 @@ user.getUserIdentities is not a function,\n`;
             (event.properties.metadata || {}).should.not.have.property(
                 'cart_id'
             );
+            event.properties.subtotal_value.should.equal(18);
+            event.properties.metadata.should.not.have.property(
+                'subtotal_value'
+            );
+            event.properties.metadata.checkout_id.should.equal('checkout-9');
+            event.properties.metadata.total_discounts.should.equal('3.5');
         });
 
         // Mirrors what the config API actually delivers: "custom JSON" with the
@@ -2758,6 +2769,9 @@ user.getUserIdentities is not a function,\n`;
             event.properties.products[0].image_url.should.equal(
                 'https://example.com/hero.jpg'
             );
+            (event.properties.metadata || {}).should.not.have.property(
+                'test_cart_id'
+            );
         });
 
         function processAddToCart(eventAttributes, product) {
@@ -2785,6 +2799,52 @@ user.getUserIdentities is not a function,\n`;
             // the mapped attribute is promoted, so it must not also sit in metadata
             (event.properties.metadata || {}).should.not.have.property(
                 'my_basket_ref'
+            );
+        });
+
+        it('should preserve configured identifier aliases on event types that do not promote them', function() {
+            initRecommended({
+                cartIdAttribute: attributeMapping('my_basket_ref'),
+                checkoutIdAttribute: attributeMapping('my_checkout_ref'),
+            });
+            mParticle.forwarder.process({
+                EventName: 'eCommerce - purchase',
+                EventDataType: MessageType.Commerce,
+                EventCategory: CommerceEventType.ProductPurchase,
+                CurrencyCode: 'USD',
+                EventAttributes: {
+                    my_basket_ref: 'basket-999',
+                    my_checkout_ref: 'checkout-9',
+                },
+                ProductAction: {
+                    TransactionId: 'order-42',
+                    TotalAmount: 20,
+                    ProductList: [recommendedProduct()],
+                },
+            });
+            var purchase = window.braze.loggedEcommerceEvents[0];
+            purchase.properties.cart_id.should.equal('basket-999');
+            purchase.properties.metadata.my_checkout_ref.should.equal(
+                'checkout-9'
+            );
+            purchase.properties.metadata.should.not.have.property(
+                'my_basket_ref'
+            );
+
+            mParticle.forwarder.process({
+                EventName: 'eCommerce - refund',
+                EventDataType: MessageType.Commerce,
+                EventCategory: CommerceEventType.ProductRefund,
+                CurrencyCode: 'USD',
+                EventAttributes: { my_basket_ref: 'basket-999' },
+                ProductAction: {
+                    TransactionId: 'order-42',
+                    TotalAmount: 20,
+                    ProductList: [recommendedProduct()],
+                },
+            });
+            window.braze.loggedEvents[0].eventProperties.metadata.my_basket_ref.should.equal(
+                'basket-999'
             );
         });
 
@@ -2937,7 +2997,12 @@ user.getUserIdentities is not a function,\n`;
                 EventDataType: MessageType.Commerce,
                 EventCategory: CommerceEventType.ProductCheckout,
                 CurrencyCode: 'USD',
-                EventAttributes: { checkout_id: 'checkout-9', cart_id: 'cart-123' },
+                EventAttributes: {
+                    checkout_id: 'checkout-9',
+                    cart_id: 'cart-123',
+                    total_discounts: '3.5',
+                    subtotal_value: '18',
+                },
                 ProductAction: {
                     TotalAmount: 20,
                     ProductList: [recommendedProduct()],
@@ -2949,6 +3014,13 @@ user.getUserIdentities is not a function,\n`;
             event.properties.checkout_id.should.equal('checkout-9');
             event.properties.cart_id.should.equal('cart-123');
             event.properties.total_value.should.equal(20);
+            event.properties.subtotal_value.should.equal(18);
+            event.properties.metadata.total_discounts.should.equal('3.5');
+            event.properties.metadata.should.not.have.property('checkout_id');
+            event.properties.metadata.should.not.have.property('cart_id');
+            event.properties.metadata.should.not.have.property(
+                'subtotal_value'
+            );
         });
 
         it('should forward view_detail as one ecommerce.product_viewed per product', function() {
@@ -2957,6 +3029,12 @@ user.getUserIdentities is not a function,\n`;
                 EventDataType: MessageType.Commerce,
                 EventCategory: CommerceEventType.ProductViewDetail,
                 CurrencyCode: 'USD',
+                EventAttributes: {
+                    cart_id: 'cart-123',
+                    checkout_id: 'checkout-9',
+                    total_discounts: '3.5',
+                    subtotal_value: '18',
+                },
                 ProductAction: {
                     ProductList: [
                         recommendedProduct(),
@@ -2976,6 +3054,10 @@ user.getUserIdentities is not a function,\n`;
             first.properties.image_url.should.equal(
                 'https://example.com/img.jpg'
             );
+            first.properties.metadata.cart_id.should.equal('cart-123');
+            first.properties.metadata.checkout_id.should.equal('checkout-9');
+            first.properties.metadata.total_discounts.should.equal('3.5');
+            first.properties.metadata.subtotal_value.should.equal(18);
             var second = window.braze.loggedEcommerceEvents[1];
             second.properties.product_id.should.equal('sku2');
             // variant_id falls back to sku when the product has no variant
@@ -2988,7 +3070,12 @@ user.getUserIdentities is not a function,\n`;
                 EventDataType: MessageType.Commerce,
                 EventCategory: CommerceEventType.ProductPurchase,
                 CurrencyCode: 'USD',
-                EventAttributes: { total_discounts: '3.5', subtotal_value: '40' },
+                EventAttributes: {
+                    cart_id: 'cart-123',
+                    checkout_id: 'checkout-9',
+                    total_discounts: '3.5',
+                    subtotal_value: '40',
+                },
                 ProductAction: {
                     TransactionId: 'order-42',
                     TotalAmount: 50,
@@ -3002,6 +3089,7 @@ user.getUserIdentities is not a function,\n`;
             var event = window.braze.loggedEcommerceEvents[0];
             event.name.should.equal('ecommerce.order_placed');
             event.properties.order_id.should.equal('order-42');
+            event.properties.cart_id.should.equal('cart-123');
             event.properties.total_value.should.equal(50);
             event.properties.total_discounts.should.equal(3.5);
             // tax/shipping/subtotal_value are recognized top-level attributes (Braze 6.9+)
@@ -3019,6 +3107,8 @@ user.getUserIdentities is not a function,\n`;
             event.properties.metadata.should.not.have.property(
                 'subtotal_value'
             );
+            event.properties.metadata.should.not.have.property('cart_id');
+            event.properties.metadata.checkout_id.should.equal('checkout-9');
         });
 
         it('should send tax/shipping/subtotal_value as top-level attributes on cart_updated', function() {
@@ -3048,7 +3138,12 @@ user.getUserIdentities is not a function,\n`;
                 EventDataType: MessageType.Commerce,
                 EventCategory: CommerceEventType.ProductRefund,
                 CurrencyCode: 'USD',
-                EventAttributes: { subtotal_value: '40' },
+                EventAttributes: {
+                    cart_id: 'cart-123',
+                    checkout_id: 'checkout-9',
+                    total_discounts: '3.5',
+                    subtotal_value: '40',
+                },
                 ProductAction: {
                     TransactionId: 'order-42',
                     TotalAmount: 50,
@@ -3065,6 +3160,16 @@ user.getUserIdentities is not a function,\n`;
             loggedEvent.eventProperties.order_id.should.equal('order-42');
             loggedEvent.eventProperties.source.should.equal('web');
             loggedEvent.eventProperties.products.should.have.lengthOf(1);
+            loggedEvent.eventProperties.total_discounts.should.equal(3.5);
+            loggedEvent.eventProperties.metadata.cart_id.should.equal(
+                'cart-123'
+            );
+            loggedEvent.eventProperties.metadata.checkout_id.should.equal(
+                'checkout-9'
+            );
+            loggedEvent.eventProperties.metadata.should.not.have.property(
+                'total_discounts'
+            );
             // order_refunded has no recognized top-level tax/shipping/subtotal_value,
             // so they are preserved in metadata rather than dropped.
             loggedEvent.eventProperties.metadata.tax.should.equal(5);
