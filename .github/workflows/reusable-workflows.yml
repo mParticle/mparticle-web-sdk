@@ -10,9 +10,23 @@ jobs:
   pr-title-check:
     name: Check PR for semantic title
     uses: mParticle/mparticle-workflows/.github/workflows/pr-title-check.yml@stable
-  pr-branch-target-gitflow:
-    name: Check PR for semantic target branch
-    uses: mParticle/mparticle-workflows/.github/workflows/pr-branch-target-gitflow.yml@stable
+  pr-branch-target:
+    name: Check PR for semantic target branch / Confirm that target branch for PR is main or build/
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm supported PR target branch
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          case "$BASE_REF" in
+            master|development|main|v3-development|chore/dependabot*|build/*)
+              echo "Pull request target branch '$BASE_REF' is valid."
+              ;;
+            *)
+              echo "Pull request target branch '$BASE_REF' is not valid."
+              exit 1
+              ;;
+          esac
   security-lint-checks:
     name: Security Lint Checks
     uses: mparticle/mparticle-workflows/.github/workflows/security-checks.yml@stable

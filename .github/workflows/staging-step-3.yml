@@ -9,7 +9,7 @@ on:
                 required: true
                 type: string
             dryRun:
-                description: 'Validate the atomic synchronization without pushing [true/false]'
+                description: 'Do a dry run to validate without pushing [true/false]'
                 required: true
                 type: boolean
                 default: true
