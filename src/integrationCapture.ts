@@ -120,6 +120,19 @@ const integrationMappingExternal: IntegrationIdMapping = {
         mappedKey: 'SnapchatConversions.ClickId',
         output: IntegrationOutputs.CUSTOM_FLAGS,
     },
+
+    // Pinterest
+    // https://developers.pinterest.com/docs/track-conversions/track-conversions-in-the-api/
+    // https://help.pinterest.com/en/business/article/pinterest-tag-parameters-and-cookies
+    epik: {
+        mappedKey: 'Pinterest.click_id',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
+    },
+    _epik: {
+        mappedKey: 'Pinterest.click_id',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
+    },
+
     // Snapchat
     // https://developers.snap.com/api/marketing-api/Conversions-API/UsingTheAPI#sending-click-id
     _scid: {
@@ -180,6 +193,26 @@ export default class IntegrationCapture {
         // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc#retrieve-from-fbclid-url-query-parameter
         if (queryParams['fbclid'] && cookies['_fbc']) {
             delete cookies['_fbc'];
+        }
+
+        // Pinterest Rules
+        // epik and _epik both map to Pinterest.click_id. Prefer query params over
+        // localStorage and cookies (same rationale as Facebook fbclid vs _fbc).
+        // https://help.pinterest.com/en/business/article/pinterest-tag-parameters-and-cookies
+        const hasPinterestQuery =
+            !isEmpty(queryParams['epik']) || !isEmpty(queryParams['_epik']);
+        if (hasPinterestQuery) {
+            delete cookies['epik'];
+            delete cookies['_epik'];
+            delete localStorage['epik'];
+            delete localStorage['_epik'];
+        } else {
+            const hasPinterestLocalStorage =
+                !isEmpty(localStorage['epik']) || !isEmpty(localStorage['_epik']);
+            if (hasPinterestLocalStorage) {
+                delete cookies['epik'];
+                delete cookies['_epik'];
+            }
         }
 
         // ROKT Rules
