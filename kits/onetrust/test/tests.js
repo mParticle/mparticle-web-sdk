@@ -58,70 +58,86 @@ function configureOneTrustForwarderAndInit(
     consentGroups,
     vendorIABConsentGroups,
     vendorGoogleConsentGroups,
+    vendorGeneralConsentGroups,
+    identityCallback
+) {
+    mParticle.config = {
+        requestConfig: false,
+        logLevel: 'none',
+        workspaceToken: 'workspaceToken1',
+        identityCallback: identityCallback,
+        kitConfigs: [
+            {
+                name: 'OneTrust',
+                settings: {
+                    consentGroups: generateMockConsentGroupString(
+                        consentGroups
+                    ),
+                    vendorIABConsentGroups: generateMockConsentGroupString(vendorIABConsentGroups),
+                    vendorGoogleConsentGroups: generateMockConsentGroupString(vendorGoogleConsentGroups),
+                    vendorGeneralConsentGroups: generateMockConsentGroupString(vendorGeneralConsentGroups),
+                },
+                eventNameFilters: [],
+                eventTypeFilters: [],
+                attributeFilters: [],
+                screenNameFilters: [],
+                pageViewAttributeFilters: [],
+                userIdentityFilters: [],
+                userAttributeFilters: [],
+                moduleId: 1,
+                isDebug: false,
+                HasDebugString: 'false',
+                isVisible: true,
+            },
+        ],
+    };
+    mParticle.init('apikey', mParticle.config);
+}
+
+function initializeOneTrustForwarder(
+    consentGroups,
+    vendorIABConsentGroups,
+    vendorGoogleConsentGroups,
     vendorGeneralConsentGroups
 ) {
     return new Promise(function(resolve) {
-        mParticle.config = {
-            requestConfig: false,
-            logLevel: 'none',
-            workspaceToken: 'workspaceToken1',
-            identityCallback: resolve,
-            kitConfigs: [
-                {
-                    name: 'OneTrust',
-                    settings: {
-                        consentGroups: generateMockConsentGroupString(
-                            consentGroups
-                        ),
-                        vendorIABConsentGroups: generateMockConsentGroupString(vendorIABConsentGroups),
-                        vendorGoogleConsentGroups: generateMockConsentGroupString(vendorGoogleConsentGroups),
-                        vendorGeneralConsentGroups: generateMockConsentGroupString(vendorGeneralConsentGroups),
-                    },
-                    eventNameFilters: [],
-                    eventTypeFilters: [],
-                    attributeFilters: [],
-                    screenNameFilters: [],
-                    pageViewAttributeFilters: [],
-                    userIdentityFilters: [],
-                    userAttributeFilters: [],
-                    moduleId: 1,
-                    isDebug: false,
-                    HasDebugString: 'false',
-                    isVisible: true,
-                },
-            ],
-        };
-        mParticle.init('apikey', mParticle.config);
+        configureOneTrustForwarderAndInit(
+            consentGroups,
+            vendorIABConsentGroups,
+            vendorGoogleConsentGroups,
+            vendorGeneralConsentGroups,
+            resolve
+        );
     });
 }
 
+before(function() {
+    server.start();
+    server.requests = [];
+});
+
+beforeEach(function() {
+    localStorage.clear();
+    window.Optanon = new MockForwarder();
+    server.requests = [];
+    window.mParticleAndroid = null;
+    window.mParticle.isIOS = null;
+    window.mParticle.useCookieStorage = false;
+    window.fetch = null;
+    mParticle.isDevelopmentMode = false;
+    server.handle = function(request) {
+        request.setResponseHeader('Content-Type', 'application/json');
+        request.receive(
+            200,
+            JSON.stringify({
+                Store: {},
+                mpid: 'testMPID',
+            })
+        );
+    };
+});
+
 describe('OneTrust Forwarder', function() {
-    before(function() {
-        server.start();
-        server.requests = [];
-    });
-
-    beforeEach(function() {
-        localStorage.clear();
-        window.Optanon = new MockForwarder();
-        server.requests = [];
-        window.mParticleAndroid = null;
-        window.mParticle.isIOS = null;
-        window.mParticle.useCookieStorage = false;
-        window.fetch = null;
-        mParticle.isDevelopmentMode = false;
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    Store: {},
-                    mpid: 'testMPID',
-                })
-            );
-        };
-    });
-
     it('should test consent group parsing', function() {
         var consentGroups = [
             {
@@ -173,9 +189,7 @@ describe('OneTrust Forwarder', function() {
         ];
 
         window.OnetrustActiveGroups = ',euro_biscuit,cali_cookie';
-        return configureOneTrustForwarderAndInit(
-            consentGroups
-        ).then(function() {
+        return initializeOneTrustForwarder(consentGroups).then(function() {
                 var consent = mParticle
                     .getInstance()
                     ._Persistence.getLocalStorage();
@@ -261,7 +275,7 @@ describe('OneTrust Forwarder', function() {
                     fn(vendorConsent);
                 },
             };
-            return configureOneTrustForwarderAndInit(
+            return initializeOneTrustForwarder(
                 consentGroups,
                 vendorIABConsentGroups,
                 vendorGoogleConsentGroups,
@@ -283,32 +297,6 @@ describe('OneTrust Forwarder', function() {
 });
 
 describe('OneTrust re-initialization tests', function() {
-    before(function() {
-        server.start();
-        server.requests = [];
-    });
-
-    beforeEach(function() {
-        localStorage.clear();
-        window.Optanon = new MockForwarder();
-        server.requests = [];
-        window.mParticleAndroid = null;
-        window.mParticle.isIOS = null;
-        window.mParticle.useCookieStorage = false;
-        window.fetch = null;
-        mParticle.isDevelopmentMode = false;
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    Store: {},
-                    mpid: 'testMPID',
-                })
-            );
-        };
-    });
-
     it('should update consent during initialization if consent has changed', function() {
         var consentGroups = [
             {
@@ -325,9 +313,7 @@ describe('OneTrust re-initialization tests', function() {
 
         // After initializing the kit once, the user will have the strictly necessary consent associated with it
         // as true
-        return configureOneTrustForwarderAndInit(
-            consentGroups
-        ).then(function() {
+        return initializeOneTrustForwarder(consentGroups).then(function() {
                 var consentBefore = mParticle.Identity.getCurrentUser()
                     .getConsentState()
                     .getGDPRConsentState()['strictly necessary'];
@@ -336,8 +322,8 @@ describe('OneTrust re-initialization tests', function() {
                 // Update to remove userEditable1, thus having OneTrust set this consent to false
                 window.OnetrustActiveGroups = ',1,2,4,userEditable2';
 
-                // When we re-initialize consent, the strictly necessary consent has not been updated
-                // because there is no change in consent
+                // With an existing user, kit initialization updates consent
+                // synchronously and does not make another identity request.
                 configureOneTrustForwarderAndInit(
                     consentGroups,
                     null,
@@ -372,17 +358,15 @@ describe('OneTrust re-initialization tests', function() {
 
         // After initializing the kit once, the user will have the strictly necessary consent associated with it
         // as true
-        return configureOneTrustForwarderAndInit(
-            consentGroups
-        ).then(function() {
+        return initializeOneTrustForwarder(consentGroups).then(function() {
                 var consentBefore = mParticle.Identity.getCurrentUser()
                     .getConsentState()
                     .getGDPRConsentState()['strictly necessary'];
                 var consentTimestampBefore = consentBefore.Timestamp;
                 consentTimestampBefore.should.be.ok();
 
-                // When we re-initialize consent, the strictly necessary consent has not been updated
-                // because there is no change in consent
+                // With an existing user, kit initialization updates consent
+                // synchronously and does not make another identity request.
                 configureOneTrustForwarderAndInit(
                     consentGroups,
                     null,
