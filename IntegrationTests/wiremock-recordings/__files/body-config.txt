@@ -1,0 +1,1 @@
+{"appName":"Test Workspace","serviceUrl":"jssdk.mparticle.com/v2/JS/","secureServiceUrl":"jssdks.mparticle.com/v2/JS/","minWebviewBridgeVersion":2,"workspaceToken":"TEST1234","kitConfigs":[],"pixelConfigs":[],"flags":{"eventsV3":"100","eventBatchingIntervalMillis":"10000","offlineStorage":"100","directURLRouting":"False","audienceAPI":"False","cacheIdentity":"False"}}
