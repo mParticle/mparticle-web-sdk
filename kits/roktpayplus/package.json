@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-rokt-pay-plus-kit",
-    "version": "3.0.0",
+    "version": "3.1.0",
     "description": "mParticle web kit that re-emits the events an advertiser already logs to the embedding Rokt Pay+ plugin via postMessage.",
     "main": "dist/RoktPayPlus-Kit.common.js",
     "module": "dist/RoktPayPlus-Kit.esm.js",

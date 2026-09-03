@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-id5-kit",
-    "version": "3.0.0",
+    "version": "3.1.0",
     "main": "dist/ID5Kit.common.js",
     "files": [
         "dist/ID5Kit.common.js"

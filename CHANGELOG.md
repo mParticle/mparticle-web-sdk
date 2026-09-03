@@ -1,3 +1,18 @@
+# [3.1.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.0.0...v3.1.0) (2026-09-03)
+
+
+### Bug Fixes
+
+* **braze:** point kit homepage URLs at main ([#1383](https://github.com/mParticle/mparticle-web-sdk/issues/1383)) ([21b2fa8](https://github.com/mParticle/mparticle-web-sdk/commit/21b2fa87ff88f8db56ffcc236c3412b5b0dcd563))
+* **ci:** reject wrong-major release tag baseline ([#1389](https://github.com/mParticle/mparticle-web-sdk/issues/1389)) ([9396ba7](https://github.com/mParticle/mparticle-web-sdk/commit/9396ba77efba35eb718e8196bddfea7a59f80247))
+* **kits:** point remaining kit homepage URLs at main ([#1384](https://github.com/mParticle/mparticle-web-sdk/issues/1384)) ([8288cc9](https://github.com/mParticle/mparticle-web-sdk/commit/8288cc96b20fd153f0ba9b46bfe077d406a820bb))
+* **kits:** remove QA path smoke logs ([#1388](https://github.com/mParticle/mparticle-web-sdk/issues/1388)) ([121b00c](https://github.com/mParticle/mparticle-web-sdk/commit/121b00c19fe111a96dbe0d2bc690c368af8fdda2))
+
+
+### Features
+
+* **rokt:** add diagnostic logging for setter/selectPlacements timing ([#1386](https://github.com/mParticle/mparticle-web-sdk/issues/1386)) ([65bc3d3](https://github.com/mParticle/mparticle-web-sdk/commit/65bc3d39f860688be36e1503f226bf20114e4567))
+
 # [2.81.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.80.1...v2.81.0) (2026-08-27)
 
 

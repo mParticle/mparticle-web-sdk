@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-google-analytics-4-server-kit",
-    "version": "3.0.0",
+    "version": "3.1.0",
     "description": "mParticle integration sdk for Google Analytics (server side)",
     "main": "dist/GoogleAnalytics4EventForwarderServerSide-Kit.common.js",
     "browser": "dist/GoogleAnalytics4EventForwarderServerSide-Kit.common.js",

@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-google-analytics-4-client-kit",
-    "version": "3.0.0",
+    "version": "3.1.0",
     "author": "mParticle Developers <developers@mparticle.com> (https://www.mparticle.com)",
     "description": "mParticle integration sdk for Google Analytics",
     "main": "dist/GoogleAnalytics4EventForwarderClientSide-Kit.common.js",

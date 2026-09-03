@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-adobe-client-kit",
-    "version": "3.0.0",
+    "version": "3.1.0",
     "description": "mParticle integration sdk for Adobe (client side)",
     "main": "dist/AdobeClientSideKit.common.js",
     "files": [

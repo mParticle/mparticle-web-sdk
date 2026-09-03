@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-dynamic-yield-kit",
-    "version": "3.0.0",
+    "version": "3.1.0",
     "author": "mParticle Developers <developers@mparticle.com> (https://www.mparticle.com)",
     "description": "mParticle Dynamic Yield kit integration",
     "main": "dist/DynamicYieldKit.common.js",
