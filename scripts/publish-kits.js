@@ -12,6 +12,8 @@ const {
 const repositoryRoot = path.resolve(__dirname, '..');
 const registry = 'https://registry.npmjs.org';
 const initialV3CoreVersion = '3.0.0';
+const remoteAuditAttempts = 60;
+const remoteAuditDelayMs = 5000;
 const npmExecutable = path.join(
     path.dirname(process.execPath),
     process.platform === 'win32' ? 'npm.cmd' : 'npm'
@@ -303,25 +305,54 @@ function verifyPublishedCore(packageInfo, version, distTag, options = {}) {
     verifyPackage(packageInfo, version, distTag);
 }
 
-function waitForRemotePackage(packageInfo, version, distTag) {
-    let lastError;
-    for (let attempt = 1; attempt <= 12; attempt++) {
-        try {
-            verifyRemotePackage(packageInfo, version, distTag);
-            return;
-        } catch (error) {
-            lastError = error;
-            if (attempt < 12) {
-                Atomics.wait(
-                    new Int32Array(new SharedArrayBuffer(4)),
-                    0,
-                    0,
-                    5000
-                );
+function waitForRemotePackages(packageInfos, version, distTag, options = {}) {
+    const verifyPackage = options.verifyRemotePackage || verifyRemotePackage;
+    const wait =
+        options.wait ||
+        (delayMs =>
+            Atomics.wait(
+                new Int32Array(new SharedArrayBuffer(4)),
+                0,
+                0,
+                delayMs
+            ));
+    const maxAttempts = options.maxAttempts || remoteAuditAttempts;
+    const delayMs = options.delayMs || remoteAuditDelayMs;
+    let pendingPackages = packageInfos.map(packageInfo => ({
+        packageInfo,
+        lastError: null,
+    }));
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const remainingPackages = [];
+        for (const pendingPackage of pendingPackages) {
+            try {
+                verifyPackage(pendingPackage.packageInfo, version, distTag);
+            } catch (error) {
+                remainingPackages.push({
+                    packageInfo: pendingPackage.packageInfo,
+                    lastError: error,
+                });
             }
         }
+
+        if (remainingPackages.length === 0) {
+            return;
+        }
+        pendingPackages = remainingPackages;
+        if (attempt < maxAttempts) {
+            wait(delayMs);
+        }
     }
-    throw lastError;
+
+    throw new Error(
+        `npm audit did not complete within five minutes: ${pendingPackages
+            .map(
+                pendingPackage =>
+                    `${pendingPackage.packageInfo.name}: ${pendingPackage.lastError.message}`
+            )
+            .join('; ')}`
+    );
 }
 
 function preflightTarball(packageInfo, version, distTag) {
@@ -399,7 +430,6 @@ function publishTarball(packageInfo, version, distTag) {
             stdio: 'inherit',
         }
     );
-    waitForRemotePackage(packageInfo, version, distTag);
     return 'published';
 }
 
@@ -569,9 +599,7 @@ function main() {
             results,
         });
 
-        for (const packageInfo of packageArtifacts) {
-            verifyRemotePackage(packageInfo, version, distTag);
-        }
+        waitForRemotePackages(packageArtifacts, version, distTag);
 
         appendSummary(version, distTag, results);
         console.log(
@@ -652,5 +680,5 @@ module.exports = {
     verifyCurrentReleaseComplete,
     verifyPublishedCore,
     verifyRemotePackage,
-    waitForRemotePackage,
+    waitForRemotePackages,
 };

@@ -18,6 +18,7 @@ const {
     validatePackageManifest,
     verifyCurrentReleaseComplete,
     verifyPublishedCore,
+    waitForRemotePackages,
 } = require('../../scripts/publish-kits');
 const {
     previewKitRelease,
@@ -245,6 +246,44 @@ describe('kit release scripts', () => {
                 result: 'published',
             }))
         );
+    });
+
+    it('retries one final audit only for packages not yet visible', () => {
+        const artifacts = [
+            {name: 'available-kit'},
+            {name: 'delayed-kit'},
+        ];
+        let delayedAttempts = 0;
+        const verifyRemotePackage = jest.fn(
+            (packageInfo: {name: string}) => {
+                if (
+                    packageInfo.name === 'delayed-kit' &&
+                    ++delayedAttempts < 3
+                ) {
+                    throw new Error('package is not yet visible');
+                }
+            }
+        );
+        const wait = jest.fn();
+
+        waitForRemotePackages(artifacts, '3.0.1', 'next', {
+            verifyRemotePackage,
+            wait,
+            maxAttempts: 3,
+            delayMs: 1,
+        });
+
+        expect(
+            verifyRemotePackage.mock.calls.map(
+                ([packageInfo]: [{name: string}]) => packageInfo.name
+            )
+        ).toEqual([
+            'available-kit',
+            'delayed-kit',
+            'delayed-kit',
+            'delayed-kit',
+        ]);
+        expect(wait).toHaveBeenCalledTimes(2);
     });
 
     it('writes actionable recovery instructions for a partial release', () => {
