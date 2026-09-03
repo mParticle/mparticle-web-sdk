@@ -70,6 +70,10 @@ describe('kit release scripts', () => {
         expect(inventory.publishOutputPaths).toContain(
             'kits/adobe/packages/AdobeServer/dist'
         );
+        expect(packageNames.slice(0, 2)).toEqual([
+            '@mparticle/web-rokt-kit',
+            '@mparticle/web-rokt-pay-plus-kit',
+        ]);
     });
 
     it('terminates every serialized kit build path with a newline', () => {
@@ -78,7 +82,11 @@ describe('kit release scripts', () => {
 
         expect(serializedBuildPaths.endsWith('\n')).toBe(true);
         expect(serializedBuildPaths.trimEnd().split('\n')).toEqual(buildPaths);
-        expect(buildPaths[buildPaths.length - 1]).toBe('kits/roktpayplus');
+        expect(buildPaths.slice(0, 2)).toEqual([
+            'kits/rokt',
+            'kits/roktpayplus',
+        ]);
+        expect(buildPaths[buildPaths.length - 1]).toBe('kits/adobe');
     });
 
     it('requires a stable semantic version', () => {
