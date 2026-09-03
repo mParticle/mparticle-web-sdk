@@ -60,36 +60,39 @@ function configureOneTrustForwarderAndInit(
     vendorGoogleConsentGroups,
     vendorGeneralConsentGroups
 ) {
-    mParticle.config = {
-        requestConfig: false,
-        logLevel: 'none',
-        workspaceToken: 'workspaceToken1',
-        kitConfigs: [
-            {
-                name: 'OneTrust',
-                settings: {
-                    consentGroups: generateMockConsentGroupString(
-                        consentGroups
-                    ),
-                    vendorIABConsentGroups: generateMockConsentGroupString(vendorIABConsentGroups),
-                    vendorGoogleConsentGroups: generateMockConsentGroupString(vendorGoogleConsentGroups),
-                    vendorGeneralConsentGroups: generateMockConsentGroupString(vendorGeneralConsentGroups),
+    return new Promise(function(resolve) {
+        mParticle.config = {
+            requestConfig: false,
+            logLevel: 'none',
+            workspaceToken: 'workspaceToken1',
+            identityCallback: resolve,
+            kitConfigs: [
+                {
+                    name: 'OneTrust',
+                    settings: {
+                        consentGroups: generateMockConsentGroupString(
+                            consentGroups
+                        ),
+                        vendorIABConsentGroups: generateMockConsentGroupString(vendorIABConsentGroups),
+                        vendorGoogleConsentGroups: generateMockConsentGroupString(vendorGoogleConsentGroups),
+                        vendorGeneralConsentGroups: generateMockConsentGroupString(vendorGeneralConsentGroups),
+                    },
+                    eventNameFilters: [],
+                    eventTypeFilters: [],
+                    attributeFilters: [],
+                    screenNameFilters: [],
+                    pageViewAttributeFilters: [],
+                    userIdentityFilters: [],
+                    userAttributeFilters: [],
+                    moduleId: 1,
+                    isDebug: false,
+                    HasDebugString: 'false',
+                    isVisible: true,
                 },
-                eventNameFilters: [],
-                eventTypeFilters: [],
-                attributeFilters: [],
-                screenNameFilters: [],
-                pageViewAttributeFilters: [],
-                userIdentityFilters: [],
-                userAttributeFilters: [],
-                moduleId: 1,
-                isDebug: false,
-                HasDebugString: 'false',
-                isVisible: true,
-            },
-        ],
-    };
-    mParticle.init('apikey', mParticle.config);
+            ],
+        };
+        mParticle.init('apikey', mParticle.config);
+    });
 }
 
 describe('OneTrust Forwarder', function() {
@@ -105,6 +108,7 @@ describe('OneTrust Forwarder', function() {
         window.mParticleAndroid = null;
         window.mParticle.isIOS = null;
         window.mParticle.useCookieStorage = false;
+        window.fetch = null;
         mParticle.isDevelopmentMode = false;
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -152,7 +156,7 @@ describe('OneTrust Forwarder', function() {
         generatedString.should.equal(expectedString);
     });
 
-    it('should use CCPA regulation if consent purpose is "data_sale_opt_out", otherwise should use GDPR', function(done) {
+    it('should use CCPA regulation if consent purpose is "data_sale_opt_out", otherwise should use GDPR', function() {
         var consentGroups = [
             {
                 jsmap: null,
@@ -169,16 +173,19 @@ describe('OneTrust Forwarder', function() {
         ];
 
         window.OnetrustActiveGroups = ',euro_biscuit,cali_cookie';
-        configureOneTrustForwarderAndInit(consentGroups);
-
-        var consent = mParticle.getInstance()._Persistence.getLocalStorage();
-        consent.testMPID.con.ccpa.should.have.property('data_sale_opt_out');
-        consent.testMPID.con.gdpr['european_privacy'].should.have.property(
-            'd',
-            'european_privacy'
-        );
-
-        done();
+        return configureOneTrustForwarderAndInit(
+            consentGroups
+        ).then(function() {
+                var consent = mParticle
+                    .getInstance()
+                    ._Persistence.getLocalStorage();
+                consent.testMPID.con.ccpa.should.have.property(
+                    'data_sale_opt_out'
+                );
+                consent.testMPID.con.gdpr[
+                    'european_privacy'
+                ].should.have.property('d', 'european_privacy');
+            });
     });
 
     describe('vendor consent', function() {
@@ -241,7 +248,7 @@ describe('OneTrust Forwarder', function() {
             },
         ];
 
-        it('should initialize using stored GDPR regulation API for Vendor Consents', function(done) {
+        it('should initialize using stored GDPR regulation API for Vendor Consents', function() {
             window.OnetrustActiveGroups = 'V1';
             window.OneTrust = {
                 getVendorConsentsRequestV2: function(fn) {
@@ -254,23 +261,23 @@ describe('OneTrust Forwarder', function() {
                     fn(vendorConsent);
                 },
             };
-            configureOneTrustForwarderAndInit(
+            return configureOneTrustForwarderAndInit(
                 consentGroups,
                 vendorIABConsentGroups,
                 vendorGoogleConsentGroups,
                 vendorGeneralConsentGroups
-            );
-
-            var consent = mParticle.Identity.getCurrentUser()
-                .getConsentState()
-                .getGDPRConsentState();
-            consent.marketing.Consented.should.equal(true);
-            consent.testconsent.Consented.should.equal(true);
-            consent['vendor consent example'].Consented.should.equal(false);
-            consent.performance.Consented.should.equal(false);
-            consent['some_consent'].Consented.should.equal(true);
-
-            done();
+            ).then(function() {
+                    var consent = mParticle.Identity.getCurrentUser()
+                        .getConsentState()
+                        .getGDPRConsentState();
+                    consent.marketing.Consented.should.equal(true);
+                    consent.testconsent.Consented.should.equal(true);
+                    consent[
+                        'vendor consent example'
+                    ].Consented.should.equal(false);
+                    consent.performance.Consented.should.equal(false);
+                    consent['some_consent'].Consented.should.equal(true);
+                });
         });
     });
 });
@@ -288,6 +295,7 @@ describe('OneTrust re-initialization tests', function() {
         window.mParticleAndroid = null;
         window.mParticle.isIOS = null;
         window.mParticle.useCookieStorage = false;
+        window.fetch = null;
         mParticle.isDevelopmentMode = false;
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -317,29 +325,35 @@ describe('OneTrust re-initialization tests', function() {
 
         // After initializing the kit once, the user will have the strictly necessary consent associated with it
         // as true
-        configureOneTrustForwarderAndInit(consentGroups);
+        return configureOneTrustForwarderAndInit(
+            consentGroups
+        ).then(function() {
+                var consentBefore = mParticle.Identity.getCurrentUser()
+                    .getConsentState()
+                    .getGDPRConsentState()['strictly necessary'];
+                consentBefore.Timestamp.should.be.ok();
+                consentBefore.Consented.should.equal(true);
+                // Update to remove userEditable1, thus having OneTrust set this consent to false
+                window.OnetrustActiveGroups = ',1,2,4,userEditable2';
 
-        var consentBefore = mParticle.Identity.getCurrentUser()
-            .getConsentState()
-            .getGDPRConsentState()['strictly necessary'];
-        var consentTimestampBefore = consentBefore.Timestamp;
-        consentTimestampBefore.should.be.ok();
-        // Update to remove userEditable1, thus having OneTrust set this consent to false
-        window.OnetrustActiveGroups = ',1,2,4,userEditable2';
+                // When we re-initialize consent, the strictly necessary consent has not been updated
+                // because there is no change in consent
+                configureOneTrustForwarderAndInit(
+                    consentGroups,
+                    null,
+                    null,
+                    null
+                );
 
-        // When we re-initialize consent, the strictly necessary consent has not been updated
-        // because there is no change in consent
-        configureOneTrustForwarderAndInit(consentGroups);
+                var consentAfter = mParticle.Identity.getCurrentUser()
+                    .getConsentState()
+                    .getGDPRConsentState()['strictly necessary'];
 
-        var consentAfter = mParticle.Identity.getCurrentUser()
-            .getConsentState()
-            .getGDPRConsentState()['strictly necessary'];
+                var consentTimestampAfter = consentAfter.Timestamp;
+                consentTimestampAfter.should.be.ok();
 
-        var consentTimestampAfter = consentAfter.Timestamp;
-        consentTimestampAfter.should.be.ok();
-
-        // the timestamps should not equal each other because the timestamp has been updated due to the consent change
-        consentTimestampBefore.should.not.equal(consentTimestampAfter);
+                consentAfter.Consented.should.equal(false);
+            });
     });
 
     it('should not update consent during initialization if consent does not change', function() {
@@ -358,26 +372,33 @@ describe('OneTrust re-initialization tests', function() {
 
         // After initializing the kit once, the user will have the strictly necessary consent associated with it
         // as true
-        configureOneTrustForwarderAndInit(consentGroups);
+        return configureOneTrustForwarderAndInit(
+            consentGroups
+        ).then(function() {
+                var consentBefore = mParticle.Identity.getCurrentUser()
+                    .getConsentState()
+                    .getGDPRConsentState()['strictly necessary'];
+                var consentTimestampBefore = consentBefore.Timestamp;
+                consentTimestampBefore.should.be.ok();
 
-        var consentBefore = mParticle.Identity.getCurrentUser()
-            .getConsentState()
-            .getGDPRConsentState()['strictly necessary'];
-        var consentTimestampBefore = consentBefore.Timestamp;
-        consentTimestampBefore.should.be.ok();
+                // When we re-initialize consent, the strictly necessary consent has not been updated
+                // because there is no change in consent
+                configureOneTrustForwarderAndInit(
+                    consentGroups,
+                    null,
+                    null,
+                    null
+                );
 
-        // When we re-initialize consent, the strictly necessary consent has not been updated
-        // because there is no change in consent
-        configureOneTrustForwarderAndInit(consentGroups);
+                var consentAfter = mParticle.Identity.getCurrentUser()
+                    .getConsentState()
+                    .getGDPRConsentState()['strictly necessary'];
 
-        var consentAfter = mParticle.Identity.getCurrentUser()
-            .getConsentState()
-            .getGDPRConsentState()['strictly necessary'];
+                var consentTimestampAfter = consentAfter.Timestamp;
+                consentTimestampAfter.should.be.ok();
 
-        var consentTimestampAfter = consentAfter.Timestamp;
-        consentTimestampAfter.should.be.ok();
-
-        // The timestamps should be the same because consent was not updated.
-        consentTimestampBefore.should.equal(consentTimestampAfter);
+                // The timestamps should be the same because consent was not updated.
+                consentTimestampBefore.should.equal(consentTimestampAfter);
+            });
     });
 });
