@@ -437,8 +437,7 @@ var AdobeTargetKit = (function (exports) {
 
         function logSessionStart(event) {
             try {
-                sessionHandler_1.onSessionStart(event);
-                return true;
+                return sessionHandler_1.onSessionStart(event);
             } catch (e) {
                 return {
                     error: 'Error starting session on forwarder ' + name + '; ' + e,
@@ -448,8 +447,7 @@ var AdobeTargetKit = (function (exports) {
 
         function logSessionEnd(event) {
             try {
-                sessionHandler_1.onSessionEnd(event);
-                return true;
+                return sessionHandler_1.onSessionEnd(event);
             } catch (e) {
                 return {
                     error: 'Error ending session on forwarder ' + name + '; ' + e,
@@ -459,8 +457,7 @@ var AdobeTargetKit = (function (exports) {
 
         function logError(event) {
             try {
-                self.eventHandler.logError(event);
-                return true;
+                return self.eventHandler.logError(event);
             } catch (e) {
                 return {
                     error: 'Error logging error on forwarder ' + name + '; ' + e,
@@ -470,8 +467,7 @@ var AdobeTargetKit = (function (exports) {
 
         function logPageView(event) {
             try {
-                self.eventHandler.logPageView(event);
-                return true;
+                return self.eventHandler.logPageView(event);
             } catch (e) {
                 return {
                     error:
@@ -482,8 +478,7 @@ var AdobeTargetKit = (function (exports) {
 
         function logEvent(event) {
             try {
-                self.eventHandler.logEvent(event);
-                return true;
+                return self.eventHandler.logEvent(event);
             } catch (e) {
                 return {
                     error: 'Error logging event on forwarder ' + name + '; ' + e,
@@ -493,8 +488,7 @@ var AdobeTargetKit = (function (exports) {
 
         function logEcommerceEvent(event) {
             try {
-                self.commerceHandler.logCommerceEvent(event);
-                return true;
+                return self.commerceHandler.logCommerceEvent(event);
             } catch (e) {
                 return {
                     error:

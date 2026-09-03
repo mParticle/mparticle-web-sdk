@@ -11,16 +11,6 @@ function isObject(val) {
   return val != null && typeof val === 'object' && Array.isArray(val) === false;
 }
 
-var isobject = /*#__PURE__*/Object.freeze({
-  'default': isObject
-});
-
-function getCjsExportFromNamespace (n) {
-	return n && n['default'] || n;
-}
-
-var isobject$1 = getCjsExportFromNamespace(isobject);
-
 //  Copyright 2016 mParticle, Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -364,14 +354,14 @@ function register(config) {
         return;
     }
 
-    if (!isobject$1(config)) {
+    if (!isObject(config)) {
         console.log(
             "'config' must be an object. You passed in a " + typeof config
         );
         return;
     }
 
-    if (isobject$1(config.kits)) {
+    if (isObject(config.kits)) {
         config.kits[name] = {
             constructor: constructor,
         };

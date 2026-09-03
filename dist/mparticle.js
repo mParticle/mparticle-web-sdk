@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.0.0";
+    var version = "3.1.0";
 
     var Constants = {
       sdkVersion: version,
