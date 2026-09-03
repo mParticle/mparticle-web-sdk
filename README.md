@@ -153,10 +153,11 @@ workflows in order:
    bootstrap permits all kit tags to be absent so the first synchronized release
    can establish them. After building the target version, Step 1 also packs and
    registry-preflights all kit artifacts before publishing core. It then checks
-   out the immutable release tag, publishes all
-   packages in `kits/publish-matrix.json` sequentially, and verifies that the
-   core SDK and every kit have the expected version, artifact integrity, and
-   npm dist-tag. A rerun skips an existing kit only when its artifact is
+   out the immutable release tag and publishes all packages in
+   `kits/publish-matrix.json` sequentially. After all publishes finish, one
+   final audit waits up to five minutes for npm propagation and verifies that
+   the core SDK and every kit have the expected version, artifact integrity,
+   and npm dist-tag. A rerun skips an existing kit only when its artifact is
    identical. `dryRun=true` previews the merge and semantic-release result
    without creating a branch or publishing; `dryRun=false` creates/pushes the
    release branch and publishes. If core publishes but kit publication cannot
