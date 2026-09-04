@@ -1,5 +1,17 @@
 import resolve from 'rollup-plugin-node-resolve';
 import commonjs from 'rollup-plugin-commonjs';
+import replace from 'rollup-plugin-replace';
+
+const packageVersion = process.env.npm_package_version;
+if (!packageVersion) {
+    throw new Error('npm_package_version is required to build the Braze kit');
+}
+
+function replacePackageVersion() {
+    return replace({
+        'process.env.PACKAGE_VERSION': JSON.stringify(packageVersion),
+    });
+}
 
 export default [
     {
@@ -12,6 +24,7 @@ export default [
             strict: false,
         },
         plugins: [
+            replacePackageVersion(),
             resolve({
                 browser: true,
             }),
@@ -28,6 +41,7 @@ export default [
             strict: false,
         },
         plugins: [
+            replacePackageVersion(),
             resolve({
                 browser: true,
             }),

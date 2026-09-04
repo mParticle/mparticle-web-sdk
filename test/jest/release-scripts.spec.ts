@@ -76,6 +76,76 @@ describe('kit release scripts', () => {
         ]);
     });
 
+    it('derives every runtime kit version from its package manifest', () => {
+        const sourceFiles: string[] = [];
+        const excludedDirectories = new Set(['dist', 'node_modules', 'test']);
+        const visitSourceDirectory = (directory: string): void => {
+            for (const entry of fs.readdirSync(directory, {
+                withFileTypes: true,
+            })) {
+                if (excludedDirectories.has(entry.name)) {
+                    continue;
+                }
+
+                const entryPath = path.join(directory, entry.name);
+                if (entry.isDirectory()) {
+                    visitSourceDirectory(entryPath);
+                } else if (/\.(?:js|ts)$/.test(entry.name)) {
+                    sourceFiles.push(entryPath);
+                }
+            }
+        };
+
+        visitSourceDirectory(path.join(__dirname, '../../kits'));
+
+        const versionSurfacePattern =
+            /(?:getVersion\s*:\s*function|const kitVersion\s*=)/;
+        const runtimeVersionFiles = sourceFiles
+            .filter((filePath) =>
+                versionSurfacePattern.test(fs.readFileSync(filePath, 'utf8'))
+            )
+            .map((filePath) =>
+                path.relative(path.join(__dirname, '../..'), filePath)
+            )
+            .sort();
+        const expectedRuntimeVersionFiles = [
+            'kits/braze/braze-3/src/BrazeKit-dev.js',
+            'kits/braze/braze-4/src/BrazeKit-dev.js',
+            'kits/braze/braze-5/src/BrazeKit-dev.js',
+            'kits/braze/braze-6/src/BrazeKit-dev.js',
+            'kits/rokt/src/Rokt-Kit.ts',
+        ];
+
+        expect(runtimeVersionFiles).toEqual(expectedRuntimeVersionFiles);
+
+        for (const filePath of runtimeVersionFiles) {
+            const source = fs.readFileSync(
+                path.join(__dirname, '../..', filePath),
+                'utf8'
+            );
+            expect(source).toContain('process.env.PACKAGE_VERSION');
+        }
+
+        const versionBuildConfigs = [
+            'kits/braze/braze-3/rollup.config.js',
+            'kits/braze/braze-4/rollup.config.js',
+            'kits/braze/braze-5/rollup.config.js',
+            'kits/braze/braze-6/rollup.config.js',
+            'kits/rokt/vite.config.ts',
+        ];
+        for (const configPath of versionBuildConfigs) {
+            const config = fs.readFileSync(
+                path.join(__dirname, '../..', configPath),
+                'utf8'
+            );
+            expect(config).toContain('process.env.npm_package_version');
+            expect(config).toContain('process.env.PACKAGE_VERSION');
+            if (configPath.includes('/braze/')) {
+                expect(config).toContain('if (!packageVersion)');
+            }
+        }
+    });
+
     it('terminates every serialized kit build path with a newline', () => {
         const buildPaths = loadReleaseInventory().buildPaths;
         const serializedBuildPaths = serializeBuildPaths(buildPaths);
