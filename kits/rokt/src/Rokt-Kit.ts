@@ -1145,15 +1145,10 @@ class RoktKit implements KitInterface {
 
     sendAdBlockMeasurementSignals(this.domain, this.integrationName);
 
-    // Flush any preselect dispatches queued while the launcher was warming up
-    // BEFORE attaching to the Rokt manager: attachKit drains RoktManager's own
-    // queued selectPlacements calls first, so flushing after it would let a
-    // customer-facing call reach the launcher ahead of the preselect warm-up
-    // call, defeating the point of firing preselect early.
-    this.flushPendingPreselectDispatches();
-
     // Attaches the kit to the Rokt manager
     mp().Rokt.attachKit(this);
+
+    this.flushPendingPreselectDispatches();
   }
 
   private fetchOptimizely(): Record<string, unknown> {
