@@ -7489,6 +7489,27 @@ describe('Rokt Forwarder', () => {
       logPlacementDiagnosticSpy.mockRestore();
     });
 
+    it('logs a queued diagnostic (not fired) when the kit is not ready yet', () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+
+      const logPlacementDiagnosticSpy = vi.spyOn(
+        (window as any).mParticle.forwarder.loggingService,
+        'logPlacementDiagnostic',
+      );
+
+      firePreselectPageview();
+
+      expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'PRESELECT_QUEUED', message: expect.stringContaining('reason=not_ready') }),
+      );
+      expect(logPlacementDiagnosticSpy).not.toHaveBeenCalledWith(expect.objectContaining({ code: 'PRESELECT_FIRED' }));
+      logPlacementDiagnosticSpy.mockRestore();
+    });
+
     it('logs a miss diagnostic when there is no valid identity', () => {
       pushPreselectConfig(['loyaltyTier']);
       (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };

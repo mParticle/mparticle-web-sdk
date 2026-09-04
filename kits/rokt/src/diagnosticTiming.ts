@@ -25,9 +25,19 @@ export function buildSelectPlacementsDiagnosticLogEntry(placementAttributeKeys: 
   };
 }
 
-export function buildPreselectDiagnosticLogEntry(fired: boolean, reason: string): DiagnosticLogEntry {
+export type PreselectDiagnosticOutcome = 'fired' | 'missed' | 'queued';
+
+export function buildPreselectDiagnosticLogEntry(
+  outcome: PreselectDiagnosticOutcome,
+  reason: string,
+): DiagnosticLogEntry {
+  const code: Record<PreselectDiagnosticOutcome, string> = {
+    fired: 'PRESELECT_FIRED',
+    missed: 'PRESELECT_MISSED',
+    queued: 'PRESELECT_QUEUED',
+  };
   return {
-    message: `Rokt Kit: preselect ${fired ? 'fired' : 'missed'} [reason=${reason}]`,
-    code: fired ? 'PRESELECT_FIRED' : 'PRESELECT_MISSED',
+    message: `Rokt Kit: preselect ${outcome} [reason=${reason}]`,
+    code: code[outcome],
   };
 }

@@ -974,12 +974,12 @@ class RoktKit implements KitInterface {
 
     if (!this.isKitReady()) {
       this._pendingPreselectDispatches.push({ event, pathname });
-      this.loggingService?.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry(true, 'queued'));
+      this.loggingService?.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('queued', 'not_ready'));
       return;
     }
 
     if (!this.hasValidIdentity(this.filters.filteredUser)) {
-      this.loggingService?.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry(false, 'no_valid_identity'));
+      this.loggingService?.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity'));
       return;
     }
 
@@ -998,7 +998,7 @@ class RoktKit implements KitInterface {
     if (missingKeys.length > 0) {
       for (const key of missingKeys) {
         this.loggingService?.logPlacementDiagnostic(
-          buildPreselectDiagnosticLogEntry(false, `missing_attribute:${key}`),
+          buildPreselectDiagnosticLogEntry('missed', `missing_attribute:${key}`),
         );
       }
       return;
@@ -1011,7 +1011,7 @@ class RoktKit implements KitInterface {
       omitUrl: true,
     };
 
-    this.loggingService?.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry(true, 'fired'));
+    this.loggingService?.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('fired', 'fired'));
 
     this.dispatchPreselect(preselectOptions);
   }
