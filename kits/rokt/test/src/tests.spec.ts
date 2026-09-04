@@ -7336,6 +7336,7 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[0].attributes.loyaltyTier).toBe('from-event');
       expect(selectPlacementsCalls[0].identifier).toBe(PRESELECT_TARGET_PAGE_IDENTIFIER);
       expect(selectPlacementsCalls[0].omitUrl).toBe(true);
+      expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['loyaltyTier']);
     });
 
     it("falls back to user attributes when the pageview event doesn't carry the configured attribute", async () => {

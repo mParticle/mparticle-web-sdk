@@ -117,6 +117,7 @@ export function maybeFirePreselect(
     preselect: true,
     identifier: configEntry.targetPageIdentifier,
     omitUrl: true,
+    cacheMatchKeys: configEntry.attributeKeys,
   };
 
   setActivePreselect(activePreselectKey, collectedAttributes);
