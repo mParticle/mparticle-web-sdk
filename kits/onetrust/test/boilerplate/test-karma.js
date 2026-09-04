@@ -9,4 +9,5 @@ var testCommand = util.format(
 );
 
 console.log('Running command: \n' + testCommand);
-shell.exec(testCommand);
+var result = shell.exec(testCommand);
+process.exitCode = result.code;
