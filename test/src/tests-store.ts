@@ -1402,6 +1402,11 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'none',
                 astBackgroundEvents: true,
                 autoLogPageView: false,
+                autoLogPageViewQueryParams: {
+                    allowed: [],
+                    rejectedPositions: [],
+                    overLimit: 0,
+                },
             };
 
             expect(store.SDKConfig.flags).to.deep.equal(expectedResult);
@@ -1624,6 +1629,11 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'none',
                 astBackgroundEvents: false,
                 autoLogPageView: false,
+                autoLogPageViewQueryParams: {
+                    allowed: [],
+                    rejectedPositions: [],
+                    overLimit: 0,
+                },
             };
 
             expect(flags).to.deep.equal(expectedResult);
@@ -1641,6 +1651,11 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'all',
                 astBackgroundEvents: 'True',
                 autoLogPageView: 'True',
+                // The server sends a comma-separated string; processFlags parses,
+                // validates and dedupes it into a list. `utm_source` is already
+                // built in and `bad name` is not a legal param name, so both drop.
+                autoLogPageViewQueryParams:
+                    'promo_code, PROMO_CODE, utm_source, bad name',
             };
 
             const flags = processFlags(
@@ -1658,6 +1673,15 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'all',
                 astBackgroundEvents: true,
                 autoLogPageView: true,
+                // Both halves are kept. Storing only `allowed` here is what left
+                // the tracker's rejection warning unable to ever fire: it re-parsed
+                // a list that had already had its rejects removed. `bad name` is
+                // the 4th comma-separated entry, and positions are 1-based.
+                autoLogPageViewQueryParams: {
+                    allowed: ['promo_code'],
+                    rejectedPositions: [4],
+                    overLimit: 0,
+                },
             };
 
             expect(flags).to.deep.equal(expectedResult);
