@@ -10,6 +10,10 @@ import {
 import { IKitConfigs } from './configAPIClient';
 import Constants from './constants';
 import {
+    IQueryParamAllowlist,
+    parseQueryParamAllowlist,
+} from './pageViewTracker';
+import {
     DataPlanResult,
     KitBlockerOptions,
     LogLevelType,
@@ -154,6 +158,10 @@ export interface IFeatureFlags {
     'captureIntegrationSpecificIds.V2'?: string;
     astBackgroundEvents?: boolean;
     autoLogPageView?: boolean;
+    // The server sends a comma-separated string; processFlags validates it into
+    // accepted names plus a report of what it dropped. Both halves are kept so that
+    // the tracker can log the rejections without validating a second time.
+    autoLogPageViewQueryParams?: IQueryParamAllowlist;
 }
 
 // Temporary Interface until Store can be refactored as a class
@@ -783,7 +791,8 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
         CaptureIntegrationSpecificIds,
         CaptureIntegrationSpecificIdsV2,
         AstBackgroundEvents,
-        AutoLogPageView
+        AutoLogPageView,
+        AutoLogPageViewQueryParams
     } = Constants.FeatureFlags;
 
     if (!config.flags) {
@@ -805,6 +814,11 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[CaptureIntegrationSpecificIdsV2] = (config.flags[CaptureIntegrationSpecificIdsV2] || 'none');
     flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
     flags[AutoLogPageView] = config.flags[AutoLogPageView] === 'True';
+    // Parsed once here, at the config boundary, and stored whole — including the
+    // rejections, which the tracker warns about because that is where the Logger is.
+    flags[AutoLogPageViewQueryParams] = parseQueryParamAllowlist(
+        (config.flags[AutoLogPageViewQueryParams] as unknown) as string
+    );
     return flags;
 }
 
