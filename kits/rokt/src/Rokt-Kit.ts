@@ -112,6 +112,9 @@ interface RoktLauncher {
   hashAttributes(attributes: Record<string, unknown>): Promise<Record<string, unknown>>;
   use(extensionName: string): Promise<unknown>;
   terminate(): Promise<void>;
+  // Whether this session was sampled into Rokt's preselect rollout at launcher creation time.
+  // Absent on older launcher builds, so must be treated the same as `false`.
+  enablePreselection?: boolean;
 }
 
 interface RoktGlobal {
@@ -977,6 +980,7 @@ class RoktKit implements KitInterface {
       filteredUser: this.filters.filteredUser,
       userAttributes: this.userAttributes,
       isKitReady: () => this.isKitReady(),
+      isPreselectionEnabled: () => this.launcher?.enablePreselection === true,
       getEventAttributeValue: (event, key) => this.getEventAttributeValue(event, key),
       logPlacementDiagnostic: (entry) => this.loggingService?.logPlacementDiagnostic(entry),
       log: (entry) => this.loggingService?.log(entry),

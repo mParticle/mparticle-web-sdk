@@ -7291,6 +7291,7 @@ describe('Rokt Forwarder', () => {
       await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
 
       (window as any).mParticle.forwarder.launcher = {
+        enablePreselection: true,
         selectPlacements: function (options: any) {
           selectPlacementsCalls.push(options);
         },
@@ -7301,6 +7302,34 @@ describe('Rokt Forwarder', () => {
       PRESELECTION_CONFIG.length = 0;
       window.history.pushState({}, '', '/');
       window.localStorage.clear();
+    });
+
+    it('does not fire preselect when the launcher omits enablePreselection', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+      delete (window as any).mParticle.forwarder.launcher.enablePreselection;
+
+      const logPlacementDiagnosticSpy = vi.spyOn(
+        (window as any).mParticle.forwarder.loggingService,
+        'logPlacementDiagnostic',
+      );
+
+      firePreselectPageview();
+
+      expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining('reason=preselection_disabled') }),
+      );
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('does not fire preselect when the launcher sets enablePreselection to false', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+      (window as any).mParticle.forwarder.launcher.enablePreselection = false;
+
+      firePreselectPageview();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
     });
 
     it("fires an early selectPlacements call with preselect:true, preferring the pageview's own event attribute over user attributes", async () => {
@@ -7448,6 +7477,7 @@ describe('Rokt Forwarder', () => {
 
       (window as any).mParticle.forwarder.isInitialized = true;
       (window as any).mParticle.forwarder.launcher = {
+        enablePreselection: true,
         selectPlacements: function (options: any) {
           selectPlacementsCalls.push(options);
         },
@@ -7475,6 +7505,7 @@ describe('Rokt Forwarder', () => {
 
       (window as any).mParticle.forwarder.isInitialized = true;
       (window as any).mParticle.forwarder.launcher = {
+        enablePreselection: true,
         selectPlacements: function (options: any) {
           selectPlacementsCalls.push(options);
         },
@@ -7503,6 +7534,7 @@ describe('Rokt Forwarder', () => {
 
       (window as any).mParticle.forwarder.isInitialized = true;
       (window as any).mParticle.forwarder.launcher = {
+        enablePreselection: true,
         selectPlacements: function (options: any) {
           selectPlacementsCalls.push(options);
         },

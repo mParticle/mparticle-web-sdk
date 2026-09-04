@@ -24,6 +24,7 @@ export interface PreselectHost {
   filteredUser: IMParticleUser | null | undefined;
   userAttributes: Record<string, unknown>;
   isKitReady(): boolean;
+  isPreselectionEnabled(): boolean;
   getEventAttributeValue(event: SDKEvent, key: string): unknown;
   logPlacementDiagnostic(entry: DiagnosticLogEntry | null | undefined): void;
   log(entry: DiagnosticLogEntry | null | undefined): void;
@@ -70,6 +71,11 @@ export function maybeFirePreselect(
   if (!host.isKitReady()) {
     state.pending.push({ event, pathname });
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('queued', 'not_ready'));
+    return;
+  }
+
+  if (!host.isPreselectionEnabled()) {
+    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'preselection_disabled'));
     return;
   }
 
