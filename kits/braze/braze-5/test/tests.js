@@ -1,10 +1,12 @@
 // If we are testing this in a node environemnt, we load the common.js Braze kit
 
-var brazeInstance;
+var brazeInstance, packageVersion;
 if (typeof require !== 'undefined') {
+    packageVersion = require('../package.json').version;
     brazeInstance = require('../dist/BrazeKit.common').default;
 } else {
     brazeInstance = mpBrazeKitV5.default;
+    packageVersion = brazeInstance.getVersion();
 }
 
 describe('Braze Forwarder', function() {
@@ -327,6 +329,10 @@ describe('Braze Forwarder', function() {
 
     it('should have a property of suffix', function() {
         window.mParticle.forwarder.should.have.property('suffix', 'v5');
+    });
+
+    it('should expose its package version', function() {
+        brazeInstance.getVersion().should.equal(packageVersion);
     });
 
     it('should register a forwarder with version number onto a config', function() {
