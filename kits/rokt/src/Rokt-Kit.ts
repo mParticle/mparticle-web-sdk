@@ -112,8 +112,6 @@ interface RoktLauncher {
   hashAttributes(attributes: Record<string, unknown>): Promise<Record<string, unknown>>;
   use(extensionName: string): Promise<unknown>;
   terminate(): Promise<void>;
-  // Whether this session was sampled into Rokt's preselect rollout at launcher creation time.
-  // Absent on older launcher builds, so must be treated the same as `false`.
   enablePreselection?: boolean;
 }
 
