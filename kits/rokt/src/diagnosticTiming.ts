@@ -24,3 +24,10 @@ export function buildSelectPlacementsDiagnosticLogEntry(placementAttributeKeys: 
     code: 'SELECT_PLACEMENTS_DISPATCHED',
   };
 }
+
+export function buildPreselectDiagnosticLogEntry(fired: boolean, reason: string): DiagnosticLogEntry {
+  return {
+    message: `Rokt Kit: preselect ${fired ? 'fired' : 'missed'} [reason=${reason}]`,
+    code: fired ? 'PRESELECT_FIRED' : 'PRESELECT_MISSED',
+  };
+}

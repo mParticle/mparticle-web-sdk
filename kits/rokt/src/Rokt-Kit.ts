@@ -37,9 +37,14 @@ import {
   clearUtmParams,
 } from './pageViewStorage';
 import { isLocalStorageAvailable } from './storage';
+import { findPreselectionConfig } from './preselectionConfig';
 
 import { isObject, isString, isEmpty, isFunction, sanitizeUrl } from './utils';
-import { buildSetterDiagnosticLogEntry, buildSelectPlacementsDiagnosticLogEntry } from './diagnosticTiming';
+import {
+  buildSetterDiagnosticLogEntry,
+  buildSelectPlacementsDiagnosticLogEntry,
+  buildPreselectDiagnosticLogEntry,
+} from './diagnosticTiming';
 import {
   createLauncherAttachState,
   markLauncherAttached,
@@ -341,7 +346,7 @@ function generateThankYouElementScript(domain: string | undefined) {
 }
 
 function generateBaseUrl(domain: string | undefined) {
-  const resolvedDomain = typeof domain !== 'undefined' ? domain : DEFAULT_ROKT_DOMAIN;
+  const resolvedDomain = domain !== undefined ? domain : DEFAULT_ROKT_DOMAIN;
 
   if (resolvedDomain.includes('://')) {
     return resolvedDomain.replace(/\/+$/, '');
@@ -833,6 +838,9 @@ class RoktKit implements KitInterface {
 
   private _launcherAttachState: LauncherAttachState = createLauncherAttachState();
 
+  private accountId: string | null = null;
+  private _pendingPreselectDispatches: { event: SDKEvent; pathname: string }[] = [];
+
   // ---- Private helpers ----
 
   private getEventAttributeValue(event: SDKEvent, eventAttributeKey: string): unknown {
@@ -841,7 +849,7 @@ class RoktKit implements KitInterface {
       return null;
     }
 
-    if (typeof attributes[eventAttributeKey] === 'undefined') {
+    if (attributes[eventAttributeKey] === undefined) {
       return null;
     }
 
@@ -958,6 +966,76 @@ class RoktKit implements KitInterface {
     }
   }
 
+  private maybeFirePreselect(event: SDKEvent, pathname: string = window.location.pathname): void {
+    const configEntry = findPreselectionConfig(this.accountId, pathname);
+    if (!configEntry) {
+      return;
+    }
+
+    if (!this.isKitReady()) {
+      this._pendingPreselectDispatches.push({ event, pathname });
+      this.loggingService?.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry(true, 'queued'));
+      return;
+    }
+
+    if (!this.hasValidIdentity(this.filters.filteredUser)) {
+      this.loggingService?.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry(false, 'no_valid_identity'));
+      return;
+    }
+
+    const collectedAttributes: Record<string, unknown> = {};
+    const missingKeys: string[] = [];
+    for (const key of configEntry.attributeKeys) {
+      const eventValue = this.getEventAttributeValue(event, key);
+      const value = eventValue !== null ? eventValue : this.userAttributes[key];
+      if (isEmpty(value)) {
+        missingKeys.push(key);
+        continue;
+      }
+      collectedAttributes[key] = value;
+    }
+
+    if (missingKeys.length > 0) {
+      for (const key of missingKeys) {
+        this.loggingService?.logPlacementDiagnostic(
+          buildPreselectDiagnosticLogEntry(false, `missing_attribute:${key}`),
+        );
+      }
+      return;
+    }
+
+    const preselectOptions: Record<string, unknown> = {
+      attributes: collectedAttributes,
+      preselect: true,
+      identifier: configEntry.targetPageIdentifier,
+      omitUrl: true,
+    };
+
+    this.loggingService?.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry(true, 'fired'));
+
+    this.dispatchPreselect(preselectOptions);
+  }
+
+  private dispatchPreselect(options: Record<string, unknown>): void {
+    void Promise.resolve(this.selectPlacements(options)).catch((err: unknown) => {
+      const errMessage = err instanceof Error ? err.message : String(err);
+      this.loggingService?.log({
+        message: `Rokt Kit: Preselect selectPlacements call failed: ${errMessage}`,
+        code: 'PRESELECT_DISPATCH_FAILED',
+      });
+    });
+  }
+
+  private flushPendingPreselectDispatches(): void {
+    if (this._pendingPreselectDispatches.length === 0) {
+      return;
+    }
+
+    const pending = this._pendingPreselectDispatches;
+    this._pendingPreselectDispatches = [];
+    pending.forEach(({ event, pathname }) => this.maybeFirePreselect(event, pathname));
+  }
+
   private isLauncherReadyToAttach(): boolean {
     return !!window.Rokt && isFunction(window.Rokt.createLauncher);
   }
@@ -973,6 +1051,22 @@ class RoktKit implements KitInterface {
     const userIdentities: IUserIdentities = filteredUser.getUserIdentities().userIdentities;
 
     return this.replaceOtherIdentityWithEmailsha256(userIdentities);
+  }
+
+  private hasValidIdentity(filteredUser: FilteredUser | null | undefined): boolean {
+    if (!filteredUser?.getUserIdentities) {
+      return false;
+    }
+
+    const userIdentities: IUserIdentities | null = filteredUser.getUserIdentities().userIdentities;
+    if (!userIdentities) {
+      return false;
+    }
+
+    return Object.keys(userIdentities).some((key) => {
+      const value = userIdentities[key as keyof IUserIdentities];
+      return isString(value) && value.length > 0;
+    });
   }
 
   private returnLocalSessionAttributes(): Record<string, unknown> {
@@ -1113,6 +1207,13 @@ class RoktKit implements KitInterface {
 
     sendAdBlockMeasurementSignals(this.domain, this.integrationName);
 
+    // Flush any preselect dispatches queued while the launcher was warming up
+    // BEFORE attaching to the Rokt manager: attachKit drains RoktManager's own
+    // queued selectPlacements calls first, so flushing after it would let a
+    // customer-facing call reach the launcher ahead of the preselect warm-up
+    // call, defeating the point of firing preselect early.
+    this.flushPendingPreselectDispatches();
+
     // Attaches the kit to the Rokt manager
     mp().Rokt.attachKit(this);
   }
@@ -1181,6 +1282,7 @@ class RoktKit implements KitInterface {
   ): string {
     const kitSettings = settings as unknown as RoktKitSettings;
     const accountId = kitSettings.accountId;
+    this.accountId = accountId || null;
     this.userAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredUserAttributes);
     this._onboardingExpProvider = kitSettings.onboardingExpProvider;
 
@@ -1326,6 +1428,7 @@ class RoktKit implements KitInterface {
       if (event.EventDataType === MESSAGE_TYPE_PAGE_VIEW) {
         captureUtmParams(this.loggingService);
         this.capturePageView(event);
+        this.maybeFirePreselect(event);
       }
 
       if (event.EventDataType === MESSAGE_TYPE_SESSION_END) {
@@ -1592,8 +1695,14 @@ class RoktKit implements KitInterface {
 
     const selection = this.launcher!.selectPlacements(selectPlacementsOptions);
 
+    const isPreselect = options.preselect === true;
+
     // After selection resolves, sync the Rokt session ID back to mParticle, then log
-    const logSelection = () => this.logSelectPlacementsEvent(selectPlacementsAttributes);
+    const logSelection = () => {
+      if (!isPreselect) {
+        this.logSelectPlacementsEvent(selectPlacementsAttributes);
+      }
+    };
 
     void Promise.resolve(selection)
       .then((sel) => sel?.context?.sessionId?.then((sessionId) => this.setRoktSessionId(sessionId)))
