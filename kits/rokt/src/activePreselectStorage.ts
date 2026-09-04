@@ -1,7 +1,5 @@
-import { readNamespacedField, writeNamespacedField } from './storage';
+import { readNamespacedField, writeNamespacedField, LS_NAMESPACE_KEY } from './storage';
 import { isObject } from './utils';
-
-const LS_NAMESPACE_KEY = 'mp-rokt-kit';
 
 export const ACTIVE_PRESELECT_TTL_MS = 60_000;
 
