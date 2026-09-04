@@ -6,6 +6,8 @@ import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } 
 import { buildPreselectDiagnosticLogEntry, type DiagnosticLogEntry } from './diagnosticTiming';
 import { isEmpty, isString } from './utils';
 
+const CACHE_MATCH_HASH_ATTRIBUTE_KEY = 'preselectCacheMatchHash';
+
 export interface PendingPreselectDispatch {
   event: SDKEvent;
   pathname: string;
@@ -29,6 +31,20 @@ export interface PreselectHost {
   logPlacementDiagnostic(entry: DiagnosticLogEntry | null | undefined): void;
   log(entry: DiagnosticLogEntry | null | undefined): void;
   selectPlacements(options: Record<string, unknown>): unknown;
+}
+
+function djb2(value: string): number {
+  let hash = 5381;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash << 5) + hash + value.charCodeAt(i);
+    hash = hash & hash;
+  }
+  return hash;
+}
+
+function buildCacheMatchHash(attributeKeys: string[], attributes: Record<string, unknown>): string {
+  const serialized = attributeKeys.map((key) => `${key}:${JSON.stringify(attributes[key])}`).join('|');
+  return String(djb2(serialized));
 }
 
 function hasValidIdentity(filteredUser: IMParticleUser | null | undefined): boolean {
@@ -112,12 +128,14 @@ export function maybeFirePreselect(
     return;
   }
 
+  const cacheMatchHash = buildCacheMatchHash(configEntry.attributeKeys, collectedAttributes);
+
   const preselectOptions: Record<string, unknown> = {
-    attributes: collectedAttributes,
+    attributes: { ...collectedAttributes, [CACHE_MATCH_HASH_ATTRIBUTE_KEY]: cacheMatchHash },
     preselect: true,
     identifier: configEntry.targetPageIdentifier,
     omitUrl: true,
-    cacheMatchKeys: configEntry.attributeKeys,
+    cacheMatchKeys: [CACHE_MATCH_HASH_ATTRIBUTE_KEY],
   };
 
   setActivePreselect(activePreselectKey, collectedAttributes);

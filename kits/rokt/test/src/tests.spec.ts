@@ -7336,7 +7336,9 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[0].attributes.loyaltyTier).toBe('from-event');
       expect(selectPlacementsCalls[0].identifier).toBe(PRESELECT_TARGET_PAGE_IDENTIFIER);
       expect(selectPlacementsCalls[0].omitUrl).toBe(true);
-      expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['loyaltyTier']);
+      expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['preselectCacheMatchHash']);
+      expect(typeof selectPlacementsCalls[0].attributes.preselectCacheMatchHash).toBe('string');
+      expect(selectPlacementsCalls[0].attributes.preselectCacheMatchHash.length).toBeGreaterThan(0);
     });
 
     it("falls back to user attributes when the pageview event doesn't carry the configured attribute", async () => {
@@ -7383,6 +7385,9 @@ describe('Rokt Forwarder', () => {
 
       await waitForCondition(() => selectPlacementsCalls.length > 1);
       expect(selectPlacementsCalls[1].attributes.loyaltyTier).toBe('changed-value');
+      expect(selectPlacementsCalls[1].attributes.preselectCacheMatchHash).not.toBe(
+        selectPlacementsCalls[0].attributes.preselectCacheMatchHash,
+      );
     });
 
     it('fires again for the same attributes once the active window has expired', async () => {
