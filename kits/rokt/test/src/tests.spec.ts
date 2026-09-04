@@ -7309,16 +7309,8 @@ describe('Rokt Forwarder', () => {
       (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
       delete (window as any).mParticle.forwarder.launcher.enablePreselection;
 
-      const logPlacementDiagnosticSpy = vi.spyOn(
-        (window as any).mParticle.forwarder.loggingService,
-        'logPlacementDiagnostic',
-      );
-
       firePreselectPageview();
 
-      expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining('reason=preselection_disabled') }),
-      );
       expect(selectPlacementsCalls).toHaveLength(0);
     });
 

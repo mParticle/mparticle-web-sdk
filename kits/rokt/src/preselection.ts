@@ -75,7 +75,6 @@ export function maybeFirePreselect(
   }
 
   if (!host.isPreselectionEnabled()) {
-    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'preselection_disabled'));
     return;
   }
 
