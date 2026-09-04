@@ -7255,6 +7255,7 @@ describe('Rokt Forwarder', () => {
       selectPlacementsCalls = [];
       PRESELECTION_CONFIG.length = 0;
       mParticle.loggedEvents = [];
+      window.localStorage.clear();
 
       (window as any).Rokt = new (MockRoktForwarder as any)();
       (window as any).mParticle.Rokt = (window as any).Rokt;
@@ -7299,6 +7300,7 @@ describe('Rokt Forwarder', () => {
     afterEach(() => {
       PRESELECTION_CONFIG.length = 0;
       window.history.pushState({}, '', '/');
+      window.localStorage.clear();
     });
 
     it("fires an early selectPlacements call with preselect:true, preferring the pageview's own event attribute over user attributes", async () => {
@@ -7324,6 +7326,59 @@ describe('Rokt Forwarder', () => {
       await waitForCondition(() => selectPlacementsCalls.length > 0);
 
       expect(selectPlacementsCalls[0].attributes.loyaltyTier).toBe('from-user-attrs');
+    });
+
+    it('does not fire a second preselect for the same attributes within the active window', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      const logPlacementDiagnosticSpy = vi.spyOn(
+        (window as any).mParticle.forwarder.loggingService,
+        'logPlacementDiagnostic',
+      );
+
+      firePreselectPageview();
+
+      expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'PRESELECT_SKIPPED', message: expect.stringContaining('reason=active_preselection') }),
+      );
+      expect(selectPlacementsCalls).toHaveLength(1);
+      logPlacementDiagnosticSpy.mockRestore();
+    });
+
+    it('fires again within the active window if the attributes have changed', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'changed-value' };
+      firePreselectPageview();
+
+      await waitForCondition(() => selectPlacementsCalls.length > 1);
+      expect(selectPlacementsCalls[1].attributes.loyaltyTier).toBe('changed-value');
+    });
+
+    it('fires again for the same attributes once the active window has expired', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      const stored = JSON.parse(window.localStorage.getItem('mp-rokt-kit') || '{}');
+      const fieldKey = Object.keys(stored).find((key) => key.startsWith('activePreselect:'));
+      stored[fieldKey as string].expiresAt = Date.now() - 1;
+      window.localStorage.setItem('mp-rokt-kit', JSON.stringify(stored));
+
+      firePreselectPageview();
+
+      await waitForCondition(() => selectPlacementsCalls.length > 1);
+      expect(selectPlacementsCalls[1].preselect).toBe(true);
     });
 
     it('does not fire when there is no config entry for the current account/pathname', () => {
@@ -7389,7 +7444,7 @@ describe('Rokt Forwarder', () => {
       firePreselectPageview();
 
       expect(selectPlacementsCalls).toHaveLength(0);
-      expect((window as any).mParticle.forwarder._pendingPreselectDispatches).toHaveLength(1);
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
 
       (window as any).mParticle.forwarder.isInitialized = true;
       (window as any).mParticle.forwarder.launcher = {
@@ -7401,7 +7456,7 @@ describe('Rokt Forwarder', () => {
 
       await waitForCondition(() => selectPlacementsCalls.length > 0);
       expect(selectPlacementsCalls[0].preselect).toBe(true);
-      expect((window as any).mParticle.forwarder._pendingPreselectDispatches).toHaveLength(0);
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(0);
     });
 
     it('still fires a queued preselect at flush even if the user has navigated to a different page since', async () => {
@@ -7414,7 +7469,7 @@ describe('Rokt Forwarder', () => {
       firePreselectPageview();
 
       expect(selectPlacementsCalls).toHaveLength(0);
-      expect((window as any).mParticle.forwarder._pendingPreselectDispatches).toHaveLength(1);
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
 
       window.history.pushState({}, '', '/some-other-page');
 
@@ -7428,7 +7483,7 @@ describe('Rokt Forwarder', () => {
 
       await waitForCondition(() => selectPlacementsCalls.length > 0);
       expect(selectPlacementsCalls[0].preselect).toBe(true);
-      expect((window as any).mParticle.forwarder._pendingPreselectDispatches).toHaveLength(0);
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(0);
 
       window.history.pushState({}, '', PRESELECT_PATHNAME);
     });
@@ -7444,7 +7499,7 @@ describe('Rokt Forwarder', () => {
       firePreselectPageview();
 
       expect(selectPlacementsCalls).toHaveLength(0);
-      expect((window as any).mParticle.forwarder._pendingPreselectDispatches).toHaveLength(1);
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
 
       (window as any).mParticle.forwarder.isInitialized = true;
       (window as any).mParticle.forwarder.launcher = {
@@ -7467,7 +7522,7 @@ describe('Rokt Forwarder', () => {
 
       await waitForCondition(() => selectPlacementsCalls.length > 0);
       expect(selectPlacementsCalls[0].preselect).toBe(true);
-      expect((window as any).mParticle.forwarder._pendingPreselectDispatches).toHaveLength(0);
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(0);
     });
 
     it('logs a hit diagnostic when preselect fires', async () => {

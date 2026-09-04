@@ -25,7 +25,7 @@ export function buildSelectPlacementsDiagnosticLogEntry(placementAttributeKeys: 
   };
 }
 
-export type PreselectDiagnosticOutcome = 'fired' | 'missed' | 'queued';
+export type PreselectDiagnosticOutcome = 'fired' | 'missed' | 'queued' | 'skipped';
 
 export function buildPreselectDiagnosticLogEntry(
   outcome: PreselectDiagnosticOutcome,
@@ -35,6 +35,7 @@ export function buildPreselectDiagnosticLogEntry(
     fired: 'PRESELECT_FIRED',
     missed: 'PRESELECT_MISSED',
     queued: 'PRESELECT_QUEUED',
+    skipped: 'PRESELECT_SKIPPED',
   };
   return {
     message: `Rokt Kit: preselect ${outcome} [reason=${reason}]`,
