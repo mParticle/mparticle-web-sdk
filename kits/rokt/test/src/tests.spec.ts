@@ -7336,9 +7336,50 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[0].attributes.loyaltyTier).toBe('from-event');
       expect(selectPlacementsCalls[0].identifier).toBe(PRESELECT_TARGET_PAGE_IDENTIFIER);
       expect(selectPlacementsCalls[0].omitUrl).toBe(true);
-      expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['preselectCacheMatchHash']);
-      expect(typeof selectPlacementsCalls[0].attributes.preselectCacheMatchHash).toBe('string');
-      expect(selectPlacementsCalls[0].attributes.preselectCacheMatchHash.length).toBeGreaterThan(0);
+      expect(typeof selectPlacementsCalls[0].cacheMatchKeys).toBe('string');
+      expect(selectPlacementsCalls[0].cacheMatchKeys.length).toBeGreaterThan(0);
+      expect(selectPlacementsCalls[0].attributes.preselectCacheMatchHash).toBeUndefined();
+    });
+
+    it('computes the same cacheMatchKeys hash on the later live selectPlacements call for the same attributes', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview({ loyaltyTier: 'from-user-attrs' });
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      await (window as any).mParticle.forwarder.selectPlacements({
+        attributes: {},
+        identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+      });
+
+      expect(selectPlacementsCalls).toHaveLength(2);
+      expect(selectPlacementsCalls[1].cacheMatchKeys).toBe(selectPlacementsCalls[0].cacheMatchKeys);
+    });
+
+    it('omits cacheMatchKeys on a selectPlacements call for an identifier with no preselection config', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      await (window as any).mParticle.forwarder.selectPlacements({
+        attributes: {},
+        identifier: 'some-other-page',
+      });
+
+      expect(selectPlacementsCalls[0].cacheMatchKeys).toBeUndefined();
+    });
+
+    it('omits cacheMatchKeys when preselection is not enabled on the launcher', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+      (window as any).mParticle.forwarder.launcher.enablePreselection = false;
+
+      await (window as any).mParticle.forwarder.selectPlacements({
+        attributes: {},
+        identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+      });
+
+      expect(selectPlacementsCalls[0].cacheMatchKeys).toBeUndefined();
     });
 
     it("falls back to user attributes when the pageview event doesn't carry the configured attribute", async () => {
@@ -7385,9 +7426,7 @@ describe('Rokt Forwarder', () => {
 
       await waitForCondition(() => selectPlacementsCalls.length > 1);
       expect(selectPlacementsCalls[1].attributes.loyaltyTier).toBe('changed-value');
-      expect(selectPlacementsCalls[1].attributes.preselectCacheMatchHash).not.toBe(
-        selectPlacementsCalls[0].attributes.preselectCacheMatchHash,
-      );
+      expect(selectPlacementsCalls[1].cacheMatchKeys).not.toBe(selectPlacementsCalls[0].cacheMatchKeys);
     });
 
     it('fires again for the same attributes once the active window has expired', async () => {

@@ -30,3 +30,17 @@ export function sanitizeUrl(href: string): string {
     return href;
   }
 }
+
+export function djb2(value: string): number {
+  let hash = 5381;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash << 5) + hash + value.charCodeAt(i);
+    hash = hash & hash;
+  }
+  return hash;
+}
+
+export function buildCacheMatchHash(attributeKeys: string[], attributes: Record<string, unknown>): string {
+  const serialized = attributeKeys.map((key) => `${key}:${JSON.stringify(attributes[key])}`).join('|');
+  return String(djb2(serialized));
+}

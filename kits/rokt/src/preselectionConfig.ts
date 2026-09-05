@@ -1,3 +1,5 @@
+import { isString } from './utils';
+
 // Hardcoded for now; will move to a server-delivered kit setting later.
 export interface PreselectionConfigEntry {
   accountId: string;
@@ -39,4 +41,15 @@ export function findPreselectionConfig(
   }
 
   return PRESELECTION_CONFIG.find((entry) => entry.accountId === accountId && entry.pathname === pathname);
+}
+
+export function findPreselectionConfigByIdentifier(
+  accountId: string | null | undefined,
+  identifier: unknown,
+): PreselectionConfigEntry | undefined {
+  if (!accountId || !isString(identifier)) {
+    return undefined;
+  }
+
+  return PRESELECTION_CONFIG.find((entry) => entry.accountId === accountId && entry.targetPageIdentifier === identifier);
 }

@@ -44,8 +44,9 @@ import {
   type PreselectState,
   type PreselectHost,
 } from './preselection';
+import { findPreselectionConfigByIdentifier } from './preselectionConfig';
 
-import { isObject, isString, isEmpty, isFunction, sanitizeUrl } from './utils';
+import { isObject, isString, isEmpty, isFunction, sanitizeUrl, djb2, buildCacheMatchHash } from './utils';
 import {
   buildSetterDiagnosticLogEntry,
   buildSelectPlacementsDiagnosticLogEntry,
@@ -497,15 +498,6 @@ function generateIntegrationName(customIntegrationName?: string): string {
     integrationName += '_' + customIntegrationName;
   }
   return integrationName;
-}
-
-function djb2(str: string): number {
-  let hash = 5381;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) + hash + str.charCodeAt(i);
-    hash = hash & hash;
-  }
-  return hash;
 }
 
 function createAutoRemovedIframe(src: string): void {
@@ -972,13 +964,30 @@ class RoktKit implements KitInterface {
     }
   }
 
+  private isPreselectionEnabled(): boolean {
+    return this.launcher?.enablePreselection === true;
+  }
+
+  private buildCacheMatchKeys(identifier: unknown, attributes: Record<string, unknown>): string | undefined {
+    if (!this.isPreselectionEnabled()) {
+      return undefined;
+    }
+
+    const configEntry = findPreselectionConfigByIdentifier(this.accountId, identifier);
+    if (!configEntry) {
+      return undefined;
+    }
+
+    return buildCacheMatchHash(configEntry.attributeKeys, attributes);
+  }
+
   private buildPreselectHost(): PreselectHost {
     return {
       accountId: this.accountId,
       filteredUser: this.filters.filteredUser,
       userAttributes: this.userAttributes,
       isKitReady: () => this.isKitReady(),
-      isPreselectionEnabled: () => this.launcher?.enablePreselection === true,
+      isPreselectionEnabled: () => this.isPreselectionEnabled(),
       getEventAttributeValue: (event, key) => this.getEventAttributeValue(event, key),
       logPlacementDiagnostic: (entry) => this.loggingService?.logPlacementDiagnostic(entry),
       log: (entry) => this.loggingService?.log(entry),
@@ -1620,7 +1629,13 @@ class RoktKit implements KitInterface {
       mpid,
     };
 
-    const selectPlacementsOptions: Record<string, unknown> = { ...options, attributes: selectPlacementsAttributes };
+    const cacheMatchKeys = this.buildCacheMatchKeys(options.identifier, selectPlacementsAttributes);
+
+    const selectPlacementsOptions: Record<string, unknown> = {
+      ...options,
+      attributes: selectPlacementsAttributes,
+      ...(cacheMatchKeys !== undefined ? { cacheMatchKeys } : {}),
+    };
 
     this.loggingService?.logPlacementDiagnostic(
       buildSelectPlacementsDiagnosticLogEntry(Object.keys(selectPlacementsAttributes)),
