@@ -24,3 +24,21 @@ export function buildSelectPlacementsDiagnosticLogEntry(placementAttributeKeys: 
     code: 'SELECT_PLACEMENTS_DISPATCHED',
   };
 }
+
+export type PreselectDiagnosticOutcome = 'fired' | 'missed' | 'queued' | 'skipped';
+
+export function buildPreselectDiagnosticLogEntry(
+  outcome: PreselectDiagnosticOutcome,
+  reason: string,
+): DiagnosticLogEntry {
+  const code: Record<PreselectDiagnosticOutcome, string> = {
+    fired: 'PRESELECT_FIRED',
+    missed: 'PRESELECT_MISSED',
+    queued: 'PRESELECT_QUEUED',
+    skipped: 'PRESELECT_SKIPPED',
+  };
+  return {
+    message: `Rokt Kit: preselect ${outcome} [reason=${reason}]`,
+    code: code[outcome],
+  };
+}

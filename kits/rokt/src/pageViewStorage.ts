@@ -1,8 +1,13 @@
 import type { LoggingService } from './Rokt-Kit';
-import { readNamespacedField, writeNamespacedField, removeNamespacedField, isLocalStorageAvailable } from './storage';
+import {
+  readNamespacedField,
+  writeNamespacedField,
+  removeNamespacedField,
+  isLocalStorageAvailable,
+  LS_NAMESPACE_KEY,
+} from './storage';
 import { sanitizeUrl, isObject } from './utils';
 
-const LS_NAMESPACE_KEY = 'mp-rokt-kit';
 const LS_PAGE_VIEWS_FIELD = 'pageViews';
 const LS_UTM_PARAMS_FIELD = 'utmParams';
 export const PAGE_VIEWS_MAX_COUNT = 25;

@@ -6,6 +6,7 @@ import {
   removeSelectPlacementsAttributePersistenceDeniedAttributes,
 } from '../../src/selectPlacementsAttributePersistence';
 import { readNamespacedField, writeNamespacedField } from '../../src/storage';
+import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -7222,6 +7223,488 @@ describe('Rokt Forwarder', () => {
           },
         ]);
       });
+    });
+  });
+
+  describe('#preselect', () => {
+    const PRESELECT_ACCOUNT_ID = '900001';
+    const PRESELECT_PATHNAME = '/preselect-test-path';
+    const PRESELECT_TARGET_PAGE_IDENTIFIER = 'preselect-target-page';
+
+    let selectPlacementsCalls: any[];
+
+    const pushPreselectConfig = (attributeKeys: string[]) => {
+      PRESELECTION_CONFIG.push({
+        accountId: PRESELECT_ACCOUNT_ID,
+        pathname: PRESELECT_PATHNAME,
+        targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        attributeKeys,
+      });
+    };
+
+    const firePreselectPageview = (eventAttributes: Record<string, unknown> = {}) => {
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Preselect Page',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: eventAttributes,
+      });
+    };
+
+    beforeEach(async () => {
+      selectPlacementsCalls = [];
+      PRESELECTION_CONFIG.length = 0;
+      mParticle.loggedEvents = [];
+      window.localStorage.clear();
+
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        (window as any).mParticle.Rokt.kit = kit;
+      };
+      (window as any).mParticle.Rokt.filters = {
+        userAttributesFilters: [],
+        filterUserAttributes: function (attributes: any) {
+          return attributes;
+        },
+        filteredUser: {
+          getMPID: function () {
+            return '123';
+          },
+          getUserIdentities: function () {
+            return { userIdentities: { email: 'test@example.com' } };
+          },
+        },
+      };
+
+      window.history.pushState({}, '', PRESELECT_PATHNAME);
+
+      await (window as any).mParticle.forwarder.init(
+        { accountId: PRESELECT_ACCOUNT_ID },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      (window as any).mParticle.forwarder.launcher = {
+        enablePreselection: true,
+        selectPlacements: function (options: any) {
+          selectPlacementsCalls.push(options);
+        },
+      };
+    });
+
+    afterEach(() => {
+      PRESELECTION_CONFIG.length = 0;
+      window.history.pushState({}, '', '/');
+      window.localStorage.clear();
+    });
+
+    it('does not fire preselect when the launcher omits enablePreselection', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+      delete (window as any).mParticle.forwarder.launcher.enablePreselection;
+
+      firePreselectPageview();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('does not fire preselect when the launcher sets enablePreselection to false', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+      (window as any).mParticle.forwarder.launcher.enablePreselection = false;
+
+      firePreselectPageview();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it("fires an early selectPlacements call with preselect:true, preferring the pageview's own event attribute over user attributes", async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview({ loyaltyTier: 'from-event' });
+
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      expect(selectPlacementsCalls[0].preselect).toBe(true);
+      expect(selectPlacementsCalls[0].attributes.loyaltyTier).toBe('from-event');
+      expect(selectPlacementsCalls[0].identifier).toBe(PRESELECT_TARGET_PAGE_IDENTIFIER);
+      expect(selectPlacementsCalls[0].omitUrl).toBe(true);
+      expect(typeof selectPlacementsCalls[0].cacheMatchKeys).toBe('string');
+      expect(selectPlacementsCalls[0].cacheMatchKeys.length).toBeGreaterThan(0);
+      expect(selectPlacementsCalls[0].attributes.preselectCacheMatchHash).toBeUndefined();
+    });
+
+    it('computes the same cacheMatchKeys hash on the later live selectPlacements call for the same attributes', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview({ loyaltyTier: 'from-user-attrs' });
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      await (window as any).mParticle.forwarder.selectPlacements({
+        attributes: {},
+        identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+      });
+
+      expect(selectPlacementsCalls).toHaveLength(2);
+      expect(selectPlacementsCalls[1].cacheMatchKeys).toBe(selectPlacementsCalls[0].cacheMatchKeys);
+    });
+
+    it('omits cacheMatchKeys on a selectPlacements call for an identifier with no preselection config', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      await (window as any).mParticle.forwarder.selectPlacements({
+        attributes: {},
+        identifier: 'some-other-page',
+      });
+
+      expect(selectPlacementsCalls[0].cacheMatchKeys).toBeUndefined();
+    });
+
+    it('omits cacheMatchKeys when preselection is not enabled on the launcher', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+      (window as any).mParticle.forwarder.launcher.enablePreselection = false;
+
+      await (window as any).mParticle.forwarder.selectPlacements({
+        attributes: {},
+        identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+      });
+
+      expect(selectPlacementsCalls[0].cacheMatchKeys).toBeUndefined();
+    });
+
+    it("falls back to user attributes when the pageview event doesn't carry the configured attribute", async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      expect(selectPlacementsCalls[0].attributes.loyaltyTier).toBe('from-user-attrs');
+    });
+
+    it('does not fire a second preselect for the same attributes within the active window', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      const logPlacementDiagnosticSpy = vi.spyOn(
+        (window as any).mParticle.forwarder.loggingService,
+        'logPlacementDiagnostic',
+      );
+
+      firePreselectPageview();
+
+      expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'PRESELECT_SKIPPED', message: expect.stringContaining('reason=active_preselection') }),
+      );
+      expect(selectPlacementsCalls).toHaveLength(1);
+      logPlacementDiagnosticSpy.mockRestore();
+    });
+
+    it('fires again within the active window if the attributes have changed', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'changed-value' };
+      firePreselectPageview();
+
+      await waitForCondition(() => selectPlacementsCalls.length > 1);
+      expect(selectPlacementsCalls[1].attributes.loyaltyTier).toBe('changed-value');
+      expect(selectPlacementsCalls[1].cacheMatchKeys).not.toBe(selectPlacementsCalls[0].cacheMatchKeys);
+    });
+
+    it('fires again for the same attributes once the active window has expired', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      const stored = JSON.parse(window.localStorage.getItem('mp-rokt-kit') || '{}');
+      const fieldKey = Object.keys(stored).find((key) => key.startsWith('activePreselect:'));
+      stored[fieldKey as string].expiresAt = Date.now() - 1;
+      window.localStorage.setItem('mp-rokt-kit', JSON.stringify(stored));
+
+      firePreselectPageview();
+
+      await waitForCondition(() => selectPlacementsCalls.length > 1);
+      expect(selectPlacementsCalls[1].preselect).toBe(true);
+    });
+
+    it('does not fire when there is no config entry for the current account/pathname', () => {
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Some Other Page',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: {},
+      });
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('does not fire when the current user has no valid identity', () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+      (window as any).mParticle.forwarder.filters.filteredUser = {
+        getMPID: function () {
+          return '123';
+        },
+        getUserIdentities: function () {
+          return { userIdentities: {} };
+        },
+      };
+
+      firePreselectPageview();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('does not fire when a configured attribute is missing from both event and user attributes', () => {
+      pushPreselectConfig(['loyaltyTier', 'missingAttr']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('does not log the customer-facing selectPlacements event for a preselect dispatch, but does for a normal one', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(mParticle.loggedEvents).toHaveLength(0);
+
+      await (window as any).mParticle.forwarder.selectPlacements({ attributes: { test: 'test' } });
+      await waitForCondition(() => mParticle.loggedEvents.length > 0);
+      expect(mParticle.loggedEvents[0].eventName).toBe('selectPlacements');
+    });
+
+    it('queues the preselect dispatch when the kit is not ready, and fires it once the launcher attaches', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+
+      firePreselectPageview();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+
+      (window as any).mParticle.forwarder.isInitialized = true;
+      (window as any).mParticle.forwarder.launcher = {
+        enablePreselection: true,
+        selectPlacements: function (options: any) {
+          selectPlacementsCalls.push(options);
+        },
+      };
+      (window as any).mParticle.forwarder.flushPendingPreselectDispatches();
+
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+      expect(selectPlacementsCalls[0].preselect).toBe(true);
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(0);
+    });
+
+    it('still fires a queued preselect at flush even if the user has navigated to a different page since', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+
+      firePreselectPageview();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+
+      window.history.pushState({}, '', '/some-other-page');
+
+      (window as any).mParticle.forwarder.isInitialized = true;
+      (window as any).mParticle.forwarder.launcher = {
+        enablePreselection: true,
+        selectPlacements: function (options: any) {
+          selectPlacementsCalls.push(options);
+        },
+      };
+      (window as any).mParticle.forwarder.flushPendingPreselectDispatches();
+
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+      expect(selectPlacementsCalls[0].preselect).toBe(true);
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(0);
+
+      window.history.pushState({}, '', PRESELECT_PATHNAME);
+    });
+
+    it('queues rather than drops the attempt when identity is not yet known at enqueue time, and re-evaluates it at flush', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+      (window as any).mParticle.forwarder.filters = {};
+
+      firePreselectPageview();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+
+      (window as any).mParticle.forwarder.isInitialized = true;
+      (window as any).mParticle.forwarder.launcher = {
+        enablePreselection: true,
+        selectPlacements: function (options: any) {
+          selectPlacementsCalls.push(options);
+        },
+      };
+      (window as any).mParticle.forwarder.filters = {
+        filteredUser: {
+          getMPID: function () {
+            return '123';
+          },
+          getUserIdentities: function () {
+            return { userIdentities: { email: 'test@example.com' } };
+          },
+        },
+      };
+
+      (window as any).mParticle.forwarder.flushPendingPreselectDispatches();
+
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+      expect(selectPlacementsCalls[0].preselect).toBe(true);
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(0);
+    });
+
+    it('logs a hit diagnostic when preselect fires', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      const logPlacementDiagnosticSpy = vi.spyOn(
+        (window as any).mParticle.forwarder.loggingService,
+        'logPlacementDiagnostic',
+      );
+
+      firePreselectPageview();
+
+      expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'PRESELECT_FIRED', message: expect.stringContaining('reason=fired') }),
+      );
+
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+      logPlacementDiagnosticSpy.mockRestore();
+    });
+
+    it('logs a queued diagnostic (not fired) when the kit is not ready yet', () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+
+      const logPlacementDiagnosticSpy = vi.spyOn(
+        (window as any).mParticle.forwarder.loggingService,
+        'logPlacementDiagnostic',
+      );
+
+      firePreselectPageview();
+
+      expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'PRESELECT_QUEUED', message: expect.stringContaining('reason=not_ready') }),
+      );
+      expect(logPlacementDiagnosticSpy).not.toHaveBeenCalledWith(expect.objectContaining({ code: 'PRESELECT_FIRED' }));
+      logPlacementDiagnosticSpy.mockRestore();
+    });
+
+    it('logs a miss diagnostic when there is no valid identity', () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+      (window as any).mParticle.forwarder.filters.filteredUser = {
+        getMPID: function () {
+          return '123';
+        },
+        getUserIdentities: function () {
+          return { userIdentities: {} };
+        },
+      };
+
+      const logPlacementDiagnosticSpy = vi.spyOn(
+        (window as any).mParticle.forwarder.loggingService,
+        'logPlacementDiagnostic',
+      );
+
+      firePreselectPageview();
+
+      expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'PRESELECT_MISSED',
+          message: expect.stringContaining('reason=no_valid_identity'),
+        }),
+      );
+      logPlacementDiagnosticSpy.mockRestore();
+    });
+
+    it('logs a miss diagnostic naming the missing attribute key', () => {
+      pushPreselectConfig(['loyaltyTier']);
+
+      const logPlacementDiagnosticSpy = vi.spyOn(
+        (window as any).mParticle.forwarder.loggingService,
+        'logPlacementDiagnostic',
+      );
+
+      firePreselectPageview();
+
+      expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'PRESELECT_MISSED',
+          message: expect.stringContaining('reason=missing_attribute:loyaltyTier'),
+        }),
+      );
+      logPlacementDiagnosticSpy.mockRestore();
+    });
+
+    it('logs a miss diagnostic for every missing attribute key, not just the first', () => {
+      pushPreselectConfig(['loyaltyTier', 'missingAttr']);
+
+      const logPlacementDiagnosticSpy = vi.spyOn(
+        (window as any).mParticle.forwarder.loggingService,
+        'logPlacementDiagnostic',
+      );
+
+      firePreselectPageview();
+
+      expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'PRESELECT_MISSED',
+          message: expect.stringContaining('reason=missing_attribute:loyaltyTier'),
+        }),
+      );
+      expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'PRESELECT_MISSED',
+          message: expect.stringContaining('reason=missing_attribute:missingAttr'),
+        }),
+      );
+      expect(selectPlacementsCalls).toHaveLength(0);
+      logPlacementDiagnosticSpy.mockRestore();
     });
   });
 
