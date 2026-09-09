@@ -6,7 +6,7 @@ import { MessageType } from '../../src/types';
 // _Events.logPageView is the auto page view for the LANDING page — the SPA
 // navigations that follow it come from PageViewTracker instead. It is therefore
 // the emitter that carries campaign attribution, since utm_*/gclid live on the
-// entry URL, and it needs its own coverage for the query-param allowlist.
+// entry URL, and it needs its own coverage for the query-param capture.
 describe('Events#logPageView', () => {
     let events: IEvents;
     let createEventObject: jest.Mock;
@@ -47,7 +47,7 @@ describe('Events#logPageView', () => {
         });
     });
 
-    it('should attach the allowlisted query params as flat attributes', () => {
+    it('should attach campaign query params as flat attributes', () => {
         window.document.title = 'Landing';
         window.history.replaceState(
             {},
@@ -66,20 +66,23 @@ describe('Events#logPageView', () => {
         });
     });
 
-    // The allowlist is the point: a partner URL carrying an email or an order id
-    // must not leak into the event stream just because nobody excluded it.
-    it('should drop params that are not allowlisted', () => {
+    it('should attach arbitrary query params and preserve core fields', () => {
+        window.document.title = 'Landing';
         window.history.replaceState(
             {},
             '',
-            '/?utm_source=google&email=someone@example.com&order_id=42'
+            '/?utm_source=google&custom_filter=blue&order_id=42&empty=&hostname=spoofed&title=spoofed'
         );
 
         events.logPageView();
 
-        const { data } = loggedPageView();
-        expect(data.utm_source).toBe('google');
-        expect(data).not.toHaveProperty('email');
-        expect(data).not.toHaveProperty('order_id');
+        expect(loggedPageView().data).toEqual({
+            hostname: 'localhost',
+            title: 'Landing',
+            utm_source: 'google',
+            custom_filter: 'blue',
+            order_id: '42',
+            empty: '',
+        });
     });
 });

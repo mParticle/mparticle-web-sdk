@@ -42,59 +42,6 @@ type WindowWithApv = Window & {
     [WIN_APV_KEY]?: IApvState;
 };
 
-// The query params an auto page view may carry. An allowlist, not a denylist:
-// partner URLs routinely hold order ids, email addresses and session tokens, and
-// none of those should reach the event stream because someone forgot to exclude
-// them. Anything absent from this list is dropped.
-//
-// SECURITY: `code`, `state` and `nonce` are the OAuth 2.0 / OIDC authorization
-// code and the CSRF/replay tokens. They are credentials until redeemed, and
-// attaching them here persists them in the event store and forwards them to
-// every configured kit. They are on the list by explicit product decision —
-// deleting that line is the whole of the fix if that decision is revisited.
-export const ALLOWED_QUERY_PARAMS: string[] = [
-    // Campaign attribution
-    'utm_source',
-    'utm_medium',
-    'utm_campaign',
-    'utm_term',
-    'utm_content',
-    'utm_id',
-
-    // Ad-network click ids
-    'gclid',
-    'gbraid',
-    'wbraid',
-    'fbclid',
-    'msclkid',
-    'ttclid',
-    'twclid',
-    'li_fat_id',
-    'dclid',
-
-    // OAuth / OIDC — see the SECURITY note above
-    'client_id',
-    'redirect_uri',
-    'response_type',
-    'scope',
-    'state',
-    'code',
-    'nonce',
-
-    // Pagination and search
-    'page',
-    'limit',
-    'offset',
-    'cursor',
-    'per_page',
-    'q',
-    'search',
-
-    // Referral
-    'ref',
-    'referrer',
-];
-
 interface IPageSnapshot {
     path: string;
     params: Dictionary<string>;
@@ -115,42 +62,29 @@ interface IPendingNavigation {
 // on their own, which is where the interesting rules live.
 // ---------------------------------------------------------------------------
 
-// Pulls the allowlisted query params off a URL. Delegates to the SDK's own
-// parser, which lowercases keys (so `?UTM_Source=` and `?utm_source=` land on one
-// attribute), drops empty values, and carries the fallback for browsers without
-// URLSearchParams. Tolerates an empty href, so SSR yields no params rather than
-// throwing.
-export const allowedQueryParams = (href: string): Dictionary<string> =>
-    queryStringParser(href, ALLOWED_QUERY_PARAMS);
+export const pageViewQueryParams = (href: string): Dictionary<string> =>
+    queryStringParser(href);
 
-// The captured params, in allowlist order. Ordering comes from the constant
-// rather than a sort: it is deterministic without needing a comparator, and it
-// does not depend on the object's insertion order, so reordering the query string
-// cannot produce a different key.
 const capturedNames = (params: Dictionary<string>): string[] =>
-    ALLOWED_QUERY_PARAMS.filter(name => name in params);
+    Object.keys(params).sort();
 
-// The dedup key: pathname plus the allowlisted params in a fixed order, so that
-// reordering the query string is not a new page. Params outside the allowlist
-// never make it into `page.params` and so cannot key a view — nor can the hash.
-//
-// Values are re-encoded because queryStringParser hands them back DECODED. A
-// value holding the pair delimiters would otherwise serialize exactly like two
-// separate params — `{q: 'a&search=b'}` and `{q: 'a', search: 'b'}` both becoming
-// `q=a&search=b` — and dedup would treat a real navigation between them as the
-// same page and drop the view. `q`, `search` and `redirect_uri` carry `&` and `=`
-// routinely, so this is reachable rather than theoretical.
+// Sort and encode both names and values so query ordering and embedded pair
+// delimiters cannot change or collide with the navigation key.
 export const pageKey = (page: IPageSnapshot): string => {
     const query = capturedNames(page.params)
-        .map(name => `${name}=${encodeURIComponent(page.params[name])}`)
+        .map(
+            name =>
+                `${encodeURIComponent(name)}=${encodeURIComponent(
+                    page.params[name]
+                )}`
+        )
         .join('&');
 
     return query ? `${page.path}?${query}` : page.path;
 };
 
 // Dedup keys on the pageKey above: a change to any captured param is a new page
-// (`?page=2` is a distinct pagination view), while a hash-only change, or a
-// change confined to params we do not capture, is the same page.
+// (`?page=2` is a distinct pagination view), while a hash-only change is the same page.
 export const isNewPage = (
     lastKey: string | null,
     candidateKey: string
@@ -174,8 +108,7 @@ export const buildPageViewEvent = ({
     messageType: MessageType.PageView,
     name: 'PageView',
     // Params spread first, then the core fields by name, so a core field always
-    // wins. No allowlist entry collides with hostname/title/path today; naming
-    // them here is what keeps a later addition from silently overwriting one.
+    // wins when a query parameter has the same name.
     data: {
         ...params,
         hostname,
@@ -268,7 +201,7 @@ const clearActiveTracker = (tracker: PageViewTracker): void => {
 
 const currentPage = (): IPageSnapshot => ({
     path: window.location.pathname,
-    params: allowedQueryParams(getHref()),
+    params: pageViewQueryParams(getHref()),
 });
 
 // Log-safe description of a page: the path, plus the NAMES of the captured

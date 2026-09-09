@@ -327,7 +327,12 @@ const queryStringParser = (
     }
 
     urlParams.forEach((value, key) => {
-        lowerCaseUrlParams[key.toLowerCase()] = value;
+        Object.defineProperty(lowerCaseUrlParams, key.toLowerCase(), {
+            value,
+            enumerable: true,
+            configurable: true,
+            writable: true,
+        });
     });
 
     if (isEmpty(keys)) {
@@ -350,7 +355,7 @@ interface URLSearchParamsFallback {
 }
 
 const queryStringParserFallback = (url: string): URLSearchParamsFallback => {
-    const params: Dictionary<string> = {};
+    const params: Dictionary<string> = Object.create(null);
     const queryString = url.split('?')[1] || '';
     const pairs = queryString.split('&');
 
@@ -372,7 +377,7 @@ const queryStringParserFallback = (url: string): URLSearchParamsFallback => {
         },
         forEach: function(callback: (value: string, key: string) => void) {
             for (var key in params) {
-                if (params.hasOwnProperty(key)) {
+                if (Object.prototype.hasOwnProperty.call(params, key)) {
                     callback(params[key], key);
                 }
             }
