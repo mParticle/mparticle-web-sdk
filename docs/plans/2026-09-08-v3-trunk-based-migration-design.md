@@ -139,6 +139,8 @@ SHAs;
 - create or recover the GitHub Release; and
 - support safe pre-tag rejection and post-tag/npm recovery.
 
+
+
 ### Existing constraints that must be preserved
 
 1. v2 and v3 are release tracks in the same repository on different branches.
@@ -246,20 +248,25 @@ source, mirror destination, or synchronization authority.
 - `v3-release/<run_number>` — legacy release branches to inventory and retire;
 they have no role in the target process.
 
-The top-level `VERSION` file is the sole v3 release-intent source.  The release-intent workflow accepts exactly one bump input: `patch`, `minor`, or `major`. It validates that:
+The top-level `VERSION` file is the sole v3 release-intent source. The release-
+intent workflow:
 
-- current `VERSION` is valid stable semver;
-- current `VERSION` agrees with the latest stable tag and the fully published
-core-and-kit npm baseline;
-- root and kit package identities expected for the release are complete;
-- the requested bump computes the intended next stable version; and
-- the computed stable tag and every target npm package version are absent.
-
-The workflow then opens a reviewed PR that changes only `VERSION`, for example:
+- reads top-level `VERSION` from the exact protected `main` commit;
+- validates that it is stable semver;
+- accepts exactly one bump input (`patch`, `minor`, or `major`) and computes the
+intended target version;
+- rejects a duplicate active release cycle; and
+- opens a reviewed PR that changes only `VERSION`, for example:
 
 ```text
 chore(release): set version to 3.0.2
 ```
+
+Latest-stable-tag discovery, the authoritative core/kit package inventory and
+published baseline, target tag/npm absence, and recovery-state checks are
+locked Step 1 gates after `source_sha` is frozen. The release-intent workflow
+may report those conditions as optional early warnings, but they are not
+release-intent correctness gates.
 
 Release-generated root and kit manifests, lockfiles, changelog, and
 distribution outputs remain unchanged on `main` throughout candidate
@@ -274,14 +281,11 @@ creation nor playground rejection changes the production-served files.
 
 ### Production risk and safety rationale
 
-The highest-impact failure is advancing `main/dist` to generated files that
-were not the exact playground-approved and checksum-verified release. That can
-expose an unapproved bundle directly to production websites and cannot be
-treated as harmless branch drift.
+The highest-impact failure is advancing `main/dist` to generated files that were not the exact playground-approved and checksum-verified release. That can expose an unapproved bundle directly to production websites.
 
 The main merge freeze prevents the recorded source parent from moving during
 release work. Full expected-SHA and fast-forward checks prevent stale
-automation from selecting a newer or unrelated commit. Atomic Step 3 prevents
+automation from selecting a newer or unrelated commit.  Step 3 prevents
 `main` and release-order refs from partially diverging. Together these controls
 make the production transition one auditable movement from the previous
 approved `main` SHA to the approved candidate SHA.
@@ -293,10 +297,10 @@ approved `main` SHA to the approved candidate SHA.
 ### Release intent and main freeze
 
 A maintainer dispatches the release-intent workflow with `patch`, `minor`, or
-`major`. The workflow revalidates current `VERSION`, the latest stable tag,
-and every core/kit npm baseline before calculating the target version and
-opening the `VERSION`-only PR described above. The preferred title and squash
-commit are:
+`major`. From the exact protected `main` commit, the workflow reads and
+validates stable-semver `VERSION`, computes the requested target, rejects a
+duplicate active release cycle, and opens the `VERSION`-only PR described
+above. The preferred title and squash commit are:
 
 ```text
 chore(release): set version to 3.0.2
@@ -825,9 +829,10 @@ the existing v2 workflow content and behavior on its current refs.
 ### Phase B: build replacement automation
 
 - Add v3's authoritative top-level `VERSION`, plus a patch/minor/major release-
-intent workflow that validates current VERSION/tag/npm state and opens a
-`VERSION`-only PR without release side effects. Leave v2's current semantic-
-release and versioning mechanism unchanged.
+intent workflow that reads it from the exact protected `main` commit, validates
+stable semver, computes the target, rejects duplicate active release cycles,
+and opens a `VERSION`-only PR without release side effects. Leave v2's current
+semantic-release and versioning mechanism unchanged.
 - Refactor existing release scripts so candidate generation can synchronize
 versions and build without creating intermediate commits or publishing.
 - Integrate `ROKT/rokt-workflows/actions/generate-changelog`, review and pin its
@@ -864,13 +869,15 @@ break-glass cleanup to genuinely suspended cycles and ruleset recovery.
 - Before migration, publish a throwaway package/version through
 `staging-step-1.yml` and the selected reusable workflow to validate the real
 OIDC token exchange, protected-environment controls, and npm provenance.
-- Verify patch, minor, and major inputs calculate and open the expected
-`VERSION`-only PR only after current VERSION/tag/npm validation; merging that
-PR must not tag, publish, build, or change `dist`.
-- Test stale `main`, invalid `VERSION`, existing tag/version, staging lease
-failure, generated-path allowlist failure, artifact hash mismatch, missing or
-expired artifact, partial npm publication, GitHub Release retry, and Step 3
-atomic-push rejection.
+- Verify patch, minor, and major inputs read `VERSION` from the exact protected
+`main` commit, validate stable semver, calculate the expected target, reject a
+duplicate active release cycle, and open the expected `VERSION`-only PR;
+merging that PR must not tag, publish, build, or change `dist`.
+- In locked Step 1, test stale `main`, existing tag/version, incomplete
+core/kit inventory or baseline, and recovery-state conflicts. Also test invalid
+`VERSION`, staging lease failure, generated-path allowlist failure, artifact
+hash mismatch, missing or expired artifact, partial npm publication, GitHub
+Release retry, and Step 3 atomic-push rejection.
 - Verify explicit rejection records its reason and candidate status, prevents
 publication, permits the authorized release-fix bypass, and drives
 lease-protected same-version `Recreate candidate`.
@@ -944,9 +951,10 @@ the recorded cutover commit.
 
 - Normal v3 PRs and all release fixes merge through `main`.
 - `VERSION` is the only authoritative release intent on `main`.
-- The release-intent workflow accepts patch/minor/major, validates current
-VERSION/tag/npm state, and generates a reviewed `VERSION`-only PR whose merge
-does not publish, tag, build, or modify `dist`.
+- The release-intent workflow reads `VERSION` from the exact protected `main`
+commit, validates stable semver, accepts patch/minor/major and computes the
+target, rejects duplicate active release cycles, and generates a reviewed
+`VERSION`-only PR whose merge does not publish, tag, build, or modify `dist`.
 - Step 1 produces one generated candidate commit from the exact frozen
 `source_sha`.
 - Step 1 invokes the reviewed, full-SHA-pinned
@@ -1158,9 +1166,10 @@ The v2 hotfix policy and release flow are unchanged.
 No migration-blocking product decisions remain:
 
 - Semantic-release is removed from the target v3 process.
-- A workflow accepts patch/minor/major input, validates current VERSION/tag/npm
-state, and generates the reviewed `VERSION`-only PR that is the sole release
-intent.
+- A workflow reads `VERSION` from the exact protected `main` commit, validates
+stable semver, accepts patch/minor/major and computes the target, rejects
+duplicate active release cycles, and generates the reviewed `VERSION`-only PR
+that is the sole release intent.
 - Generated manifests, locks, changelog, and `dist` are produced in the
 candidate commit, not the release-intent PR.
 - The MPServer JavaScript service is the confirmed delivery owner that pulls
