@@ -39,6 +39,15 @@ reviews:
   in_progress_fortune: false
   poem: false
 
+  # Without this, auto-review is the GitHub default branch only (here: master).
+  # A repo .coderabbit.yaml does not inherit UI base_branches unless inheritance
+  # is enabled. The default branch is always included; these extend it.
+  auto_review:
+    base_branches:
+      - main
+      - development
+      - v3-development
+
   # Secret scanning stays ON -- we want the finding. See the disclosure rules in
   # path_instructions for how it must be reported.
   tools:
