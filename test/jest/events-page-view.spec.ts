@@ -34,7 +34,7 @@ describe('Events#logPageView', () => {
         window.history.replaceState({}, '', originalUrl);
     });
 
-    it('should log a PageView carrying hostname and title', () => {
+    it('should log a PageView carrying hostname, title, and path', () => {
         window.document.title = 'Landing';
 
         events.logPageView();
@@ -43,7 +43,7 @@ describe('Events#logPageView', () => {
             messageType: MessageType.PageView,
             name: 'PageView',
             eventType: 0,
-            data: { hostname: 'localhost', title: 'Landing' },
+            data: { hostname: 'localhost', title: 'Landing', path: '/' },
         });
     });
 
@@ -60,6 +60,7 @@ describe('Events#logPageView', () => {
         expect(loggedPageView().data).toEqual({
             hostname: 'localhost',
             title: 'Landing',
+            path: '/',
             utm_source: 'google',
             utm_medium: 'cpc',
             gclid: 'Cj0KC',
@@ -71,7 +72,7 @@ describe('Events#logPageView', () => {
         window.history.replaceState(
             {},
             '',
-            '/?utm_source=google&custom_filter=blue&order_id=42&empty=&hostname=spoofed&title=spoofed'
+            '/landing?utm_source=google&custom_filter=blue&order_id=42&empty=&hostname=spoofed&title=spoofed&path=spoofed'
         );
 
         events.logPageView();
@@ -79,6 +80,7 @@ describe('Events#logPageView', () => {
         expect(loggedPageView().data).toEqual({
             hostname: 'localhost',
             title: 'Landing',
+            path: '/landing',
             utm_source: 'google',
             custom_filter: 'blue',
             order_id: '42',

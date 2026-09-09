@@ -159,6 +159,7 @@ export default function Events(
                 ...pageViewQueryParams(getHref()),
                 hostname: window.location.hostname,
                 title: window.document.title,
+                path: window.location.pathname,
             },
             eventType: Types.EventType.Unknown,
         });
