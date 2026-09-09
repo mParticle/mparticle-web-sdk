@@ -319,8 +319,7 @@ action's `release-notes` Markdown output with the immutable candidate artifacts.
 Immediately after merge, the release coordinator starts a merge freeze on
 `main`. Normal feature PRs may continue through review but may not merge.
 Release-fix PRs are the only exception. The freeze ends after successful Step
-3, including required MPServer refresh and served-bundle validation, or an
-authorized break-glass cleanup for a genuinely suspended release cycle.
+3, including required MPServer refresh and served-bundle validation.
 
 Automation enforces the freeze by creating or enabling a temporary GitHub
 ruleset scoped to `main`. It records the ruleset ID, release version,
@@ -331,21 +330,16 @@ automation or release manager may merge it through the temporary bypass; the
 bypass never permits an unreviewed direct source push.
 
 Successful Step 3 finalization, after MPServer refresh and served-bundle
-validation, and authorized break-glass cleanup remove or disable only the
-recorded temporary ruleset ID, verify normal branch protections remain active,
-and record cleanup success. Cleanup runs idempotently under `always()` where
-safe. A separate manual unfreeze-recovery procedure accepts the release version
-and recorded ruleset ID, verifies that no active publish/promotion operation
-exists, removes only that matching temporary ruleset, and confirms `main` is
-writable under its normal protections. Monitoring must flag stale release
-rulesets so a failed workflow cannot leave `main` frozen indefinitely. It must
-not automatically remove a ruleset for a valid `awaiting_approval` candidate
-during its 30-day artifact lifetime; alerts do not silently shorten the
-approved waiting window.
-There is no normal `Abort` workflow. Rejection, a reviewed fix on `main`, and
-`Recreate candidate` are the standard pre-tag recovery. Break-glass cleanup is
-reserved for genuinely suspended release cycles and ruleset recovery; it
-requires explicit authorization and an audit record.
+validation, removes or disables only the recorded temporary ruleset ID, verifies
+normal branch protections remain active, and records cleanup success. Cleanup
+is idempotent and may be retried only after the required Step 3 and served-
+bundle validation have succeeded. Monitoring must flag stale release rulesets
+so the release coordinator can resume the blocked release or retry eligible
+post-validation cleanup. It must not automatically remove a ruleset for a valid
+`awaiting_approval` candidate during its 30-day artifact lifetime; alerts do
+not silently shorten the approved waiting window. Rejection, a reviewed fix on
+`main`, and `Recreate candidate` are the standard pre-tag recovery, and the
+freeze remains active throughout that flow.
 
 The workflow records:
 
@@ -855,9 +849,7 @@ environment, deployment-branch rules, and required approval. Grant
 `id-token: write` only through the selected reusable-workflow call and its
 publishing workflow/job, and avoid broad `secrets: inherit`.
 - Implement the temporary freeze ruleset, reviewed release-fix bypass,
-idempotent cleanup, manual unfreeze recovery, and stale-ruleset monitoring.
-- Document the absence of a normal Abort workflow and restrict manual
-break-glass cleanup to genuinely suspended cycles and ruleset recovery.
+idempotent post-validation cleanup, and stale-ruleset monitoring.
 - Adapt Steps 2 and 3 to the new tag/candidate contract and remove
 `v3-development` from all authoritative mappings.
 
@@ -894,8 +886,9 @@ repository, source SHA, version, and manifest digest before publication.
 - Verify the approval UI displays the full remaining artifact lifetime up to 30
 days, late approval/publication fails after expiry, and expired candidates
 require explicit rejection and recreation.
-- Verify freeze-ruleset cleanup after success, authorized break-glass
-suspension, job failure, and manual unfreeze recovery.
+- Verify freeze-ruleset cleanup after successful required Step 3 and served-
+bundle validation, and verify job failures leave the freeze active and alert
+the release coordinator.
 - Verify npm recognizes `staging-step-1.yml` as the top-level calling workflow
 when `npm publish` runs in each statically selected track workflow.
 - Verify the two reusable-workflow jobs are static and mutually exclusive,
@@ -925,8 +918,6 @@ authority, only missing packages resume from exact attested artifacts, and
 the tag is never moved or reused.
 - Verify the GitHub Release cannot be created until the full core-plus-kits npm
 audit succeeds.
-- Verify no routine Abort workflow exists and manual cleanup enforces the
-documented break-glass suspension criteria.
 - Run complete v2 regression validation.
 
 
@@ -1000,10 +991,9 @@ push leaves `main/dist` unchanged.
 refresh behavior and serve the exact approved bundle checksum; no explicit
 CDN purge is required.
 - The merge freeze ends only after successful Step 3 plus required production
-MPServer served-bundle validation, or authorized break-glass cleanup for a
-genuinely suspended cycle.
-- Temporary-ruleset cleanup is idempotent, manually recoverable, and leaves
-permanent branch protections intact.
+MPServer served-bundle validation.
+- Temporary-ruleset cleanup is idempotent, retryable only after that validation,
+and leaves permanent branch protections intact.
 - The future v3 process keeps its authoritative release version in top-level
 `VERSION`; v2 retains its current semantic-release and versioning mechanism.
 - `staging-step-1.yml` remains the npm-registered top-level dispatcher for both
@@ -1017,8 +1007,6 @@ delegated publication.
 - `v3-development` remains fixed at its cutover SHA and is never mirrored or
 advanced.
 - All `v3-development` consumers are inventoried and migrated before cutover.
-- No normal Abort workflow exists; only audited manual break-glass cleanup may
-suspend a release cycle or recover its temporary ruleset.
 - v2 behavior is unchanged.
 
 
@@ -1044,9 +1032,8 @@ unconsumed.
 publishing.
 - Rejection or failed publication: do not run Step 3; `main/dist` remains the
 prior approved production distribution.
-- Do not use a routine abort to abandon a candidate or unfreeze `main`. Follow
-Reject + fix + Recreate unless the release cycle is genuinely suspended and
-the break-glass criteria below are met.
+- Reject the candidate, fix `main` if needed, and recreate the same unpublished
+`VERSION`; keep `main` frozen throughout.
 
 
 
@@ -1105,27 +1092,7 @@ violation. Stop the actor or automation responsible, preserve audit evidence,
 and restore the recorded cutover SHA only through the approved administrative
 recovery procedure. Never treat the branch as release authority.
 
-## Break-Glass Suspension and Forward Recovery
-
-There is no normal Abort operation. Before the stable tag is pushed, an
-authorized maintainer may use documented manual break-glass cleanup only when
-the entire release cycle is genuinely suspended rather than rejected for a
-fix. The procedure must:
-
-1. disable real v3 dispatches and record authorization plus suspension reason;
-2. preserve source/candidate SHAs, Deployment status history, attestations,
-  artifacts, and logs for audit;
-3. prove `v${version}` and every npm package version are absent;
-4. append `rejected` for any still-active candidate and never merge it;
-5. merge a reviewed replacement `VERSION` PR if required;
-6. remove only the recorded temporary ruleset through the idempotent manual
-  recovery procedure;
-7. verify permanent protections and the fixed `v3-development` cutover SHA;
-  and
-8. release the `main` freeze.
-
-Do not package this path as a routine Abort workflow. Normal candidate problems,
-including artifact expiration, use explicit Reject + fix if needed + Recreate.
+## Forward Recovery
 
 After the stable tag or any npm publication, the version is consumed: retain
 the tag, never reuse the version, and finish exact-artifact publication only
@@ -1141,8 +1108,7 @@ playground approval, checksums, tag, publication, and atomic Step 3. Verify the
 corrected bundle through MPServer's existing refresh and served-bundle
 validation behavior; do not reset `main` or add an ad hoc purge.
 
-`v3-development` remains fixed at its cutover SHA throughout suspension and
-forward recovery.
+`v3-development` remains fixed at its cutover SHA throughout forward recovery.
 
 ## Hotfix Policy
 
@@ -1192,7 +1158,7 @@ full duration.
 - Playground approval uses a protected GitHub Environment, required reviewers,
 explicit rejection reasons, and GitHub's **Review deployments** UI.
 - The main freeze uses an automation-controlled temporary ruleset with a
-reviewed release-fix bypass and reliable cleanup/unfreeze recovery.
+reviewed release-fix bypass and reliable post-validation cleanup.
 - Top-level `VERSION` is authoritative only for the future v3 process; v2
 retains its current semantic-release and versioning mechanism.
 - `staging-step-1.yml` remains the npm-registered top-level caller and
@@ -1214,9 +1180,6 @@ with no PR, candidate, release, mirror, or synchronization authority; its
 consumers migrate before cutover.
 - The stable tag is created before npm and becomes immutable recovery authority;
 the GitHub Release follows only after the full npm audit.
-- There is no normal Abort workflow. Reject + fix + Recreate is standard, with
-manual break-glass cleanup reserved for genuinely suspended cycles and
-ruleset recovery.
 - Release-order promotions remain optional; operational guidance recommends
 A → B → C with observation between stages.
 - Future canary work may replace release-order branches only.
@@ -1229,7 +1192,8 @@ No migration-blocking architecture decisions remain. The implementation PR
 must record these concrete configuration values for audit:
 
 - the protected environment name and required reviewer users/teams;
-- the temporary ruleset template, bypass actor IDs, and manual recovery owners;
+- the temporary ruleset template, bypass actor IDs, and post-validation cleanup
+owners;
 - the immutable `generate-changelog` action version or commit SHA;
 - the existing npm trusted-publisher inventory for core and every kit,
 including the registered `staging-step-1.yml` caller filename;
