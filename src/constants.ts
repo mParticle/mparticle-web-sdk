@@ -190,6 +190,10 @@ const Constants = {
         CaptureIntegrationSpecificIdsV2: 'captureIntegrationSpecificIds.V2',
         AstBackgroundEvents: 'astBackgroundEvents',
         AutoLogPageView: 'autoLogPageView',
+        // Comma-separated query param names the customer adds to the APV
+        // allowlist, from the Web input's Advanced Settings. Unioned with
+        // ALLOWED_QUERY_PARAMS; absent or empty means built-ins only.
+        AutoLogPageViewQueryParams: 'autoLogPageViewQueryParams',
     },
     DefaultInstance: 'default_instance',
     CCPAPurpose: 'data_sale_opt_out',
