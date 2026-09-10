@@ -89,6 +89,20 @@ describe('pageViewTracker pure helpers', () => {
                 Object.keys(allowedQueryParams(`https://example.com/?${query}`))
             ).toHaveLength(ALLOWED_QUERY_PARAMS.length);
         });
+
+        it('should keep search, s, q, query, and keyword', () => {
+            expect(
+                allowedQueryParams(
+                    'https://example.com/?search=a&s=b&q=c&query=d&keyword=e&email=x@y.z'
+                )
+            ).toEqual({
+                search: 'a',
+                s: 'b',
+                q: 'c',
+                query: 'd',
+                keyword: 'e',
+            });
+        });
     });
 
     describe('#pageKey', () => {
@@ -680,6 +694,28 @@ describe('PageViewTracker', () => {
             expect(
                 logEvent.mock.calls.map(([event]) => event.data.q)
             ).toEqual(['shoes', 'boots']);
+        });
+
+        it('should fire a view when s, query, or keyword changes', () => {
+            window.history.pushState({}, '', '/?s=shoes');
+            jest.runAllTimers();
+            window.history.pushState({}, '', '/?query=boots');
+            jest.runAllTimers();
+            window.history.pushState({}, '', '/?keyword=hats');
+            jest.runAllTimers();
+
+            expect(logEvent).toHaveBeenCalledTimes(3);
+            expect(
+                logEvent.mock.calls.map(([event]) => ({
+                    s: event.data.s,
+                    query: event.data.query,
+                    keyword: event.data.keyword,
+                }))
+            ).toEqual([
+                { s: 'shoes', query: undefined, keyword: undefined },
+                { s: undefined, query: 'boots', keyword: undefined },
+                { s: undefined, query: undefined, keyword: 'hats' },
+            ]);
         });
 
         // Hash support is deferred to a follow-up; a hash-only change leaves the

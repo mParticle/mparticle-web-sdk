@@ -88,7 +88,10 @@ export const ALLOWED_QUERY_PARAMS: string[] = [
     'cursor',
     'per_page',
     'q',
+    'query',
     'search',
+    's',
+    'keyword',
 
     // Referral
     'ref',
