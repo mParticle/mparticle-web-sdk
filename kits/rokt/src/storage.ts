@@ -1,5 +1,7 @@
 import { isObject } from './utils';
 
+export const LS_NAMESPACE_KEY = 'mp-rokt-kit';
+
 const LS_PROBE_KEY = '__rokt_ls_probe__';
 
 export function isLocalStorageAvailable(): boolean {
